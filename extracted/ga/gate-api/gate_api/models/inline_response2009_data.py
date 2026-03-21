@@ -33,48 +33,76 @@ class InlineResponse2009Data(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'list': 'list[InlineResponse2009DataList]'
+        'total': 'int',
+        'items': 'list[InlineResponse2009DataItems]'
     }
 
     attribute_map = {
-        'list': 'list'
+        'total': 'total',
+        'items': 'items'
     }
 
-    def __init__(self, list=None, local_vars_configuration=None):  # noqa: E501
-        # type: (list[InlineResponse2009DataList], Configuration) -> None
+    def __init__(self, total=None, items=None, local_vars_configuration=None):  # noqa: E501
+        # type: (int, list[InlineResponse2009DataItems], Configuration) -> None
         """InlineResponse2009Data - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._list = None
+        self._total = None
+        self._items = None
         self.discriminator = None
 
-        if list is not None:
-            self.list = list
+        if total is not None:
+            self.total = total
+        if items is not None:
+            self.items = items
 
     @property
-    def list(self):
-        """Gets the list of this InlineResponse2009Data.  # noqa: E501
+    def total(self):
+        """Gets the total of this InlineResponse2009Data.  # noqa: E501
 
-        Live stream/replay list  # noqa: E501
+        Total number of results  # noqa: E501
 
-        :return: The list of this InlineResponse2009Data.  # noqa: E501
-        :rtype: list[InlineResponse2009DataList]
+        :return: The total of this InlineResponse2009Data.  # noqa: E501
+        :rtype: int
         """
-        return self._list
+        return self._total
 
-    @list.setter
-    def list(self, list):
-        """Sets the list of this InlineResponse2009Data.
+    @total.setter
+    def total(self, total):
+        """Sets the total of this InlineResponse2009Data.
 
-        Live stream/replay list  # noqa: E501
+        Total number of results  # noqa: E501
 
-        :param list: The list of this InlineResponse2009Data.  # noqa: E501
-        :type: list[InlineResponse2009DataList]
+        :param total: The total of this InlineResponse2009Data.  # noqa: E501
+        :type: int
         """
 
-        self._list = list
+        self._total = total
+
+    @property
+    def items(self):
+        """Gets the items of this InlineResponse2009Data.  # noqa: E501
+
+        Search result list  # noqa: E501
+
+        :return: The items of this InlineResponse2009Data.  # noqa: E501
+        :rtype: list[InlineResponse2009DataItems]
+        """
+        return self._items
+
+    @items.setter
+    def items(self, items):
+        """Sets the items of this InlineResponse2009Data.
+
+        Search result list  # noqa: E501
+
+        :param items: The items of this InlineResponse2009Data.  # noqa: E501
+        :type: list[InlineResponse2009DataItems]
+        """
+
+        self._items = items
 
     def to_dict(self):
         """Returns the model properties as a dict"""

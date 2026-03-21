@@ -3,13 +3,18 @@ from __future__ import annotations
 import subprocess
 import sys
 import textwrap
+from contextlib import contextmanager
+from unittest.mock import patch
 
 import numpy as np
 from numpy import nan
 import xarray as xr
 import datashader as ds
 import pytest
+from hypothesis import given, strategies as st, settings
+from hypothesis.extra import numpy as npst
 
+from datashader.resampling import infer_interval_breaks, infer_interval_breaks_2d
 from datashader.tests.test_pandas import assert_eq_ndarray, assert_eq_xr
 from datashader.tests.utils import dask_skip
 
@@ -27,10 +32,28 @@ except ImportError:
 try:
     import cudf
     import cupy
-    array_modules.append(cupy)
+    array_modules.append(pytest.param(cupy, marks=pytest.mark.gpu))
 except ImportError:
     cudf = None
     cupy = None
+
+
+@contextmanager
+def force_quadmesh_type(quadmesh_type):
+    from datashader.glyphs.quadmesh import _QuadMeshLike
+
+    original_init = _QuadMeshLike.__init__
+    called = [False]
+
+    def patch_init(self, *args, **kwargs):
+        assert f"quadmesh{quadmesh_type}" == type(self).__name__.lower()
+        called[0] = True
+        return original_init(self, *args, **kwargs)
+
+    with patch.object(_QuadMeshLike, '__init__', patch_init):
+        yield
+
+    assert called[0]
 
 
 # Raster
@@ -771,3 +794,245 @@ def test_segfault_quadmesh(bounds):
     cvs.quadmesh(da, x="x", y="y")"""
 
     subprocess.run([sys.executable, "-c", textwrap.dedent(code)], check=True)
+
+
+@pytest.mark.parametrize('array_module', array_modules)
+def test_rectilinear_quadmesh_bbox_smaller_than_grid(array_module):
+    """Test for quadmesh with non-broadcast coordinates.
+
+    This test addresses a bug where quadmesh returns all NaN values
+    when coordinates are not properly broadcast for rectilinear grids.
+    See: https://github.com/holoviz/datashader/issues/1438
+    """
+
+    west = 111_445.
+    east = 111_483.
+    south = 10_018_715.
+    north = 10_018_754.
+
+    da = xr.DataArray(
+        np.array(
+            [
+                [-0.4246922, -0.41608012, -0.40739873],
+                [-0.4381327, -0.42964128, -0.42107907],
+                [-0.45110574, -0.4427344, -0.43429095],
+            ],
+            dtype=np.float32,
+        ),
+        dims=("latitude", "longitude"),
+        coords={
+            "latitude": np.array([9_000_000., 10_000_000., 11_000_000.]),
+            "longitude": np.array([80_000., 111_000., 140_000.]),
+        },
+        name="foo",
+    )
+
+    # Canvas bbox (15-25, 150-250) overlaps with data coordinates (10-30, 100-300)
+    cvs = ds.Canvas(64, 64, x_range=(west, east), y_range=(south, north))
+    result = cvs.quadmesh(da, x="longitude", y="latitude")
+    assert np.sum(np.isnan(result)) == 0
+
+    result = cvs.quadmesh(da.isel(latitude=slice(None, None, -1)), x="longitude", y="latitude")
+    assert np.sum(np.isnan(result)) == 0
+
+
+@given(
+    spacings=npst.arrays(
+        dtype=np.float64,
+        shape=st.tuples(
+            st.integers(min_value=2, max_value=50),
+            st.integers(min_value=2, max_value=50)
+        ),
+        elements=st.floats(
+            min_value=0.1,  # Positive spacings to ensure monotonic coordinates
+            max_value=10.0,
+            allow_nan=False,
+            allow_infinity=False
+        )
+    ),
+    start_value=st.floats(
+        min_value=-1000,
+        max_value=1000,
+        allow_nan=False,
+        allow_infinity=False
+    )
+)
+@settings(deadline=None)
+def test_infer_interval_breaks_2d_consistency(spacings, start_value):
+    """Test that infer_interval_breaks_2d matches sequential 1D application.
+
+    This verifies that:
+    infer_interval_breaks_2d(coords) ==
+    infer_interval_breaks(infer_interval_breaks(coords, axis=1), axis=0)
+
+    where coords are curvilinear coordinates constructed from cumulative sums.
+    """
+    # Construct curvilinear coordinates using cumsum of spacings
+    # This ensures monotonic coordinates which is realistic for quadmesh data
+    coords = np.cumsum(spacings, axis=0)
+    coords = np.cumsum(coords, axis=1)
+    coords = coords + start_value  # Add offset
+
+    # Compute expected result using sequential 1D operations
+    expected = infer_interval_breaks(infer_interval_breaks(coords, axis=1), axis=0)
+
+    # Compute actual result using 2D operation
+    actual = infer_interval_breaks_2d(coords)
+
+    # Compare results
+    np.testing.assert_allclose(actual, expected, rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.parametrize('array_module', array_modules)
+def test_raster_quadmesh_descending_coords(array_module):
+    """
+    Regression test for https://github.com/holoviz/datashader/issues/1439
+    """
+    west = 3125000.0
+    south = 3250000.0
+    east = 4250000.0
+    north = 4375000.0
+
+    # Create data with descending y coordinates (high to low)
+    da = xr.DataArray(
+        array_module.ones((940, 940)),
+        dims=("x", "y"),
+        coords={
+            "x": np.linspace(3123580.0, 4250380.0, 940),
+            "y": np.linspace(4376200.0, 3249400.0, 940),  # descending!
+        },
+        name="foo",
+    )
+
+    cvs = ds.Canvas(256, 256, x_range=(west, east), y_range=(south, north))
+    result = cvs.quadmesh(da.transpose("y", "x"), x="x", y="y")
+    assert result.isnull().sum().item() == 0
+
+    result = cvs.quadmesh(da.isel(y=slice(None, None, -1)).transpose("y", "x"), x="x", y="y")
+    assert result.isnull().sum().item() == 0
+
+
+@pytest.mark.parametrize('array_module', array_modules)
+def test_raster_quadmesh_descending_coords_2(array_module):
+    """
+    Regression test for https://github.com/holoviz/datashader/issues/1439
+    """
+    west=3125000.0
+    south=4375000.0
+    east=4250000.0
+    north=5500000.0
+
+    # Create data with descending y coordinates (high to low)
+    da = xr.DataArray(
+        array_module.ones((940, 868)),
+        dims=("x", "y"),
+        coords={
+            "x": np.linspace(3123580.0, 4250380.0, 940),
+            "y": np.linspace(5415400.0, 4375000.0, 868),  # descending!
+        },
+        name="foo",
+    )
+
+    cvs = ds.Canvas(256, 256, x_range=(west, east), y_range=(south, north))
+    actual = cvs.quadmesh(da.transpose("y", "x"), x="x", y="y")
+    expected = cvs.quadmesh(da.isel(y=slice(None, None, -1)).transpose("y", "x"), x="x", y="y")
+    assert_eq_xr(expected, actual, close=True)
+
+
+def test_rectilinear_extra_padding():
+    from numpy import nan
+
+    array = np.array([
+        [        nan,         nan,         nan,         nan, -1.0571312 , -0.88049114, -0.6049668],
+        [        nan,         nan,         nan,         nan, -1.2100513 , -1.0593421 , -0.7067303],
+        [        nan,         nan,         nan,         nan,         nan, -1.4044759 , -1.3233978],
+        [-1.2584106 ,         nan,         nan,         nan,         nan, -1.7786514 , -1.6885643],
+        [-0.982517  , -1.0731102 ,         nan, -1.6481969 ,         nan,         nan, -1.9483067],
+        [-0.7437196 , -0.86617017, -0.99102557, -1.4003996 , -1.6158952 , -2.17291   ,        nan],
+        [-1.3059484 , -1.280411  , -1.3395019 , -1.5458245 , -1.7065538 , -1.954555  , -2.0651925]
+    ], dtype=np.float32)
+    x = np.array([-84, -79 , -73, -67, -62, -56, -51 ])
+    y = np.array([5 , 13, 22, 30 , 39, 47, 56. ])
+    da = xr.DataArray(array, dims=("y", "x"), coords={"x": x, "y": y}, name="foo")
+
+    cvs = ds.Canvas(256, 256, x_range=(-72, -57), y_range=(26, 37))
+    actual = cvs.quadmesh(da, x="x", y="y")
+    assert actual.isel(x=1).isnull().all().item()
+    assert actual.isel(x=0).isnull().all().item()
+
+    # make sure canvas lines up with cell edges
+    cvs = ds.Canvas(256, 256, x_range=(-70, -53.5), y_range=(17.5, 43))
+
+    # insert nans along the border and a value in the center so the data
+    # that is valid for the canvas is
+    da.data[:, [3, 5]] = np.nan
+    da.data[[2, 5], :] = np.nan
+    da.data[3, 4] = 10
+    expected_data = np.array([
+           [np.nan, np.nan, np.nan],
+           [np.nan,   10  , np.nan],
+           [np.nan, np.nan, np.nan],
+    ])
+    np.testing.assert_array_equal(
+        da.sel(x=slice(-70, -53.5), y=slice(17.5, 43)).data,
+        expected_data,
+    )
+
+    actual = cvs.quadmesh(da, x="x", y="y")
+    assert actual.isel(x=0).isnull().all().item()
+    assert actual.isel(x=-1).isnull().all().item()
+    assert actual.isel(y=0).isnull().all().item()
+    assert actual.isel(y=-1).isnull().all().item()
+
+    # make sure input data lines up with canvas
+    actual_exact = cvs.quadmesh(da.isel(x=slice(3, 6), y=slice(2, 5)), x="x", y="y")
+    assert_eq_xr(actual, actual_exact)
+
+    actual_reversed = cvs.quadmesh(da.isel(x=slice(5, 2, -1), y=slice(4, 1, -1)), x="x", y="y")
+    assert_eq_xr(actual, actual_reversed)
+
+
+def _create_xy_coords(rng, xp, size, quadmesh_type):
+    s = xp.linspace(-1, 1, size)
+    match quadmesh_type:
+        case "raster":
+            return s, s
+        case "rectilinear":
+            return (
+                s + xp.array(rng.uniform(-0.001, 0.001, size)),
+                s + xp.array(rng.uniform(-0.001, 0.001, size)),
+            )
+        case "curvilinear":
+            x_2d, y_2d = xp.meshgrid(s, s, indexing='xy')
+            return (["y", "x"], x_2d), (["y", "x"], y_2d)
+        case _:
+            raise ValueError(f"Unknown quadmesh_type: {quadmesh_type}")
+
+
+@pytest.mark.parametrize('xp', array_modules)
+@pytest.mark.parametrize('size', [16, 64], ids=["upsample", "downsample"])
+@pytest.mark.parametrize('quadmesh_type', ["raster", "rectilinear", "curvilinear"])
+def test_quadmesh_3d(rng, xp, size, quadmesh_type):
+    cvs = ds.Canvas(
+        plot_height=32, plot_width=32, x_range=(-1, 1), y_range=(-1, 1)
+    )
+
+    band = [0, 1, 2]
+    data = xp.array(rng.random((size, size, len(band))))
+    x, y = _create_xy_coords(rng, xp, size, quadmesh_type)
+    da = xr.DataArray(
+        data,
+        coords={"x": x, "y": y, "band": band},
+        dims=("y", "x", "band"),
+        name="foo"
+    )
+
+    # downsample for cupy give small rounding error
+    close = True if xp == cupy and size == 64 else False
+    with force_quadmesh_type(quadmesh_type):
+        agg_3d = cvs.quadmesh(da.transpose(..., "y", "x"), x='x', y='y')
+        for n in band:
+            output = agg_3d.isel(band=n)
+            expected = cvs.quadmesh(da.isel(band=n), x='x', y='y')
+            expected = expected.assign_coords(band=n)
+            assert_eq_xr(output, expected, close=close)

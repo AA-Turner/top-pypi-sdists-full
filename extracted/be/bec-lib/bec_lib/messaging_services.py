@@ -15,6 +15,17 @@ if TYPE_CHECKING:
 MessageObjectT = TypeVar("MessageObjectT", bound="MessageServiceObject")
 
 
+class MessagingContainer:
+    """
+    A container for providing easy access to multiple messaging services.
+    """
+
+    def __init__(self, connector: RedisConnector) -> None:
+        self.scilog = SciLogMessagingService(connector)
+        self.teams = TeamsMessagingService(connector)
+        self.signal = SignalMessagingService(connector)
+
+
 class MessageServiceObject:
     """
     A class representing a message object for a messaging service.
@@ -25,12 +36,13 @@ class MessageServiceObject:
         self._scope = scope
         self._content = []
 
-    def add_text(self, text: str) -> Self:
+    def add_text(self, text: str, **kwargs) -> Self:
         """
         Add text to the message object.
 
         Args:
             text (str): The text to add.
+            **kwargs: Additional keyword arguments for specific messaging services.
 
         Returns:
             MessageObject: The updated message object.
@@ -257,6 +269,43 @@ class SciLogMessageServiceObject(MessageServiceObject):
     A class representing a message object for the SciLog messaging service.
     """
 
+    def add_text(
+        self,
+        text: str,
+        bold: bool = False,
+        italic: bool = False,
+        color: str | None = None,
+        **kwargs,
+    ) -> Self:
+        """
+        Add text to the SciLog message with optional inline HTML formatting.
+
+        When any formatting option is supplied the text is wrapped in a ``<p>``
+        paragraph so SciLog renders it correctly.
+
+        Args:
+            text: The text content.
+            bold: Wrap the text in ``<strong>``.
+            italic: Wrap the text in ``<em>``.
+            color: Highlight colour using SciLog's pen marks (e.g. ``"red"``,
+                ``"yellow"``, ``"green"``, ``"blue"``, ``"pink"``).
+
+        Returns:
+            SciLogMessageServiceObject: The updated message object.
+
+        Examples:
+            >>> msg.add_text("Checks failed", bold=True, color="red")
+        """
+        if bold or italic or color:
+            if bold:
+                text = f"<strong>{text}</strong>"
+            if italic:
+                text = f"<em>{text}</em>"
+            if color:
+                text = f'<mark class="pen-{color}">{text}</mark>'
+            text = f"<p>{text}</p>"
+        return super().add_text(text)
+
     def add_tags(self, tags: str | list[str]) -> Self:
         """
         Add tags to the SciLog message object.
@@ -274,6 +323,21 @@ class SciLogMessageServiceObject(MessageServiceObject):
         tags = list(set(self._service.get_default_tags() + tags))  # type: ignore
         self._content.append(messages.MessagingServiceTagsContent(tags=tags))
         return self
+
+    def send(self, scope: str | list[str] | None = None) -> None:
+        """
+        Send the message using the associated messaging service. If no scope is provided, uses the default scope set for the service.
+        If there are no tags in the content, adds the default tags before sending.
+
+        Args:
+            scope (str | list[str] | None): The scope or recipient for the message. If None, uses the default scope set for the service.
+        """
+        # If there are no tags in the content, add the default tags before sending
+        if not any(
+            isinstance(content, messages.MessagingServiceTagsContent) for content in self._content
+        ):
+            self.add_tags(self._service.get_default_tags())  # type: ignore
+        super().send(scope=scope)
 
 
 class SciLogMessagingService(MessagingService[SciLogMessageServiceObject]):

@@ -1,6 +1,7 @@
 """
 Registered functions used for config tests.
 """
+
 import contextlib
 import dataclasses
 import shutil
@@ -12,8 +13,11 @@ import catalogue
 
 try:
     from pydantic.v1.types import StrictBool
-except ImportError:
-    from pydantic.types import StrictBool  # type: ignore
+except (ImportError, TypeError):
+    try:
+        from pydantic.types import StrictBool  # type: ignore
+    except (ImportError, TypeError):
+        from confection.validation import StrictBool  # type: ignore
 
 import confection
 

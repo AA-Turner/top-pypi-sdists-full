@@ -30,9 +30,12 @@ pub use config::{
     kreuzberg_config_get_field, kreuzberg_config_is_valid, kreuzberg_config_merge, kreuzberg_config_to_json,
     kreuzberg_get_embedding_preset, kreuzberg_list_embedding_presets, kreuzberg_load_extraction_config_from_file,
 };
+#[cfg(feature = "layout-detection")]
+pub use config_builder::kreuzberg_config_builder_set_layout;
 pub use config_builder::{
     kreuzberg_config_builder_build, kreuzberg_config_builder_free, kreuzberg_config_builder_new,
-    kreuzberg_config_builder_set_chunking, kreuzberg_config_builder_set_image_extraction,
+    kreuzberg_config_builder_set_acceleration, kreuzberg_config_builder_set_chunking,
+    kreuzberg_config_builder_set_image_extraction, kreuzberg_config_builder_set_include_document_structure,
     kreuzberg_config_builder_set_language_detection, kreuzberg_config_builder_set_ocr,
     kreuzberg_config_builder_set_pdf, kreuzberg_config_builder_set_post_processor,
     kreuzberg_config_builder_set_use_cache,
@@ -496,8 +499,11 @@ mod tests {
             let path2 = CString::new("/tmp/test2.txt").unwrap();
             let paths = [path1.as_ptr(), path2.as_ptr()];
 
+            // Create a file_config_jsons array with NULL entries (use base config for all)
+            let file_configs: [*const c_char; 2] = [ptr::null(), ptr::null()];
+
             // This should not crash with NULL config (though it may fail due to missing files)
-            let result = kreuzberg_batch_extract_files_sync(paths.as_ptr(), 2, ptr::null());
+            let result = kreuzberg_batch_extract_files_sync(paths.as_ptr(), file_configs.as_ptr(), 2, ptr::null());
 
             // Result might be NULL due to file not existing, but it shouldn't crash
             if !result.is_null() {
@@ -694,7 +700,7 @@ mod tests {
     #[test]
     fn test_batch_extract_null_paths() {
         unsafe {
-            let result = kreuzberg_batch_extract_files_sync(ptr::null(), 0, ptr::null());
+            let result = kreuzberg_batch_extract_files_sync(ptr::null(), ptr::null(), 0, ptr::null());
             assert!(result.is_null(), "Should return NULL for NULL paths pointer");
         }
     }
@@ -703,7 +709,7 @@ mod tests {
     #[test]
     fn test_batch_extract_bytes_null() {
         unsafe {
-            let result = kreuzberg_batch_extract_bytes_sync(ptr::null(), 0, ptr::null());
+            let result = kreuzberg_batch_extract_bytes_sync(ptr::null(), ptr::null(), 0, ptr::null());
             assert!(result.is_null(), "Should return NULL for NULL bytes pointer");
         }
     }

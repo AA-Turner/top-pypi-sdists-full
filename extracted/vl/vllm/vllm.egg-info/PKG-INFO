@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.17.1
+Version: 0.18.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -44,14 +44,14 @@ Requires-Dist: llguidance<1.4.0,>=1.3.0; platform_machine == "x86_64" or platfor
 Requires-Dist: outlines_core==0.2.11
 Requires-Dist: diskcache==5.6.3
 Requires-Dist: lark==1.2.2
-Requires-Dist: xgrammar==0.1.29; platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "s390x" or platform_machine == "ppc64le"
+Requires-Dist: xgrammar<1.0.0,>=0.1.32; platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "s390x" or platform_machine == "ppc64le"
 Requires-Dist: typing_extensions>=4.10
 Requires-Dist: filelock>=3.16.1
 Requires-Dist: partial-json-parser
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
 Requires-Dist: gguf>=0.17.0
-Requires-Dist: mistral_common[image]>=1.9.1
+Requires-Dist: mistral_common[image]>=1.10.0
 Requires-Dist: opencv-python-headless>=4.13.0
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
@@ -71,22 +71,20 @@ Requires-Dist: openai-harmony>=0.0.3
 Requires-Dist: anthropic>=0.71.0
 Requires-Dist: model-hosting-container-standards<1.0.0,>=0.1.13
 Requires-Dist: mcp
-Requires-Dist: grpcio
-Requires-Dist: grpcio-reflection
 Requires-Dist: opentelemetry-sdk>=1.27.0
 Requires-Dist: opentelemetry-api>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp>=1.27.0
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.1
-Requires-Dist: kaldi-native-fbank>=1.18.7
 Requires-Dist: numba==0.61.2
-Requires-Dist: ray[cgraph]>=2.48.0
 Requires-Dist: torch==2.10.0
 Requires-Dist: torchaudio==2.10.0
 Requires-Dist: torchvision==0.25.0
-Requires-Dist: flashinfer-python==0.6.4
+Requires-Dist: flashinfer-python==0.6.6
 Requires-Dist: nvidia-cudnn-frontend<1.19.0,>=1.13.0
 Requires-Dist: nvidia-cutlass-dsl>=4.4.0.dev1
 Requires-Dist: quack-kernels>=0.2.7
+Provides-Extra: zen
+Requires-Dist: zentorch; extra == "zen"
 Provides-Extra: bench
 Requires-Dist: pandas; extra == "bench"
 Requires-Dist: matplotlib; extra == "bench"
@@ -98,19 +96,24 @@ Provides-Extra: tensorizer
 Requires-Dist: tensorizer==2.10.1; extra == "tensorizer"
 Provides-Extra: fastsafetensors
 Requires-Dist: fastsafetensors>=0.2.2; extra == "fastsafetensors"
+Provides-Extra: instanttensor
+Requires-Dist: instanttensor>=0.1.5; extra == "instanttensor"
 Provides-Extra: runai
-Requires-Dist: runai-model-streamer[gcs,s3]>=0.15.3; extra == "runai"
+Requires-Dist: runai-model-streamer[azure,gcs,s3]>=0.15.7; extra == "runai"
 Provides-Extra: audio
 Requires-Dist: librosa; extra == "audio"
 Requires-Dist: scipy; extra == "audio"
 Requires-Dist: soundfile; extra == "audio"
 Requires-Dist: mistral_common[audio]; extra == "audio"
+Requires-Dist: av; extra == "audio"
 Provides-Extra: video
 Provides-Extra: flashinfer
 Provides-Extra: petit-kernel
 Requires-Dist: petit-kernel; extra == "petit-kernel"
 Provides-Extra: helion
-Requires-Dist: helion; extra == "helion"
+Requires-Dist: helion==0.3.2; extra == "helion"
+Provides-Extra: grpc
+Requires-Dist: smg-grpc-servicer[vllm]>=0.5.0; extra == "grpc"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk>=1.26.0; extra == "otel"
 Requires-Dist: opentelemetry-api>=1.26.0; extra == "otel"

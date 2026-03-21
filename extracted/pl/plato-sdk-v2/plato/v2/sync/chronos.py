@@ -34,9 +34,10 @@ from plato.chronos.models import (
     SessionLogsResponse,
     SessionResponse,
     SessionStatusResponse,
+    Status1,
     TagsListResponse,
     UpdateTagsRequest,
-    WorldConfig,
+    WorldConfigInput,
 )
 
 load_dotenv()
@@ -163,7 +164,7 @@ class ChronosSession:
             Updated SessionResponse.
         """
         request = CompleteSessionRequest(
-            status="cancelled",
+            status=Status1("cancelled"),
             error_message=error_message,
         )
         return complete_session.sync(
@@ -190,7 +191,7 @@ class ChronosSession:
             Updated SessionResponse.
         """
         request = CompleteSessionRequest(
-            status=status,
+            status=Status1(status),
             exit_code=exit_code,
             error_message=error_message,
         )
@@ -337,7 +338,7 @@ class Chronos:
             normalized_tags = [tag.replace("-", "_").replace(":", ".").replace(" ", "_") for tag in tags]
 
         request = LaunchJobRequest(
-            world=WorldConfig(
+            world=WorldConfigInput(
                 package=world_package,
                 config=world_config,
             ),

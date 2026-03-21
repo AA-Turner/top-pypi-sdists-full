@@ -4,7 +4,7 @@ requires = [ "maturin>=1,<2" ]
 
 [project]
 name = "kreuzberg"
-version = "4.4.6"
+version = "4.5.1"
 description = """\
   High-performance document intelligence library for Python. Extract text, metadata, and structured data from PDFs, \
   Office documents, images, and 88+ formats. Powered by Rust core for 10-50x speed improvements.\
@@ -35,8 +35,8 @@ keywords = [
   "xml",
 ]
 license = { text = "MIT" }
-maintainers = [ { name = "Na'aman Hirschfeld", email = "nhirschfeld@gmail.com" } ]
-authors = [ { name = "Na'aman Hirschfeld", email = "nhirschfeld@gmail.com" } ]
+maintainers = [ { name = "Na'aman Hirschfeld", email = "naaman@kreuzberg.dev" } ]
+authors = [ { name = "Na'aman Hirschfeld", email = "naaman@kreuzberg.dev" } ]
 requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -78,7 +78,8 @@ scripts.kreuzberg = "kreuzberg.__main__:main"
 [tool.maturin]
 module-name = "kreuzberg._internal_bindings"
 include = [
-  { path = "kreuzberg/_internal_bindings.pyi", format = "wheel" },
+  { path = "kreuzberg/_internal_bindings.pyi", format = [ "wheel", "sdist" ] },
+  { path = "kreuzberg/py.typed", format = [ "wheel", "sdist" ] },
   { path = "kreuzberg/kreuzberg-cli", format = "wheel" },
   { path = "kreuzberg/kreuzberg-cli.exe", format = "wheel" },
 ]

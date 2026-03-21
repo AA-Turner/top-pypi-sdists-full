@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optax
-Version: 0.2.7
+Version: 0.2.8
 Summary: A gradient processing and optimization library in JAX.
 Keywords: python,machine learning,reinforcement-learning
 Author-email: Google DeepMind <optax-dev@google.com>

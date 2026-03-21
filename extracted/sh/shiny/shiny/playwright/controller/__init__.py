@@ -28,6 +28,7 @@ from ._input_controls import (
     InputSwitch,
 )
 from ._input_fields import (
+    InputCodeEditor,
     InputDate,
     InputDateRange,
     InputNumeric,
@@ -67,6 +68,10 @@ from ._overlay import (
     Tooltip,
 )
 from ._toast import Toast
+from ._toolbar import (
+    ToolbarInputButton,
+    ToolbarInputSelect,
+)
 
 __all__ = [
     "InputActionButton",
@@ -74,6 +79,7 @@ __all__ = [
     "InputBookmarkButton",
     "InputCheckbox",
     "InputCheckboxGroup",
+    "InputCodeEditor",
     "InputDarkMode",
     "InputDate",
     "InputDateRange",
@@ -120,4 +126,6 @@ __all__ = [
     "DownloadButton",
     "DownloadLink",
     "PageNavbar",
+    "ToolbarInputButton",
+    "ToolbarInputSelect",
 ]

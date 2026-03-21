@@ -314,7 +314,13 @@ def get_identifier(col_segment: BaseSegment) -> str:
     :return: the table identifier name
     """
     identifiers = retrieve_segments(col_segment)
-    col_identifier = identifiers[-1]
+    # Prefer actual identifier segments over operators (e.g., T-SQL alias_operator '=')
+    actual_identifiers = [
+        seg
+        for seg in identifiers
+        if seg.type in ("identifier", "naked_identifier", "quoted_identifier")
+    ]
+    col_identifier = actual_identifiers[-1] if actual_identifiers else identifiers[-1]
     return str(col_identifier.raw)
 
 
@@ -362,12 +368,12 @@ def retrieve_extra_segment(segment: BaseSegment) -> Iterable[BaseSegment]:
     Yield all the extra segments of the segment if it is a 'from_expression' type.
     :param segment: segment to be processed
     """
-    if segment.get_child("from_expression"):
-        for sgmnt in segment.get_child("from_expression").segments:
+    for from_expression in segment.get_children("from_expression"):
+        for sgmnt in from_expression.segments:
             if sgmnt.type == "join_clause":
                 yield sgmnt
         # handle bracketed expression
-        bracketed_exp = segment.get_child("from_expression").get_child("bracketed")
+        bracketed_exp = from_expression.get_child("bracketed")
         if bracketed_exp and isinstance(bracketed_exp, BaseSegment):
             for sgmnt in bracketed_exp.segments:
                 if sgmnt.type == "join_clause":

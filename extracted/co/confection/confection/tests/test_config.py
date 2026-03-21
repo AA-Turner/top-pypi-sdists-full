@@ -1,17 +1,23 @@
 import inspect
 import pickle
 import platform
+import sys
 from types import GeneratorType
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import catalogue
 import pytest
 
+if sys.version_info >= (3, 14):
+    pytest.skip(
+        "pydantic v1 is not compatible with Python 3.14+", allow_module_level=True
+    )
+
 try:
     from pydantic.v1 import BaseModel, PositiveInt, StrictFloat, constr
     from pydantic.v1.types import StrictBool
 except ImportError:
-    from pydantic import BaseModel, StrictFloat, PositiveInt, constr  # type: ignore
+    from pydantic import BaseModel, PositiveInt, StrictFloat, constr  # type: ignore
     from pydantic.types import StrictBool  # type: ignore
 
 from confection import Config, ConfigValidationError
@@ -157,8 +163,8 @@ def test_parse_args():
 
 def test_make_promise_schema():
     schema = my_registry.make_promise_schema(good_catsie)
-    assert "evil" in schema.__fields__
-    assert "cute" in schema.__fields__
+    assert "evil" in schema.model_fields
+    assert "cute" in schema.model_fields
 
 
 def test_validate_promise():
@@ -249,8 +255,8 @@ def test_resolve_schema_coerced():
     config = {"test1": 123, "test2": 1, "test3": 5}
     filled = my_registry.fill({"cfg": config}, schema=TestSchema)
     result = my_registry.resolve({"cfg": config}, schema=TestSchema)
-    assert result["cfg"] == {"test1": "123", "test2": True, "test3": 5.0}
-    # This only affects the resolved config, not the filled config
+    # Without pydantic, values are not coerced (no int→str, int→float)
+    assert result["cfg"] == config
     assert filled["cfg"] == config
 
 
@@ -309,8 +315,21 @@ def test_config_to_str_escapes():
     # roundtrip through str
     cfg_str = cfg.to_str()
     assert "^a$$" in cfg_str
-    new_cfg = Config().from_str(cfg_str)
+    Config().from_str(cfg_str)
     assert cfg == section_dict
+
+
+def test_config_incomplete_dollar_brace():
+    """Strings containing ${ without a closing } should roundtrip correctly."""
+    cfg = Config({"section": {"val": "${"}})
+    cfg_str = cfg.to_str()
+    cfg2 = Config().from_str(cfg_str)
+    assert cfg2["section"]["val"] == "${"
+
+    cfg = Config({"section": {"val": "hello ${ world"}})
+    cfg_str = cfg.to_str()
+    cfg2 = Config().from_str(cfg_str)
+    assert cfg2["section"]["val"] == "hello ${ world"
 
 
 def test_config_roundtrip_bytes():
@@ -786,8 +805,7 @@ def test_is_in_config(prop, expected):
 
 def test_resolve_prefilled_values():
     class Language(object):
-        def __init__(self):
-            ...
+        def __init__(self): ...
 
     @my_registry.optimizers("prefilled.v1")
     def prefilled(nlp: Language, value: int = 10):
@@ -1194,9 +1212,21 @@ def test_config_is_interpolated():
     "section_order,expected_str,expected_keys",
     [
         # fmt: off
-        ([], "[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4\n\n[h]\ni = 5\n\n[j]\nk = 6", ["a", "h", "j"]),
-        (["j", "h", "a"], "[j]\nk = 6\n\n[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4", ["j", "h", "a"]),
-        (["h"], "[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4\n\n[j]\nk = 6", ["h", "a", "j"])
+        (
+            [],
+            "[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4\n\n[h]\ni = 5\n\n[j]\nk = 6",
+            ["a", "h", "j"],
+        ),
+        (
+            ["j", "h", "a"],
+            "[j]\nk = 6\n\n[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4",
+            ["j", "h", "a"],
+        ),
+        (
+            ["h"],
+            "[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4\n\n[j]\nk = 6",
+            ["h", "a", "j"],
+        ),
         # fmt: on
     ],
 )
@@ -1375,7 +1405,7 @@ def test_config_interpolates(greeting, value, expected):
     """
     overrides = {"vars.a": greeting}
     cfg = Config().from_str(str_cfg, overrides=overrides)
-    assert type(cfg["project"]["my_par"]) == expected
+    assert type(cfg["project"]["my_par"]) is expected
 
 
 @pytest.mark.parametrize(
@@ -1401,17 +1431,30 @@ def test_config_interpolates(greeting, value, expected):
         [342, "[1, hello ${vars.a}, 3]", "hello 342"],
         ["everyone", "[1, hello ${vars.a}, 3]", "hello everyone"],
         ["tout le monde", "[1, hello ${vars.a}, 3]", "hello tout le monde"],
-        pytest.param("42", "[1, hello ${vars.a}, 3]", "hello 42", marks=pytest.mark.xfail),
+        pytest.param(
+            "42", "[1, hello ${vars.a}, 3]", "hello 42", marks=pytest.mark.xfail
+        ),
         # substituting part of a explicit string inside a list
         [342, "[1, 'hello ${vars.a}', '3']", "hello 342"],
         ["everyone", "[1, 'hello ${vars.a}', '3']", "hello everyone"],
         ["tout le monde", "[1, 'hello ${vars.a}', '3']", "hello tout le monde"],
-        pytest.param("42", "[1, 'hello ${vars.a}', '3']", "hello 42", marks=pytest.mark.xfail),
+        pytest.param(
+            "42", "[1, 'hello ${vars.a}', '3']", "hello 42", marks=pytest.mark.xfail
+        ),
         # more complicated example
         [342, "[{'name':'x','script':['hello ${vars.a}']}]", "hello 342"],
         ["everyone", "[{'name':'x','script':['hello ${vars.a}']}]", "hello everyone"],
-        ["tout le monde", "[{'name':'x','script':['hello ${vars.a}']}]", "hello tout le monde"],
-        pytest.param("42", "[{'name':'x','script':['hello ${vars.a}']}]", "hello 42", marks=pytest.mark.xfail),
+        [
+            "tout le monde",
+            "[{'name':'x','script':['hello ${vars.a}']}]",
+            "hello tout le monde",
+        ],
+        pytest.param(
+            "42",
+            "[{'name':'x','script':['hello ${vars.a}']}]",
+            "hello 42",
+            marks=pytest.mark.xfail,
+        ),
         # fmt: on
     ],
 )

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21                                                                                #
-# Generated on 2026-03-12T01:00:36.719900                                                            #
+# MF version: 2.19.22                                                                                #
+# Generated on 2026-03-20T22:45:05.904849                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,9 +10,9 @@ import metaflow
 import typing
 if typing.TYPE_CHECKING:
     import metaflow.plugins.cards.card_modules.json_viewer
-    import typing
     import metaflow.plugins.cards.card_modules.components
     import metaflow.plugins.cards.card_modules.card
+    import typing
 
 from .basic import LogComponent as LogComponent
 from .basic import ErrorComponent as ErrorComponent

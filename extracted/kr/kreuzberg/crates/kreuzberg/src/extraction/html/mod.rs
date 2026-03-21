@@ -34,10 +34,6 @@
 //! ```
 
 mod converter;
-#[allow(dead_code)]
-mod image_handling;
-#[allow(dead_code)]
-mod processor;
 mod stack_management;
 mod types;
 

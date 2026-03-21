@@ -187,17 +187,28 @@ STORE_CONFIG = env(
     "LANGGRAPH_STORE", cast=_parse.parse_schema(StoreConfig), default=None
 )
 
-MOUNT_PREFIX: str | None = env("MOUNT_PREFIX", cast=str, default=None) or (
-    HTTP_CONFIG.get("mount_prefix") if HTTP_CONFIG else None
-)
-if MOUNT_PREFIX:
-    if not MOUNT_PREFIX.startswith("/"):
+
+def _validate_mount_prefix(mount_prefix: str | None) -> str | None:
+    if not mount_prefix:
+        return None
+    if not mount_prefix.startswith("/"):
         raise ValueError(
-            f"Invalid mount_prefix '{MOUNT_PREFIX}': Must start with '/'. "
+            f"Invalid mount_prefix '{mount_prefix}': Must start with '/'. "
             f"Valid examples: '/my-api', '/v1', '/api/v1'.\nInvalid examples: 'api/', '/api/'"
         )
-    if MOUNT_PREFIX.endswith("/"):
-        MOUNT_PREFIX = MOUNT_PREFIX[:-1]
+    if mount_prefix.endswith("/"):
+        mount_prefix = mount_prefix[:-1]
+    if mount_prefix == "/noauth" or mount_prefix.startswith("/noauth/"):
+        raise ValueError(
+            f"Invalid mount_prefix '{mount_prefix}': '/noauth' is reserved for internal SDK loopback requests."
+        )
+    return mount_prefix
+
+
+MOUNT_PREFIX: str | None = _validate_mount_prefix(
+    env("MOUNT_PREFIX", cast=str, default=None)
+    or (HTTP_CONFIG.get("mount_prefix") if HTTP_CONFIG else None)
+)
 
 CORS_ALLOW_ORIGINS = env("CORS_ALLOW_ORIGINS", cast=CommaSeparatedStrings, default="*")
 CORS_CONFIG = env(

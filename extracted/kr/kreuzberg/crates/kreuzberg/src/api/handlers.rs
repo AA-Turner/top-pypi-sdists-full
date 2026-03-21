@@ -204,7 +204,10 @@ pub async fn extract_handler(
         return Ok(Json(vec![result]));
     }
 
-    let files_data: Vec<(Vec<u8>, String)> = files.into_iter().map(|(data, mime, _name)| (data, mime)).collect();
+    let files_data: Vec<(Vec<u8>, String, Option<crate::FileExtractionConfig>)> = files
+        .into_iter()
+        .map(|(data, mime, _name)| (data, mime, None))
+        .collect();
 
     let results = batch_extract_bytes(files_data, final_config).await?;
     Ok(Json(results))
@@ -424,9 +427,7 @@ pub async fn embed_handler(JsonApi(request): JsonApi<EmbedRequest>) -> Result<Js
     // Get model name from config
     let model_name = match &config.model {
         crate::core::config::EmbeddingModelType::Preset { name } => name.clone(),
-        #[cfg(feature = "embeddings")]
-        crate::core::config::EmbeddingModelType::FastEmbed { model, .. } => model.clone(),
-        crate::core::config::EmbeddingModelType::Custom { .. } => "custom".to_string(),
+        crate::core::config::EmbeddingModelType::Custom { model_id, .. } => model_id.clone(),
     };
 
     #[cfg(feature = "otel")]

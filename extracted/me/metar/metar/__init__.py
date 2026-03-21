@@ -20,7 +20,7 @@ where <station> is the four-letter ICAO station code.
 
 The METAR reports for all reporting stations for any "cycle" (i.e., hour)
 in the last 24 hours is available in a single file at the URL
-http://weather.noaa.gov/pub/data/observations/metar/cycles/<cycle>Z.TXT
+https://tgftp.nws.noaa.gov/data/observations/metar/cycles/<cycle>Z.TXT
 where <cycle> is a 2-digit cycle number (e.g., "00", "05" or "23").
 """
 
@@ -28,7 +28,16 @@ __author__ = "Tom Pollard"
 
 __email__ = "pollard@alum.mit.edu"
 
-__version__ = "1.11.0"
+__version__ = "0.0.0"  # Default
+try:
+    # Exists after installation via scm write_to
+    from ._version import version as __version__
+except ImportError:
+    from importlib.metadata import version, PackageNotFoundError
+    try:
+        __version__ = version("metar")
+    except PackageNotFoundError:
+        pass
 
 __doc__ = """metar v%s (c) 2009, %s
 

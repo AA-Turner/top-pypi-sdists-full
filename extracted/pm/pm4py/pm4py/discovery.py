@@ -60,6 +60,7 @@ def discover_dfg(
     Discovers a Directly-Follows Graph (DFG) from a log.
 
     This method returns a tuple containing:
+
     - A dictionary with pairs of directly-following activities as keys and the frequency of the relationship as values.
     - A dictionary of start activities with their respective frequencies.
     - A dictionary of end activities with their respective frequencies.
@@ -216,20 +217,23 @@ def discover_performance_dfg(
     Discovers a Performance Directly-Follows Graph from an event log.
 
     This method returns a tuple containing:
+
     - A dictionary with pairs of directly-following activities as keys and the performance metrics of the relationship as values.
     - A dictionary of start activities with their respective frequencies.
     - A dictionary of end activities with their respective frequencies.
 
     :param log: Event log or Pandas DataFrame.
     :param business_hours: Enables or disables computation based on business hours (default: False).
-    :param business_hour_slots: Work schedule of the company, provided as a list of tuples where each tuple represents one time slot of business hours. Each slot consists of a start and end time given in seconds since the week start. Example:
-        ```python
-        [
-            (7 * 60 * 60, 17 * 60 * 60),  # Monday 07:00 - 17:00
-            ((24 + 7) * 60 * 60, (24 + 12) * 60 * 60),  # Tuesday 07:00 - 12:00
-            ((24 + 13) * 60 * 60, (24 + 17) * 60 * 60)   # Tuesday 13:00 - 17:00
-        ]
-        ```
+    :param business_hour_slots: Work schedule of the company, provided as a list of tuples where each tuple represents one time slot of business hours. Each slot consists of a start and end time given in seconds since the week start.
+
+    Example::
+
+            [
+                (7 * 60 * 60, 17 * 60 * 60),  # Monday 07:00 - 17:00
+                ((24 + 7) * 60 * 60, (24 + 12) * 60 * 60),  # Tuesday 07:00 - 12:00
+                ((24 + 13) * 60 * 60, (24 + 17) * 60 * 60)   # Tuesday 13:00 - 17:00
+            ]
+
     :param activity_key: Attribute to be used for the activity (default: "concept:name").
     :param timestamp_key: Attribute to be used for the timestamp (default: "time:timestamp").
     :param case_id_key: Attribute to be used as case identifier (default: "case:concept:name").
@@ -441,7 +445,6 @@ def discover_petri_net_genetic(
     mutation_rate: float = 0.01,
     generations: int = 100,
     elitism_min_sample: int = 5,
-    tournament_timeout: int = None,
     log_csv: TextIO = None,
     activity_key: str = "concept:name",
     timestamp_key: str = "time:timestamp",
@@ -460,7 +463,6 @@ def discover_petri_net_genetic(
     :param mutation_rate: Random model mutation rate (default: 0.01).
     :param generations: Iterations of model improvement (default: 100).
     :param elitism_min_sample: Minimum sample size for selecting best models (default: 5).
-    :param tournament_timeout: Timeout in seconds for assessing individuals. If the timeout is reached, the individual will not appear in the next generation (default: factor dependent on number of activities and log size)
     :param log_csv: Output stream for CSV log (default: None).
     :param activity_key: Attribute to be used for the activity (default: "concept:name").
     :param timestamp_key: Attribute to be used for the timestamp (default: "time:timestamp").
@@ -496,7 +498,6 @@ def discover_petri_net_genetic(
     parameters[genetic_parameters.MUTATION_RATE] = mutation_rate
     parameters[genetic_parameters.GENERATIONS] = generations
     parameters[genetic_parameters.ELITISM_MIN_SAMPLE] = elitism_min_sample
-    parameters[genetic_parameters.TOURNAMENT_TIMEOUT] = tournament_timeout
     parameters[genetic_parameters.LOG_CSV] = log_csv
 
     if check_is_pandas_dataframe(log):
@@ -1179,17 +1180,17 @@ def discover_temporal_profile(
 
     Example:
     If the log has two cases:
+
     - Case 1: A (timestamp: 1980-01) → B (timestamp: 1980-03) → C (timestamp: 1980-06)
     - Case 2: A (timestamp: 1990-01) → B (timestamp: 1990-02) → D (timestamp: 1990-03)
 
-    The returned dictionary will contain:
-    ```
-    {
-        ('A', 'B'): (1.5 months, 0.5 months),
-        ('A', 'C'): (5 months, 0),
-        ('A', 'D'): (2 months, 0)
-    }
-    ```
+    The returned dictionary will contain::
+
+        {
+            ('A', 'B'): (1.5 months, 0.5 months),
+            ('A', 'C'): (5 months, 0),
+            ('A', 'D'): (2 months, 0)
+        }
 
     :param log: Event log or Pandas DataFrame.
     :param activity_key: Attribute to be used for the activity (default: "concept:name").
@@ -1208,6 +1209,7 @@ def discover_temporal_profile(
             case_id_key='case:concept:name',
             timestamp_key='time:timestamp'
         )
+
     """
     __event_log_deprecation_warning(log)
 

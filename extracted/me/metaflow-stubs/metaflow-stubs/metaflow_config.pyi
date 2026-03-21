@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21                                                                                #
-# Generated on 2026-03-12T01:00:36.659747                                                            #
+# MF version: 2.19.22                                                                                #
+# Generated on 2026-03-20T22:45:05.845909                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -326,5 +326,12 @@ MAX_ATTEMPTS: int
 CLICK_API_PROCESS_CONFIG: bool
 
 def get_pinned_conda_libs(python_version, datastore_type):
+    ...
+
+def get_click_to_python_types():
+    """
+    Returns the mapping from Click parameter types to Python types for Runner API.
+    Extensions can override this function to add custom type mappings.
+    """
     ...
 

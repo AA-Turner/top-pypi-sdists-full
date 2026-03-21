@@ -204,6 +204,10 @@ class Source:
         if fetch or git.is_fetch_required(self.type, self.rev):
             git.fetch(self.type, self.repo, self.name, rev=self.rev)
 
+        # Re-apply sparse-checkout paths in case they changed since initial clone
+        if self.sparse_paths and self.sparse_paths[0]:
+            git.apply_sparse_checkout(self.sparse_paths)
+
         # Update the working tree to the desired revision
         git.update(
             self.type, self.repo, self.name, fetch=fetch, clean=clean, rev=self.rev
@@ -386,9 +390,7 @@ class Source:
 
             Not a valid repository: {}
             During install you can rebuild a repo with a missing .git directory using the --force option
-            """.format(
-            path
-        )
+            """.format(path)
         return exceptions.InvalidRepository(msg)
 
 

@@ -79,6 +79,11 @@ fn _internal_bindings(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<config::TesseractConfig>()?;
     m.add_class::<config::ImagePreprocessingConfig>()?;
     m.add_class::<config::HierarchyConfig>()?;
+    m.add_class::<config::LayoutDetectionConfig>()?;
+    m.add_class::<config::AccelerationConfig>()?;
+    m.add_class::<config::EmailConfig>()?;
+    m.add_class::<config::ConcurrencyConfig>()?;
+    m.add_class::<config::FileExtractionConfig>()?;
 
     m.add_class::<keywords::YakeParams>()?;
     m.add_class::<keywords::RakeParams>()?;
@@ -175,8 +180,8 @@ fn _internal_bindings(m: &Bound<'_, PyModule>) -> PyResult<()> {
 ///     >>> from kreuzberg import get_embedding_preset
 ///     >>> preset = get_embedding_preset("balanced")
 ///     >>> print(f"Model: {preset.model_name}, Dims: {preset.dimensions}")
-///     Model: BGEBaseENV15, Dims: 768
-#[pyclass(name = "EmbeddingPreset", module = "kreuzberg")]
+///     Model: Xenova/bge-base-en-v1.5, Dims: 768
+#[pyclass(name = "EmbeddingPreset", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct EmbeddingPreset {
     #[pyo3(get)]
@@ -235,22 +240,22 @@ fn list_embedding_presets() -> Vec<String> {
 ///     EmbeddingPreset | None: Preset configuration or None if not found
 ///
 /// Available presets:
-///     - "fast": AllMiniLML6V2Q (384 dimensions) - Quick prototyping, low-latency
-///     - "balanced": BGEBaseENV15 (768 dimensions) - General-purpose RAG
-///     - "quality": BGELargeENV15 (1024 dimensions) - High-quality embeddings
-///     - "multilingual": MultilingualE5Base (768 dimensions) - Multi-language support
+///     - "fast": Xenova/all-minilm-l6-v2 (384 dimensions) - Quick prototyping, low-latency
+///     - "balanced": Xenova/bge-base-en-v1.5 (768 dimensions) - General-purpose RAG
+///     - "quality": Xenova/bge-large-en-v1.5 (1024 dimensions) - High-quality embeddings
+///     - "multilingual": Xenova/multilingual-e5-base (768 dimensions) - Multi-language support
 ///
 /// Example:
 ///     >>> from kreuzberg import get_embedding_preset
 ///     >>> preset = get_embedding_preset("balanced")
 ///     >>> if preset:
 ///     ...     print(f"Model: {preset.model_name}, Dims: {preset.dimensions}")
-///     ...     # Model: BGEBaseENV15, Dims: 768
+///     ...     # Model: Xenova/bge-base-en-v1.5, Dims: 768
 #[pyfunction]
 fn get_embedding_preset(name: String) -> Option<EmbeddingPreset> {
     let preset = kreuzberg::embeddings::get_preset(&name)?;
 
-    let model_name = format!("{:?}", preset.model);
+    let model_name = preset.model_repo.to_string();
 
     Some(EmbeddingPreset {
         name: preset.name.to_string(),

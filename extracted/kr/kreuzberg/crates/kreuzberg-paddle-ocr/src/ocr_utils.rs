@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
     ocr_error::OcrError,
     ocr_result::{Point, TextBox},
@@ -9,43 +11,57 @@ use ndarray::{Array, Array4};
 pub struct OcrUtils;
 
 impl OcrUtils {
+    /// Normalize image pixels and transpose from HWC (row-major RGB) to CHW tensor format.
+    ///
+    /// Formula per pixel: `output[ch] = pixel[ch] * norm[ch] - mean[ch] * norm[ch]`
+    ///
+    /// This is a hot path called once per page. Key optimizations:
+    /// - Pre-computes `mean * norm` constants (avoids repeated multiply)
+    /// - Writes each channel plane contiguously via `as_slice_mut()`, enabling
+    ///   LLVM auto-vectorization (NEON on ARM64, SSE/AVX on x86-64). The previous
+    ///   approach used `tensor[[0, ch, r, c]]` which scattered writes across planes
+    ///   and prevented any vectorization.
     pub fn substract_mean_normalize(img_src: &image::RgbImage, mean_vals: &[f32], norm_vals: &[f32]) -> Array4<f32> {
-        let cols = img_src.width();
-        let rows = img_src.height();
-        let channels = 3;
+        let cols = img_src.width() as usize;
+        let rows = img_src.height() as usize;
+        let pixel_count = rows * cols;
 
-        let mut input_tensor = Array::zeros((1, channels as usize, rows as usize, cols as usize));
+        let mut input_tensor = Array::zeros((1, 3, rows, cols));
 
-        // Get image data
-        // SAFETY: This is safe because:
-        // 1. The RgbImage is guaranteed to have width=cols and height=rows with 3 channels (RGB)
-        // 2. We iterate exactly over the valid range: r in [0, rows), c in [0, cols), ch in [0, 3)
-        // 3. The index calculation (r * cols * channels + c * channels + ch) is always < cols * rows * 3,
-        //    which equals the total number of pixels in an RGB image
-        // 4. RgbImage::get_unchecked is safe here because the calculated indices are within bounds
-        // 5. mean_vals and norm_vals are expected to have at least 3 elements for RGB (channels=3),
-        //    and we access them only with ch in [0, 3), so bounds are guaranteed
-        // 6. input_tensor is properly initialized and we access it with valid indices [0, ch, r, c]
-        unsafe {
-            for r in 0..rows {
-                for c in 0..cols {
-                    for ch in 0..channels {
-                        let idx = (r * cols * channels + c * channels + ch) as usize;
-                        let value = img_src.get_unchecked(idx).to_owned();
-                        let data =
-                            value as f32 * norm_vals[ch as usize] - mean_vals[ch as usize] * norm_vals[ch as usize];
-                        input_tensor[[0, ch as usize, r as usize, c as usize]] = data;
-                    }
-                }
+        let adjusted = [
+            mean_vals[0] * norm_vals[0],
+            mean_vals[1] * norm_vals[1],
+            mean_vals[2] * norm_vals[2],
+        ];
+
+        let raw = img_src.as_raw();
+
+        // Write each channel plane as a contiguous slice. ndarray stores (1,3,H,W)
+        // in C-contiguous (row-major) order, so plane [0,ch] is a contiguous H*W block.
+        // This enables LLVM to auto-vectorize the inner loop (4-8 f32 ops per cycle).
+        for ch in 0..3 {
+            let norm = norm_vals[ch];
+            let adj = adjusted[ch];
+            let plane = input_tensor
+                .slice_mut(ndarray::s![0, ch, .., ..])
+                .into_shape_with_order(pixel_count)
+                .expect("contiguous plane slice");
+            let plane_slice = plane.into_slice().expect("contiguous memory");
+
+            for (i, out) in plane_slice.iter_mut().enumerate() {
+                // raw is HWC: pixel i has R at raw[i*3], G at raw[i*3+1], B at raw[i*3+2]
+                *out = raw[i * 3 + ch] as f32 * norm - adj;
             }
         }
 
         input_tensor
     }
 
-    pub fn make_padding(img_src: &image::RgbImage, padding: u32) -> Result<image::RgbImage, OcrError> {
+    /// Add white padding around the image, or borrow it unchanged when padding=0.
+    /// Returns Cow to avoid cloning the image in the common no-padding case.
+    pub fn make_padding<'a>(img_src: &'a image::RgbImage, padding: u32) -> Result<Cow<'a, image::RgbImage>, OcrError> {
         if padding == 0 {
-            return Ok(img_src.clone());
+            return Ok(Cow::Borrowed(img_src));
         }
 
         let width = img_src.width();
@@ -60,7 +76,7 @@ impl OcrUtils {
 
         image::imageops::replace(&mut padding_src, img_src, padding as i64, padding as i64);
 
-        Ok(padding_src)
+        Ok(Cow::Owned(padding_src))
     }
 
     pub fn get_part_images(img_src: &image::RgbImage, text_boxes: &[TextBox]) -> Vec<image::RgbImage> {
@@ -100,12 +116,13 @@ impl OcrUtils {
             return img_crop;
         }
 
-        let img_crop_width = ((points[0].x as i32 - points[1].x as i32).pow(2) as f32
-            + (points[0].y as i32 - points[1].y as i32).pow(2) as f32)
-            .sqrt() as u32;
-        let img_crop_height = ((points[0].x as i32 - points[3].x as i32).pow(2) as f32
-            + (points[0].y as i32 - points[3].y as i32).pow(2) as f32)
-            .sqrt() as u32;
+        // Direct multiplication instead of .pow(2) — avoids integer power function overhead.
+        let dx_w = (points[0].x as i32 - points[1].x as i32) as f32;
+        let dy_w = (points[0].y as i32 - points[1].y as i32) as f32;
+        let img_crop_width = (dx_w * dx_w + dy_w * dy_w).sqrt() as u32;
+        let dx_h = (points[0].x as i32 - points[3].x as i32) as f32;
+        let dy_h = (points[0].y as i32 - points[3].y as i32) as f32;
+        let img_crop_height = (dx_h * dx_h + dy_h * dy_h).sqrt() as u32;
 
         // Ensure dimensions are valid (non-zero)
         if img_crop_width == 0 || img_crop_height == 0 {
@@ -161,31 +178,29 @@ impl OcrUtils {
         imageops::rotate180_in_place(src);
     }
 
+    /// Compute mean of f32 image values where mask > 0.
+    ///
+    /// Uses raw slice access instead of per-pixel get_pixel() for better
+    /// cache behavior and to enable auto-vectorization of the reduction.
     pub fn calculate_mean_with_mask(
         img: &image::ImageBuffer<image::Luma<f32>, Vec<f32>>,
         mask: &image::ImageBuffer<image::Luma<u8>, Vec<u8>>,
     ) -> f32 {
-        let mut sum: f32 = 0.0;
-        let mut mask_count = 0;
-
         assert_eq!(img.width(), mask.width());
         assert_eq!(img.height(), mask.height());
 
-        for y in 0..img.height() {
-            for x in 0..img.width() {
-                let mask_value = mask.get_pixel(x, y)[0];
-                if mask_value > 0 {
-                    let pixel = img.get_pixel(x, y);
-                    sum += pixel[0];
-                    mask_count += 1;
-                }
+        let img_raw = img.as_raw();
+        let mask_raw = mask.as_raw();
+        let mut sum: f32 = 0.0;
+        let mut count: u32 = 0;
+
+        for (px, &m) in img_raw.iter().zip(mask_raw.iter()) {
+            if m > 0 {
+                sum += *px;
+                count += 1;
             }
         }
 
-        if mask_count == 0 {
-            return 0.0;
-        }
-
-        sum / mask_count as f32
+        if count == 0 { 0.0 } else { sum / count as f32 }
     }
 }

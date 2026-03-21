@@ -169,7 +169,7 @@ def deployment_group() -> None:
     "--auto/--no-auto",
     is_flag=True,
     default=False,
-    help="Auto-promote the deployment. Only works if --wait is enabled. Disabled by default.",
+    help="Auto-promote the deployment when it's ready. Disabled by default",
 )
 @click.option(
     "--check/--no-check",
@@ -206,7 +206,7 @@ def deployment_create(
     verbose: bool,
 ) -> None:
     """
-    Validate and deploy the project server side.
+    Deploy your project to your workspace
     """
     create_deployment_cmd(ctx, wait, auto, check, allow_destructive_operations, template, verbose)
 
@@ -325,13 +325,13 @@ def deployment_discard(ctx: click.Context, wait: bool) -> None:
     "--wait/--no-wait",
     is_flag=True,
     default=True,
-    help="Wait for deploy to finish. Disabled by default.",
+    help="Wait for deploy to finish. Enabled by default.",
 )
 @click.option(
     "--auto/--no-auto",
     is_flag=True,
     default=True,
-    help="Auto-promote or auto-discard the deployment. Only works if --wait is enabled. Disabled by default.",
+    help="Auto-promote the deployment when it's ready. Enabled by default.",
 )
 @click.option(
     "--check",
@@ -368,7 +368,7 @@ def deploy(
     verbose: bool,
 ) -> None:
     """
-    Deploy the project.
+    Deploy your project to your workspace. Equivalent to `tb deployment create --auto --wait`
     """
     create_deployment_cmd(ctx, wait, auto, check, allow_destructive_operations, template, verbose)
 

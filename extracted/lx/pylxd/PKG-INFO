@@ -1,22 +1,43 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pylxd
-Version: 2.3.9
-Summary: python library for LXD
-Home-page: https://ubuntu.com/lxd
-Author: Paul Hummer and others (see CONTRIBUTORS.rst)
-Author-email: lxd@lists.canonical.com
+Version: 2.4.0
+Summary: Python library for interacting with the LXD REST API
+Author-email: "Paul Hummer and others (see CONTRIBUTORS.rst)" <lxd@lists.canonical.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://ubuntu.com/lxd
+Project-URL: Documentation, https://pylxd.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/canonical/pylxd
+Project-URL: Issues, https://github.com/canonical/pylxd/issues
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
-Provides-Extra: check
-Provides-Extra: doc
-Provides-Extra: format
-Provides-Extra: testing
 License-File: LICENSE
+Requires-Dist: cryptography>=46.0.0
+Requires-Dist: python-dateutil>=2.4.2
+Requires-Dist: requests>=2.20.0
+Requires-Dist: requests-toolbelt>=1.0.0
+Requires-Dist: ws4py>=0.4.0
+Provides-Extra: testing
+Requires-Dist: ddt>=1.7.0; extra == "testing"
+Requires-Dist: pytest-cov>=7.0.0; extra == "testing"
+Requires-Dist: pytest>=9.0.2; extra == "testing"
+Requires-Dist: requests-mock>=1.2; extra == "testing"
+Provides-Extra: format
+Requires-Dist: black; extra == "format"
+Requires-Dist: flake8; extra == "format"
+Requires-Dist: flake8-pyproject; extra == "format"
+Requires-Dist: isort; extra == "format"
+Provides-Extra: check
+Requires-Dist: mypy; extra == "check"
+Provides-Extra: doc
+Requires-Dist: Sphinx; extra == "doc"
+Provides-Extra: release
+Requires-Dist: build; extra == "release"
+Requires-Dist: twine>=6.0.0; extra == "release"
+Dynamic: license-file
 
 pylxd
 ~~~~~

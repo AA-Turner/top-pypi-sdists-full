@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: better_optimize
-Version: 0.3.1
+Version: 0.3.2
 Summary: A drop-in replacement for scipy optimize functions with quality of life improvements
 License: MIT License
 Project-URL: Homepage, https://github.com/jessegrabowski/better_optimize

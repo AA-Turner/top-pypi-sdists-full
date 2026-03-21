@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import requests
+import httpx
 import typer
 from wasabi import msg
 
@@ -172,7 +172,7 @@ def fetch_asset(
         try:
             download_file(url, dest_path)
             msg.good(f"Downloaded asset {dest}")
-        except requests.exceptions.RequestException as e:
+        except httpx.HTTPError as e:
             if Path(url).exists() and Path(url).is_file():
                 # If it's a local file, copy to destination
                 shutil.copy(url, str(dest_path))

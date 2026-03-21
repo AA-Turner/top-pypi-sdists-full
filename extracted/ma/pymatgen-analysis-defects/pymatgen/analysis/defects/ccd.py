@@ -661,7 +661,7 @@ def _get_ks_ediff(
         spin_index = 0 if ispin == Spin.up else 1
         res[ispin] = np.zeros_like(eigs)
         for ikpt, _kpt in enumerate(bandstructure.kpoints):
-            iband = b_at_kpt_and_spin.get((ikpt, spin_index), None)
+            iband = b_at_kpt_and_spin.get((ikpt, spin_index))
             if iband is None:
                 continue
             e_at_def_band = eigs[iband, ikpt]
@@ -692,7 +692,7 @@ def plot_pes(
     if ax is None:
         from matplotlib import pyplot as plt
 
-        fig, ax = plt.subplots()
+        _fig, ax = plt.subplots()
     ax.plot(
         np.array(hd.distortions) + x_shift,
         (np.array(hd.energies) - hd.energies[hd.relaxed_index]) + y_shift,

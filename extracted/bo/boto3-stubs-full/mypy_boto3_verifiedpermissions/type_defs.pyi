@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    AliasStateType,
     BatchGetPolicyErrorCodeType,
     CedarVersionType,
     DecisionType,
@@ -75,12 +76,15 @@ __all__ = (
     "CreateIdentitySourceOutputTypeDef",
     "CreatePolicyInputTypeDef",
     "CreatePolicyOutputTypeDef",
+    "CreatePolicyStoreAliasInputTypeDef",
+    "CreatePolicyStoreAliasOutputTypeDef",
     "CreatePolicyStoreInputTypeDef",
     "CreatePolicyStoreOutputTypeDef",
     "CreatePolicyTemplateInputTypeDef",
     "CreatePolicyTemplateOutputTypeDef",
     "DeleteIdentitySourceInputTypeDef",
     "DeletePolicyInputTypeDef",
+    "DeletePolicyStoreAliasInputTypeDef",
     "DeletePolicyStoreInputTypeDef",
     "DeletePolicyTemplateInputTypeDef",
     "DeterminingPolicyItemTypeDef",
@@ -95,6 +99,8 @@ __all__ = (
     "GetIdentitySourceOutputTypeDef",
     "GetPolicyInputTypeDef",
     "GetPolicyOutputTypeDef",
+    "GetPolicyStoreAliasInputTypeDef",
+    "GetPolicyStoreAliasOutputTypeDef",
     "GetPolicyStoreInputTypeDef",
     "GetPolicyStoreOutputTypeDef",
     "GetPolicyTemplateInputTypeDef",
@@ -117,6 +123,9 @@ __all__ = (
     "ListPoliciesInputPaginateTypeDef",
     "ListPoliciesInputTypeDef",
     "ListPoliciesOutputTypeDef",
+    "ListPolicyStoreAliasesInputPaginateTypeDef",
+    "ListPolicyStoreAliasesInputTypeDef",
+    "ListPolicyStoreAliasesOutputTypeDef",
     "ListPolicyStoresInputPaginateTypeDef",
     "ListPolicyStoresInputTypeDef",
     "ListPolicyStoresOutputTypeDef",
@@ -146,6 +155,8 @@ __all__ = (
     "PolicyDefinitionTypeDef",
     "PolicyFilterTypeDef",
     "PolicyItemTypeDef",
+    "PolicyStoreAliasFilterTypeDef",
+    "PolicyStoreAliasItemTypeDef",
     "PolicyStoreItemTypeDef",
     "PolicyTemplateItemTypeDef",
     "PutSchemaInputTypeDef",
@@ -221,6 +232,10 @@ class CognitoGroupConfigurationItemTypeDef(TypedDict):
 class CognitoGroupConfigurationTypeDef(TypedDict):
     groupEntityType: str
 
+class CreatePolicyStoreAliasInputTypeDef(TypedDict):
+    aliasName: str
+    policyStoreId: str
+
 class ValidationSettingsTypeDef(TypedDict):
     mode: ValidationModeType
 
@@ -229,6 +244,7 @@ class CreatePolicyTemplateInputTypeDef(TypedDict):
     statement: str
     clientToken: NotRequired[str]
     description: NotRequired[str]
+    name: NotRequired[str]
 
 class DeleteIdentitySourceInputTypeDef(TypedDict):
     policyStoreId: str
@@ -237,6 +253,9 @@ class DeleteIdentitySourceInputTypeDef(TypedDict):
 class DeletePolicyInputTypeDef(TypedDict):
     policyStoreId: str
     policyId: str
+
+class DeletePolicyStoreAliasInputTypeDef(TypedDict):
+    aliasName: str
 
 class DeletePolicyStoreInputTypeDef(TypedDict):
     policyStoreId: str
@@ -267,6 +286,9 @@ class GetPolicyInputTypeDef(TypedDict):
     policyStoreId: str
     policyId: str
 
+class GetPolicyStoreAliasInputTypeDef(TypedDict):
+    aliasName: str
+
 class GetPolicyStoreInputTypeDef(TypedDict):
     policyStoreId: str
     tags: NotRequired[bool]
@@ -292,6 +314,16 @@ class PaginatorConfigTypeDef(TypedDict):
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
+class PolicyStoreAliasFilterTypeDef(TypedDict):
+    policyStoreId: NotRequired[str]
+
+class PolicyStoreAliasItemTypeDef(TypedDict):
+    aliasName: str
+    policyStoreId: str
+    aliasArn: str
+    createdAt: datetime
+    state: AliasStateType
+
 class ListPolicyStoresInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
@@ -314,6 +346,7 @@ class PolicyTemplateItemTypeDef(TypedDict):
     createdDate: datetime
     lastUpdatedDate: datetime
     description: NotRequired[str]
+    name: NotRequired[str]
 
 class ListTagsForResourceInputTypeDef(TypedDict):
     resourceArn: str
@@ -400,6 +433,7 @@ class UpdatePolicyTemplateInputTypeDef(TypedDict):
     policyTemplateId: str
     statement: str
     description: NotRequired[str]
+    name: NotRequired[str]
 
 AttributeValueOutputTypeDef = TypedDict(
     "AttributeValueOutputTypeDef",
@@ -488,6 +522,13 @@ class CreatePolicyOutputTypeDef(TypedDict):
     effect: PolicyEffectType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreatePolicyStoreAliasOutputTypeDef(TypedDict):
+    aliasName: str
+    policyStoreId: str
+    aliasArn: str
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreatePolicyStoreOutputTypeDef(TypedDict):
     policyStoreId: str
     arn: str
@@ -502,6 +543,14 @@ class CreatePolicyTemplateOutputTypeDef(TypedDict):
     lastUpdatedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetPolicyStoreAliasOutputTypeDef(TypedDict):
+    aliasName: str
+    policyStoreId: str
+    aliasArn: str
+    createdAt: datetime
+    state: AliasStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetPolicyTemplateOutputTypeDef(TypedDict):
     policyStoreId: str
     policyTemplateId: str
@@ -509,6 +558,7 @@ class GetPolicyTemplateOutputTypeDef(TypedDict):
     statement: str
     createdDate: datetime
     lastUpdatedDate: datetime
+    name: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSchemaOutputTypeDef(TypedDict):
@@ -625,6 +675,27 @@ class ListPolicyTemplatesInputPaginateTypeDef(TypedDict):
     policyStoreId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+ListPolicyStoreAliasesInputPaginateTypeDef = TypedDict(
+    "ListPolicyStoreAliasesInputPaginateTypeDef",
+    {
+        "filter": NotRequired[PolicyStoreAliasFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListPolicyStoreAliasesInputTypeDef = TypedDict(
+    "ListPolicyStoreAliasesInputTypeDef",
+    {
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+        "filter": NotRequired[PolicyStoreAliasFilterTypeDef],
+    },
+)
+
+class ListPolicyStoreAliasesOutputTypeDef(TypedDict):
+    policyStoreAliases: list[PolicyStoreAliasItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListPolicyStoresOutputTypeDef(TypedDict):
     policyStores: list[PolicyStoreItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -736,6 +807,7 @@ class UpdatePolicyInputTypeDef(TypedDict):
     policyStoreId: str
     policyId: str
     definition: NotRequired[UpdatePolicyDefinitionTypeDef]
+    name: NotRequired[str]
 
 class BatchIsAuthorizedInputItemOutputTypeDef(TypedDict):
     principal: NotRequired[EntityIdentifierTypeDef]
@@ -783,6 +855,7 @@ class BatchGetPolicyOutputItemTypeDef(TypedDict):
     definition: PolicyDefinitionDetailTypeDef
     createdDate: datetime
     lastUpdatedDate: datetime
+    name: NotRequired[str]
 
 class GetPolicyOutputTypeDef(TypedDict):
     policyStoreId: str
@@ -795,6 +868,7 @@ class GetPolicyOutputTypeDef(TypedDict):
     createdDate: datetime
     lastUpdatedDate: datetime
     effect: PolicyEffectType
+    name: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PolicyItemTypeDef(TypedDict):
@@ -808,11 +882,13 @@ class PolicyItemTypeDef(TypedDict):
     resource: NotRequired[EntityIdentifierTypeDef]
     actions: NotRequired[list[ActionIdentifierTypeDef]]
     effect: NotRequired[PolicyEffectType]
+    name: NotRequired[str]
 
 class CreatePolicyInputTypeDef(TypedDict):
     policyStoreId: str
     definition: PolicyDefinitionTypeDef
     clientToken: NotRequired[str]
+    name: NotRequired[str]
 
 class ConfigurationDetailTypeDef(TypedDict):
     cognitoUserPoolConfiguration: NotRequired[CognitoUserPoolConfigurationDetailTypeDef]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyicu
-Version: 2.16.1
+Version: 2.16.2
 Summary: Python extension wrapping the ICU C++ API
 Home-page: https://gitlab.pyicu.org/main/pyicu
 Author: Andi Vajda
@@ -346,6 +346,7 @@ usage with Python's ``datetime`` type. For example:
 
 ```python
 from datetime import datetime
+from icu import ICUtzinfo, TimeZone
 tz = ICUtzinfo(TimeZone.createTimeZone('US/Mountain'))
 datetime.now(tz)
 ```

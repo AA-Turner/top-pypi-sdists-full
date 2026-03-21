@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.8.4
+Version: 0.8.5
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -12,6 +12,7 @@ License-File: AUTHORS
 Provides-Extra: core
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "core"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "core"
+Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "core"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "core"
 Requires-Dist: openai<2.0.0,>=1.76.2; extra == "core"
 Requires-Dist: ragas<0.4.0,>=0.3.8; extra == "core"
@@ -26,6 +27,7 @@ Requires-Dist: pyarrow==21.0.0; extra == "core"
 Provides-Extra: crewai
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "crewai"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "crewai"
+Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "crewai"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "crewai"
 Requires-Dist: openai<2.0.0,>=1.76.2; extra == "crewai"
 Requires-Dist: ragas<0.4.0,>=0.3.8; extra == "crewai"
@@ -47,6 +49,7 @@ Requires-Dist: pybase64<2.0.0,>=1.4.2; extra == "crewai"
 Provides-Extra: langgraph
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "langgraph"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "langgraph"
+Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "langgraph"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "langgraph"
 Requires-Dist: openai<2.0.0,>=1.76.2; extra == "langgraph"
 Requires-Dist: ragas<0.4.0,>=0.3.8; extra == "langgraph"
@@ -66,6 +69,7 @@ Requires-Dist: opentelemetry-instrumentation-langchain<1.0.0,>=0.40.5; extra == 
 Provides-Extra: llamaindex
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "llamaindex"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "llamaindex"
+Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "llamaindex"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "llamaindex"
 Requires-Dist: openai<2.0.0,>=1.76.2; extra == "llamaindex"
 Requires-Dist: ragas<0.4.0,>=0.3.8; extra == "llamaindex"
@@ -89,6 +93,7 @@ Requires-Dist: pypdf<7.0.0,>=6.0.0; extra == "llamaindex"
 Provides-Extra: nat
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "nat"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "nat"
+Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "nat"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "nat"
 Requires-Dist: openai<2.0.0,>=1.76.2; extra == "nat"
 Requires-Dist: ragas<0.4.0,>=0.3.8; extra == "nat"
@@ -122,6 +127,7 @@ Requires-Dist: python-dateutil<3.0.0,>=2.9.0; extra == "drmcp"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "drmcp"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drmcp"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "drmcp"
+Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "drmcp"
 Requires-Dist: aiohttp<4.0.0,>=3.9.0; extra == "drmcp"
 Requires-Dist: fastmcp<3.0.0,>=2.13.0.2; extra == "drmcp"
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "drmcp"
@@ -152,11 +158,13 @@ Requires-Dist: python-dateutil<3.0.0,>=2.9.0; extra == "drtools"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "drtools"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drtools"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "drtools"
+Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "drtools"
 Requires-Dist: aiohttp<4.0.0,>=3.9.0; extra == "drtools"
 Requires-Dist: fastmcp<3.0.0,>=2.13.0.2; extra == "drtools"
 Provides-Extra: dragent
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "dragent"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "dragent"
+Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "dragent"
 Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "dragent"
 Requires-Dist: openai<2.0.0,>=1.76.2; extra == "dragent"
 Requires-Dist: ragas<0.4.0,>=0.3.8; extra == "dragent"

@@ -1,8 +1,32 @@
+//! Online punctuation restoration.
+//!
+//! This module wraps the punctuation model used in
+//! `rust-api-examples/examples/online_punctuation.rs`.
+//!
+//! ```no_run
+//! use sherpa_onnx::{OnlinePunctuation, OnlinePunctuationConfig, OnlinePunctuationModelConfig};
+//!
+//! let config = OnlinePunctuationConfig {
+//!     model: OnlinePunctuationModelConfig {
+//!         cnn_bilstm: Some("./sherpa-onnx-online-punct-en/cnn_bilstm.onnx".into()),
+//!         bpe_vocab: Some("./sherpa-onnx-online-punct-en/bpe.vocab".into()),
+//!         ..Default::default()
+//!     },
+//! };
+//!
+//! let punct = OnlinePunctuation::create(&config).expect("create punctuation");
+//! let text = punct
+//!     .add_punctuation("how are you i am fine thank you")
+//!     .expect("punctuate");
+//! println!("{text}");
+//! ```
+
 use crate::utils::to_c_ptr;
 use sherpa_onnx_sys as sys;
 use std::ffi::{CStr, CString};
 
 #[derive(Clone, Debug)]
+/// Model-level options for online punctuation restoration.
 pub struct OnlinePunctuationModelConfig {
     pub cnn_bilstm: Option<String>,
     pub bpe_vocab: Option<String>,
@@ -36,6 +60,7 @@ impl OnlinePunctuationModelConfig {
 }
 
 #[derive(Clone, Debug, Default)]
+/// Top-level configuration for [`OnlinePunctuation`].
 pub struct OnlinePunctuationConfig {
     pub model: OnlinePunctuationModelConfig,
 }
@@ -43,11 +68,17 @@ pub struct OnlinePunctuationConfig {
 impl OnlinePunctuationConfig {
     fn to_sys(&self, cstrings: &mut Vec<CString>) -> sys::OnlinePunctuationConfig {
         sys::OnlinePunctuationConfig {
-            model: self.model.to_sys(cstrings),
+            model: self
+                .model
+                .to_sys(cstrings),
         }
     }
 }
 
+/// Online punctuation restorer.
+///
+/// Feed plain text fragments to [`OnlinePunctuation::add_punctuation`] and get
+/// punctuated text back.
 pub struct OnlinePunctuation {
     ptr: *const sys::OnlinePunctuation,
 }
@@ -67,6 +98,10 @@ impl OnlinePunctuation {
         }
     }
 
+    /// Add punctuation to a text fragment.
+    ///
+    /// Returns `None` if the input cannot be converted to a C string or the
+    /// native punctuator fails.
     pub fn add_punctuation(&self, text: &str) -> Option<String> {
         let text = CString::new(text).ok()?;
 
@@ -76,7 +111,9 @@ impl OnlinePunctuation {
                 return None;
             }
 
-            let ans = CStr::from_ptr(p).to_string_lossy().into_owned();
+            let ans = CStr::from_ptr(p)
+                .to_string_lossy()
+                .into_owned();
             sys::SherpaOnnxOnlinePunctuationFreeText(p);
             Some(ans)
         }
@@ -86,7 +123,10 @@ impl OnlinePunctuation {
 impl Drop for OnlinePunctuation {
     fn drop(&mut self) {
         unsafe {
-            if !self.ptr.is_null() {
+            if !self
+                .ptr
+                .is_null()
+            {
                 sys::SherpaOnnxDestroyOnlinePunctuation(self.ptr);
             }
         }

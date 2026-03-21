@@ -28,6 +28,7 @@ import pandas as pd
 import traitlets
 
 from . import coreutils
+from . import geemap
 from . import map_widgets
 from .common import *
 from .conversion import js_snippet_to_py
@@ -342,6 +343,7 @@ def inspector_gui(m=None):
 
     def close_btn_click(change) -> None:
         if change["new"]:
+            assert m.tool_control  # For pytype.
             m.tool_control.cleanup()
 
     close_button.observe(close_btn_click, "value")
@@ -372,6 +374,7 @@ def inspector_gui(m=None):
             if hasattr(m, "marker_cluster"):
                 m.marker_cluster.markers = []
         elif change["new"] == "Close":
+            assert m.tool_control  # For pytype.
             m.tool_control.cleanup()
 
         buttons.value = None
@@ -747,7 +750,9 @@ def ee_plot_gui(m, position: str = "topright", **kwargs):
     m._plot_dropdown_control.cleanup = cleanup
 
     def close_click(_) -> None:
+        # pytype: disable=attribute-error
         m._plot_dropdown_control.cleanup()
+        # pytype: enable=attribute-error
 
     close_btn.on_click(close_click)
 
@@ -1561,7 +1566,9 @@ def collect_samples(m):
 
 
 def get_tools_dict():
+    # pytype: disable=attribute-error
     pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
+    # pytype: enable=attribute-error
     toolbox_csv = os.path.join(pkg_dir, "data/template/toolbox.csv")
 
     df = pd.read_csv(toolbox_csv).set_index("index")
@@ -2235,9 +2242,14 @@ def timelapse_gui(m=None, basemap: str = "HYBRID"):
 
     def close_btn_click(change) -> None:
         if change["new"]:
+            assert m.tool_control  # For pytype.
             m.tool_control.cleanup()
 
-    close_btn.on_click(lambda _: m.tool_control.cleanup())
+    close_btn.on_click(
+        # pytype: disable=attribute-error
+        lambda _: m.tool_control.cleanup()
+        # pytype: enable=attribute-error
+    )
     close_button.observe(close_btn_click, "value")
 
     toolbar_button.value = True
@@ -2505,7 +2517,7 @@ def time_slider(m=None):
 
                 _, ax = plt.subplots(figsize=(6, 0.4))
                 cmap = mpl.colors.LinearSegmentedColormap.from_list(
-                    "custom", to_hex_colors(cmap_colors), N=256
+                    "custom", coreutils.to_hex_colors(cmap_colors), N=256
                 )
 
                 vmin = 0
@@ -2587,7 +2599,7 @@ def time_slider(m=None):
 
             _, ax = plt.subplots(figsize=(6, 0.4))
             cmap = mpl.colors.LinearSegmentedColormap.from_list(
-                "custom", to_hex_colors(cmap_colors), N=256
+                "custom", coreutils.to_hex_colors(cmap_colors), N=256
             )
 
             vmin = 0
@@ -2922,7 +2934,7 @@ def time_slider(m=None):
 
     def close_btn_click(change) -> None:
         if change["new"]:
-            m.tool_control.cleanup()
+            m.tool_control.cleanup()  # pytype: disable=attribute-error
 
     close_button.observe(close_btn_click, "value")
 
@@ -3314,7 +3326,7 @@ def plot_transect(m=None):
 
     def close_btn_click(change) -> None:
         if change["new"]:
-            m.tool_control.cleanup()
+            m.tool_control.cleanup()  # pytype: disable=attribute-error
 
     close_button.observe(close_btn_click, "value")
 
@@ -3360,7 +3372,7 @@ def plot_transect(m=None):
         elif change["new"] == "Reset":
             output.outputs = ()
         elif change["new"] == "Close":
-            m.tool_control.cleanup()
+            m.tool_control.cleanup()  # pytype: disable=attribute-error
 
         buttons.value = None
 
@@ -3724,7 +3736,7 @@ def sankee_gui(m=None):
 
     def close_btn_click(change) -> None:
         if change["new"]:
-            m.tool_control.cleanup()
+            m.tool_control.cleanup()  # pytype: disable=attribute-error
 
     close_button.observe(close_btn_click, "value")
 
@@ -3819,7 +3831,7 @@ def sankee_gui(m=None):
             plot_widget.children = []
 
         elif change["new"] == "Close":
-            m.tool_control.cleanup()
+            m.tool_control.cleanup()  # pytype: disable=attribute-error
 
         buttons.value = None
 
@@ -3927,12 +3939,16 @@ def split_basemaps(
             break
 
     def left_change(change) -> None:
+        # pytype: disable=attribute-error
         split_control.left_layer.url = layers_dict[left_dropdown.value].url
+        # pytype: enable=attribute-error
 
     left_dropdown.observe(left_change, "value")
 
     def right_change(change) -> None:
+        # pytype: disable=attribute-error
         split_control.right_layer.url = layers_dict[right_dropdown.value].url
+        # pytype: enable=attribute-error
 
     right_dropdown.observe(right_change, "value")
 

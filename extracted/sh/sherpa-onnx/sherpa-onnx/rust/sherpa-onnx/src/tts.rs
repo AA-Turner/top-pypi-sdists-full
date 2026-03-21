@@ -1,3 +1,59 @@
+//! Offline text-to-speech.
+//!
+//! Supported model families include VITS, Matcha, Kokoro, Kitten, ZipVoice,
+//! Pocket TTS, and Supertonic. See the repository examples:
+//!
+//! - `rust-api-examples/examples/pocket_tts.rs`
+//! - `rust-api-examples/examples/kokoro_tts_en.rs`
+//! - `rust-api-examples/examples/kokoro_tts_zh_en.rs`
+//! - `rust-api-examples/examples/matcha_tts_en.rs`
+//! - `rust-api-examples/examples/matcha_tts_zh.rs`
+//! - `rust-api-examples/examples/zipvoice_tts.rs`
+//! - `rust-api-examples/examples/supertonic_tts.rs`
+//!
+//! # Example
+//!
+//! ```no_run
+//! use sherpa_onnx::{
+//!     GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsModelConfig,
+//!     OfflineTtsPocketModelConfig, Wave,
+//! };
+//!
+//! let config = OfflineTtsConfig {
+//!     model: OfflineTtsModelConfig {
+//!         pocket: OfflineTtsPocketModelConfig {
+//!             lm_flow: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/lm_flow.int8.onnx".into()),
+//!             lm_main: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/lm_main.int8.onnx".into()),
+//!             encoder: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx".into()),
+//!             decoder: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/decoder.int8.onnx".into()),
+//!             text_conditioner: Some(
+//!                 "./sherpa-onnx-pocket-tts-int8-2026-01-26/text_conditioner.onnx".into(),
+//!             ),
+//!             vocab_json: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/vocab.json".into()),
+//!             token_scores_json: Some(
+//!                 "./sherpa-onnx-pocket-tts-int8-2026-01-26/token_scores.json".into(),
+//!             ),
+//!             ..Default::default()
+//!         },
+//!         ..Default::default()
+//!     },
+//!     ..Default::default()
+//! };
+//!
+//! let tts = OfflineTts::create(&config).expect("create tts");
+//! let reference = Wave::read("./sherpa-onnx-pocket-tts-int8-2026-01-26/test_wavs/bria.wav")
+//!     .expect("read reference");
+//! let generation_config = GenerationConfig {
+//!     reference_audio: Some(reference.samples().to_vec()),
+//!     reference_sample_rate: reference.sample_rate(),
+//!     ..Default::default()
+//! };
+//! let audio = tts
+//!     .generate_with_config("Hello from sherpa-onnx", &generation_config, None)
+//!     .expect("generate");
+//! println!("{}", audio.sample_rate());
+//! ```
+
 use crate::utils::to_c_ptr;
 use sherpa_onnx_sys as sys;
 use std::collections::HashMap;
@@ -12,6 +68,7 @@ type BoxedProgressCallback = Box<ProgressCallback>;
 // --- Model config structs ---
 
 #[derive(Clone, Debug)]
+/// VITS model configuration.
 pub struct OfflineTtsVitsModelConfig {
     pub model: Option<String>,
     pub lexicon: Option<String>,
@@ -54,6 +111,7 @@ impl OfflineTtsVitsModelConfig {
 }
 
 #[derive(Clone, Debug)]
+/// Matcha model configuration.
 pub struct OfflineTtsMatchaModelConfig {
     pub acoustic_model: Option<String>,
     pub vocoder: Option<String>,
@@ -96,6 +154,7 @@ impl OfflineTtsMatchaModelConfig {
 }
 
 #[derive(Clone, Debug)]
+/// Kokoro model configuration.
 pub struct OfflineTtsKokoroModelConfig {
     pub model: Option<String>,
     pub voices: Option<String>,
@@ -138,6 +197,7 @@ impl OfflineTtsKokoroModelConfig {
 }
 
 #[derive(Clone, Debug)]
+/// Kitten model configuration.
 pub struct OfflineTtsKittenModelConfig {
     pub model: Option<String>,
     pub voices: Option<String>,
@@ -171,6 +231,7 @@ impl OfflineTtsKittenModelConfig {
 }
 
 #[derive(Clone, Debug)]
+/// ZipVoice model configuration.
 pub struct OfflineTtsZipvoiceModelConfig {
     pub tokens: Option<String>,
     pub encoder: Option<String>,
@@ -219,6 +280,7 @@ impl OfflineTtsZipvoiceModelConfig {
 }
 
 #[derive(Clone, Debug, Default)]
+/// Pocket TTS model configuration.
 pub struct OfflineTtsPocketModelConfig {
     pub lm_flow: Option<String>,
     pub lm_main: Option<String>,
@@ -246,6 +308,7 @@ impl OfflineTtsPocketModelConfig {
 }
 
 #[derive(Clone, Debug, Default)]
+/// Supertonic model configuration.
 pub struct OfflineTtsSupertonicModelConfig {
     pub duration_predictor: Option<String>,
     pub text_encoder: Option<String>,
@@ -273,6 +336,9 @@ impl OfflineTtsSupertonicModelConfig {
 // --- Aggregate config structs ---
 
 #[derive(Clone, Debug, Default)]
+/// Aggregate model configuration for [`OfflineTts`].
+///
+/// Configure exactly one model family for typical use.
 pub struct OfflineTtsModelConfig {
     pub vits: OfflineTtsVitsModelConfig,
     pub matcha: OfflineTtsMatchaModelConfig,
@@ -289,21 +355,36 @@ pub struct OfflineTtsModelConfig {
 impl OfflineTtsModelConfig {
     fn to_sys(&self, cstrings: &mut Vec<CString>) -> sys::OfflineTtsModelConfig {
         sys::OfflineTtsModelConfig {
-            vits: self.vits.to_sys(cstrings),
+            vits: self
+                .vits
+                .to_sys(cstrings),
             num_threads: self.num_threads,
             debug: self.debug as i32,
             provider: to_c_ptr(&self.provider, cstrings),
-            matcha: self.matcha.to_sys(cstrings),
-            kokoro: self.kokoro.to_sys(cstrings),
-            kitten: self.kitten.to_sys(cstrings),
-            zipvoice: self.zipvoice.to_sys(cstrings),
-            pocket: self.pocket.to_sys(cstrings),
-            supertonic: self.supertonic.to_sys(cstrings),
+            matcha: self
+                .matcha
+                .to_sys(cstrings),
+            kokoro: self
+                .kokoro
+                .to_sys(cstrings),
+            kitten: self
+                .kitten
+                .to_sys(cstrings),
+            zipvoice: self
+                .zipvoice
+                .to_sys(cstrings),
+            pocket: self
+                .pocket
+                .to_sys(cstrings),
+            supertonic: self
+                .supertonic
+                .to_sys(cstrings),
         }
     }
 }
 
 #[derive(Clone, Debug, Default)]
+/// Top-level configuration for [`OfflineTts`].
 pub struct OfflineTtsConfig {
     pub model: OfflineTtsModelConfig,
     pub rule_fsts: Option<String>,
@@ -315,7 +396,9 @@ pub struct OfflineTtsConfig {
 impl OfflineTtsConfig {
     fn to_sys(&self, cstrings: &mut Vec<CString>) -> sys::OfflineTtsConfig {
         sys::OfflineTtsConfig {
-            model: self.model.to_sys(cstrings),
+            model: self
+                .model
+                .to_sys(cstrings),
             rule_fsts: to_c_ptr(&self.rule_fsts, cstrings),
             max_num_sentences: self.max_num_sentences,
             rule_fars: to_c_ptr(&self.rule_fars, cstrings),
@@ -327,6 +410,7 @@ impl OfflineTtsConfig {
 // --- Generation config ---
 
 #[derive(Clone, Debug)]
+/// Per-request generation options for [`OfflineTts::generate_with_config`].
 pub struct GenerationConfig {
     pub silence_scale: f32,
     pub speed: f32,
@@ -355,15 +439,20 @@ impl Default for GenerationConfig {
 
 // --- Generated audio ---
 
+/// Generated audio returned by [`OfflineTts::generate_with_config`].
 pub struct GeneratedAudio {
     ptr: *const sys::SherpaOnnxGeneratedAudio,
 }
 
 impl GeneratedAudio {
+    /// Borrow generated samples.
     pub fn samples(&self) -> &[f32] {
         unsafe {
             let p = &*self.ptr;
-            if p.samples.is_null() || p.n <= 0 {
+            if p.samples
+                .is_null()
+                || p.n <= 0
+            {
                 &[]
             } else {
                 slice::from_raw_parts(p.samples, p.n as usize)
@@ -371,11 +460,12 @@ impl GeneratedAudio {
         }
     }
 
+    /// Return the output sample rate in Hz.
     pub fn sample_rate(&self) -> i32 {
         unsafe { (*self.ptr).sample_rate }
     }
 
-    /// Save generated audio to a WAV file. Returns true on success.
+    /// Save generated audio to a WAV file.
     pub fn save(&self, filename: &str) -> bool {
         crate::wave::write(filename, self.samples(), self.sample_rate())
     }
@@ -384,7 +474,10 @@ impl GeneratedAudio {
 impl Drop for GeneratedAudio {
     fn drop(&mut self) {
         unsafe {
-            if !self.ptr.is_null() {
+            if !self
+                .ptr
+                .is_null()
+            {
                 sys::SherpaOnnxDestroyOfflineTtsGeneratedAudio(self.ptr);
             }
         }
@@ -393,6 +486,37 @@ impl Drop for GeneratedAudio {
 
 // --- Offline TTS ---
 
+/// Offline TTS engine.
+///
+/// ```no_run
+/// use sherpa_onnx::{
+///     OfflineTts, OfflineTtsConfig, OfflineTtsModelConfig, OfflineTtsPocketModelConfig,
+/// };
+///
+/// let config = OfflineTtsConfig {
+///     model: OfflineTtsModelConfig {
+///         pocket: OfflineTtsPocketModelConfig {
+///             lm_flow: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/lm_flow.int8.onnx".into()),
+///             lm_main: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/lm_main.int8.onnx".into()),
+///             encoder: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/encoder.onnx".into()),
+///             decoder: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/decoder.int8.onnx".into()),
+///             text_conditioner: Some(
+///                 "./sherpa-onnx-pocket-tts-int8-2026-01-26/text_conditioner.onnx".into(),
+///             ),
+///             vocab_json: Some("./sherpa-onnx-pocket-tts-int8-2026-01-26/vocab.json".into()),
+///             token_scores_json: Some(
+///                 "./sherpa-onnx-pocket-tts-int8-2026-01-26/token_scores.json".into(),
+///             ),
+///             ..Default::default()
+///         },
+///         ..Default::default()
+///     },
+///     ..Default::default()
+/// };
+///
+/// let tts = OfflineTts::create(&config).expect("create tts");
+/// println!("{}", tts.sample_rate());
+/// ```
 pub struct OfflineTts {
     ptr: *const sys::SherpaOnnxOfflineTts,
 }
@@ -400,6 +524,7 @@ pub struct OfflineTts {
 unsafe impl Send for OfflineTts {}
 
 impl OfflineTts {
+    /// Create a TTS engine from `config`.
     pub fn create(config: &OfflineTtsConfig) -> Option<Self> {
         let mut cstrings = Vec::new();
         let sys_config = config.to_sys(&mut cstrings);
@@ -411,19 +536,21 @@ impl OfflineTts {
         }
     }
 
+    /// Return the output sample rate in Hz.
     pub fn sample_rate(&self) -> i32 {
         unsafe { sys::SherpaOnnxOfflineTtsSampleRate(self.ptr) }
     }
 
+    /// Return the number of built-in speakers reported by the model.
     pub fn num_speakers(&self) -> i32 {
         unsafe { sys::SherpaOnnxOfflineTtsNumSpeakers(self.ptr) }
     }
 
-    /// Generate audio using GenerationConfig.
+    /// Generate audio for `text`.
     ///
-    /// An optional progress callback can be provided. It receives the samples
-    /// generated so far and a progress value in [0, 1]. Return `true` to
-    /// continue generating, or `false` to stop early.
+    /// The optional callback receives the samples generated so far together
+    /// with a progress value in `[0, 1]`. Return `true` to continue and
+    /// `false` to stop early.
     pub fn generate_with_config<F>(
         &self,
         text: &str,
@@ -462,14 +589,16 @@ impl OfflineTts {
             extra: c_extra.as_ptr(),
         };
 
-        let (c_callback, c_arg): (sys::SherpaOnnxGeneratedAudioProgressCallbackWithArg, *mut c_void) =
-            if let Some(cb) = callback {
-                let boxed: Box<BoxedProgressCallback> = Box::new(Box::new(cb));
-                let raw = Box::into_raw(boxed);
-                (Some(progress_callback_trampoline), raw as *mut c_void)
-            } else {
-                (None, ptr::null_mut())
-            };
+        let (c_callback, c_arg): (
+            sys::SherpaOnnxGeneratedAudioProgressCallbackWithArg,
+            *mut c_void,
+        ) = if let Some(cb) = callback {
+            let boxed: Box<BoxedProgressCallback> = Box::new(Box::new(cb));
+            let raw = Box::into_raw(boxed);
+            (Some(progress_callback_trampoline), raw as *mut c_void)
+        } else {
+            (None, ptr::null_mut())
+        };
 
         let audio_ptr = unsafe {
             sys::SherpaOnnxOfflineTtsGenerateWithConfig(

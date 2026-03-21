@@ -6,7 +6,7 @@
 
 
 import os
-from typing import Any, ClassVar, Dict, List, Literal, Mapping, Optional
+from typing import Any, ClassVar, Dict, List, Literal, Mapping, Optional, Union
 
 import torch
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -57,6 +57,11 @@ class ModelConfig(BaseConfig):
     sa_nheads: int
     ca_nheads: int
     dec_n_points: int
+    num_queries: int = 300
+    # NOTE:
+    # - ModelConfig is the authoritative source of `num_select` for PTL/inference; it is read via `build_namespace`.
+    # - Any `num_select` field on TrainConfig / SegmentationTrainConfig is deprecated and ignored by PTL/inference.
+    num_select: int = 300
     bbox_reparam: bool = True
     lite_refpoint_refine: bool = True
     layer_norm: bool = True
@@ -67,11 +72,15 @@ class ModelConfig(BaseConfig):
     resolution: int
     group_detr: int = 13
     gradient_checkpointing: bool = False
+    compile: bool = False
+    fused_optimizer: bool = True
     positional_encoding_size: int
     ia_bce_loss: bool = True
     cls_loss_coef: float = 1.0
     segmentation_head: bool = False
     mask_downsample_ratio: int = 4
+    backbone_lora: bool = False
+    freeze_encoder: bool = False
     license: str = "Apache-2.0"
 
     @field_validator("pretrain_weights", mode="after")
@@ -180,6 +189,12 @@ class RFDETRLargeConfig(ModelConfig):
     positional_encoding_size: int = 704 // 16
     pretrain_weights: Optional[str] = "rf-detr-large-2026.pth"
     resolution: int = 704
+    # Explicit so populate_args and _build_args_from_configs agree.
+    # ModelConfig does not define these fields; without them the legacy path
+    # picks up populate_args defaults (num_select=100) while the PTL path falls
+    # back to TrainConfig.num_select (300), causing a postprocess mismatch.
+    num_queries: int = 300
+    num_select: int = 300
 
 
 class RFDETRSegPreviewConfig(RFDETRBaseConfig):
@@ -281,11 +296,29 @@ class RFDETRSeg2XLargeConfig(RFDETRBaseConfig):
 
 
 class TrainConfig(BaseModel):
+    """Training hyperparameters and auto-batching configuration.
+
+    Notes:
+        * ``auto_batch_target_effective`` is interpreted as the **per-device**
+          effective batch size target, i.e. the number of images seen by a
+          single process in one optimizer step after accounting for
+          ``grad_accum_steps``. In multi-GPU / multi-node runs the global
+          effective batch size is therefore:
+
+            ``global_effective_batch = auto_batch_target_effective * devices * num_nodes``
+
+          This avoids silently changing behavior when scaling from single-GPU
+          to multi-GPU training.
+    """
+
     lr: float = 1e-4
     lr_encoder: float = 1.5e-4
-    batch_size: int = 4
-    device: Literal["auto", "cpu", "cuda", "mps"] = DEVICE
+    batch_size: int | Literal["auto"] = 4
     grad_accum_steps: int = 4
+    auto_batch_target_effective: int = 16  # per-device effective batch size target (before devices * num_nodes)
+    # Auto-batch probe: worst-case assumptions when batch_size="auto".
+    auto_batch_max_targets_per_image: int = 100
+    auto_batch_ema_headroom: float = 0.7  # scale safe batch by this when use_ema=True (EMA uses extra memory)
     epochs: int = 100
     resume: Optional[str] = None
     ema_decay: float = 0.993
@@ -308,24 +341,110 @@ class TrainConfig(BaseModel):
     expanded_scales: bool = True
     do_random_resize_via_padding: bool = False
     use_ema: bool = True
+    ema_update_interval: int = 1
     num_workers: int = 2
     weight_decay: float = 1e-4
     early_stopping: bool = False
     early_stopping_patience: int = 10
     early_stopping_min_delta: float = 0.001
     early_stopping_use_ema: bool = False
-    progress_bar: bool = False  # Enable tqdm progress bars during training and evaluation epochs.
+    progress_bar: Optional[Literal["tqdm", "rich"]] = None  # Progress bar style: "rich", "tqdm", or None to disable.
     tensorboard: bool = True
     wandb: bool = False
     mlflow: bool = False
-    clearml: bool = False
+    clearml: bool = False  # Not yet implemented — reserved for future use.
     project: Optional[str] = None
     run: Optional[str] = None
     class_names: List[str] = None
-    run_test: bool = True
+    run_test: bool = False
     segmentation_head: bool = False
     eval_max_dets: int = 500
+    eval_interval: int = 1
+    log_per_class_metrics: bool = True
     aug_config: Optional[Dict[str, Any]] = None
+
+    @field_validator("progress_bar", mode="before")
+    @classmethod
+    def _coerce_legacy_progress_bar(cls, value: Any) -> Any:
+        """Normalize legacy boolean progress_bar values to the new string/None representation.
+
+        This preserves compatibility with older configs where ``progress_bar`` was a bool.
+        """
+        if isinstance(value, bool):
+            return "tqdm" if value else None
+        return value
+
+    # Promoted from populate_args() — PTL migration (T4-2).
+    # device is intentionally absent: PTL auto-detects accelerator via Trainer(accelerator="auto").
+    accelerator: str = "auto"
+    clip_max_norm: float = 0.1
+    seed: Optional[int] = None
+    sync_bn: bool = False
+    # strategy maps to PTL Trainer(strategy=...). Common values: "auto", "ddp",
+    # "ddp_spawn", "fsdp", "deepspeed". Invalid values surface as PTL errors.
+    strategy: str = "auto"
+    devices: Union[int, str] = 1
+    # num_nodes maps to PTL Trainer(num_nodes=...) for multi-machine training.
+    # Single-machine DDP users should leave this at 1 (the default).
+    num_nodes: int = 1
+    fp16_eval: bool = False
+    lr_scheduler: Literal["step", "cosine"] = "step"
+    lr_min_factor: float = 0.0
+    dont_save_weights: bool = False
+    # PTL runtime/perf tuning knobs.
+    train_log_sync_dist: bool = False
+    train_log_on_step: bool = False
+    compute_val_loss: bool = True
+    compute_test_loss: bool = True
+    pin_memory: Optional[bool] = None
+    persistent_workers: Optional[bool] = None
+    prefetch_factor: Optional[int] = None
+
+    @field_validator("batch_size", mode="after")
+    @classmethod
+    def validate_batch_size(cls, v: int | Literal["auto"]) -> int | Literal["auto"]:
+        """Validate batch_size is a positive integer or the literal 'auto'."""
+        if v == "auto":
+            return v
+        if v < 1:
+            raise ValueError("batch_size must be >= 1, or 'auto'.")
+        return v
+
+    @field_validator(
+        "grad_accum_steps", "auto_batch_target_effective", "auto_batch_max_targets_per_image", mode="after"
+    )
+    @classmethod
+    def validate_positive_train_steps(cls, v: int) -> int:
+        """Validate accumulation, target-effective batch, and max targets are >= 1."""
+        if v < 1:
+            raise ValueError(
+                "grad_accum_steps, auto_batch_target_effective, and auto_batch_max_targets_per_image must be >= 1."
+            )
+        return v
+
+    @field_validator("auto_batch_ema_headroom", mode="after")
+    @classmethod
+    def validate_ema_headroom(cls, v: float) -> float:
+        """Validate auto_batch_ema_headroom is in (0, 1]."""
+        if not (0 < v <= 1.0):
+            raise ValueError("auto_batch_ema_headroom must be in (0, 1].")
+        return v
+
+    @field_validator("ema_update_interval", "eval_interval", mode="after")
+    @classmethod
+    def validate_positive_intervals(cls, v: int) -> int:
+        """Validate interval fields are >= 1."""
+        if v < 1:
+            raise ValueError("Interval fields must be >= 1.")
+        return v
+
+    @field_validator("prefetch_factor", mode="after")
+    @classmethod
+    def validate_prefetch_factor(cls, v: Optional[int]) -> Optional[int]:
+        """Validate prefetch_factor is None or >= 1."""
+        if v is not None and v < 1:
+            raise ValueError("prefetch_factor must be >= 1 when provided.")
+        return v
 
     @field_validator("dataset_dir", "output_dir", mode="after")
     @classmethod

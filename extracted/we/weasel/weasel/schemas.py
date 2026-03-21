@@ -1,11 +1,7 @@
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Type, Union
 
-try:
-    from pydantic.v1 import BaseModel, Field, StrictStr, ValidationError, root_validator
-except ImportError:
-    from pydantic import BaseModel, Field, StrictStr, ValidationError, root_validator  # type: ignore
-
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, model_validator
 from wasabi import msg
 
 
@@ -43,7 +39,7 @@ class ProjectConfigAssetURL(BaseModel):
     # fmt: off
     dest: StrictStr = Field(..., title="Destination of downloaded asset")
     url: Optional[StrictStr] = Field(None, title="URL of asset")
-    checksum: Optional[str] = Field(None, title="MD5 hash of file", regex=r"([a-fA-F\d]{32})")
+    checksum: Optional[str] = Field(None, title="MD5 hash of file", pattern=r"([a-fA-F\d]{32})")
     description: StrictStr = Field("", title="Description of asset")
     # fmt: on
 
@@ -51,7 +47,7 @@ class ProjectConfigAssetURL(BaseModel):
 class ProjectConfigAssetGit(BaseModel):
     # fmt: off
     git: ProjectConfigAssetGitItem = Field(..., title="Git repo information")
-    checksum: Optional[str] = Field(None, title="MD5 hash of file", regex=r"([a-fA-F\d]{32})")
+    checksum: Optional[str] = Field(None, title="MD5 hash of file", pattern=r"([a-fA-F\d]{32})")
     description: Optional[StrictStr] = Field(None, title="Description of asset")
     # fmt: on
 
@@ -67,9 +63,10 @@ class ProjectConfigCommand(BaseModel):
     no_skip: bool = Field(False, title="Never skip this command, even if nothing changed")
     # fmt: on
 
-    class Config:
-        title = "A single named command specified in a project config"
-        extra = "forbid"
+    model_config = ConfigDict(
+        title="A single named command specified in a project config",
+        extra="forbid",
+    )
 
 
 class ProjectConfigSchema(BaseModel):
@@ -82,10 +79,10 @@ class ProjectConfigSchema(BaseModel):
     title: Optional[str] = Field(None, title="Project title")
     # fmt: on
 
-    class Config:
-        title = "Schema for project configuration file"
+    model_config = ConfigDict(title="Schema for project configuration file")
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def check_legacy_keys(cls, obj: Dict[str, Any]) -> Dict[str, Any]:
         if "spacy_version" in obj:
             msg.warn(

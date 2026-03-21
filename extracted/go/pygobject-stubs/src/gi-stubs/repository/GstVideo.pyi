@@ -812,6 +812,7 @@ class VideoAggregator(GstBase.Aggregator):
     priv: VideoAggregatorPrivate = ...
     def __init__(
         self,
+        *,
         force_live: bool = ...,
         emit_signals: bool = ...,
         latency: int = ...,
@@ -923,6 +924,7 @@ class VideoAggregatorConvertPad(VideoAggregatorPad):
     priv: VideoAggregatorConvertPadPrivate = ...
     def __init__(
         self,
+        *,
         converter_config: Gst.Structure = ...,
         max_last_buffer_repeat: int = ...,
         repeat_after_eos: bool = ...,
@@ -1024,6 +1026,7 @@ class VideoAggregatorPad(GstBase.AggregatorPad):
     priv: VideoAggregatorPadPrivate = ...
     def __init__(
         self,
+        *,
         max_last_buffer_repeat: int = ...,
         repeat_after_eos: bool = ...,
         zorder: int = ...,
@@ -1156,6 +1159,7 @@ class VideoAggregatorParallelConvertPad(VideoAggregatorConvertPad):
     parent_instance: VideoAggregatorConvertPad = ...
     def __init__(
         self,
+        *,
         converter_config: Gst.Structure = ...,
         max_last_buffer_repeat: int = ...,
         repeat_after_eos: bool = ...,
@@ -1259,7 +1263,7 @@ class VideoBufferPool(Gst.BufferPool):
     bufferpool: Gst.BufferPool = ...
     priv: VideoBufferPoolPrivate = ...
     def __init__(
-        self, name: typing.Optional[str] = ..., parent: Gst.Object = ...
+        self, *, name: typing.Optional[str] = ..., parent: Gst.Object = ...
     ) -> None: ...
     @classmethod
     def new(cls) -> VideoBufferPool: ...
@@ -1509,6 +1513,7 @@ class VideoDecoder(Gst.Element):
     padding: list[None] = ...
     def __init__(
         self,
+        *,
         automatic_request_sync_point_flags: VideoDecoderRequestSyncPointFlags = ...,
         automatic_request_sync_points: bool = ...,
         discard_corrupted_frames: bool = ...,
@@ -1713,6 +1718,7 @@ class VideoEncoder(Gst.Element, Gst.Preset):
     padding: list[None] = ...
     def __init__(
         self,
+        *,
         min_force_key_unit_interval: int = ...,
         qos: bool = ...,
         name: typing.Optional[str] = ...,
@@ -1849,6 +1855,7 @@ class VideoFilter(GstBase.BaseTransform):
     out_info: VideoInfo = ...
     def __init__(
         self,
+        *,
         qos: bool = ...,
         name: typing.Optional[str] = ...,
         parent: Gst.Object = ...,
@@ -2006,6 +2013,8 @@ class VideoInfo(GObject.GBoxed):
     fps_d: int = ...
     offset: list[int] = ...
     stride: list[int] = ...
+    @staticmethod
+    def __new__(cls: type[Self]) -> Self: ...
     def align(self, align: VideoAlignment) -> bool: ...
     def align_full(self, align: VideoAlignment) -> typing.Tuple[bool, int]: ...
     def convert(
@@ -2041,6 +2050,8 @@ class VideoInfoDmaDrm(GObject.GBoxed):
     vinfo: VideoInfo = ...
     drm_fourcc: int = ...
     drm_modifier: int = ...
+    @staticmethod
+    def __new__(cls: type[Self]) -> Self: ...
     def free(self) -> None: ...
     @staticmethod
     def from_caps(caps: Gst.Caps) -> typing.Tuple[bool, VideoInfoDmaDrm]: ...
@@ -2199,6 +2210,10 @@ class VideoOverlayComposition(GObject.GBoxed):
 
         new(rectangle:GstVideo.VideoOverlayRectangle=None) -> GstVideo.VideoOverlayComposition
     """
+    @staticmethod
+    def __new__(
+        cls: type[Self], rectangle: typing.Optional[VideoOverlayRectangle] = None
+    ) -> Self: ...
     def add_rectangle(self, rectangle: VideoOverlayRectangle) -> None: ...
     def blend(self, video_buf: VideoFrame) -> bool: ...
     def copy(self) -> VideoOverlayComposition: ...
@@ -2462,6 +2477,7 @@ class VideoSink(GstBase.BaseSink):
     priv: VideoSinkPrivate = ...
     def __init__(
         self,
+        *,
         show_preroll_frame: bool = ...,
         blocksize: int = ...,
         enable_last_sample: bool = ...,
@@ -2675,6 +2691,8 @@ class VideoVBIEncoder(GObject.GBoxed):
 
         new(format:GstVideo.VideoFormat, pixel_width:int) -> GstVideo.VideoVBIEncoder or None
     """
+    @staticmethod
+    def __new__(cls: type[Self], format: VideoFormat, pixel_width: int) -> Self: ...
     def add_ancillary(
         self,
         composite: bool,
@@ -2698,6 +2716,8 @@ class VideoVBIParser(GObject.GBoxed):
 
         new(format:GstVideo.VideoFormat, pixel_width:int) -> GstVideo.VideoVBIParser or None
     """
+    @staticmethod
+    def __new__(cls: type[Self], format: VideoFormat, pixel_width: int) -> Self: ...
     def add_line(self, data: typing.Sequence[int]) -> None: ...
     def copy(self) -> VideoVBIParser: ...
     def free(self) -> None: ...

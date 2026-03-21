@@ -1,2 +1,0 @@
-import{U as d,D as r}from"./NewEditor-Dr2_WDd_.js";(function(){try{var e=typeof window<"u"?window:typeof global<"u"?global:typeof self<"u"?self:{},n=new Error().stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="3083afef-d2b3-4ec9-8578-ea9ba38d570c",e._sentryDebugIdIdentifier="sentry-dbid-3083afef-d2b3-4ec9-8578-ea9ba38d570c")}catch{}})();const s=(e,n)=>d.lang.round(r.parse(e)[n]);export{s as c};
-//# sourceMappingURL=channel-CkLR_PvA.js.map

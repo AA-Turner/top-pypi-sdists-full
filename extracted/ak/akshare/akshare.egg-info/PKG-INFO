@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: akshare
-Version: 1.18.41
+Version: 1.18.42
 Summary: AKShare is an elegant and simple financial data interface library for Python, built for human beings!
 Author-email: AKFamily <albertandking@gmail.com>
 License: MIT
 Project-URL: Homepage, https://github.com/akfamily/akshare
 Keywords: stock,option,futures,fund,bond,index,air,finance,spider,quant,quantitative,investment,trading,algotrading,data
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -15,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: beautifulsoup4>=4.9.1
@@ -40,15 +39,15 @@ Provides-Extra: qmt
 Requires-Dist: akqmt; extra == "qmt"
 Provides-Extra: dev
 Requires-Dist: akqmt>=0.1.0; extra == "dev"
-Requires-Dist: commitizen>=4.12.1; extra == "dev"
-Requires-Dist: pre-commit>=3.6.2; extra == "dev"
+Requires-Dist: commitizen>=4.12.1; python_version >= "3.10" and extra == "dev"
+Requires-Dist: pre-commit>=3.6.2; python_version >= "3.9" and extra == "dev"
 Requires-Dist: sphinx>=7.4.3; extra == "dev"
 Requires-Dist: recommonmark>=0.7.1; extra == "dev"
 Requires-Dist: sphinx_markdown_tables>=0.0.17; extra == "dev"
 Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "dev"
 Requires-Dist: mplfinance>=0.12.10b0; extra == "dev"
-Requires-Dist: ruff>=0.14.14; extra == "dev"
-Requires-Dist: ruff-lsp>=0.0.53; extra == "dev"
+Requires-Dist: ruff>=0.14.14; python_version >= "3.10" and extra == "dev"
+Requires-Dist: ruff-lsp>=0.0.53; python_version >= "3.10" and extra == "dev"
 Dynamic: license-file
 
 **资源分享**：对于想了解更多财经数据与量化投研的小伙伴，推荐一个专注于财经数据和量化研究的知识社区。

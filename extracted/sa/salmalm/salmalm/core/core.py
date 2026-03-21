@@ -1,0 +1,933 @@
+"""SalmAlm core — audit, cache, usage, router, compaction, search,
+subagent, skills, session, cron, daily."""
+
+import hashlib
+import json
+import os
+import sqlite3
+import threading
+import time
+import shutil
+from collections import OrderedDict
+from datetime import datetime
+from typing import Optional
+
+from salmalm.constants import (
+    AUDIT_DB,
+    CACHE_TTL,
+    COMPLEX_INDICATORS,
+    DATA_DIR,
+    KST,
+    MEMORY_DIR,
+    MODEL_COSTS,
+    MODEL_TIERS,
+    SIMPLE_QUERY_MAX_CHARS,
+    TOOL_HINT_KEYWORDS,
+)
+from salmalm.security.crypto import vault, log
+from salmalm.core.audit import (  # noqa: F401
+    _init_audit_db,
+    _ensure_audit_v2_table,
+    audit_log,
+    audit_checkpoint,
+    query_audit_log,
+    _flush_audit_buffer,
+)
+from salmalm.core.core_messages import search_messages, delete_message, edit_message  # noqa: F401
+
+# ============================================================
+_usage_lock = threading.Lock()  # Usage tracking (separate to avoid contention)
+
+# ── Hook registry (avoids core → features/web reverse dependencies) ──────────
+# All hooks are registered at startup by bootstrap._register_usage_hooks().
+# This keeps core/ free of reverse imports to features/ and web/.
+from typing import Callable as _Callable
+
+# Usage hooks: fn(user_id, cost, tokens)
+_usage_hooks: list[_Callable] = []
+
+# Abort hooks: fn(session_id) -> Optional[str]  (returns partial response or None)
+_abort_hooks: list[_Callable] = []
+
+# WS notification hooks: fn(session_id, event_type, data) -> None
+_ws_notify_hooks: list[_Callable] = []
+
+# Usage tracking hooks (detailed): fn(session_id, model, inp, out, cost, intent)
+_usage_detail_hooks: list[_Callable] = []
+
+
+def register_abort_hook(fn: "_Callable") -> None:
+    """Register a hook called to check/clear abort state for a session.
+    Signature: fn(session_id: str) -> Optional[str] (partial text or None)
+    """
+    _abort_hooks.append(fn)
+
+
+def check_abort_via_hook(session_id: str):
+    """Check abort state through registered hooks (no direct features import)."""
+    for hook in _abort_hooks:
+        try:
+            result = hook(session_id)
+            if result is not None:
+                return result
+        except Exception as _e:
+            log.debug("abort hook error: %s", _e)
+    return None
+
+
+def register_ws_notify_hook(fn: "_Callable") -> None:
+    """Register a hook to push WS notifications from core layer.
+    Signature: fn(session_id: str, event_type: str, data: dict) -> None
+    """
+    _ws_notify_hooks.append(fn)
+
+
+def notify_ws_via_hook(session_id: str, event_type: str, data: dict) -> None:
+    """Push a WS event through registered hooks (no direct web.ws import)."""
+    for hook in _ws_notify_hooks:
+        try:
+            hook(session_id, event_type, data)
+        except Exception as _e:
+            log.debug("ws notify hook error: %s", _e)
+
+
+def register_usage_detail_hook(fn: "_Callable") -> None:
+    """Register a detailed usage tracking hook.
+    Signature: fn(session_id, model, inp, out, cost, intent) -> None
+    """
+    _usage_detail_hooks.append(fn)
+
+
+def register_usage_hook(fn: "_Callable") -> None:
+    """Register a callback invoked after every track_usage() call.
+
+    Hooks are called with keyword arguments:
+        fn(user_id=<int|None>, cost=<float>, tokens=<int>)
+
+    Use this instead of importing salmalm.features.* or salmalm.web.* from
+    core.py — those imports create a reverse dependency that complicates
+    testing and circular-import analysis.
+    """
+    _usage_hooks.append(fn)
+_thread_local = threading.local()  # Thread-local DB connections + user context
+
+
+_all_db_connections: list = []  # Track all connections for shutdown cleanup
+_db_connections_lock = threading.Lock()
+_migration_backup_lock = threading.Lock()
+_migration_backup_done = False
+
+# LOW-23: Ensure DB connections are closed on interpreter exit
+import atexit as _atexit
+
+
+def _atexit_close_db():
+    """Close all tracked DB connections at interpreter shutdown."""
+    import weakref as _weakref
+
+    with _db_connections_lock:
+        for ref in _all_db_connections:
+            try:
+                conn = ref() if isinstance(ref, _weakref.ref) else ref
+                if conn is not None:
+                    conn.close()
+            except Exception:
+                pass
+        _all_db_connections.clear()
+
+
+_atexit.register(_atexit_close_db)
+
+
+def _get_db() -> sqlite3.Connection:
+    """Get thread-local SQLite connection (reused across calls, WAL mode)."""
+    conn = getattr(_thread_local, "audit_conn", None)
+    if conn is None:
+        AUDIT_DB.parent.mkdir(parents=True, exist_ok=True)  # noqa: F405
+        conn = sqlite3.connect(str(AUDIT_DB), check_same_thread=True)  # noqa: F405
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        # Track for shutdown cleanup (cap to prevent unbounded growth)
+        import weakref as _weakref
+
+        with _db_connections_lock:
+            # Prune dead weak refs
+            _all_db_connections[:] = [
+                r for r in _all_db_connections if (not isinstance(r, _weakref.ref)) or r() is not None
+            ]
+            try:
+                _all_db_connections.append(_weakref.ref(conn))
+            except TypeError:
+                _all_db_connections.append(conn)
+        # Auto-create tables and run versioned migrations on first connection per thread
+        _run_db_migrations(conn)
+        _thread_local.audit_conn = conn
+    return conn
+
+
+# ── DB schema version table + migrations ─────────────────────────────────────
+# Replaces the previous pattern of 8 bare ALTER TABLE try/except blocks.
+# Each entry in _DB_MIGRATIONS is (version: int, sql: str).
+# Migrations run once in order; schema_version tracks the highest applied.
+_DB_MIGRATIONS: list = [
+    # v1: baseline tables
+    (1, """CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL, event TEXT NOT NULL,
+            detail TEXT, prev_hash TEXT, hash TEXT NOT NULL
+         )"""),
+    (1, """CREATE TABLE IF NOT EXISTS usage_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL, model TEXT NOT NULL,
+            input_tokens INTEGER, output_tokens INTEGER, cost REAL,
+            user_id INTEGER DEFAULT NULL
+         )"""),
+    (1, """CREATE TABLE IF NOT EXISTS session_store (
+            session_id TEXT PRIMARY KEY,
+            messages TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+         )"""),
+    (1, """CREATE TABLE IF NOT EXISTS session_message_backup (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            messages_json TEXT NOT NULL,
+            removed_at TEXT NOT NULL,
+            reason TEXT DEFAULT 'rollback'
+         )"""),
+    # v2: session_store column additions
+    (2, "ALTER TABLE session_store ADD COLUMN parent_session_id TEXT DEFAULT NULL"),
+    (2, "ALTER TABLE session_store ADD COLUMN branch_index INTEGER DEFAULT NULL"),
+    (2, 'ALTER TABLE session_store ADD COLUMN title TEXT DEFAULT ""'),
+    (2, "ALTER TABLE session_store ADD COLUMN user_id INTEGER DEFAULT NULL"),
+    # v3: usage_stats user_id (was missing — caused silent INSERT failures pre-v0.27.57)
+    (3, "ALTER TABLE usage_stats ADD COLUMN user_id INTEGER DEFAULT NULL"),
+    # v4: session metadata blob
+    (4, "ALTER TABLE session_store ADD COLUMN session_meta TEXT DEFAULT '{}'"),
+    # v5: session groups
+    (5, """CREATE TABLE IF NOT EXISTS session_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            color TEXT DEFAULT '#6366f1',
+            sort_order INTEGER DEFAULT 0,
+            collapsed INTEGER DEFAULT 0
+         )"""),
+    (5, "ALTER TABLE session_store ADD COLUMN group_id INTEGER DEFAULT NULL"),
+    # v6: usage_detail — moved here from track_usage() hot path (DDL-per-call removed)
+    (6, """CREATE TABLE IF NOT EXISTS usage_detail (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL,
+            session_id TEXT,
+            model TEXT NOT NULL,
+            input_tokens INTEGER DEFAULT 0,
+            output_tokens INTEGER DEFAULT 0,
+            cost REAL DEFAULT 0.0,
+            intent TEXT DEFAULT ''
+         )"""),
+]
+
+_SCHEMA_VERSION = max(v for v, _ in _DB_MIGRATIONS)
+
+
+def _run_db_migrations(conn: sqlite3.Connection) -> None:
+    """Apply pending schema migrations to an open connection."""
+    global _migration_backup_done
+    # Schema version table (idempotent)
+    conn.execute("""CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+    )""")
+    conn.commit()
+
+    applied = {row[0] for row in conn.execute("SELECT version FROM schema_version").fetchall()}
+    import datetime as _dt
+    now = _dt.datetime.utcnow().isoformat()
+    pending = sorted({v for v, _ in _DB_MIGRATIONS if v not in applied})
+    if pending:
+        with _migration_backup_lock:
+            if not _migration_backup_done:
+                try:
+                    db_row = conn.execute("PRAGMA database_list").fetchone()
+                    db_file = db_row[2] if db_row and len(db_row) > 2 else ""
+                    if db_file and os.path.exists(db_file):
+                        ts = _dt.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+                        backup_path = f"{db_file}.premigration.{ts}.bak"
+                        shutil.copy2(db_file, backup_path)
+                        log.info("[DB] Migration backup created: %s", backup_path)
+                except Exception as _bak_err:
+                    log.warning("[DB] Migration backup failed: %s", _bak_err)
+                _migration_backup_done = True
+
+    migrations_by_version: dict[int, list[str]] = {}
+    for version, sql in _DB_MIGRATIONS:
+        migrations_by_version.setdefault(version, []).append(sql)
+
+    for version in sorted(migrations_by_version):
+        if version in applied:
+            continue
+        try:
+            conn.execute("BEGIN")
+            for sql in migrations_by_version[version]:
+                try:
+                    conn.execute(sql)
+                except Exception as _stmt_err:
+                    _msg = str(_stmt_err).lower()
+                    if "duplicate column name" in _msg or "already exists" in _msg:
+                        log.debug("[DB] Migration v%d idempotent skip (%s): %s", version, sql[:60], _stmt_err)
+                        continue
+                    raise
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+                (version, now),
+            )
+            conn.execute("COMMIT")
+            applied.add(version)
+        except Exception as _mig_err:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            log.error("[DB] Migration v%d failed: %s", version, _mig_err)
+
+    conn.commit()
+    log.debug("[DB] Schema at v%d (%d applied)", _SCHEMA_VERSION, len(applied))
+
+
+# ── Audit log batching ──
+_audit_buffer: list = []  # buffered audit entries
+_audit_flush_timer: Optional[threading.Timer] = None  # noqa: F405
+
+
+def audit_log_cleanup(days: int = 30) -> None:
+    """Delete audit_log_v2 entries older than `days` days."""
+    from datetime import timedelta
+
+    cutoff = (datetime.now(KST) - timedelta(days=days)).isoformat()  # noqa: F405
+    try:
+        conn = _get_db()
+        _ensure_audit_v2_table()
+        deleted = conn.execute("DELETE FROM audit_log_v2 WHERE timestamp < ?", (cutoff,)).rowcount
+        conn.commit()
+        if deleted:
+            log.info(f"[AUDIT] Cleaned up {deleted} audit entries older than {days} days")
+    except Exception as e:
+        log.warning(f"Audit cleanup error: {e}")
+
+
+def close_all_db_connections() -> None:
+    """Close all tracked SQLite connections (for graceful shutdown)."""
+    import weakref as _weakref
+
+    with _db_connections_lock:
+        for ref in _all_db_connections:
+            try:
+                conn = ref() if isinstance(ref, _weakref.ref) else ref
+                if conn is not None:
+                    conn.close()
+            except Exception as e:
+                log.debug(f"Suppressed: {e}")
+        _all_db_connections.clear()
+    log.info("[DB] All database connections closed")
+
+
+class ResponseCache:
+    """Simple TTL cache for LLM responses to avoid duplicate calls."""
+
+    def __init__(self, max_size=100, ttl=CACHE_TTL):  # noqa: F405
+        """Init  ."""
+        self._cache: OrderedDict = OrderedDict()
+        self._max_size = max_size
+        self._ttl = ttl
+        self._lock = threading.RLock()
+
+    def _key(
+        self,
+        model: str,
+        messages: list,
+        session_id: str = "",
+        system_prompt: str = "",
+        tools: list | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        """Build cache key including model params for correctness."""
+        key_data: dict = {"s": session_id, "m": model, "msgs": messages[-5:]}
+        if system_prompt:
+            key_data["sp"] = hashlib.sha256(system_prompt.encode()).hexdigest()[:12]
+        if tools:
+            key_data["tools"] = hashlib.sha256(json.dumps(tools, sort_keys=True).encode()).hexdigest()[:12]
+        if temperature is not None:
+            key_data["temp"] = temperature
+        if max_tokens is not None:
+            key_data["mt"] = max_tokens
+        content = json.dumps(key_data, sort_keys=True)
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def get(
+        self,
+        model: str,
+        messages: list,
+        session_id: str = "",
+        system_prompt: str = "",
+        tools: list | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> Optional[str]:
+        """Get a cached response by key, or None if expired/missing."""
+        k = self._key(model, messages, session_id, system_prompt, tools, temperature, max_tokens)
+        with self._lock:
+            if k in self._cache:
+                entry = self._cache[k]
+                if time.time() - entry["ts"] < self._ttl:
+                    self._cache.move_to_end(k)
+                    log.info("[COST] Cache hit -- saved API call")
+                    return entry["response"]  # type: ignore[no-any-return]
+                del self._cache[k]
+        return None
+
+    def put(
+        self,
+        model: str,
+        messages: list,
+        response: str,
+        session_id: str = "",
+        system_prompt: str = "",
+        tools: list | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> None:
+        """Store a response in cache with TTL."""
+        k = self._key(model, messages, session_id, system_prompt, tools, temperature, max_tokens)
+        with self._lock:
+            self._cache[k] = {"response": response, "ts": time.time()}
+            if len(self._cache) > self._max_size:
+                self._cache.popitem(last=False)
+
+    def clear(self) -> None:
+        """Clear all cache entries."""
+        with self._lock:
+            self._cache.clear()
+
+
+response_cache = ResponseCache()
+
+# _usage_lock already defined at top of file
+_usage = {
+    "total_input": 0,
+    "total_output": 0,
+    "total_cost": 0.0,
+    "by_model": {},
+    "session_start": time.time(),
+}
+
+# Production observability metrics
+_metrics = {
+    "llm_calls": 0,
+    "llm_errors": 0,
+    "tool_calls": 0,
+    "tool_errors": 0,
+    "total_cost": 0.0,
+    "total_tokens_in": 0,
+    "total_tokens_out": 0,
+}
+
+# Hard cost cap — stop all LLM calls after this threshold (per session lifetime)
+# Override with SALMALM_COST_CAP env var (in USD)
+COST_CAP = float(os.environ.get("SALMALM_COST_CAP", "0"))
+
+
+class CostCapExceeded(Exception):
+    """Raised when cumulative API spend exceeds the cost cap."""
+
+    pass
+
+
+def _restore_usage():
+    """Restore cumulative usage from SQLite on startup (usage_stats + usage_detail fallback)."""
+    try:
+        conn = _get_db()
+        # Try usage_stats first (primary)
+        rows = conn.execute(
+            "SELECT model, SUM(input_tokens), SUM(output_tokens), SUM(cost), COUNT(*) FROM usage_stats GROUP BY model"
+        ).fetchall()
+        # If usage_stats is empty, try usage_detail as fallback
+        if not rows:
+            try:
+                rows = conn.execute(
+                    "SELECT model, SUM(input_tokens), SUM(output_tokens), SUM(cost), COUNT(*) FROM usage_detail GROUP BY model"
+                ).fetchall()
+            except Exception:
+                rows = []
+        for model, inp, out, cost, calls in rows:
+            short = model.split("/")[-1] if "/" in model else model
+            _usage["total_input"] += inp or 0  # type: ignore[operator]
+            _usage["total_output"] += out or 0  # type: ignore[operator]
+            _usage["total_cost"] += cost or 0  # type: ignore[operator]
+            _usage["by_model"][short] = {
+                "input": inp or 0,
+                "output": out or 0,  # type: ignore[index]
+                "cost": cost or 0,
+                "calls": calls or 0,
+            }
+        if _usage["total_cost"] > 0:  # type: ignore[operator]
+            log.info(f"[STAT] Usage restored: ${_usage['total_cost']:.4f} total, {len(rows)} models")
+        else:
+            log.info("[STAT] No usage data found in usage_stats or usage_detail")
+    except Exception as e:
+        log.warning(f"Usage restore failed: {e}")
+
+
+def check_cost_cap() -> None:
+    """Raise CostCapExceeded if cumulative cost exceeds the cap. 0 = disabled."""
+    if COST_CAP <= 0:
+        return
+    with _usage_lock:
+        if _usage["total_cost"] >= COST_CAP:
+            raise CostCapExceeded(
+                f"Cost cap exceeded: ${_usage['total_cost']:.2f} >= ${COST_CAP:.2f}. "
+                f"Increase SALMALM_COST_CAP env var or restart."
+            )
+
+
+def set_current_user_id(user_id: Optional[int]) -> None:
+    """Set the current user_id for cost tracking (thread-local)."""
+    _thread_local.current_user_id = user_id
+
+
+def get_current_user_id() -> Optional[int]:
+    """Get the current user_id from thread-local context."""
+    return getattr(_thread_local, "current_user_id", None)
+
+
+def track_usage(model: str, input_tokens: int, output_tokens: int, user_id: Optional[int] = None) -> None:
+    """Record token usage and cost for a model call."""
+    # Auto-detect user_id from thread-local if not provided
+    if user_id is None:
+        user_id = get_current_user_id()
+    with _usage_lock:
+        short = model.split("/")[-1] if "/" in model else model
+        cost_info = MODEL_COSTS.get(short, {"input": 1.0, "output": 5.0})  # noqa: F405
+        cost = (input_tokens * cost_info["input"] + output_tokens * cost_info["output"]) / 1_000_000
+        _usage["total_input"] += input_tokens  # type: ignore[operator]
+        _usage["total_output"] += output_tokens  # type: ignore[operator]
+        _usage["total_cost"] += cost  # type: ignore[operator]
+        if short not in _usage["by_model"]:  # type: ignore[operator]
+            _usage["by_model"][short] = {
+                "input": 0,
+                "output": 0,
+                "cost": 0.0,
+                "calls": 0,
+            }  # type: ignore[index]
+        _usage["by_model"][short]["input"] += input_tokens  # type: ignore[index]
+        _usage["by_model"][short]["output"] += output_tokens  # type: ignore[index]
+        _usage["by_model"][short]["cost"] += cost  # type: ignore[index]
+        _usage["by_model"][short]["calls"] += 1  # type: ignore[index]
+        # Persist to SQLite (with user_id for multi-tenant tracking)
+        conn = None
+        try:
+            conn = _get_db()
+            _ts = datetime.now(KST).isoformat()  # noqa: F405
+            conn.execute("BEGIN")
+            conn.execute(
+                "INSERT INTO usage_stats (ts, model, input_tokens, output_tokens, cost, user_id) VALUES (?,?,?,?,?,?)",
+                (_ts, model, input_tokens, output_tokens, cost, user_id),
+            )
+            conn.execute(
+                "INSERT INTO usage_detail (ts, session_id, model, input_tokens, output_tokens, cost) "
+                "VALUES (?,?,?,?,?,?)",
+                (_ts, "", model, input_tokens, output_tokens, cost),
+            )
+            conn.execute("COMMIT")
+        except Exception as e:
+            try:
+                if conn is not None:
+                    conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            log.debug("usage write failed: %s", e)
+        # Notify registered usage hooks (avoids core→features/web reverse dependency).
+        # Hooks are registered at startup by features/web layers via register_usage_hook().
+        _tokens_total = input_tokens + output_tokens
+        for _hook in _usage_hooks:
+            try:
+                _hook(user_id=user_id, cost=cost, tokens=_tokens_total)
+            except Exception as _he:
+                log.debug("usage hook error: %s", _he)
+        for _detail_hook in _usage_detail_hooks:
+            try:
+                _detail_hook("", model, input_tokens, output_tokens, cost, "")
+            except Exception as _de:
+                log.debug("usage detail hook error: %s", _de)
+
+
+def get_usage_report() -> dict:
+    """Generate a formatted usage report with token counts and costs."""
+    with _usage_lock:
+        elapsed = time.time() - _usage["session_start"]  # type: ignore[operator]
+        return {**_usage, "elapsed_hours": round(elapsed / 3600, 2)}
+
+
+class ModelRouter:
+    """Routes queries to appropriate models based on complexity."""
+
+    # Tier pools sourced from constants.py MODEL_TIERS (single source of truth)
+    TIERS = MODEL_TIERS  # noqa: F405
+
+    _MODEL_PREF_FILE = DATA_DIR / ".model_pref"  # noqa: F405
+
+    def __init__(self) -> None:
+        """Init  ."""
+        self.default_tier = 2
+        self.force_model: Optional[str] = None
+        # Restore persisted model preference (check .model_pref file first, then vault)
+        try:
+            if self._MODEL_PREF_FILE.exists():
+                saved = self._MODEL_PREF_FILE.read_text().strip()
+                if saved and saved != "auto":
+                    self.force_model = saved
+                    log.info(f"[FIX] Restored model preference: {saved}")
+            if not self.force_model:
+                # Fallback: check vault (set by setup wizard)
+                from salmalm.security.crypto import vault
+                vault_model = vault.get("default_model", "")
+                if vault_model and vault_model != "auto":
+                    self.force_model = vault_model
+                    log.info(f"[FIX] Restored model from vault: {vault_model}")
+        except Exception as e:
+            log.debug(f"Suppressed: {e}")
+
+    def set_force_model(self, model: Optional[str]) -> None:
+        """Set and persist model preference."""
+        self.force_model = model
+        try:
+            if model:
+                self._MODEL_PREF_FILE.write_text(model)
+            elif self._MODEL_PREF_FILE.exists():
+                self._MODEL_PREF_FILE.unlink()
+        except Exception as e:
+            log.error(f"Failed to persist model pref: {e}")
+
+    def route(self, user_message: str, has_tools: bool = False, iteration: int = 0) -> str:
+        """Route a message to the best model based on intent classification."""
+        if self.force_model:
+            return self.force_model
+
+        msg = user_message.lower()
+        msg_len = len(user_message)
+
+        # Tool-heavy iterations → always Tier 2+
+        if iteration > 2:
+            return self._pick_available(2)
+
+        # Determine current message tier
+        complex_score = sum(1 for kw in COMPLEX_INDICATORS if kw in msg)  # noqa: F405
+        tool_hint_score = sum(1 for kw in TOOL_HINT_KEYWORDS if kw in msg)  # noqa: F405
+
+        if complex_score >= 2 or msg_len > 1000 or (complex_score >= 1 and tool_hint_score >= 1):
+            tier = 3
+        elif has_tools and (tool_hint_score >= 1 or msg_len > 300):
+            tier = 2
+        elif msg_len < SIMPLE_QUERY_MAX_CHARS and not has_tools and complex_score == 0:  # noqa: F405
+            tier = 1
+        else:
+            tier = 2
+
+        # Session tier momentum: don't drop more than 1 tier from recent high.
+        # Prevents "멀었노?" (short follow-up) from falling to haiku mid-task.
+        prev_tier = getattr(self, "_last_tier", 1)
+        tier = max(tier, prev_tier - 1)
+        self._last_tier = tier
+
+        return self._pick_available(tier)
+
+    _OR_PROVIDERS = frozenset(["deepseek", "meta-llama", "mistralai", "qwen"])
+
+    def _has_key(self, provider: str) -> bool:
+        """Has key."""
+        if provider == "ollama":
+            # Check if Ollama is actually reachable (cached for 60s)
+            now = time.time()
+            if now - getattr(self, "_ollama_check_ts", 0) < 60:
+                return getattr(self, "_ollama_ok", False)
+            try:
+                import urllib.request
+                req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+                urllib.request.urlopen(req, timeout=1)
+                self._ollama_ok = True
+            except Exception:
+                self._ollama_ok = False
+            self._ollama_check_ts = now
+            return self._ollama_ok
+        if provider in self._OR_PROVIDERS:
+            return bool(vault.get("openrouter_api_key"))
+        return bool(vault.get(f"{provider}_api_key"))
+
+    def _pick_available(self, tier: int) -> str:
+        """Pick available."""
+        models = self.TIERS.get(tier, self.TIERS[2])
+        for m in models:
+            provider = m.split("/")[0]
+            if self._has_key(provider):
+                return m
+        # Fallback: try any available model
+        for t in [2, 1, 3]:
+            for m in self.TIERS.get(t, []):
+                provider = m.split("/")[0]
+                if self._has_key(provider):
+                    return m
+        return "google/gemini-3-flash-preview"  # last resort
+
+
+router = ModelRouter()
+
+
+# ============================================================
+# Compaction Summary Persistence — cross-session continuity
+# ============================================================
+# Compaction extracted to salmalm/core/compaction.py
+from salmalm.core.compaction import (  # noqa: E402, F401
+    compact_messages,
+    _persist_compaction_summary,
+    _restore_compaction_summary,
+    _msg_content_str,
+)
+
+from salmalm.core.search import TFIDFSearch  # noqa: E402
+
+_tfidf = TFIDFSearch()
+
+
+# Session + session management extracted to salmalm/core/session_store.py
+from salmalm.core.session_store import (  # noqa: E402, F401
+    Session,
+    _tg_bot,
+    get_telegram_bot,
+    set_telegram_bot,
+    _sessions,
+    _session_lock,
+    _cleanup_sessions,
+    get_session,
+    rollback_session,
+    branch_session,
+    _SESSIONS_DIR,
+    save_session_to_disk,
+    restore_session,
+    restore_all_sessions_from_disk,
+)
+
+
+# CronScheduler + HeartbeatManager extracted to salmalm/core/scheduler.py
+from salmalm.core.llm_cron import LLMCronManager  # noqa: E402
+from salmalm.core.scheduler import CronScheduler, HeartbeatManager  # noqa: E402
+
+cron = CronScheduler()
+heartbeat = HeartbeatManager()
+_llm_cron: Optional[LLMCronManager] = None  # Set by bootstrap at runtime
+
+
+# ============================================================
+# CONTEXT COMPACTION — Auto-compress old messages when token count exceeds threshold
+# ============================================================
+AUTO_COMPACT_TOKEN_THRESHOLD = 80_000  # ~80K tokens (chars/4 approximation = 320K chars)
+COMPACT_PRESERVE_RECENT = 10  # Keep last N messages intact
+
+
+def _estimate_tokens(messages: list) -> int:
+    """Estimate token count using chars/4 approximation (stdlib only)."""
+    total_chars = sum(len(_msg_content_str(m)) for m in messages)
+    return total_chars // 4
+
+
+def compact_session(session_id: str, force: bool = False) -> str:
+    """Compact a session's conversation by summarizing old messages.
+
+    If force=True, compact regardless of token count.
+    Returns a status message.
+    """
+    session = get_session(session_id)
+    est_tokens = _estimate_tokens(session.messages)
+
+    if not force and est_tokens < AUTO_COMPACT_TOKEN_THRESHOLD:
+        return (
+            f"Context size ~{est_tokens:,} tokens — no compaction needed (threshold: {AUTO_COMPACT_TOKEN_THRESHOLD:,})."
+        )
+
+    # Separate system messages and conversation
+    system_msgs = [m for m in session.messages if m["role"] == "system"][:1]
+    non_system = [m for m in session.messages if m["role"] != "system"]
+
+    if len(non_system) <= COMPACT_PRESERVE_RECENT:
+        return f"Only {len(non_system)} messages — too few to compact."
+
+    # Split: old messages to summarize, recent to preserve
+    old_msgs = non_system[:-COMPACT_PRESERVE_RECENT]
+    recent_msgs = non_system[-COMPACT_PRESERVE_RECENT:]
+
+    # Build summary request from old messages
+    summary_parts = []
+    for m in old_msgs[-30:]:  # Summarize last 30 old messages max
+        role = m.get("role", "?")
+        text = _msg_content_str(m)[:500]
+        if text.strip():
+            summary_parts.append(f"[{role}]: {text}")
+
+    if not summary_parts:
+        return "No substantial messages to compact."
+
+    summary_text = "\n".join(summary_parts)
+
+    from salmalm.core.llm import call_llm
+
+    summary_model = router._pick_available(1)
+    summ_msgs = [
+        {
+            "role": "system",
+            "content": (
+                "Summarize the following conversation concisely but thoroughly. "
+                "You MUST preserve:\n"
+                "1. Key decisions and conclusions\n"
+                "2. Task progress and what was accomplished\n"
+                "3. Important facts, numbers, file paths, code context\n"
+                "4. User preferences and constraints mentioned\n"
+                "5. Any pending/blocked items\n"
+                "Write in the same language as the conversation. "
+                "Use 5-15 sentences. Do NOT start with 'The conversation...' — "
+                "write as a factual summary that can serve as context for continued work."
+            ),
+        },
+        {"role": "user", "content": summary_text},
+    ]
+    try:
+        result = call_llm(summ_msgs, model=summary_model, max_tokens=1200)
+    except Exception as e:
+        # Compaction error: preserve original messages, skip compaction
+        # Compaction error: preserve original messages, skip compaction
+        log.error(f"[COMPACT] LLM call failed during compaction: {e}")
+        return f"❌ Compaction skipped — LLM error: {e}. Original messages preserved."
+
+    summary = result.get("content", "")
+    if not summary:
+        return "❌ Compaction failed — could not generate summary. Original preserved."
+
+    # Guard: if summary is longer than original, don't use it
+    original_chars = sum(len(_msg_content_str(m)) for m in old_msgs)
+    if len(summary) > original_chars:
+        log.warning(
+            f"[COMPACT] Summary ({len(summary)} chars) longer than original ({original_chars} chars) — skipping"
+        )
+        return "⚠️ Compaction result was longer than original — skipped."
+
+    # Rebuild session messages
+    compacted = (
+        system_msgs
+        + [
+            {
+                "role": "system",
+                "content": f"[Conversation Summary — {len(old_msgs)} messages compacted]\n{summary}",
+            }
+        ]
+        + recent_msgs
+    )
+
+    old_tokens = est_tokens
+    session.messages = compacted
+    new_tokens = _estimate_tokens(session.messages)
+
+    log.info(
+        f"[COMPACT] Session {session_id}: {old_tokens:,} → {new_tokens:,} tokens, {len(old_msgs)} messages summarized"
+    )
+    return f"✅ Compacted: ~{old_tokens:,} → ~{new_tokens:,} tokens ({len(old_msgs)} messages summarized)."
+
+
+def auto_compact_if_needed(session_id: str) -> None:
+    """Check and auto-compact session if over token threshold."""
+    session = get_session(session_id)
+    est_tokens = _estimate_tokens(session.messages)
+    if est_tokens >= AUTO_COMPACT_TOKEN_THRESHOLD:
+        log.info(f"[COMPACT] Auto-compacting session {session_id} (~{est_tokens:,} tokens)")
+        compact_session(session_id, force=True)
+
+
+# ============================================================
+# DAILY MEMORY LOG
+# ============================================================
+def auto_title_session(session_id: str, first_message: str) -> None:
+    """Generate a title from the first user message (first 50 chars, cleaned up).
+    No LLM call — just text extraction for cost savings."""
+    if not first_message or not first_message.strip():
+        return
+    # Clean up: strip leading slashes/commands, take first 50 chars
+    title = first_message.strip()
+    # Skip command messages
+    if title.startswith("/"):
+        return
+    # Take first line only, then first 50 chars
+    title = title.split("\n")[0][:50].strip()
+    # Remove trailing incomplete word if cut mid-word
+    if len(first_message.strip().split("\n")[0]) > 50 and " " in title:
+        title = title[: title.rfind(" ")]
+    if not title:
+        return
+    try:
+        conn = _get_db()
+        conn.execute(
+            'UPDATE session_store SET title=? WHERE session_id=? AND (title IS NULL OR title="")',
+            (title, session_id),
+        )
+        conn.commit()
+    except Exception as e:
+        log.warning(f"Auto-title error: {e}")
+
+
+def write_daily_log(entry: str) -> None:
+    """Append to today's memory log."""
+    today = datetime.now(KST).strftime("%Y-%m-%d")  # noqa: F405
+    log_file = MEMORY_DIR / f"{today}.md"  # noqa: F405
+    MEMORY_DIR.mkdir(exist_ok=True)  # noqa: F405
+    header = f"# {today} Daily Log\n\n" if not log_file.exists() else ""
+    with open(log_file, "a", encoding="utf-8") as f:
+        ts = datetime.now(KST).strftime("%H:%M")  # noqa: F405
+        f.write(f"{header}- [{ts}] {entry}\n")
+
+
+# Re-export from agents.py
+from salmalm.features.agents import SubAgent, SkillLoader, PluginLoader
+
+# Module-level exports for convenience
+__all__ = [
+    "audit_log",
+    "audit_log_cleanup",
+    "query_audit_log",
+    "close_all_db_connections",
+    "response_cache",
+    "router",
+    "track_usage",
+    "get_usage_report",
+    "check_cost_cap",
+    "CostCapExceeded",
+    "_metrics",
+    "compact_messages",
+    "get_session",
+    "write_daily_log",
+    "cron",
+    "compact_session",
+    "auto_compact_if_needed",
+    "_estimate_tokens",
+    "save_session_to_disk",
+    "restore_session",
+    "restore_all_sessions_from_disk",
+    "memory_manager",
+    "heartbeat",
+    "get_telegram_bot",
+    "set_telegram_bot",
+    "Session",
+    "MemoryManager",
+    "HeartbeatManager",
+    "LLMCronManager",
+    "SubAgent",
+    "SkillLoader",
+    "PluginLoader",
+    "search_messages",
+    "edit_message",
+    "delete_message",
+]

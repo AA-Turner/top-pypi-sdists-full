@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asdf-astropy
-Version: 0.10.0
+Version: 0.10.1
 Summary: ASDF serialization support for astropy
 Author-email: The Astropy Developers <astropy.team@gmail.com>
 Project-URL: documentation, https://asdf-astropy.readthedocs.io/en/latest/

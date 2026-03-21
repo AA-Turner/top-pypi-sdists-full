@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dynamic = ["version"]
 dependencies = []
@@ -38,9 +39,10 @@ build-backend = "maturin"
 
 [dependency-groups]
 dev = [
+    "backports-zstd>=1.1.0 ; python_version >= '3.9'",
     "maturin>=1.9.6",
     "mypy>=1.14.1",
-    "pre-commit>=3.5.0",
+    "prek>=0.2.29",
     "psutil>=7.1.2",
     "pytest>=8.3.5",
     "pytest-codspeed>=2.2.1",
@@ -52,7 +54,7 @@ dev = [
 features = ["pyo3/extension-module"]
 
 [tool.ruff.lint]
-extend-select = ["I"]
+extend-select = ["I", "UP"]
 
 [tool.mypy]
 check_untyped_defs = true

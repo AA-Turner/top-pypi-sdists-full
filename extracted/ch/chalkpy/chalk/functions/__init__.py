@@ -3349,7 +3349,7 @@ def week_of_year(expr: Underscore | Any):
     return UnderscoreFunction("week_of_year", expr)
 
 
-def hour_of_day(expr: Underscore | Any, tz: dt.timezone | None = None):
+def hour_of_day(expr: Underscore | Any, tz: dt.timezone | str | None = None):
     """
     Extract the hour of the day from a datetime.
 
@@ -3376,6 +3376,8 @@ def hour_of_day(expr: Underscore | Any, tz: dt.timezone | None = None):
     """
     if tz is None:
         return UnderscoreFunction("hour", expr)
+    elif isinstance(tz, str):
+        return UnderscoreFunction("hour_in_timezone", expr, tz)
     offset = tz.utcoffset(None)
     if offset is None:  #  pyright: ignore[reportUnnecessaryComparison]
         raise ValueError("TZ must be a timezone with a fixed offset (likely the provide timezone is a DST timezone).")

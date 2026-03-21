@@ -1,9 +1,10 @@
 """API endpoints."""
 
-from . import launch_job, launch_preview_job, rerun_job
+from . import launch_experiment, launch_job, launch_preview_job, rerun_job
 
 __all__ = [
     "launch_job",
     "launch_preview_job",
     "rerun_job",
+    "launch_experiment",
 ]

@@ -11,11 +11,12 @@ namespace pdflib
   {
   public:
 
-    pdf_state(const decode_page_config& config,
+    pdf_state(const decode_config& config,
               const pdf_state<GRPH>& grph_state_,
               std::array<double, 9>& trafo_matrix_,
               page_item<PAGE_CELLS>& page_cells_,
-              std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts_);
+	      std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts_,
+              pdf_render_instructions&  instructions_);
 
     ~pdf_state();
 
@@ -26,43 +27,43 @@ namespace pdflib
     void BT();
     void ET();
 
-    void Tc(std::vector<qpdf_instruction>& instructions);
+    void Tc(std::vector<qpdf_stream_instruction>& instructions);
 
-    void Td(std::vector<qpdf_instruction>& instructions);
-    void TD(std::vector<qpdf_instruction>& instructions);
+    void Td(std::vector<qpdf_stream_instruction>& instructions);
+    void TD(std::vector<qpdf_stream_instruction>& instructions);
 
     void Td(double tx, double ty);
 
-    void Tf(std::vector<qpdf_instruction>& instructions);
+    void Tf(std::vector<qpdf_stream_instruction>& instructions);
 
-    void Tj(std::vector<qpdf_instruction>& instructions, int stack_cnt);
-    void TJ(std::vector<qpdf_instruction>& instructions, int stack_cnt);
+    void Tj(std::vector<qpdf_stream_instruction>& instructions, int stack_cnt);
+    void TJ(std::vector<qpdf_stream_instruction>& instructions, int stack_cnt);
 
-    void TL(std::vector<qpdf_instruction>& instructions);
+    void TL(std::vector<qpdf_stream_instruction>& instructions);
     void TL(double tl);
 
-    void Tm(std::vector<qpdf_instruction>& instructions);
+    void Tm(std::vector<qpdf_stream_instruction>& instructions);
 
-    void Tr(std::vector<qpdf_instruction>& instructions);
+    void Tr(std::vector<qpdf_stream_instruction>& instructions);
 
-    void Ts(std::vector<qpdf_instruction>& instructions);
-    void TStar(std::vector<qpdf_instruction>& instructions);
+    void Ts(std::vector<qpdf_stream_instruction>& instructions);
+    void TStar(std::vector<qpdf_stream_instruction>& instructions);
 
-    void Tw(std::vector<qpdf_instruction>& instructions);
+    void Tw(std::vector<qpdf_stream_instruction>& instructions);
 
-    void Tz(std::vector<qpdf_instruction>& instructions);
+    void Tz(std::vector<qpdf_stream_instruction>& instructions);
 
   private:
 
-    bool verify(std::vector<qpdf_instruction>& instructions,
+    bool verify(std::vector<qpdf_stream_instruction>& instructions,
                 std::size_t num_instr, std::string name);
 
     void move_cursor(double tx, double ty);
 
-    std::vector<page_item<PAGE_CELL> > generate_cells(qpdf_instruction instruction,
+    std::vector<page_item<PAGE_CELL> > generate_cells(qpdf_stream_instruction instruction,
                                                       int              stack_size);
 
-    std::vector<std::pair<uint32_t, std::string> > analyse_string(qpdf_instruction instruction);
+    std::vector<std::pair<uint32_t, std::string> > analyse_string(qpdf_stream_instruction instruction);
 
     void add_cell(pdf_resource<PAGE_FONT>& font,
                   std::string text,  double width,
@@ -86,13 +87,16 @@ namespace pdflib
     static int block_count;
     static int instr_count;
 
-    const decode_page_config& config;
+    const decode_config& config;
     const pdf_state<GRPH>& grph_state;
 
     std::array<double, 9>& trafo_matrix;
 
     page_item<PAGE_CELLS>& page_cells;
+
     std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts;
+
+    pdf_render_instructions& instructions;
 
     std::array<double, 9> text_matrix;
     std::array<double, 9> line_matrix;
@@ -114,18 +118,21 @@ namespace pdflib
   int pdf_state<TEXT>::block_count = 0;
   int pdf_state<TEXT>::instr_count = 0;
 
-  pdf_state<TEXT>::pdf_state(const decode_page_config& config_,
+  pdf_state<TEXT>::pdf_state(const decode_config& config_,
                              const pdf_state<GRPH>& grph_state_,
-                             std::array<double, 9>&    trafo_matrix_,
+                             std::array<double, 9>& trafo_matrix_,
                              page_item<PAGE_CELLS>& page_cells_,
-                             std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts_):
+			     std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts_,
+                             pdf_render_instructions& instructions_):
     config(config_),
     grph_state(grph_state_),
 
     trafo_matrix(trafo_matrix_),
 
     page_cells(page_cells_),
-    page_fonts(page_fonts_)
+    page_fonts(page_fonts_),
+
+    instructions(instructions_)
   {
     text_matrix = {1.0, 0.0, 0.0,
                    0.0, 1.0, 0.0,
@@ -143,16 +150,17 @@ namespace pdflib
     trafo_matrix(other.trafo_matrix),
 
     page_cells(other.page_cells),
-    page_fonts(other.page_fonts)
+    page_fonts(other.page_fonts),
+
+    instructions(other.instructions)
   {
     *this = other;
 
     LOG_S(WARNING) << "pdf_state<TEXT>(const pdf_state<TEXT>& other): font_name " << font_name;
   }
-
+  
   pdf_state<TEXT>::~pdf_state()
-  {
-  }
+  {}
 
   pdf_state<TEXT>& pdf_state<TEXT>::operator=(const pdf_state<TEXT>& other)
   {
@@ -175,7 +183,7 @@ namespace pdflib
     return *this;
   }
 
-  bool pdf_state<TEXT>::verify(std::vector<qpdf_instruction>& instructions,
+  bool pdf_state<TEXT>::verify(std::vector<qpdf_stream_instruction>& instructions,
                                std::size_t num_instr, std::string name)
   {
     if(instructions.size()==num_instr)
@@ -228,7 +236,7 @@ namespace pdflib
   {
   }
 
-  void pdf_state<TEXT>::Tc(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::Tc(std::vector<qpdf_stream_instruction>& instructions)
   {
     //assert(instructions.size()==1);
     if(not verify(instructions, 1, __FUNCTION__) ) { return; }
@@ -236,7 +244,7 @@ namespace pdflib
     char_spacing = instructions[0].to_double();
   }
 
-  void pdf_state<TEXT>::Td(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::Td(std::vector<qpdf_stream_instruction>& instructions)
   {
     //assert(instructions.size()==2);
     if(not verify(instructions, 2, __FUNCTION__) ) { return; }
@@ -255,7 +263,7 @@ namespace pdflib
     line_matrix = text_matrix;
   }
 
-  void pdf_state<TEXT>::TD(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::TD(std::vector<qpdf_stream_instruction>& instructions)
   {
     //assert(instructions.size()==2);
     if(not verify(instructions, 2, __FUNCTION__) ) { return; }
@@ -267,7 +275,7 @@ namespace pdflib
     this->Td(tx, ty);
   }
 
-  void pdf_state<TEXT>::Tf(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::Tf(std::vector<qpdf_stream_instruction>& instructions)
   {
     //assert(instructions.size()==2);
     if(not verify(instructions, 2, __FUNCTION__) ) { return; }
@@ -296,7 +304,7 @@ namespace pdflib
       }
   }
 
-  void pdf_state<TEXT>::Tj(std::vector<qpdf_instruction>& instructions, int stack_size)
+  void pdf_state<TEXT>::Tj(std::vector<qpdf_stream_instruction>& instructions, int stack_size)
   {
     //assert(instructions.size()==1);
     if(not verify(instructions, 1, __FUNCTION__) ) { return; }
@@ -313,7 +321,7 @@ namespace pdflib
       }
   }
 
-  void pdf_state<TEXT>::TJ(std::vector<qpdf_instruction>& instructions, int stack_size)
+  void pdf_state<TEXT>::TJ(std::vector<qpdf_stream_instruction>& instructions, int stack_size)
   {
     //assert(instructions.size()==1);
     if(not verify(instructions, 1, __FUNCTION__) ) { return; }
@@ -324,7 +332,7 @@ namespace pdflib
       {
         if(item.isString())
           {
-            qpdf_instruction inst(item);
+            qpdf_stream_instruction inst(item);
 
             std::vector<page_item<PAGE_CELL> > cells = generate_cells(item,
                                                                       stack_size);
@@ -358,7 +366,7 @@ namespace pdflib
     text_matrix[7] += tx * text_matrix[1] + ty * text_matrix[4];
   }
 
-  std::vector<page_item<PAGE_CELL> > pdf_state<TEXT>::generate_cells(qpdf_instruction instruction,
+  std::vector<page_item<PAGE_CELL> > pdf_state<TEXT>::generate_cells(qpdf_stream_instruction instruction,
                                                                      int              stack_size)
   {
     //LOG_S(INFO) << __FUNCTION__;
@@ -592,6 +600,18 @@ namespace pdflib
       cell.rgb_filling_ops    = grph_state.get_rgb_filling_ops();
 
       cells.push_back(cell);
+
+      {
+        text_instruction tinstr(cell.text,
+                                cell.font_enc,
+                                cell.font_key,
+                                cell.r_x0, cell.r_y0,
+                                cell.r_x1, cell.r_y1,
+                                cell.r_x2, cell.r_y2,
+                                cell.r_x3, cell.r_y3);
+
+        instructions.add_text_instruction(std::move(tinstr));
+      }
     }
 
     if(rendering_mode==3)
@@ -603,7 +623,7 @@ namespace pdflib
     move_cursor(width, 0);
   }
 
-  std::vector<std::pair<uint32_t, std::string> > pdf_state<TEXT>::analyse_string(qpdf_instruction instruction)
+  std::vector<std::pair<uint32_t, std::string> > pdf_state<TEXT>::analyse_string(qpdf_stream_instruction instruction)
   {
     // LOG_S(INFO) << __FUNCTION__ << " fontname: " << font_name << ", key: " << instruction.key << " => val: " << instruction.val;
 
@@ -844,7 +864,7 @@ namespace pdflib
     return bbox;
   }
 
-  void pdf_state<TEXT>::TL(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::TL(std::vector<qpdf_stream_instruction>& instructions)
   {
     if(not verify(instructions, 1, __FUNCTION__) ) { return; }
 
@@ -858,7 +878,7 @@ namespace pdflib
     leading = tl;
   }
 
-  void pdf_state<TEXT>::Tm(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::Tm(std::vector<qpdf_stream_instruction>& instructions)
   {
     if(not verify(instructions, 6, __FUNCTION__) ) { return; }
 
@@ -896,7 +916,7 @@ namespace pdflib
     4 Fill text and add to path for clipping (see 9.3.6, "Text Rendering Mode,").
     5 Stroke text and add to path for clipping.
   */
-  void pdf_state<TEXT>::Tr(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::Tr(std::vector<qpdf_stream_instruction>& instructions)
   {
     if(not verify(instructions, 1, __FUNCTION__) ) { return; }
 
@@ -905,21 +925,21 @@ namespace pdflib
     rendering_mode = mode;
   }
 
-  void pdf_state<TEXT>::Ts(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::Ts(std::vector<qpdf_stream_instruction>& instructions)
   {
     if(not verify(instructions, 1, __FUNCTION__) ) { return; }
 
     rise = instructions[0].to_double();
   }
 
-  void pdf_state<TEXT>::TStar(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::TStar(std::vector<qpdf_stream_instruction>& instructions)
   {
     if(not verify(instructions, 0, __FUNCTION__) ) { return; }
 
     this->Td(0, -leading);
   }
 
-  void pdf_state<TEXT>::Tw(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::Tw(std::vector<qpdf_stream_instruction>& instructions)
   {
     if(not verify(instructions, 1, __FUNCTION__) ) { return; }
 
@@ -929,7 +949,7 @@ namespace pdflib
   }
 
   // section 9.3.4 [p 258]
-  void pdf_state<TEXT>::Tz(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<TEXT>::Tz(std::vector<qpdf_stream_instruction>& instructions)
   {
     if(not verify(instructions, 1, __FUNCTION__) ) { return; }
 

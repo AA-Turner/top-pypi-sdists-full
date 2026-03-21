@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21                                                                                #
-# Generated on 2026-03-12T01:00:36.764263                                                            #
+# MF version: 2.19.22                                                                                #
+# Generated on 2026-03-20T22:45:05.957887                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.graph
     import metaflow.exception
+    import metaflow.graph
 
 from ...parameters import JSONType as JSONType
 from ...metaflow_current import current as current

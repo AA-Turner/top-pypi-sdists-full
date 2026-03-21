@@ -5,10 +5,13 @@ import pandas as pd
 import pandas.tests.extension.base as eb
 from packaging.version import Version
 
-from datashader.datatypes import RaggedDtype, RaggedArray
+from datashader.datatypes import RaggedDtype, RaggedArray, PANDAS_VERSION
 
 # Import pandas fixtures so that overridden tests have access to them
 from pandas.tests.extension.conftest import *  # noqa (fixture import)
+
+
+NUMPY_VERSION = Version(np.__version__).release
 
 # Testing helpers
 # ---------------
@@ -27,7 +30,7 @@ def assert_ragged_arrays_equal(ra1, ra2):
 def test_construct_ragged_dtype():
     dtype = RaggedDtype()
     assert dtype.type == np.ndarray
-    assert dtype.name == 'Ragged[{subtype}]'.format(subtype=dtype.subtype)
+    assert dtype.name == f'Ragged[{dtype.subtype}]'
     assert dtype.kind == 'O'
 
 
@@ -618,6 +621,15 @@ def na_value():
     return np.nan
 
 
+@pytest.fixture(params=[True, False])
+def using_nan_is_na(request):
+    if PANDAS_VERSION < (3, 0, 0):
+        pytest.skip("Added in pandas 3.0")
+    opt = request.param
+    with pd.option_context("future.distinguish_nan_and_na", not opt):
+        yield opt
+
+
 # Subclass BaseDtypeTests to run pandas-provided extension array test suite
 class TestRaggedConstructors(eb.BaseConstructorsTests):
 
@@ -720,6 +732,34 @@ class TestRaggedGetitem(eb.BaseGetitemTests):
     def test_take_pandas_style_negative_raises(self, data, na_value):
         super().test_take_pandas_style_negative_raises(data, na_value)
 
+    @pytest.mark.skipif(PANDAS_VERSION < (3, 0, 1), reason="Added in pandas 3.0.1")
+    def test_array_item(self, data):
+        arr = data[:1]
+        # Replaced following line from pandas test
+        # assert arr.item() == data[0]
+        np.testing.assert_array_equal(arr.item(), data[0])
+
+        msg = "can only convert an array of size 1 to a Python scalar"
+        with pytest.raises(ValueError, match=msg):
+            data[:2].item()
+        with pytest.raises(ValueError, match=msg):
+            data[:0].item()
+
+    @pytest.mark.skipif(PANDAS_VERSION < (3, 0, 1), reason="Added in pandas 3.0.1")
+    def test_array_item_with_index(self, data):
+        # Replaced following lines from pandas test
+        # assert data.item(0) == data[0]
+        # assert data.item(-1) == data[-1]
+        np.testing.assert_array_equal(data.item(0), data[0])
+        np.testing.assert_array_equal(data.item(-1), data[-1])
+
+        with pd._testing.external_error_raised(IndexError):
+            data.item(len(data))
+
+        msg = "index must be an integer"
+        with pytest.raises(TypeError, match=msg):
+            data.item([0])
+
 
 class TestRaggedGroupby(eb.BaseGroupbyTests):
     @pytest.mark.skip(reason="agg not supported")
@@ -763,7 +803,7 @@ class TestRaggedInterface(eb.BaseInterfaceTests):
     def test_view(self):
         pass
 
-    @pytest.mark.skipif(Version(pd.__version__) < Version("1.4"), reason="Added in pandas 1.4")
+    @pytest.mark.skipif(PANDAS_VERSION < (1, 4, 0), reason="Added in pandas 1.4")
     def test_tolist(self, data):
         result = data.tolist()
         expected = list(data)
@@ -771,10 +811,21 @@ class TestRaggedInterface(eb.BaseInterfaceTests):
         for r, e in zip(result, expected):
             assert np.array_equal(r, e, equal_nan=True)
 
-    @pytest.mark.xfail(raises=AssertionError, reason="numpy shared memory object")
+    @pytest.mark.xfail(
+        NUMPY_VERSION >= (2, 0, 0),
+        raises=AssertionError,
+        reason="numpy shared memory object (Numpy 2.0)"
+    )
     def test_array_interface_copy(self, data):
         super().test_array_interface_copy(data)
 
+    def test_len(self, data):
+        # We have len/size of 100
+        assert len(data) == 100
+
+    def test_size(self, data):
+        # We have len/size of 100
+        assert data.size == 100
 
 class TestRaggedMethods(eb.BaseMethodsTests):
 
@@ -811,6 +862,14 @@ class TestRaggedMethods(eb.BaseMethodsTests):
 
     @pytest.mark.skip(reason="pandas cannot fill with ndarray")
     def test_fillna_copy_series(self):
+        pass
+
+    @pytest.mark.skip(reason="pandas cannot fill with ndarray")
+    def test_fillna_limit_frame(self):
+        pass
+
+    @pytest.mark.skip(reason="pandas cannot fill with ndarray")
+    def test_fillna_limit_series(self):
         pass
 
     # Ragged array elements don't support binary operators
@@ -851,6 +910,7 @@ class TestRaggedMethods(eb.BaseMethodsTests):
     @pytest.mark.filterwarnings("ignore::pytest.PytestWarning")
     def test_argmax_argmin_no_skipna_notimplemented(self, data_missing_for_sorting):
         super().test_argmax_argmin_no_skipna_notimplemented(data_missing_for_sorting)
+
 
 class TestRaggedPrinting(eb.BasePrintingTests):
     @pytest.mark.skip(reason="Can't autoconvert ragged array to numpy array")
@@ -895,6 +955,20 @@ class TestRaggedMissing(eb.BaseMissingTests):
         # Added in Pandas 2.2
         pass
 
+    def test_fillna_readonly(self, data_missing):
+        data = data_missing.copy()
+        data._readonly = True
+
+        # by default fillna(copy=True), then this works fine
+        result = data.fillna(data_missing[1])
+        np.testing.assert_array_equal(result[0], data_missing[1])  # Updated line
+        pd.testing.assert_extension_array_equal(data, data_missing)
+
+        # but with copy=False, this raises for EAs that respect the copy keyword
+        with pytest.raises(ValueError, match="Cannot modify read-only array"):
+            data.fillna(data_missing[1], copy=False)
+        pd.testing.assert_extension_array_equal(data, data_missing)
+
 
 class TestRaggedReshaping(eb.BaseReshapingTests):
     @pytest.mark.skip(reason="__setitem__ not supported")
@@ -909,14 +983,10 @@ class TestRaggedReshaping(eb.BaseReshapingTests):
     def test_transpose_frame(self):
         pass
 
-    @pytest.mark.skipif(
-        Version(pd.__version__) == Version("2.2.0"), reason="Regression in Pandas 2.2"
-    )
+    @pytest.mark.xfail(PANDAS_VERSION == (2, 2, 0), reason="Regression in Pandas 2.2")
     def test_merge_on_extension_array(self, data):
         super().test_merge_on_extension_array(data)
 
-    @pytest.mark.skipif(
-        Version(pd.__version__) == Version("2.2.0"), reason="Regression in Pandas 2.2"
-    )
+    @pytest.mark.xfail(PANDAS_VERSION == (2, 2, 0), reason="Regression in Pandas 2.2")
     def test_merge_on_extension_array_duplicates(self, data):
         super().test_merge_on_extension_array_duplicates(data)

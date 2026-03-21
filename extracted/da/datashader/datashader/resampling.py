@@ -155,9 +155,13 @@ def map_chunks(in_shape, out_shape, out_chunks):
 def compute_chunksize(src, w, h, chunksize=None, max_mem=None):
     """
     Attempts to compute a chunksize for the resampling output array
-    that is as close as possible to the input array chunksize, while
-    also respecting the maximum memory constraint to avoid loading
-    to much data into memory at the same time.
+
+    If chunksize is not specified, for downsampling, output chunks are scaled
+    inversely to the downsampling factor to bound memory usage per chunk. For
+    upsampling, the chunk size is inherited from the source array.
+
+    If max_mem is specified, chunks are further reduced to respect the memory
+    constraint.
 
     Parameters
     ----------
@@ -167,10 +171,10 @@ def compute_chunksize(src, w, h, chunksize=None, max_mem=None):
         New grid width
     h : int
         New grid height
-    chunksize : tuple(int, int) (optional)
-        Size of the output chunks. By default the chunk size is
-        inherited from the *src* array.
-    max_mem : int (optional)
+    chunksize : tuple[int, int] | None
+        Size of the output chunks. By default computed automatically
+        based on the resampling direction.
+    max_mem : int | None
         The maximum number of bytes that should be loaded into memory
         during the regridding operation.
 
@@ -179,13 +183,18 @@ def compute_chunksize(src, w, h, chunksize=None, max_mem=None):
     chunksize : tuple(int, int)
         Size of the output chunks.
     """
+    sh, sw = src.shape
+    height_fraction, width_fraction = sh / h, sw / w
+    if chunksize is None and (w < sw or h < sh):
+        src_chunks = src.chunksize
+        new_chunk_h = max(32, int(src_chunks[0] / height_fraction))
+        new_chunk_w = max(32, int(src_chunks[1] / width_fraction))
+        chunksize = (new_chunk_h, new_chunk_w)
+
     start_chunksize = src.chunksize if chunksize is None else chunksize
     if max_mem is None:
         return start_chunksize
 
-    sh, sw = src.shape
-    height_fraction = float(sh)/h
-    width_fraction = float(sw)/w
     ch, cw = start_chunksize
     dim = True
     nbytes = src.dtype.itemsize
@@ -201,9 +210,9 @@ def compute_chunksize(src, w, h, chunksize=None, max_mem=None):
             "Given the memory constraints the resampling operation "
             "could not find a chunksize that avoids loading too much "
             "data into memory. Either relax the memory constraint to "
-            "a minimum of %d bytes or resample to a larger grid size. "
+            f"a minimum of %{min_mem} bytes or resample to a larger grid size. "
             "Note: A future implementation could handle this condition "
-            "by declaring temporary arrays." % min_mem)
+            "by declaring temporary arrays.")
     return ch, cw
 
 
@@ -990,3 +999,77 @@ def infer_interval_breaks(coord, axis=0):
     trim_last = tuple(slice(None, -1) if n == axis else slice(None)
                       for n in range(coord.ndim))
     return np.concatenate([first, coord[trim_last] + deltas, last], axis=axis)
+
+
+@ngjit_parallel
+def infer_interval_breaks_2d(coord):
+    """
+    Optimized single-pass Numba version for 2D arrays.
+    Equivalent to applying infer_interval_breaks sequentially on axis=1 then axis=0.
+    Uses combined padding with streamlined boundary processing.
+
+    Parameters:
+    -----------
+    coord : ndarray
+        2D coordinate array representing grid centers
+
+    Returns:
+    --------
+    ndarray
+        2D array with interval boundaries, shape (m+1, n+1)
+    """
+    m, n = coord.shape
+
+    # Create minimal padded array with only boundary rows/columns
+    # Note it would be more efficient to track the padding in two arrays
+    # top_bottom = np.empty(2, n+2)
+    # left_right = np.empty(m+2, 2)
+    # Right now the "interior" of `padded` isn't populated
+    padded = np.empty((m + 2, n + 2), dtype=coord.dtype)
+
+    # Fill only the necessary boundary rows and columns
+    # Linearly extrapolate out to next cell center
+    # Left and right boundaries
+    for i in range(m):
+        padded[i+1, 0] = 2 * coord[i, 0] - coord[i, 1]
+        padded[i+1, 1] = coord[i, 0]
+        padded[i+1, n] = coord[i, n-1]
+        padded[i+1, n+1] = 2 * coord[i, n-1] - coord[i, n-2]
+
+    # Top and bottom boundaries
+    for j in range(n):
+        padded[0, j+1] = 2 * coord[0, j] - coord[1, j]
+        padded[1, j+1] = coord[0, j]
+        padded[m, j+1] = coord[m-1, j]
+        padded[m+1, j+1] = 2 * coord[m-1, j] - coord[m-2, j]
+
+    # Corner extrapolation
+    padded[0, 0] = 2 * padded[0, 1] - padded[0, 2]
+    padded[0, n+1] = 2 * padded[0, n] - padded[0, n-1]
+    padded[m+1, 0] = 2 * padded[m+1, 1] - padded[m+1, 2]
+    padded[m+1, n+1] = 2 * padded[m+1, n] - padded[m+1, n-1]
+
+    result = np.empty((m + 1, n + 1), dtype=coord.dtype)
+
+    # Interior points
+    for i in prange(1, m):
+        for j in prange(1, n):
+            result[i, j] = 0.25 * (coord[i-1, j-1] + coord[i-1, j] +
+                                   coord[i, j-1] + coord[i, j])
+
+    # Boundary points using the padded array
+    # Top and bottom rows
+    for j in prange(n+1):
+        result[0, j] = 0.25 * (padded[0, j] + padded[0, j+1] +
+                               padded[1, j] + padded[1, j+1])
+        result[m, j] = 0.25 * (padded[m, j] + padded[m, j+1] +
+                               padded[m+1, j] + padded[m+1, j+1])
+
+    # Left and right columns (skip corners)
+    for i in prange(1, m):
+        result[i, 0] = 0.25 * (padded[i, 0] + padded[i, 1] +
+                               padded[i+1, 0] + padded[i+1, 1])
+        result[i, n] = 0.25 * (padded[i, n] + padded[i, n+1] +
+                               padded[i+1, n] + padded[i+1, n+1])
+
+    return result

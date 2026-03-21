@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -23,6 +23,22 @@ class VoiceDesignData(BaseModel):
 
     prompt: Optional[str] = None
     """Natural language prompt used to define the voice style for this version."""
+
+    provider: Optional[Literal["telnyx", "minimax", "Telnyx", "Minimax"]] = None
+    """Voice synthesis provider used for this design."""
+
+    provider_supported_models: Optional[List[str]] = None
+    """List of TTS model identifiers supported by this design's provider (e.g.
+
+    `Qwen3TTS`, `speech-02-turbo`).
+    """
+
+    provider_voice_id: Optional[str] = None
+    """Provider-specific voice identifier.
+
+    For Telnyx designs this is the design version ID; for Minimax it is the
+    Minimax-assigned voice ID.
+    """
 
     record_type: Optional[Literal["voice_design"]] = None
     """Identifies the resource type."""

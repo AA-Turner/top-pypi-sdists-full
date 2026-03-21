@@ -203,3 +203,48 @@ impl From<kreuzberg::core::config::HierarchyConfig> for HierarchyConfig {
         Self { inner: config }
     }
 }
+
+/// Convert EmailConfig to its inner Rust type
+impl From<EmailConfig> for kreuzberg::EmailConfig {
+    fn from(config: EmailConfig) -> Self {
+        config.inner
+    }
+}
+
+/// Convert Rust EmailConfig to Python wrapper
+impl From<kreuzberg::EmailConfig> for EmailConfig {
+    fn from(config: kreuzberg::EmailConfig) -> Self {
+        Self { inner: config }
+    }
+}
+
+/// Convert AccelerationConfig to its inner Rust type
+impl From<AccelerationConfig> for kreuzberg::AccelerationConfig {
+    fn from(config: AccelerationConfig) -> Self {
+        config.inner
+    }
+}
+
+/// Convert Rust AccelerationConfig to Python wrapper
+impl From<kreuzberg::AccelerationConfig> for AccelerationConfig {
+    fn from(config: kreuzberg::AccelerationConfig) -> Self {
+        Self { inner: config }
+    }
+}
+
+/// Convert FileExtractionConfig to its inner Rust type
+impl From<FileExtractionConfig> for kreuzberg::FileExtractionConfig {
+    fn from(config: FileExtractionConfig) -> Self {
+        config.inner
+    }
+}
+
+/// Convert Rust FileExtractionConfig to Python wrapper
+impl From<kreuzberg::FileExtractionConfig> for FileExtractionConfig {
+    fn from(config: kreuzberg::FileExtractionConfig) -> Self {
+        Self {
+            inner: config,
+            html_options_dict: None,
+        }
+    }
+}

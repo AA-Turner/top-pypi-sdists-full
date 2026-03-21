@@ -40,6 +40,7 @@ class ListSchedulesResponse200Item:
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         extra_perms (ListSchedulesResponse200ItemExtraPerms): Additional permissions for this schedule
         email (str): Email of the user who owns this schedule, used for permissioned_as
+        permissioned_as (str): The user or group this schedule runs as (e.g., 'u/admin' or 'g/mygroup')
         args (Union[Unset, None, ListSchedulesResponse200ItemArgs]): The arguments to pass to the script or flow
         error (Union[Unset, None, str]): Last error message if the schedule failed to trigger
         on_failure (Union[Unset, None, str]): Path to a script or flow to run when the scheduled job fails
@@ -83,6 +84,7 @@ class ListSchedulesResponse200Item:
     is_flow: bool
     extra_perms: "ListSchedulesResponse200ItemExtraPerms"
     email: str
+    permissioned_as: str
     args: Union[Unset, None, "ListSchedulesResponse200ItemArgs"] = UNSET
     error: Union[Unset, None, str] = UNSET
     on_failure: Union[Unset, None, str] = UNSET
@@ -118,6 +120,7 @@ class ListSchedulesResponse200Item:
         extra_perms = self.extra_perms.to_dict()
 
         email = self.email
+        permissioned_as = self.permissioned_as
         args: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.args, Unset):
             args = self.args.to_dict() if self.args else None
@@ -171,6 +174,7 @@ class ListSchedulesResponse200Item:
                 "is_flow": is_flow,
                 "extra_perms": extra_perms,
                 "email": email,
+                "permissioned_as": permissioned_as,
             }
         )
         if args is not UNSET:
@@ -251,6 +255,8 @@ class ListSchedulesResponse200Item:
         extra_perms = ListSchedulesResponse200ItemExtraPerms.from_dict(d.pop("extra_perms"))
 
         email = d.pop("email")
+
+        permissioned_as = d.pop("permissioned_as")
 
         _args = d.pop("args", UNSET)
         args: Union[Unset, None, ListSchedulesResponse200ItemArgs]
@@ -345,6 +351,7 @@ class ListSchedulesResponse200Item:
             is_flow=is_flow,
             extra_perms=extra_perms,
             email=email,
+            permissioned_as=permissioned_as,
             args=args,
             error=error,
             on_failure=on_failure,

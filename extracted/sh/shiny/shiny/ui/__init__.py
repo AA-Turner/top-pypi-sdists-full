@@ -77,6 +77,10 @@ from ._input_check_radio import (
     input_radio_buttons,
     input_switch,
 )
+from ._input_code_editor import (
+    input_code_editor,
+    update_code_editor,
+)
 from ._input_dark_mode import input_dark_mode, update_dark_mode
 from ._input_date import input_date, input_date_range
 from ._input_file import input_file
@@ -166,6 +170,15 @@ from ._sidebar import (
     update_sidebar,
 )
 from ._theme import Theme
+from ._toolbar import (
+    toolbar,
+    toolbar_divider,
+    toolbar_spacer,
+    toolbar_input_button,
+    toolbar_input_select,
+    update_toolbar_input_button,
+    update_toolbar_input_select,
+)
 from ._tooltip import tooltip
 from ._utils import js_eval
 from ._valuebox import (
@@ -233,6 +246,9 @@ __all__ = (
     "input_checkbox_group",
     "input_switch",
     "input_radio_buttons",
+    # _input_code_editor
+    "input_code_editor",
+    "update_code_editor",
     # _input_dark_mode
     "input_dark_mode",
     "update_dark_mode",
@@ -353,6 +369,14 @@ __all__ = (
     "Theme",
     # _tooltip
     "tooltip",
+    # _toolbar
+    "toolbar",
+    "toolbar_input_button",
+    "toolbar_input_select",
+    "toolbar_divider",
+    "toolbar_spacer",
+    "update_toolbar_input_button",
+    "update_toolbar_input_select",
     # _progress
     "Progress",
     # Items below are from htmltools

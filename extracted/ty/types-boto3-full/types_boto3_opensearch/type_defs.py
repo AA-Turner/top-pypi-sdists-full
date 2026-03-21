@@ -328,6 +328,7 @@ __all__ = (
     "PackageVersionHistoryTypeDef",
     "PaginatorConfigTypeDef",
     "PluginPropertiesTypeDef",
+    "PrometheusDirectQueryDataSourceTypeDef",
     "PurchaseReservedInstanceOfferingRequestTypeDef",
     "PurchaseReservedInstanceOfferingResponseTypeDef",
     "PutDefaultApplicationSettingRequestTypeDef",
@@ -868,6 +869,11 @@ class VpcEndpointErrorTypeDef(TypedDict):
     VpcEndpointId: NotRequired[str]
     ErrorCode: NotRequired[VpcEndpointErrorCodeType]
     ErrorMessage: NotRequired[str]
+
+
+class PrometheusDirectQueryDataSourceTypeDef(TypedDict):
+    RoleArn: str
+    WorkspaceArn: str
 
 
 class SecurityLakeDirectQueryDataSourceTypeDef(TypedDict):
@@ -1642,6 +1648,7 @@ class DescribePackagesRequestTypeDef(TypedDict):
 class DirectQueryDataSourceTypeTypeDef(TypedDict):
     CloudWatchLog: NotRequired[CloudWatchDirectQueryDataSourceTypeDef]
     SecurityLake: NotRequired[SecurityLakeDirectQueryDataSourceTypeDef]
+    Prometheus: NotRequired[PrometheusDirectQueryDataSourceTypeDef]
 
 
 class ListDomainNamesResponseTypeDef(TypedDict):
@@ -1928,8 +1935,8 @@ class UpdateDataSourceRequestTypeDef(TypedDict):
 class AddDirectQueryDataSourceRequestTypeDef(TypedDict):
     DataSourceName: str
     DataSourceType: DirectQueryDataSourceTypeTypeDef
-    OpenSearchArns: Sequence[str]
     Description: NotRequired[str]
+    OpenSearchArns: NotRequired[Sequence[str]]
     DataSourceAccessPolicy: NotRequired[str]
     TagList: NotRequired[Sequence[TagTypeDef]]
 
@@ -1956,8 +1963,8 @@ class GetDirectQueryDataSourceResponseTypeDef(TypedDict):
 class UpdateDirectQueryDataSourceRequestTypeDef(TypedDict):
     DataSourceName: str
     DataSourceType: DirectQueryDataSourceTypeTypeDef
-    OpenSearchArns: Sequence[str]
     Description: NotRequired[str]
+    OpenSearchArns: NotRequired[Sequence[str]]
     DataSourceAccessPolicy: NotRequired[str]
 
 

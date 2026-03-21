@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_verifiedpermissions.literals import BatchGetPolicyErrorCodeType
+    from mypy_boto3_verifiedpermissions.literals import AliasStateType
 
-    data: BatchGetPolicyErrorCodeType = "POLICY_NOT_FOUND"
+    data: AliasStateType = "Active"
     ```
 """
 
@@ -23,12 +23,14 @@ else:
 
 
 __all__ = (
+    "AliasStateType",
     "BatchGetPolicyErrorCodeType",
     "CedarVersionType",
     "DecisionType",
     "DeletionProtectionType",
     "ListIdentitySourcesPaginatorName",
     "ListPoliciesPaginatorName",
+    "ListPolicyStoreAliasesPaginatorName",
     "ListPolicyStoresPaginatorName",
     "ListPolicyTemplatesPaginatorName",
     "OpenIdIssuerType",
@@ -43,12 +45,16 @@ __all__ = (
 )
 
 
-BatchGetPolicyErrorCodeType = Literal["POLICY_NOT_FOUND", "POLICY_STORE_NOT_FOUND"]
+AliasStateType = Literal["Active", "PendingDeletion"]
+BatchGetPolicyErrorCodeType = Literal[
+    "POLICY_NOT_FOUND", "POLICY_STORE_ALIAS_NOT_FOUND", "POLICY_STORE_NOT_FOUND"
+]
 CedarVersionType = Literal["CEDAR_2", "CEDAR_4"]
 DecisionType = Literal["ALLOW", "DENY"]
 DeletionProtectionType = Literal["DISABLED", "ENABLED"]
 ListIdentitySourcesPaginatorName = Literal["list_identity_sources"]
 ListPoliciesPaginatorName = Literal["list_policies"]
+ListPolicyStoreAliasesPaginatorName = Literal["list_policy_store_aliases"]
 ListPolicyStoresPaginatorName = Literal["list_policy_stores"]
 ListPolicyTemplatesPaginatorName = Literal["list_policy_templates"]
 OpenIdIssuerType = Literal["COGNITO"]
@@ -158,6 +164,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -199,13 +206,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -245,7 +252,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -420,7 +426,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -476,7 +484,11 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "list_identity_sources", "list_policies", "list_policy_stores", "list_policy_templates"
+    "list_identity_sources",
+    "list_policies",
+    "list_policy_store_aliases",
+    "list_policy_stores",
+    "list_policy_templates",
 ]
 RegionName = Literal[
     "af-south-1",

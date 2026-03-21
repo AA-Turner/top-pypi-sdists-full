@@ -57,8 +57,11 @@ def get_review_target(session: SessionResponse) -> str | None:
     Returns:
         The target session ID, or None if not a review session or not set.
     """
-    wc = session.world_config or {}
-    return wc.get("target_session_id")
+    wc = session.world_config
+    if wc is None:
+        return None
+    cfg = wc.config or {}
+    return cfg.get("target_session_id")  # type: ignore[return-value]
 
 
 def get_review_spec(session: SessionResponse) -> ReviewSpec | None:
@@ -70,8 +73,11 @@ def get_review_spec(session: SessionResponse) -> ReviewSpec | None:
     Returns:
         The ReviewSpec, or None if not set.
     """
-    wc = session.world_config or {}
-    raw = wc.get("review")
+    wc = session.world_config
+    if wc is None:
+        return None
+    cfg = wc.config or {}
+    raw = cfg.get("review")
     if raw and isinstance(raw, dict):
         return ReviewSpec.model_validate(raw)
     return None

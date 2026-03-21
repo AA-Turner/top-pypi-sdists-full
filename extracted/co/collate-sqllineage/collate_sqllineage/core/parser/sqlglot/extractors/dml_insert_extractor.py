@@ -317,7 +317,7 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                             for table in select_holder.read:
                                 holder.add_read(table)
 
-            from_exp = statement.args.get("from")
+            from_exp = statement.args.get("from_")
             if from_exp and from_exp.this:
                 table = from_exp.this
                 if isinstance(table, exp.Table):

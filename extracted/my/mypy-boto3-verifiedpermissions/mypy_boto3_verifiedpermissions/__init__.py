@@ -13,6 +13,7 @@ Usage::
         Client,
         ListIdentitySourcesPaginator,
         ListPoliciesPaginator,
+        ListPolicyStoreAliasesPaginator,
         ListPolicyStoresPaginator,
         ListPolicyTemplatesPaginator,
         VerifiedPermissionsClient,
@@ -23,6 +24,7 @@ Usage::
 
     list_identity_sources_paginator: ListIdentitySourcesPaginator = client.get_paginator("list_identity_sources")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+    list_policy_store_aliases_paginator: ListPolicyStoreAliasesPaginator = client.get_paginator("list_policy_store_aliases")
     list_policy_stores_paginator: ListPolicyStoresPaginator = client.get_paginator("list_policy_stores")
     list_policy_templates_paginator: ListPolicyTemplatesPaginator = client.get_paginator("list_policy_templates")
     ```
@@ -32,6 +34,7 @@ from .client import VerifiedPermissionsClient
 from .paginator import (
     ListIdentitySourcesPaginator,
     ListPoliciesPaginator,
+    ListPolicyStoreAliasesPaginator,
     ListPolicyStoresPaginator,
     ListPolicyTemplatesPaginator,
 )
@@ -43,6 +46,7 @@ __all__ = (
     "Client",
     "ListIdentitySourcesPaginator",
     "ListPoliciesPaginator",
+    "ListPolicyStoreAliasesPaginator",
     "ListPolicyStoresPaginator",
     "ListPolicyTemplatesPaginator",
     "VerifiedPermissionsClient",

@@ -1,25 +1,12 @@
 """Assemble and run all checks."""
 
-import logging
 import operator
-import threading
-import traceback
-from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
-import orjson
-from progress.bar import Bar
-from tabulate import tabulate
-
-from dbt_bouncer.checks.common import DbtBouncerFailedCheckError
-from dbt_bouncer.resource_type import ResourceType
-from dbt_bouncer.utils import (
-    create_github_comment_file,
-    get_nested_value,
-    resource_in_path,
-)
+from dbt_bouncer.enums import ResourceType
+from dbt_bouncer.executor import Executor
+from dbt_bouncer.reporter import Reporter
+from dbt_bouncer.utils import get_nested_value, resource_in_path
 
 if TYPE_CHECKING:
     from dbt_bouncer.context import BouncerContext
@@ -29,12 +16,71 @@ _VALID_ITERATE_OVER_VALUES = frozenset(rt.value for rt in ResourceType)
 _CLASS_ITERATE_CACHE: dict[type, frozenset[str]] = {}
 
 
+def _get_resource_meta(
+    resource: Any,
+    iterate_value: str,
+    meta_by_unique_id: dict[str, Any],
+) -> dict[str, Any]:
+    """Extract the dbt-bouncer meta config for a resource.
+
+    Different resource types store their meta config in different locations.
+    This helper centralises that per-type logic.
+
+    Args:
+        resource: The wrapper resource object (e.g. ModelWrapper).
+        iterate_value: The singular resource type name (e.g. "model", "test").
+        meta_by_unique_id: Pre-built mapping of unique_id -> meta for catalog nodes.
+
+    Returns:
+        dict[str, Any]: The meta dict for the resource, or {} if not applicable.
+
+    """
+    if iterate_value in {"model", "seed", "semantic_model", "snapshot", "source"}:
+        try:
+            return getattr(resource, iterate_value).config.meta or {}
+        except AttributeError:
+            return getattr(resource, iterate_value).meta or {}
+    elif iterate_value == "catalog_node":
+        return meta_by_unique_id.get(getattr(resource, "unique_id", ""), {})
+    elif iterate_value == "run_result":
+        return {}
+    elif iterate_value == "macro":
+        return resource.meta or {}
+    elif iterate_value == "test":
+        return getattr(getattr(resource, "test", resource), "meta", {}) or {}
+    else:
+        try:
+            return resource.config.meta or {}
+        except AttributeError:
+            return resource.meta or {}
+
+
+def _build_check_run_id(check: Any, resource: Any, iterate_value: str) -> str:
+    """Build a unique run ID string for a check against a specific resource.
+
+    Args:
+        check: The check instance (must have .name and .index attributes).
+        resource: The wrapper resource object.
+        iterate_value: The singular resource type name (e.g. "model", "exposure").
+
+    Returns:
+        str: The check run ID in the format "check_name:index:resource_suffix".
+
+    """
+    match iterate_value:
+        case "exposure" | "macro" | "test" | "unit_test":
+            suffix = resource.unique_id.split(".")[-1]
+        case _:
+            suffix = "_".join(getattr(resource, iterate_value).unique_id.split(".")[2:])
+    return f"{check.name}:{check.index}:{suffix}"
+
+
 class CheckToRun(TypedDict):
     """A single check instance ready for execution, with its run context."""
 
     check: Any
     check_run_id: str
-    failure_message: NotRequired[list[str] | str]
+    failure_message: NotRequired[str]
     outcome: NotRequired[str]
     severity: str
 
@@ -81,26 +127,10 @@ def runner(
         RuntimeError: If more than one "iterate_over" argument is found.
 
     """
-    parsed_data = {
-        "catalog_nodes": ctx.catalog_nodes,
-        "catalog_sources": ctx.catalog_sources,
-        "exposures": ctx.exposures,
-        "macros": ctx.macros,
-        "manifest_obj": ctx.manifest_obj,
-        "models": [m.model for m in ctx.models],
-        "models_by_unique_id": {m.model.unique_id: m.model for m in ctx.models},
-        "sources_by_unique_id": {s.source.unique_id: s.source for s in ctx.sources},
-        "exposures_by_unique_id": {e.unique_id: e for e in ctx.exposures},
-        "tests_by_unique_id": {t.test.unique_id: t.test for t in ctx.tests},
-        "run_results": [r.run_result for r in ctx.run_results],
-        "seeds": [s.seed for s in ctx.seeds],
-        "semantic_models": [s.semantic_model for s in ctx.semantic_models],
-        "snapshots": [s.snapshot for s in ctx.snapshots],
-        "sources": ctx.sources,
-        "tests": [t.test for t in ctx.tests],
-        "unit_tests": ctx.unit_tests,
-    }
-
+    # resource_map: wrapper objects used for check iteration.
+    # Keys that are already plain lists (catalog_nodes, catalog_sources, exposures,
+    # macros, sources, unit_tests) are identical in both dicts; the others differ
+    # because parsed_data stores unwrapped inner objects for context injection.
     resource_map: dict[str, list[Any]] = {
         "catalog_nodes": ctx.catalog_nodes,
         "catalog_sources": ctx.catalog_sources,
@@ -115,6 +145,28 @@ def runner(
         "tests": ctx.tests,
         "unit_tests": ctx.unit_tests,
     }
+
+    from dbt_bouncer.check_context import CheckContext
+
+    check_ctx = CheckContext(
+        catalog_nodes=ctx.catalog_nodes,
+        catalog_sources=ctx.catalog_sources,
+        exposures=ctx.exposures,
+        exposures_by_unique_id=ctx.exposures_by_unique_id,
+        macros=ctx.macros,
+        manifest_obj=ctx.manifest_obj,
+        models=ctx.models_flat,
+        models_by_unique_id=ctx.models_by_unique_id,
+        run_results=ctx.run_results_flat,
+        seeds=ctx.seeds_flat,
+        semantic_models=ctx.semantic_models_flat,
+        snapshots=ctx.snapshots_flat,
+        sources=ctx.sources,
+        sources_by_unique_id=ctx.sources_by_unique_id,
+        tests=ctx.tests_flat,
+        tests_by_unique_id=ctx.tests_by_unique_id,
+        unit_tests=ctx.unit_tests,
+    )
 
     # Pre-compute unique_id -> meta lookup for catalog_node skip_checks
     meta_by_unique_id: dict[str, Any] = {}
@@ -136,52 +188,30 @@ def runner(
     for check in sorted(list_of_check_configs, key=operator.attrgetter("index")):
         cls = check.__class__
         if cls not in _CLASS_ITERATE_CACHE:
-            _CLASS_ITERATE_CACHE[cls] = _VALID_ITERATE_OVER_VALUES.intersection(
-                frozenset(cls.__annotations__.keys()),
-            )
+            # Prefer explicit iterate_over ClassVar (set by @check decorator)
+            # over annotation introspection.
+            explicit = getattr(cls, "iterate_over", None)
+            if explicit is not None:
+                _CLASS_ITERATE_CACHE[cls] = frozenset({explicit})
+            else:
+                _CLASS_ITERATE_CACHE[cls] = _VALID_ITERATE_OVER_VALUES.intersection(
+                    frozenset(cls.__annotations__.keys()),
+                )
         iterate_over_value = _CLASS_ITERATE_CACHE[cls]
         if len(iterate_over_value) == 1:
             iterate_value = next(iter(iterate_over_value))
             for i in resource_map[f"{iterate_value}s"]:
                 check_i = check.model_copy(deep=False)
-                if iterate_value in [
-                    "model",
-                    "seed",
-                    "semantic_model",
-                    "snapshot",
-                    "source",
-                ]:
-                    try:
-                        d = getattr(i, iterate_value).config.meta
-                    except AttributeError:
-                        d = getattr(i, iterate_value).meta
-                elif iterate_value == "catalog_node":
-                    d = meta_by_unique_id.get(getattr(i, "unique_id", ""), {})
-                elif iterate_value == "run_result":
-                    d = {}
-                elif iterate_value in ["macro"]:
-                    d = i.meta
-                elif iterate_value == "test":
-                    d = getattr(getattr(i, "test", i), "meta", {}) or {}
-                else:
-                    try:
-                        d = i.config.meta
-                    except AttributeError:
-                        d = i.meta
+                d = _get_resource_meta(i, iterate_value, meta_by_unique_id)
                 meta_config = get_nested_value(
                     d,
                     ["dbt-bouncer", "skip_checks"],
                     [],
                 )
                 if _should_run_check(check_i, i, iterate_over_value, meta_config):
-                    check_run_id = (
-                        f"{check_i.name}:{check_i.index}:{i.unique_id.split('.')[-1]}"
-                        if iterate_value in ["exposure", "macro", "test", "unit_test"]
-                        else f"{check_i.name}:{check_i.index}:{'_'.join(getattr(i, iterate_value).unique_id.split('.')[2:])}"
-                    )
-                    check_i._inject_context(
-                        parsed_data, resource=i, iterate_over_value=iterate_value
-                    )
+                    check_run_id = _build_check_run_id(check_i, i, iterate_value)
+                    check_i.set_resource(i, iterate_value)
+                    check_i.set_context(check_ctx)
 
                     checks_to_run.append(
                         {
@@ -196,7 +226,7 @@ def runner(
             )
         else:
             check_run_id = f"{check.name}:{check.index}"
-            check._inject_context(parsed_data)
+            check.set_context(check_ctx)
             checks_to_run.append(
                 {
                     "check": check,
@@ -214,314 +244,20 @@ def runner(
         ctx.tests,
     )
 
-    logging.info(f"Assembled {len(checks_to_run)} checks, running...")
-
-    def _execute_check(check: CheckToRun) -> CheckToRun:
-        """Execute a single check and return the result.
-
-        Returns:
-            dict[str, Any]: The check dict with outcome and optional failure_message set.
-
-        """
-        logging.debug(f"Running {check['check_run_id']}...")
-        try:
-            check["check"].execute()
-            check["outcome"] = "success"
-        except Exception as e:
-            if isinstance(e, DbtBouncerFailedCheckError):
-                failure_message = e.message
-            else:
-                failure_message_full = list(
-                    traceback.TracebackException.from_exception(e).format(),
-                )
-                failure_message = failure_message_full[-1].strip()
-
-            if check["check"].description:
-                failure_message = f"{check['check'].description} - {failure_message}"
-
-            logging.debug(
-                f"Check {check['check_run_id']} failed: {' '.join(failure_message)}"
-            )
-            check["outcome"] = "failed"
-            check["failure_message"] = failure_message
-
-            # If a check encountered an issue, change severity to warn
-            if not isinstance(e, DbtBouncerFailedCheckError):
-                check["severity"] = "warn"
-                check["failure_message"] = (
-                    f"`dbt-bouncer` encountered an error ({failure_message}), run with `-v` to see more details or report an issue at https://github.com/godatadriven/dbt-bouncer/issues."
-                )
-        return check
-
-    def _execute_batch(batch: list[CheckToRun]) -> int:
-        """Execute all checks in a batch sequentially and return the count.
-
-        Returns:
-            int: Number of checks executed.
-
-        """
-        for check in batch:
-            _execute_check(check)
-        return len(batch)
-
-    # Group checks by class to reduce ThreadPoolExecutor scheduling overhead.
-    # Checks of the same class run sequentially within a batch; different
-    # classes run in parallel across threads.
-    batches: dict[str, list[CheckToRun]] = defaultdict(list)
-    for check in checks_to_run:
-        batches[check["check"].__class__.__name__].append(check)
-
-    bar = Bar("Running checks...", max=len(checks_to_run))
-    progress_lock = threading.Lock()
-    with ThreadPoolExecutor() as executor:
-        futures = {
-            executor.submit(_execute_batch, batch): batch for batch in batches.values()
-        }
-        for future in as_completed(futures):
-            batch_size = future.result()
-            with progress_lock:
-                for _ in range(batch_size):
-                    bar.next()
-    bar.finish()
-
-    results = [
-        {
-            "check_run_id": c["check_run_id"],
-            "failure_message": c.get("failure_message"),
-            "outcome": c["outcome"],
-            "severity": c["severity"],
-        }
-        for c in checks_to_run
-    ]
-    num_checks_error = 0
-    num_checks_warn = 0
-    num_checks_success = 0
-    for r in results:
-        if r["outcome"] == "failed":
-            if r["severity"] == "error":
-                num_checks_error += 1
-            else:
-                num_checks_warn += 1
-        else:
-            num_checks_success += 1
-
-    if num_checks_error > 0 or num_checks_warn > 0:
-        logger = logging.error if num_checks_error > 0 else logging.warning
-        logger(
-            f"`dbt-bouncer` {'failed' if num_checks_error > 0 else 'has warnings'}. Please see below for more details or run `dbt-bouncer` with the `-v` flag."
-            + (
-                ""
-                if num_checks_error < 25 or ctx.show_all_failures
-                else " More than 25 checks failed, to see a full list of all failed checks re-run `dbt-bouncer` with (one of) the `--output-file` or `--show-all-failures` flags."
-            )
-        )
-        failed_checks = [
-            {
-                "check_run_id": r["check_run_id"],
-                "severity": r["severity"],
-                "failure_message": r["failure_message"],
-            }
-            for r in results
-            if r["outcome"] == "failed"
-        ]
-        logging.debug(f"{failed_checks=}")
-        logger(
-            ("Failed checks:\n" if num_checks_error > 0 else "Warning checks:\n")
-            + tabulate(
-                failed_checks if ctx.show_all_failures else failed_checks[:25],
-                headers={
-                    "check_run_id": "Check name",
-                    "severity": "Severity",
-                    "failure_message": "Failure message",
-                },
-                tablefmt="github",
-            ),
-        )
-
-        if ctx.create_pr_comment_file:
-            create_github_comment_file(
-                failed_checks=[
-                    [str(f["check_run_id"]), str(f.get("failure_message", ""))]
-                    for f in failed_checks
-                ],
-                show_all_failures=ctx.show_all_failures,
-            )
-
-    logging.info(
-        f"Done. SUCCESS={num_checks_success} WARN={num_checks_warn} ERROR={num_checks_error}",
+    reporter = Reporter(
+        show_all_failures=ctx.show_all_failures,
+        create_pr_comment_file=ctx.create_pr_comment_file,
+        output_file=ctx.output_file,
+        output_format=ctx.output_format,
+        output_only_failures=ctx.output_only_failures,
     )
 
-    results_to_save = (
-        [r for r in results if r["outcome"] == "failed"]
-        if ctx.output_only_failures
-        else results
-    )
-
-    if ctx.output_file is not None:
-        coverage_file = Path().cwd() / ctx.output_file
-        logging.info(f"Saving coverage file to `{coverage_file}`.")
-        coverage_file.write_bytes(_format_results(results_to_save, ctx.output_format))
-
-    return 1 if num_checks_error != 0 else 0, results
-
-
-def _format_results(results: list[dict[str, Any]], output_format: str) -> bytes:
-    """Serialise check results to the requested format.
-
-    Args:
-        results: List of check result dicts.
-        output_format: One of "csv", "json", "junit", "sarif", or "tap".
-
-    Returns:
-        bytes: Serialised results.
-
-    Raises:
-        ValueError: If output_format is not recognised.
-
-    """
-    match output_format:
-        case "csv":
-            return _format_csv(results)
-        case "json":
-            return orjson.dumps(results)
-        case "junit":
-            return _format_junit(results)
-        case "sarif":
-            return _format_sarif(results)
-        case "tap":
-            return _format_tap(results)
-        case _:
-            msg = f"Unknown output format: {output_format}"
-            raise ValueError(msg)
-
-
-def _format_junit(results: list[dict[str, Any]]) -> bytes:
-    """Serialise check results to JUnit XML format.
-
-    Each check result becomes a TestCase. Failed checks are marked with a
-    <failure> element; warn-severity failures use type="warn".
-
-    Args:
-        results: List of check result dicts.
-
-    Returns:
-        bytes: JUnit XML document.
-
-    """
-    import io
-
-    from junitparser import Failure, JUnitXml, TestCase, TestSuite
-
-    test_cases = []
-    for result in results:
-        tc = TestCase(
-            name=result["check_run_id"],
-            classname="dbt-bouncer",
+    if ctx.dry_run:
+        return reporter.report_dry_run(
+            checks_to_run, iterate_cache=_CLASS_ITERATE_CACHE
         )
-        if result["outcome"] == "failed":
-            tc.result = [
-                Failure(
-                    message=result.get("failure_message") or "",
-                    type_=result.get("severity", "error"),
-                )
-            ]
-        test_cases.append(tc)
 
-    suite = TestSuite("dbt-bouncer")
-    for tc in test_cases:
-        suite.add_testcase(tc)
+    executor = Executor()
+    results = executor.run(checks_to_run)
 
-    xml = JUnitXml()
-    xml.add_testsuite(suite)
-    buf = io.BytesIO()
-    xml.write(buf, pretty=True)
-    return buf.getvalue()
-
-
-def _format_csv(results: list[dict[str, Any]]) -> bytes:
-    """Serialise check results to CSV format.
-
-    Args:
-        results: List of check result dicts.
-
-    Returns:
-        bytes: CSV document.
-
-    """
-    import csv
-    import io
-
-    buf = io.StringIO()
-    fieldnames = ["check_run_id", "outcome", "severity", "failure_message"]
-    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
-    writer.writeheader()
-    writer.writerows(results)
-    return buf.getvalue().encode()
-
-
-def _format_sarif(results: list[dict[str, Any]]) -> bytes:
-    """Serialise check results to SARIF 2.1.0 format.
-
-    Args:
-        results: List of check result dicts.
-
-    Returns:
-        bytes: SARIF JSON document.
-
-    """
-    sarif_results = []
-    for r in results:
-        level = "warning" if r.get("severity") == "warn" else "error"
-        if r["outcome"] == "failed":
-            sarif_results.append(
-                {
-                    "ruleId": r["check_run_id"],
-                    "level": level,
-                    "message": {"text": r.get("failure_message") or "Check failed"},
-                }
-            )
-        else:
-            sarif_results.append(
-                {
-                    "ruleId": r["check_run_id"],
-                    "level": "none",
-                    "message": {"text": "Check passed"},
-                }
-            )
-
-    sarif = {
-        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
-        "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "dbt-bouncer",
-                        "informationUri": "https://github.com/godatadriven/dbt-bouncer",
-                    },
-                },
-                "results": sarif_results,
-            },
-        ],
-    }
-    return orjson.dumps(sarif, option=orjson.OPT_INDENT_2)
-
-
-def _format_tap(results: list[dict[str, Any]]) -> bytes:
-    """Serialise check results to TAP (Test Anything Protocol) format.
-
-    Args:
-        results: List of check result dicts.
-
-    Returns:
-        bytes: TAP document.
-
-    """
-    lines = ["TAP version 13", f"1..{len(results)}"]
-    for i, r in enumerate(results, 1):
-        status = "ok" if r["outcome"] != "failed" else "not ok"
-        lines.append(f"{status} {i} - {r['check_run_id']}")
-        if r["outcome"] == "failed" and r.get("failure_message"):
-            for msg_line in r["failure_message"].splitlines():
-                lines.append(f"  # {msg_line}")
-    return "\n".join(lines).encode()
+    return reporter.report_results(results)

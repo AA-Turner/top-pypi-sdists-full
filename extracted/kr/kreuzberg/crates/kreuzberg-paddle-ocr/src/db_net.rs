@@ -43,14 +43,15 @@ impl BaseNet for DbNet {
 
 impl DbNet {
     pub fn get_text_boxes(
-        &mut self,
+        &self,
         img_src: &image::RgbImage,
         scale: &ScaleParam,
         box_score_thresh: f32,
         box_thresh: f32,
         un_clip_ratio: f32,
+        thresh: f32,
     ) -> Result<Vec<TextBox>, OcrError> {
-        let Some(session) = &mut self.session else {
+        let Some(session) = &self.session else {
             return Err(OcrError::SessionNotInitialized);
         };
 
@@ -65,7 +66,14 @@ impl DbNet {
 
         let tensor = Tensor::from_array(input_tensors)?;
 
-        let outputs = session.run(inputs![self.input_names[0].clone() => tensor])?;
+        // SAFETY: ONNX Runtime's C API (OrtRun) is thread-safe for concurrent inference
+        // on the same session. The ort crate's `&mut self` requirement is overly
+        // conservative. This matches the pattern used in kreuzberg's embedding engine.
+        #[allow(unsafe_code)]
+        let outputs = unsafe {
+            let session_ptr = session as *const Session as *mut Session;
+            (*session_ptr).run(inputs![self.input_names[0].as_str() => tensor])?
+        };
 
         let text_boxes = Self::get_text_boxes_core(
             &outputs,
@@ -82,6 +90,7 @@ impl DbNet {
             box_score_thresh,
             box_thresh,
             un_clip_ratio,
+            thresh,
         )?;
 
         Ok(text_boxes)
@@ -93,11 +102,11 @@ impl DbNet {
         cols: u32,
         s: &ScaleParam,
         box_score_thresh: f32,
-        box_thresh: f32,
+        _box_thresh: f32,
         un_clip_ratio: f32,
+        thresh: f32,
     ) -> Result<Vec<TextBox>, OcrError> {
         let max_side_thresh = 3.0;
-        let mut rs_boxes = Vec::new();
 
         let (_, red_data) = output_tensor.iter().next().ok_or_else(|| {
             OcrError::Io(std::io::Error::new(
@@ -133,13 +142,16 @@ impl DbNet {
 
         let threshold_img = imageproc::contrast::threshold(
             &cbuf_img,
-            (box_thresh * 255.0) as u8,
+            (thresh * 255.0) as u8,
             imageproc::contrast::ThresholdType::Binary,
         );
 
-        let dilate_img = imageproc::morphology::dilate(&threshold_img, imageproc::distance_transform::Norm::LInf, 1);
+        // RapidOCR and PaddleOCR reference do NOT apply dilation before contour extraction.
+        // Dilation merges adjacent text regions, causing word concatenation.
+        let img_contours: Vec<imageproc::contours::Contour<i32>> = imageproc::contours::find_contours(&threshold_img);
 
-        let img_contours: Vec<imageproc::contours::Contour<i32>> = imageproc::contours::find_contours(&dilate_img);
+        // Pre-allocate based on contour count to avoid repeated reallocations.
+        let mut rs_boxes = Vec::with_capacity(img_contours.len());
 
         for contour in img_contours {
             if contour.points.len() <= 2 {
@@ -206,10 +218,13 @@ impl DbNet {
             .map(|p| imageproc::point::Point::new(p.x as f32, p.y as f32))
             .collect();
 
-        let width =
-            ((rect_points[0].x - rect_points[1].x).powi(2) + (rect_points[0].y - rect_points[1].y).powi(2)).sqrt();
-        let height =
-            ((rect_points[1].x - rect_points[2].x).powi(2) + (rect_points[1].y - rect_points[2].y).powi(2)).sqrt();
+        // Direct multiplication instead of .powi(2) — avoids function call overhead.
+        let dx_w = rect_points[0].x - rect_points[1].x;
+        let dy_w = rect_points[0].y - rect_points[1].y;
+        let width = (dx_w * dx_w + dy_w * dy_w).sqrt();
+        let dx_h = rect_points[1].x - rect_points[2].x;
+        let dy_h = rect_points[1].y - rect_points[2].y;
+        let height = (dx_h * dx_h + dy_h * dy_h).sqrt();
 
         *min_edge_size = width.min(height);
 
@@ -318,10 +333,13 @@ impl DbNet {
         box_points: &[imageproc::point::Point<f32>],
         unclip_ratio: f32,
     ) -> Result<Vec<imageproc::point::Point<i32>>, OcrError> {
-        let clip_rect_width =
-            ((box_points[0].x - box_points[1].x).powi(2) + (box_points[0].y - box_points[1].y).powi(2)).sqrt();
-        let clip_rect_height =
-            ((box_points[1].x - box_points[2].x).powi(2) + (box_points[1].y - box_points[2].y).powi(2)).sqrt();
+        // Direct multiplication instead of .powi(2) — avoids function call overhead.
+        let dx_w = box_points[0].x - box_points[1].x;
+        let dy_w = box_points[0].y - box_points[1].y;
+        let clip_rect_width = (dx_w * dx_w + dy_w * dy_w).sqrt();
+        let dx_h = box_points[1].x - box_points[2].x;
+        let dy_h = box_points[1].y - box_points[2].y;
+        let clip_rect_height = (dx_h * dx_h + dy_h * dy_h).sqrt();
 
         if clip_rect_height < 1.001 && clip_rect_width < 1.001 {
             return Ok(Vec::new());
@@ -349,7 +367,6 @@ impl DbNet {
             return Ok(Vec::new());
         }
 
-        let mut ret_pts = Vec::new();
         let first_polygon = solution.first().ok_or_else(|| {
             OcrError::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -357,9 +374,11 @@ impl DbNet {
             ))
         })?;
 
-        for ip in first_polygon.exterior().points() {
-            ret_pts.push(imageproc::point::Point::new(ip.x() as i32, ip.y() as i32));
-        }
+        let ret_pts: Vec<_> = first_polygon
+            .exterior()
+            .points()
+            .map(|ip| imageproc::point::Point::new(ip.x() as i32, ip.y() as i32))
+            .collect();
 
         Ok(ret_pts)
     }

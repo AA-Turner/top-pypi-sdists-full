@@ -1,53 +1,33 @@
 Metadata-Version: 2.4
 Name: qtutils
-Version: 4.1.0
+Version: 4.1.2
 Summary: PySide6/PyQt5 abstraction layer, mulithreading and UI loader utilities, icon set, and more
 Author-email: Philip Starkey <threepineapples@gmail.com>, Chris Billington <chrisjbillington@gmail.com>
-License: Copyright (c) 2013, Christopher Billington, Philip Starkey
-        All rights reserved.
-        
-        This project (qtutils) is dual licensed under the 2-clause BSD license and 3-clause
-        BSD license (see the files BSD-2-CLAUSE-LICENSE.txt and BSD-3-CLAUSE-LICENSE.txt),
-        subject to the following conditions:
-        
-        1) If you wish to use this project with PySide and/or a commercial license of PyQt,
-        the use of this project is governed by the terms of one of the licenses, chosen at
-        your discretion.
-        
-        2) If you wish to use this project with the free (GPLv2 or GPLv3 licensed) version
-        of PyQt, the use of this project is governed by the terms of the 3-clause BSD
-        license only, along with the terms specified in the GPL_EXCEPTIONS.TXT file in the
-        PyQt project source code.
-        
-        These terms are in place to guarantee compatibility with the terms outlined in the
-        GPL License Exceptions of the PyQt project (see the GPL_EXCEPTIONS.TXT file in the
-        source code of the PyQt project)
-        
-        
-        This project includes the Fugue icon set by Yusuke Kamiyamane, licensed under a
-        Creative Commons Attribution 3.0 License. See icons/LICENSE.txt.
-        
-        This project includes the Ubuntu Mono font by Canonical, licensed under the Ubuntu Font
-        License 1.0, see: https://ubuntu.com/legal/font-licence
-        
+License-Expression: (BSD-2-Clause OR BSD-3-Clause) AND CC-BY-3.0 AND Ubuntu-font-1.0
 Project-URL: Homepage, https://github.com/philipstarkey/qtutils
 Project-URL: Documentation, https://readthedocs.org/projects/qtutils/
 Project-URL: Repository, https://github.com/philipstarkey/qtutils
 Project-URL: Downloads, https://pypi.org/project/qtutils/
 Project-URL: Tracker, https://github.com/philipstarkey/qtutils/issues
 Keywords: Qt,PyQt,PySide
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+License-File: BSD-2-CLAUSE-LICENSE.txt
+License-File: BSD-3-CLAUSE-LICENSE.txt
+License-File: icons/LICENSE.txt
+License-File: UBUNTU-FONT-LICENSE.txt
 Requires-Dist: setuptools_scm>=8
 Provides-Extra: pyqt5
 Requires-Dist: PyQt5; extra == "pyqt5"
+Provides-Extra: pyqt6
+Requires-Dist: PyQt6; extra == "pyqt6"
 Provides-Extra: pyside6
 Requires-Dist: PySide6; extra == "pyside6"
 Provides-Extra: docs
 Requires-Dist: PyQt5; extra == "docs"
+Requires-Dist: PyQt6; extra == "docs"
 Requires-Dist: PySide6; extra == "docs"
 Requires-Dist: Sphinx>=7.0.0; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=1.3.0; extra == "docs"
@@ -115,7 +95,9 @@ applications using the PyQt5/PyQt6/PySide6 widget library.
   aliases to make it easier to write code that works with both libraries. Note that this
   is not a comprehensive abstraction layer like [QtPy](https://pypi.org/project/QtPy/)
   and your code will still need to be written in a way generally compatible with both
-  libraries if you want to support both.
+  libraries if you want to support both. `qtutils` does provide aliases for short enums
+  in PyQt6, however, which is one of the most singificant differences between PySide6 and
+  PyQt6.
 
 * `outputbox`: a `QTextEdit` widget for displaying log/output text of an application,
   either by calling methods or by sending data to it over `zeromq`.

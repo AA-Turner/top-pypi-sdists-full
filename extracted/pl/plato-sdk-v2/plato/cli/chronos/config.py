@@ -47,6 +47,7 @@ class WorldConfig(BaseModel):
     """
 
     package: str  # Package name with optional version (e.g., plato-world-name:0.1.0)
+    world_name: str | None = None  # World name for multi-world packages
     image: str = ""  # Direct image URL override — skips registry lookup when set
     runtime: VMRuntimeConfig = Field(default_factory=VMRuntimeConfig)
     config: dict[str, Any] = Field(default_factory=dict)

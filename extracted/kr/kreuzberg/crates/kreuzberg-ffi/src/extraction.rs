@@ -29,7 +29,10 @@ use std::ptr;
 use kreuzberg::core::config::ExtractionConfig;
 
 use crate::ffi_panic_guard;
-use crate::helpers::{clear_last_error, parse_extraction_config_from_json, set_last_error, to_c_extraction_result};
+use crate::helpers::{
+    clear_last_error, parse_extraction_config_from_json, parse_file_config_from_json, set_last_error,
+    to_c_extraction_result,
+};
 use crate::memory::kreuzberg_free_result;
 use crate::types::{CBatchResult, CBytesWithMime, CExtractionResult};
 
@@ -331,32 +334,28 @@ pub unsafe extern "C" fn kreuzberg_extract_bytes_sync_with_config(
     })
 }
 
-/// Batch extract text and metadata from multiple files (synchronous).
+/// Batch extract text and metadata from multiple files with optional per-file config overrides (synchronous).
 ///
 /// # Safety
 ///
 /// - `file_paths` must be a valid pointer to an array of null-terminated C strings
-/// - `count` must be the number of file paths in the array
+/// - `file_config_jsons` must be NULL (no per-file configs) or a valid pointer to an array of
+///   `count` nullable C strings (null entries use the base config, non-null entries are parsed as
+///   JSON `FileExtractionConfig`)
+/// - `count` must be the number of items in both arrays
 /// - `config_json` must be a valid null-terminated C string containing JSON, or NULL for default config
 /// - The returned pointer must be freed with `kreuzberg_free_batch_result`
 /// - Returns NULL on error (check `kreuzberg_last_error` for details)
 ///
 /// # Critical Memory Management
 ///
-/// This function has special memory management requirements due to the need to allocate
-/// an array of result pointers:
-///
-/// 1. Results are collected in a Vec<*mut CExtractionResult>
-/// 2. The vec is converted to a boxed slice (changes allocation metadata)
-/// 3. The boxed slice pointer is cast to *mut *mut CExtractionResult
-/// 4. This pointer is stored in CBatchResult
-/// 5. Deallocation must reverse this process using slice_from_raw_parts
-///
-/// The Go segfault issue was caused by incorrect deallocation in the memory module.
-/// This allocation pattern must be perfectly mirrored in the free function.
+/// This function shares the same critical memory management pattern as
+/// `kreuzberg_batch_extract_files_sync`. See that function's documentation
+/// for details on the Box/Vec/slice allocation pattern.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kreuzberg_batch_extract_files_sync(
     file_paths: *const *const c_char,
+    file_config_jsons: *const *const c_char,
     count: usize,
     config_json: *const c_char,
 ) -> *mut CBatchResult {
@@ -388,7 +387,7 @@ pub unsafe extern "C" fn kreuzberg_batch_extract_files_sync(
             }
         };
 
-        let mut paths: Vec<std::path::PathBuf> = Vec::with_capacity(count);
+        let mut items: Vec<(std::path::PathBuf, Option<kreuzberg::FileExtractionConfig>)> = Vec::with_capacity(count);
         for i in 0..count {
             let path_ptr = unsafe { *file_paths.add(i) };
             if path_ptr.is_null() {
@@ -404,11 +403,23 @@ pub unsafe extern "C" fn kreuzberg_batch_extract_files_sync(
                 }
             };
 
-            paths.push(std::path::PathBuf::from(path_str));
+            let file_config = if file_config_jsons.is_null() {
+                None
+            } else {
+                let file_config_ptr = unsafe { *file_config_jsons.add(i) };
+                match unsafe { parse_file_config_from_json(file_config_ptr) } {
+                    Ok(cfg) => cfg,
+                    Err(e) => {
+                        set_last_error(format!("Failed to parse file config at index {}: {}", i, e));
+                        return ptr::null_mut();
+                    }
+                }
+            };
+
+            items.push((std::path::PathBuf::from(path_str), file_config));
         }
 
-        let path_refs: Vec<&std::path::Path> = paths.iter().map(|p| p.as_path()).collect();
-        match kreuzberg::batch_extract_file_sync(path_refs, &config) {
+        match kreuzberg::batch_extract_file_sync(items, &config) {
             Ok(results) => {
                 let mut c_results = Vec::with_capacity(results.len());
                 for result in results {
@@ -443,12 +454,15 @@ pub unsafe extern "C" fn kreuzberg_batch_extract_files_sync(
     })
 }
 
-/// Batch extract text and metadata from multiple byte arrays (synchronous).
+/// Batch extract text and metadata from multiple byte arrays with per-file config overrides (synchronous).
 ///
 /// # Safety
 ///
 /// - `items` must be a valid pointer to an array of CBytesWithMime structures
-/// - `count` must be the number of items in the array
+/// - `file_config_jsons` must be NULL (no per-file configs) or a valid pointer to an array of
+///   `count` nullable C strings (null entries use the base config, non-null entries are parsed as
+///   JSON `FileExtractionConfig`)
+/// - `count` must be the number of items in both arrays
 /// - `config_json` must be a valid null-terminated C string containing JSON, or NULL for default config
 /// - The returned pointer must be freed with `kreuzberg_free_batch_result`
 /// - Returns NULL on error (check `kreuzberg_last_error` for details)
@@ -461,6 +475,7 @@ pub unsafe extern "C" fn kreuzberg_batch_extract_files_sync(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kreuzberg_batch_extract_bytes_sync(
     items: *const CBytesWithMime,
+    file_config_jsons: *const *const c_char,
     count: usize,
     config_json: *const c_char,
 ) -> *mut CBatchResult {
@@ -492,7 +507,7 @@ pub unsafe extern "C" fn kreuzberg_batch_extract_bytes_sync(
             }
         };
 
-        let mut contents: Vec<(Vec<u8>, String)> = Vec::with_capacity(count);
+        let mut contents: Vec<(Vec<u8>, String, Option<kreuzberg::FileExtractionConfig>)> = Vec::with_capacity(count);
         for i in 0..count {
             let item = unsafe { &*items.add(i) };
 
@@ -516,7 +531,20 @@ pub unsafe extern "C" fn kreuzberg_batch_extract_bytes_sync(
                 }
             };
 
-            contents.push((bytes.to_vec(), mime_str.to_string()));
+            let file_config = if file_config_jsons.is_null() {
+                None
+            } else {
+                let file_config_ptr = unsafe { *file_config_jsons.add(i) };
+                match unsafe { parse_file_config_from_json(file_config_ptr) } {
+                    Ok(cfg) => cfg,
+                    Err(e) => {
+                        set_last_error(format!("Failed to parse file config at index {}: {}", i, e));
+                        return ptr::null_mut();
+                    }
+                }
+            };
+
+            contents.push((bytes.to_vec(), mime_str.to_string(), file_config));
         }
 
         match kreuzberg::batch_extract_bytes_sync(contents, &config) {

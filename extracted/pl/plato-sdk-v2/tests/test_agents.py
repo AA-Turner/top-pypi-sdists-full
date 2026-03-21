@@ -80,17 +80,10 @@ class TestAgentConfig:
         from plato.agents import AgentConfig
 
         config = AgentConfig()
-        assert config.runtime == "docker"
-
-    def test_config_runtime_docker(self):
-        """Test runtime defaults to docker."""
-        from plato.agents import AgentConfig
-
-        config = AgentConfig()
-        assert config.runtime == "docker"
+        assert config.runtime == "vm"
 
     def test_config_runtime_vm(self):
-        """Test setting runtime to vm."""
+        """Test setting runtime to vm explicitly."""
         from plato.agents import AgentConfig
 
         config = AgentConfig(runtime="vm")

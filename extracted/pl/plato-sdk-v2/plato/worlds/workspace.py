@@ -207,12 +207,12 @@ class Workspace:
     # Commit
     # ------------------------------------------------------------------
 
-    async def commit(self, step_name: str, message: str = "") -> str:
+    async def commit(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         """Snapshot current workspace to S3 via smart commit."""
         async with self._commit_lock:
-            return await self._commit_inner(step_name, message)
+            return await self._commit_inner(step_name, message, trigger_span_id=trigger_span_id)
 
-    async def _commit_inner(self, step_name: str, message: str = "") -> str:
+    async def _commit_inner(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         if not self._lazy_mounts:
             raise RuntimeError(
                 f"Workspace '{self.name}' has no FUSE mounts. ensure_fuse_mount() must be called before commit()."
@@ -232,7 +232,7 @@ class Workspace:
                 except Exception as e:
                     logger.warning("Workspace '%s': ref validation failed (no changes): %s", self.name, e)
             return json.dumps({"step": step_name, "changed": False})
-        return await self._smart_commit(step_name, message)
+        return await self._smart_commit(step_name, message, trigger_span_id=trigger_span_id)
 
     def _collect_dvc_files(self, dir_names: list[str] | None = None) -> dict[str, str]:
         """Collect .dvc file contents keyed by tracked directory name."""
@@ -328,7 +328,7 @@ class Workspace:
         self._last_ref_step = step_name
         return True
 
-    async def _smart_commit(self, step_name: str, message: str = "") -> str:
+    async def _smart_commit(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         """Commit with smart diff — only upload changed files."""
         from plato.worlds.dvc_models import S3Config, smart_commit
 
@@ -360,7 +360,9 @@ class Workspace:
             dvc_files[dir_name] = dvc_yaml
 
         await self._validate_dvc_files_restorable(dvc_files)
-        ref_public_id = await self._record_workspace_ref(step_name, "output", dvc_files, changed=True)
+        ref_public_id = await self._record_workspace_ref(
+            step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id
+        )
         await self._upload_audit_events(step_name, ref_public_id)
 
         return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
@@ -417,6 +419,7 @@ class Workspace:
         source_repo_name: str | None = None,
         source_step_name: str | None = None,
         changed: bool | None = None,
+        trigger_span_id: str = "",
     ) -> str | None:
         """Record a workspace ref with Chronos. Returns the ref public_id if available."""
         if not self.chronos_url or not self.repo_name or not self.session_id:
@@ -436,6 +439,8 @@ class Workspace:
             "dvc_files": dvc_files,
             "changed": changed,
         }
+        if trigger_span_id:
+            payload["trigger_span_id"] = trigger_span_id
         if has_source_ref:
             payload["source_ref_public_id"] = source_ref_public_id
         elif has_source_parts:

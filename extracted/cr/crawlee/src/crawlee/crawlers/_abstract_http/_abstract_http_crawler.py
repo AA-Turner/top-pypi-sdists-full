@@ -77,6 +77,7 @@ class AbstractHttpCrawler(
         self._parser = parser
         self._navigation_timeout = navigation_timeout or timedelta(minutes=1)
         self._pre_navigation_hooks: list[Callable[[BasicCrawlingContext], Awaitable[None]]] = []
+        self._post_navigation_hooks: list[Callable[[HttpCrawlingContext], Awaitable[None]]] = []
         self._shared_navigation_timeouts: dict[int, SharedTimeout] = {}
 
         if '_context_pipeline' not in kwargs:
@@ -103,7 +104,7 @@ class AbstractHttpCrawler(
         class _ParsedHttpCrawler(AbstractHttpCrawler):
             def __init__(
                 self,
-                parser: AbstractHttpParser[TParseResult, TSelectResult] = static_parser,
+                parser: AbstractHttpParser[TParseResult, TSelectResult] = static_parser,  # ty: ignore[invalid-parameter-default]
                 **kwargs: Unpack[BasicCrawlerOptions[ParsedHttpCrawlingContext[TParseResult]]],
             ) -> None:
                 kwargs['_context_pipeline'] = self._create_static_content_crawler_pipeline()
@@ -120,6 +121,7 @@ class AbstractHttpCrawler(
             ContextPipeline()
             .compose(self._execute_pre_navigation_hooks)
             .compose(self._make_http_request)
+            .compose(self._execute_post_navigation_hooks)
             .compose(self._handle_status_code_response)
             .compose(self._parse_http_response)
             .compose(self._handle_blocked_request_by_content)
@@ -139,6 +141,14 @@ class AbstractHttpCrawler(
             yield context
         finally:
             self._shared_navigation_timeouts.pop(context_id, None)
+
+    async def _execute_post_navigation_hooks(
+        self, context: HttpCrawlingContext
+    ) -> AsyncGenerator[HttpCrawlingContext, None]:
+        for hook in self._post_navigation_hooks:
+            await hook(context)
+
+        yield context
 
     async def _parse_http_response(
         self, context: HttpCrawlingContext
@@ -176,6 +186,7 @@ class AbstractHttpCrawler(
         async def extract_links(
             *,
             selector: str = 'a',
+            attribute: str = 'href',
             label: str | None = None,
             user_data: dict[str, Any] | None = None,
             transform_request_function: Callable[[RequestOptions], RequestOptions | RequestTransformAction]
@@ -191,10 +202,12 @@ class AbstractHttpCrawler(
             kwargs.setdefault('strategy', 'same-hostname')
             strategy = kwargs.get('strategy', 'same-hostname')
 
-            links_iterator: Iterator[str] = iter(self._parser.find_links(parsed_content, selector=selector))
+            links_iterator: Iterator[str] = iter(
+                self._parser.find_links(parsed_content, selector=selector, attribute=attribute)
+            )
 
             # Get base URL from <base> tag if present
-            extracted_base_urls = list(self._parser.find_links(parsed_content, 'base[href]'))
+            extracted_base_urls = list(self._parser.find_links(parsed_content, 'base[href]', 'href'))
             base_url: str = (
                 str(extracted_base_urls[0])
                 if extracted_base_urls
@@ -308,3 +321,11 @@ class AbstractHttpCrawler(
             hook: A coroutine function to be called before each navigation.
         """
         self._pre_navigation_hooks.append(hook)
+
+    def post_navigation_hook(self, hook: Callable[[HttpCrawlingContext], Awaitable[None]]) -> None:
+        """Register a hook to be called after each navigation.
+
+        Args:
+            hook: A coroutine function to be called after each navigation.
+        """
+        self._post_navigation_hooks.append(hook)

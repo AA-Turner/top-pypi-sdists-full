@@ -21,7 +21,7 @@ from monty.serialization import loadfn
 from numpy.random import Generator
 from pandas import read_csv
 
-from pyxtal.constants import all_sym_directions, hex_cell, letters
+from pyxtal.constants import all_sym_directions, hex_cell, letters, ASU_bounds
 from pyxtal.operations import (
     OperationAnalyzer,
     SymmOp,
@@ -33,6 +33,7 @@ from pyxtal.operations import (
     filtered_coords,
     filtered_coords_euclidean,
 )
+from pyxtal.asu_constraints import ASU, ASUCondition, create_asu_for_space_group
 
 def rf(package_name, resource_path):
     package_path = importlib.util.find_spec(
@@ -152,6 +153,7 @@ body_centers = [23, 24, 44, 45, 46, 71, 72, 73, 74, 79,
                 204, 206, 211, 214, 217, 220, 229, 230]
 a_centers = [38, 39, 40, 41]
 c_centers = [5, 8, 9, 12, 15, 20, 21, 35, 36, 37, 63, 64, 65, 66, 67, 68]
+r_centers = [146, 148, 155, 160, 161, 166, 167]
 # screw axes
 screw_21a = [18, 19, 24, 51, 54, 55, 56, 58, 59, 60, 61, 62, 68, 72, 73,
              90, 92, 94, 96, 113, 114, 122, 127, 128, 129, 130, 135, 136,
@@ -511,6 +513,19 @@ class Group:
 
         return np.array([extract_dof(site) for site in sites])
 
+    def get_orders(self):
+        """
+        Get possible Wyckoff position orders based on the composition and Z range.
+        """
+        orders = []
+        for map_str in self.get_alternatives()['Transformed WP']: #[1:]:
+            original_list = map_str.split()
+            sorted_reference = sorted(original_list)
+            order = [sorted_reference.index(char) for char in original_list]
+            orders.append(order)
+        orders = np.array(orders, dtype=int)
+        return orders
+
     def get_spg_representation(self):
         """
         Get the one-hot encoding of the space group.
@@ -521,14 +536,14 @@ class Group:
             one_hot: a (15, 26) numpy (0, 1) array
         """
         return self.lattice_id, self.get_spg_symmetry_object().to_one_hot()
-    
-    def get_subgroup_composition(self, ids=None, g_types=['t', 'k'], max_atoms=100, 
-                                 verbose=False):
+
+    def get_subgroup_composition(self, ids, g_types=['t', 'k'], max_atoms=100,
+                                 max_wps=20, verbose=False):
         """
         Get the composition of the subgroup Wyckoff positions.
 
         Args:
-            ids (list, optional): List of Wyckoff position indices.
+            ids (list, optional): Nested list of Wyckoff position indices [[0]].
             verbose (bool): Whether to print debug information.
             g_types (list): List of subgroup types to consider ('t' for translationengleiche, 'k' for klassengleiche).
             max_atoms (int): Maximum number of atoms to consider for subgroup search.
@@ -538,13 +553,14 @@ class Group:
         """
         if verbose:
             strs = f"{self.number} ({self.symbol}): "
-            for id in ids:
-                wp = self[id]
-                strs += f"{wp.multiplicity}{wp.letter}"
+            for i in ids:
+                for id in i:
+                    wp = self[id]
+                    strs += f"{wp.multiplicity}{wp.letter} "
             print(strs)
         sub_symmetries = []
-        N_atoms = sum([self[id].multiplicity for id in ids])
-        
+        N_atoms = sum([self[id].multiplicity for i in ids for id in i])
+
         for g_type in g_types:
             if g_type == 't':
                 sub = self.get_max_t_subgroup()
@@ -556,22 +572,25 @@ class Group:
                     continue
                 sub_gg = Group(sub_g)
                 relation = sub['relations'][i]#; print(relation)
-                sub_ids = []
-                for id in ids:
-                    true_id = len(self)-id-1
-                    relation[true_id].sort()
-                    for r in relation[true_id]:
-                        letter = r[-1]#; print("test letter:", relation[true_id])
-                        sub_ids.append(len(sub_gg) - letters.index(letter) - 1)
-                data = (sub_g, sub_ids)
-                if data not in sub_symmetries:
-                    sub_symmetries.append(data)
-                    if verbose:
-                        strs = f"{sub_gg.number} ({sub_gg.symbol}): "
-                        for id in sub_ids:
-                            wp = sub_gg[id]
-                            strs += f"{wp.multiplicity}{wp.letter} "
-                        print(strs, data)
+                sub_ids = [[] for _ in range(len(ids))]
+                for j, _ids in enumerate(ids):
+                    for id in _ids:
+                        true_id = len(self)-id-1
+                        relation[true_id].sort()
+                        for r in relation[true_id]:
+                            letter = r[-1]#; print("test letter:", relation[true_id])
+                            sub_ids[j].append(len(sub_gg) - letters.index(letter) - 1)
+                if sum(len(sublist) for sublist in sub_ids) <= max_wps:
+                    data = (sub_g, sub_ids, N_atoms * sub['index'][i])
+                    if data not in sub_symmetries:
+                        sub_symmetries.append(data)
+                        if verbose:
+                            strs = f"{sub_gg.number} ({sub_gg.symbol}): "
+                            for i in sub_ids:
+                                for id in i:
+                                    wp = sub_gg[id]
+                                    strs += f"{wp.multiplicity}{wp.letter} "
+                            print(strs, data)
         return sub_symmetries
 
     def get_lattice_id(self):
@@ -637,6 +656,24 @@ class Group:
                 id = 15
         return id
 
+    def get_ASU(self):
+        """
+        Get the asymmetric unit for the space group.
+
+        Returns:
+            list: A list of inequalities defining the asymmetric unit.
+        """
+        return ASU_bounds[self.number-1]
+
+    def get_ASU_instance(self):
+        """
+        Get the asymmetric unit (ASU) for the space group.
+        Available methods for ASU construction include:
+        - project_to_asu(coord): Project a given coordinate to the ASU.
+        - is_valid(coord): Check if a given coordinate is within the ASU.
+        """
+        return create_asu_for_space_group(self.number)
+
     def get_lattice_dof(self):
         """
         Compute the degree of freedom for the lattice
@@ -681,6 +718,7 @@ class Group:
                 "bcs (h+k+l=2n)": body_centers,
                 "acs (k+l=2n)": a_centers,
                 "ccs (h+k=2n)": c_centers,
+                "rcs (h-k-l=3n)": r_centers,
                 "screw_21a (h00), h=2n": screw_21a,
                 "screw_41a (h00), h=4n": screw_41a,
                 "screw_42a (h00), h=2n": screw_42a,
@@ -737,15 +775,46 @@ class Group:
 
         if self.number > 194:  # cubic
             base_signs = [(1, 1, 1)]
-        elif self.number >= 16:  # orthorhombic or higher
+        elif self.number >= 143:  # hexagonal/trigonal
             base_signs = [(1, 1, 1), (1, -1, 1)]
-        else:  # tetragonal or lower
+        elif self.number >= 16:  # orthorhombic
+            base_signs = [(1, 1, 1)]
+        elif self.number >= 3:  # 2/m
+            base_signs = [(1, 1, 1), (1, 1, -1)]
+        #elif self.number >= 6:  # m
+        #    base_signs = [(1, 1, 1), (1, 1, -1), (-1, 1, 1), (-1, 1, -1)]
+        #elif self.number >= 3:  # 2
+        #    base_signs = [(1, 1, 1), (1, -1, 1), (-1, 1, 1), (1, -1, -1)]
+        #elif self.number >= 2:  # -1
+        #    base_signs = [(1, 1, 1), (1, 1, -1), (1, -1, 1), (-1, 1, 1)]
+        else:  # 1
             base_signs = [(1, 1, 1), (1, 1, -1), (1, -1, 1), (-1, 1, 1),
-                        (1, -1, -1), (-1, 1, -1), (-1, -1, 1), (-1, -1, -1)]
-
+                          (1, -1, -1), (-1, 1, -1), (-1, -1, 1), (-1, -1, -1)]
         # Generate all possible hkls and filter by extinction rules
         possible_hkls = []
         canonical_seen = set()  # Track canonical forms to avoid duplicates
+        symmetry_seen = set()  # Track symmetry-equivalent hkls
+
+        # Build reciprocal-space rotation operators from the general Wyckoff position
+        reciprocal_ops = []
+        op_seen = set()
+        if len(self.wyckoffs) > 0 and len(self.wyckoffs[0]) > 0:
+            for op in self.wyckoffs[0]:
+                try:
+                    matrix = np.rint(np.linalg.inv(op.rotation_matrix).T).astype(int)
+                except np.linalg.LinAlgError:
+                    continue
+                key = tuple(matrix.flatten().tolist())
+                if key not in op_seen:
+                    op_seen.add(key)
+                    reciprocal_ops.append(matrix)
+        if len(reciprocal_ops) == 0:
+            reciprocal_ops = [np.eye(3, dtype=int)]
+
+        def get_symmetry_key(hkl):
+            vec = np.array(hkl, dtype=int)
+            orbit = [tuple((matrix @ vec).tolist()) for matrix in reciprocal_ops]
+            return max(orbit)
 
         for h in range(0, h_max + 1):
             # add permutation
@@ -766,12 +835,19 @@ class Group:
                         # Add all permutations and sign variations
                         valid_hkls = []
                         for signs in base_signs:
+                            if 2 < self.number < 16 and h == 0 and signs[2]==-1: continue
                             sh, sk, sl = signs[0]*h, signs[1]*k, signs[2]*l
                             if is_hkl_allowed(sh, sk, sl, self.number):
-                                valid_hkls.append((sh, sk, sl))
+                                if (sh, sk, sl) not in valid_hkls:
+                                    valid_hkls.append((sh, sk, sl))
+                                    #print('AAAAAAAAAAAAAAAAAAA', h, k, l, sh, sk, sl)
                     if valid_hkls:
                         canonical_seen.add(canonical)
-                        possible_hkls.append(canonical)
+                        for hkl in valid_hkls:
+                            symmetry_key = get_symmetry_key(hkl)
+                            if symmetry_key not in symmetry_seen:
+                                symmetry_seen.add(symmetry_key)
+                                possible_hkls.append(hkl)
 
         # Sort by h²+k²+l² in ascending order
         possible_hkls.sort(key=lambda hkl: hkl[0]**2 + hkl[1]**2 + hkl[2]**2)
@@ -779,7 +855,8 @@ class Group:
         return possible_hkls  # remove duplicates
 
     def generate_hkl_guesses(self, h_max=2, k_max=None, l_max=None, max_square=12,
-                             total_square=None, max_size=2000000,reduce=True, verbose=False):
+                             total_square=100, max_size=2000000, reduce=True,
+                             verbose=False):
         """
         Generate reasonable hkl indices within a cutoff for different crystal systems.
         This function considers the extinction conditions to limit the hkls.
@@ -789,7 +866,6 @@ class Group:
             l_max: maximum absolute value for k
             k_max: maximum absolute value for l
             max_square: maximum h^2 + k^2 + l^2
-            total_square: sum(all h^2 + k^2 + l^2)
             max_size: maximum number of guesses to return
             reduce: whether or not reduce the number of guesses
             verbose: whether or not print the possible hkls
@@ -802,10 +878,10 @@ class Group:
         n_hkls = len(possible_hkls)
         if verbose: print([tuple(hkl) for hkl in possible_hkls])
 
-        if self.number > 195:
+        if self.number >= 195:
             guesses = np.reshape(possible_hkls, (len(possible_hkls), 1, 3))
 
-        elif self.number > 143:
+        elif self.number >= 143:
             double_indices = np.array(list(itertools.combinations(range(n_hkls), 2)))
             doubles = possible_hkls[double_indices]  # Shape: (n_doubles, 2, 3)
             base_signs = np.array([(1, 1, 1), (1, -1, 1)])
@@ -858,11 +934,16 @@ class Group:
             #t1 = time()
             #if verbose: print("Time for generating quadruple hkl guesses:", t1 - t0, len(quadruples), len(guesses))
 
-        if total_square is not None:
-            sums = np.sum(guesses**2, axis=(1, 2))#; print(len(sums))
-            ids = np.argsort(sums)
-            if len(ids) > max_size: ids = ids[:max_size]
-            guesses = guesses[ids]
+        sums = np.sum(guesses**2, axis=(1, 2))#; print(len(sums))
+        ids = np.argsort(sums)
+        sums = sums[sums <= total_square]
+        ids = ids[:len(sums)]
+        guesses = guesses[ids]
+        #print("Debug", guesses[-1], total_square, max_square); import sys; sys.exit()
+
+        if max_size is not None:
+            if len(ids) > max_size:
+                guesses = guesses[:max_size]
 
         if reduce:
             if verbose: print("Reducing hkl guesses...", len(guesses))
@@ -906,14 +987,14 @@ class Group:
             # must follow the ordering constraints
             mask1 = np.all(hkls[:,0,:] >= hkls[:,1,:], axis=1) # (h1, k1, l1) >= (h2, k2, l2)
             hkls = hkls[~mask1]
-            print("Reducing order", len(hkls), "hkl guesses for space group", self.number)
+            #print("Reducing order", len(hkls), "hkl guesses for space group", self.number)
 
             # must be non-coplanar
             B = np.zeros([len(hkls), 2, 2])
             B[:,:,0] = hkls[:,:,0] ** 2 + hkls[:,:,1] ** 2
             B[:,:,1] = hkls[:,:,2] ** 2
             hkls = hkls[np.linalg.det(B) != 0]
-            print("Reducing colinear", len(hkls), "hkl guesses for space group", self.number)
+            # print("Reducing colinear", len(hkls), "hkl guesses for space group", self.number)
 
         elif 15 < self.number < 75:
             # must follow the ordering constraints
@@ -1177,10 +1258,8 @@ class Group:
             elif bravis == "F":
                 ops = ops[: int(len(ops) / 4)]
 
-            return site_symmetry(ops, l_type, bravis, self.number, True)
-            # ss.to_beautiful_matrix_representation()
-        else:
-            raise ValueError("Only supports space group symmetry")
+            return site_symmetry(ops, l_type, bravis, self.number, wp_id=0, parse_trans=True)
+        raise ValueError("Only supports space group symmetry")
 
     def get_wyckoff_position(self, index):
         """
@@ -4864,6 +4943,9 @@ def is_hkl_allowed(h, k, l, spg):
     elif spg in a_centers:
         if not (k + l) % 2 == 0:  # A-centering
             return False
+    elif spg in r_centers:
+        if not (h - k - l) % 3 == 0:  # R-centering
+            return False
 
     # Check screw_axis (Table 2.2.13.2)
     if spg in screw_21a + screw_42a:  #
@@ -4961,13 +5043,33 @@ def get_canonical_hkl(h, k, l, spg):
     """
     hkl = [abs(h), abs(k), abs(l)]  # Take absolute values first
 
+    def canonical_hex_hkl(h, k, l):
+        """Canonicalize hkl for hexagonal systems using 6-fold in-plane symmetry."""
+        candidates = [
+            (h, k, l),
+            (-k, h + k, l),
+            (-h - k, h, l),
+            (-h, -k, l),
+            (k, -h - k, l),
+            (h + k, -h, l),
+        ]
+        candidates = [tuple(abs(x) for x in c) for c in candidates]
+        return max(candidates)
+
     if spg >= 195:  # cubic
         # For cubic: sort in descending order
         # (2,2,0), (2,0,2), (0,2,2) all become (2,2,0)
         hkl.sort(reverse=True)
         return tuple(hkl)
 
-    elif spg >= 75:  # tetragonal/hexagonal
+    elif spg >= 168:  # hexagonal
+        return canonical_hex_hkl(h, k, abs(l))
+
+    elif spg >= 143:  # trigonal
+        h_sorted = sorted([hkl[0], hkl[1]], reverse=True)
+        return tuple([h_sorted[0], h_sorted[1], hkl[2]])
+
+    elif spg >= 75:  # tetragonal
         # For tetragonal: h and k are equivalent, l is unique
         # (2,1,3) and (1,2,3) are equivalent -> (2,1,3)
         h_sorted = sorted([hkl[0], hkl[1]], reverse=True)
@@ -4991,6 +5093,19 @@ def get_canonical_hkl_series(hkl_series, spg):
         tuple: canonical_series as a tuple (hashable)
     """
     from itertools import permutations
+
+    def canonical_hex_hkl(h, k, l):
+        """Canonicalize hkl for hexagonal systems using 6-fold in-plane symmetry."""
+        candidates = [
+            (h, k, l),
+            (-k, h + k, l),
+            (-h - k, h, l),
+            (-h, -k, l),
+            (k, -h - k, l),
+            (h + k, -h, l),
+        ]
+        candidates = [tuple(abs(x) for x in c) for c in candidates]
+        return max(candidates)
 
     def apply_permutation_to_series(hkl_series, perm):
         """Apply the same permutation to all hkls in the series"""
@@ -5018,7 +5133,38 @@ def get_canonical_hkl_series(hkl_series, spg):
 
         return tuple(best_canonical)
 
-    elif spg >= 75:  # tetragonal/hexagonal - h and k equivalent, l unique
+    elif spg >= 168:  # hexagonal - 6-fold in-plane symmetry, l unique
+        canonical_series = [canonical_hex_hkl(h, k, l) for h, k, l in hkl_series]
+        return tuple(canonical_series)
+
+    elif spg >= 143:  # trigonal - h and k equivalent, l unique
+        best_canonical = None
+        best_score = None
+
+        # Try permutations that maintain crystallographic meaning
+        perms_to_try = [(0, 1, 2), (1, 0, 2)]  # Keep l in position, swap h,k
+
+        for perm in perms_to_try:
+            # Apply the same permutation to the entire series
+            canonical_series = apply_permutation_to_series(hkl_series, perm)
+
+            # For trigonal: sort h,k but keep l separate
+            canonical_series = [
+                tuple([*sorted([hkl[0], hkl[1]], reverse=True), hkl[2]])
+                for hkl in canonical_series
+            ]
+
+            # Score the result
+            score = sum(sum(h * (10**(3-i)) for i, h in enumerate(hkl))
+                       for hkl in canonical_series)
+
+            if best_score is None or score > best_score:
+                best_score = score
+                best_canonical = canonical_series
+
+        return tuple(best_canonical)
+
+    elif spg >= 75:  # tetragonal - h and k equivalent, l unique
         best_canonical = None
         best_score = None
 
@@ -5067,9 +5213,235 @@ def get_canonical_hkl_series(hkl_series, spg):
 
         return tuple(best_canonical)
 
+def get_bravais_lattice(spg):
+    """
+    1: Triclinic-P
+    2: Monoclinic-P
+    3: Monoclinic-C
+    4: Orthorhombic-P
+    5: Orthorhombic-A
+    6: Orthorhombic-C
+    7: Orthorhombic-I
+    8: Orthorhombic-F
+    9: Tetragonal-P
+    10: Tetragonal-I
+    11: Hexagonal-P
+    12: Rhombohedral-R
+    13: Cubic-P
+    14: Cubic-I
+    15: Cubic-F
+    """
+    if spg < 3: # Triclinic-P
+        return 1
+    elif spg < 16: # Monoclinic
+        if spg in [3, 4, 6, 7, 10, 11, 13, 14]: #P
+            return 2
+        else: # C
+            return 3
+    elif spg < 75: # Orthorhombic
+        if spg in [38, 39, 40, 41]: #A
+            return 5
+        if spg in [20, 21, 35, 36, 37, 63, 64, 65, 66, 67, 68]: #C
+            return 6
+        elif spg in [23, 24, 44, 45, 46, 71, 72, 73, 74]:#I
+            return 7
+        elif spg in [22, 42, 43, 69, 70]: #F
+            return 8
+        else:
+            return 4
+    elif spg < 143: #Tetragonal
+        if spg in [79, 80, 82, 87, 88, 97, 98, 107, 108, 109, 110, 119, 120, 121, 122, 139, 140, 141, 142]: #I
+            return 10
+        else:
+            return 9
+    elif spg < 195: # Hexagonal
+        if spg in [146, 148, 155, 160, 161, 166, 167]:
+            return 12
+        else:
+            return 11
+    else: # Cubic
+        if spg in [197, 199, 204, 206, 211, 214, 217, 220, 229, 230]: # I
+            return 14
+        elif spg in [196, 202, 203, 209, 210, 216, 219, 225, 226, 227, 228]: # F
+            return 15
+        else:
+            return 13
+
+def get_lattice_type(bravais):
+    """
+    Get the lattice type string from bravais lattice number.
+    """
+    if bravais in [13, 14, 15]:
+        return 6
+    elif bravais in [11, 12]:
+        return 5
+    elif bravais in [9, 10]:
+        return 4
+    elif bravais in [4, 5, 6, 7, 8]:
+        return 3
+    elif bravais in [2, 3]:
+        return 2
+    else:
+        return 1
+
+def is_hkl_allowed_by_bravais(h, k, l, bravais):
+    """
+    Check if hkl is allowed based on systematic absences for the given space group.
+
+    Symmetry Element              | Affected Reflection | Condition for Reflection to Be Present
+    ------------------------------|---------------------|----------------------------------------
+    Lattice Centering:
+      primitive lattice (P)       | hkl                 | always present
+      body-centered lattice (I)   | hkl                 | h + k + l = even
+      end-centered lattice (A)    | hkl                 | k + l = even
+      end-centered lattice (B)    | hkl                 | h + l = even
+      end-centered lattice (C)    | hkl                 | h + k = even
+      face-centered lattice (F)   | hkl                 | h, k, l all odd or all even
+      r-centered lattice (R)      | hkl                 | h-k-l % 3
+    """
+
+    # Lattice Centering (Table 2.2.13.1.)
+    if bravais in [1, 2, 4, 9, 11, 13]:
+        return True
+    elif bravais in [7, 10, 14]:
+        if not (h + k + l) % 2 == 0:  # I-centering
+            return False
+    elif bravais in [8, 15]:
+        if not (h%2 == k%2 == l%2):  # F-centering
+            return False
+    elif bravais in [3, 6]:
+        if not (h + k) % 2 == 0:  # C-centering
+            return False
+    elif bravais in [5]:
+        if not (k + l) % 2 == 0:  # A-centering
+            return False
+    elif bravais in [12]:
+        if not (h - k - l) % 3 == 0: # R-centering
+            return False
+    return True
+
+def generate_possible_hkls(bravais, h_max=50, k_max=50, l_max=50):
+    """
+    Generate reasonable hkl indices within a cutoff for different crystal systems.
+
+    Args:
+        bravrais: bravais lattice type (1-15)
+        h_max: maximum absolute value for h
+        k_max: maximum absolute value for k
+        l_max: maximum absolute value for l
+        level: level of indexing (0 for triclinic; 1 for monoclinic; 2 for orthorhombic or higher)
+    """
+    if bravais in [4, 5, 6, 7, 8, 9, 10, 13, 14, 15]:
+        level = 3  # orthorhombic or higher
+    elif bravais in [11, 12]:
+        level = 2  # hexagonal
+    elif bravais in [2, 3]:
+        level = 1  # monoclinic
+    else:
+        level = 0  # triclinic
+
+    if level == 3: # orthorhombic or higher
+        base_signs = [(1, 1, 1)]
+    elif level == 2:  # hexagonal (110) (1-10)
+        base_signs = [(1, 1, 1), (1, -1, 1)]
+    elif level == 1: # monoclinic, baxis unique, (101) (10-1)
+        base_signs = [(1, 1, 1), (1, 1, -1)]
+    else:
+        base_signs = [(1, 1, 1), (1, 1, -1), (1, -1, 1), (-1, 1, 1),
+                      (1, -1, -1), (-1, 1, -1), (-1, -1, 1), (-1, -1, -1)]
+    # Create meshgrid for all h, k, l combinations
+    h_vals, k_vals, l_vals = np.meshgrid(
+        np.arange(h_max + 1),
+        np.arange(k_max + 1),
+        np.arange(l_max + 1),
+        indexing='ij'
+    )
+
+    # Flatten to get all combinations
+    h_flat = h_vals.flatten()
+    k_flat = k_vals.flatten()
+    l_flat = l_vals.flatten()
+
+    # Filter out (0,0,0)
+    non_zero_mask = (h_flat**2 + k_flat**2 + l_flat**2) > 0
+    h_flat = h_flat[non_zero_mask]
+    k_flat = k_flat[non_zero_mask]
+    l_flat = l_flat[non_zero_mask]
+
+    h1_flat, k1_flat, l1_flat = [], [], []
+    for h, k, l in zip(h_flat, k_flat, l_flat):
+        if is_hkl_allowed_by_bravais(h, k, l, bravais):
+            h1_flat.append(h)
+            k1_flat.append(k)
+            l1_flat.append(l)
+    h1_flat = np.array(h1_flat)
+    k1_flat = np.array(k1_flat)
+    l1_flat = np.array(l1_flat)
+    # Apply all sign combinations vectorized
+    all_hkls = []
+    for signs in base_signs:
+        sh = signs[0] * h1_flat
+        sk = signs[1] * k1_flat
+        sl = signs[2] * l1_flat
+        hkls_with_signs = np.column_stack([sh, sk, sl])
+        all_hkls.append(hkls_with_signs)
+
+    all_hkls = np.vstack(all_hkls)
+
+    # Remove symmetry-equivalent hkls using representative space groups
+    bravais_to_spg = {
+        1: 1,    # triclinic P
+        2: 3,    # monoclinic P
+        3: 5,    # monoclinic C
+        4: 16,   # orthorhombic P
+        5: 16,   # orthorhombic A
+        6: 16,   # orthorhombic C
+        7: 16,   # orthorhombic I
+        8: 16,   # orthorhombic F
+        9: 75,   # tetragonal P
+        10: 79,  # tetragonal I
+        11: 168, # hexagonal P
+        12: 143, # rhombohedral/trigonal R
+        13: 195, # cubic P
+        14: 197, # cubic I
+        15: 196, # cubic F
+    }
+    spg = bravais_to_spg[bravais]
+
+    # Build reciprocal-space rotation operators from a representative space group
+    reciprocal_ops = []
+    op_seen = set()
+    group = Group(spg)
+    if len(group.wyckoffs) > 0 and len(group.wyckoffs[0]) > 0:
+        for op in group.wyckoffs[0]:
+            try:
+                matrix = np.rint(np.linalg.inv(op.rotation_matrix).T).astype(int)
+            except np.linalg.LinAlgError:
+                continue
+            key = tuple(matrix.flatten().tolist())
+            if key not in op_seen:
+                op_seen.add(key)
+                reciprocal_ops.append(matrix)
+    if len(reciprocal_ops) == 0:
+        reciprocal_ops = [np.eye(3, dtype=int)]
+
+    unique_hkls = []
+    seen = set()
+    for h, k, l in all_hkls:
+        vec = np.array([int(h), int(k), int(l)], dtype=int)
+        orbit = [tuple((matrix @ vec).tolist()) for matrix in reciprocal_ops]
+        symmetry_key = max(orbit)
+        if symmetry_key not in seen:
+            seen.add(symmetry_key)
+            unique_hkls.append(tuple(vec.tolist()))
+
+    return np.array(unique_hkls, dtype=int)
+
+
 if __name__ == "__main__":
     print("Test pyxtal.wp.site symmetry")
-    spg_list = [14, 36, 62, 99, 143, 160, 182, 183, 191, 192, 193, 194, 225, 230]
+    spg_list = [14, 36, 62, 99, 143, 160, 182, 183, 191, 192,
+                193, 194, 225, 230]
     spg_list = [191, 192]
     for i in spg_list:
         g = Group(i)

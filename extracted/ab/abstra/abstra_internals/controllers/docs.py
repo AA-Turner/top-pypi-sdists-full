@@ -83,7 +83,10 @@ class DocsController:
             Get pages examples
             Reading pages examples...
         """
-        return self.read_abstra_docs("/docs/md/workflow/pages/examples.md")
+        path = _AI_GUIDES_DIR / "pages_examples.md"
+        if not path.exists():
+            return "No examples available yet."
+        return path.read_text()
 
     def get_forms_guide(self):
         """

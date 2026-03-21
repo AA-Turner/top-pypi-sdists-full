@@ -7,18 +7,19 @@ name = "datashader"
 dynamic = ["version"]
 description = "Data visualization toolchain based on aggregating into a grid"
 readme = "README.md"
-license = { text = "New BSD" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
 requires-python = ">=3.10"
 authors = [{ name = "HoloViz developers", email = "developers@holoviz.org" }]
 maintainers = [{ name = "HoloViz developers", email = "developers@holoviz.org" }]
 classifiers = [
-    "License :: OSI Approved :: BSD License",
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
@@ -43,15 +44,19 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://datashader.org"
-Source = "https://github.com/holoviz/datashader"
+Blog = "https://blog.holoviz.org/"
+Changelog = "https://github.com/holoviz/datashader/blob/main/CHANGELOG.md"
+Discord = "https://discord.gg/AXRHnJU6sP"
+Discourse = "https://discourse.holoviz.org"
+Discussions = "https://github.com/holoviz/datashader/discussions"
+Documentation = "https://datashader.org"
+Funding = "https://opencollective.com/holoviz"
 HoloViz = "https://holoviz.org/"
+"Issue Tracker" = "https://github.com/holoviz/datashader/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen"
+Repository = "https://github.com/holoviz/datashader"
 
-[project.optional-dependencies]
-tests = ["pytest"]
-
-[project.scripts]
-datashader = "datashader.__main:main"
+[dependency-groups]
+tests = ["pytest", "hypothesis"]
 
 [tool.hatch.version]
 source = "vcs"
@@ -84,13 +89,6 @@ select = [
     "UP",
     "W",
 ]
-ignore = [
-    "UP038", # isinstance and issubclass uses a |-separated union
-    # The following should be enabled in the future
-    "UP030",  # format-literals
-    "UP031",  # printf-string-formatting
-    "UP032",  # f-string
-]
 
 [tool.ruff.lint.per-file-ignores]
 "test_mpl_ext.py" = ["E402"] # Module level import not at top of file
@@ -117,4 +115,22 @@ filterwarnings = [
     "ignore:The legacy Dask DataFrame implementation is deprecated:FutureWarning", # https://github.com/holoviz/spatialpandas/issues/146
     # 2025-04
     "ignore:The 'shapely.geos' module is deprecated, and will be removed in a future version:DeprecationWarning",
+    # 2025-09
+    "ignore:Signature .* for <class 'numpy.longdouble'>.*:UserWarning",
 ]
+
+[tool.typos.default]
+extend-ignore-re = [
+    ".*(?:#|--|//|/*).*(?:typos):\\s?ignore[^\\n]*\\n",
+    ".*(?:typos):\\s?ignore-next-line[^\\n]*\\n[^\\n]*",
+]
+
+[tool.typos.default.extend-words]
+arange = "arange"
+iy = "iy"
+nd = "nd"
+pn = "pn"
+ser = "ser"
+filetimes = "filetimes"
+UE = "UE"
+Thi = "Thi"

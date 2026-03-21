@@ -162,17 +162,24 @@ def calculate_S(x, xtal, des_ref, f, return_rdf=False):
     Returns:
         obj (float): objective function value
     """
+    des_ref0 = np.zeros([len(xtal.atom_sites), len(des_ref[0])])
     if xtal.lattice is None:
         des = np.zeros(des_ref.shape)
         weights = 1
     else:
-        xtal.update_from_1d_rep(x)  # ; print(xtal)
+        if xtal.lattice.dof == len(x):
+            xtal.lattice.update_from_1d_representation(x)  # ; print(xtal)
+        else:
+            xtal.update_from_1d_rep(x)  # ; print(xtal)
         if xtal.lattice is not None:
             ids = [0]
             weights = []
-            for site in xtal.atom_sites:
+            for i, site in enumerate(xtal.atom_sites):
                 ids.append(site.wp.multiplicity + ids[-1])
                 weights.append(site.wp.multiplicity)
+                for j, spe in enumerate(xtal.species):
+                    if spe == site.specie:
+                        des_ref0[i] = des_ref[j]
             ids = ids[:-1]
             weights = np.array(weights, dtype=float)
             atoms = xtal.to_ase(resort=False)
@@ -182,7 +189,7 @@ def calculate_S(x, xtal, des_ref, f, return_rdf=False):
             des = np.zeros(des_ref.shape)
             weights = 1
 
-    sim = np.sum((des-des_ref)**2, axis=1)  # /des.shape[1]
+    sim = np.sum((des[:1]-des_ref0[:1])**2, axis=1)  # /des.shape[1]
     #if ref_CN is not None:
     #    coefs = CNs[:, 1] - ref_CN
     #    coefs[coefs < 0] = 0

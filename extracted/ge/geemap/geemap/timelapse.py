@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import tempfile
+from typing import Any
 import warnings
 
 import ee
@@ -21,6 +22,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 
 from .common import *
+from . import colormaps
 from . import coreutils
 
 try:
@@ -30,7 +32,7 @@ except:
 
 
 def add_overlay(
-    collection: ee.ImageCollection,
+    collection: ee.ImageCollection,  # pytype: disable=annotation-type-mismatch
     overlay_data: str | ee.Geometry | ee.FeatureCollection,
     color: str = "black",
     width: int = 1,
@@ -76,7 +78,7 @@ def add_overlay(
                     "The overlay_data must be a valid ee.FeatureCollection, a valid "
                     "ee.FeatureCollection asset id, or http url to a geojson file."
                 )
-                raise Exception(e)
+                raise e
         elif isinstance(overlay_data, ee.Feature):
             overlay_data = ee.FeatureCollection([overlay_data])
         elif isinstance(overlay_data, ee.Geometry):
@@ -88,10 +90,20 @@ def add_overlay(
             )
 
     try:
+        target_proj = collection.first().projection()
+        region_geom = None
         if region is not None:
-            overlay_data = overlay_data.filterBounds(region)
+            if isinstance(region, ee.Geometry):
+                region_geom = region
+            else:
+                region_geom = region.geometry()
 
-        empty = ee.Image().byte()
+        if region_geom is not None:
+            overlay_data = overlay_data.filterBounds(region_geom).map(
+                lambda feature: feature.intersection(region_geom, ee.ErrorMargin(1))
+            )
+
+        empty = ee.Image().byte().setDefaultProjection(target_proj)
         image = empty.paint(
             **{
                 "featureCollection": overlay_data,
@@ -99,15 +111,20 @@ def add_overlay(
                 "width": width,
             }
         ).visualize(**{"palette": coreutils.check_color(color), "opacity": opacity})
+        image = image.setDefaultProjection(target_proj)
+
+        if region_geom is not None:
+            image = image.clip(region_geom)
+
         blend_col = collection.map(
-            lambda img: img.blend(image).set(
-                "system:time_start", img.get("system:time_start")
-            )
+            lambda img: img.blend(image)
+            .setDefaultProjection(img.projection())
+            .set("system:time_start", img.get("system:time_start"))
         )
         return blend_col
     except Exception as e:
         print("Error in add_overlay:")
-        raise Exception(e)
+        raise e
 
 
 def make_gif(
@@ -214,23 +231,15 @@ def merge_gifs(in_gifs: str | list[str], out_gif: str) -> None:
     Raises:
         Exception:  Raise exception when gifsicle is not installed.
     """
-    try:
-        if isinstance(in_gifs, str) and os.path.isdir(in_gifs):
-            in_gifs = glob.glob(os.path.join(in_gifs, "*.gif"))
-        elif not isinstance(in_gifs, list):
-            raise Exception("in_gifs must be a list.")
+    if isinstance(in_gifs, str) and os.path.isdir(in_gifs):
+        in_gifs = glob.glob(os.path.join(in_gifs, "*.gif"))
+    elif not isinstance(in_gifs, list):
+        raise Exception("in_gifs must be a list.")
 
-        in_gifs = " ".join(in_gifs)
+    in_gifs = " ".join(in_gifs)
 
-        cmd = f"gifsicle {in_gifs} > {out_gif}"
-        os.system(cmd)
-
-    except Exception as e:
-        print(
-            "gifsicle is not installed. "
-            "Run 'sudo apt-get install -y gifsicle' to install it."
-        )
-        print(e)
+    cmd = f"gifsicle {in_gifs} > {out_gif}"
+    os.system(cmd)
 
 
 def gif_to_png(
@@ -361,34 +370,45 @@ def add_text_to_gif(
     out_gif: str,
     xy=None,
     text_sequence=None,
-    font_type="arial.ttf",
-    font_size=20,
-    font_color="#000000",
-    add_progress_bar=True,
-    progress_bar_color="white",
-    progress_bar_height=5,
-    duration=100,
-    loop=0,
+    font_type: str = "arial.ttf",
+    font_size: int = 20,
+    font_color: str = "#000000",
+    add_progress_bar: bool = True,
+    progress_bar_color: str = "white",
+    progress_bar_height: int = 5,
+    duration: float = 100,
+    loop: int = 0,
 ) -> None:
     """Adds animated text to a GIF image.
 
     Args:
         in_gif: The file path to the input GIF image.
         out_gif: The file path to the output GIF image.
-        xy (tuple, optional): Top left corner of the text. It can be formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
-        text_sequence (int, str, list, optional): Text to be drawn. It can be an integer number, a string, or a list of strings. Defaults to None.
-        font_type (str, optional): Font type. Defaults to "arial.ttf".
-        font_size (int, optional): Font size. Defaults to 20.
-        font_color (str, optional): Font color. It can be a string (e.g., 'red'), rgb tuple (e.g., (255, 127, 0)), or hex code (e.g., '#ff00ff').  Defaults to '#000000'.
-        add_progress_bar (bool, optional): Whether to add a progress bar at the bottom of the GIF. Defaults to True.
-        progress_bar_color (str, optional): Color for the progress bar. Defaults to 'white'.
-        progress_bar_height (int, optional): Height of the progress bar. Defaults to 5.
-        duration (int, optional): controls how long each frame will be displayed for, in milliseconds. It is the inverse of the frame rate. Setting it to 100 milliseconds gives 10 frames per second. You can decrease the duration to give a smoother animation. Defaults to 100.
-        loop (int, optional): controls how many times the animation repeats. The default, 1, means that the animation will play once and then stop (displaying the last frame). A value of 0 means that the animation will repeat forever. Defaults to 0.
+        xy (tuple, optional): Top left corner of the text. It can be formatted like
+            this: (10, 10) or ('15%', '25%'). Defaults to None.
+        text_sequence (int, str, list, optional): Text to be drawn. It can be an integer
+            number, a string, or a list of strings. Defaults to None.
+        font_type: Font type. Defaults to "arial.ttf".
+        font_size: Font size. Defaults to 20.
+        font_color: Font color. It can be a string (e.g., 'red'), rgb tuple (e.g., (255,
+            127, 0)), or hex code (e.g., '#ff00ff').  Defaults to '#000000'.
+        add_progress_bar: Whether to add a progress bar at the bottom of the
+            GIF. Defaults to True.
+        progress_bar_color: Color for the progress bar. Defaults to 'white'.
+        progress_bar_height: Height of the progress bar. Defaults to 5.
+        duration: controls how long each frame will be displayed for, in
+            milliseconds. It is the inverse of the frame rate. Setting it to 100
+            milliseconds gives 10 frames per second. You can decrease the duration to
+            give a smoother animation. Defaults to 100.
+        loop: controls how many times the animation repeats. The default, 1, means that
+            the animation will play once and then stop (displaying the last frame). A
+            value of 0 means that the animation will repeat forever. Defaults to 0.
     """
     warnings.simplefilter("ignore")
 
+    # pytype: disable=attribute-error
     pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
+    # pytype: enable=attribute-error
     default_font = os.path.join(pkg_dir, "data/fonts/arial.ttf")
 
     in_gif = os.path.abspath(in_gif)
@@ -700,31 +720,44 @@ def reduce_gif_size(in_gif: str, out_gif: str | None = None) -> None:
 
 def create_timeseries(
     collection,
-    start_date,
-    end_date,
+    start_date: str,
+    end_date: str,
     region=None,
     bands=None,
-    frequency="year",
-    reducer="median",
-    drop_empty=True,
-    date_format=None,
-    parallel_scale=1,
-    step=1,
+    frequency: str = "year",
+    reducer: str = "median",
+    drop_empty: bool = True,
+    date_format: str | None = None,
+    parallel_scale: int = 1,
+    step: int = 1,
 ):
     """Creates a timeseries from a collection of images by a specified frequency and reducer.
 
     Args:
-        collection (str | ee.ImageCollection): The collection of images to create a timeseries from. It can be a string representing the collection ID or an ee.ImageCollection object.
-        start_date (str): The start date of the timeseries. It must be formatted like this: 'YYYY-MM-dd'.
-        end_date (str): The end date of the timeseries. It must be formatted like this: 'YYYY-MM-dd'.
-        region (ee.Geometry, optional): The region to use to filter the collection of images. It must be an ee.Geometry object. Defaults to None.
-        bands (list, optional): The list of bands to use to create the timeseries. It must be a list of strings. Defaults to None.
-        frequency (str, optional): The frequency of the timeseries. It must be one of the following: 'year', 'month', 'day', 'hour', 'minute', 'second'. Defaults to 'year'.
-        reducer (str, optional):  The reducer to use to reduce the collection of images to a single value. It can be one of the following: 'median', 'mean', 'min', 'max', 'variance', 'sum'. Defaults to 'median'.
-        drop_empty (bool, optional): Whether to drop empty images from the timeseries. Defaults to True.
-        date_format (str, optional): A pattern, as described at http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html. Defaults to 'YYYY-MM-dd'.
-        parallel_scale (int, optional): A scaling factor used to limit memory use; using a larger parallel_scale (e.g. 2 or 4) may enable computations that run out of memory with the default. Defaults to 1.
-        step (int, optional): The step size to use when creating the date sequence. Defaults to 1.
+        collection (str | ee.ImageCollection): The collection of images to create a
+            timeseries from. It can be a string representing the collection ID or an
+            ee.ImageCollection object.
+        start_date: The start date of the timeseries. It must be formatted like this:
+            'YYYY-MM-dd'.
+        end_date: The end date of the timeseries. It must be formatted like this:
+            'YYYY-MM-dd'.
+        region (ee.Geometry, optional): The region to use to filter the collection of
+            images. It must be an ee.Geometry object. Defaults to None.
+        bands (list, optional): The list of bands to use to create the timeseries. It
+            must be a list of strings. Defaults to None.
+        frequency: The frequency of the timeseries. It must be one of the following:
+            'year', 'month', 'day', 'hour', 'minute', 'second'. Defaults to 'year'.
+        reducer: The reducer to use to reduce the collection of images to a single
+            value. It can be one of the following: 'median', 'mean', 'min', 'max',
+            'variance', 'sum'. Defaults to 'median'.
+        drop_empty: Whether to drop empty images from the timeseries. Defaults to True.
+        date_format: A pattern, as described at
+            http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html. Defaults
+            to 'YYYY-MM-dd'.
+        parallel_scale: A scaling factor used to limit memory use; using a larger
+            parallel_scale (e.g. 2 or 4) may enable computations that run out of memory
+            with the default. Defaults to 1.
+        step: The step size to use when creating the date sequence. Defaults to 1.
 
     Returns:
         ee.ImageCollection: The timeseries.
@@ -762,7 +795,7 @@ def create_timeseries(
         reducer = eval(f"ee.Reducer.{reducer}()")
     except Exception as e:
         print("The provided reducer is invalid.")
-        raise Exception(e)
+        raise e
 
     def create_image(date):
         start = ee.Date(date)
@@ -792,120 +825,148 @@ def create_timeseries(
             }
         ).rename(bands)
 
-    try:
-        images = ee.ImageCollection(dates.map(create_image))
-        if drop_empty:
-            return images.filterMetadata("empty", "equals", 0)
-        else:
-            return images
-    except Exception as e:
-        raise Exception(e)
+    images = ee.ImageCollection(dates.map(create_image))
+    if drop_empty:
+        return images.filterMetadata("empty", "equals", 0)
+    else:
+        return images
 
 
 def create_timelapse(
     collection,
-    start_date,
-    end_date,
+    start_date: str,
+    end_date: str,
     region=None,
     bands=None,
-    frequency="year",
-    reducer="median",
-    date_format=None,
-    out_gif=None,
+    frequency: str = "year",
+    reducer: str = "median",
+    date_format: str | None = None,
+    out_gif: str | None = None,
     palette=None,
     vis_params=None,
-    dimensions=768,
-    frames_per_second=10,
-    crs="EPSG:3857",
+    dimensions: int = 768,
+    frames_per_second: int = 10,
+    crs: str = "EPSG:3857",
     overlay_data=None,
-    overlay_color="black",
-    overlay_width=1,
-    overlay_opacity=1.0,
-    title=None,
-    title_xy=("2%", "90%"),
-    add_text=True,
-    text_xy=("2%", "2%"),
+    overlay_color: str = "black",
+    overlay_width: int = 1,
+    overlay_opacity: float = 1.0,
+    title: str | None = None,
+    title_xy: tuple[str, str] = ("2%", "90%"),
+    add_text: bool = True,
+    text_xy: tuple[str, str] = ("2%", "2%"),
     text_sequence=None,
-    font_type="arial.ttf",
-    font_size=20,
-    font_color="white",
-    add_progress_bar=True,
-    progress_bar_color="white",
-    progress_bar_height=5,
-    add_colorbar=False,
-    colorbar_width=6.0,
-    colorbar_height=0.4,
-    colorbar_label=None,
-    colorbar_label_size=12,
-    colorbar_label_weight="normal",
-    colorbar_tick_size=10,
-    colorbar_bg_color=None,
-    colorbar_orientation="horizontal",
+    font_type: str = "arial.ttf",
+    font_size: int = 20,
+    font_color: str = "white",
+    add_progress_bar: bool = True,
+    progress_bar_color: str = "white",
+    progress_bar_height: int = 5,
+    add_colorbar: bool = False,
+    colorbar_width: float = 6.0,
+    colorbar_height: float = 0.4,
+    colorbar_label: str | None = None,
+    colorbar_label_size: int = 12,
+    colorbar_label_weight: str = "normal",
+    colorbar_tick_size: int = 10,
+    colorbar_bg_color: str | None = None,
+    colorbar_orientation: str = "horizontal",
     colorbar_dpi="figure",
     colorbar_xy=None,
     colorbar_size=(300, 300),
-    loop=0,
-    mp4=False,
-    fading=False,
-    parallel_scale=1,
-    step=1,
+    loop: int = 0,
+    mp4: bool = False,
+    fading: bool = False,
+    parallel_scale: int = 1,
+    step: int = 1,
 ):
     """Create a timelapse from any ee.ImageCollection.
 
     Args:
-        collection (str | ee.ImageCollection): The collection of images to create a timeseries from. It can be a string representing the collection ID or an ee.ImageCollection object.
-        start_date (str): The start date of the timeseries. It must be formatted like this: 'YYYY-MM-dd'.
-        end_date (str): The end date of the timeseries. It must be formatted like this: 'YYYY-MM-dd'.
-        region (ee.Geometry, optional): The region to use to filter the collection of images. It must be an ee.Geometry object. Defaults to None.
-        bands (list, optional): A list of band names to use in the timelapse. Defaults to None.
-        frequency (str, optional): The frequency of the timeseries. It must be one of the following: 'year', 'month', 'day', 'hour', 'minute', 'second'. Defaults to 'year'.
-        reducer (str, optional):  The reducer to use to reduce the collection of images to a single value. It can be one of the following: 'median', 'mean', 'min', 'max', 'variance', 'sum'. Defaults to 'median'.
-        drop_empty (bool, optional): Whether to drop empty images from the timeseries. Defaults to True.
-        date_format (str, optional): A pattern, as described at http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html. Defaults to 'YYYY-MM-dd'.
-        out_gif (str): The output gif file path. Defaults to None.
-        palette (list, optional): A list of colors to render a single-band image in the timelapse. Defaults to None.
-        vis_params (dict, optional): A dictionary of visualization parameters to use in the timelapse. Defaults to None. See more at https://developers.google.com/earth-engine/guides/image_visualization.
-        dimensions (int, optional): a number or pair of numbers (in format 'WIDTHxHEIGHT') Maximum dimensions of the thumbnail to render, in pixels. If only one number is passed, it is used as the maximum, and the other dimension is computed by proportional scaling. Defaults to 768.
-        frames_per_second (int, optional): Animation speed. Defaults to 10.
-        crs (str, optional): The coordinate reference system to use. Defaults to "EPSG:3857".
-        overlay_data (int, str, list, optional): Administrative boundary to be drawn on the timelapse. Defaults to None.
-        overlay_color (str, optional): Color for the overlay data. Can be any color name or hex color code. Defaults to 'black'.
-        overlay_width (int, optional): Width of the overlay. Defaults to 1.
-        overlay_opacity (float, optional): Opacity of the overlay. Defaults to 1.0.
-        title (str, optional): The title of the timelapse. Defaults to None.
-        title_xy (tuple, optional): Lower left corner of the title. It can be formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
-        add_text (bool, optional): Whether to add animated text to the timelapse. Defaults to True.
-        title_xy (tuple, optional): Lower left corner of the text sequency. It can be formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
-        text_sequence (int, str, list, optional): Text to be drawn. It can be an integer number, a string, or a list of strings. Defaults to None.
-        font_type (str, optional): Font type. Defaults to "arial.ttf".
-        font_size (int, optional): Font size. Defaults to 20.
-        font_color (str, optional): Font color. It can be a string (e.g., 'red'), rgb tuple (e.g., (255, 127, 0)), or hex code (e.g., '#ff00ff').  Defaults to '#000000'.
-        add_progress_bar (bool, optional): Whether to add a progress bar at the bottom of the GIF. Defaults to True.
-        progress_bar_color (str, optional): Color for the progress bar. Defaults to 'white'.
-        progress_bar_height (int, optional): Height of the progress bar. Defaults to 5.
-        add_colorbar (bool, optional): Whether to add a colorbar to the timelapse. Defaults to False.
-        colorbar_width (float, optional): Width of the colorbar. Defaults to 6.0.
-        colorbar_height (float, optional): Height of the colorbar. Defaults to 0.4.
-        colorbar_label (str, optional): Label for the colorbar. Defaults to None.
-        colorbar_label_size (int, optional): Font size for the colorbar label. Defaults to 12.
-        colorbar_label_weight (str, optional): Font weight for the colorbar label. Defaults to 'normal'.
-        colorbar_tick_size (int, optional): Font size for the colorbar ticks. Defaults to 10.
-        colorbar_bg_color (str, optional): Background color for the colorbar, can be color like "white", "black". Defaults to None.
-        colorbar_orientation (str, optional): Orientation of the colorbar. Defaults to 'horizontal'.
-        colorbar_dpi (str, optional): DPI for the colorbar, can be numbers like 100, 300. Defaults to 'figure'.
-        colorbar_xy (tuple, optional): Lower left corner of the colorbar. It can be formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
-        colorbar_size (tuple, optional): Size of the colorbar. It can be formatted like this: (300, 300). Defaults to (300, 300).
-        loop (int, optional): Controls how many times the animation repeats. The default, 1, means that the animation will play once and then stop (displaying the last frame). A value of 0 means that the animation will repeat forever. Defaults to 0.
-        mp4 (bool, optional): Whether to create an mp4 file. Defaults to False.
-        fading (int | bool, optional): If True, add fading effect to the timelapse. Defaults to False, no fading. To add fading effect, set it to True (1 second fading duration) or to an integer value (fading duration).
-        parallel_scale (int, optional): A scaling factor used to limit memory use; using a larger parallel_scale (e.g. 2 or 4) may enable computations that run out of memory with the default. Defaults to 1.
-        step (int, optional): The step size to use when creating the date sequence. Defaults to 1.
+        collection (str | ee.ImageCollection): The collection of images to create a
+            timeseries from. It can be a string representing the collection ID or an
+            ee.ImageCollection object.
+        start_date: The start date of the timeseries. It must be formatted like this:
+            'YYYY-MM-dd'.
+        end_date: The end date of the timeseries. It must be formatted like this:
+            'YYYY-MM-dd'.
+        region (ee.Geometry, optional): The region to use to filter the collection of
+            images. It must be an ee.Geometry object. Defaults to None.
+        bands (list, optional): A list of band names to use in the timelapse. Defaults
+            to None.
+        frequency: The frequency of the timeseries. It must be one of the following:
+            'year', 'month', 'day', 'hour', 'minute', 'second'. Defaults to 'year'.
+        reducer: The reducer to use to reduce the collection of images to a single
+            value. It can be one of the following: 'median', 'mean', 'min', 'max',
+            'variance', 'sum'. Defaults to 'median'.
+        date_format: A pattern, as described at
+            http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html. Defaults
+            to 'YYYY-MM-dd'.
+        out_gif: The output gif file path. Defaults to None.
+        palette (list, optional): A list of colors to render a single-band image in the
+            timelapse. Defaults to None.
+        vis_params (dict, optional): A dictionary of visualization parameters to use in
+            the timelapse. Defaults to None. See more at
+            https://developers.google.com/earth-engine/guides/image_visualization.
+        dimensions: a number or pair of numbers (in format 'WIDTHxHEIGHT') Maximum
+            dimensions of the thumbnail to render, in pixels. If only one number is
+            passed, it is used as the maximum, and the other dimension is computed by
+            proportional scaling. Defaults to 768.
+        frames_per_second: Animation speed. Defaults to 10.
+        crs: The coordinate reference system to use. Defaults to "EPSG:3857".
+        overlay_data (int, str, list, optional): Administrative boundary to be drawn on
+            the timelapse. Defaults to None.
+        overlay_color: Color for the overlay data. Can be any color name or hex color
+            code. Defaults to 'black'.
+        overlay_width: Width of the overlay. Defaults to 1.
+        overlay_opacity: Opacity of the overlay. Defaults to 1.0.
+        title: The title of the timelapse. Defaults to None.
+        title_xy: Lower left corner of the title. It can be formatted like this: (10,
+            10) or ('15%', '25%'). Defaults to None.
+        add_text: Whether to add animated text to the timelapse. Defaults to True.
+        title_xy: Lower left corner of the text sequency. It can be formatted like this:
+            (10, 10) or ('15%', '25%'). Defaults to None.
+        text_sequence (int, str, list, optional): Text to be drawn. It can be an integer
+            number, a string, or a list of strings. Defaults to None.
+        font_type: Font type. Defaults to "arial.ttf".
+        font_size: Font size. Defaults to 20.
+        font_color: Font color. It can be a string (e.g., 'red'), rgb tuple (e.g., (255,
+            127, 0)), or hex code (e.g., '#ff00ff').  Defaults to '#000000'.
+        add_progress_bar: Whether to add a progress bar at the bottom of the
+            GIF. Defaults to True.
+        progress_bar_color: Color for the progress bar. Defaults to 'white'.
+        progress_bar_height: Height of the progress bar. Defaults to 5.
+        add_colorbar: Whether to add a colorbar to the timelapse. Defaults to False.
+        colorbar_width: Width of the colorbar. Defaults to 6.0.
+        colorbar_height: Height of the colorbar. Defaults to 0.4.
+        colorbar_label: Label for the colorbar. Defaults to None.
+        colorbar_label_size: Font size for the colorbar label. Defaults to 12.
+        colorbar_label_weight: Font weight for the colorbar label. Defaults to 'normal'.
+        colorbar_tick_size: Font size for the colorbar ticks. Defaults to 10.
+        colorbar_bg_color: Background color for the colorbar, can be color like "white",
+            "black". Defaults to None.
+        colorbar_orientation: Orientation of the colorbar. Defaults to 'horizontal'.
+        colorbar_dpi (str, optional): DPI for the colorbar, can be numbers like 100,
+            300. Defaults to 'figure'.
+        colorbar_xy (tuple, optional): Lower left corner of the colorbar. It can be
+            formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
+        colorbar_size (tuple, optional): Size of the colorbar. It can be formatted like
+            this: (300, 300). Defaults to (300, 300).
+        loop: Controls how many times the animation repeats. The default, 1, means that
+            the animation will play once and then stop (displaying the last frame). A
+            value of 0 means that the animation will repeat forever. Defaults to 0.
+        mp4: Whether to create an mp4 file. Defaults to False.
+        fading: If True, add fading effect to the timelapse. Defaults to False, no
+            fading. To add fading effect, set it to True (1 second fading duration) or
+            to an integer value (fading duration).
+        parallel_scale: A scaling factor used to limit memory use; using a larger
+            parallel_scale (e.g. 2 or 4) may enable computations that run out of memory
+            with the default. Defaults to 1.
+        step: The step size to use when creating the date sequence. Defaults to 1.
 
     Returns:
         str: File path to the timelapse gif.
     """
-    import geemap.colormaps as cm
-
     if not isinstance(collection, ee.ImageCollection):
         if isinstance(collection, str):
             collection = ee.ImageCollection(collection)
@@ -954,7 +1015,7 @@ def create_timelapse(
         raise Exception("The bands must be a string or a list of strings.")
 
     if isinstance(palette, str):
-        palette = cm.get_palette(palette, 15)
+        palette = colormaps.get_palette(palette, 15)
     elif isinstance(palette, list) or isinstance(palette, tuple):
         pass
     elif palette is not None:
@@ -975,7 +1036,7 @@ def create_timelapse(
             if palette is not None:
                 vis_params["palette"] = palette
             else:
-                vis_params["palette"] = cm.palettes.ndvi
+                vis_params["palette"] = colormaps.palettes.ndvi
     elif isinstance(vis_params, dict):
         if "bands" not in vis_params:
             vis_params["bands"] = bands
@@ -996,7 +1057,7 @@ def create_timelapse(
                 image_max_value(img, region=region, scale=scale).getInfo().values()
             )
         if palette is None and (len(bands) == 1) and ("palette" not in vis_params):
-            vis_params["palette"] = cm.palettes.ndvi
+            vis_params["palette"] = colormaps.palettes.ndvi
         elif palette is not None and ("palette" not in vis_params):
             vis_params["palette"] = palette
         if len(bands) > 1 and "palette" in vis_params:
@@ -1193,67 +1254,88 @@ def naip_timeseries(
 
 def naip_timelapse(
     roi,
-    start_year=2003,
-    end_year=None,
-    out_gif=None,
-    bands=None,
+    start_year: int | str = 2003,
+    end_year: int | str | None = None,
+    out_gif: str | None = None,
+    bands: list[str] | None = None,
     palette=None,
     vis_params=None,
     dimensions=768,
-    frames_per_second=3,
-    crs="EPSG:3857",
+    frames_per_second: int = 3,
+    crs: str = "EPSG:3857",
     overlay_data=None,
-    overlay_color="black",
-    overlay_width=1,
-    overlay_opacity=1.0,
-    title=None,
+    overlay_color: str = "black",
+    overlay_width: int = 1,
+    overlay_opacity: float = 1.0,
+    title: str | None = None,
     title_xy=("2%", "90%"),
-    add_text=True,
+    add_text: bool = True,
     text_xy=("2%", "2%"),
     text_sequence=None,
-    font_type="arial.ttf",
-    font_size=20,
+    font_type: str = "arial.ttf",
+    font_size: int = 20,
     font_color="white",
-    add_progress_bar=True,
-    progress_bar_color="white",
-    progress_bar_height=5,
-    loop=0,
-    mp4=False,
-    fading=False,
-    step=1,
+    add_progress_bar: bool = True,
+    progress_bar_color: str = "white",
+    progress_bar_height: int = 5,
+    loop: int | None = 0,
+    mp4: bool = False,
+    fading: bool | int = False,
+    step: int = 1,
 ):
     """Create a timelapse from NAIP imagery.
 
     Args:
-        roi (ee.Geometry): The region to use to filter the collection of images. It must be an ee.Geometry object. Defaults to None.
-        start_year (int | str, optional): The start year of the timeseries. It must be formatted like this: 'YYYY'. Defaults to 2003.
-        end_year (int | str, optional): The end year of the timeseries. It must be formatted like this: 'YYYY'. Defaults to None, which will use the current year.
-        out_gif (str): The output gif file path. Defaults to None.
-        bands (list, optional): A list of band names to use in the timelapse. Defaults to None.
-        palette (list, optional): A list of colors to render a single-band image in the timelapse. Defaults to None.
-        vis_params (dict, optional): A dictionary of visualization parameters to use in the timelapse. Defaults to None. See more at https://developers.google.com/earth-engine/guides/image_visualization.
-        dimensions (int, optional): a number or pair of numbers (in format 'WIDTHxHEIGHT') Maximum dimensions of the thumbnail to render, in pixels. If only one number is passed, it is used as the maximum, and the other dimension is computed by proportional scaling. Defaults to 768.
+        roi (ee.Geometry): The region to use to filter the collection of images. It must
+            be an ee.Geometry object. Defaults to None.
+        start_year: The start year of the timeseries. It must be formatted like this:
+            'YYYY'. Defaults to 2003.
+        end_year: The end year of the timeseries. It must be formatted like this:
+            'YYYY'. Defaults to None, which will use the current year.
+        out_gif: The output gif file path. Defaults to None.
+        bands: A list of band names to use in the timelapse. Defaults to None.
+        palette (list, optional): A list of colors to render a single-band image in the
+            timelapse. Defaults to None.
+        vis_params (dict, optional): A dictionary of visualization parameters to use in
+            the timelapse. Defaults to None. See more at
+            https://developers.google.com/earth-engine/guides/image_visualization.
+        dimensions (int, optional): a number or pair of numbers (in format
+            'WIDTHxHEIGHT') Maximum dimensions of the thumbnail to render, in pixels. If
+            only one number is passed, it is used as the maximum, and the other
+            dimension is computed by proportional scaling. Defaults to 768.
         frames_per_second (int, optional): Animation speed. Defaults to 10.
-        crs (str, optional): The coordinate reference system to use. Defaults to "EPSG:3857".
-        overlay_data (int, str, list, optional): Administrative boundary to be drawn on the timelapse. Defaults to None.
-        overlay_color (str, optional): Color for the overlay data. Can be any color name or hex color code. Defaults to 'black'.
-        overlay_width (int, optional): Width of the overlay. Defaults to 1.
-        overlay_opacity (float, optional): Opacity of the overlay. Defaults to 1.0.
-        title (str, optional): The title of the timelapse. Defaults to None.
-        title_xy (tuple, optional): Lower left corner of the title. It can be formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
-        add_text (bool, optional): Whether to add animated text to the timelapse. Defaults to True.
-        title_xy (tuple, optional): Lower left corner of the text sequency. It can be formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
-        text_sequence (int, str, list, optional): Text to be drawn. It can be an integer number, a string, or a list of strings. Defaults to None.
-        font_type (str, optional): Font type. Defaults to "arial.ttf".
-        font_size (int, optional): Font size. Defaults to 20.
-        font_color (str, optional): Font color. It can be a string (e.g., 'red'), rgb tuple (e.g., (255, 127, 0)), or hex code (e.g., '#ff00ff').  Defaults to '#000000'.
-        add_progress_bar (bool, optional): Whether to add a progress bar at the bottom of the GIF. Defaults to True.
-        progress_bar_color (str, optional): Color for the progress bar. Defaults to 'white'.
-        progress_bar_height (int, optional): Height of the progress bar. Defaults to 5.
-        loop (int, optional): Controls how many times the animation repeats. The default, 1, means that the animation will play once and then stop (displaying the last frame). A value of 0 means that the animation will repeat forever. Defaults to 0.
-        mp4 (bool, optional): Whether to create an mp4 file. Defaults to False.
-        fading (int | bool, optional): If True, add fading effect to the timelapse. Defaults to False, no fading. To add fading effect, set it to True (1 second fading duration) or to an integer value (fading duration).
-        step (int, optional): The step size to use when creating the date sequence. Defaults to 1.
+        crs: The coordinate reference system to use. Defaults to "EPSG:3857".
+        overlay_data (int, str, list, optional): Administrative boundary to be drawn on
+            the timelapse. Defaults to None.
+        overlay_color: Color for the overlay data. Can be any color name or hex color
+            code. Defaults to 'black'.
+        overlay_width: Width of the overlay. Defaults to 1.
+        overlay_opacity: Opacity of the overlay. Defaults to 1.0.
+        title: The title of the timelapse. Defaults to None.
+        title_xy (tuple, optional): Lower left corner of the title. It can be formatted
+            like this: (10, 10) or ('15%', '25%'). Defaults to None.
+        add_text: Whether to add animated text to the timelapse. Defaults to True.
+        text_xy (tuple, optional): Lower left corner of the text sequency. It can be
+            formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
+        text_sequence (int, str, list, optional): Text to be drawn. It can be an integer
+            number, a string, or a list of strings. Defaults to None.
+        font_type: Font type. Defaults to "arial.ttf".
+        font_size: Font size. Defaults to 20.
+        font_color (str, optional): Font color. It can be a string (e.g., 'red'), rgb
+            tuple (e.g., (255, 127, 0)), or hex code (e.g., '#ff00ff').  Defaults to
+            '#000000'.
+        add_progress_bar: Whether to add a progress bar at the bottom of the
+            GIF. Defaults to True.
+        progress_bar_color: Color for the progress bar. Defaults to 'white'.
+        progress_bar_height: Height of the progress bar. Defaults to 5.
+        loop: Controls how many times the animation repeats. The default, 1, means that
+            the animation will play once and then stop (displaying the last frame). A
+            value of 0 means that the animation will repeat forever. Defaults to 0.
+        mp4: Whether to create an mp4 file. Defaults to False.
+        fading: If True, add fading effect to the timelapse. Defaults to False, no
+            fading. To add fading effect, set it to True (1 second fading duration) or
+            to an integer value (fading duration).
+        step: The step size to use when creating the date sequence. Defaults to 1.
 
     Returns:
         str: File path to the timelapse gif.
@@ -1704,17 +1786,12 @@ def sentinel2_timeseries_legacy(
     except Exception as e:
         raise ValueError("The input dates are invalid.")
 
-    try:
-        start_test = datetime.datetime(
-            int(start_year), int(start_date[:2]), int(start_date[3:5])
-        )
-        end_test = datetime.datetime(
-            int(end_year), int(end_date[:2]), int(end_date[3:5])
-        )
-        if start_test > end_test:
-            raise ValueError("Start date must be prior to end date")
-    except Exception as e:
-        raise Exception(e)
+    start_test = datetime.datetime(
+        int(start_year), int(start_date[:2]), int(start_date[3:5])
+    )
+    end_test = datetime.datetime(int(end_year), int(end_date[:2]), int(end_date[3:5]))
+    if start_test > end_test:
+        raise ValueError("Start date must be prior to end date")
 
     def days_between(d1, d2):
         d1 = datetime.datetime.strptime(d1, "%Y-%m-%d")
@@ -2017,7 +2094,7 @@ def landsat_timeseries(
         datetime.datetime(int(end_year), int(end_date[:2]), int(end_date[3:5]))
     except Exception as e:
         print("The input dates are invalid.")
-        raise Exception(e)
+        raise e
 
     def days_between(d1, d2):
         d1 = datetime.datetime.strptime(d1, "%Y-%m-%d")
@@ -2306,7 +2383,7 @@ def landsat_timeseries_legacy(
         datetime.datetime(int(end_year), int(end_date[:2]), int(end_date[3:5]))
     except Exception as e:
         print("The input dates are invalid.")
-        raise Exception(e)
+        raise e
 
     def days_between(d1, d2):
         d1 = datetime.datetime.strptime(d1, "%Y-%m-%d")
@@ -2569,39 +2646,32 @@ def modis_timeseries(
     Returns:
         object: Returns an ImageCollection containing month MODIS images.
     """
+    if end_year is None:
+        end_year = datetime.datetime.now().year
 
-    try:
-        if end_year is None:
-            end_year = datetime.datetime.now().year
+    collection = ee.ImageCollection(asset_id)
+    if band_name is None:
+        band_name = collection.first().bandNames().getInfo()[0]
+    collection = collection.select(band_name)
+    if roi is not None:
+        if isinstance(roi, ee.Geometry):
+            collection = ee.ImageCollection(collection.map(lambda img: img.clip(roi)))
+        elif isinstance(roi, ee.FeatureCollection):
+            collection = ee.ImageCollection(
+                collection.map(lambda img: img.clipToCollection(roi))
+            )
 
-        collection = ee.ImageCollection(asset_id)
-        if band_name is None:
-            band_name = collection.first().bandNames().getInfo()[0]
-        collection = collection.select(band_name)
-        if roi is not None:
-            if isinstance(roi, ee.Geometry):
-                collection = ee.ImageCollection(
-                    collection.map(lambda img: img.clip(roi))
-                )
-            elif isinstance(roi, ee.FeatureCollection):
-                collection = ee.ImageCollection(
-                    collection.map(lambda img: img.clipToCollection(roi))
-                )
+    start = str(start_year) + "-" + start_date
+    end = str(end_year) + "-" + end_date
 
-        start = str(start_year) + "-" + start_date
-        end = str(end_year) + "-" + end_date
+    seq = date_sequence(start, end, "month")
 
-        seq = date_sequence(start, end, "month")
+    def monthly_modis(start_d):
+        end_d = ee.Date(start_d).advance(1, "month")
+        return ee.Image(collection.filterDate(start_d, end_d).mean())
 
-        def monthly_modis(start_d):
-            end_d = ee.Date(start_d).advance(1, "month")
-            return ee.Image(collection.filterDate(start_d, end_d).mean())
-
-        images = ee.ImageCollection(seq.map(monthly_modis))
-        return images
-
-    except Exception as e:
-        raise Exception(e)
+    images = ee.ImageCollection(seq.map(monthly_modis))
+    return images
 
 
 def landsat_timelapse(
@@ -2742,148 +2812,146 @@ def landsat_timelapse(
                 )
             )
 
-    try:
-        if vis_params is None:
-            vis_params = {}
-            vis_params["bands"] = bands
-            vis_params["min"] = 0
-            vis_params["max"] = 0.4
-            vis_params["gamma"] = [1, 1, 1]
-        raw_col = landsat_timeseries(
-            roi,
-            start_year,
-            end_year,
-            start_date,
-            end_date,
-            apply_fmask,
-            frequency,
-            date_format,
-            step,
+    if vis_params is None:
+        vis_params = {}
+        vis_params["bands"] = bands
+        vis_params["min"] = 0
+        vis_params["max"] = 0.4
+        vis_params["gamma"] = [1, 1, 1]
+    raw_col = landsat_timeseries(
+        roi,
+        start_year,
+        end_year,
+        start_date,
+        end_date,
+        apply_fmask,
+        frequency,
+        date_format,
+        step,
+    )
+
+    # pytype: disable=attribute-error
+    col = raw_col.select(bands).map(
+        lambda img: img.visualize(**vis_params).set(
+            {
+                "system:time_start": img.get("system:time_start"),
+                "system:date": img.get("system:date"),
+            }
+        )
+    )
+    # pytype: enable=attribute-error
+    if overlay_data is not None:
+        col = add_overlay(
+            col, overlay_data, overlay_color, overlay_width, overlay_opacity
         )
 
-        col = raw_col.select(bands).map(
-            lambda img: img.visualize(**vis_params).set(
-                {
-                    "system:time_start": img.get("system:time_start"),
-                    "system:date": img.get("system:date"),
-                }
+    if (
+        isinstance(dimensions, int)
+        and dimensions > 768
+        or isinstance(dimensions, str)
+        and any(dim > 768 for dim in list(map(int, dimensions.split("x"))))
+    ):
+        count = col.size().getInfo()
+        basename = os.path.basename(out_gif)[:-4]
+        names = [
+            os.path.join(
+                out_dir, f"{basename}_{str(i+1).zfill(int(len(str(count))))}.jpg"
             )
+            for i in range(count)
+        ]
+        get_image_collection_thumbnails(
+            col,
+            out_dir,
+            vis_params={
+                "min": 0,
+                "max": 255,
+                "bands": ["vis-red", "vis-green", "vis-blue"],
+            },
+            dimensions=dimensions,
+            names=names,
         )
-        if overlay_data is not None:
-            col = add_overlay(
-                col, overlay_data, overlay_color, overlay_width, overlay_opacity
-            )
+        make_gif(
+            names,
+            out_gif,
+            fps=frames_per_second,
+            loop=loop,
+            mp4=False,
+            clean_up=True,
+        )
 
-        if (
-            isinstance(dimensions, int)
-            and dimensions > 768
-            or isinstance(dimensions, str)
-            and any(dim > 768 for dim in list(map(int, dimensions.split("x"))))
-        ):
-            count = col.size().getInfo()
-            basename = os.path.basename(out_gif)[:-4]
-            names = [
-                os.path.join(
-                    out_dir, f"{basename}_{str(i+1).zfill(int(len(str(count))))}.jpg"
-                )
-                for i in range(count)
-            ]
-            get_image_collection_thumbnails(
-                col,
-                out_dir,
-                vis_params={
-                    "min": 0,
-                    "max": 255,
-                    "bands": ["vis-red", "vis-green", "vis-blue"],
-                },
-                dimensions=dimensions,
-                names=names,
-            )
-            make_gif(
-                names,
+    else:
+        video_args = vis_params.copy()
+        video_args["dimensions"] = dimensions
+        video_args["region"] = roi
+        video_args["framesPerSecond"] = frames_per_second
+        video_args["crs"] = crs
+        video_args["bands"] = ["vis-red", "vis-green", "vis-blue"]
+        video_args["min"] = 0
+        video_args["max"] = 255
+
+        download_ee_video(col, video_args, out_gif)
+
+    if os.path.exists(out_gif):
+        if title is not None and isinstance(title, str):
+            add_text_to_gif(
                 out_gif,
-                fps=frames_per_second,
+                out_gif,
+                xy=title_xy,
+                text_sequence=title,
+                font_type=font_type,
+                font_size=font_size,
+                font_color=font_color,
+                add_progress_bar=add_progress_bar,
+                progress_bar_color=progress_bar_color,
+                progress_bar_height=progress_bar_height,
+                duration=1000 / frames_per_second,
                 loop=loop,
-                mp4=False,
-                clean_up=True,
+            )
+        if add_text:
+            if text_sequence is None:
+                text_sequence = col.aggregate_array("system:date").getInfo()
+            add_text_to_gif(
+                out_gif,
+                out_gif,
+                xy=text_xy,
+                text_sequence=text_sequence,
+                font_type=font_type,
+                font_size=font_size,
+                font_color=font_color,
+                add_progress_bar=add_progress_bar,
+                progress_bar_color=progress_bar_color,
+                progress_bar_height=progress_bar_height,
+                duration=1000 / frames_per_second,
+                loop=loop,
             )
 
-        else:
-            video_args = vis_params.copy()
-            video_args["dimensions"] = dimensions
-            video_args["region"] = roi
-            video_args["framesPerSecond"] = frames_per_second
-            video_args["crs"] = crs
-            video_args["bands"] = ["vis-red", "vis-green", "vis-blue"]
-            video_args["min"] = 0
-            video_args["max"] = 255
+    if nd_bands is not None:
+        nd_images = landsat_ts_norm_diff(
+            raw_col, bands=nd_bands, threshold=nd_threshold
+        )
+        out_nd_gif = out_gif.replace(".gif", "_nd.gif")
+        landsat_ts_norm_diff_gif(
+            nd_images,
+            out_gif=out_nd_gif,
+            vis_params=None,
+            palette=nd_palette,
+            dimensions=dimensions,
+            frames_per_second=frames_per_second,
+        )
 
-            download_ee_video(col, video_args, out_gif)
+    if os.path.exists(out_gif):
+        reduce_gif_size(out_gif)
 
-        if os.path.exists(out_gif):
-            if title is not None and isinstance(title, str):
-                add_text_to_gif(
-                    out_gif,
-                    out_gif,
-                    xy=title_xy,
-                    text_sequence=title,
-                    font_type=font_type,
-                    font_size=font_size,
-                    font_color=font_color,
-                    add_progress_bar=add_progress_bar,
-                    progress_bar_color=progress_bar_color,
-                    progress_bar_height=progress_bar_height,
-                    duration=1000 / frames_per_second,
-                    loop=loop,
-                )
-            if add_text:
-                if text_sequence is None:
-                    text_sequence = col.aggregate_array("system:date").getInfo()
-                add_text_to_gif(
-                    out_gif,
-                    out_gif,
-                    xy=text_xy,
-                    text_sequence=text_sequence,
-                    font_type=font_type,
-                    font_size=font_size,
-                    font_color=font_color,
-                    add_progress_bar=add_progress_bar,
-                    progress_bar_color=progress_bar_color,
-                    progress_bar_height=progress_bar_height,
-                    duration=1000 / frames_per_second,
-                    loop=loop,
-                )
+    if isinstance(fading, bool):
+        fading = int(fading)
+    if fading > 0:
+        gif_fading(out_gif, out_gif, duration=fading, verbose=False)
 
-        if nd_bands is not None:
-            nd_images = landsat_ts_norm_diff(
-                raw_col, bands=nd_bands, threshold=nd_threshold
-            )
-            out_nd_gif = out_gif.replace(".gif", "_nd.gif")
-            landsat_ts_norm_diff_gif(
-                nd_images,
-                out_gif=out_nd_gif,
-                vis_params=None,
-                palette=nd_palette,
-                dimensions=dimensions,
-                frames_per_second=frames_per_second,
-            )
+    if mp4:
+        out_mp4 = out_gif.replace(".gif", ".mp4")
+        gif_to_mp4(out_gif, out_mp4)
 
-        if os.path.exists(out_gif):
-            reduce_gif_size(out_gif)
-
-        if isinstance(fading, bool):
-            fading = int(fading)
-        if fading > 0:
-            gif_fading(out_gif, out_gif, duration=fading, verbose=False)
-
-        if mp4:
-            out_mp4 = out_gif.replace(".gif", ".mp4")
-            gif_to_mp4(out_gif, out_mp4)
-
-        return out_gif
-
-    except Exception as e:
-        raise Exception(e)
+    return out_gif
 
 
 def landsat_timelapse_legacy(
@@ -3022,147 +3090,145 @@ def landsat_timelapse_legacy(
                 )
             )
 
-    try:
-        if vis_params is None:
-            vis_params = {}
-            vis_params["bands"] = bands
-            vis_params["min"] = 0
-            vis_params["max"] = 4000
-            vis_params["gamma"] = [1, 1, 1]
-        raw_col = landsat_timeseries(
-            roi,
-            start_year,
-            end_year,
-            start_date,
-            end_date,
-            apply_fmask,
-            frequency,
-            date_format,
+    if vis_params is None:
+        vis_params = {}
+        vis_params["bands"] = bands
+        vis_params["min"] = 0
+        vis_params["max"] = 4000
+        vis_params["gamma"] = [1, 1, 1]
+    raw_col = landsat_timeseries(
+        roi,
+        start_year,
+        end_year,
+        start_date,
+        end_date,
+        apply_fmask,
+        frequency,
+        date_format,
+    )
+
+    # pytype: disable=attribute-error
+    col = raw_col.select(bands).map(
+        lambda img: img.visualize(**vis_params).set(
+            {
+                "system:time_start": img.get("system:time_start"),
+                "system:date": img.get("system:date"),
+            }
+        )
+    )
+    # pytype: enable=attribute-error
+    if overlay_data is not None:
+        col = add_overlay(
+            col, overlay_data, overlay_color, overlay_width, overlay_opacity
         )
 
-        col = raw_col.select(bands).map(
-            lambda img: img.visualize(**vis_params).set(
-                {
-                    "system:time_start": img.get("system:time_start"),
-                    "system:date": img.get("system:date"),
-                }
+    if (
+        isinstance(dimensions, int)
+        and dimensions > 768
+        or isinstance(dimensions, str)
+        and any(dim > 768 for dim in list(map(int, dimensions.split("x"))))
+    ):
+        count = col.size().getInfo()
+        basename = os.path.basename(out_gif)[:-4]
+        names = [
+            os.path.join(
+                out_dir, f"{basename}_{str(i+1).zfill(int(len(str(count))))}.jpg"
             )
+            for i in range(count)
+        ]
+        get_image_collection_thumbnails(
+            col,
+            out_dir,
+            vis_params={
+                "min": 0,
+                "max": 255,
+                "bands": ["vis-red", "vis-green", "vis-blue"],
+            },
+            dimensions=dimensions,
+            names=names,
         )
-        if overlay_data is not None:
-            col = add_overlay(
-                col, overlay_data, overlay_color, overlay_width, overlay_opacity
-            )
+        make_gif(
+            names,
+            out_gif,
+            fps=frames_per_second,
+            loop=loop,
+            mp4=False,
+            clean_up=True,
+        )
 
-        if (
-            isinstance(dimensions, int)
-            and dimensions > 768
-            or isinstance(dimensions, str)
-            and any(dim > 768 for dim in list(map(int, dimensions.split("x"))))
-        ):
-            count = col.size().getInfo()
-            basename = os.path.basename(out_gif)[:-4]
-            names = [
-                os.path.join(
-                    out_dir, f"{basename}_{str(i+1).zfill(int(len(str(count))))}.jpg"
-                )
-                for i in range(count)
-            ]
-            get_image_collection_thumbnails(
-                col,
-                out_dir,
-                vis_params={
-                    "min": 0,
-                    "max": 255,
-                    "bands": ["vis-red", "vis-green", "vis-blue"],
-                },
-                dimensions=dimensions,
-                names=names,
-            )
-            make_gif(
-                names,
+    else:
+        video_args = vis_params.copy()
+        video_args["dimensions"] = dimensions
+        video_args["region"] = roi
+        video_args["framesPerSecond"] = frames_per_second
+        video_args["crs"] = crs
+        video_args["bands"] = ["vis-red", "vis-green", "vis-blue"]
+        video_args["min"] = 0
+        video_args["max"] = 255
+
+        download_ee_video(col, video_args, out_gif)
+
+    if os.path.exists(out_gif):
+        if title is not None and isinstance(title, str):
+            add_text_to_gif(
                 out_gif,
-                fps=frames_per_second,
+                out_gif,
+                xy=title_xy,
+                text_sequence=title,
+                font_type=font_type,
+                font_size=font_size,
+                font_color=font_color,
+                add_progress_bar=add_progress_bar,
+                progress_bar_color=progress_bar_color,
+                progress_bar_height=progress_bar_height,
+                duration=1000 / frames_per_second,
                 loop=loop,
-                mp4=False,
-                clean_up=True,
+            )
+        if add_text:
+            if text_sequence is None:
+                text_sequence = col.aggregate_array("system:date").getInfo()
+            add_text_to_gif(
+                out_gif,
+                out_gif,
+                xy=text_xy,
+                text_sequence=text_sequence,
+                font_type=font_type,
+                font_size=font_size,
+                font_color=font_color,
+                add_progress_bar=add_progress_bar,
+                progress_bar_color=progress_bar_color,
+                progress_bar_height=progress_bar_height,
+                duration=1000 / frames_per_second,
+                loop=loop,
             )
 
-        else:
-            video_args = vis_params.copy()
-            video_args["dimensions"] = dimensions
-            video_args["region"] = roi
-            video_args["framesPerSecond"] = frames_per_second
-            video_args["crs"] = crs
-            video_args["bands"] = ["vis-red", "vis-green", "vis-blue"]
-            video_args["min"] = 0
-            video_args["max"] = 255
+    if nd_bands is not None:
+        nd_images = landsat_ts_norm_diff(
+            raw_col, bands=nd_bands, threshold=nd_threshold
+        )
+        out_nd_gif = out_gif.replace(".gif", "_nd.gif")
+        landsat_ts_norm_diff_gif(
+            nd_images,
+            out_gif=out_nd_gif,
+            vis_params=None,
+            palette=nd_palette,
+            dimensions=dimensions,
+            frames_per_second=frames_per_second,
+        )
 
-            download_ee_video(col, video_args, out_gif)
+    if os.path.exists(out_gif):
+        reduce_gif_size(out_gif)
 
-        if os.path.exists(out_gif):
-            if title is not None and isinstance(title, str):
-                add_text_to_gif(
-                    out_gif,
-                    out_gif,
-                    xy=title_xy,
-                    text_sequence=title,
-                    font_type=font_type,
-                    font_size=font_size,
-                    font_color=font_color,
-                    add_progress_bar=add_progress_bar,
-                    progress_bar_color=progress_bar_color,
-                    progress_bar_height=progress_bar_height,
-                    duration=1000 / frames_per_second,
-                    loop=loop,
-                )
-            if add_text:
-                if text_sequence is None:
-                    text_sequence = col.aggregate_array("system:date").getInfo()
-                add_text_to_gif(
-                    out_gif,
-                    out_gif,
-                    xy=text_xy,
-                    text_sequence=text_sequence,
-                    font_type=font_type,
-                    font_size=font_size,
-                    font_color=font_color,
-                    add_progress_bar=add_progress_bar,
-                    progress_bar_color=progress_bar_color,
-                    progress_bar_height=progress_bar_height,
-                    duration=1000 / frames_per_second,
-                    loop=loop,
-                )
+    if isinstance(fading, bool):
+        fading = int(fading)
+    if fading > 0:
+        gif_fading(out_gif, out_gif, duration=fading, verbose=False)
 
-        if nd_bands is not None:
-            nd_images = landsat_ts_norm_diff(
-                raw_col, bands=nd_bands, threshold=nd_threshold
-            )
-            out_nd_gif = out_gif.replace(".gif", "_nd.gif")
-            landsat_ts_norm_diff_gif(
-                nd_images,
-                out_gif=out_nd_gif,
-                vis_params=None,
-                palette=nd_palette,
-                dimensions=dimensions,
-                frames_per_second=frames_per_second,
-            )
+    if mp4:
+        out_mp4 = out_gif.replace(".gif", ".mp4")
+        gif_to_mp4(out_gif, out_mp4)
 
-        if os.path.exists(out_gif):
-            reduce_gif_size(out_gif)
-
-        if isinstance(fading, bool):
-            fading = int(fading)
-        if fading > 0:
-            gif_fading(out_gif, out_gif, duration=fading, verbose=False)
-
-        if mp4:
-            out_mp4 = out_gif.replace(".gif", ".mp4")
-            gif_to_mp4(out_gif, out_mp4)
-
-        return out_gif
-
-    except Exception as e:
-        raise Exception(e)
+    return out_gif
 
 
 def sentinel1_timelapse_legacy(
@@ -3644,47 +3710,56 @@ def sentinel2_timelapse(
         print(e)
 
 
-def landsat_ts_norm_diff(collection, bands=["Green", "SWIR1"], threshold=0):
+def landsat_ts_norm_diff(
+    collection, bands: list[str] = ["Green", "SWIR1"], threshold: float = 0.0
+):
     """Computes a normalized difference index based on a Landsat timeseries.
 
     Args:
         collection (ee.ImageCollection): A Landsat timeseries.
-        bands (list, optional): The bands to use for computing normalized difference. Defaults to ['Green', 'SWIR1'].
-        threshold (float, optional): The threshold to extract features. Defaults to 0.
+        bands: The bands to use for computing normalized difference. Defaults to
+            ['Green', 'SWIR1'].
+        threshold: The threshold to extract features. Defaults to 0.
 
     Returns:
-        ee.ImageCollection: An ImageCollection containing images with values greater than the specified threshold.
+        ee.ImageCollection: An ImageCollection containing images with values greater
+        than the specified threshold.
     """
-    nd_images = collection.map(
+    # pytype: disable=attribute-error
+    return collection.map(
         lambda img: img.normalizedDifference(bands)
         .gt(threshold)
         .copyProperties(img, img.propertyNames())
     )
-    return nd_images
+    # pytype: enable=attribute-error
 
 
 def landsat_ts_norm_diff_gif(
     collection,
-    out_gif=None,
-    vis_params=None,
-    palette=["black", "blue"],
+    out_gif: str | None = None,
+    vis_params: dict[str, Any] | None = None,
+    palette: list[str] = ["black", "blue"],
     dimensions=768,
-    frames_per_second=10,
-    mp4=False,
-):
-    """[summary]
+    frames_per_second: int = 10,
+    mp4: bool = False,
+) -> str:
+    """TODO: [summary]
 
     Args:
-        collection (ee.ImageCollection): The normalized difference Landsat timeseires.
-        out_gif (str, optional): File path to the output animated GIF. Defaults to None.
-        vis_params (dict, optional): Visualization parameters. Defaults to None.
-        palette (list, optional): The palette to use for visualizing the timelapse. Defaults to ['black', 'blue']. The first color in the list is the background color.
-        dimensions (int, optional): a number or pair of numbers (in format 'WIDTHxHEIGHT') Maximum dimensions of the thumbnail to render, in pixels. If only one number is passed, it is used as the maximum, and the other dimension is computed by proportional scaling. Defaults to 768.
-        frames_per_second (int, optional): Animation speed. Defaults to 10.
-        mp4 (bool, optional): If True, the output gif will be converted to mp4. Defaults to False.
+        collection (ee.ImageCollection): The normalized difference Landsat timeseries.
+        out_gif: File path to the output animated GIF. Defaults to None.
+        vis_params: Visualization parameters. Defaults to None.
+        palette: The palette to use for visualizing the timelapse. Defaults to ['black',
+            'blue']. The first color in the list is the background color.
+        dimensions: A number or pair of numbers (in format 'WIDTHxHEIGHT') Maximum
+            dimensions of the thumbnail to render, in pixels. If only one number is
+            passed, it is used as the maximum, and the other dimension is computed by
+            proportional scaling. Defaults to 768.
+        frames_per_second: Animation speed. Defaults to 10.
+        mp4: If True, the output gif will be converted to mp4. Defaults to False.
 
     Returns:
-        str: File path to the output animated GIF.
+        The path to the output gif image or the mp4 if that is requested.
     """
     coordinates = ee.Image(collection.first()).get("coordinates")
     roi = ee.Geometry.Polygon(coordinates, None, False)
@@ -3694,7 +3769,7 @@ def landsat_ts_norm_diff_gif(
         filename = "landsat_ts_nd_" + coreutils.random_string() + ".gif"
         out_gif = os.path.join(out_dir, filename)
     elif not out_gif.endswith(".gif"):
-        raise Exception("The output file must end with .gif")
+        raise ValueError("The output file must end with .gif")
 
     bands = ["nd"]
     if vis_params is None:
@@ -3719,50 +3794,59 @@ def landsat_ts_norm_diff_gif(
     if mp4:
         out_mp4 = out_gif.replace(".gif", ".mp4")
         gif_to_mp4(out_gif, out_mp4)
+        return out_mp4
+
+    return out_gif
 
 
 _GOES_SATELLITES = [f"GOES-{sat}" for sat in range(16, 20)]
 
 
 def goes_timeseries(
-    start_date="2021-10-24T14:00:00",
-    end_date="2021-10-25T01:00:00",
-    data="GOES-17",
-    scan="full_disk",
+    start_date: str = "2021-10-24T14:00:00",
+    end_date: str = "2021-10-25T01:00:00",
+    data: str = "GOES-17",
+    scan: str = "full_disk",
     region=None,
     show_night=[False, "a_mode"],
 ):
-    """Create a time series of GOES data. The code is adapted from Justin Braaten's code: https://code.earthengine.google.com/57245f2d3d04233765c42fb5ef19c1f4.
-    Credits to Justin Braaten. See also https://jstnbraaten.medium.com/goes-in-earth-engine-53fbc8783c16
+    """Creates a time series of GOES data.
+
+    The code is adapted from Justin Braaten's code:
+
+    * https://code.earthengine.google.com/57245f2d3d04233765c42fb5ef19c1f4
+    * https://jstnbraaten.medium.com/goes-in-earth-engine-53fbc8783c16
 
     Args:
-        start_date (str, optional): The start date of the time series. Defaults to "2021-10-24T14:00:00".
-        end_date (str, optional): The end date of the time series. Defaults to "2021-10-25T01:00:00".
-        data (str, optional): The GOES satellite data to use. Defaults to "GOES-17".
-        scan (str, optional): The GOES scan to use. Defaults to "full_disk".
+        start_date: The start date of the time series. Defaults to
+            "2021-10-24T14:00:00".
+        end_date: The end date of the time series. Defaults to "2021-10-25T01:00:00".
+        data: The GOES satellite data to use. Defaults to "GOES-17".
+        scan: The GOES scan to use. Defaults to "full_disk".
         region (ee.Geometry, optional): The region of interest. Defaults to None.
-        show_night (list, optional): Show the clouds at night through [True, "a_mode"] o [True, "b_mode"].  Defaults to [False, "a_mode"]
+        show_night (list): Show the clouds at night through [True, "a_mode"] o [True,
+            "b_mode"].  Defaults to [False, "a_mode"]
+
     Raises:
-        ValueError: The data must be either GOES-16 or GOES-17.
+        ValueError: The data must be either GOES-16 ... GOES-20.
         ValueError: The scan must be either full_disk, conus, or mesoscale.
 
     Returns:
         ee.ImageCollection: GOES timeseries.
     """
-
     if data not in _GOES_SATELLITES:
         raise ValueError(
             f"data must be one of {', '.join(_GOES_SATELLITES[:-1])}, or {_GOES_SATELLITES[-1]}"
         )
-
-    if scan.lower() not in ["full_disk", "conus", "mesoscale"]:
-        raise ValueError("The scan must be either full_disk, conus, or mesoscale.")
 
     scan_types = {
         "full_disk": "MCMIPF",
         "conus": "MCMIPC",
         "mesoscale": "MCMIPM",
     }
+
+    if scan.lower() not in scan_types:
+        raise ValueError("The scan must be either full_disk, conus, or mesoscale.")
 
     col = ee.ImageCollection(f"NOAA/GOES/{data[-2:]}/{scan_types[scan.lower()]}")
 
@@ -3873,26 +3957,31 @@ def goes_timeseries(
 
 
 def goes_fire_timeseries(
-    start_date="2020-09-05T15:00",
-    end_date="2020-09-06T02:00",
-    data="GOES-17",
-    scan="full_disk",
+    start_date: str = "2020-09-05T15:00",
+    end_date: str = "2020-09-06T02:00",
+    data: str = "GOES-17",
+    scan: str = "full_disk",
     region=None,
-    merge=True,
+    merge: bool = True,
 ):
-    """Create a time series of GOES Fire data. The code is adapted from Justin Braaten's code: https://code.earthengine.google.com/8a083a7fb13b95ad4ba148ed9b65475e.
-    Credits to Justin Braaten. See also https://jstnbraaten.medium.com/goes-in-earth-engine-53fbc8783c16
+    """Create a time series of GOES Fire data.
+
+    The code is adapted from Justin Braaten's code:
+
+    * https://code.earthengine.google.com/8a083a7fb13b95ad4ba148ed9b65475e.
+    * https://jstnbraaten.medium.com/goes-in-earth-engine-53fbc8783c16
 
     Args:
-        start_date (str, optional): The start date of the time series. Defaults to "2020-09-05T15:00".
-        end_date (str, optional): The end date of the time series. Defaults to "2020-09-06T02:00".
-        data (str, optional): The GOES satellite data to use. Defaults to "GOES-17".
-        scan (str, optional): The GOES scan to use. Defaults to "full_disk".
+        start_date: The start date of the time series. Defaults to "2020-09-05T15:00".
+        end_date: The end date of the time series. Defaults to "2020-09-06T02:00".
+        data: The GOES satellite data to use. Defaults to "GOES-17".
+        scan: The GOES scan to use. Defaults to "full_disk".
         region (ee.Geometry, optional): The region of interest. Defaults to None.
-        merge (bool, optional): Whether to merge the fire timeseries with GOES CMI timeseries. Defaults to True.
+        merge: Whether to merge the fire timeseries with GOES CMI timeseries. Defaults
+            to True.
 
     Raises:
-        ValueError: The data must be either GOES-16 or GOES-17.
+        ValueError: The data must be either GOES-16 or GOES-20.
         ValueError: The scan must be either full_disk or conus.
 
     Returns:
@@ -3904,13 +3993,13 @@ def goes_fire_timeseries(
             f"data must be one of {', '.join(_GOES_SATELLITES[:-1])}, or {_GOES_SATELLITES[-1]}"
         )
 
-    if scan.lower() not in ["full_disk", "conus"]:
-        raise ValueError("The scan must be either full_disk or conus.")
-
     scan_types = {
         "full_disk": "FDCF",
         "conus": "FDCC",
     }
+
+    if scan.lower() not in scan_types:
+        raise ValueError("The scan must be either full_disk or conus.")
 
     if region is None:
         region = ee.Geometry.BBox(-123.17, 36.56, -118.22, 40.03)
@@ -3963,158 +4052,177 @@ def goes_fire_timeseries(
 
 def goes_timelapse(
     roi=None,
-    out_gif=None,
-    start_date="2021-10-24T14:00:00",
-    end_date="2021-10-25T01:00:00",
-    data="GOES-17",
-    scan="full_disk",
-    bands=["CMI_C02", "CMI_GREEN", "CMI_C01"],
+    out_gif: str | None = None,
+    start_date: str = "2021-10-24T14:00:00",
+    end_date: str = "2021-10-25T01:00:00",
+    data: str = "GOES-17",
+    scan: str = "full_disk",
+    bands: list[str] = ["CMI_C02", "CMI_GREEN", "CMI_C01"],
     dimensions=768,
-    framesPerSecond=10,
-    date_format="YYYY-MM-dd HH:mm",
+    framesPerSecond: int = 10,
+    date_format: str = "YYYY-MM-dd HH:mm",
     xy=("3%", "3%"),
     text_sequence=None,
-    font_type="arial.ttf",
-    font_size=20,
-    font_color="#ffffff",
-    add_progress_bar=True,
-    progress_bar_color="white",
-    progress_bar_height=5,
-    loop=0,
-    crs=None,
+    font_type: str = "arial.ttf",
+    font_size: int = 20,
+    font_color: str = "#ffffff",
+    add_progress_bar: bool = True,
+    progress_bar_color: str = "white",
+    progress_bar_height: int = 5,
+    loop: int = 0,
+    crs: str | None = None,
     overlay_data=None,
-    overlay_color="black",
-    overlay_width=1,
-    overlay_opacity=1.0,
-    mp4=False,
-    fading=False,
+    overlay_color: str = "black",
+    overlay_width: int = 1,
+    overlay_opacity: float = 1.0,
+    mp4: bool = False,
+    fading: bool | int = False,
     **kwargs,
 ):
-    """Create a timelapse of GOES data. The code is adapted from Justin Braaten's code: https://code.earthengine.google.com/57245f2d3d04233765c42fb5ef19c1f4.
-    Credits to Justin Braaten. See also https://jstnbraaten.medium.com/goes-in-earth-engine-53fbc8783c16
+    """Create a timelapse of GOES data.
+
+    The code is adapted from Justin Braaten's code:
+
+    * https://code.earthengine.google.com/57245f2d3d04233765c42fb5ef19c1f4.
+    * https://jstnbraaten.medium.com/goes-in-earth-engine-53fbc8783c16
 
     Args:
         roi (ee.Geometry, optional): The region of interest. Defaults to None.
-        out_gif (str): The file path to save the gif.
-        start_date (str, optional): The start date of the time series. Defaults to "2021-10-24T14:00:00".
-        end_date (str, optional): The end date of the time series. Defaults to "2021-10-25T01:00:00".
-        data (str, optional): The GOES satellite data to use. Defaults to "GOES-17".
-        scan (str, optional): The GOES scan to use. Defaults to "full_disk".
-        bands (list, optional): The bands to visualize. Defaults to ["CMI_C02", "CMI_GREEN", "CMI_C01"].
-        dimensions (int, optional): a number or pair of numbers (in format 'WIDTHxHEIGHT') Maximum dimensions of the thumbnail to render, in pixels. If only one number is passed, it is used as the maximum, and the other dimension is computed by proportional scaling. Defaults to 768.
-        frames_per_second (int, optional): Animation speed. Defaults to 10.
-        date_format (str, optional): The date format to use. Defaults to "YYYY-MM-dd HH:mm".
-        xy (tuple, optional): Top left corner of the text. It can be formatted like this: (10, 10) or ('15%', '25%'). Defaults to None.
-        text_sequence (int, str, list, optional): Text to be drawn. It can be an integer number, a string, or a list of strings. Defaults to None.
-        font_type (str, optional): Font type. Defaults to "arial.ttf".
-        font_size (int, optional): Font size. Defaults to 20.
-        font_color (str, optional): Font color. It can be a string (e.g., 'red'), rgb tuple (e.g., (255, 127, 0)), or hex code (e.g., '#ff00ff').  Defaults to '#000000'.
-        add_progress_bar (bool, optional): Whether to add a progress bar at the bottom of the GIF. Defaults to True.
-        progress_bar_color (str, optional): Color for the progress bar. Defaults to 'white'.
-        progress_bar_height (int, optional): Height of the progress bar. Defaults to 5.        loop (int, optional): controls how many times the animation repeats. The default, 1, means that the animation will play once and then stop (displaying the last frame). A value of 0 means that the animation will repeat forever. Defaults to 0.
-        crs (str, optional): The coordinate reference system to use, e.g., "EPSG:3857". Defaults to None.
-        overlay_data (int, str, list, optional): Administrative boundary to be drawn on the timelapse. Defaults to None.
-        overlay_color (str, optional): Color for the overlay data. Can be any color name or hex color code. Defaults to 'black'.
-        overlay_width (int, optional): Line width of the overlay. Defaults to 1.
-        overlay_opacity (float, optional): Opacity of the overlay. Defaults to 1.0.
-        mp4 (bool, optional): Whether to save the animation as an mp4 file. Defaults to False.
-        fading (int | bool, optional): If True, add fading effect to the timelapse. Defaults to False, no fading. To add fading effect, set it to True (1 second fading duration) or to an integer value (fading duration).
+        out_gif: The file path to save the gif.
+        start_date: Start date of the time series. Defaults to "2021-10-24T14:00:00".
+        end_date: End date of the time series. Defaults to "2021-10-25T01:00:00".
+        data: The GOES satellite data to use. Defaults to "GOES-17".
+        scan: The GOES scan to use. Defaults to "full_disk".
+        bands: The bands to visualize. Defaults to ["CMI_C02", "CMI_GREEN", "CMI_C01"].
+        dimensions: A number or pair of numbers (in format 'WIDTHxHEIGHT') Maximum
+            dimensions of the thumbnail to render, in pixels. If only one number is
+            passed, it is used as the maximum, and the other dimension is computed by
+            proportional scaling. Defaults to 768.
+        framesPerSecond: Animation speed. Defaults to 10.
+        date_format: The date format to use. Defaults to "YYYY-MM-dd HH:mm".
+        xy (tuple, optional): Top left corner of the text. It can be formatted like
+            this: (10, 10) or ('15%', '25%'). Defaults to None.
+        text_sequence (int, str, list, optional): Text to be drawn. It can be an integer
+            number, a string, or a list of strings. Defaults to None.
+        font_type: Font type. Defaults to "arial.ttf".
+        font_size: Font size. Defaults to 20.
+        font_color: Font color. It can be a string (e.g., 'red'), rgb tuple (e.g., (255,
+            127, 0)), or hex code (e.g., '#ff00ff').  Defaults to '#000000'.
+        add_progress_bar: Whether to add a progress bar at the bottom of the
+            GIF. Defaults to True.
+        progress_bar_color: Color for the progress bar. Defaults to 'white'.
+        progress_bar_height: Height of the progress bar. Defaults to 5.
+        loop: controls how many times the animation repeats. The default, 1, means that
+            the animation will play once and then stop (displaying the last frame). A
+            value of 0 means that the animation will repeat forever. Defaults to 0.
+        crs: Coordinate reference system to use, e.g., "EPSG:3857". Defaults to None.
+        overlay_data (int, str, list, optional): Administrative boundary to be drawn on
+            the timelapse. Defaults to None.
+        overlay_color: Color for the overlay data. Can be any color name or hex color
+            code. Defaults to 'black'.
+        overlay_width: Line width of the overlay. Defaults to 1.
+        overlay_opacity: Opacity of the overlay. Defaults to 1.0.
+        mp4: Whether to save the animation as an mp4 file. Defaults to False.
+        fading: If True, add fading effect to the timelapse. Defaults to False, no
+            fading. To add fading effect, set it to True (1 second fading duration) or
+            to an integer value (fading duration).
+
     Raises:
         Exception: Raise exception.
     """
+    if "region" in kwargs:
+        roi = kwargs["region"]
 
-    try:
-        if "region" in kwargs:
-            roi = kwargs["region"]
+    if out_gif is None:
+        out_gif = os.path.abspath(f"goes_{coreutils.random_string(3)}.gif")
 
-        if out_gif is None:
-            out_gif = os.path.abspath(f"goes_{coreutils.random_string(3)}.gif")
-
-        visParams = {
-            "bands": bands,
-            "min": 0,
-            "max": 0.8,
-        }
-        col = goes_timeseries(start_date, end_date, data, scan, roi)
-        col = col.select(bands).map(
-            lambda img: img.visualize(**visParams).set(
-                {
-                    "system:time_start": img.get("system:time_start"),
-                }
-            )
-        )
-        if overlay_data is not None:
-            col = add_overlay(
-                col, overlay_data, overlay_color, overlay_width, overlay_opacity
-            )
-
-        if roi is None:
-            roi = ee.Geometry.Polygon(
+    visParams = {
+        "bands": bands,
+        "min": 0,
+        "max": 0.8,
+    }
+    if roi is None:
+        roi = ee.Geometry.Polygon(
+            [
                 [
-                    [
-                        [-159.5954, 60.4088],
-                        [-159.5954, 24.5178],
-                        [-114.2438, 24.5178],
-                        [-114.2438, 60.4088],
-                    ]
-                ],
-                None,
-                False,
-            )
+                    [-159.5954, 60.4088],
+                    [-159.5954, 24.5178],
+                    [-114.2438, 24.5178],
+                    [-114.2438, 60.4088],
+                ]
+            ],
+            None,
+            False,
+        )
 
-        if crs is None:
+    print("Generating GOES timelapse...")
+    col = goes_timeseries(start_date, end_date, data, scan, roi)
+    print(f"Number of images in the collection: {col.size().getInfo()}")
+    col = col.select(bands).map(
+        lambda img: img.visualize(**visParams)
+        .setDefaultProjection(img.projection())
+        .set(
+            {
+                "system:time_start": img.get("system:time_start"),
+            }
+        )
+    )
+    if overlay_data is not None:
+        col = add_overlay(
+            col, overlay_data, overlay_color, overlay_width, overlay_opacity, roi
+        )
+
+    if crs is None:
+        if overlay_data is not None:
+            # Use EPSG:3857 when overlay_data is provided because the native
+            # GEOS projection doesn't work well with overlay during video rendering.
+            crs = "EPSG:3857"
+        else:
             crs = col.first().projection()
 
-        videoParams = {
-            "bands": ["vis-red", "vis-green", "vis-blue"],
-            "min": 0,
-            "max": 255,
-            "dimensions": dimensions,
-            "framesPerSecond": framesPerSecond,
-            "region": roi,
-            "crs": crs,
-        }
+    videoParams = {
+        "bands": ["vis-red", "vis-green", "vis-blue"],
+        "min": 0,
+        "max": 255,
+        "dimensions": dimensions,
+        "framesPerSecond": framesPerSecond,
+        "region": roi,
+        "crs": crs,
+    }
 
-        if text_sequence is None:
-            text_sequence = image_dates(col, date_format=date_format).getInfo()
+    if text_sequence is None:
+        text_sequence = image_dates(col, date_format=date_format).getInfo()
 
-        download_ee_video(col, videoParams, out_gif)
+    download_ee_video(col, videoParams, out_gif)
 
-        if os.path.exists(out_gif):
-            add_text_to_gif(
-                out_gif,
-                out_gif,
-                xy,
-                text_sequence,
-                font_type,
-                font_size,
-                font_color,
-                add_progress_bar,
-                progress_bar_color,
-                progress_bar_height,
-                duration=1000 / framesPerSecond,
-                loop=loop,
-            )
+    if os.path.exists(out_gif):
+        add_text_to_gif(
+            out_gif,
+            out_gif,
+            xy,
+            text_sequence,
+            font_type,
+            font_size,
+            font_color,
+            add_progress_bar,
+            progress_bar_color,
+            progress_bar_height,
+            duration=1000 / framesPerSecond,
+            loop=loop,
+        )
 
-            try:
-                reduce_gif_size(out_gif)
+        reduce_gif_size(out_gif)
 
-                if isinstance(fading, bool):
-                    fading = int(fading)
-                if fading > 0:
-                    gif_fading(out_gif, out_gif, duration=fading, verbose=False)
+        if isinstance(fading, bool):
+            fading = int(fading)
+        if fading > 0:
+            gif_fading(out_gif, out_gif, duration=fading, verbose=False)
 
-            except Exception as _:
-                pass
+        if mp4:
+            out_mp4 = out_gif.replace(".gif", ".mp4")
+            gif_to_mp4(out_gif, out_mp4)
 
-            if mp4:
-                out_mp4 = out_gif.replace(".gif", ".mp4")
-                gif_to_mp4(out_gif, out_mp4)
-
-            return out_gif
-
-    except Exception as e:
-        raise Exception(e)
+        return out_gif
 
 
 def goes_fire_timelapse(
@@ -4178,82 +4286,77 @@ def goes_fire_timelapse(
     Raises:
         Exception: Raise exception.
     """
+    if "region" in kwargs:
+        roi = kwargs["region"]
 
-    try:
-        if "region" in kwargs:
-            roi = kwargs["region"]
+    if out_gif is None:
+        out_gif = os.path.abspath(f"goes_fire_{coreutils.random_string(3)}.gif")
 
-        if out_gif is None:
-            out_gif = os.path.abspath(f"goes_fire_{coreutils.random_string(3)}.gif")
+    if roi is None:
+        roi = ee.Geometry.BBox(-123.17, 36.56, -118.22, 40.03)
 
-        if roi is None:
-            roi = ee.Geometry.BBox(-123.17, 36.56, -118.22, 40.03)
+    col = goes_fire_timeseries(start_date, end_date, data, scan, roi)
+    if overlay_data is not None:
+        col = add_overlay(
+            col, overlay_data, overlay_color, overlay_width, overlay_opacity, roi
+        )
 
-        col = goes_fire_timeseries(start_date, end_date, data, scan, roi)
-        if overlay_data is not None:
-            col = add_overlay(
-                col, overlay_data, overlay_color, overlay_width, overlay_opacity
-            )
+    # visParams = {
+    #     "bands": ["CMI_C02", "CMI_GREEN", "CMI_C01"],
+    #     "min": 0,
+    #     "max": 0.8,
+    #     "dimensions": dimensions,
+    #     "framesPerSecond": framesPerSecond,
+    #     "region": region,
+    #     "crs": col.first().projection(),
+    # }
 
-        # visParams = {
-        #     "bands": ["CMI_C02", "CMI_GREEN", "CMI_C01"],
-        #     "min": 0,
-        #     "max": 0.8,
-        #     "dimensions": dimensions,
-        #     "framesPerSecond": framesPerSecond,
-        #     "region": region,
-        #     "crs": col.first().projection(),
-        # }
+    if crs is None:
+        crs = col.first().projection()
 
-        if crs is None:
-            crs = col.first().projection()
+    cmiFdcVisParams = {
+        "dimensions": dimensions,
+        "framesPerSecond": framesPerSecond,
+        "region": roi,
+        "crs": crs,
+    }
 
-        cmiFdcVisParams = {
-            "dimensions": dimensions,
-            "framesPerSecond": framesPerSecond,
-            "region": roi,
-            "crs": crs,
-        }
+    if text_sequence is None:
+        text_sequence = image_dates(col, date_format=date_format).getInfo()
 
-        if text_sequence is None:
-            text_sequence = image_dates(col, date_format=date_format).getInfo()
+    download_ee_video(col, cmiFdcVisParams, out_gif)
 
-        download_ee_video(col, cmiFdcVisParams, out_gif)
+    if os.path.exists(out_gif):
+        add_text_to_gif(
+            out_gif,
+            out_gif,
+            xy,
+            text_sequence,
+            font_type,
+            font_size,
+            font_color,
+            add_progress_bar,
+            progress_bar_color,
+            progress_bar_height,
+            duration=1000 / framesPerSecond,
+            loop=loop,
+        )
 
-        if os.path.exists(out_gif):
-            add_text_to_gif(
-                out_gif,
-                out_gif,
-                xy,
-                text_sequence,
-                font_type,
-                font_size,
-                font_color,
-                add_progress_bar,
-                progress_bar_color,
-                progress_bar_height,
-                duration=1000 / framesPerSecond,
-                loop=loop,
-            )
+        try:
+            reduce_gif_size(out_gif)
+            if isinstance(fading, bool):
+                fading = int(fading)
+            if fading > 0:
+                gif_fading(out_gif, out_gif, duration=fading, verbose=False)
 
-            try:
-                reduce_gif_size(out_gif)
-                if isinstance(fading, bool):
-                    fading = int(fading)
-                if fading > 0:
-                    gif_fading(out_gif, out_gif, duration=fading, verbose=False)
+        except Exception as _:
+            pass
 
-            except Exception as _:
-                pass
+        if mp4:
+            out_mp4 = out_gif.replace(".gif", ".mp4")
+            gif_to_mp4(out_gif, out_mp4)
 
-            if mp4:
-                out_mp4 = out_gif.replace(".gif", ".mp4")
-                gif_to_mp4(out_gif, out_mp4)
-
-            return out_gif
-
-    except Exception as e:
-        raise Exception(e)
+        return out_gif
 
 
 def modis_ndvi_doy_ts(
@@ -4399,95 +4502,91 @@ def modis_ndvi_timelapse(
     if out_gif is None:
         out_gif = os.path.abspath(f"modis_ndvi_{coreutils.random_string(3)}.gif")
 
-    try:
-        col = modis_ndvi_doy_ts(data, band, start_date, end_date, roi)
+    col = modis_ndvi_doy_ts(data, band, start_date, end_date, roi)
 
-        # Define RGB visualization parameters.
-        visParams = {
-            "min": 0.0,
-            "max": 9000.0,
-            "palette": [
-                "FFFFFF",
-                "CE7E45",
-                "DF923D",
-                "F1B555",
-                "FCD163",
-                "99B718",
-                "74A901",
-                "66A000",
-                "529400",
-                "3E8601",
-                "207401",
-                "056201",
-                "004C00",
-                "023B01",
-                "012E01",
-                "011D01",
-                "011301",
-            ],
-        }
+    # Define RGB visualization parameters.
+    visParams = {
+        "min": 0.0,
+        "max": 9000.0,
+        "palette": [
+            "FFFFFF",
+            "CE7E45",
+            "DF923D",
+            "F1B555",
+            "FCD163",
+            "99B718",
+            "74A901",
+            "66A000",
+            "529400",
+            "3E8601",
+            "207401",
+            "056201",
+            "004C00",
+            "023B01",
+            "012E01",
+            "011D01",
+            "011301",
+        ],
+    }
 
-        # Create RGB visualization images for use as animation frames.
-        rgbVis = col.map(lambda img: img.visualize(**visParams).clip(roi))
+    # Create RGB visualization images for use as animation frames.
+    rgbVis = col.map(lambda img: img.visualize(**visParams).clip(roi))
 
-        if overlay_data is not None:
-            rgbVis = add_overlay(
-                rgbVis,
-                overlay_data,
-                overlay_color,
-                overlay_width,
-                overlay_opacity,
-                roi,
-            )
+    if overlay_data is not None:
+        rgbVis = add_overlay(
+            rgbVis,
+            overlay_data,
+            overlay_color,
+            overlay_width,
+            overlay_opacity,
+            roi,
+        )
 
-        # Define GIF visualization arguments.
-        videoArgs = {
-            "region": roi,
-            "dimensions": dimensions,
-            "crs": crs,
-            "framesPerSecond": framesPerSecond,
-        }
+    # Define GIF visualization arguments.
+    videoArgs = {
+        "region": roi,
+        "dimensions": dimensions,
+        "crs": crs,
+        "framesPerSecond": framesPerSecond,
+    }
 
-        download_ee_video(rgbVis, videoArgs, out_gif)
+    download_ee_video(rgbVis, videoArgs, out_gif)
 
-        if text_sequence is None:
-            text = rgbVis.aggregate_array("system:index").getInfo()
-            text_sequence = [d.replace("_", "-")[5:] for d in text]
+    if text_sequence is None:
+        text = rgbVis.aggregate_array("system:index").getInfo()
+        text_sequence = [d.replace("_", "-")[5:] for d in text]
 
-        if os.path.exists(out_gif):
-            add_text_to_gif(
-                out_gif,
-                out_gif,
-                xy,
-                text_sequence,
-                font_type,
-                font_size,
-                font_color,
-                add_progress_bar,
-                progress_bar_color,
-                progress_bar_height,
-                duration=1000 / framesPerSecond,
-                loop=loop,
-            )
+    if os.path.exists(out_gif):
+        add_text_to_gif(
+            out_gif,
+            out_gif,
+            xy,
+            text_sequence,
+            font_type,
+            font_size,
+            font_color,
+            add_progress_bar,
+            progress_bar_color,
+            progress_bar_height,
+            duration=1000 / framesPerSecond,
+            loop=loop,
+        )
 
-            try:
-                reduce_gif_size(out_gif)
-                if isinstance(fading, bool):
-                    fading = int(fading)
-                if fading > 0:
-                    gif_fading(out_gif, out_gif, duration=fading, verbose=False)
+        try:
+            reduce_gif_size(out_gif)
+            if isinstance(fading, bool):
+                fading = int(fading)
+            if fading > 0:
+                gif_fading(out_gif, out_gif, duration=fading, verbose=False)
 
-            except Exception as _:
-                pass
+        except Exception as _:
+            pass
 
-        if mp4:
-            out_mp4 = out_gif.replace(".gif", ".mp4")
-            gif_to_mp4(out_gif, out_mp4)
+    if mp4:
+        out_mp4 = out_gif.replace(".gif", ".mp4")
+        gif_to_mp4(out_gif, out_mp4)
 
-        return out_gif
-
-    except Exception as e:
-        raise Exception(e)
+    return out_gif
 
 
 def modis_ocean_color_timeseries(
@@ -5093,10 +5192,7 @@ def add_progress_bar_to_gif(
 
     progress_bar_color = coreutils.check_color(progress_bar_color)
 
-    try:
-        image = Image.open(in_gif)
-    except Exception as e:
-        raise Exception("An error occurred while opening the gif.")
+    image = Image.open(in_gif)
 
     count = image.n_frames
     W, H = image.size
@@ -5105,35 +5201,32 @@ def add_progress_bar_to_gif(
         [(0, H - progress_bar_height), (x, H)] for x in progress_bar_widths
     ]
 
-    try:
-        frames = []
-        # Loop over each frame in the animated image
-        for index, frame in enumerate(ImageSequence.Iterator(image)):
-            # Draw the text on the frame
-            frame = frame.convert("RGB")
-            draw = ImageDraw.Draw(frame)
-            # w, h = draw.textsize(text[index])
-            draw.rectangle(progress_bar_shapes[index], fill=progress_bar_color)
-            del draw
+    frames = []
+    # Loop over each frame in the animated image
+    for index, frame in enumerate(ImageSequence.Iterator(image)):
+        # Draw the text on the frame
+        frame = frame.convert("RGB")
+        draw = ImageDraw.Draw(frame)
+        # w, h = draw.textsize(text[index])
+        draw.rectangle(progress_bar_shapes[index], fill=progress_bar_color)
+        del draw
 
-            b = io.BytesIO()
-            frame.save(b, format="GIF")
-            frame = Image.open(b)
+        b = io.BytesIO()
+        frame.save(b, format="GIF")
+        frame = Image.open(b)
 
-            frames.append(frame)
-        # https://www.pythoninformer.com/python-libraries/pillow/creating-animated-gif/
-        # Save the frames as a new image
+        frames.append(frame)
+    # https://www.pythoninformer.com/python-libraries/pillow/creating-animated-gif/
+    # Save the frames as a new image
 
-        frames[0].save(
-            out_gif,
-            save_all=True,
-            append_images=frames[1:],
-            duration=duration,
-            loop=loop,
-            optimize=True,
-        )
-    except Exception as e:
-        raise Exception(e)
+    frames[0].save(
+        out_gif,
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration,
+        loop=loop,
+        optimize=True,
+    )
 
 
 def vector_to_gif(
@@ -5558,7 +5651,9 @@ def sentinel1_timelapse_with_samples(
     if sample_points is None or len(sample_points) == 0:
         print("No sample points provided. Returning map-only timelapse.")
         if mp4:
+            # pytype: disable=attribute-error
             gif_to_mp4(base_gif, base_gif.replace(".gif", ".mp4"))
+            # pytype: enable=attribute-error
         return base_gif
 
     # Get the Sentinel-1 time series for sampling
@@ -5591,7 +5686,9 @@ def sentinel1_timelapse_with_samples(
             print("Warning: No Sentinel-1 images found for the specified parameters")
             # Return base gif without sampling
             if mp4:
+                # pytype: disable=attribute-error
                 gif_to_mp4(base_gif, base_gif.replace(".gif", ".mp4"))
+                # pytype: enable=attribute-error
             return base_gif
 
         print(f"Found {collection_size} Sentinel-1 images for sampling")
@@ -5616,7 +5713,9 @@ def sentinel1_timelapse_with_samples(
         if ts_size == 0:
             print("Warning: No time series data generated")
             if mp4:
+                # pytype: disable=attribute-error
                 gif_to_mp4(base_gif, base_gif.replace(".gif", ".mp4"))
+                # pytype: enable=attribute-error
             return base_gif
 
         print(f"Generated {ts_size} time series images")
@@ -5768,7 +5867,9 @@ def sentinel1_timelapse_with_samples(
 
     # Handle MP4 conversion
     if mp4:
+        # pytype: disable=attribute-error
         gif_to_mp4(final_gif, final_gif.replace(".gif", ".mp4"))
+        # pytype: enable=attribute-error
 
     return final_gif
 
@@ -5888,11 +5989,11 @@ def add_sample_markers_to_gif(
 def draw_cross_marker(draw, x, y, size, color):
     """Draw a cross marker."""
     half_size = size // 2
-    # Horizontal line
+    # Horizontal line.
     draw.line([x - half_size, y, x + half_size, y], fill=color, width=3)
-    # Vertical line
+    # Vertical line.
     draw.line([x, y - half_size, x, y + half_size], fill=color, width=3)
-    # Add outline for better visibility
+    # Add outline for better visibility.
     draw.line([x - half_size, y, x + half_size, y], fill="white", width=1)
     draw.line([x, y - half_size, x, y + half_size], fill="white", width=1)
 
@@ -5900,13 +6001,13 @@ def draw_cross_marker(draw, x, y, size, color):
 def draw_circle_marker(draw, x, y, size, color):
     """Draw a circle marker."""
     half_size = size // 2
-    # Outer circle (outline)
+    # Outer circle (outline).
     draw.ellipse(
         [x - half_size, y - half_size, x + half_size, y + half_size],
         outline="white",
         width=3,
     )
-    # Inner circle (fill)
+    # Inner circle (fill).
     draw.ellipse(
         [x - half_size + 2, y - half_size + 2, x + half_size - 2, y + half_size - 2],
         fill=color,
@@ -5929,11 +6030,11 @@ def get_pixel_coordinates_from_geo(lon, lat, roi_bounds, gif_width, gif_height):
     """
     min_lon, min_lat, max_lon, max_lat = roi_bounds
 
-    # Linear transformation from geographic to pixel coordinates
+    # Linear transformation from geographic to pixel coordinates.
     pixel_x = int(((lon - min_lon) / (max_lon - min_lon)) * gif_width)
     pixel_y = int(((max_lat - lat) / (max_lat - min_lat)) * gif_height)  # Flip Y axis
 
-    # Ensure coordinates are within bounds
+    # Ensure coordinates are within bounds.
     pixel_x = max(0, min(gif_width - 1, pixel_x))
     pixel_y = max(0, min(gif_height - 1, pixel_y))
 
@@ -5953,7 +6054,7 @@ def create_time_series_chart_frames(
     if not sample_data:
         return []
 
-    # Get all unique dates across all points
+    # Get all unique dates across all points.
     all_dates = set()
     for point_data in sample_data.values():
         all_dates.update(point_data["dates"])
@@ -5963,17 +6064,17 @@ def create_time_series_chart_frames(
 
     sorted_dates = sorted(list(all_dates))
 
-    # Create chart frames
+    # Create chart frames.
     chart_frames = []
     temp_dir = tempfile.mkdtemp()
 
-    # Calculate chart dimensions
+    # Calculate chart dimensions.
     if isinstance(dimensions, str) and "x" in dimensions:
         width, height = map(int, dimensions.split("x"))
     else:
         width = height = int(dimensions) if isinstance(dimensions, int) else 768
 
-    chart_width = int(width * 0.8)  # 80% of gif width
+    chart_width = int(width * 0.8)  # 80% of gif width.
     chart_height = height
 
     try:
@@ -5982,7 +6083,7 @@ def create_time_series_chart_frames(
                 figsize=(chart_width / 100, chart_height / 100), dpi=100
             )
 
-            # Plot all time series
+            # Plot all time series.
             for point_name, point_data in sample_data.items():
                 if point_data["dates"] and point_data["values"]:
                     ax.plot(
@@ -6572,7 +6673,9 @@ def sentinel2_timelapse_with_samples(
     if sample_points is None or len(sample_points) == 0:
         print("No sample points provided. Returning map-only timelapse.")
         if mp4:
+            # pytype: disable=attribute-error
             gif_to_mp4(base_gif, base_gif.replace(".gif", ".mp4"))
+            # pytype: enable=attribute-error
         return base_gif
 
     # Get the Sentinel-2 time series for sampling
@@ -6640,13 +6743,15 @@ def sentinel2_timelapse_with_samples(
                 1,
             )
 
-            # Add indices to each image
+            # Add indices to each image.
+            # pytype: disable=attribute-error
             ts_collection = base_ts_collection.map(calculate_sentinel2_indices)
+            # pytype: enable=attribute-error
 
-            # Select only the bands we need for sampling
+            # Select only the bands we need for sampling.
             ts_collection = ts_collection.select(s2_sample_bands)
         else:
-            # Standard time series without indices
+            # Standard time series without indices.
             ts_collection = sentinel2_timeseries(
                 roi,
                 start_year,
@@ -6664,24 +6769,28 @@ def sentinel2_timelapse_with_samples(
                 1,
             )
 
-        # Check if time series is empty
+        # Check if time series is empty.
         ts_size = ts_collection.size().getInfo()
         if ts_size == 0:
             print("Warning: No time series data generated")
             if mp4:
+                # pytype: disable=attribute-error
                 gif_to_mp4(base_gif, base_gif.replace(".gif", ".mp4"))
+                # pytype: enable=attribute-error
             return base_gif
 
         print(f"Generated {ts_size} time series images")
 
     except Exception as e:
         print(f"Error creating time series: {str(e)}")
-        # Return base gif without sampling
+        # Return base gif without sampling.
         if mp4:
+            # pytype: disable=attribute-error
             gif_to_mp4(base_gif, base_gif.replace(".gif", ".mp4"))
+            # pytype: enable=attribute-error
         return base_gif
 
-    # Sample points from the time series
+    # Sample points from the time series.
     sample_data = {}
     point_geometries = []
 
@@ -6830,7 +6939,7 @@ def sentinel2_timelapse_with_samples(
         except Exception as e:
             print(f"Error adding markers to GIF: {str(e)}")
 
-    # Create the time series chart if we have sample data
+    # Create the time series chart if we have sample data.
     if sample_data and len(sample_data) > 0:
         try:
             chart_frames = create_s2_time_series_chart_frames(
@@ -6847,7 +6956,7 @@ def sentinel2_timelapse_with_samples(
                 chart_xlabel_interval,
             )
 
-            # Combine gif and chart
+            # Combine gif and chart.
             final_gif = combine_gif_with_chart(
                 base_gif,
                 chart_frames,
@@ -6869,7 +6978,9 @@ def sentinel2_timelapse_with_samples(
 
     # Handle MP4 conversion
     if mp4:
+        # pytype: disable=attribute-error
         gif_to_mp4(final_gif, final_gif.replace(".gif", ".mp4"))
+        # pytype: enable=attribute-error
 
     return final_gif
 
@@ -7761,7 +7872,9 @@ def landsat_timelapse_with_samples(
             )
 
             # Add indices to each image
+            # pytype: disable=attribute-error
             ts_collection = base_ts_collection.map(calculate_landsat_indices)
+            # pytype: enable=attribute-error
 
             # Select only the bands we need for sampling
             ts_collection = ts_collection.select(landsat_sample_bands)
@@ -8304,7 +8417,9 @@ def create_landsat_index_timelapse(
     )
 
     # Add indices to each image.
+    # pytype: disable=attribute-error
     ts_collection = base_ts_collection.map(calculate_landsat_indices)
+    # pytype: enable=attribute-error
 
     # Use create_timelapse with the index collection.
     start = f"{start_year}-{start_date}"
@@ -8461,7 +8576,7 @@ def create_landsat_time_series_chart_frames(
                 else:  # Long time series - multi-year intervals.
                     format_str = "%Y"
                     year_interval = max(1, len(sorted_dates) // 15)
-                    locator = mdates.YearLocator(interval=year_interval)
+                    locator = mdates.YearLocator(base=year_interval)
             else:
                 # Use manual settings.
                 format_str = xlabel_format if xlabel_format != "auto" else "%Y"

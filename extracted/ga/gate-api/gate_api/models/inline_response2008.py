@@ -35,18 +35,18 @@ class InlineResponse2008(object):
     openapi_types = {
         'code': 'int',
         'label': 'str',
-        'msg': 'str',
+        'message': 'str',
         'data': 'InlineResponse2008Data'
     }
 
     attribute_map = {
         'code': 'code',
         'label': 'label',
-        'msg': 'msg',
+        'message': 'message',
         'data': 'data'
     }
 
-    def __init__(self, code=None, label=None, msg=None, data=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, code=None, label=None, message=None, data=None, local_vars_configuration=None):  # noqa: E501
         # type: (int, str, str, InlineResponse2008Data, Configuration) -> None
         """InlineResponse2008 - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
@@ -55,7 +55,7 @@ class InlineResponse2008(object):
 
         self._code = None
         self._label = None
-        self._msg = None
+        self._message = None
         self._data = None
         self.discriminator = None
 
@@ -63,8 +63,8 @@ class InlineResponse2008(object):
             self.code = code
         if label is not None:
             self.label = label
-        if msg is not None:
-            self.msg = msg
+        if message is not None:
+            self.message = message
         if data is not None:
             self.data = data
 
@@ -72,7 +72,7 @@ class InlineResponse2008(object):
     def code(self):
         """Gets the code of this InlineResponse2008.  # noqa: E501
 
-        Status code, 0 = success  # noqa: E501
+        Response code. `0` = success; `2002` = user not logged in; `50105` = parameter validation failed; `10001` = coupon record does not exist or does not belong to current user; `10000` = invalid parameter (e.g., task coupon missing coupon_info)  # noqa: E501
 
         :return: The code of this InlineResponse2008.  # noqa: E501
         :rtype: int
@@ -83,11 +83,17 @@ class InlineResponse2008(object):
     def code(self, code):
         """Sets the code of this InlineResponse2008.
 
-        Status code, 0 = success  # noqa: E501
+        Response code. `0` = success; `2002` = user not logged in; `50105` = parameter validation failed; `10001` = coupon record does not exist or does not belong to current user; `10000` = invalid parameter (e.g., task coupon missing coupon_info)  # noqa: E501
 
         :param code: The code of this InlineResponse2008.  # noqa: E501
         :type: int
         """
+        allowed_values = [0, 2002, 50105, 10001, 10000]  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and code not in allowed_values:  # noqa: E501
+            raise ValueError(
+                "Invalid value for `code` ({0}), must be one of {1}"  # noqa: E501
+                .format(code, allowed_values)
+            )
 
         self._code = code
 
@@ -115,27 +121,25 @@ class InlineResponse2008(object):
         self._label = label
 
     @property
-    def msg(self):
-        """Gets the msg of this InlineResponse2008.  # noqa: E501
+    def message(self):
+        """Gets the message of this InlineResponse2008.  # noqa: E501
 
-        Status message  # noqa: E501
 
-        :return: The msg of this InlineResponse2008.  # noqa: E501
+        :return: The message of this InlineResponse2008.  # noqa: E501
         :rtype: str
         """
-        return self._msg
+        return self._message
 
-    @msg.setter
-    def msg(self, msg):
-        """Sets the msg of this InlineResponse2008.
+    @message.setter
+    def message(self, message):
+        """Sets the message of this InlineResponse2008.
 
-        Status message  # noqa: E501
 
-        :param msg: The msg of this InlineResponse2008.  # noqa: E501
+        :param message: The message of this InlineResponse2008.  # noqa: E501
         :type: str
         """
 
-        self._msg = msg
+        self._message = message
 
     @property
     def data(self):

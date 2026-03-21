@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyGObject-stubs
-Version: 2.16.0
+Version: 2.17.0
 Summary: Typing stubs for PyGObject
 Author: Christoph Reiter
 Author-email: reiter.christoph@gmail.com
@@ -11,16 +11,11 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: PyGObject>=3.55.0
 Requires-Dist: typing_extensions
-Provides-Extra: dev
-Requires-Dist: codespell>=2.4.1; extra == "dev"
-Requires-Dist: isort>=6.0.1; extra == "dev"
-Requires-Dist: ruff>=0.12.7; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: PyGObject; extra == "dev"
 Dynamic: license-file
 
 # Typing Stubs for PyGObject

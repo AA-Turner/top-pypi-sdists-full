@@ -23,12 +23,17 @@ def _get_api_key() -> str | None:
     return os.environ.get("PLATO_API_KEY")
 
 
-async def get_world_schema(package_name: str, version: str | None = None) -> dict[str, Any]:
+async def get_world_schema(
+    package_name: str,
+    version: str | None = None,
+    world_name: str | None = None,
+) -> dict[str, Any]:
     """Fetch world schema from the registry.
 
     Args:
         package_name: World package name (e.g., "plato-world-structured-execution")
         version: Optional version. If not specified, uses latest.
+        world_name: Optional world name for multi-world packages.
 
     Returns:
         Schema dict with keys: name, version, config_schema, secrets_schema, image
@@ -54,7 +59,23 @@ async def get_world_schema(package_name: str, version: str | None = None) -> dic
         if response.status_code == 404:
             raise RuntimeError(f"World package not found: {package_name}")
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+
+        # Handle catalog format: {"worlds": {"name": {schema...}}}
+        if "worlds" in data and isinstance(data["worlds"], dict):
+            worlds = data["worlds"]
+            # If world_name specified, use it directly
+            if world_name and world_name in worlds:
+                return worlds[world_name]
+            if len(worlds) == 1:
+                return next(iter(worlds.values()))
+            # Multiple worlds — find the primary (non-review) world
+            for _name, schema in worlds.items():
+                if schema.get("type", "world") != "review":
+                    return schema
+            return next(iter(worlds.values()))
+
+        return data
 
 
 async def get_agent_schema(package_name: str, version: str | None = None) -> dict[str, Any]:

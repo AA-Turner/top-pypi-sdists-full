@@ -12,7 +12,7 @@ use writer::ArchiveWriter;
 
 #[pyfunction]
 #[pyo3(signature = (path, mode))]
-fn open(py: Python<'_>, path: PathBuf, mode: &str) -> PyResult<PyObject> {
+fn open(py: Python<'_>, path: PathBuf, mode: &str) -> PyResult<Py<PyAny>> {
     match mode {
         "w" | "w:gz" | "w:zst" => {
             let writer = ArchiveWriter::open(&py.get_type::<ArchiveWriter>(), py, path, mode)?;

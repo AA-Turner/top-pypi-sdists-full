@@ -539,7 +539,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             # Path could be a file
             if not resolved_path.path:
                 _raise_file_not_found(path, None)
-            out = self._ls_tree(self._parent(path), refresh=refresh, revision=revision, **kwargs)
+            try:
+                out = self._ls_tree(self._parent(path), refresh=refresh, revision=revision, **kwargs)
+            except EntryNotFoundError:
+                out = []
             out = [o for o in out if o["name"] == path]
             if len(out) == 0:
                 _raise_file_not_found(path, None)
@@ -1036,7 +1039,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
 
             self.info(path, **kwargs)
             return True
-        except:  # noqa: E722
+        except OSError:
             return False
 
     def isdir(self, path):
@@ -1072,7 +1075,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         """
         try:
             return self.info(path)["type"] == "file"
-        except:  # noqa: E722
+        except OSError:
             return False
 
     def url(self, path: str) -> str:

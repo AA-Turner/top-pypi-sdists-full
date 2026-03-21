@@ -56,6 +56,14 @@ class _DataCategoryEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._E
     """Installable build artifact uploads."""
     DATA_CATEGORY_TRACE_METRIC: _DataCategory.ValueType  # 16
     """Trace metric items."""
+    DATA_CATEGORY_DEFAULT: _DataCategory.ValueType  # 17
+    """Default events."""
+    DATA_CATEGORY_SECURITY: _DataCategory.ValueType  # 18
+    """Security events."""
+    DATA_CATEGORY_PROFILE_CHUNK: _DataCategory.ValueType  # 19
+    """Profile chunks."""
+    DATA_CATEGORY_PROFILE_CHUNK_UI: _DataCategory.ValueType  # 20
+    """UI profile chunks."""
     DATA_CATEGORY_UNKNOWN: _DataCategory.ValueType  # -1
     """Any other data category not known by this version."""
 
@@ -100,6 +108,14 @@ DATA_CATEGORY_INSTALLABLE_BUILD: DataCategory.ValueType  # 15
 """Installable build artifact uploads."""
 DATA_CATEGORY_TRACE_METRIC: DataCategory.ValueType  # 16
 """Trace metric items."""
+DATA_CATEGORY_DEFAULT: DataCategory.ValueType  # 17
+"""Default events."""
+DATA_CATEGORY_SECURITY: DataCategory.ValueType  # 18
+"""Security events."""
+DATA_CATEGORY_PROFILE_CHUNK: DataCategory.ValueType  # 19
+"""Profile chunks."""
+DATA_CATEGORY_PROFILE_CHUNK_UI: DataCategory.ValueType  # 20
+"""UI profile chunks."""
 DATA_CATEGORY_UNKNOWN: DataCategory.ValueType  # -1
 """Any other data category not known by this version."""
 global___DataCategory = DataCategory

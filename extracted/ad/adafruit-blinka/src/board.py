@@ -10,7 +10,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 * Author(s): cefn, Melissa LeBlanc-Williams
 """
 
-__version__ = "9.0.2"
+__version__ = "9.0.3"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 

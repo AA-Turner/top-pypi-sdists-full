@@ -13,12 +13,13 @@ from __future__ import annotations
 import atexit
 import binascii
 import collections
+import glob
+import importlib.util
 import inspect
 import io
 import math
 import os
 import pathlib
-import glob
 import re
 import string
 import sys
@@ -30,7 +31,6 @@ import weakref
 import zipfile
 
 from . import extra
-import importlib.util
 
 # Set up g_out_log and g_out_message from environment variables.
 #
@@ -586,6 +586,9 @@ class Annot:
     def __init__(self, annot):
         assert isinstance( annot, mupdf.PdfAnnot)
         self.this = annot
+    
+    def __bool__(self):
+        return bool(self.this)
 
     def __repr__(self):
         parent = getattr(self, 'parent', '<>')
@@ -10184,7 +10187,7 @@ class Page:
             annot = JM_get_annot_by_name(page, name)
         else:
             annot = JM_get_annot_by_xref(page, xref)
-        if annot.m_internal:
+        if annot:
             return Annot(annot)
 
     def _makePixmap(self, doc, ctm, cs, alpha=0, annots=1, clip=None):
@@ -11383,6 +11386,9 @@ class Page:
         mupdf.fz_run_page( page, dev, ctm, mupdf.FzCookie())
         mupdf.fz_close_device( dev)
 
+    def find_tables(self, **kwargs):
+        return table.find_tables(self, **kwargs)
+    
     @property
     def first_annot(self):
         """First annotation."""
@@ -12614,25 +12620,25 @@ class Page:
             rect: rect_like,
             buffer: typing.Union[str, list],
             *,
-            fontname: str = "helv",
-            fontfile: OptStr = None,
-            set_simple: int = 0,
+            align: int = 0,
+            border_width: float = 0.05,
+            color: OptSeq = None,
             encoding: int = 0,
+            expandtabs: int = 1,
+            fill_opacity: float = 1,
+            fill: OptSeq = None,
+            fontfile: OptStr = None,
+            fontname: str = "helv",
             fontsize: float = 11,
             lineheight: OptFloat = None,
-            color: OptSeq = None,
-            fill: OptSeq = None,
-            expandtabs: int = 1,
-            align: int = 0,
-            rotate: int = 0,
-            render_mode: int = 0,
             miter_limit: float = 1,
-            border_width: float = 0.05,
             morph: OptSeq = None,
-            overlay: bool = True,
-            stroke_opacity: float = 1,
-            fill_opacity: float = 1,
             oc: int = 0,
+            overlay: bool = True,
+            render_mode: int = 0,
+            rotate: int = 0,
+            set_simple: int = 0,
+            stroke_opacity: float = 1,
             ) -> float:
         """Insert text into a given rectangle.
 
@@ -15384,24 +15390,24 @@ class Shape:
         rect: rect_like,
         buffer: typing.Union[str, list],
         *,
-        fontname: OptStr = "helv",
+        align: int = 0,
+        border_width: float = 0.05,
+        color: OptSeq = None,
+        encoding: int = 0,
+        expandtabs: int = 1,
+        fill_opacity: float = 1,
+        fill: OptSeq = None,
         fontfile: OptStr = None,
+        fontname: OptStr = "helv",
         fontsize: float = 11,
         lineheight: OptFloat = None,
-        set_simple: bool = 0,
-        encoding: int = 0,
-        color: OptSeq = None,
-        fill: OptSeq = None,
-        expandtabs: int = 1,
-        border_width: float = 0.05,
         miter_limit: float = 1,
-        align: int = 0,
+        morph: OptSeq = None,
+        oc: int = 0,
         render_mode: int = 0,
         rotate: int = 0,
-        morph: OptSeq = None,
+        set_simple: bool = 0,
         stroke_opacity: float = 1,
-        fill_opacity: float = 1,
-        oc: int = 0,
     ) -> float:
         """Insert text into a given rectangle.
 
@@ -25571,8 +25577,7 @@ recover_line_quad           = utils.recover_line_quad
 recover_quad                = utils.recover_quad
 recover_span_quad           = utils.recover_span_quad
 
-from .table import find_tables
-Page.find_tables = find_tables
+from . import table
 
 
 class FitzDeprecation(DeprecationWarning):

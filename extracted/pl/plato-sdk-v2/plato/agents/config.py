@@ -54,7 +54,7 @@ class AgentConfig(BaseSettings):
         env_ignore_empty=True,
     )
 
-    runtime: Runtime = "docker"
+    runtime: Runtime = "vm"
 
     @classmethod
     def get_field_secrets(cls) -> dict[str, Secret]:

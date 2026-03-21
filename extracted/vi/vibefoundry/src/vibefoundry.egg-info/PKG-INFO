@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vibefoundry
-Version: 0.1.226
+Version: 0.1.301
 Summary: A local IDE for data science workflows with script running, metadata generation, and GitHub Codespace sync
 Author: VibeFoundry
 License: MIT

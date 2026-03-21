@@ -1037,6 +1037,31 @@ WHERE a.id = b.id"""
     )
 
 
+def test_column_lineage_with_ansi89_join_and_ansi92_join():
+    """Column lineage for comma-join mixed with explicit JOIN: FROM a, b INNER JOIN c ON ..."""
+    sql = """INSERT INTO tgt
+SELECT tab1.col1, tab2.col2, tab3.col3
+FROM tab1, tab2
+INNER JOIN tab3 ON tab2.id = tab3.id"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("col1", "tab1"),
+                TestColumnQualifierTuple("col1", "tgt"),
+            ),
+            (
+                TestColumnQualifierTuple("col2", "tab2"),
+                TestColumnQualifierTuple("col2", "tgt"),
+            ),
+            (
+                TestColumnQualifierTuple("col3", "tab3"),
+                TestColumnQualifierTuple("col3", "tgt"),
+            ),
+        ],
+    )
+
+
 def test_smarter_column_resolution_using_query_context():
     sql = """WITH
 cte1 AS (SELECT a, b FROM tab1),

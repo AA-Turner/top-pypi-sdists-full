@@ -291,6 +291,7 @@ fn test_ocr_custom_threshold() {
             extract_annotations: false,
             top_margin_fraction: None,
             bottom_margin_fraction: None,
+            allow_single_column_tables: false,
         }),
         ..Default::default()
     };

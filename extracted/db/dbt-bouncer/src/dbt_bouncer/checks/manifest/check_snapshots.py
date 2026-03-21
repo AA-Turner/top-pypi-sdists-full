@@ -1,25 +1,56 @@
-import re
-from typing import TYPE_CHECKING, Literal
-
-from pydantic import Field, PrivateAttr
-
-from dbt_bouncer.check_base import BaseCheck
-
-if TYPE_CHECKING:
-    from dbt_bouncer.artifact_parsers.parsers_manifest import (
-        DbtBouncerSnapshotBase,
-    )
-
-from dbt_bouncer.checks.common import DbtBouncerFailedCheckError
-from dbt_bouncer.utils import compile_pattern
+from dbt_bouncer.check_decorator import check, fail
+from dbt_bouncer.utils import (
+    compile_pattern,
+    get_clean_model_name,
+    is_description_populated,
+)
 
 
-class CheckSnapshotHasTags(BaseCheck):
+@check
+def check_snapshot_description_populated(
+    snapshot, *, min_description_length: int | None = None
+):
+    """Snapshots must have a populated description.
+
+    Parameters:
+        min_description_length (int | None): Minimum length required for the description to be considered populated.
+
+    Receives:
+        snapshot (SnapshotNode): The SnapshotNode object to check.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | None): Regex pattern to match the snapshot path. Snapshot paths that match the pattern will not be checked.
+        include (str | None): Regex pattern to match the snapshot path. Only snapshot paths that match the pattern will be checked.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_snapshot_description_populated
+        ```
+        ```yaml
+        manifest_checks:
+            - name: check_snapshot_description_populated
+              min_description_length: 25 # Setting a stricter requirement for description length
+        ```
+
+    """
+    if not is_description_populated(
+        snapshot.description or "", min_description_length or 4
+    ):
+        fail(
+            f"`{get_clean_model_name(snapshot.unique_id)}` does not have a populated description."
+        )
+
+
+@check
+def check_snapshot_has_tags(snapshot, *, criteria: str = "all", tags: list[str]):
     """Snapshots must have the specified tags.
 
     Parameters:
         criteria: (Literal["any", "all", "one"] | None): Whether the snapshot must have any, all, or exactly one of the specified tags. Default: `all`.
-        snapshot (DbtBouncerSnapshotBase): The DbtBouncerSnapshotBase object to check.
+        snapshot (SnapshotNode): The SnapshotNode object to check.
         tags (list[str]): List of tags to check for.
 
     Other Parameters:
@@ -38,50 +69,27 @@ class CheckSnapshotHasTags(BaseCheck):
         ```
 
     """
-
-    criteria: Literal["any", "all", "one"] = Field(default="all")
-    name: Literal["check_snapshot_has_tags"]
-    snapshot: "DbtBouncerSnapshotBase | None" = Field(default=None)
-    tags: list[str]
-
-    def execute(self) -> None:
-        """Execute the check.
-
-        Raises:
-            DbtBouncerFailedCheckError: If snapshot does not have required tags.
-
-        """
-        if self.snapshot is None:
-            raise DbtBouncerFailedCheckError("self.snapshot is None")
-        snapshot_tags = self.snapshot.tags or []
-        if self.criteria == "any":
-            if not any(tag in snapshot_tags for tag in self.tags):
-                raise DbtBouncerFailedCheckError(
-                    f"`{self.snapshot.name}` does not have any of the required tags: {self.tags}."
-                )
-        elif self.criteria == "all":
-            missing_tags = [tag for tag in self.tags if tag not in snapshot_tags]
-            if missing_tags:
-                raise DbtBouncerFailedCheckError(
-                    f"`{self.snapshot.name}` is missing required tags: {missing_tags}."
-                )
-        elif (
-            self.criteria == "one"
-            and sum(tag in snapshot_tags for tag in self.tags) != 1
-        ):
-            raise DbtBouncerFailedCheckError(
-                f"`{self.snapshot.name}` must have exactly one of the required tags: {self.tags}."
-            )
+    resource_tags = snapshot.tags or []
+    if criteria == "any":
+        if not any(tag in resource_tags for tag in tags):
+            fail(f"`{snapshot.name}` does not have any of the required tags: {tags}.")
+    elif criteria == "all":
+        missing_tags = [tag for tag in tags if tag not in resource_tags]
+        if missing_tags:
+            fail(f"`{snapshot.name}` is missing required tags: {missing_tags}.")
+    elif criteria == "one" and sum(tag in resource_tags for tag in tags) != 1:
+        fail(f"`{snapshot.name}` must have exactly one of the required tags: {tags}.")
 
 
-class CheckSnapshotNames(BaseCheck):
+@check
+def check_snapshot_names(snapshot, *, snapshot_name_pattern: str):
     """Snapshots must have a name that matches the supplied regex.
 
     Parameters:
         snapshot_name_pattern (str): Regexp the snapshot name must match.
 
     Receives:
-        snapshot (DbtBouncerSnapshotBase): The DbtBouncerSnapshotBase object to check.
+        snapshot (SnapshotNode): The SnapshotNode object to check.
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
@@ -98,27 +106,8 @@ class CheckSnapshotNames(BaseCheck):
         ```
 
     """
-
-    name: Literal["check_snapshot_names"]
-    snapshot: "DbtBouncerSnapshotBase | None" = Field(default=None)
-    snapshot_name_pattern: str
-
-    _compiled_pattern: re.Pattern[str] = PrivateAttr()
-
-    def model_post_init(self, __context: object) -> None:
-        """Compile the regex pattern once at initialisation time."""
-        self._compiled_pattern = compile_pattern(self.snapshot_name_pattern.strip())
-
-    def execute(self) -> None:
-        """Execute the check.
-
-        Raises:
-            DbtBouncerFailedCheckError: If snapshot name does not match regex.
-
-        """
-        if self.snapshot is None:
-            raise DbtBouncerFailedCheckError("self.snapshot is None")
-        if self._compiled_pattern.match(str(self.snapshot.name)) is None:
-            raise DbtBouncerFailedCheckError(
-                f"`{self.snapshot.name}` does not match the supplied regex `{self.snapshot_name_pattern.strip()})`."
-            )
+    compiled_pattern = compile_pattern(snapshot_name_pattern.strip())
+    if compiled_pattern.match(str(snapshot.name)) is None:
+        fail(
+            f"`{snapshot.name}` does not match the supplied regex `{snapshot_name_pattern.strip()}`."
+        )

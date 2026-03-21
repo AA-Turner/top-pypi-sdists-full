@@ -1,10 +1,9 @@
 # Copyright (c) 2004,2018 Python-Metar Developers.
 # Distributed under the terms of the BSD 2-Clause License.
 # SPDX-License-Identifier: BSD-2-Clause
-"""Python classes to represent dimensioned quantities used in weather reports.
-"""
+"""Python classes to represent dimensioned quantities used in weather reports."""
 import re
-from math import sin, cos, atan2, sqrt
+from math import pi, sin, cos, atan2
 
 # exceptions
 
@@ -86,7 +85,7 @@ class pressure(object):
 
     legal_units = ["MB", "HPA", "IN"]
 
-    def __init__(self, value, units="MB"):
+    def __init__(self, value, units="HPA"):
         if not units.upper() in pressure.legal_units:
             raise UnitsError("unrecognized pressure unit: '" + units + "'")
         self._value = float(value)
@@ -106,13 +105,13 @@ class pressure(object):
         if units == self._units:
             return self._value
         if self._units == "IN":
-            mb_value = self._value * 33.86398
+            hpa_value = self._value * 33.86398
         else:
-            mb_value = self._value
-        if units == "MB" or units == "HPA":
-            return mb_value
+            hpa_value = self._value
+        if units == "HPA" or units == "MB":
+            return hpa_value
         elif units == "IN":
-            return mb_value / 33.86398
+            return hpa_value / 33.86398
         else:
             raise UnitsError("unrecognized pressure unit: '" + units + "'")
 
@@ -125,10 +124,10 @@ class pressure(object):
                 raise UnitsError("unrecognized pressure unit: '" + units + "'")
             units = units.upper()
         val = self.value(units)
-        if units == "MB":
-            return "%.1f mb" % val
-        elif units == "HPA":
+        if units == "HPA":
             return "%.1f hPa" % val
+        elif units == "MB":
+            return "%.1f mb" % val
         elif units == "IN":
             return "%.2f inches" % val
 
@@ -481,7 +480,7 @@ class position(object):
         long2 = position2.longitude
         s = -sin(long1 - long2) * cos(lat2)
         c = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(long1 - long2)
-        d = atan2(s, c) * 180.0 / math.pi
+        d = atan2(s, c) * 180.0 / pi
         if d < 0.0:
             d += 360.0
         return direction(d)

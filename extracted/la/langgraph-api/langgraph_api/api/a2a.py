@@ -121,16 +121,13 @@ def _normalize_input_role(role: str) -> str:
     return _ROLE_LEGACY_TO_V1.get(role, role)
 
 
-def _downgrade_response(data: Any) -> Any:
-    """Recursively convert v1.0 roles/states to v0.x format in a response.
+def _to_spec_format(data: Any) -> Any:
+    """Recursively convert internal roles/states to A2A spec format.
 
-    Strips ``kind`` fields added in v1.0 (``"task"``, ``"message"``,
-    ``"text"``, ``"data"``) that the v0.x ``a2a-sdk`` <=0.3.x does not
-    expect.  Event-level ``kind`` values (``"status-update"``,
-    ``"artifact-update"``) are preserved as they were present in v0.x.
+    Internal code uses uppercase enums (``ROLE_AGENT``, ``TASK_STATE_WORKING``).
+    The A2A spec requires lowercase (``agent``, ``working``).  Also unwraps
+    the ``{"result": {"task": {…}}}`` wrapper to ``{"result": {…}}``.
     """
-    _STRIP_KINDS = frozenset({"task", "message", "text", "data"})
-
     if isinstance(data, dict):
         out: dict[str, Any] = {}
         for k, v in data.items():
@@ -138,17 +135,14 @@ def _downgrade_response(data: Any) -> Any:
                 out[k] = _ROLE_V1_TO_LEGACY.get(v, v)
             elif k == "state" and isinstance(v, str):
                 out[k] = _STATE_V1_TO_LEGACY.get(v, v)
-            elif k == "kind" and isinstance(v, str) and v in _STRIP_KINDS:
-                # Drop v1.0-only kind discriminators for legacy clients
-                continue
             elif k == "result" and isinstance(v, dict) and list(v.keys()) == ["task"]:
-                # Unwrap v1.0 {"result": {"task": {…}}} → {"result": {…}}
-                out[k] = _downgrade_response(v["task"])
+                # Unwrap {"result": {"task": {…}}} → {"result": {…}}
+                out[k] = _to_spec_format(v["task"])
             else:
-                out[k] = _downgrade_response(v)
+                out[k] = _to_spec_format(v)
         return out
     if isinstance(data, list):
-        return [_downgrade_response(item) for item in data]
+        return [_to_spec_format(item) for item in data]
     return data
 
 
@@ -976,12 +970,12 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
         "tasks/cancel": "CancelTask",
     }
     if isinstance(method, str) and method in _METHOD_ALIASES:
-        # Tag the request so response formatters can use legacy field values
-        request.state.a2a_legacy = True
+        # Slash method names are spec-standard; convert response to spec format
+        request.state.a2a_spec_format = True
         method = _METHOD_ALIASES[method]
         message = {**message, "method": method}
     else:
-        request.state.a2a_legacy = False
+        request.state.a2a_spec_format = False
 
     # Validate id type: JSON-RPC 2.0 requires id to be String, Number, or Null
     # Objects and arrays are not valid id types
@@ -1179,8 +1173,8 @@ async def handle_jsonrpc_request(
         "id": message["id"],
         **result_or_error,
     }
-    if getattr(request.state, "a2a_legacy", False):
-        response_body = _downgrade_response(response_body)
+    if getattr(request.state, "a2a_spec_format", False):
+        response_body = _to_spec_format(response_body)
     return JSONResponse(response_body)
 
 
@@ -2562,28 +2556,13 @@ async def handle_message_stream(
                 },
             )
 
-    legacy = getattr(request.state, "a2a_legacy", False)
+    spec_format = getattr(request.state, "a2a_spec_format", False)
 
     async def consume_():
-        pending_artifacts: list[Any] = []
         async for chunk in stream_body():
-            if legacy:
+            if spec_format:
                 event_type, data = chunk
-                data = _downgrade_response(data)
-                # Legacy clients expect artifacts embedded in status-update,
-                # not as separate artifact-update events.
-                result = data.get("result", {}) if isinstance(data, dict) else {}
-                if isinstance(result, dict) and result.get("kind") == "artifact-update":
-                    pending_artifacts.append(result.get("artifact"))
-                    continue
-                if (
-                    isinstance(result, dict)
-                    and result.get("kind") == "status-update"
-                    and result.get("final")
-                    and pending_artifacts
-                ):
-                    result["artifacts"] = pending_artifacts
-                    pending_artifacts = []
+                data = _to_spec_format(data)
                 chunk = (event_type, data)
             await logger.adebug("A2A.stream_body: Yielding chunk", chunk=chunk)
             yield chunk

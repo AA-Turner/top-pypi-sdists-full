@@ -272,6 +272,7 @@ class AudioAggregator(GstBase.Aggregator):
     priv: AudioAggregatorPrivate = ...
     def __init__(
         self,
+        *,
         alignment_threshold: int = ...,
         discont_wait: int = ...,
         force_live: bool = ...,
@@ -381,6 +382,7 @@ class AudioAggregatorConvertPad(AudioAggregatorPad):
     priv: AudioAggregatorConvertPadPrivate = ...
     def __init__(
         self,
+        *,
         converter_config: Gst.Structure = ...,
         qos_messages: bool = ...,
         emit_signals: bool = ...,
@@ -467,6 +469,7 @@ class AudioAggregatorPad(GstBase.AggregatorPad):
     priv: AudioAggregatorPadPrivate = ...
     def __init__(
         self,
+        *,
         qos_messages: bool = ...,
         emit_signals: bool = ...,
         direction: Gst.PadDirection = ...,
@@ -606,6 +609,7 @@ class AudioBaseSink(GstBase.BaseSink):
     priv: AudioBaseSinkPrivate = ...
     def __init__(
         self,
+        *,
         alignment_threshold: int = ...,
         buffer_time: int = ...,
         can_activate_pull: bool = ...,
@@ -740,6 +744,7 @@ class AudioBaseSrc(GstBase.PushSrc):
     priv: AudioBaseSrcPrivate = ...
     def __init__(
         self,
+        *,
         buffer_time: int = ...,
         latency_time: int = ...,
         provide_clock: bool = ...,
@@ -878,6 +883,7 @@ class AudioCdSrc(GstBase.PushSrc, Gst.URIHandler):
     priv: AudioCdSrcPrivate = ...
     def __init__(
         self,
+        *,
         device: str = ...,
         mode: AudioCdSrcMode = ...,
         track: int = ...,
@@ -1001,6 +1007,7 @@ class AudioClock(Gst.SystemClock):
     time_offset: int = ...
     def __init__(
         self,
+        *,
         clock_type: Gst.ClockType = ...,
         timeout: int = ...,
         window_size: int = ...,
@@ -1036,6 +1043,14 @@ class AudioConverter(GObject.GBoxed):
 
         new(flags:GstAudio.AudioConverterFlags, in_info:GstAudio.AudioInfo, out_info:GstAudio.AudioInfo, config:Gst.Structure=None) -> GstAudio.AudioConverter or None
     """
+    @staticmethod
+    def __new__(
+        cls: type[Self],
+        flags: AudioConverterFlags,
+        in_info: AudioInfo,
+        out_info: AudioInfo,
+        config: typing.Optional[Gst.Structure] = None,
+    ) -> Self: ...
     def convert(
         self, flags: AudioConverterFlags, in_: typing.Sequence[int]
     ) -> typing.Tuple[bool, bytes]: ...
@@ -1122,6 +1137,7 @@ class AudioDecoder(Gst.Element):
     priv: AudioDecoderPrivate = ...
     def __init__(
         self,
+        *,
         max_errors: int = ...,
         min_latency: int = ...,
         plc: bool = ...,
@@ -1304,6 +1320,7 @@ class AudioEncoder(Gst.Element, Gst.Preset):
     priv: AudioEncoderPrivate = ...
     def __init__(
         self,
+        *,
         hard_resync: bool = ...,
         perfect_timestamp: bool = ...,
         tolerance: int = ...,
@@ -1445,6 +1462,7 @@ class AudioFilter(GstBase.BaseTransform):
     info: AudioInfo = ...
     def __init__(
         self,
+        *,
         qos: bool = ...,
         name: typing.Optional[str] = ...,
         parent: Gst.Object = ...,
@@ -1523,6 +1541,8 @@ class AudioInfo(GObject.GBoxed):
     channels: int = ...
     bpf: int = ...
     position: list[AudioChannelPosition] = ...
+    @staticmethod
+    def __new__(cls: type[Self]) -> Self: ...
     def convert(
         self, src_fmt: Gst.Format, src_val: int, dest_fmt: Gst.Format
     ) -> typing.Tuple[bool, int]: ...
@@ -1662,7 +1682,7 @@ class AudioRingBuffer(Gst.Object):
     cb_data_notify: typing.Callable[[None], None] = ...
     priv: AudioRingBufferPrivate = ...
     def __init__(
-        self, name: typing.Optional[str] = ..., parent: Gst.Object = ...
+        self, *, name: typing.Optional[str] = ..., parent: Gst.Object = ...
     ) -> None: ...
     def acquire(self, spec: AudioRingBufferSpec) -> bool: ...
     def activate(self, active: bool) -> bool: ...
@@ -1874,6 +1894,7 @@ class AudioSink(AudioBaseSink):
     thread: GLib.Thread = ...
     def __init__(
         self,
+        *,
         alignment_threshold: int = ...,
         buffer_time: int = ...,
         can_activate_pull: bool = ...,
@@ -1899,8 +1920,10 @@ class AudioSink(AudioBaseSink):
     def do_delay(self) -> int: ...
     def do_open(self) -> bool: ...
     def do_pause(self) -> None: ...
+    def do_prepare(self, spec: AudioRingBufferSpec) -> bool: ...
     def do_reset(self) -> None: ...
     def do_resume(self) -> None: ...
+    def do_stop(self) -> None: ...
     def do_unprepare(self) -> bool: ...
     def do_write(self, data: typing.Sequence[int]) -> int: ...
 
@@ -2010,6 +2033,7 @@ class AudioSrc(AudioBaseSrc):
     thread: GLib.Thread = ...
     def __init__(
         self,
+        *,
         buffer_time: int = ...,
         latency_time: int = ...,
         provide_clock: bool = ...,
@@ -2058,6 +2082,10 @@ class AudioStreamAlign(GObject.GBoxed):
 
         new(rate:int, alignment_threshold:int, discont_wait:int) -> GstAudio.AudioStreamAlign
     """
+    @staticmethod
+    def __new__(
+        cls: type[Self], rate: int, alignment_threshold: int, discont_wait: int
+    ) -> Self: ...
     def copy(self) -> AudioStreamAlign: ...
     def free(self) -> None: ...
     def get_alignment_threshold(self) -> int: ...
@@ -2095,6 +2123,8 @@ class DsdInfo(GObject.GBoxed):
     reversed_bytes: bool = ...
     positions: list[AudioChannelPosition] = ...
     flags: AudioFlags = ...
+    @staticmethod
+    def __new__(cls: type[Self]) -> Self: ...
     def copy(self) -> DsdInfo: ...
     def free(self) -> None: ...
     @staticmethod

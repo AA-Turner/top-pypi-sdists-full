@@ -1,8 +1,9 @@
 import asyncio
+import base64
 from collections.abc import Iterable
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union
 from uuid import uuid4
 
 import playwright.sync_api
@@ -10,6 +11,12 @@ from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .base import AgentTools
+
+
+class ClientCertificate(TypedDict):
+    origin: str
+    pfx_base64: str
+    passphrase: str
 
 
 class ElementExtractor:
@@ -305,6 +312,7 @@ class BrowserTools(AgentTools):
         debug_mode: bool = False,
         allow_close_page: bool = True,
         headless: bool = True,
+        client_certificate: Optional[ClientCertificate] = None,
     ):
         self.urls = to_urls(url)
         self.debug_mode = debug_mode
@@ -335,6 +343,7 @@ class BrowserTools(AgentTools):
         self.browser = pw.chromium.launch(headless=self.headless)
         if self.debug_mode:
             print("[DEBUG][BrowserTools.__init__] Browser launched successfully")
+        self._browser_context = self._build_browser_context(client_certificate)
         self.pages = {}
         self.listen_network = listen_network
         self.listen_console = listen_console
@@ -342,6 +351,32 @@ class BrowserTools(AgentTools):
         self.console_logs = {}
         self._extracted_elements: Dict[str, List[Dict[str, Any]]] = {}
         self.extractor = ElementExtractor()
+
+    def _build_browser_context(
+        self, client_certificate: Optional[ClientCertificate]
+    ) -> playwright.sync_api.BrowserContext:
+        context_options: Dict[str, Any] = {}
+
+        if client_certificate is not None:
+            origin: str = client_certificate["origin"]
+            pfx_base64: str = client_certificate["pfx_base64"]
+            passphrase: str = client_certificate["passphrase"]
+
+            if self.debug_mode:
+                print(
+                    f"[DEBUG][BrowserTools._build_browser_context] Using client certificate for origin={origin}"
+                )
+
+            context_options["client_certificates"] = [
+                {
+                    "origin": origin,
+                    "pfx": base64.b64decode(pfx_base64),
+                    "passphrase": passphrase,
+                }
+            ]
+            context_options["ignore_https_errors"] = True
+
+        return self.browser.new_context(**context_options)
 
     def close(self):
         if self.debug_mode:
@@ -357,6 +392,14 @@ class BrowserTools(AgentTools):
                         f"[DEBUG][BrowserTools.close] Error closing page {page_id}: {e}"
                     )
         self.pages.clear()
+
+        try:
+            if self.debug_mode:
+                print("[DEBUG][BrowserTools.close] Closing browser context")
+            self._browser_context.close()
+        except Exception as e:
+            if self.debug_mode:
+                print(f"[DEBUG][BrowserTools.close] Error closing browser context: {e}")
 
         try:
             if self.debug_mode:
@@ -454,7 +497,7 @@ class BrowserTools(AgentTools):
                     f"[DEBUG][BrowserTools.navigate_to_url] Creating new page with id={page_id}"
                 )
             try:
-                page = self.browser.new_page()
+                page = self._browser_context.new_page()
             except Exception as e:
                 if _is_target_closed(e):
                     raise RuntimeError(

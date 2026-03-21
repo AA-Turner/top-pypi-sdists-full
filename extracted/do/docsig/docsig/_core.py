@@ -1,6 +1,8 @@
 """
 docsig._core
 ============
+
+Entry point and orchestration for running docstring/signature checks.
 """
 
 from __future__ import annotations as _
@@ -11,6 +13,7 @@ import sys as _sys
 import typing as _t
 import warnings as _warnings
 from pathlib import Path as _Path
+from warnings import warn as _warn
 
 import astroid as _ast
 
@@ -27,6 +30,7 @@ from ._module import Parent as _Parent
 from ._report import Failure as _Failure
 from ._report import Failures as _Failures
 from ._utils import print_checks as _print_checks
+from .messages import NEW as _NEW
 from .messages import TEMPLATE as _TEMPLATE
 from .messages import E as _E
 from .messages import Messages as _Messages
@@ -52,7 +56,7 @@ _DEFAULT_EXCLUDES = """\
 
 
 def setup_logger(verbose: bool) -> None:
-    """Setup docsig logger.
+    """Set up the docsig logger.
 
     Only log if verbose mode is enabled.
 
@@ -192,6 +196,14 @@ def _report(
 
         print(header)
         for item in failure:
+            extra = None
+            if item.hint:
+                extra = f"hint: {item.hint}"
+
+            if item.new:
+                extra = "warning: please remember to fix this or disable it"
+                _warn(_NEW.format(ref=item.ref), FutureWarning, stacklevel=3)
+
             print(
                 "    "
                 + _TEMPLATE.format(
@@ -200,8 +212,8 @@ def _report(
                     symbolic=item.symbolic,
                 ),
             )
-            if item.hint:
-                print(f"    hint: {item.hint}")
+            if extra is not None:
+                print(f"    {extra}")
 
     return max(retcodes)
 
@@ -257,11 +269,11 @@ def handle_deprecations(
 
 
 def runner(path: _Path, config: _Config) -> _Failures:
-    """Per path runner.
+    """Run checks for a single file and return collected failures.
 
-    :param path: Path to check.
+    :param path: Path to the file to check.
     :param config: Configuration object.
-    :return: Exit status for whether the test failed or not.
+    :return: Collected failures for the file.
     """
     module = _from_file(path, config)
     return _get_failures(module, config)
@@ -293,32 +305,30 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     exclude: str | None = None,
     excludes: list[str] | None = None,
 ) -> int:
-    """Package's core functionality.
+    """Run docstring/signature checks on paths or a string and report.
 
-    Populate a sequence of module objects before iterating over their
-    top-level functions and classes.
-
-    If any of the functions within the module - and methods within its
-    classes - fail, print the resulting function string representation
-    and report.
+    Build module objects from the given path(s) or string, then run
+    checks on their top-level functions and classes. If any fail, print
+    the function representation and report. Return a non-zero exit code
+    when there are failures.
 
     :param path: Path(s) to check.
-    :param string: String to check.
+    :param string: String to check instead of files.
     :param list_checks: Display a list of all checks and their messages.
     :param check_class: Check class docstrings.
-    :param check_class_constructor: Check ``__init__`` methods. Note
-        that this is mutually incompatible with check_class.
-    :param check_dunders: Check dunder methods
+    :param check_class_constructor: Check ``__init__`` methods. Mutually
+        incompatible with check_class.
+    :param check_dunders: Check dunder methods.
     :param check_protected_class_methods: Check public methods belonging
         to protected classes.
     :param check_nested: Check nested functions and classes.
-    :param check_overridden: Check overridden methods
+    :param check_overridden: Check overridden methods.
     :param check_protected: Check protected functions and classes.
     :param check_property_returns: Run return checks on properties.
     :param include_ignored: Check files even if they match a gitignore
         pattern.
     :param ignore_no_params: Ignore docstrings where parameters are not
-        documented
+        documented.
     :param ignore_args: Ignore args prefixed with an asterisk.
     :param ignore_kwargs: Ignore kwargs prefixed with two asterisks.
     :param ignore_typechecker: Ignore checking return values.
@@ -329,7 +339,7 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     :param exclude: Regular expression of files and dirs to exclude from
         checks.
     :param excludes: Files or dirs to exclude from checks.
-    :return: Exit status for whether a test failed or not.
+    :return: Exit code (non-zero if any check failed).
     """
     disable = disable or _Messages()
     handle_deprecations(

@@ -18,10 +18,7 @@ from matplotlib import colors
 
 from . import colormaps
 
-try:
-    from IPython.display import display, Javascript
-except ImportError:
-    pass
+from IPython.display import display, Javascript
 
 
 def get_env_var(key: str) -> str | None:
@@ -250,7 +247,7 @@ def get_info(
     layer_name: str = "",
     opened: bool = False,
     return_node: bool = False,
-) -> Union["Node", "Tree", None]:
+):
     """Print out the information for an Earth Engine object using a tree structure.
 
     The source code was adapted from https://github.com/google/earthengine-jupyter.

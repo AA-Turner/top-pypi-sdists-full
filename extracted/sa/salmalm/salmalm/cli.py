@@ -1,0 +1,624 @@
+"""CLI argument parsing for SalmAlm."""
+
+from __future__ import annotations
+
+import logging
+import os
+import sys
+
+logger = logging.getLogger(__name__)
+
+
+def _ensure_windows_shortcut():
+    """Create a .bat launcher on Desktop (works everywhere, no PowerShell needed)."""
+    try:
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        if not os.path.isdir(desktop):
+            # Try Windows-specific Desktop path
+            desktop = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), "Desktop")
+        if not os.path.isdir(desktop):
+            return
+
+        bat_path = os.path.join(desktop, "SalmAlm.bat")
+        if os.path.exists(bat_path):
+            return  # Already created
+
+        python_exe = sys.executable
+        bat_content = f'''@echo off
+title SalmAlm - Personal AI Gateway
+echo Starting SalmAlm...
+"{python_exe}" -m salmalm
+pause
+'''
+        with open(bat_path, "w", encoding="utf-8") as f:
+            f.write(bat_content)
+        logger.info("[PIN] Created SalmAlm.bat on Desktop -- double-click to start!")
+    except Exception as e:
+        logger.warning(f"Could not create desktop shortcut: {e}")
+
+
+def _install_shortcut():
+    """Create a desktop shortcut/launcher for all platforms."""
+    if sys.platform == "win32":
+        _ensure_windows_shortcut()
+        return
+
+    # Detect WSL → create Windows .bat on real Desktop
+    is_wsl = "microsoft" in os.uname().release.lower() if hasattr(os, "uname") else False
+    if is_wsl:
+        # Find Windows username and Desktop path
+        try:
+            import subprocess as _sp
+
+            win_user = _sp.check_output(["cmd.exe", "/C", "echo", "%USERNAME%"], stderr=_sp.DEVNULL, text=True).strip()
+            win_desktop = f"/mnt/c/Users/{win_user}/Desktop"
+            if not os.path.isdir(win_desktop):
+                # Fallback: try OneDrive Desktop
+                win_desktop = f"/mnt/c/Users/{win_user}/OneDrive/Desktop"
+            if os.path.isdir(win_desktop):
+                bat_path = os.path.join(win_desktop, "SalmAlm.bat")
+                bat_content = """@echo off
+title SalmAlm
+wsl -e bash -lc "salmalm --open"
+pause
+"""
+                with open(bat_path, "w", encoding="utf-8") as f:
+                    f.write(bat_content)
+                logger.info(f"[PIN] Created {bat_path} — double-click to start SalmAlm from WSL!")
+                return
+        except Exception as e:
+            logger.warning(f"[PIN] WSL shortcut failed: {e}, falling back to Linux .desktop")
+
+    # Linux (.desktop) / macOS (.command)
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    if not os.path.isdir(desktop):
+        # Try XDG
+        desktop = os.path.join(os.path.expanduser("~"), "デスクトップ")  # JP locale
+        if not os.path.isdir(desktop):
+            desktop = os.path.expanduser("~/Desktop")
+            os.makedirs(desktop, exist_ok=True)
+
+    python_exe = sys.executable
+
+    if sys.platform == "darwin":
+        # macOS: .command file
+        cmd_path = os.path.join(desktop, "SalmAlm.command")
+        with open(cmd_path, "w") as f:
+            f.write(f'#!/bin/bash\n"{python_exe}" -m salmalm --open\n')
+        os.chmod(cmd_path, 0o755)
+        logger.info(f"[PIN] Created {cmd_path} — double-click to start!")
+    else:
+        # Linux: .desktop file
+        desktop_path = os.path.join(desktop, "salmalm.desktop")
+        icon_path = os.path.join(os.path.dirname(__file__), "static", "icon.png")
+        content = f"""[Desktop Entry]
+Type=Application
+Name=SalmAlm
+Comment=Personal AI Gateway
+Exec={python_exe} -m salmalm --open
+Icon={icon_path}
+Terminal=true
+Categories=Utility;
+"""
+        with open(desktop_path, "w") as f:
+            f.write(content)
+        os.chmod(desktop_path, 0o755)
+        logger.info(f"[PIN] Created {desktop_path} — double-click to start!")
+
+
+def _run_update():
+    """Self-update via pip."""
+    import subprocess as _sp
+
+    if sys.stdin.isatty() and "--yes" not in sys.argv:
+        confirm = input("This will run 'pip install --upgrade salmalm'. Continue? [y/N] ")
+        if confirm.strip().lower() not in ("y", "yes"):
+            print("Cancelled.")
+            sys.exit(0)
+    logger.info("[UP] Updating SalmAlm...")
+    result = _sp.run(
+        [sys.executable, "-m", "pip", "install", "--upgrade", "--no-cache-dir", "--force-reinstall", "salmalm"],
+        capture_output=False,
+    )
+    if result.returncode == 0:
+        logger.info("Updated! Checking if server needs restart...")
+        # Auto-restart daemon if running with old version
+        try:
+            import urllib.request as _ur, json as _j
+            from salmalm.constants import VERSION as _new_ver
+            _resp = _ur.urlopen("http://localhost:18800/api/status", timeout=3)
+            _running_ver = _j.loads(_resp.read()).get("version", "")
+            if _running_ver and _running_ver != _new_ver:
+                logger.info(f"[UP] 버전 불일치 (실행: v{_running_ver} → 설치: v{_new_ver}) — 서버 자동 재시작 중...")
+                _stop_server()
+                import time as _t; _t.sleep(1)
+                import subprocess as _sp2
+                _sp2.Popen([sys.executable, "-m", "salmalm"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                logger.info("[UP] 재시작 완료.")
+            else:
+                logger.info("Updated! Run 'salmalm' or 'python -m salmalm' to start.")
+        except Exception:
+            logger.info("Updated! Run 'salmalm' or 'python -m salmalm' to start.")
+    else:
+        logger.error("Update failed. Try manually: pip install --upgrade salmalm")
+    sys.exit(result.returncode)
+
+
+def _run_node_mode():
+    """Run as a lightweight node that registers with a gateway."""
+    import http.server
+
+    # Parse args: --node --gateway http://host:18800 --port 18810 --name mynode --token secret
+    args = sys.argv[1:]
+    gateway_url = "http://127.0.0.1:18800"
+    port = 18810
+    name = os.environ.get("HOSTNAME", "node-1")
+    token = ""
+
+    i = 0
+    while i < len(args):
+        if args[i] == "--gateway" and i + 1 < len(args):
+            gateway_url = args[i + 1]
+            i += 2
+        elif args[i] == "--port" and i + 1 < len(args):
+            port = int(args[i + 1])
+            i += 2
+        elif args[i] == "--name" and i + 1 < len(args):
+            name = args[i + 1]
+            i += 2
+        elif args[i] == "--token" and i + 1 < len(args):
+            token = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    from salmalm.constants import VERSION
+    from salmalm.web import WebHandler
+    from salmalm.nodes import NodeAgent
+
+    # Ensure working dirs
+    for d in ("memory", "workspace", "uploads", "plugins"):
+        os.makedirs(d, exist_ok=True)
+
+    node_id = f"{name}-{port}"
+    agent = NodeAgent(gateway_url, node_id, token=token, name=name)
+
+    # Register with gateway
+    result = agent.register()
+    if "error" in result:
+        logger.warning(f"Gateway registration failed: {result['error']}")
+        logger.warning(f"Starting standalone anyway on :{port}")
+
+    # Start heartbeat
+    agent.start_heartbeat(interval=30)
+
+    # Start HTTP server for tool execution
+    _default_bind = "0.0.0.0" if "microsoft" in os.uname().release.lower() else "127.0.0.1"
+    bind_addr = os.environ.get("SALMALM_BIND", _default_bind)
+    server = http.server.ThreadingHTTPServer((bind_addr, port), WebHandler)
+    logger.info(
+        f"+==============================================+\n"
+        f"|  [NET] SalmAlm Node v{VERSION:<27s}|\n"
+        f"|  Name: {name:<37s}|\n"
+        f"|  Port: {port:<37s}|\n"
+        f"|  Gateway: {gateway_url:<34s}|\n"
+        f"+==============================================+"
+    )
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        agent.stop()
+        server.shutdown()
+        logger.info("[NET] Node stopped.")
+
+
+def setup_workdir() -> None:
+    """Set working directory and load .env.
+
+    Respects SALMALM_HOME env var; falls back to ~/SalmAlm.
+    """
+    if not getattr(sys, "frozen", False):
+        work_dir = os.environ.get("SALMALM_HOME", "") or os.path.join(os.path.expanduser("~"), "SalmAlm")
+        os.makedirs(work_dir, exist_ok=True)
+        os.chdir(work_dir)
+
+    # Load .env file if present (simple key=value parser, no dependency)
+    env_file = os.path.join(os.getcwd(), ".env")
+    if os.path.isfile(env_file):
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, _, v = line.partition("=")
+                k, v = k.strip(), v.strip().strip('"').strip("'")
+                if k and v:
+                    os.environ.setdefault(k, v)
+        logger.info("Loaded .env file")
+
+    # Windows: create desktop shortcut on first run
+    if sys.platform == "win32" and not getattr(sys, "frozen", False):
+        _ensure_windows_shortcut()
+
+
+def _run_service(subcmd: str) -> None:
+    """Handle `salmalm service <install|uninstall|start|stop|status|logs>`."""
+    import shutil
+    import subprocess
+    import textwrap
+    import getpass
+
+    exe = shutil.which("salmalm") or sys.executable + " -m salmalm"
+    python = sys.executable
+    user = getpass.getuser()
+    home = os.path.expanduser("~")
+    unit_dir = os.path.join(home, ".config", "systemd", "user")
+    unit_path = os.path.join(unit_dir, "salmalm.service")
+    data_dir = os.path.join(home, "SalmAlm")
+    local_dir = os.path.join(home, ".local", "share", "salmalm")
+
+    # ExecStart must run the server in the foreground (not fork+exit).
+    # `salmalm start` forks a subprocess and exits — systemd would see
+    # that as a crash with Type=simple. Use `python -m salmalm` directly.
+    unit_content = textwrap.dedent(f"""\
+        [Unit]
+        Description=SalmAlm — Personal AI Gateway
+        Documentation=https://github.com/hyunjun6928-netizen/salmalm
+        After=network-online.target
+        Wants=network-online.target
+        StartLimitIntervalSec=60
+        StartLimitBurst=5
+
+        [Service]
+        Type=simple
+        ExecStart={python} -m salmalm
+        ExecStop=/usr/bin/env salmalm stop
+        Restart=on-failure
+        RestartSec=5s
+        TimeoutStopSec=15s
+        Environment=HOME={home}
+        Environment=PATH={os.path.dirname(exe)}:/usr/local/bin:/usr/bin:/bin
+        StandardOutput=journal
+        StandardError=journal
+        SyslogIdentifier=salmalm
+
+        # Security hardening
+        NoNewPrivileges=true
+        PrivateTmp=true
+        ProtectSystem=strict
+        ReadWritePaths={data_dir} {local_dir}
+
+        [Install]
+        WantedBy=default.target
+    """)
+
+    def _systemctl(*args):
+        return subprocess.run(["systemctl", "--user"] + list(args),
+                              capture_output=True, text=True)
+
+    if subcmd == "install":
+        os.makedirs(unit_dir, exist_ok=True)
+        with open(unit_path, "w") as f:
+            f.write(unit_content)
+        _systemctl("daemon-reload")
+        _systemctl("enable", "salmalm.service")
+        r = _systemctl("restart", "salmalm.service")   # restart = start if stopped, restart if running
+        if r.returncode == 0:
+            print("✅ SalmAlm service installed and started.")
+            print("   Auto-restarts on crash. Starts on login.")
+        else:
+            print(f"⚠️  Service installed but start failed: {r.stderr.strip()}")
+
+        # Try linger (survives after logout) — optional, needs sudo
+        linger_r = subprocess.run(
+            ["sudo", "-n", "loginctl", "enable-linger", user],
+            capture_output=True, text=True,
+        )
+        if linger_r.returncode == 0:
+            print("✅ Linger enabled — service stays alive even without active login.")
+        else:
+            print("ℹ️  Tip: to keep SalmAlm running after logout (servers/headless):")
+            print(f"        sudo loginctl enable-linger {user}")
+
+    elif subcmd == "uninstall":
+        _systemctl("stop", "salmalm.service")
+        _systemctl("disable", "salmalm.service")
+        if os.path.exists(unit_path):
+            os.remove(unit_path)
+        _systemctl("daemon-reload")
+        print("✅ SalmAlm service removed.")
+
+    elif subcmd == "start":
+        r = _systemctl("start", "salmalm.service")
+        print("✅ Started." if r.returncode == 0 else f"❌ {r.stderr.strip()}")
+
+    elif subcmd == "stop":
+        r = _systemctl("stop", "salmalm.service")
+        print("✅ Stopped." if r.returncode == 0 else f"❌ {r.stderr.strip()}")
+
+    elif subcmd == "status":
+        r = _systemctl("status", "salmalm.service")
+        print(r.stdout or r.stderr)
+
+    elif subcmd == "logs":
+        os.execlp("journalctl", "journalctl", "--user", "-u", "salmalm", "-f", "--no-pager")
+
+    else:
+        print("Usage: salmalm service <install|uninstall|start|stop|status|logs>")
+
+
+def _run_nginx(subcmd: str) -> None:
+    """Handle `salmalm nginx <show|install|test>`."""
+    import shutil
+    from pathlib import Path
+    import importlib.resources as _ir
+
+    # Locate bundled nginx config (salmalm/config/salmalm.nginx.conf)
+    nginx_conf = Path(__file__).parent / "config" / "salmalm.nginx.conf"
+    if not nginx_conf.exists():
+        print("❌  nginx config not found. Try reinstalling salmalm.")
+        raise SystemExit(1)
+
+    if subcmd == "show":
+        print(nginx_conf.read_text())
+    elif subcmd == "install":
+        dest = Path("/etc/nginx/sites-available/salmalm")
+        enabled = Path("/etc/nginx/sites-enabled/salmalm")
+        if not shutil.which("nginx"):
+            print("❌  nginx not installed. Run: sudo apt install nginx")
+            raise SystemExit(1)
+        import subprocess
+        subprocess.run(["sudo", "cp", str(nginx_conf), str(dest)], check=True)
+        if not enabled.exists():
+            subprocess.run(["sudo", "ln", "-s", str(dest), str(enabled)], check=True)
+        result = subprocess.run(["sudo", "nginx", "-t"], capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"❌  nginx config test failed:\n{result.stderr}")
+            raise SystemExit(1)
+        subprocess.run(["sudo", "systemctl", "reload", "nginx"], check=True)
+        print("✅  nginx configured and reloaded.")
+        print(f"    Config: {dest}")
+        print("    Edit server_name and uncomment HTTPS block when ready.")
+    elif subcmd == "test":
+        import subprocess
+        result = subprocess.run(["sudo", "nginx", "-t"], capture_output=True, text=True)
+        print(result.stdout + result.stderr)
+    else:
+        print("Usage: salmalm nginx <show|install|test>")
+
+
+def _pid_file_path():
+    """Return path to PID file."""
+    from pathlib import Path
+    from salmalm.constants import DATA_DIR
+    return DATA_DIR / "salmalm.pid"
+
+
+def _read_pid() -> int | None:
+    """Read PID from file. Returns None if missing/stale."""
+    try:
+        p = _pid_file_path()
+        if not p.exists():
+            return None
+        pid = int(p.read_text().strip())
+        # Verify process is actually running
+        os.kill(pid, 0)
+        return pid
+    except (ValueError, ProcessLookupError, PermissionError, OSError):
+        return None
+
+
+def _find_pid_by_port(port: int) -> "int | None":
+    """Try multiple methods to find PID listening on port. WSL/Linux/macOS compatible."""
+    import subprocess
+
+    # 1. lsof (macOS + most Linux)
+    try:
+        out = subprocess.check_output(
+            ["lsof", "-ti", f":{port}"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        pids = [int(x) for x in out.split() if x.isdigit()]
+        if pids:
+            return pids[0]
+    except Exception:
+        pass
+
+    # 2. ss (Linux/WSL — preferred over lsof on WSL2)
+    try:
+        out = subprocess.check_output(
+            ["ss", "-tlnp", f"sport = :{port}"], text=True, stderr=subprocess.DEVNULL
+        )
+        import re
+        m = re.search(r"pid=(\d+)", out)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+
+    # 3. fuser (Linux fallback)
+    try:
+        out = subprocess.check_output(
+            ["fuser", f"{port}/tcp"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        pids = [int(x) for x in out.split() if x.strip("-").isdigit()]
+        if pids:
+            return pids[0]
+    except Exception:
+        pass
+
+    # 4. ps — find by process name + module
+    try:
+        out = subprocess.check_output(
+            ["ps", "aux"], text=True, stderr=subprocess.DEVNULL
+        )
+        for line in out.splitlines():
+            if "salmalm" in line and "stop" not in line and "grep" not in line:
+                parts = line.split()
+                if len(parts) > 1 and parts[1].isdigit():
+                    return int(parts[1])
+    except Exception:
+        pass
+
+    return None
+
+
+def _stop_server() -> bool:
+    """Stop running SalmAlm server. Returns True if stopped."""
+    import signal as _signal
+    import time
+
+    pid = _read_pid()
+    if pid is None:
+        # Fallback: scan port
+        port = int(os.environ.get("SALMALM_PORT", 18800))
+        pid = _find_pid_by_port(port)
+        if pid is None:
+            print("⚠️  SalmAlm is not running.")
+            return False
+
+    print(f"⏹  Stopping SalmAlm (PID {pid})...")
+    try:
+        os.kill(pid, _signal.SIGTERM)
+        # Wait up to 5s for graceful shutdown
+        for _ in range(10):
+            time.sleep(0.5)
+            try:
+                os.kill(pid, 0)  # still alive?
+            except ProcessLookupError:
+                break
+        else:
+            # Force kill
+            try:
+                os.kill(pid, _signal.SIGKILL)
+                print(f"⚡ Force-killed PID {pid}")
+            except ProcessLookupError:
+                pass
+    except ProcessLookupError:
+        pass  # already dead
+
+    # Clean up PID file
+    try:
+        _pid_file_path().unlink(missing_ok=True)
+    except Exception:
+        pass
+    print("✅ Stopped.")
+    return True
+
+
+def dispatch_cli() -> bool:
+    """Handle CLI flags. Returns True if a flag was handled (caller should exit)."""
+    # ── stop / start / restart (PID-file based, no systemd required) ──
+    if "stop" in sys.argv[1:2]:
+        _stop_server()
+        return True
+
+    if "restart" in sys.argv[1:2]:
+        _stop_server()
+        import subprocess
+        subprocess.Popen(
+            [sys.executable, "-m", "salmalm"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        print("🔄 SalmAlm restarting in background…")
+        return True
+
+    if "start" in sys.argv[1:2]:
+        import subprocess
+        pid = _read_pid()
+        if pid:
+            # Version mismatch check: auto-restart if installed version differs from running version
+            try:
+                from salmalm.constants import VERSION as _installed_ver
+                import urllib.request as _ur
+                _resp = _ur.urlopen("http://localhost:18800/api/status", timeout=3)
+                import json as _j
+                _status = _j.loads(_resp.read())
+                _running_ver = _status.get("version", "")
+                if _running_ver and _running_ver != _installed_ver:
+                    print(f"🔄 버전 불일치 감지 (실행중: v{_running_ver} → 설치됨: v{_installed_ver}) — 자동 재시작 중...")
+                    _stop_server()
+                    import time as _t; _t.sleep(1)
+                else:
+                    print(f"⚠️  SalmAlm already running (PID {pid}). Use 'salmalm restart' to restart.")
+                    return True
+            except Exception:
+                print(f"⚠️  SalmAlm already running (PID {pid}). Use 'salmalm restart' to restart.")
+                return True
+        subprocess.Popen(
+            [sys.executable, "-m", "salmalm"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        print("🚀 SalmAlm started in background. Visit http://localhost:18800")
+        return True
+
+    if "service" in sys.argv[1:2]:
+        subcmd = sys.argv[2] if len(sys.argv) > 2 else "install"
+        _run_service(subcmd)
+        return True
+    if "nginx" in sys.argv[1:2]:
+        _run_nginx(sys.argv[2] if len(sys.argv) > 2 else "show")
+        return True
+    if "--update" in sys.argv or "update" in sys.argv[1:2]:
+        _run_update()
+        return True
+    if "--shortcut" in sys.argv:
+        _install_shortcut()
+        sys.exit(0)
+    if "--version" in sys.argv or "-v" in sys.argv:
+        from salmalm.constants import VERSION
+
+        logger.info(f"SalmAlm v{VERSION}")
+        sys.exit(0)
+    if "--node" in sys.argv:
+        _run_node_mode()
+        return True
+    if "tray" in sys.argv[1:2] or "--tray" in sys.argv:
+        from salmalm.tray import run_tray
+
+        port = int(os.environ.get("SALMALM_PORT", 18800))
+        run_tray(port)
+        return True
+    if "--tunnel" in sys.argv:
+        os.environ["SALMALM_TUNNEL"] = "1"
+        os.environ["SALMALM_OPEN_BROWSER"] = "1"
+    if "--open" in sys.argv:
+        # Auto-open browser after server starts
+        os.environ["SALMALM_OPEN_BROWSER"] = "1"
+    if "doctor" in sys.argv[1:2] or "--doctor" in sys.argv:
+        _run_doctor()
+        return True
+    return False
+
+
+def _run_doctor():
+    """Run self-diagnostics and print colorful report."""
+    from salmalm.features.doctor import doctor
+
+    print("\n🏥 SalmAlm Doctor\n" + "=" * 40)
+    results = doctor.run_all()
+    for r in results:
+        icon = "✅" if r["status"] == "ok" else "❌"
+        fix = " (🔧 fixable)" if r.get("fixable") else ""
+        print(f"  {icon} {r['message']}{fix}")
+    ok = sum(1 for r in results if r["status"] == "ok")
+    total = len(results)
+    print(f"\n📊 {ok}/{total} checks passed")
+    if ok == total:
+        print("🎉 All systems operational!")
+    else:
+        print("💡 Run 'salmalm doctor --fix' to auto-repair fixable issues")
+    if "--fix" in sys.argv:
+        fixable = [r for r in results if r.get("fixable") and r.get("issue_id")]
+        if fixable:
+            print(f"\n🔧 Auto-fixing {len(fixable)} issues...")
+            for r in fixable:
+                try:
+                    doctor.repair(r["issue_id"])
+                    print(f"  ✅ Fixed: {r['issue_id']}")
+                except Exception as e:
+                    print(f"  ❌ Failed: {r['issue_id']} — {e}")
+        else:
+            print("\n✨ Nothing to fix!")

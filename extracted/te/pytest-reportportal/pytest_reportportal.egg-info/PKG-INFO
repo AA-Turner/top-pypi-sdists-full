@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-reportportal
-Version: 5.6.0
+Version: 5.6.1
 Summary: Agent for Reporting results of tests to the Report Portal
 Home-page: https://github.com/reportportal/agent-python-pytest
 Author: Report Portal Team

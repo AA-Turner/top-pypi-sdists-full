@@ -42,20 +42,25 @@ from typing import TYPE_CHECKING, Any
 from kreuzberg import _setup_lib_path  # noqa: F401
 from kreuzberg._deprecation import deprecated
 from kreuzberg._internal_bindings import (
+    AccelerationConfig,
     Chunk,
     ChunkingConfig,
+    ConcurrencyConfig,
+    EmailConfig,
     EmbeddingConfig,
     EmbeddingModelType,
     EmbeddingPreset,
     ExtractedTable,
     ExtractionConfig,
     ExtractionResult,
+    FileExtractionConfig,
     HierarchyConfig,
     ImageExtractionConfig,
     ImagePreprocessingConfig,
     KeywordAlgorithm,
     KeywordConfig,
     LanguageDetectionConfig,
+    LayoutDetectionConfig,
     OcrConfig,
     PageConfig,
     PdfConfig,
@@ -212,9 +217,12 @@ if not TYPE_CHECKING:
 
 
 __all__ = [
+    "AccelerationConfig",
     "CacheError",
     "Chunk",
     "ChunkingConfig",
+    "ConcurrencyConfig",
+    "EmailConfig",
     "EmbeddingConfig",
     "EmbeddingModelType",
     "EmbeddingPreset",
@@ -223,6 +231,7 @@ __all__ = [
     "ExtractedTable",
     "ExtractionConfig",
     "ExtractionResult",
+    "FileExtractionConfig",
     "HierarchyConfig",
     "ImageExtractionConfig",
     "ImagePreprocessingConfig",
@@ -231,6 +240,7 @@ __all__ = [
     "KeywordConfig",
     "KreuzbergError",
     "LanguageDetectionConfig",
+    "LayoutDetectionConfig",
     "Metadata",
     "MissingDependencyError",
     "OCRError",
@@ -453,6 +463,7 @@ def batch_extract_files_sync(
     paths: list[str | Path],
     config: ExtractionConfig | None = None,
     *,
+    file_configs: list[FileExtractionConfig | None] | None = None,
     easyocr_kwargs: dict[str, Any] | None = None,
 ) -> list[ExtractionResult]:
     """Extract content from multiple files in parallel (synchronous).
@@ -460,6 +471,7 @@ def batch_extract_files_sync(
     Args:
         paths: List of file paths
         config: Extraction configuration (uses defaults if None)
+        file_configs: Optional list of per-file extraction config overrides
         easyocr_kwargs: EasyOCR initialization options
 
     Returns:
@@ -470,7 +482,7 @@ def batch_extract_files_sync(
 
     _ensure_ocr_backend_registered(config, easyocr_kwargs)
 
-    return batch_extract_files_sync_impl([str(p) for p in paths], config)
+    return batch_extract_files_sync_impl([str(p) for p in paths], config, file_configs)
 
 
 def batch_extract_bytes_sync(
@@ -478,6 +490,7 @@ def batch_extract_bytes_sync(
     mime_types: list[str],
     config: ExtractionConfig | None = None,
     *,
+    file_configs: list[FileExtractionConfig | None] | None = None,
     easyocr_kwargs: dict[str, Any] | None = None,
 ) -> list[ExtractionResult]:
     """Extract content from multiple byte arrays in parallel (synchronous).
@@ -486,6 +499,7 @@ def batch_extract_bytes_sync(
         data_list: List of file contents as bytes/bytearray
         mime_types: List of MIME types (one per data item)
         config: Extraction configuration (uses defaults if None)
+        file_configs: Optional list of per-item extraction config overrides
         easyocr_kwargs: EasyOCR initialization options
 
     Returns:
@@ -496,7 +510,7 @@ def batch_extract_bytes_sync(
 
     _ensure_ocr_backend_registered(config, easyocr_kwargs)
 
-    return batch_extract_bytes_sync_impl([bytes(d) for d in data_list], mime_types, config)
+    return batch_extract_bytes_sync_impl([bytes(d) for d in data_list], mime_types, config, file_configs)
 
 
 async def extract_file(
@@ -555,6 +569,7 @@ async def batch_extract_files(
     paths: list[str | Path],
     config: ExtractionConfig | None = None,
     *,
+    file_configs: list[FileExtractionConfig | None] | None = None,
     easyocr_kwargs: dict[str, Any] | None = None,
 ) -> list[ExtractionResult]:
     """Extract content from multiple files in parallel (asynchronous).
@@ -562,6 +577,7 @@ async def batch_extract_files(
     Args:
         paths: List of file paths
         config: Extraction configuration (uses defaults if None)
+        file_configs: Optional list of per-file extraction config overrides
         easyocr_kwargs: EasyOCR initialization options
 
     Returns:
@@ -572,7 +588,7 @@ async def batch_extract_files(
 
     _ensure_ocr_backend_registered(config, easyocr_kwargs)
 
-    return await batch_extract_files_impl([str(p) for p in paths], config)
+    return await batch_extract_files_impl([str(p) for p in paths], config, file_configs)
 
 
 async def batch_extract_bytes(
@@ -580,6 +596,7 @@ async def batch_extract_bytes(
     mime_types: list[str],
     config: ExtractionConfig | None = None,
     *,
+    file_configs: list[FileExtractionConfig | None] | None = None,
     easyocr_kwargs: dict[str, Any] | None = None,
 ) -> list[ExtractionResult]:
     """Extract content from multiple byte arrays in parallel (asynchronous).
@@ -588,6 +605,7 @@ async def batch_extract_bytes(
         data_list: List of file contents as bytes/bytearray
         mime_types: List of MIME types (one per data item)
         config: Extraction configuration (uses defaults if None)
+        file_configs: Optional list of per-item extraction config overrides
         easyocr_kwargs: EasyOCR initialization options
 
     Returns:
@@ -598,7 +616,7 @@ async def batch_extract_bytes(
 
     _ensure_ocr_backend_registered(config, easyocr_kwargs)
 
-    return await batch_extract_bytes_impl([bytes(d) for d in data_list], mime_types, config)
+    return await batch_extract_bytes_impl([bytes(d) for d in data_list], mime_types, config, file_configs)
 
 
 def detect_mime_type(data: bytes | bytearray) -> str:

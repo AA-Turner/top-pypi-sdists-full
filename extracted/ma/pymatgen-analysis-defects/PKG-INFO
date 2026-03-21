@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pymatgen-analysis-defects
-Version: 2025.9.26
+Version: 2026.3.20
 Summary: Pymatgen extension for defects analysis
 Author-email: Jimmy-Xuan Shen <jmmshn@gmail.com>
-License: modified BSD
+License-Expression: BSD-3-Clause-LBNL
 Project-URL: documentation, https://materialsproject.github.io/pymatgen-analysis-defects/
 Project-URL: homepage, https://materialsproject.github.io/pymatgen-analysis-defects/
 Project-URL: repository, https://github.com/materialsproject/pymatgen-analysis-defects
@@ -69,7 +69,7 @@ directly from the Materials Project API.
 
 ``` python
 from pymatgen.analysis.defects.generators import ChargeInterstitialGenerator, generate_all_native_defects
-from pymatgen.ext.matproj import MPRester
+from mp_api.client import MPRester
 with MPRester() as mpr:
 chgcar = mpr.get_charge_density_from_material_id("mp-804")
 for defect in generate_all_native_defects(chgcar):

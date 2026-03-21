@@ -175,8 +175,8 @@ class TestWorkspaceSpecsNormalization:
         assert recorded_dvc_files == fake_dvc_files, f"Expected dvc_files to be forwarded but got: {recorded_dvc_files}"
 
     @pytest.mark.asyncio
-    async def test_short_field_name_keys_raise_error(self):
-        """Config with short field names (code) should raise an error."""
+    async def test_short_field_name_keys_warn_and_are_ignored(self):
+        """Config with short field names (code) should warn and be ignored."""
         world = self._make_world_with_workspaces(
             "stripe",
             {
@@ -186,12 +186,18 @@ class TestWorkspaceSpecsNormalization:
 
         world._download_state = AsyncMock(return_value=None)
 
-        with pytest.raises(RuntimeError, match="Unknown workspace repo name 'code'"):
-            await world.load_state()
+        result = await world.load_state()
+
+        assert result is False
+        world.logger.warning.assert_called_once_with(
+            "Ignoring unknown workspace repo name '%s' in state.workspaces. Expected one of: %s",
+            "code",
+            ["webclone/stripe/code", "webclone/stripe/recordings"],
+        )
 
     @pytest.mark.asyncio
-    async def test_unmatched_full_name_raises_error(self):
-        """A key that doesn't match any repo name should raise an error."""
+    async def test_unmatched_full_name_warns_and_is_ignored(self):
+        """A key that doesn't match any repo name should warn and be ignored."""
         world = self._make_world_with_workspaces(
             "stripe",
             {
@@ -201,8 +207,43 @@ class TestWorkspaceSpecsNormalization:
 
         world._download_state = AsyncMock(return_value=None)
 
-        with pytest.raises(RuntimeError, match="Unknown workspace repo name 'webclone/hubspot/code'"):
-            await world.load_state()
+        result = await world.load_state()
+
+        assert result is False
+        world.logger.warning.assert_called_once_with(
+            "Ignoring unknown workspace repo name '%s' in state.workspaces. Expected one of: %s",
+            "webclone/hubspot/code",
+            ["webclone/stripe/code", "webclone/stripe/recordings"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_unknown_workspace_specs_do_not_block_valid_ones(self):
+        """Unknown repo names should not prevent matched workspace restores."""
+        world = self._make_world_with_workspaces(
+            "stripe",
+            {
+                "webclone/stripe/code": "abc123:step.1.stage.build",
+                "webclone/hubspot/code": "def456:step.9.stage.build",
+            },
+        )
+
+        world._download_state = AsyncMock(return_value=None)
+
+        world._workspaces["code"].restore = AsyncMock(return_value=True)
+        world._workspaces["code"]._record_workspace_ref = AsyncMock()
+        world._workspaces["recordings"].restore = AsyncMock(return_value=True)
+        world._workspaces["recordings"]._record_workspace_ref = AsyncMock()
+
+        result = await world.load_state()
+
+        assert result is True
+        world._workspaces["code"].restore.assert_called_once_with("step.1.stage.build")
+        world._workspaces["recordings"].restore.assert_not_called()
+        world.logger.warning.assert_called_once_with(
+            "Ignoring unknown workspace repo name '%s' in state.workspaces. Expected one of: %s",
+            "webclone/hubspot/code",
+            ["webclone/stripe/code", "webclone/stripe/recordings"],
+        )
 
     @pytest.mark.asyncio
     async def test_default_world_with_full_repo_name(self):

@@ -117,7 +117,11 @@ def convert_dbapi_error(dbapi_error: DBAPIError) -> DBAPIError:
     if not isinstance(error, HdbcliError):
         return dbapi_error
 
-    if error.errorcode in [-10807, -10709]:  # sqldbc error codes for connection errors
+    if error.errorcode in [
+        -10807,  # SQLDBC_ERR_CONNECTION_DOWN
+        -10709,  # SQLDBC_ERR_CONNECTFAILED_INTERNAL
+        -10735,  # SQLDBC_ERR_WRONG_REPLICATION_ROLE
+    ]:
         return ClientConnectionError.from_dbapi_error(dbapi_error)
     if error.errorcode == 613:
         return StatementTimeoutError.from_dbapi_error(dbapi_error)
@@ -162,6 +166,7 @@ def convert_dbapi_error(dbapi_error: DBAPIError) -> DBAPIError:
         in {
             "HANA Cloud region is in maintenance window",
             "HANA Database instance upgrade in progress",
+            "HANA Database instance resize in progress",
         }
         # ERR_URS_INSTANCE_NOT_AVAILABLE: HANA Database service is not available
         or error.errorcode == 1888
@@ -187,11 +192,7 @@ def convert_dbapi_error(dbapi_error: DBAPIError) -> DBAPIError:
         return WriteInReadOnlyReplicationError.from_dbapi_error(dbapi_error)
     if error.errorcode == 597:
         return SessionContextError.from_dbapi_error(dbapi_error)
-    # 128 -> ERR_TX: Transaction error
-    if (
-        error.errorcode == 128
-        and "exceed maximum number of transactions" in error.errortext
-    ):
+    if "exceed maximum number of transactions" in error.errortext:
         return NumberOfTransactionsExceededError.from_dbapi_error(dbapi_error)
     # 149 -> ERR_TX_DIST_2PC_FAILURE
     if error.errorcode == 149:

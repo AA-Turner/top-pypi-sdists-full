@@ -26,25 +26,9 @@ const clusterNameToSettings = {
     url: 'https://cap-bench-py-1-node-77fbc06f80695b81af35a15f6270409e.staging.langgraph.app',
     rampEndMultiplier: 1,
   },
-  'py-3-node': {
-    url: 'https://cap-bench-py-3-node-3faf368e14ad50d2806dba0e7807d2df.staging.langgraph.app',
-    rampEndMultiplier: 1.2,
-  },
-  'py-5-node': {
-    url: 'https://cap-bench-py-5-node-bb59e89d2cd252fa9336cd88843c763a.staging.langgraph.app',
-    rampEndMultiplier: 1.5,
-  },
   'py-7-node': {
     url: 'https://cap-bench-py-7-node-5f471cdb8a725e0bbb076cc9fb32b76d.staging.langgraph.app',
     rampEndMultiplier: 1.8,
-  },
-  'py-10-node': {
-    url: 'https://cap-bench-py-10-node-cf91dbee24535985a8fa50062acfb917.staging.langgraph.app',
-    rampEndMultiplier: 2.0,
-  },
-  'py-15-node': {
-    url: 'https://cap-bench-py-15-node-fdd2802964f756a09a7a5cb90a0762ae.staging.langgraph.app',
-    rampEndMultiplier: 2.2,
   },
   'py-20-node': {
     url: 'https://cap-bench-py-20-node-0970dd3e458059e488db99d48c69ca69.staging.langgraph.app',
@@ -55,14 +39,6 @@ const clusterNameToSettings = {
     url: 'https://cap-bench-dr-1-node-49e9ad9e573e55f38c51a11626e72e89.staging.langgraph.app',
     rampEndMultiplier: 1,
   },
-  'dr-3-node': {
-    url: 'https://cap-bench-dr-3-node-467456b54e7f5606bca4cf4466ed2c9a.staging.langgraph.app',
-    rampEndMultiplier: 1.2,
-  },
-  'dr-5-node': {
-    url: 'https://cap-bench-dr-5-node-f3c7580d25e65a6ba48dc640f3a9922e.staging.langgraph.app',
-    rampEndMultiplier: 1.5,
-  },
   'localhost': {
     url: 'http://localhost:9123',
     rampEndMultiplier: 1.8,
@@ -70,14 +46,6 @@ const clusterNameToSettings = {
   'dr-7-node': {
     url: 'https://cap-bench-dr-7-node-fbf64b46fc9b57239764478187abe534.staging.langgraph.app',
     rampEndMultiplier: 1.8,
-  },
-  'dr-10-node': {
-    url: 'https://cap-bench-dr-10-node-f6a3fb40c33f533fbcfafeee02f9ed68.staging.langgraph.app',
-    rampEndMultiplier: 2.0,
-  },
-  'dr-15-node': {
-    url: 'https://cap-bench-dr-15-node-38c2ba919c73556c9b2e64d8c2e8f839.staging.langgraph.app',
-    rampEndMultiplier: 2.2,
   },
   'dr-20-node': {
     url: 'https://cap-bench-dr-20-node-7cea036a01a25a9caec0be0b873f9b0a.staging.langgraph.app',

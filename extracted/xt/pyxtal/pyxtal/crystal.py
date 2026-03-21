@@ -61,6 +61,7 @@ class random_crystal:
         tm=None,
         use_hall=False,
         random_state: int | None | Generator = None,
+        use_asu: bool = False,
     ):
         # Initialize
         self.rng = np.random.default_rng(random_state)
@@ -71,6 +72,7 @@ class random_crystal:
         self.valid = False
         self.factor = factor
         self.min_density = 0.75
+        self.use_asu = use_asu
 
         # Dimesion
         self.dim = dim
@@ -117,7 +119,7 @@ class random_crystal:
         compat, self.has_freedom = self.group.check_compatible(self.numIons)
         if not compat:
             self.valid = False
-            msg = "Compoisition " + str(self.numIons)
+            msg = "Composition " + str(self.numIons)
             msg += " not compatible with symmetry "
             msg += str(self.group.number)
             raise Comp_CompatibilityError(msg)
@@ -377,7 +379,13 @@ class random_crystal:
             else:
                 if site is not None:
                     wp = self.group[site]
-                    pt = self.lattice.generate_point()
+                    if self.use_asu:
+                        xmin, xmax, ymin, ymax, zmin, zmax = self.group.get_ASU()
+                        # Generate a random point based on (min, max) ranges
+                        pt = self.rng.uniform([xmin, ymin, zmin], [xmax, ymax, zmax])
+                    else:
+                        pt = self.lattice.generate_point()
+
                     # avoid using the merge function
                     if len(wp.short_distances(pt, cell, tol)) > 0:
                         # print('bad pt', pt, wp.short_distances(pt, cell, tol))
@@ -392,7 +400,12 @@ class random_crystal:
                     if wp is not False:
                         # print(wp.letter)
                         # Generate a list of coords from ops
-                        pt = self.lattice.generate_point()
+                        if self.use_asu:
+                            xmin, xmax, ymin, ymax, zmin, zmax = self.group.get_ASU()
+                            # Generate a random point based on (min, max) ranges
+                            pt = self.rng.uniform([xmin, ymin, zmin], [xmax, ymax, zmax])
+                        else:
+                            pt = self.lattice.generate_point()
                         pt, wp, _ = wp.merge(pt, cell, tol, group=self.group)
                 # print('good pt', pt)
                 if wp is not False:
@@ -402,7 +415,7 @@ class random_crystal:
                     new_site = atom_site(wp, pt, specie)
 
             # Check current WP against existing WP's
-            if self.check_wp(wyckoff_sites_tmp, wyks, cell, new_site):
+            if self.check_wp(wyckoff_sites_tmp, wyks, cell, new_site, tol):
                 if sites_list is not None and len(sites_list) > 0:
                     sites_list.pop(0)
                 wyckoff_sites_tmp.append(new_site)
@@ -417,12 +430,12 @@ class random_crystal:
 
         return None
 
-    def check_wp(self, wyckoff_sites_tmp, wyks, cell, new_site):
+    def check_wp(self, wyckoff_sites_tmp, wyks, cell, new_site, tol):
         # Check current WP against existing WP's
         if new_site is None:
             return False
 
-        return all(new_site.check_with_ws2(ws, cell, self.tol_matrix) for ws in wyckoff_sites_tmp + wyks)
+        return all(new_site.check_with_ws2(ws, cell, tol) for ws in wyckoff_sites_tmp + wyks)
 
     def _check_consistency(self, site, numIon):
         num = 0

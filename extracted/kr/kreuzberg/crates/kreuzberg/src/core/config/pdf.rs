@@ -39,6 +39,16 @@ pub struct PdfConfig {
     /// Default: 0.05 (5%)
     #[serde(default)]
     pub bottom_margin_fraction: Option<f32>,
+
+    /// Allow single-column pseudo tables in extraction results.
+    ///
+    /// By default, tables with fewer than 2 columns (layout-guided) or 3 columns
+    /// (heuristic) are rejected. When `true`, the minimum column count is relaxed
+    /// to 1, allowing single-column structured data (glossaries, itemized lists)
+    /// to be emitted as tables. Other quality filters (density, sparsity, prose
+    /// detection) still apply.
+    #[serde(default)]
+    pub allow_single_column_tables: bool,
 }
 
 /// Hierarchy extraction configuration for PDF text structure analysis.
@@ -83,6 +93,7 @@ impl Default for PdfConfig {
             extract_annotations: false,
             top_margin_fraction: None,
             bottom_margin_fraction: None,
+            allow_single_column_tables: false,
         }
     }
 }
@@ -151,6 +162,7 @@ mod tests {
             extract_annotations: false,
             top_margin_fraction: Some(0.10),
             bottom_margin_fraction: Some(0.08),
+            allow_single_column_tables: false,
         };
         assert_eq!(config.top_margin_fraction, Some(0.10));
         assert_eq!(config.bottom_margin_fraction, Some(0.08));

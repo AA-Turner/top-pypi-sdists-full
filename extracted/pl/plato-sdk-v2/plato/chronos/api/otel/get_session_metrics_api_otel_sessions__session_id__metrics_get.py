@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from plato.chronos.errors import raise_for_status
+from plato.chronos.models import SessionMetricsResponse
 
 
 def _build_request_args(
@@ -38,7 +39,7 @@ def sync(
     session_id: str,
     env_alias: str | None = None,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> SessionMetricsResponse:
     """Get stored OTLP metrics for a session.
 
     Returns raw metric data points, optionally filtered by env_alias."""
@@ -51,7 +52,7 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return SessionMetricsResponse.model_validate(response.json())
 
 
 async def asyncio(
@@ -59,7 +60,7 @@ async def asyncio(
     session_id: str,
     env_alias: str | None = None,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> SessionMetricsResponse:
     """Get stored OTLP metrics for a session.
 
     Returns raw metric data points, optionally filtered by env_alias."""
@@ -72,4 +73,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return SessionMetricsResponse.model_validate(response.json())

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-ollama
-Version: 0.10.0
+Version: 0.10.1
 Summary: llama-index llms ollama integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

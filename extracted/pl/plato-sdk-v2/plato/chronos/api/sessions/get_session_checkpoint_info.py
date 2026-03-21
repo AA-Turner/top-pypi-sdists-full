@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from plato.chronos.errors import raise_for_status
+from plato.chronos.models import SessionCheckpointInfoResponse
 
 
 def _build_request_args(
@@ -31,7 +32,7 @@ def sync(
     client: httpx.Client,
     public_id: str,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> SessionCheckpointInfoResponse:
     """Get checkpoint metadata including available workspace snapshots.
 
     Downloads state.json from S3 and returns workspace snapshot info
@@ -44,14 +45,14 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return SessionCheckpointInfoResponse.model_validate(response.json())
 
 
 async def asyncio(
     client: httpx.AsyncClient,
     public_id: str,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> SessionCheckpointInfoResponse:
     """Get checkpoint metadata including available workspace snapshots.
 
     Downloads state.json from S3 and returns workspace snapshot info
@@ -64,4 +65,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return SessionCheckpointInfoResponse.model_validate(response.json())

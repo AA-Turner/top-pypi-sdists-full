@@ -116,17 +116,13 @@ TEXTAREA_CLASSES = [
     *BASE_INPUT_CLASSES,
     "max-w-4xl",
     "appearance-none",
-    "expandable",
-    "transition",
-    "transition-height",
-    "duration-75",
-    "ease-in-out",
 ]
 
 TEXTAREA_EXPANDABLE_CLASSES = [
     "block",
     "field-sizing-content",
     "min-h-[38px]",
+    "!max-w-2xl",
 ]
 
 SELECT_CLASSES = [
@@ -237,7 +233,6 @@ SWITCH_CLASSES = [
     "h-5",
     "relative",
     "rounded-full",
-    "transition-colors",
     "w-8",
     "min-w-8",
     "disabled:cursor-not-allowed",

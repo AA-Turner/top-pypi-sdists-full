@@ -43,11 +43,14 @@ def on_error(conn: HTTPConnection, exc: AuthenticationError):
 
 class ConditionalAuthenticationMiddleware(AuthenticationMiddleware):
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (root_path := scope.get("root_path")) and root_path == "/noauth":
+        if (root_path := scope.get("root_path")) and (root_path.startswith("/noauth")):  # noqa: SIM102
             # disable auth for requests originating from SDK ASGI transport
             # root_path cannot be set from a request, so safe to use as auth bypass
-            await self.app(scope, receive, send)
-            return
+            # When MOUNT_PREFIX is set, Starlette's Mount appends the prefix to
+            # root_path (e.g. "/noauth/lgp/my-graph"), so we also match the prefix.
+            if root_path == "/noauth" or root_path.startswith("/noauth/"):
+                await self.app(scope, receive, send)
+                return
 
         if scope["path"].startswith("/ui") and scope["method"] == "GET":
             # disable auth for UI asset requests

@@ -37,6 +37,7 @@ from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
     from plato.v2.async_.environment import Environment
+    from plato.worlds.checkpoint import CheckpointTriggerServer
     from plato.worlds.result_store import ResultStore
 
 logger = logging.getLogger(__name__)
@@ -555,10 +556,12 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         for key, val in raw_workspace_specs.items():
             field = repo_to_field.get(key)
             if field is None:
-                raise RuntimeError(
-                    f"Unknown workspace repo name '{key}' in state.workspaces. "
-                    f"Expected one of: {list(repo_to_field.keys())}"
+                self.logger.warning(
+                    "Ignoring unknown workspace repo name '%s' in state.workspaces. Expected one of: %s",
+                    key,
+                    list(repo_to_field.keys()),
                 )
+                continue
             workspace_specs[field] = val
         use_workspace_specs_mode = bool(workspace_specs)
         sid = session_id or self.session.session_id
@@ -910,13 +913,27 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         ws.transport = transport
         return ws
 
-    async def checkpoint(self, label: str) -> None:
+    async def checkpoint(self, label: str, *, trigger_span_id: str = "") -> None:
         """Save state and commit all tracked workspaces."""
         for name, workspace in self._workspaces.items():
             if workspace.tracked:
                 self.logger.info(f"Checkpoint workspace '{name}' at '{label}'")
-                await workspace.commit(label)
+                await workspace.commit(label, trigger_span_id=trigger_span_id)
         await self.save_state()
+
+    async def start_trigger_server(self) -> CheckpointTriggerServer:
+        """Start a :class:`CheckpointTriggerServer` for file-triggered checkpoints.
+
+        Idempotent — returns the same server on subsequent calls.
+        Pass ``server.port`` (combined with the world VM's IP) to
+        :meth:`AgentRunner.with_file_triggers`.
+        """
+        from plato.worlds.checkpoint import CheckpointTriggerServer
+
+        if not hasattr(self, "_trigger_server"):
+            self._trigger_server = CheckpointTriggerServer()
+        await self._trigger_server.start()
+        return self._trigger_server
 
     def workspace_repo_name(self, field_name: str) -> str:
         """Return the Chronos repo name for a workspace field.

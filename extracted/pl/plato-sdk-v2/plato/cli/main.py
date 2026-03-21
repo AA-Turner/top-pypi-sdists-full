@@ -70,7 +70,26 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 # MAIN APP
 # =============================================================================
 
+
+def _version_callback(value: bool) -> None:
+    if value:
+        from importlib.metadata import version
+
+        console.print(version("plato-sdk-v2"))
+        raise typer.Exit()
+
+
 app = typer.Typer(help="[bold blue]Plato CLI[/bold blue] - Manage Plato environments and simulators.")
+
+
+@app.callback()
+def _app_callback(
+    version: bool = typer.Option(
+        False, "--version", "-V", help="Show version and exit.", callback=_version_callback, is_eager=True
+    ),
+) -> None:
+    """Plato CLI - Manage Plato environments and simulators."""
+
 
 # Register sub-apps
 app.add_typer(sandbox_app, name="sandbox")

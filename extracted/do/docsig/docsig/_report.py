@@ -1,6 +1,11 @@
 """
 docsig._report
 ==============
+
+Collect and format docstring-check failures for reporting. This module
+defines Failure (per-function validation results), Failed (one reported
+issue), Failures (sequence of failures), and report() to print them and
+return the highest exit code.
 """
 
 from __future__ import annotations as _
@@ -29,7 +34,7 @@ _MAX_MATCH = 1.0
 
 
 class Failed(_t.NamedTuple):
-    """Report info object."""
+    """Single reported issue."""
 
     name: str
     ref: str
@@ -37,12 +42,16 @@ class Failed(_t.NamedTuple):
     symbolic: str
     lineno: int
     hint: str | None = None
+    new: bool = False
 
 
 class Failure(_t.List[Failed]):
-    """Compile and produce the report.
+    """Collect docstring and signature failures for one function.
 
-    :param func: Function object.
+    Runs configured checks and appends Failed entries for each
+    violation.
+
+    :param func: Function under check.
     :param target: List of errors to target.
     :param check_property_returns: Run return checks on properties.
     """
@@ -88,7 +97,7 @@ class Failure(_t.List[Failed]):
         self.sort()
 
     def _add(self, value: _Message, hint: bool = False, **kwargs) -> None:
-        self._retcode = 1
+        self._retcode = int(not value.new)
         failed = Failed(
             self._name,
             value.ref,
@@ -96,6 +105,7 @@ class Failure(_t.List[Failed]):
             value.symbolic,
             self._func.lineno,
             value.hint if hint else None,
+            value.new,
         )
         if value not in self._func.messages and failed not in self:
             super().append(failed)
@@ -133,7 +143,7 @@ class Failure(_t.List[Failed]):
             if not is_equal:
                 to.insert(
                     count,
-                    _Param(arg.kind, arg.name, _VALID_DESCRIPTION, 0),
+                    _Param(arg.kind, arg.name, _VALID_DESCRIPTION),
                 )
 
     def _sig0xx_config(self) -> None:
@@ -225,6 +235,17 @@ class Failure(_t.List[Failed]):
         ):
             # description is not capitalized
             self._add(_E[305])
+        # description-missing-period
+        if (
+            doc.description
+            and doc.description.strip()
+            and doc.description.strip()[-1]
+            not in (
+                "`",
+                ".",
+            )
+        ):
+            self._add(_E[306])
 
     def _sig4xx_parameters(self, doc: _Param, sig: _Param) -> None:
         if doc.indent > 0:
@@ -291,19 +312,19 @@ class Failure(_t.List[Failed]):
 
     @property
     def name(self) -> str:
-        """Function name."""
+        """Qualified name (Class.method) when nested, else bare name."""
         return self._name
 
     @property
     def lineno(self) -> int:
-        """Function line number."""
+        """Line number of the function in the source."""
         return self._func.lineno
 
     @property
     def retcode(self) -> int:
-        """How to exit the program."""
+        """Exit code (non-zero if any check failed)."""
         return self._retcode
 
 
 class Failures(_t.List[Failure]):
-    """Sequence of failed functions."""
+    """Sequence of Failure instances (one per function checked)."""

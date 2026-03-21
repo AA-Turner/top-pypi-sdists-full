@@ -158,8 +158,42 @@ impl KreuzbergMcp {
         let config =
             build_config(&self.default_config, params.config).map_err(|e| rmcp::ErrorData::invalid_params(e, None))?;
 
-        // Always use async extraction - we're already in a Tokio runtime context.
-        let results = batch_extract_file(params.paths.clone(), &config)
+        let items: Vec<(std::path::PathBuf, Option<crate::FileExtractionConfig>)> =
+            if let Some(file_configs) = params.file_configs {
+                if file_configs.len() != params.paths.len() {
+                    return Err(rmcp::ErrorData::invalid_params(
+                        format!(
+                            "file_configs length ({}) must match paths length ({})",
+                            file_configs.len(),
+                            params.paths.len()
+                        ),
+                        None,
+                    ));
+                }
+
+                params
+                    .paths
+                    .iter()
+                    .zip(file_configs.into_iter())
+                    .map(|(path, fc)| {
+                        let file_config = fc
+                            .map(serde_json::from_value::<crate::FileExtractionConfig>)
+                            .transpose()
+                            .map_err(|e| {
+                                rmcp::ErrorData::invalid_params(format!("Failed to parse file config: {}", e), None)
+                            })?;
+                        Ok((std::path::PathBuf::from(path), file_config))
+                    })
+                    .collect::<Result<Vec<_>, rmcp::ErrorData>>()?
+            } else {
+                params
+                    .paths
+                    .iter()
+                    .map(|p| (std::path::PathBuf::from(p), None))
+                    .collect()
+            };
+
+        let results = batch_extract_file(items, &config)
             .await
             .map_err(map_kreuzberg_error_to_mcp)?;
 

@@ -536,6 +536,10 @@ if TYPE_CHECKING:
         DeleteModelV1ModelsModelIDDeleteRequest,
         DeleteModelV1ModelsModelIDDeleteRequestTypedDict,
     )
+    from .delete_voice_v1_audio_voices_voice_id_deleteop import (
+        DeleteVoiceV1AudioVoicesVoiceIDDeleteRequest,
+        DeleteVoiceV1AudioVoicesVoiceIDDeleteRequestTypedDict,
+    )
     from .deletedatasetrecordsrequest import (
         DeleteDatasetRecordsRequest,
         DeleteDatasetRecordsRequestTypedDict,
@@ -762,6 +766,14 @@ if TYPE_CHECKING:
         GetSimilarChatCompletionEventsV1ObservabilityChatCompletionEventsEventIDSimilarEventsGetRequest,
         GetSimilarChatCompletionEventsV1ObservabilityChatCompletionEventsEventIDSimilarEventsGetRequestTypedDict,
     )
+    from .get_voice_sample_audio_v1_audio_voices_voice_id_sample_getop import (
+        GetVoiceSampleAudioV1AudioVoicesVoiceIDSampleGetRequest,
+        GetVoiceSampleAudioV1AudioVoicesVoiceIDSampleGetRequestTypedDict,
+    )
+    from .get_voice_v1_audio_voices_voice_id_getop import (
+        GetVoiceV1AudioVoicesVoiceIDGetRequest,
+        GetVoiceV1AudioVoicesVoiceIDGetRequestTypedDict,
+    )
     from .getfileresponse import GetFileResponse, GetFileResponseTypedDict
     from .getsignedurlresponse import (
         GetSignedURLResponse,
@@ -806,6 +818,12 @@ if TYPE_CHECKING:
         InstructRequestMessage,
         InstructRequestMessageTypedDict,
         InstructRequestTypedDict,
+    )
+    from .internalmetadata import (
+        InternalMetadata,
+        InternalMetadataAgentVersion,
+        InternalMetadataAgentVersionTypedDict,
+        InternalMetadataTypedDict,
     )
     from .jobmetadata import JobMetadata, JobMetadataTypedDict
     from .jobs_api_routes_batch_cancel_batch_jobop import (
@@ -987,6 +1005,10 @@ if TYPE_CHECKING:
         ListModelsV1ModelsGetRequest,
         ListModelsV1ModelsGetRequestTypedDict,
     )
+    from .list_voices_v1_audio_voices_getop import (
+        ListVoicesV1AudioVoicesGetRequest,
+        ListVoicesV1AudioVoicesGetRequestTypedDict,
+    )
     from .listbatchjobsresponse import (
         ListBatchJobsResponse,
         ListBatchJobsResponseTypedDict,
@@ -1063,7 +1085,11 @@ if TYPE_CHECKING:
         MessageOutputEventTypedDict,
     )
     from .messageresponse import MessageResponse, MessageResponseTypedDict
+    from .messagetokens import MessageTokens, MessageTokensTypedDict
+    from .metadatadict import MetadataDict, MetadataDictTypedDict
     from .metric import Metric, MetricTypedDict
+    from .mirrorconfig import MirrorConfig, MirrorConfigTypedDict
+    from .mirrorsource import MirrorSource, MirrorSourceTypedDict
     from .mistralpromptmode import MistralPromptMode
     from .modelcapabilities import ModelCapabilities, ModelCapabilitiesTypedDict
     from .modelconversation import (
@@ -1169,6 +1195,7 @@ if TYPE_CHECKING:
     from .prediction import Prediction, PredictionTypedDict
     from .processingstatus import ProcessingStatus, ProcessingStatusTypedDict
     from .processstatus import ProcessStatus
+    from .prompttokensdetails import PromptTokensDetails, PromptTokensDetailsTypedDict
     from .realtimetranscriptionerror import (
         RealtimeTranscriptionError,
         RealtimeTranscriptionErrorTypedDict,
@@ -1236,6 +1263,7 @@ if TYPE_CHECKING:
         RetrieveModelV1ModelsModelIDGetRequestTypedDict,
         UnknownResponseRetrieveModelV1ModelsModelIDGet,
     )
+    from .roles import Roles
     from .sampletype import SampleType
     from .searchchatcompletioneventidsrequest import (
         SearchChatCompletionEventIdsRequest,
@@ -1259,6 +1287,25 @@ if TYPE_CHECKING:
     from .sharingdelete import SharingDelete, SharingDeleteTypedDict
     from .sharingrequest import SharingRequest, SharingRequestTypedDict
     from .source import Source
+    from .speech_v1_audio_speech_postop import (
+        SpeechResponse,
+        SpeechResponseTypedDict,
+        SpeechStreamEvents,
+        SpeechStreamEventsTypedDict,
+        SpeechV1AudioSpeechPostData,
+        SpeechV1AudioSpeechPostDataTypedDict,
+        SpeechV1AudioSpeechPostResponse,
+        SpeechV1AudioSpeechPostResponseTypedDict,
+        UnknownSpeechV1AudioSpeechPostData,
+    )
+    from .speechoutputformat import SpeechOutputFormat
+    from .speechrequest import SpeechRequest, SpeechRequestTypedDict
+    from .speechstreamaudiodelta import (
+        SpeechStreamAudioDelta,
+        SpeechStreamAudioDeltaTypedDict,
+    )
+    from .speechstreamdone import SpeechStreamDone, SpeechStreamDoneTypedDict
+    from .speechstreameventtypes import SpeechStreamEventTypes
     from .ssetypes import SSETypes
     from .systemmessage import (
         SystemMessage,
@@ -1384,6 +1431,10 @@ if TYPE_CHECKING:
         UpdateJudgeV1ObservabilityJudgesJudgeIDPutRequest,
         UpdateJudgeV1ObservabilityJudgesJudgeIDPutRequestTypedDict,
     )
+    from .update_voice_v1_audio_voices_voice_id_patchop import (
+        UpdateVoiceV1AudioVoicesVoiceIDPatchRequest,
+        UpdateVoiceV1AudioVoicesVoiceIDPatchRequestTypedDict,
+    )
     from .updateagentrequest import (
         UpdateAgentRequest,
         UpdateAgentRequestTool,
@@ -1424,6 +1475,7 @@ if TYPE_CHECKING:
     )
     from .updatemodelrequest import UpdateModelRequest, UpdateModelRequestTypedDict
     from .usageinfo import UsageInfo, UsageInfoTypedDict
+    from .usageinfo_dollar_defs import UsageInfoDollarDefs, UsageInfoDollarDefsTypedDict
     from .usermessage import (
         UserMessage,
         UserMessageContent,
@@ -1438,6 +1490,10 @@ if TYPE_CHECKING:
         ValidationError,
         ValidationErrorTypedDict,
     )
+    from .voicecreaterequest import VoiceCreateRequest, VoiceCreateRequestTypedDict
+    from .voicelistresponse import VoiceListResponse, VoiceListResponseTypedDict
+    from .voiceresponse import VoiceResponse, VoiceResponseTypedDict
+    from .voiceupdaterequest import VoiceUpdateRequest, VoiceUpdateRequestTypedDict
     from .wandbintegration import WandbIntegration, WandbIntegrationTypedDict
     from .wandbintegrationresult import (
         WandbIntegrationResult,
@@ -1825,6 +1881,8 @@ __all__ = [
     "DeleteModelResponseTypedDict",
     "DeleteModelV1ModelsModelIDDeleteRequest",
     "DeleteModelV1ModelsModelIDDeleteRequestTypedDict",
+    "DeleteVoiceV1AudioVoicesVoiceIDDeleteRequest",
+    "DeleteVoiceV1AudioVoicesVoiceIDDeleteRequestTypedDict",
     "DeltaMessage",
     "DeltaMessageContent",
     "DeltaMessageContentTypedDict",
@@ -1978,6 +2036,10 @@ __all__ = [
     "GetSignedURLResponseTypedDict",
     "GetSimilarChatCompletionEventsV1ObservabilityChatCompletionEventsEventIDSimilarEventsGetRequest",
     "GetSimilarChatCompletionEventsV1ObservabilityChatCompletionEventsEventIDSimilarEventsGetRequestTypedDict",
+    "GetVoiceSampleAudioV1AudioVoicesVoiceIDSampleGetRequest",
+    "GetVoiceSampleAudioV1AudioVoicesVoiceIDSampleGetRequestTypedDict",
+    "GetVoiceV1AudioVoicesVoiceIDGetRequest",
+    "GetVoiceV1AudioVoicesVoiceIDGetRequestTypedDict",
     "GithubRepository",
     "GithubRepositoryTypedDict",
     "GuardrailConfig",
@@ -2013,6 +2075,10 @@ __all__ = [
     "InstructRequestMessage",
     "InstructRequestMessageTypedDict",
     "InstructRequestTypedDict",
+    "InternalMetadata",
+    "InternalMetadataAgentVersion",
+    "InternalMetadataAgentVersionTypedDict",
+    "InternalMetadataTypedDict",
     "JSONSchema",
     "JSONSchemaTypedDict",
     "JobMetadata",
@@ -2139,6 +2205,8 @@ __all__ = [
     "ListModelsV1ModelsGetRequestTypedDict",
     "ListSharingResponse",
     "ListSharingResponseTypedDict",
+    "ListVoicesV1AudioVoicesGetRequest",
+    "ListVoicesV1AudioVoicesGetRequestTypedDict",
     "Loc",
     "LocTypedDict",
     "MCPServerIcon",
@@ -2163,8 +2231,16 @@ __all__ = [
     "MessageOutputEventTypedDict",
     "MessageResponse",
     "MessageResponseTypedDict",
+    "MessageTokens",
+    "MessageTokensTypedDict",
+    "MetadataDict",
+    "MetadataDictTypedDict",
     "Metric",
     "MetricTypedDict",
+    "MirrorConfig",
+    "MirrorConfigTypedDict",
+    "MirrorSource",
+    "MirrorSourceTypedDict",
     "MistralPromptMode",
     "ModelCapabilities",
     "ModelCapabilitiesTypedDict",
@@ -2252,6 +2328,8 @@ __all__ = [
     "ProcessStatus",
     "ProcessingStatus",
     "ProcessingStatusTypedDict",
+    "PromptTokensDetails",
+    "PromptTokensDetailsTypedDict",
     "RealtimeTranscriptionError",
     "RealtimeTranscriptionErrorDetail",
     "RealtimeTranscriptionErrorDetailMessage",
@@ -2303,6 +2381,7 @@ __all__ = [
     "RetrieveModelV1ModelsModelIDGetRequest",
     "RetrieveModelV1ModelsModelIDGetRequestTypedDict",
     "Role",
+    "Roles",
     "SSETypes",
     "SampleType",
     "SearchChatCompletionEventIdsRequest",
@@ -2323,6 +2402,22 @@ __all__ = [
     "SharingRequestTypedDict",
     "SharingTypedDict",
     "Source",
+    "SpeechOutputFormat",
+    "SpeechRequest",
+    "SpeechRequestTypedDict",
+    "SpeechResponse",
+    "SpeechResponseTypedDict",
+    "SpeechStreamAudioDelta",
+    "SpeechStreamAudioDeltaTypedDict",
+    "SpeechStreamDone",
+    "SpeechStreamDoneTypedDict",
+    "SpeechStreamEventTypes",
+    "SpeechStreamEvents",
+    "SpeechStreamEventsTypedDict",
+    "SpeechV1AudioSpeechPostData",
+    "SpeechV1AudioSpeechPostDataTypedDict",
+    "SpeechV1AudioSpeechPostResponse",
+    "SpeechV1AudioSpeechPostResponseTypedDict",
     "SupportedOperator",
     "SystemMessage",
     "SystemMessageContent",
@@ -2425,6 +2520,7 @@ __all__ = [
     "UnknownModelListData",
     "UnknownResponse",
     "UnknownResponseRetrieveModelV1ModelsModelIDGet",
+    "UnknownSpeechV1AudioSpeechPostData",
     "UnknownTranscriptionStreamEventsData",
     "UpdateAgentRequest",
     "UpdateAgentRequestTool",
@@ -2456,7 +2552,11 @@ __all__ = [
     "UpdateLibraryRequestTypedDict",
     "UpdateModelRequest",
     "UpdateModelRequestTypedDict",
+    "UpdateVoiceV1AudioVoicesVoiceIDPatchRequest",
+    "UpdateVoiceV1AudioVoicesVoiceIDPatchRequestTypedDict",
     "UsageInfo",
+    "UsageInfoDollarDefs",
+    "UsageInfoDollarDefsTypedDict",
     "UsageInfoTypedDict",
     "UserMessage",
     "UserMessageContent",
@@ -2464,6 +2564,14 @@ __all__ = [
     "UserMessageTypedDict",
     "ValidationError",
     "ValidationErrorTypedDict",
+    "VoiceCreateRequest",
+    "VoiceCreateRequestTypedDict",
+    "VoiceListResponse",
+    "VoiceListResponseTypedDict",
+    "VoiceResponse",
+    "VoiceResponseTypedDict",
+    "VoiceUpdateRequest",
+    "VoiceUpdateRequestTypedDict",
     "WandbIntegration",
     "WandbIntegrationResult",
     "WandbIntegrationResultTypedDict",
@@ -2847,6 +2955,8 @@ _dynamic_imports: dict[str, str] = {
     "DeleteJudgeV1ObservabilityJudgesJudgeIDDeleteRequestTypedDict": ".delete_judge_v1_observability_judges_judge_id_deleteop",
     "DeleteModelV1ModelsModelIDDeleteRequest": ".delete_model_v1_models_model_id_deleteop",
     "DeleteModelV1ModelsModelIDDeleteRequestTypedDict": ".delete_model_v1_models_model_id_deleteop",
+    "DeleteVoiceV1AudioVoicesVoiceIDDeleteRequest": ".delete_voice_v1_audio_voices_voice_id_deleteop",
+    "DeleteVoiceV1AudioVoicesVoiceIDDeleteRequestTypedDict": ".delete_voice_v1_audio_voices_voice_id_deleteop",
     "DeleteDatasetRecordsRequest": ".deletedatasetrecordsrequest",
     "DeleteDatasetRecordsRequestTypedDict": ".deletedatasetrecordsrequest",
     "DeleteFileResponse": ".deletefileresponse",
@@ -3003,6 +3113,10 @@ _dynamic_imports: dict[str, str] = {
     "GetJudgesV1ObservabilityJudgesGetRequestTypedDict": ".get_judges_v1_observability_judges_getop",
     "GetSimilarChatCompletionEventsV1ObservabilityChatCompletionEventsEventIDSimilarEventsGetRequest": ".get_similar_chat_completion_events_v1_observability_chat_completion_events_event_id_similar_events_getop",
     "GetSimilarChatCompletionEventsV1ObservabilityChatCompletionEventsEventIDSimilarEventsGetRequestTypedDict": ".get_similar_chat_completion_events_v1_observability_chat_completion_events_event_id_similar_events_getop",
+    "GetVoiceSampleAudioV1AudioVoicesVoiceIDSampleGetRequest": ".get_voice_sample_audio_v1_audio_voices_voice_id_sample_getop",
+    "GetVoiceSampleAudioV1AudioVoicesVoiceIDSampleGetRequestTypedDict": ".get_voice_sample_audio_v1_audio_voices_voice_id_sample_getop",
+    "GetVoiceV1AudioVoicesVoiceIDGetRequest": ".get_voice_v1_audio_voices_voice_id_getop",
+    "GetVoiceV1AudioVoicesVoiceIDGetRequestTypedDict": ".get_voice_v1_audio_voices_voice_id_getop",
     "GetFileResponse": ".getfileresponse",
     "GetFileResponseTypedDict": ".getfileresponse",
     "GetSignedURLResponse": ".getsignedurlresponse",
@@ -3040,6 +3154,10 @@ _dynamic_imports: dict[str, str] = {
     "InstructRequestMessage": ".instructrequest",
     "InstructRequestMessageTypedDict": ".instructrequest",
     "InstructRequestTypedDict": ".instructrequest",
+    "InternalMetadata": ".internalmetadata",
+    "InternalMetadataAgentVersion": ".internalmetadata",
+    "InternalMetadataAgentVersionTypedDict": ".internalmetadata",
+    "InternalMetadataTypedDict": ".internalmetadata",
     "JobMetadata": ".jobmetadata",
     "JobMetadataTypedDict": ".jobmetadata",
     "JobsAPIRoutesBatchCancelBatchJobRequest": ".jobs_api_routes_batch_cancel_batch_jobop",
@@ -3151,6 +3269,8 @@ _dynamic_imports: dict[str, str] = {
     "LibraryTypedDict": ".library",
     "ListModelsV1ModelsGetRequest": ".list_models_v1_models_getop",
     "ListModelsV1ModelsGetRequestTypedDict": ".list_models_v1_models_getop",
+    "ListVoicesV1AudioVoicesGetRequest": ".list_voices_v1_audio_voices_getop",
+    "ListVoicesV1AudioVoicesGetRequestTypedDict": ".list_voices_v1_audio_voices_getop",
     "ListBatchJobsResponse": ".listbatchjobsresponse",
     "ListBatchJobsResponseTypedDict": ".listbatchjobsresponse",
     "ListCampaignSelectedEventsResponse": ".listcampaignselectedeventsresponse",
@@ -3203,8 +3323,16 @@ _dynamic_imports: dict[str, str] = {
     "MessageOutputEventTypedDict": ".messageoutputevent",
     "MessageResponse": ".messageresponse",
     "MessageResponseTypedDict": ".messageresponse",
+    "MessageTokens": ".messagetokens",
+    "MessageTokensTypedDict": ".messagetokens",
+    "MetadataDict": ".metadatadict",
+    "MetadataDictTypedDict": ".metadatadict",
     "Metric": ".metric",
     "MetricTypedDict": ".metric",
+    "MirrorConfig": ".mirrorconfig",
+    "MirrorConfigTypedDict": ".mirrorconfig",
+    "MirrorSource": ".mirrorsource",
+    "MirrorSourceTypedDict": ".mirrorsource",
     "MistralPromptMode": ".mistralpromptmode",
     "ModelCapabilities": ".modelcapabilities",
     "ModelCapabilitiesTypedDict": ".modelcapabilities",
@@ -3289,6 +3417,8 @@ _dynamic_imports: dict[str, str] = {
     "ProcessingStatus": ".processingstatus",
     "ProcessingStatusTypedDict": ".processingstatus",
     "ProcessStatus": ".processstatus",
+    "PromptTokensDetails": ".prompttokensdetails",
+    "PromptTokensDetailsTypedDict": ".prompttokensdetails",
     "RealtimeTranscriptionError": ".realtimetranscriptionerror",
     "RealtimeTranscriptionErrorTypedDict": ".realtimetranscriptionerror",
     "RealtimeTranscriptionErrorDetail": ".realtimetranscriptionerrordetail",
@@ -3334,6 +3464,7 @@ _dynamic_imports: dict[str, str] = {
     "RetrieveModelV1ModelsModelIDGetRequest": ".retrieve_model_v1_models_model_id_getop",
     "RetrieveModelV1ModelsModelIDGetRequestTypedDict": ".retrieve_model_v1_models_model_id_getop",
     "UnknownResponseRetrieveModelV1ModelsModelIDGet": ".retrieve_model_v1_models_model_id_getop",
+    "Roles": ".roles",
     "SampleType": ".sampletype",
     "SearchChatCompletionEventIdsRequest": ".searchchatcompletioneventidsrequest",
     "SearchChatCompletionEventIdsRequestTypedDict": ".searchchatcompletioneventidsrequest",
@@ -3353,6 +3484,23 @@ _dynamic_imports: dict[str, str] = {
     "SharingRequest": ".sharingrequest",
     "SharingRequestTypedDict": ".sharingrequest",
     "Source": ".source",
+    "SpeechResponse": ".speech_v1_audio_speech_postop",
+    "SpeechResponseTypedDict": ".speech_v1_audio_speech_postop",
+    "SpeechStreamEvents": ".speech_v1_audio_speech_postop",
+    "SpeechStreamEventsTypedDict": ".speech_v1_audio_speech_postop",
+    "SpeechV1AudioSpeechPostData": ".speech_v1_audio_speech_postop",
+    "SpeechV1AudioSpeechPostDataTypedDict": ".speech_v1_audio_speech_postop",
+    "SpeechV1AudioSpeechPostResponse": ".speech_v1_audio_speech_postop",
+    "SpeechV1AudioSpeechPostResponseTypedDict": ".speech_v1_audio_speech_postop",
+    "UnknownSpeechV1AudioSpeechPostData": ".speech_v1_audio_speech_postop",
+    "SpeechOutputFormat": ".speechoutputformat",
+    "SpeechRequest": ".speechrequest",
+    "SpeechRequestTypedDict": ".speechrequest",
+    "SpeechStreamAudioDelta": ".speechstreamaudiodelta",
+    "SpeechStreamAudioDeltaTypedDict": ".speechstreamaudiodelta",
+    "SpeechStreamDone": ".speechstreamdone",
+    "SpeechStreamDoneTypedDict": ".speechstreamdone",
+    "SpeechStreamEventTypes": ".speechstreameventtypes",
     "SSETypes": ".ssetypes",
     "SystemMessage": ".systemmessage",
     "SystemMessageContent": ".systemmessage",
@@ -3442,6 +3590,8 @@ _dynamic_imports: dict[str, str] = {
     "UpdateDatasetV1ObservabilityDatasetsDatasetIDPatchRequestTypedDict": ".update_dataset_v1_observability_datasets_dataset_id_patchop",
     "UpdateJudgeV1ObservabilityJudgesJudgeIDPutRequest": ".update_judge_v1_observability_judges_judge_id_putop",
     "UpdateJudgeV1ObservabilityJudgesJudgeIDPutRequestTypedDict": ".update_judge_v1_observability_judges_judge_id_putop",
+    "UpdateVoiceV1AudioVoicesVoiceIDPatchRequest": ".update_voice_v1_audio_voices_voice_id_patchop",
+    "UpdateVoiceV1AudioVoicesVoiceIDPatchRequestTypedDict": ".update_voice_v1_audio_voices_voice_id_patchop",
     "UpdateAgentRequest": ".updateagentrequest",
     "UpdateAgentRequestTool": ".updateagentrequest",
     "UpdateAgentRequestToolTypedDict": ".updateagentrequest",
@@ -3468,6 +3618,8 @@ _dynamic_imports: dict[str, str] = {
     "UpdateModelRequestTypedDict": ".updatemodelrequest",
     "UsageInfo": ".usageinfo",
     "UsageInfoTypedDict": ".usageinfo",
+    "UsageInfoDollarDefs": ".usageinfo_dollar_defs",
+    "UsageInfoDollarDefsTypedDict": ".usageinfo_dollar_defs",
     "UserMessage": ".usermessage",
     "UserMessageContent": ".usermessage",
     "UserMessageContentTypedDict": ".usermessage",
@@ -3478,6 +3630,14 @@ _dynamic_imports: dict[str, str] = {
     "LocTypedDict": ".validationerror",
     "ValidationError": ".validationerror",
     "ValidationErrorTypedDict": ".validationerror",
+    "VoiceCreateRequest": ".voicecreaterequest",
+    "VoiceCreateRequestTypedDict": ".voicecreaterequest",
+    "VoiceListResponse": ".voicelistresponse",
+    "VoiceListResponseTypedDict": ".voicelistresponse",
+    "VoiceResponse": ".voiceresponse",
+    "VoiceResponseTypedDict": ".voiceresponse",
+    "VoiceUpdateRequest": ".voiceupdaterequest",
+    "VoiceUpdateRequestTypedDict": ".voiceupdaterequest",
     "WandbIntegration": ".wandbintegration",
     "WandbIntegrationTypedDict": ".wandbintegration",
     "WandbIntegrationResult": ".wandbintegrationresult",

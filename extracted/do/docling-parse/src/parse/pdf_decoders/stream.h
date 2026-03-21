@@ -12,7 +12,7 @@ namespace pdflib
 
   public:
 
-    pdf_decoder(const decode_page_config& config,
+    pdf_decoder(const decode_config& config,
 
                 page_item<PAGE_DIMENSION>& page_dimension_,
                 page_item<PAGE_CELLS>&     page_cells_,
@@ -22,6 +22,8 @@ namespace pdflib
                 std::shared_ptr<pdf_resource<PAGE_FONTS>>     page_fonts_,
                 std::shared_ptr<pdf_resource<PAGE_GRPHS>>     page_grphs_,
                 std::shared_ptr<pdf_resource<PAGE_XOBJECTS>>  page_xobjects_,
+
+                pdf_render_instructions& instructions,
 
                 pdf_timings& timings);
 
@@ -35,18 +37,18 @@ namespace pdflib
     void decode(QPDFObjectHandle& content);
 
     // methods used to interprete the stream
-    void interprete(std::vector<qpdf_instruction>& parameters);
+    void interprete(std::vector<qpdf_stream_instruction>& parameters);
 
   private:
 
     bool update_stack(std::vector<pdf_state<GLOBAL> >& stack_,
                       int                              stack_count_);
 
-    void interprete(std::vector<qpdf_instruction>& stream_,
-                    std::vector<qpdf_instruction>& parameters_);
+    void interprete(std::vector<qpdf_stream_instruction>& stream_,
+                    std::vector<qpdf_stream_instruction>& parameters_);
 
 
-    void interprete_stream(std::vector<qpdf_instruction>& parameters);
+    void interprete_stream(std::vector<qpdf_stream_instruction>& parameters);
 
     pdf_state<GLOBAL>&  current_global_state(); // get current global state
     pdf_state<TEXT>&    current_text_state(); // get current text state
@@ -57,8 +59,8 @@ namespace pdflib
     void q();
     void Q();
     
-    void execute_operator(qpdf_instruction op,
-                          std::vector<qpdf_instruction> parameters);
+    void execute_operator(qpdf_stream_instruction op,
+                          std::vector<qpdf_stream_instruction>& parameters);
     
     void do_image(const std::string& xobj_name,
 		  const xobject_subtype_name& xobj_subtype);
@@ -71,7 +73,7 @@ namespace pdflib
 
   private:
 
-    const decode_page_config& config;
+    const decode_config& config;
 
     page_item<PAGE_DIMENSION>& page_dimension;
     page_item<PAGE_CELLS>&     page_cells;
@@ -82,17 +84,19 @@ namespace pdflib
     std::shared_ptr<pdf_resource<PAGE_GRPHS>>     page_grphs;
     std::shared_ptr<pdf_resource<PAGE_XOBJECTS>>  page_xobjects;
 
+    pdf_render_instructions& instructions;
+
     pdf_timings& timings;
 
     std::unordered_set<std::string> unknown_operators;
 
-    std::vector<qpdf_instruction> stream;
+    std::vector<qpdf_stream_instruction> stream;
     std::vector<pdf_state<GLOBAL> > stack;
 
     int stack_count;
   };
 
-  pdf_decoder<STREAM>::pdf_decoder(const decode_page_config& config_,
+  pdf_decoder<STREAM>::pdf_decoder(const decode_config& config_,
 
                                    page_item<PAGE_DIMENSION>& page_dimension_,
                                    page_item<PAGE_CELLS>&     page_cells_,
@@ -104,7 +108,9 @@ namespace pdflib
 
                                    std::shared_ptr<pdf_resource<PAGE_XOBJECTS>>  page_xobjects_,
 
-                                   pdf_timings& timings):
+                                   pdf_render_instructions& instructions_,
+
+				   pdf_timings& timings):
     config(config_),
 
     page_dimension(page_dimension_),
@@ -116,6 +122,8 @@ namespace pdflib
     page_grphs(page_grphs_),
 
     page_xobjects(page_xobjects_),
+
+    instructions(instructions_),
 
     timings(timings),
 
@@ -164,7 +172,7 @@ namespace pdflib
     decoder.decode(qpdf_content);
   }
 
-  void pdf_decoder<STREAM>::interprete(std::vector<qpdf_instruction>& parameters)
+  void pdf_decoder<STREAM>::interprete(std::vector<qpdf_stream_instruction>& parameters)
   {
     LOG_S(INFO) << __FUNCTION__;
 
@@ -174,11 +182,12 @@ namespace pdflib
         //stack.clear();
 
         pdf_state<GLOBAL> state(config,
-                                page_cells,
-                                page_shapes,
-                                page_images,
-                                page_fonts,
-                                page_grphs);
+				page_cells,
+				page_shapes,
+				page_images,
+				page_fonts,
+				page_grphs,
+				instructions);
 
         stack.push_back(state);
       }
@@ -195,11 +204,13 @@ namespace pdflib
     if(stack.size()>0 and page_fonts->keys()!=current_global_state().page_fonts->keys())
       {
         pdf_state<GLOBAL> state(config,
-                                page_cells,
-                                page_shapes,
-                                page_images,
-                                page_fonts,
-                                page_grphs);
+				page_cells,
+				page_shapes,
+				page_images,
+				page_fonts,
+				page_grphs,
+				instructions);
+	
         state = stack.back();
 
         stack.push_back(state);
@@ -210,8 +221,8 @@ namespace pdflib
     return false;
   }
 
-  void pdf_decoder<STREAM>::interprete(std::vector<qpdf_instruction>& stream_,
-                                       std::vector<qpdf_instruction>& parameters_)
+  void pdf_decoder<STREAM>::interprete(std::vector<qpdf_stream_instruction>& stream_,
+                                       std::vector<qpdf_stream_instruction>& parameters_)
   {
     LOG_S(INFO) << __FUNCTION__;
 
@@ -225,40 +236,16 @@ namespace pdflib
       }
   }
 
-  void pdf_decoder<STREAM>::interprete_stream(std::vector<qpdf_instruction>& parameters)
+  void pdf_decoder<STREAM>::interprete_stream(std::vector<qpdf_stream_instruction>& parameters)
   {
     LOG_S(INFO) << __FUNCTION__;
 
-    //assert(page_fonts.keys()==current_global_state().page_fonts.keys());
-
     for(int l=0; l<stream.size(); l++)
       {
-        qpdf_instruction& inst = stream[l];
+        qpdf_stream_instruction& inst = stream[l];
 
         if(inst.key=="operator")
           {
-            // pdf_operator::operator_name  name = pdf_operator::to_name(inst.val);
-            // pdf_operator::operator_class clss = pdf_operator::to_class(name);
-
-            /*
-              if(//clss==pdf_operator::PATH_CONSTRUCTION      or
-              //clss==pdf_operator::PATH_PAINTING          or
-              clss==pdf_operator::GENERAL_GRAPHICS_STATE or
-              clss==pdf_operator::COLOR_SCHEME            )
-              {
-              parameters.clear();
-              continue;
-              }
-            */
-
-            /*
-              for(auto p:parameters)
-              {
-              LOG_S(INFO) << "\t" << std::setw(12) << p.key << " | " << p.val;
-              }
-              LOG_S(INFO) << " --> " << std::setw(12) << inst.key << " | " << inst.val;
-            */
-
             for(auto itr=parameters.begin(); itr!=parameters.end(); )
               {
                 if(itr->key=="null" and itr->val=="null") // this can happen if you have an empty array/dict
@@ -330,11 +317,13 @@ namespace pdflib
     if(stack.size()==0)
       {
         pdf_state<GLOBAL> state(config,
-                                page_cells,
-                                page_shapes,
-                                page_images,
-                                page_fonts,
-                                page_grphs);
+				page_cells,
+				page_shapes,
+				page_images,
+				page_fonts,
+				page_grphs,
+				instructions);
+
         stack.push_back(state);
       }
     else
@@ -420,7 +409,7 @@ namespace pdflib
       current_global_state().cm(xobj.get_matrix());
 
       {
-        std::vector<qpdf_instruction> insts = xobj.parse_stream();
+        std::vector<qpdf_stream_instruction> insts = xobj.parse_stream();
 
         pdf_decoder<STREAM> new_stream(config,
 
@@ -433,12 +422,14 @@ namespace pdflib
                                        page_grphs_,
                                        page_xobjects_,
 
+                                       instructions,
+
                                        timings);
 	
         bool updated_stack = new_stream.update_stack(stack, stack_count);
 
         // copy the stack
-        std::vector<qpdf_instruction> parameters;
+        std::vector<qpdf_stream_instruction> parameters;
         new_stream.interprete(insts, parameters);
 
         if(updated_stack)
@@ -467,8 +458,8 @@ namespace pdflib
     LOG_S(WARNING) << "unsupported xobject subtype (PostScript) with name " << xobj_name;
   }
 
-  void pdf_decoder<STREAM>::execute_operator(qpdf_instruction              op,
-                                             std::vector<qpdf_instruction> parameters)
+  void pdf_decoder<STREAM>::execute_operator(qpdf_stream_instruction              op,
+                                             std::vector<qpdf_stream_instruction>& parameters)
   {
     pdf_operator::operator_name name = pdf_operator::to_name(op.val);
 
@@ -813,10 +804,10 @@ namespace pdflib
           LOG_S(INFO) << "executing " << to_string(name);
           assert(parameters.size()==1);
 
-          std::vector<qpdf_instruction> TStar_params = {};
+          std::vector<qpdf_stream_instruction> TStar_params = {};
           current_text_state().TStar(TStar_params);
 
-          std::vector<qpdf_instruction> Tj_params = {parameters[0]};
+          std::vector<qpdf_stream_instruction> Tj_params = {parameters[0]};
           current_text_state().Tj(Tj_params, stack_count);
         }
         break;
@@ -826,16 +817,16 @@ namespace pdflib
           LOG_S(INFO) << "executing " << to_string(name);
           assert(parameters.size()==3);
 
-          std::vector<qpdf_instruction> Tw_params = {parameters[0]};
+          std::vector<qpdf_stream_instruction> Tw_params = {parameters[0]};
           current_text_state().Tw(Tw_params);
 
-          std::vector<qpdf_instruction> Tc_params = {parameters[1]};
+          std::vector<qpdf_stream_instruction> Tc_params = {parameters[1]};
           current_text_state().Tc(Tc_params);
 
-          std::vector<qpdf_instruction> TStar_params = {};
+          std::vector<qpdf_stream_instruction> TStar_params = {};
           current_text_state().TStar(TStar_params);
 
-          std::vector<qpdf_instruction> Tj_params = {parameters[2]};
+          std::vector<qpdf_stream_instruction> Tj_params = {parameters[2]};
           current_text_state().Tj(Tj_params, stack_count);
         }
         break;

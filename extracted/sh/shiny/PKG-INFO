@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shiny
-Version: 1.5.1
+Version: 1.6.0
 Summary: A web development framework for Python.
 Author-email: Winston Chang <winston@posit.co>
 License: MIT
@@ -40,9 +40,12 @@ Requires-Dist: setuptools; python_version >= "3.12"
 Requires-Dist: narwhals>=1.10.0
 Requires-Dist: orjson>=3.10.7
 Requires-Dist: shinychat>=0.1.0
+Requires-Dist: opentelemetry-api>=1.20.0
 Provides-Extra: theme
 Requires-Dist: libsass>=0.23.0; extra == "theme"
 Requires-Dist: brand_yml>=0.1.0; extra == "theme"
+Provides-Extra: otel
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
 Provides-Extra: test
 Requires-Dist: pytest>=6.2.4; extra == "test"
 Requires-Dist: pytest-asyncio>=0.17.2; extra == "test"
@@ -74,7 +77,7 @@ Requires-Dist: missingno; extra == "test"
 Requires-Dist: rsconnect-python; extra == "test"
 Requires-Dist: scikit-learn; extra == "test"
 Requires-Dist: folium; extra == "test"
-Requires-Dist: palmerpenguins; extra == "test"
+Requires-Dist: palmerpenguins>=0.1.5; extra == "test"
 Requires-Dist: faicons; extra == "test"
 Requires-Dist: ridgeplot; extra == "test"
 Requires-Dist: great_tables; extra == "test"
@@ -82,8 +85,10 @@ Requires-Dist: polars; extra == "test"
 Requires-Dist: dask[dataframe]; extra == "test"
 Requires-Dist: pyarrow; extra == "test"
 Requires-Dist: pyarrow-stubs; extra == "test"
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "test"
+Requires-Dist: logfire>=4.0.0; extra == "test"
 Provides-Extra: dev
-Requires-Dist: black>=24.0; extra == "dev"
+Requires-Dist: black>=26.1.0; extra == "dev"
 Requires-Dist: flake8>=6.0.0; extra == "dev"
 Requires-Dist: flake8-bugbear>=23.2.13; extra == "dev"
 Requires-Dist: Flake8-pyproject>=1.2.3; extra == "dev"
@@ -110,7 +115,7 @@ Requires-Dist: tabulate; extra == "doc"
 Requires-Dist: shinylive; extra == "doc"
 Requires-Dist: pydantic>=2.7.4; extra == "doc"
 Requires-Dist: quartodoc>=0.8.1; extra == "doc"
-Requires-Dist: griffe>=1.3.2; extra == "doc"
+Requires-Dist: griffe<2.0.0,>=1.3.2; extra == "doc"
 Provides-Extra: add-test
 Requires-Dist: chatlas[anthropic,openai]; extra == "add-test"
 Requires-Dist: openai>=1.104.1; extra == "add-test"

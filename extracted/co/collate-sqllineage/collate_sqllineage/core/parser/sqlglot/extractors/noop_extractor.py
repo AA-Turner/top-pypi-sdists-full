@@ -20,6 +20,7 @@ class NoopExtractor(LineageHolderExtractor):
         "copy",  # COPY statements
         "refresh",  # REFRESH statements
         "truncatetable",  # TRUNCATE TABLE statements
+        "ifblock",  # T-SQL IF...THEN control flow blocks (sqlglot v29+)
     ]
 
     def __init__(self, dialect: str):

@@ -228,11 +228,7 @@ class SqlGlotColumn(Column):
                 except Exception:  # noqa: B902
                     pass
 
-        elif isinstance(expression, (exp.Binary, exp.Unary)):
-            for child in expression.iter_expressions():
-                source_columns.extend(SqlGlotColumn._extract_source_columns(child))
-
-        elif isinstance(expression, exp.Case):
+        elif isinstance(expression, (exp.Binary, exp.Unary, exp.Case)):
             for child in expression.iter_expressions():
                 source_columns.extend(SqlGlotColumn._extract_source_columns(child))
 

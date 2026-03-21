@@ -15,6 +15,7 @@ pub mod json_utils;
 pub mod pool;
 pub mod pool_sizing;
 pub mod string_pool;
+pub mod timing;
 
 #[cfg(feature = "quality")]
 pub use quality::{calculate_quality_score, clean_extracted_text, normalize_spaces};

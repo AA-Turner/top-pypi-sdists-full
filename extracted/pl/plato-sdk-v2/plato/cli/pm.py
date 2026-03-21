@@ -1984,7 +1984,7 @@ def review_data(
                     if DEFAULT_DATAGEN_API_KEY:
                         await options_page.fill("#platoDatagenApiKey", DEFAULT_DATAGEN_API_KEY)
                     _cred_key, _cred_val = _get_claude_credentials()
-                    if _cred_val and _cred_key == "claude_oauth_credentials":
+                    if _cred_val:
                         await options_page.fill("#claudeOauthCredentials", _cred_val)
                     if DEFAULT_ANCHOR_KEY:
                         await options_page.fill("#anchorApiKey", DEFAULT_ANCHOR_KEY)

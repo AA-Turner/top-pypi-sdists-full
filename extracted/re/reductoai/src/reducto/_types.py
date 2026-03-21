@@ -13,9 +13,11 @@ from typing import (
     Mapping,
     TypeVar,
     Callable,
+    Iterable,
     Iterator,
     Optional,
     Sequence,
+    AsyncIterable,
 )
 from typing_extensions import (
     Set,
@@ -34,7 +36,7 @@ import pydantic
 from httpx import URL, Proxy, Timeout, Response, BaseTransport, AsyncBaseTransport
 
 if TYPE_CHECKING:
-    from ._models import BaseModel
+    from ._models import BaseModel, SecurityOptions
     from ._response import APIResponse, AsyncAPIResponse
 
 Transport = BaseTransport
@@ -56,6 +58,13 @@ if TYPE_CHECKING:
 else:
     Base64FileInput = Union[IO[bytes], PathLike]
     FileContent = Union[IO[bytes], bytes, PathLike]  # PathLike is not subscriptable in Python 3.8.
+
+
+# Used for sending raw binary data / streaming data in request bodies
+# e.g. for file uploads without multipart encoding
+BinaryTypes = Union[bytes, bytearray, IO[bytes], Iterable[bytes]]
+AsyncBinaryTypes = Union[bytes, bytearray, IO[bytes], AsyncIterable[bytes]]
+
 FileTypes = Union[
     # file (or bytes)
     FileContent,
@@ -112,6 +121,7 @@ class RequestOptions(TypedDict, total=False):
     extra_json: AnyMapping
     idempotency_key: str
     follow_redirects: bool
+    security: SecurityOptions
 
 
 # Sentinel class used until PEP 0661 is accepted

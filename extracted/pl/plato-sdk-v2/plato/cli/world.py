@@ -217,15 +217,31 @@ def world_publish(
     module_name = _get_module_name(pkg_path, package_name)
     schema_data = _extract_schema_from_wheel(wheel_file, module_name)
     if schema_data:
-        props = schema_data.get("properties", {})
-        agents = schema_data.get("agents", [])
-        secrets = schema_data.get("secrets", [])
-        image = schema_data.get("image")
-        console.print(
-            f"[green]Schema found:[/green] {len(props)} properties, {len(agents)} agents, {len(secrets)} secrets"
-        )
-        if image:
-            console.print(f"[green]Base image:[/green] {image}")
+        # Handle catalog format: {"worlds": {"name": {...}}}
+        if "worlds" in schema_data and isinstance(schema_data["worlds"], dict):
+            for wname, wschema in schema_data["worlds"].items():
+                props = wschema.get("config_schema", {}).get("properties", {})
+                w_agents = wschema.get("agents", [])
+                w_secrets = (
+                    wschema.get("secrets_schema", {}).get("properties", {}) if wschema.get("secrets_schema") else {}
+                )
+                w_image = wschema.get("image")
+                w_type = wschema.get("type", "world")
+                console.print(
+                    f"[green]Schema found:[/green] {wname} ({w_type}) — {len(props)} properties, {len(w_agents)} agents, {len(w_secrets)} secrets"
+                )
+                if w_image:
+                    console.print(f"  [green]Image:[/green] {w_image}")
+        else:
+            props = schema_data.get("properties", {})
+            agents = schema_data.get("agents", [])
+            secrets = schema_data.get("secrets", [])
+            image = schema_data.get("image")
+            console.print(
+                f"[green]Schema found:[/green] {len(props)} properties, {len(agents)} agents, {len(secrets)} secrets"
+            )
+            if image:
+                console.print(f"[green]Base image:[/green] {image}")
     else:
         console.print("[red]Error: No schema.json found in wheel.[/red]")
         console.print("[red]Add a hatch build hook to generate it:[/red]")

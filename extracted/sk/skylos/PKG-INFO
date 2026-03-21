@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.1.0
+Version: 4.1.2
 Summary: Dead code and security PR gate for Python, TypeScript, and Go.
 Author-email: oha <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0

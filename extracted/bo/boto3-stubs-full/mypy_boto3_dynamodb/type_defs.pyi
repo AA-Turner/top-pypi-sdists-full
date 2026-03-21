@@ -1573,6 +1573,7 @@ ReplicaDescriptionTypeDef = TypedDict(
     {
         "RegionName": NotRequired[str],
         "ReplicaStatus": NotRequired[ReplicaStatusType],
+        "ReplicaArn": NotRequired[str],
         "ReplicaStatusDescription": NotRequired[str],
         "ReplicaStatusPercentProgress": NotRequired[str],
         "KMSMasterKeyId": NotRequired[str],

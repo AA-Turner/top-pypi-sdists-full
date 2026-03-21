@@ -23,6 +23,7 @@ impl ExtractionConfig {
     /// - `KREUZBERG_CACHE_ENABLED`: Cache enabled flag ("true" or "false")
     /// - `KREUZBERG_TOKEN_REDUCTION_MODE`: Token reduction mode ("off", "light", "moderate", "aggressive", or "maximum")
     /// - `KREUZBERG_CHUNKING_TOKENIZER`: HuggingFace tokenizer model ID for token-based chunk sizing (requires `chunking-tokenizers` feature)
+    /// - `KREUZBERG_MSG_FALLBACK_CODEPAGE`: (deferred) Windows codepage for MSG PT_STRING8 fallback
     ///
     /// # Behavior
     ///
@@ -181,6 +182,67 @@ impl ExtractionConfig {
 
             if let Some(ref mut chunking) = self.chunking {
                 chunking.sizing = crate::core::config::processing::ChunkSizing::Tokenizer { model, cache_dir: None };
+            }
+        }
+
+        // KREUZBERG_LAYOUT_PRESET override
+        #[cfg(feature = "layout-detection")]
+        if let Ok(preset) = std::env::var("KREUZBERG_LAYOUT_PRESET") {
+            let lower = preset.to_lowercase();
+            if !["fast", "accurate", "yolo", "rtdetr", "rt-detr"].contains(&lower.as_str()) {
+                return Err(KreuzbergError::Validation {
+                    message: format!(
+                        "Invalid value for KREUZBERG_LAYOUT_PRESET: '{}'. Valid presets: fast, accurate",
+                        preset
+                    ),
+                    source: None,
+                });
+            }
+            if self.layout.is_none() {
+                self.layout = Some(super::super::layout::LayoutDetectionConfig::default());
+            }
+            if let Some(ref mut layout) = self.layout {
+                layout.preset = lower;
+            }
+        }
+
+        // KREUZBERG_CHUNKING_TOKENIZER override
+        #[cfg(feature = "chunking-tokenizers")]
+        if let Ok(model) = std::env::var("KREUZBERG_CHUNKING_TOKENIZER") {
+            if model.is_empty() {
+                return Err(KreuzbergError::Validation {
+                    message: "KREUZBERG_CHUNKING_TOKENIZER must not be empty".to_string(),
+                    source: None,
+                });
+            }
+
+            if self.chunking.is_none() {
+                self.chunking = Some(ChunkingConfig::default());
+            }
+
+            if let Some(ref mut chunking) = self.chunking {
+                chunking.sizing = crate::core::config::processing::ChunkSizing::Tokenizer { model, cache_dir: None };
+            }
+        }
+
+        // KREUZBERG_LAYOUT_PRESET override
+        #[cfg(feature = "layout-detection")]
+        if let Ok(preset) = std::env::var("KREUZBERG_LAYOUT_PRESET") {
+            let lower = preset.to_lowercase();
+            if !["fast", "accurate", "yolo", "rtdetr", "rt-detr"].contains(&lower.as_str()) {
+                return Err(KreuzbergError::Validation {
+                    message: format!(
+                        "Invalid value for KREUZBERG_LAYOUT_PRESET: '{}'. Valid presets: fast, accurate",
+                        preset
+                    ),
+                    source: None,
+                });
+            }
+            if self.layout.is_none() {
+                self.layout = Some(super::super::layout::LayoutDetectionConfig::default());
+            }
+            if let Some(ref mut layout) = self.layout {
+                layout.preset = lower;
             }
         }
 

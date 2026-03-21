@@ -482,3 +482,18 @@ FROM orders"""
         {"test"},
         dialect=dialect,
     )
+
+
+@pytest.mark.parametrize("dialect", ["postgres"])
+def test_create_view_with_variadic_array_function(dialect: str):
+    """Test CREATE VIEW with json_extract_path_text using VARIADIC ARRAY syntax.
+    https://www.postgresql.org/docs/current/functions-json.html
+    """
+    assert_table_lineage_equal(
+        """create or replace view v_tst as
+SELECT json_extract_path_text(tbl_tst.col, VARIADIC ARRAY['foo'::text]) AS json_extract_path_text
+   FROM tbl_tst""",
+        {"tbl_tst"},
+        {"v_tst"},
+        dialect=dialect,
+    )

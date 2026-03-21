@@ -2,6 +2,7 @@ import contextlib
 import logging
 import multiprocessing as mp
 import pickle
+import sys
 import threading
 
 from collections.abc import Callable
@@ -176,8 +177,22 @@ def _run_single(
         if blas_cores_per_worker is not None
         else contextlib.nullcontext()
     )
-    with limiter:
-        result = solver(x0=x0, progressbar=progress, progress_task=task_id, **solver_kwargs)
+    try:
+        with limiter:
+            result = solver(x0=x0, progressbar=progress, progress_task=task_id, **solver_kwargs)
+    except Exception as exc:
+        _log.warning(
+            "Run %d failed with %s: %s",
+            run_index,
+            type(exc).__name__,
+            exc,
+        )
+        result = OptimizeResult(
+            x=x0,
+            fun=np.inf,
+            success=False,
+            message=f"Solver raised {type(exc).__name__}: {exc}",
+        )
 
     result.run_index = run_index
     result.x0 = x0
@@ -249,7 +264,7 @@ class MultiStartResult:
 
         for rank, res in enumerate(display, 1):
             table.add_row(*self._format_result_row(rank, res))
-        Console().print(table)
+        Console(file=sys.stderr).print(table)
 
     def _result_to_dict(self, rank: int, res: OptimizeResult) -> dict:
         """Convert a single ``OptimizeResult`` into a flat dict for DataFrame export."""

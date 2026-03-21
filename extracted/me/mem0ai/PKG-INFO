@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mem0ai
-Version: 1.0.6
+Version: 1.0.7
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <founders@mem0.ai>
 License-Expression: Apache-2.0
@@ -25,6 +25,7 @@ Requires-Dist: langchain-community>=0.0.0; extra == 'extras'
 Requires-Dist: opensearch-py>=2.0.0; extra == 'extras'
 Requires-Dist: sentence-transformers>=5.0.0; extra == 'extras'
 Provides-Extra: graph
+Requires-Dist: apache-age-python>=0.0.6; extra == 'graph'
 Requires-Dist: kuzu>=0.11.0; extra == 'graph'
 Requires-Dist: langchain-aws>=0.2.23; extra == 'graph'
 Requires-Dist: langchain-memgraph>=0.1.0; extra == 'graph'
@@ -36,7 +37,7 @@ Requires-Dist: google-genai>=1.0.0; extra == 'llms'
 Requires-Dist: google-generativeai>=0.3.0; extra == 'llms'
 Requires-Dist: groq>=0.3.0; extra == 'llms'
 Requires-Dist: litellm>=1.74.0; extra == 'llms'
-Requires-Dist: ollama>=0.1.0; extra == 'llms'
+Requires-Dist: ollama>=0.3.0; extra == 'llms'
 Requires-Dist: openai>=1.90.0; extra == 'llms'
 Requires-Dist: together>=0.2.10; extra == 'llms'
 Requires-Dist: vertexai>=0.1.0; extra == 'llms'

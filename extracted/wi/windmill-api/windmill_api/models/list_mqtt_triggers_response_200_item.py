@@ -34,7 +34,7 @@ class ListMqttTriggersResponse200Item:
             to, each with topic name and QoS level
         path (str): The unique path identifier for this trigger
         script_path (str): Path to the script or flow to execute when triggered
-        email (str): Email of the user who owns this trigger, used for permissioned_as
+        permissioned_as (str): The user or group this trigger runs as (permissioned_as)
         extra_perms (ListMqttTriggersResponse200ItemExtraPerms): Additional permissions for this trigger
         workspace_id (str): The workspace this trigger belongs to
         edited_by (str): Username of the last person who edited this trigger
@@ -61,7 +61,7 @@ class ListMqttTriggersResponse200Item:
     subscribe_topics: List["ListMqttTriggersResponse200ItemSubscribeTopicsItem"]
     path: str
     script_path: str
-    email: str
+    permissioned_as: str
     extra_perms: "ListMqttTriggersResponse200ItemExtraPerms"
     workspace_id: str
     edited_by: str
@@ -90,7 +90,7 @@ class ListMqttTriggersResponse200Item:
 
         path = self.path
         script_path = self.script_path
-        email = self.email
+        permissioned_as = self.permissioned_as
         extra_perms = self.extra_perms.to_dict()
 
         workspace_id = self.workspace_id
@@ -136,7 +136,7 @@ class ListMqttTriggersResponse200Item:
                 "subscribe_topics": subscribe_topics,
                 "path": path,
                 "script_path": script_path,
-                "email": email,
+                "permissioned_as": permissioned_as,
                 "extra_perms": extra_perms,
                 "workspace_id": workspace_id,
                 "edited_by": edited_by,
@@ -197,7 +197,7 @@ class ListMqttTriggersResponse200Item:
 
         script_path = d.pop("script_path")
 
-        email = d.pop("email")
+        permissioned_as = d.pop("permissioned_as")
 
         extra_perms = ListMqttTriggersResponse200ItemExtraPerms.from_dict(d.pop("extra_perms"))
 
@@ -272,7 +272,7 @@ class ListMqttTriggersResponse200Item:
             subscribe_topics=subscribe_topics,
             path=path,
             script_path=script_path,
-            email=email,
+            permissioned_as=permissioned_as,
             extra_perms=extra_perms,
             workspace_id=workspace_id,
             edited_by=edited_by,

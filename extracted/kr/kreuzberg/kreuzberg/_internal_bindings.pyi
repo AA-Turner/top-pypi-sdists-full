@@ -15,12 +15,14 @@ class ResultFormat(StrEnum):
     ELEMENT_BASED = "element_based"
 
 __all__ = [
+    "AccelerationConfig",
     "AnnotationType",
     "Attributes",
     "BoundingBox",
     "Chunk",
     "ChunkMetadata",
     "ChunkingConfig",
+    "ConcurrencyConfig",
     "ContentLayer",
     "DjotContent",
     "DjotImage",
@@ -31,6 +33,7 @@ __all__ = [
     "Element",
     "ElementMetadata",
     "ElementType",
+    "EmailConfig",
     "EmbeddingConfig",
     "EmbeddingModelType",
     "EmbeddingPreset",
@@ -41,6 +44,7 @@ __all__ = [
     "ExtractedTable",
     "ExtractionConfig",
     "ExtractionResult",
+    "FileExtractionConfig",
     "Footnote",
     "FormattedBlock",
     "GridCell",
@@ -57,6 +61,7 @@ __all__ = [
     "KeywordAlgorithm",
     "KeywordConfig",
     "LanguageDetectionConfig",
+    "LayoutDetectionConfig",
     "LinkMetadata",
     "Metadata",
     "MissingDependencyError",
@@ -287,6 +292,8 @@ class PaddleOcrConfig:
     det_db_unclip_ratio: float | None
     det_limit_side_len: int | None
     rec_batch_num: int | None
+    padding: int | None
+    model_tier: str | None
     def __init__(
         self,
         *,
@@ -299,6 +306,8 @@ class PaddleOcrConfig:
         det_db_unclip_ratio: float | None = ...,
         det_limit_side_len: int | None = ...,
         rec_batch_num: int | None = ...,
+        padding: int | None = ...,
+        model_tier: str | None = ...,
     ) -> None: ...
 
 class PostProcessorProtocol(Protocol):
@@ -313,6 +322,137 @@ class ValidatorProtocol(Protocol):
     def validate(self, result: ExtractionResult) -> None: ...
     def priority(self) -> int: ...
     def should_validate(self, result: ExtractionResult) -> bool: ...
+
+class LayoutDetectionConfig:
+    """Layout detection configuration for PDF extraction.
+
+    Controls layout detection behavior using ONNX-based document layout models
+    (YOLO or RT-DETR) to detect document structure elements like tables, figures,
+    headers, and code blocks.
+
+    Requires the ``layout-detection`` feature to be compiled.
+
+    Attributes:
+        preset (str): Model preset for layout detection. ``"fast"`` uses YOLO
+            (DocLayNet, 11 classes), ``"accurate"`` uses RT-DETR (17 classes).
+            Default: ``"fast"``
+
+        confidence_threshold (float | None): Override the model's default
+            confidence threshold for detections. None uses the model default.
+            Default: None
+
+        apply_heuristics (bool): Whether to apply postprocessing heuristics
+            to improve detection quality (e.g., merging overlapping regions).
+            Default: True
+
+    Example:
+        Enable fast layout detection:
+            >>> from kreuzberg import LayoutDetectionConfig, ExtractionConfig
+            >>> config = ExtractionConfig(layout=LayoutDetectionConfig())
+
+        Use accurate model with custom threshold:
+            >>> layout = LayoutDetectionConfig(preset="accurate", confidence_threshold=0.5)
+            >>> config = ExtractionConfig(layout=layout)
+    """
+
+    preset: str
+    confidence_threshold: float | None
+    apply_heuristics: bool
+
+    def __init__(
+        self,
+        *,
+        preset: str | None = None,
+        confidence_threshold: float | None = None,
+        apply_heuristics: bool | None = None,
+    ) -> None: ...
+
+class AccelerationConfig:
+    """Hardware acceleration configuration for ONNX Runtime.
+
+    Controls which execution provider is used for ONNX model inference
+    (e.g., for layout detection or embedding models).
+
+    Attributes:
+        provider (str): Execution provider. One of ``"auto"``, ``"cpu"``,
+            ``"coreml"``, ``"cuda"``, ``"tensorrt"``. Default: ``"auto"``
+        device_id (int): GPU device ID for CUDA/TensorRT providers. Default: 0
+
+    Example:
+        Auto-select provider:
+            >>> from kreuzberg import AccelerationConfig
+            >>> config = AccelerationConfig()
+
+        Force CPU:
+            >>> config = AccelerationConfig(provider="cpu")
+
+        Use CUDA on device 1:
+            >>> config = AccelerationConfig(provider="cuda", device_id=1)
+    """
+
+    provider: str
+    device_id: int
+
+    def __init__(
+        self,
+        *,
+        provider: str | None = None,
+        device_id: int | None = None,
+    ) -> None: ...
+
+class EmailConfig:
+    """Email extraction configuration.
+
+    Controls behavior specific to MSG email extraction.
+
+    Attributes:
+        msg_fallback_codepage (int | None): Windows codepage number to use when an
+            MSG file contains no codepage property. Defaults to None, which falls
+            back to windows-1252. Common values: 1250 (Central European),
+            1251 (Cyrillic), 1252 (Western European), 1253 (Greek), 1254 (Turkish),
+            1255 (Hebrew), 1256 (Arabic), 932 (Japanese), 936 (Simplified Chinese).
+            Default: None
+
+    Example:
+        Use default (windows-1252 fallback):
+            >>> from kreuzberg import EmailConfig
+            >>> config = EmailConfig()
+
+        Force Cyrillic codepage for Russian MSG files:
+            >>> config = EmailConfig(msg_fallback_codepage=1251)
+    """
+
+    msg_fallback_codepage: int | None
+
+    def __init__(
+        self,
+        *,
+        msg_fallback_codepage: int | None = None,
+    ) -> None: ...
+
+class ConcurrencyConfig:
+    """Concurrency configuration for controlling thread usage.
+
+    Controls thread usage for constrained environments by capping all internal
+    thread pools (Rayon, ONNX Runtime intra-op) and batch concurrency.
+
+    Attributes:
+        max_threads (int | None): Maximum number of threads for all internal
+            thread pools. None = system defaults. Default: None
+
+    Example:
+        Limit to 2 threads:
+            >>> from kreuzberg import ConcurrencyConfig
+            >>> config = ConcurrencyConfig(max_threads=2)
+    """
+
+    max_threads: int | None
+
+    def __init__(
+        self,
+        *,
+        max_threads: int | None = None,
+    ) -> None: ...
 
 class ExtractionConfig:
     """Main extraction configuration for document processing.
@@ -409,6 +549,10 @@ class ExtractionConfig:
     result_format: str
     output_format: str
     include_document_structure: bool
+    layout: LayoutDetectionConfig | None
+    acceleration: AccelerationConfig | None
+    email: EmailConfig | None
+    concurrency: ConcurrencyConfig | None
 
     def __init__(
         self,
@@ -431,11 +575,61 @@ class ExtractionConfig:
         result_format: str | None = None,
         output_format: str | None = None,
         include_document_structure: bool | None = None,
+        layout: LayoutDetectionConfig | None = None,
+        acceleration: AccelerationConfig | None = None,
+        email: EmailConfig | None = None,
+        concurrency: ConcurrencyConfig | None = None,
     ) -> None: ...
     @staticmethod
     def from_file(path: str | Path) -> ExtractionConfig: ...
     @staticmethod
     def discover() -> ExtractionConfig: ...
+
+class FileExtractionConfig:
+    """Per-file extraction configuration overrides for batch processing.
+
+    All fields are optional — None means "use the batch-level default."
+    Used with batch_extract_files and batch_extract_bytes via the file_configs parameter
+    to allow heterogeneous extraction settings within a single batch.
+    """
+
+    enable_quality_processing: bool | None
+    ocr: OcrConfig | None
+    force_ocr: bool | None
+    chunking: ChunkingConfig | None
+    images: ImageExtractionConfig | None
+    pdf_options: PdfConfig | None
+    token_reduction: TokenReductionConfig | None
+    language_detection: LanguageDetectionConfig | None
+    pages: PageConfig | None
+    keywords: KeywordConfig | None
+    postprocessor: PostProcessorConfig | None
+    html_options: HtmlConversionOptions | None
+    result_format: str | None
+    output_format: str | None
+    include_document_structure: bool | None
+    layout: LayoutDetectionConfig | None
+
+    def __init__(
+        self,
+        *,
+        enable_quality_processing: bool | None = None,
+        ocr: OcrConfig | None = None,
+        force_ocr: bool | None = None,
+        chunking: ChunkingConfig | None = None,
+        images: ImageExtractionConfig | None = None,
+        pdf_options: PdfConfig | None = None,
+        token_reduction: TokenReductionConfig | None = None,
+        language_detection: LanguageDetectionConfig | None = None,
+        pages: PageConfig | None = None,
+        keywords: KeywordConfig | None = None,
+        postprocessor: PostProcessorConfig | None = None,
+        html_options: HtmlConversionOptions | None = None,
+        result_format: str | None = None,
+        output_format: str | None = None,
+        include_document_structure: bool | None = None,
+        layout: LayoutDetectionConfig | None = None,
+    ) -> None: ...
 
 class OcrConfig:
     """OCR configuration for extracting text from images.
@@ -606,19 +800,22 @@ class EmbeddingPreset:
         description (str): Human-readable description of the preset and its use cases.
 
     Example:
-        List all available embedding presets:
-            >>> from kreuzberg import list_embedding_presets, get_embedding_preset
-            >>> presets = list_embedding_presets()
-            >>> for preset_name in presets:
-            ...     preset = get_embedding_preset(preset_name)
-            ...     print(f"{preset.name}: {preset.description}")
-            ...     print(f"  Dimensions: {preset.dimensions}")
-            ...     print(f"  Chunk size: {preset.chunk_size}")
+        List all available embedding presets::
 
-        Get a specific preset:
-            >>> balanced = get_embedding_preset("balanced")
-            >>> print(f"Model: {balanced.model_name}")
-            >>> print(f"Dimensions: {balanced.dimensions}")
+            from kreuzberg import list_embedding_presets, get_embedding_preset
+
+            presets = list_embedding_presets()
+            for preset_name in presets:
+                preset = get_embedding_preset(preset_name)
+                print(f"{preset.name}: {preset.description}")
+                print(f"  Dimensions: {preset.dimensions}")
+                print(f"  Chunk size: {preset.chunk_size}")
+
+        Get a specific preset::
+
+            balanced = get_embedding_preset("balanced")
+            print(f"Model: {balanced.model_name}")
+            print(f"Dimensions: {balanced.dimensions}")
     """
 
     name: str
@@ -786,6 +983,7 @@ class PdfConfig:
     extract_annotations: bool
     top_margin_fraction: float | None
     bottom_margin_fraction: float | None
+    allow_single_column_tables: bool
 
     def __init__(
         self,
@@ -797,6 +995,7 @@ class PdfConfig:
         extract_annotations: bool | None = None,
         top_margin_fraction: float | None = None,
         bottom_margin_fraction: float | None = None,
+        allow_single_column_tables: bool | None = None,
     ) -> None: ...
 
 class HierarchyConfig:
@@ -1883,11 +2082,13 @@ def extract_bytes_sync(
 def batch_extract_files_sync(
     paths: list[str | Path | bytes],
     config: ExtractionConfig = ...,
+    file_configs: list[FileExtractionConfig | None] | None = None,
 ) -> list[ExtractionResult]: ...
 def batch_extract_bytes_sync(
     data_list: list[bytes | bytearray],
     mime_types: list[str],
     config: ExtractionConfig = ...,
+    file_configs: list[FileExtractionConfig | None] | None = None,
 ) -> list[ExtractionResult]: ...
 @overload
 async def extract_file(
@@ -1909,11 +2110,13 @@ def extract_bytes(
 def batch_extract_files(
     paths: list[str | Path | bytes],
     config: ExtractionConfig = ...,
+    file_configs: list[FileExtractionConfig | None] | None = None,
 ) -> Awaitable[list[ExtractionResult]]: ...
 def batch_extract_bytes(
     data_list: list[bytes | bytearray],
     mime_types: list[str],
     config: ExtractionConfig = ...,
+    file_configs: list[FileExtractionConfig | None] | None = None,
 ) -> Awaitable[list[ExtractionResult]]: ...
 def register_ocr_backend(backend: OcrBackendProtocol) -> None: ...
 def register_post_processor(processor: PostProcessorProtocol) -> None: ...

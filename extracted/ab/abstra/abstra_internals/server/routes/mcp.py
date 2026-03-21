@@ -33,6 +33,7 @@ def get_editor_bp(main_controller: MainController):
             main_controller.read_stage_file_with_pagination,
             main_controller.search_file_with_context,
             main_controller.create_form,
+            main_controller.create_page_stage,
             main_controller.create_hook,
             main_controller.create_job,
             main_controller.create_tasklet,

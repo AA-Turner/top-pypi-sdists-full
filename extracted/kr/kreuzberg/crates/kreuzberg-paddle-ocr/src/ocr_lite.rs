@@ -9,7 +9,7 @@ use crate::{
     crnn_net::CrnnNet,
     db_net::DbNet,
     ocr_error::OcrError,
-    ocr_result::{OcrResult, Point, TextBlock},
+    ocr_result::{OcrResult, Point, TextBlock, TextBox},
     ocr_utils::OcrUtils,
     scale_param::ScaleParam,
 };
@@ -20,6 +20,12 @@ pub struct OcrLite {
     angle_net: AngleNet,
     crnn_net: CrnnNet,
 }
+
+// SAFETY: OcrLite inference methods (&self) use unsafe pointer casts to call
+// ort Session::run, which is thread-safe at the ONNX Runtime C API level.
+// After initialization (&mut self), no mutable state is accessed during inference.
+unsafe impl Send for OcrLite {}
+unsafe impl Sync for OcrLite {}
 
 impl Default for OcrLite {
     fn default() -> Self {
@@ -104,7 +110,7 @@ impl OcrLite {
     }
 
     fn detect_base(
-        &mut self,
+        &self,
         img_src: &image::RgbImage,
         padding: u32,
         max_side_len: u32,
@@ -115,6 +121,8 @@ impl OcrLite {
         most_angle: bool,
         angle_rollback: bool,
         angle_rollback_threshold: f32,
+        cls_thresh: f32,
+        thresh: f32,
     ) -> Result<OcrResult, OcrError> {
         let origin_max_side = img_src.width().max(img_src.height());
         let mut resize;
@@ -125,6 +133,7 @@ impl OcrLite {
         }
         resize += 2 * padding;
 
+        // Cow avoids cloning the image when padding=0 (the common case).
         let padding_src = OcrUtils::make_padding(img_src, padding)?;
 
         let scale = ScaleParam::get_scale_param(&padding_src, resize);
@@ -140,6 +149,8 @@ impl OcrLite {
             most_angle,
             angle_rollback,
             angle_rollback_threshold,
+            cls_thresh,
+            thresh,
         )
     }
 
@@ -155,8 +166,12 @@ impl OcrLite {
     /// - `un_clip_ratio` - Unclip ratio
     /// - `do_angle` - Whether to perform angle detection
     /// - `most_angle` - Use most common angle for all text regions
+    const DEFAULT_CLS_THRESH: f32 = 0.9;
+    const DEFAULT_THRESH: f32 = 0.3;
+    const DEFAULT_REC_BATCH_SIZE: u32 = 6;
+
     pub fn detect(
-        &mut self,
+        &self,
         img_src: &image::RgbImage,
         padding: u32,
         max_side_len: u32,
@@ -177,6 +192,8 @@ impl OcrLite {
             most_angle,
             false,
             0.0,
+            Self::DEFAULT_CLS_THRESH,
+            Self::DEFAULT_THRESH,
         )
     }
 
@@ -197,7 +214,7 @@ impl OcrLite {
     /// - `most_angle` - Use most common angle
     /// - `angle_rollback_threshold` - If text score is below this value (or NaN), angle correction is reverted
     pub fn detect_angle_rollback(
-        &mut self,
+        &self,
         img_src: &image::RgbImage,
         padding: u32,
         max_side_len: u32,
@@ -219,11 +236,13 @@ impl OcrLite {
             most_angle,
             true,
             angle_rollback_threshold,
+            Self::DEFAULT_CLS_THRESH,
+            Self::DEFAULT_THRESH,
         )
     }
 
     pub fn detect_from_path(
-        &mut self,
+        &self,
         img_path: &str,
         padding: u32,
         max_side_len: u32,
@@ -247,8 +266,41 @@ impl OcrLite {
         )
     }
 
+    /// Sort text boxes in reading order: top-to-bottom, left-to-right.
+    ///
+    /// Uses a Y-coordinate threshold to group boxes on the same line, then sorts
+    /// left-to-right within each line. Matches PaddleOCR Python's `sorted_boxes`.
+    fn sort_text_boxes(text_boxes: &mut [TextBox]) {
+        // Primary sort: by top-left Y, then top-left X
+        text_boxes.sort_by(|a, b| {
+            let ay = a.points.first().map_or(0, |p| p.y);
+            let ax = a.points.first().map_or(0, |p| p.x);
+            let by = b.points.first().map_or(0, |p| p.y);
+            let bx = b.points.first().map_or(0, |p| p.x);
+            (ay, ax).cmp(&(by, bx))
+        });
+
+        // Bubble-sort pass: reorder boxes on the same line (within 10px Y) by X.
+        // This matches the PaddleOCR reference threshold of 10 pixels.
+        let n = text_boxes.len();
+        for i in 0..n.saturating_sub(1) {
+            for j in (0..=i).rev() {
+                let y_next = text_boxes[j + 1].points.first().map_or(0, |p| p.y) as i32;
+                let y_curr = text_boxes[j].points.first().map_or(0, |p| p.y) as i32;
+                let x_next = text_boxes[j + 1].points.first().map_or(0, |p| p.x);
+                let x_curr = text_boxes[j].points.first().map_or(0, |p| p.x);
+
+                if (y_next - y_curr).unsigned_abs() < 10 && x_next < x_curr {
+                    text_boxes.swap(j, j + 1);
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
     fn detect_once(
-        &mut self,
+        &self,
         img_src: &image::RgbImage,
         scale: &ScaleParam,
         padding: u32,
@@ -259,21 +311,28 @@ impl OcrLite {
         most_angle: bool,
         angle_rollback: bool,
         angle_rollback_threshold: f32,
+        cls_thresh: f32,
+        thresh: f32,
     ) -> Result<OcrResult, OcrError> {
-        let text_boxes = self
-            .db_net
-            .get_text_boxes(img_src, scale, box_score_thresh, box_thresh, un_clip_ratio)?;
+        let mut text_boxes =
+            self.db_net
+                .get_text_boxes(img_src, scale, box_score_thresh, box_thresh, un_clip_ratio, thresh)?;
+
+        // Sort boxes in reading order (top-to-bottom, left-to-right)
+        Self::sort_text_boxes(&mut text_boxes);
 
         let part_images = OcrUtils::get_part_images(img_src, &text_boxes);
 
-        let angles = self.angle_net.get_angles(&part_images, do_angle, most_angle)?;
+        let angles = self
+            .angle_net
+            .get_angles(&part_images, do_angle, most_angle, cls_thresh)?;
 
         let mut rotated_images: Vec<image::RgbImage> = Vec::with_capacity(part_images.len());
 
         // Angle correction rollback
         let mut angle_rollback_records = HashMap::<usize, ImageBuffer<image::Rgb<u8>, Vec<u8>>>::new();
 
-        for (index, (angle, mut part_image)) in angles.iter().zip(part_images.into_iter()).enumerate() {
+        for (index, (angle, mut part_image)) in angles.iter().zip(part_images).enumerate() {
             if angle.index == 1 {
                 if angle_rollback {
                     // Keep original copy
@@ -285,12 +344,15 @@ impl OcrLite {
             rotated_images.push(part_image);
         }
 
-        let text_lines =
-            self.crnn_net
-                .get_text_lines(&rotated_images, &angle_rollback_records, angle_rollback_threshold)?;
+        let text_lines = self.crnn_net.get_text_lines(
+            &rotated_images,
+            &angle_rollback_records,
+            angle_rollback_threshold,
+            Self::DEFAULT_REC_BATCH_SIZE,
+        )?;
 
         let mut text_blocks = Vec::with_capacity(text_lines.len());
-        for i in 0..text_lines.len() {
+        for (i, text_line) in text_lines.into_iter().enumerate() {
             text_blocks.push(TextBlock {
                 box_points: text_boxes[i]
                     .points
@@ -303,11 +365,80 @@ impl OcrLite {
                 box_score: text_boxes[i].score,
                 angle_index: angles[i].index,
                 angle_score: angles[i].score,
-                text: text_lines[i].text.clone(),
-                text_score: text_lines[i].text_score,
+                text: text_line.text,
+                text_score: text_line.text_score,
             });
         }
 
         Ok(OcrResult { text_blocks })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ocr_result::TextBox;
+
+    fn make_box(x: u32, y: u32) -> TextBox {
+        TextBox {
+            points: vec![
+                Point { x, y },
+                Point { x: x + 100, y },
+                Point { x: x + 100, y: y + 20 },
+                Point { x, y: y + 20 },
+            ],
+            score: 0.9,
+        }
+    }
+
+    #[test]
+    fn test_sort_text_boxes_top_to_bottom() {
+        let mut boxes = vec![make_box(10, 100), make_box(10, 50), make_box(10, 10)];
+        OcrLite::sort_text_boxes(&mut boxes);
+        assert_eq!(boxes[0].points[0].y, 10);
+        assert_eq!(boxes[1].points[0].y, 50);
+        assert_eq!(boxes[2].points[0].y, 100);
+    }
+
+    #[test]
+    fn test_sort_text_boxes_same_line_left_to_right() {
+        // Boxes on the same line (within 10px Y threshold) sorted by X
+        let mut boxes = vec![make_box(200, 10), make_box(100, 12), make_box(50, 8)];
+        OcrLite::sort_text_boxes(&mut boxes);
+        assert_eq!(boxes[0].points[0].x, 50);
+        assert_eq!(boxes[1].points[0].x, 100);
+        assert_eq!(boxes[2].points[0].x, 200);
+    }
+
+    #[test]
+    fn test_sort_text_boxes_multi_line() {
+        let mut boxes = vec![
+            make_box(300, 50),  // line 1, right
+            make_box(100, 100), // line 2, left
+            make_box(50, 52),   // line 1, left (within 10px of y=50)
+            make_box(200, 98),  // line 2, right (within 10px of y=100)
+        ];
+        OcrLite::sort_text_boxes(&mut boxes);
+
+        // Line 1 (y~50): left first, then right
+        assert_eq!(boxes[0].points[0].x, 50);
+        assert_eq!(boxes[1].points[0].x, 300);
+        // Line 2 (y~100): left first, then right
+        assert_eq!(boxes[2].points[0].x, 100);
+        assert_eq!(boxes[3].points[0].x, 200);
+    }
+
+    #[test]
+    fn test_sort_text_boxes_empty() {
+        let mut boxes: Vec<TextBox> = vec![];
+        OcrLite::sort_text_boxes(&mut boxes);
+        assert!(boxes.is_empty());
+    }
+
+    #[test]
+    fn test_sort_text_boxes_single() {
+        let mut boxes = vec![make_box(10, 20)];
+        OcrLite::sort_text_boxes(&mut boxes);
+        assert_eq!(boxes.len(), 1);
     }
 }

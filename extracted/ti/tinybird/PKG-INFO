@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.2.2
+Version: 4.3.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,16 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.3.1
+*******
+
+- Fixed `tb deploy --help` and `tb deployment create --help`.
+
+4.3.0
+*******
+
+- `Changed` `tb deploy --auto/--no-auto` keeps the same CLI behavior (default `--auto`) while using server-side deployment `auto_promote` under the hood when enabled.
 
 4.2.2
 *******

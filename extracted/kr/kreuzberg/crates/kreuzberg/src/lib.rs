@@ -39,6 +39,7 @@ pub mod core;
 pub mod error;
 pub mod extraction;
 pub mod extractors;
+pub mod model_cache;
 pub mod panic_context;
 pub mod plugins;
 pub mod text;
@@ -76,11 +77,25 @@ pub mod keywords;
 #[cfg(feature = "ocr")]
 pub mod ocr;
 
-#[cfg(any(feature = "paddle-ocr", feature = "embeddings"))]
+#[cfg(any(
+    feature = "paddle-ocr",
+    feature = "embeddings",
+    feature = "layout-detection",
+    feature = "auto-rotate"
+))]
 pub mod ort_discovery;
+
+#[cfg(any(feature = "paddle-ocr", feature = "layout-detection", feature = "auto-rotate"))]
+pub(crate) mod model_download;
 
 #[cfg(feature = "paddle-ocr")]
 pub mod paddle_ocr;
+
+#[cfg(feature = "auto-rotate")]
+pub mod doc_orientation;
+
+#[cfg(feature = "layout-detection")]
+pub mod layout;
 
 #[cfg(feature = "pdf")]
 pub mod pdf;
@@ -98,9 +113,9 @@ pub use core::extractor::{batch_extract_bytes_sync, extract_bytes_sync};
 pub use core::extractor::{batch_extract_file_sync, extract_file_sync};
 
 pub use core::config::{
-    ChunkSizing, ChunkerType, ChunkingConfig, EmbeddingConfig, EmbeddingModelType, ExtractionConfig,
-    ImageExtractionConfig, LanguageDetectionConfig, OcrConfig, OutputFormat, PageConfig, PostProcessorConfig,
-    TokenReductionConfig,
+    AccelerationConfig, ChunkSizing, ChunkerType, ChunkingConfig, EmailConfig, EmbeddingConfig, EmbeddingModelType,
+    ExecutionProviderType, ExtractionConfig, FileExtractionConfig, ImageExtractionConfig, LanguageDetectionConfig,
+    OcrConfig, OutputFormat, PageConfig, PostProcessorConfig, TokenReductionConfig,
 };
 
 #[cfg(feature = "api")]
@@ -111,6 +126,12 @@ pub use core::config::{HierarchyConfig, PdfConfig};
 
 #[cfg(feature = "paddle-ocr")]
 pub use paddle_ocr::{CacheStats, ModelManager, ModelPaths, PaddleLanguage, PaddleOcrBackend, PaddleOcrConfig};
+
+#[cfg(feature = "layout-detection")]
+pub use core::config::LayoutDetectionConfig;
+
+#[cfg(feature = "layout-detection")]
+pub use layout::LayoutPreset;
 
 pub use core::mime::{
     DOCX_MIME_TYPE, EXCEL_MIME_TYPE, HTML_MIME_TYPE, JSON_MIME_TYPE, MARKDOWN_MIME_TYPE, PDF_MIME_TYPE,
@@ -126,4 +147,4 @@ pub use plugins::registry::{
 };
 
 #[cfg(feature = "embeddings")]
-pub use embeddings::{EMBEDDING_PRESETS, EmbeddingPreset, get_preset, list_presets};
+pub use embeddings::{EMBEDDING_PRESETS, EmbeddingPreset, download_model, get_preset, list_presets, warm_model};

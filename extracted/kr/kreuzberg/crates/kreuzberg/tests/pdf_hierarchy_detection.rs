@@ -52,6 +52,7 @@ async fn test_full_hierarchy_extraction() {
             extract_annotations: false,
             top_margin_fraction: None,
             bottom_margin_fraction: None,
+            allow_single_column_tables: false,
         }),
         ..Default::default()
     };
@@ -167,6 +168,7 @@ async fn test_hierarchy_disabled() {
             extract_annotations: false,
             top_margin_fraction: None,
             bottom_margin_fraction: None,
+            allow_single_column_tables: false,
         }),
         ..Default::default()
     };
@@ -225,6 +227,7 @@ async fn test_hierarchy_with_explicit_disabled() {
             extract_annotations: false,
             top_margin_fraction: None,
             bottom_margin_fraction: None,
+            allow_single_column_tables: false,
         }),
         ..Default::default()
     };
@@ -284,6 +287,7 @@ async fn test_hierarchy_different_k_clusters() {
                 extract_annotations: false,
                 top_margin_fraction: None,
                 bottom_margin_fraction: None,
+                allow_single_column_tables: false,
             }),
             ..Default::default()
         };

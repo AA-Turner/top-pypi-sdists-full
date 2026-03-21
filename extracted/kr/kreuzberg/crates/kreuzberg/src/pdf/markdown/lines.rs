@@ -19,14 +19,15 @@ pub(super) fn segments_to_lines(segments: Vec<SegmentData>) -> Vec<PdfLine> {
     let mut sorted = segments;
     sorted.sort_by(|a, b| b.baseline_y.total_cmp(&a.baseline_y).then_with(|| a.x.total_cmp(&b.x)));
 
-    let mut lines: Vec<PdfLine> = Vec::new();
-    let first = sorted.remove(0);
+    let mut lines: Vec<PdfLine> = Vec::with_capacity(sorted.len() / 5 + 1);
+    let mut iter = sorted.into_iter();
+    let first = iter.next().unwrap(); // safe: checked !is_empty above
     // Fix tolerance to the first segment's font size so it doesn't shrink
     // as smaller segments (subscripts, superscripts) are added to the line.
     let mut line_tolerance_fs = first.font_size.max(1.0);
     let mut current_segments: Vec<SegmentData> = vec![first];
 
-    for seg in sorted {
+    for seg in iter {
         let current_baseline =
             current_segments.iter().map(|s| s.baseline_y).sum::<f32>() / current_segments.len() as f32;
 

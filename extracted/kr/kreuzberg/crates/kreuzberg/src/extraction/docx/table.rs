@@ -200,7 +200,7 @@ pub fn parse_table_properties(reader: &mut Reader<&[u8]>) -> TableProperties {
                 buf.clear();
             }
             Ok(Event::End(e)) => {
-                if e.local_name().as_ref() == b"tblPr" {
+                if e.local_name().as_ref() as &[u8] == b"tblPr" {
                     break;
                 }
                 buf.clear();
@@ -259,7 +259,7 @@ pub fn parse_row_properties(reader: &mut Reader<&[u8]>) -> RowProperties {
                 buf.clear();
             }
             Ok(Event::End(e)) => {
-                if e.local_name().as_ref() == b"trPr" {
+                if e.local_name().as_ref() as &[u8] == b"trPr" {
                     break;
                 }
                 buf.clear();
@@ -352,7 +352,7 @@ pub fn parse_cell_properties(reader: &mut Reader<&[u8]>) -> CellProperties {
                 buf.clear();
             }
             Ok(Event::End(e)) => {
-                if e.local_name().as_ref() == b"tcPr" {
+                if e.local_name().as_ref() as &[u8] == b"tcPr" {
                     break;
                 }
                 buf.clear();
@@ -377,7 +377,7 @@ pub fn parse_table_grid(reader: &mut Reader<&[u8]>) -> TableGrid {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
-                if e.local_name().as_ref() == b"gridCol"
+                if e.local_name().as_ref() as &[u8] == b"gridCol"
                     && let Some(width) = get_attribute_int(&e, b"w")
                 {
                     grid.columns.push(width);
@@ -385,7 +385,7 @@ pub fn parse_table_grid(reader: &mut Reader<&[u8]>) -> TableGrid {
                 buf.clear();
             }
             Ok(Event::Empty(e)) => {
-                if e.local_name().as_ref() == b"gridCol"
+                if e.local_name().as_ref() as &[u8] == b"gridCol"
                     && let Some(width) = get_attribute_int(&e, b"w")
                 {
                     grid.columns.push(width);
@@ -393,7 +393,7 @@ pub fn parse_table_grid(reader: &mut Reader<&[u8]>) -> TableGrid {
                 buf.clear();
             }
             Ok(Event::End(e)) => {
-                if e.local_name().as_ref() == b"tblGrid" {
+                if e.local_name().as_ref() as &[u8] == b"tblGrid" {
                     break;
                 }
                 buf.clear();
@@ -547,7 +547,7 @@ fn parse_table_borders(reader: &mut Reader<&[u8]>) -> TableBorders {
                 buf.clear();
             }
             Ok(Event::End(e)) => {
-                if e.local_name().as_ref() == b"tblBorders" {
+                if e.local_name().as_ref() as &[u8] == b"tblBorders" {
                     break;
                 }
                 buf.clear();
@@ -608,7 +608,7 @@ fn parse_cell_borders(reader: &mut Reader<&[u8]>) -> CellBorders {
                 buf.clear();
             }
             Ok(Event::End(e)) => {
-                if e.local_name().as_ref() == b"tcBorders" {
+                if e.local_name().as_ref() as &[u8] == b"tcBorders" {
                     break;
                 }
                 buf.clear();
@@ -669,7 +669,7 @@ fn parse_cell_margins_element(reader: &mut Reader<&[u8]>) -> CellMargins {
                 buf.clear();
             }
             Ok(Event::End(e)) => {
-                if e.local_name().as_ref() == b"tblCellMar" || e.local_name().as_ref() == b"tcMar" {
+                if e.local_name().as_ref() as &[u8] == b"tblCellMar" || e.local_name().as_ref() as &[u8] == b"tcMar" {
                     break;
                 }
                 buf.clear();
@@ -689,7 +689,7 @@ fn parse_cell_margins_element(reader: &mut Reader<&[u8]>) -> CellMargins {
 fn get_attribute(e: &BytesStart, key: &[u8]) -> Option<String> {
     e.attributes()
         .flatten()
-        .find(|attr| attr.key.local_name().as_ref() == key)
+        .find(|attr| attr.key.local_name().as_ref() as &[u8] == key)
         .and_then(|attr| {
             let raw = std::str::from_utf8(&attr.value).ok()?;
             quick_xml::escape::unescape(raw).ok().map(|s| s.into_owned())

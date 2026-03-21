@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gitman
-Version: 3.8
+Version: 3.8.1
 Summary: A language-agnostic dependency manager using Git.
 License: MIT
 License-File: LICENSE.md

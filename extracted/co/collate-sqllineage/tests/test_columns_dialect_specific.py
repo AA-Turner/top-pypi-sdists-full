@@ -2,6 +2,8 @@
 This test module contains column lineage tests for dialect-specific queries.
 """
 
+import pytest
+
 from .helpers import TestColumnQualifierTuple, assert_column_lineage_equal
 
 
@@ -135,4 +137,25 @@ FROM `test_database`.`sales_b` `b`"""
             ),
         ],
         dialect="mysql",
+    )
+
+
+@pytest.mark.parametrize("dialect", ["postgres"])
+def test_create_view_with_variadic_array_function_column_lineage(dialect: str):
+    """Test column lineage for CREATE VIEW with json_extract_path_text using VARIADIC ARRAY.
+    https://www.postgresql.org/docs/current/functions-json.html
+    """
+    assert_column_lineage_equal(
+        """create or replace view v_tst as
+SELECT json_extract_path_text(tbl_tst.col, VARIADIC ARRAY['foo'::text]) AS json_extract_path_text
+   FROM tbl_tst""",
+        [
+            (
+                TestColumnQualifierTuple("col", "tbl_tst"),
+                TestColumnQualifierTuple("json_extract_path_text", "v_tst"),
+            ),
+        ],
+        dialect=dialect,
+        # SqlParse doesn't recognize VARIADIC as a keyword, treating it as a column name
+        test_sqlparse=False,
     )

@@ -33,7 +33,7 @@ geo-types = "0.7"
 geo-clipper = "0.9"
 
 [features]
-default = ["load-dynamic"]
+default = []
 load-dynamic = ["ort/load-dynamic"]
 
 [package.metadata.docs.rs]

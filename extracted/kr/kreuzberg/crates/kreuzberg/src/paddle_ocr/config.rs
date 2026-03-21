@@ -67,6 +67,17 @@ pub struct PaddleOcrConfig {
     /// Padding in pixels added around the image before detection (default: 10).
     /// Large values can include surrounding content like table gridlines.
     pub padding: u32,
+
+    /// Minimum recognition confidence score for text lines (default: 0.5).
+    /// Text regions with recognition confidence below this threshold are discarded.
+    /// Matches PaddleOCR Python's `drop_score` parameter.
+    /// Range: 0.0-1.0
+    pub drop_score: f32,
+
+    /// Model tier controlling detection/recognition model size and accuracy trade-off.
+    /// - `"mobile"` (default): Lightweight models (~4.5MB detection, ~16.5MB recognition), fast download and inference
+    /// - `"server"`: Large, high-accuracy models (~88MB detection, ~84MB recognition), best for GPU or complex documents
+    pub model_tier: String,
 }
 
 impl PaddleOcrConfig {
@@ -95,6 +106,8 @@ impl PaddleOcrConfig {
             det_limit_side_len: 960,
             rec_batch_num: 6,
             padding: 10,
+            drop_score: 0.5,
+            model_tier: "mobile".to_string(), // mobile is the default: fast, ~13MB total download
         }
     }
 
@@ -197,6 +210,16 @@ impl PaddleOcrConfig {
         self
     }
 
+    /// Sets the minimum recognition confidence threshold.
+    ///
+    /// # Arguments
+    ///
+    /// * `score` - Minimum confidence (0.0-1.0), text below this is dropped
+    pub fn with_drop_score(mut self, score: f32) -> Self {
+        self.drop_score = score.clamp(0.0, 1.0);
+        self
+    }
+
     /// Sets padding in pixels added around images before detection.
     ///
     /// # Arguments
@@ -204,6 +227,16 @@ impl PaddleOcrConfig {
     /// * `padding` - Padding in pixels (0-100)
     pub fn with_padding(mut self, padding: u32) -> Self {
         self.padding = padding.clamp(0, 100);
+        self
+    }
+
+    /// Sets the model tier controlling detection/recognition model size.
+    ///
+    /// # Arguments
+    ///
+    /// * `tier` - `"mobile"` (default, lightweight, faster) or `"server"` (high accuracy, GPU/complex documents)
+    pub fn with_model_tier(mut self, tier: impl Into<String>) -> Self {
+        self.model_tier = tier.into();
         self
     }
 
@@ -402,6 +435,7 @@ mod tests {
         assert!(!config.use_angle_cls);
         assert!(!config.enable_table_detection);
         assert_eq!(config.padding, 10);
+        assert_eq!(config.model_tier, "mobile");
     }
 
     #[test]
@@ -414,6 +448,7 @@ mod tests {
         assert_eq!(config.det_limit_side_len, 960);
         assert_eq!(config.rec_batch_num, 6);
         assert_eq!(config.padding, 10);
+        assert_eq!(config.model_tier, "mobile");
     }
 
     #[test]
@@ -518,5 +553,30 @@ mod tests {
         assert_eq!(deserialized.language, config.language);
         assert_eq!(deserialized.enable_table_detection, config.enable_table_detection);
         assert_eq!(deserialized.use_angle_cls, config.use_angle_cls);
+        assert_eq!(deserialized.model_tier, config.model_tier);
+    }
+
+    #[test]
+    fn test_model_tier_builder() {
+        let config = PaddleOcrConfig::new("en").with_model_tier("server");
+        assert_eq!(config.model_tier, "server");
+    }
+
+    #[test]
+    fn test_model_tier_serde_roundtrip() {
+        let config = PaddleOcrConfig::new("ch").with_model_tier("server");
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"model_tier\":\"server\""));
+
+        let deserialized: PaddleOcrConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.model_tier, "server");
+    }
+
+    #[test]
+    fn test_model_tier_backward_compat() {
+        // JSON without model_tier should deserialize to default "mobile"
+        let json = r#"{"language":"en","det_db_thresh":0.3}"#;
+        let config: PaddleOcrConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.model_tier, "mobile");
     }
 }

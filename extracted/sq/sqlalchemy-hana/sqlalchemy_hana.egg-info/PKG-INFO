@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-hana
-Version: 4.3.0
+Version: 4.4.0
 Summary: SQLAlchemy dialect for SAP HANA
 Author-email: Christoph Heer <christoph.heer@sap.com>
 Maintainer-email: Christoph Heer <christoph.heer@sap.com>, Kai Harder <kai.harder@sap.com>
@@ -29,6 +29,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: sqlalchemy<3,>=2
 Requires-Dist: hdbcli~=2.10
+Requires-Dist: typing_extensions~=4.15
 Provides-Extra: alembic
 Requires-Dist: alembic~=1.12; extra == "alembic"
 Dynamic: license-file

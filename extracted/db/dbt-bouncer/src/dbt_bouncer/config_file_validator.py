@@ -6,14 +6,18 @@ from collections.abc import Mapping
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any
 
-import click
+import jellyfish
+import typer
 import yaml
 from pydantic import ValidationError
 
+from dbt_bouncer.enums import ConfigFileName
 from dbt_bouncer.utils import compile_pattern, get_check_registry, load_config_from_yaml
 
 if TYPE_CHECKING:
     from dbt_bouncer.config_file_parser import DbtBouncerConfBase
+
+_rebuilt_classes: set[int] = set()
 
 DEFAULT_DBT_BOUNCER_CONFIG = """manifest_checks:
   - name: check_model_directories
@@ -37,7 +41,8 @@ def get_config_file_path(
     1. The file passed via the `--config-file` CLI flag.
     2. The file passed via the `DBT_BOUNCER_CONFIG_FILE` environment variable.
     3. A file named `dbt-bouncer.yml` in the current working directory.
-    4. A `[tool.dbt-bouncer]` section in `pyproject.toml` (in current working directory or parent directories).
+    4. A file named `dbt-bouncer.toml` in the current working directory.
+    5. A `[tool.dbt-bouncer]` section in `pyproject.toml` (in current working directory or parent directories).
 
     Returns:
         PurePath: Config file for dbt-bouncer.
@@ -51,6 +56,9 @@ def get_config_file_path(
 
     if config_file_source == "COMMANDLINE":
         logging.debug(f"Config file passed via command line: {config_file}")
+        config_file_path = Path(config_file)
+        if not config_file_path.exists():
+            raise RuntimeError(f"Config file not found: {config_file}")
         return config_file
 
     if config_file_path_via_env_var := os.getenv("DBT_BOUNCER_CONFIG_FILE"):
@@ -65,16 +73,22 @@ def get_config_file_path(
         if config_file_path.exists():
             return config_file_path
 
+    # Check for dbt-bouncer.toml in the current working directory
+    toml_config_path = Path.cwd() / ConfigFileName.DBT_BOUNCER_TOML
+    if toml_config_path.exists():
+        logging.debug(f"Found dbt-bouncer.toml: {toml_config_path}")
+        return toml_config_path
+
     # Read config from pyproject.toml
-    logging.info("Loading config from pyproject.toml, if exists...")
-    if (Path().cwd() / "pyproject.toml").exists():
+    logging.debug("Loading config from pyproject.toml, if exists...")
+    if (Path().cwd() / ConfigFileName.PYPROJECT_TOML).exists():
         pyproject_toml_dir = Path().cwd()
     else:
-        pyproject_toml_dir = next(  # type: ignore[assignment]
+        pyproject_toml_dir = next(
             (
                 parent
                 for parent in Path().cwd().parents
-                if (parent / "pyproject.toml").exists()
+                if (parent / ConfigFileName.PYPROJECT_TOML).exists()
             ),
             None,
         )  # i.e. look in parent directories for a pyproject.toml file
@@ -82,10 +96,10 @@ def get_config_file_path(
         if pyproject_toml_dir is None:
             logging.debug("No pyproject.toml found.")
             raise RuntimeError(
-                "No pyproject.toml found. Please ensure you have a pyproject.toml file in the root of your project correctly configured to work with `dbt-bouncer`. Alternatively, you can pass the path to your config file via the `--config-file` flag.",
+                "No config file found. Please provide a `dbt-bouncer.yml`, `dbt-bouncer.toml`, or a `pyproject.toml` with a `[tool.dbt-bouncer]` section. Alternatively, pass the path via the `--config-file` flag.",
             )
 
-    return pyproject_toml_dir / "pyproject.toml"
+    return pyproject_toml_dir / ConfigFileName.PYPROJECT_TOML
 
 
 def load_config_file_contents(
@@ -111,23 +125,31 @@ def load_config_file_contents(
         case ".toml":
             with Path(config_file_path).open("rb") as f:
                 toml_cfg = tomllib.load(f)
-            if "dbt-bouncer" in toml_cfg["tool"]:
+
+            # dbt-bouncer.toml: config is at the top level
+            if config_file_path.name == ConfigFileName.DBT_BOUNCER_TOML:
+                return toml_cfg
+
+            # pyproject.toml: config is under [tool.dbt-bouncer]
+            if toml_cfg.get("tool", {}).get("dbt-bouncer"):
                 return toml_cfg["tool"]["dbt-bouncer"]
             else:
                 logging.warning(
-                    "Cannot find a `dbt-bouncer.yml` file or a `dbt-bouncer` section found in pyproject.toml."
+                    "Cannot find a `dbt-bouncer.yml` file, `dbt-bouncer.toml` file, or a `[tool.dbt-bouncer]` section in pyproject.toml."
                 )
                 if (
                     allow_default_config_file_creation is True
                     and os.getenv("CREATE_DBT_BOUNCER_CONFIG_FILE") != "false"
                     and (
                         os.getenv("CREATE_DBT_BOUNCER_CONFIG_FILE") == "true"
-                        or click.confirm(
+                        or typer.confirm(
                             "Do you want `dbt-bouncer` to create a `dbt-bouncer.yml` file in the current directory?"
                         )
                     )
                 ):
-                    created_config_file = Path.cwd().joinpath("dbt-bouncer.yml")
+                    created_config_file = Path.cwd().joinpath(
+                        ConfigFileName.DBT_BOUNCER_YML
+                    )
                     created_config_file.touch()
                     logging.info(
                         "A `dbt-bouncer.yml` file has been created in the current directory with default settings."
@@ -139,11 +161,11 @@ def load_config_file_contents(
 
                 else:
                     raise RuntimeError(
-                        "No configuration for `dbt-bouncer` could be found. You can pass the path to your config file via the `--config-file` flag. Alternatively, your pyproject.toml file can be configured to work with `dbt-bouncer`.",
+                        "No configuration for `dbt-bouncer` could be found. You can pass the path to your config file via the `--config-file` flag. Alternatively, configure `pyproject.toml` or use a `dbt-bouncer.toml` file.",
                     )
         case _:
             raise RuntimeError(
-                f"Config file must be either a `pyproject.toml`, `.yaml` or `.yml` file. Got {config_file_path.suffix}."
+                f"Config file must be a `.toml`, `.yaml`, or `.yml` file. Got {config_file_path.suffix}."
             )
 
 
@@ -164,10 +186,7 @@ def lint_config_file(config_file_path: Path) -> list[dict[str, Any]]:
 
     try:
         content = config_file_path.read_text()
-        try:
-            data = yaml.load(content, Loader=yaml.CSafeLoader)
-        except AttributeError:
-            data = yaml.safe_load(content)
+        data = yaml.load(content, Loader=yaml.CSafeLoader)  # type: ignore[possibly-missing-attribute]
     except yaml.YAMLError as e:
         problem_mark = getattr(e, "problem_mark", None)
         if problem_mark:
@@ -187,7 +206,15 @@ def lint_config_file(config_file_path: Path) -> list[dict[str, Any]]:
                 }
             )
         return issues
-    except Exception:
+    except Exception as e:
+        logging.warning(f"Unexpected error during config parsing: {e}")
+        issues.append(
+            {
+                "line": 1,
+                "message": f"Unexpected error during config parsing: {e}",
+                "severity": "error",
+            }
+        )
         return issues
 
     if not data:
@@ -200,6 +227,7 @@ def lint_config_file(config_file_path: Path) -> list[dict[str, Any]]:
         )
         return issues
 
+    registry = get_check_registry()
     valid_categories = {"manifest_checks", "catalog_checks", "run_results_checks"}
     for category in valid_categories:
         if category in data:
@@ -233,8 +261,41 @@ def lint_config_file(config_file_path: Path) -> list[dict[str, Any]]:
                             "severity": "error",
                         }
                     )
+                    continue  # Cannot validate the name if it's absent
+
+                check_name = check["name"]
+                if check_name not in registry:
+                    best_match = min(
+                        registry.keys(),
+                        key=lambda k: jellyfish.levenshtein_distance(k, check_name),
+                        default=None,
+                    )
+                    suggestion = f" Did you mean '{best_match}'?" if best_match else ""
+                    issues.append(
+                        {
+                            "line": idx + 1,
+                            "message": f"Unknown check name '{check_name}'.{suggestion}",
+                            "severity": "error",
+                        }
+                    )
 
     return issues
+
+
+def _get_stub_namespace() -> dict[str, Any]:
+    """Return a lightweight namespace for Pydantic model_rebuild() during config validation.
+
+    ``NestedDict`` is the only forward reference used in check field annotations
+    that must resolve to a real class. All artifact wrapper types now use ``Any``
+    directly in ``BaseCheck``, so no stubs are needed for them.
+
+    Returns:
+        dict[str, Any]: Namespace mapping type names for ``model_rebuild()``.
+
+    """
+    from dbt_bouncer.checks.common import NestedDict
+
+    return {"NestedDict": NestedDict}
 
 
 def validate_conf(
@@ -244,74 +305,58 @@ def validate_conf(
 ) -> "DbtBouncerConfBase":
     """Validate the configuration and return the Pydantic model.
 
-    Raises:
-        RuntimeError: If the configuration is invalid.
-
     Returns:
         DbtBouncerConf: The validated configuration.
+
+    Raises:
+        RuntimeError: If the configuration is invalid.
 
     """
     logging.info("Validating conf...")
 
-    # Import all types needed by DbtBouncerConf before model_rebuild().
-    # Since the class has fields for all check categories, all referenced
-    # types must be importable regardless of which categories are in the config.
-    import warnings
+    # Extract check names from config to enable targeted module loading.
+    configured_check_names: set[str] = set()
+    for cat in check_categories:
+        for entry in config_file_contents.get(cat, []):
+            if isinstance(entry, dict) and "name" in entry:
+                configured_check_names.add(entry["name"])
 
-    from dbt_bouncer.checks.common import NestedDict  # noqa: F401
+    if configured_check_names:
+        # Fast path: import only modules containing the configured checks.
+        from dbt_bouncer.config_file_parser import _create_conf_class
+        from dbt_bouncer.utils import get_check_objects_for_names
 
-    if "catalog_checks" in check_categories:
-        import dbt_bouncer.checks.catalog
-    if "manifest_checks" in check_categories:
-        import dbt_bouncer.checks.manifest
-    if "run_results_checks" in check_categories:
-        import dbt_bouncer.checks.run_results  # noqa: F401
-
-    from dbt_bouncer.artifact_parsers.dbt_cloud.manifest_latest import (
-        Exposures,  # noqa: F401
-        Macros,  # noqa: F401
-        UnitTests,  # noqa: F401
-    )
-    from dbt_bouncer.artifact_parsers.parsers_catalog import (  # noqa: F401
-        DbtBouncerCatalogNode,
-    )
-    from dbt_bouncer.artifact_parsers.parsers_manifest import (  # noqa: F401
-        DbtBouncerExposureBase,
-        DbtBouncerManifest,
-        DbtBouncerModel,
-        DbtBouncerModelBase,
-        DbtBouncerSeed,
-        DbtBouncerSeedBase,
-        DbtBouncerSemanticModel,
-        DbtBouncerSemanticModelBase,
-        DbtBouncerSnapshot,
-        DbtBouncerSnapshotBase,
-        DbtBouncerSource,
-        DbtBouncerSourceBase,
-        DbtBouncerTest,
-        DbtBouncerTestBase,
-    )
-    from dbt_bouncer.artifact_parsers.parsers_run_results import (  # noqa: F401
-        DbtBouncerRunResult,
-        DbtBouncerRunResultBase,
-    )
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=UserWarning)
-        from dbt_artifacts_parser.parsers.catalog.catalog_v1 import (
-            Nodes as CatalogNodes,  # noqa: F401
+        check_objects = get_check_objects_for_names(
+            frozenset(configured_check_names),
+            custom_checks_dir=custom_checks_dir,
         )
+        DbtBouncerConf = _create_conf_class(  # noqa: N806
+            custom_checks_dir=custom_checks_dir,
+            check_categories=frozenset(check_categories),
+            check_objects=check_objects,
+        )
+    else:
+        # Fallback: no check names to extract, use full scan.
+        if "catalog_checks" in check_categories:
+            import dbt_bouncer.checks.catalog
+        if "manifest_checks" in check_categories:
+            import dbt_bouncer.checks.manifest
+        if "run_results_checks" in check_categories:
+            import dbt_bouncer.checks.run_results  # noqa: F401
 
-    from dbt_bouncer.config_file_parser import create_bouncer_conf_class
+        from dbt_bouncer.config_file_parser import create_bouncer_conf_class
 
-    DbtBouncerConf = create_bouncer_conf_class(custom_checks_dir=custom_checks_dir)  # noqa: N806
-    DbtBouncerConf.model_rebuild()
+        DbtBouncerConf = create_bouncer_conf_class(  # noqa: N806
+            custom_checks_dir=custom_checks_dir,
+            check_categories=frozenset(check_categories),
+        )
+    if id(DbtBouncerConf) not in _rebuilt_classes:
+        DbtBouncerConf.model_rebuild(_types_namespace=_get_stub_namespace())
+        _rebuilt_classes.add(id(DbtBouncerConf))
 
     try:
         return DbtBouncerConf(**config_file_contents)
     except ValidationError as e:
-        import jellyfish
-
         accepted_names = list(get_check_registry(custom_checks_dir).keys())
         error_message: list[str] = []
         for error in e.errors():

@@ -3,8 +3,9 @@
 use base64::prelude::*;
 use std::borrow::Cow;
 use crate::{
-    ExtractionConfig, batch_extract_file, extract_bytes, extract_file,
-    mcp::errors::map_kreuzberg_error_to_mcp, mcp::format::{build_config, format_extraction_result},
+    ExtractionConfig, FileExtractionConfig, batch_extract_file, extract_bytes,
+    extract_file, mcp::errors::map_kreuzberg_error_to_mcp,
+    mcp::format::{build_config, format_extraction_result},
     mcp::params::{BatchExtractFilesParams, ExtractBytesParams, ExtractFileParams},
 };
 use rmcp::{
@@ -99,7 +100,41 @@ pub(in crate::mcp) trait ExtractionTool {
             pdf_opts.passwords.get_or_insert_with(Vec::new).push(pwd.clone());
         }
 
-        let results = batch_extract_file(params.paths.clone(), &config)
+        let items: Vec<(std::path::PathBuf, Option<FileExtractionConfig>)> = if let Some(file_configs) = params.file_configs {
+            // Validate length matches paths
+            if file_configs.len() != params.paths.len() {
+                return Err(McpError::invalid_params(
+                    format!(
+                        "file_configs length ({}) must match paths length ({})",
+                        file_configs.len(),
+                        params.paths.len()
+                    ),
+                    None,
+                ));
+            }
+
+            params
+                .paths
+                .iter()
+                .zip(file_configs.into_iter())
+                .map(|(path, fc)| {
+                    let file_config = fc
+                        .map(|v| serde_json::from_value::<FileExtractionConfig>(v))
+                        .transpose()
+                        .map_err(|e| {
+                            McpError::invalid_params(
+                                format!("Failed to parse file config: {}", e),
+                                None,
+                            )
+                        })?;
+                    Ok((std::path::PathBuf::from(path), file_config))
+                })
+                .collect::<Result<Vec<_>, McpError>>()?
+        } else {
+            params.paths.iter().map(|p| (std::path::PathBuf::from(p), None)).collect()
+        };
+
+        let results = batch_extract_file(items, &config)
             .await
             .map_err(map_kreuzberg_error_to_mcp)?;
 
@@ -289,7 +324,8 @@ mod tests {
             paths: vec![get_test_path("pdf/tiny.pdf").to_string()],
             config: None,
             pdf_password: None,
-                    };
+            file_configs: None,
+        };
 
         let result = server.batch_extract_files(Parameters(params)).await;
 
@@ -315,7 +351,8 @@ mod tests {
             paths: vec![],
             config: None,
             pdf_password: None,
-                    };
+            file_configs: None,
+        };
 
         let result = server.batch_extract_files(Parameters(params)).await;
 
@@ -370,7 +407,9 @@ mod tests {
             let params = BatchExtractFilesParams {
                 paths: vec![file1.to_string(), file2.to_string()],
                 config: None,
-                            };
+                pdf_password: None,
+                file_configs: None,
+            };
 
             let result = server.batch_extract_files(Parameters(params)).await;
 

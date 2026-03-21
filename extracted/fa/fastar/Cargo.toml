@@ -1,6 +1,6 @@
 [package]
 name = "fastar"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 readme = "README.md"
 
@@ -11,6 +11,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 flate2 = "1.1.4"
-pyo3 = "0.25.0"
+pyo3 = "0.28.2"
 tar = "0.4.44"
 zstd = "0.13.3"

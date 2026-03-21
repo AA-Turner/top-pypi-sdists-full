@@ -69,7 +69,7 @@ class UsesCudaMutex(Enum):
 
 
 class Preprocess(Expr):
-    """Base clase for preprocessing steps."""
+    """Base class for preprocessing steps."""
     def __init__(self, column: str | SpecialColumn | None):
         self.column = column
 
@@ -1782,14 +1782,17 @@ class mode(Reduction):
         return dshape(Option(ct.float64))
 
     @staticmethod
-    def _append(x, y, agg):
+    @ngjit
+    def _append(x, y, agg, field):
         raise NotImplementedError("mode is currently implemented only for rasters")
 
     @staticmethod
+    @ngjit
     def _combine(aggs):
         raise NotImplementedError("mode is currently implemented only for rasters")
 
     @staticmethod
+    @ngjit
     def _finalize(bases, **kwargs):
         raise NotImplementedError("mode is currently implemented only for rasters")
 

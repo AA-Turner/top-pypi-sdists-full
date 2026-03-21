@@ -4,10 +4,15 @@ from toolz import memoize
 import numpy as np
 
 from datashader.glyphs.glyph import Glyph
-from datashader.resampling import infer_interval_breaks
+from datashader.resampling import infer_interval_breaks, infer_interval_breaks_2d
 from datashader.utils import isreal, ngjit, ngjit_parallel
 import numba
 from numba import cuda, prange
+
+try:
+    import dask.array as dask_array
+except ImportError:
+    dask_array = None
 
 try:
     import cupy
@@ -15,6 +20,156 @@ try:
 except Exception:
     cupy = None
     cuda_args = None
+
+
+def _inner_make_3d_func_from_2d(*, n_arrays, func, prefix_idx):
+    # Generate the 3D function source
+    prefix_str = ', '.join([f"pre{i}" for i in range(prefix_idx)])
+    arrays_str = ', '.join([f"arr{i}" for i in range(n_arrays)])
+    array_idx_str = ', '.join([f"arr{i}[z]" for i in range(n_arrays)])
+    func_source = f"""\
+def func_3d({prefix_str}, nz, {arrays_str}):
+    for z in prange(nz):
+        func({prefix_str}, {array_idx_str})"""
+
+    # Compile the function
+    local_vars = {'prange': prange, 'func': func}
+    exec(func_source, local_vars)
+    return local_vars["func_3d"]
+
+
+def _make_3d_from_2d(func, prefix_idx, parallel=True):
+    """
+    Factory function that generates cached 3D wrappers from 2D quadmesh functions.
+
+    This helper eliminates boilerplate by automatically generating 3D wrapper functions
+    that loop over the z-dimension (bands) and call a 2D function for each slice. It
+    replaces ~10 lines of repetitive code per factory with a single function call.
+
+    For example, if func is extend_cpu(xs, ys, shape, *aggs_and_cols) then prefix_idx is 3:
+
+        @ngjit_parallel
+        def func_3d(arg0, arg1, arg2, nz, arr0, arr1, arr2):
+            for z in prange(nz):
+                func(arg0, arg1, arg2, arr0[z], arr1[z], arr2[z])
+
+    Parameters
+    ----------
+    func : callable
+        The 2D function to wrap. Should accept (prefix_params..., *aggs_and_cols).
+        May be decorated by @ngjit and @expand_aggs_and_cols.
+    prefix_idx : int
+        These are the parameters that come before *aggs_and_cols.
+        Example:
+        - extend_cpu(xs, ys, shape, *aggs_and_cols) -> prefix_idx=3
+    parallel : bool, optional
+        Whether to use parallel execution over z-dimension (default True).
+
+    Returns
+    -------
+    callable
+        A factory function factory_3d(n_arrays) that returns cached compiled 3D wrappers.
+        The factory maintains an internal cache keyed by n_arrays.
+
+    """
+    cache = {}
+    decorator = ngjit_parallel if parallel else ngjit
+
+    def factory_3d(n_arrays):
+        if n_arrays not in cache:
+            func_3d = _inner_make_3d_func_from_2d(
+                n_arrays=n_arrays,
+                func=func,
+                prefix_idx=prefix_idx
+            )
+            cache[n_arrays] = decorator(func_3d)
+        return cache[n_arrays]
+    return factory_3d
+
+
+
+class _CUDAStreamPool:
+    def __init__(self, max_streams=5):
+        # max_streams chosen based on https://forums.developer.nvidia.com/t/how-many-streams-maximum-number-of-streams/6571/4
+        self.streams = [cuda.stream() for _ in range(max_streams)]
+
+    def get_streams(self, n_required):
+        """Get streams for n_required parallel executions."""
+        return self.streams[:min(n_required, len(self.streams))]
+
+
+_cuda_stream_pool = None
+
+
+def _make_3d_from_2d_cuda(kernel_2d, prefix_idx):
+    """
+    Factory function that creates 3D CUDA wrappers using parallel streams.
+
+    This is the GPU equivalent of _make_3d_from_2d, creating wrappers that launch
+    2D CUDA kernels in parallel streams for each z-slice. This achieves true
+    parallelism on GPU, similar to how prange provides parallelism on CPU.
+
+    Parameters
+    ----------
+    kernel_2d : cuda kernel
+        The 2D CUDA kernel to wrap (e.g., upsample_cuda, extend_cuda).
+        Must be a @cuda.jit decorated function.
+    prefix_idx : int
+        Number of arguments before nz and arrays.
+        Example: For raster (src_w, src_h, ..., out_h, nz, agg, col) -> prefix_idx=10
+
+    Returns
+    -------
+    callable
+        A factory function factory_3d(grid_shape) that returns a wrapper function
+        for launching kernels in parallel streams.
+    """
+
+    def factory_3d(grid_shape):
+        """
+        Factory that takes grid_shape and returns the 3D wrapper.
+
+        Parameters
+        ----------
+        grid_shape : tuple
+            (width, height) tuple for cuda_args grid computation.
+
+        Returns
+        -------
+        callable
+            Wrapper function that launches 2D kernel in parallel streams for each z-slice.
+        """
+        # Global stream pool for parallel 3D CUDA kernel launches
+        global _cuda_stream_pool
+        if _cuda_stream_pool is None:
+            _cuda_stream_pool = _CUDAStreamPool()
+
+        def wrapper(*args):
+            # Split args: prefix, nz, arrays
+            prefix_args = args[:prefix_idx]
+            nz = args[prefix_idx]
+            arrays = args[prefix_idx + 1:]
+
+            # Get grid configuration (blocks, threads_per_block)
+            grid_config = cuda_args(grid_shape)
+
+            # Get streams for parallelization
+            streams = _cuda_stream_pool.get_streams(nz)
+
+            # Launch in parallel streams
+            for z in range(nz):
+                stream_idx = z % len(streams)
+                z_arrays = tuple(arr[z] if arr.ndim == 3 else arr for arr in arrays)
+                # In Numba CUDA, pass stream as third element in kernel launcher config
+                kernel = kernel_2d[(*grid_config, streams[stream_idx])]
+                kernel(*prefix_args, *z_arrays)
+
+            # Synchronize all used streams
+            cuda.synchronize()
+
+        return wrapper
+
+    return factory_3d
 
 
 def _cuda_mapper(mapper):
@@ -62,6 +217,25 @@ class _QuadMeshLike(Glyph):
     @property
     def y_label(self):
         return self.y
+
+    @staticmethod
+    def _get_shape_info(aggs):
+        """
+        Get shape info, handling both 2D and 3D cases.
+
+        Returns
+        -------
+        tuple
+            (is_3d, nz, plot_height, plot_width)
+            For 2D: (False, None, height, width)
+            For 3D: (True, nz, height, width)
+        """
+        if aggs[0].ndim == 3:
+            nz, plot_height, plot_width = aggs[0].shape
+            return True, nz, plot_height, plot_width
+        else:
+            plot_height, plot_width = aggs[0].shape
+            return False, None, plot_height, plot_width
 
 
 class QuadMeshRectilinear(_QuadMeshLike):
@@ -150,6 +324,9 @@ class QuadMeshRectilinear(_QuadMeshLike):
                 for j in range(len(ys) - 1):
                     perform_extend(i, j, xs, ys, shape, *aggs_and_cols)
 
+        extend_cpu_3d = _make_3d_from_2d(extend_cpu, 3)
+        extend_cuda_3d = _make_3d_from_2d_cuda(extend_cuda, 3)
+
         def extend(aggs, xr_ds, vt, bounds, x_breaks=None, y_breaks=None):
             from datashader.core import LinearAxis
             use_cuda = cupy and isinstance(xr_ds[name].data, cupy.ndarray)
@@ -164,58 +341,101 @@ class QuadMeshRectilinear(_QuadMeshLike):
 
             # Convert from bin centers to interval edges
             if x_breaks is None:
-                x_centers = xr_ds[x_name].values
                 if use_cuda:
-                    x_centers = cupy.array(x_centers)
+                    x_centers = cupy.array(xr_ds[x_name].data)
+                else:
+                    x_centers = xr_ds[x_name].values
                 x_breaks = self.infer_interval_breaks(x_centers)
+            else:
+                # The copy is necessary given that dask_xarray calculates x_breaks once
+                # for the whole array, and then passes slices of that
+                # array in for each chunk. We use in-place ops below,
+                # so make a copy here first.
+                x_breaks = x_breaks.copy()
 
             if y_breaks is None:
-                y_centers = xr_ds[y_name].values
                 if use_cuda:
-                    y_centers = cupy.array(y_centers)
+                    y_centers = cupy.array(xr_ds[y_name].data)
+                else:
+                    y_centers = xr_ds[y_name].values
                 y_breaks = self.infer_interval_breaks(y_centers)
+            else:
+                # The copy is necessary given that dask_xarray calculates y_breaks once
+                # for the whole array, and then passes slices of that
+                # array in for each chunk. We use in-place ops below,
+                # so make a copy here first.
+                y_breaks = y_breaks.copy()
 
             x0, x1, y0, y1 = bounds
             xspan = x1 - x0
             yspan = y1 - y0
 
             if x_mapper is LinearAxis.mapper:
-                xscaled = (x_breaks - x0) / xspan
+                xscaled = x_breaks
             else:
-                xscaled = (x_mapper2(x_breaks) - x0) / xspan
+                xscaled = x_mapper2(x_breaks)
+            xscaled -= x0
+            xscaled /= xspan
 
             if y_mapper is LinearAxis.mapper:
-                yscaled = (y_breaks - y0) / yspan
+                yscaled = y_breaks
             else:
-                yscaled = (y_mapper2(y_breaks) - y0) / yspan
+                yscaled = y_mapper2(y_breaks)
+            yscaled -= y0
+            yscaled /= yspan
 
-            xinds = np.where((xscaled >= 0) & (xscaled <= 1))[0]
-            yinds = np.where((yscaled >= 0) & (yscaled <= 1))[0]
-            if len(xinds) == 0 or len(yinds) == 0:
-                # Nothing to do
+            # Find intervals that overlap the canvas bounds [0,1]
+            # This handles both ascending and descending coordinate orders
+            if xscaled[0] > xscaled[1]:
+                xscaled = xscaled[::-1]
+                xr_ds = xr_ds.isel({x_name: slice(None, None, -1)})
+            if yscaled[0] > yscaled[1]:
+                yscaled = yscaled[::-1]
+                xr_ds = xr_ds.isel({y_name: slice(None, None, -1)})
+
+            _0 = cupy.array(0) if use_cuda else 0
+            _1 = cupy.array(1) if use_cuda else 1
+            xm0 = max(np.searchsorted(xscaled, _0, "right") - 1, 0)
+            xm1 = np.searchsorted(xscaled, _1, "left")
+            ym0 = max(np.searchsorted(yscaled, _0, "right") - 1, 0)
+            ym1 = np.searchsorted(yscaled, _1, "left")
+
+            if xm0 == xm1 or ym0 == ym1:
                 return
 
-            xm0, xm1 = max(xinds.min() - 1, 0), xinds.max() + 1
-            ym0, ym1 = max(yinds.min() - 1, 0), yinds.max() + 1
-
-            plot_height, plot_width = aggs[0].shape[:2]
+            # Get shape info for 3D or 2D case
+            is_3d, nz, plot_height, plot_width = self._get_shape_info(aggs)
+            xp = cupy if use_cuda else np
 
             # Downselect xs and ys and convert to int
-            xs = (xscaled[xm0:xm1 + 1] * plot_width).astype(int).clip(0, plot_width)
-            ys = (yscaled[ym0:ym1 + 1] * plot_height).astype(int).clip(0, plot_height)
+            xs = xscaled[xm0:xm1 + 1]
+            xs *= plot_width
+            xs = xs.astype(int)
+            xp.clip(xs, 0, plot_width, out=xs)
 
-            # For input "column", down select to valid range
-            cols_full = info(xr_ds.transpose(y_name, x_name), aggs[0].shape[:2])
-            cols = tuple([c[ym0:ym1, xm0:xm1] for c in cols_full])
+            ys = yscaled[ym0:ym1 + 1]
+            ys *= plot_height
+            ys = ys.astype(int)
+            xp.clip(ys, 0, plot_height, out=ys)
 
-            aggs_and_cols = aggs + cols
-
-            if use_cuda:
-                do_extend = extend_cuda[cuda_args(xr_ds[name].shape)]
+            if is_3d:
+                cols_full = info(xr_ds.transpose(..., y_name, x_name), aggs[0].shape)
+                cols = tuple([c[:, ym0:ym1, xm0:xm1] for c in cols_full])
+                aggs_and_cols = aggs + cols
+                if use_cuda:
+                    do_extend = extend_cuda_3d(grid_shape=(xs.shape[0] - 1, ys.shape[0] - 1))
+                else:
+                    do_extend = extend_cpu_3d(n_arrays=len(aggs_and_cols))
+                do_extend(xs, ys, (plot_height, plot_width), nz, *aggs_and_cols)
             else:
-                do_extend = extend_cpu
-
-            do_extend(xs, ys, tuple(aggs[0].shape), *aggs_and_cols)
+                cols_full = info(xr_ds.transpose(y_name, x_name), aggs[0].shape)
+                cols = tuple([c[ym0:ym1, xm0:xm1] for c in cols_full])
+                aggs_and_cols = aggs + cols
+                if use_cuda:
+                    do_extend = extend_cuda[cuda_args(xr_ds[name].shape)]
+                else:
+                    do_extend = extend_cpu
+                do_extend(xs, ys, (plot_height, plot_width), *aggs_and_cols)
 
         return extend
 
@@ -299,12 +519,18 @@ class QuadMeshRaster(QuadMeshRectilinear):
                 offset_x, offset_y, out_w, out_h, *aggs_and_cols
         ):
             for out_j in prange(out_h):
-                src_j0 = int(max(
-                    math.floor(scale_y * (out_j + 0.0) + translate_y - offset_y), 0
-                ))
-                src_j1 = int(min(
-                    math.floor(scale_y * (out_j + 1.0) + translate_y - offset_y), src_h
-                ))
+                # Calculate raw indices first
+                raw_j0 = math.floor(scale_y * (out_j + 0.0) + translate_y - offset_y)
+                raw_j1 = math.floor(scale_y * (out_j + 1.0) + translate_y - offset_y)
+
+                # Handle negative scale_y (descending coordinates) - swap before clamping
+                if scale_y < 0 and raw_j0 > raw_j1:
+                    raw_j0, raw_j1 = raw_j1, raw_j0
+
+                # Now clamp to valid range
+                src_j0 = int(max(raw_j0, 0))
+                src_j1 = int(min(raw_j1, src_h))
+
                 for out_i in range(out_w):
                     src_i0 = int(max(
                         math.floor(scale_x * (out_i + 0.0) + translate_x - offset_x), 0
@@ -324,12 +550,18 @@ class QuadMeshRaster(QuadMeshRectilinear):
         ):
             out_i, out_j = cuda.grid(2)
             if out_i < out_w and out_j < out_h:
-                src_j0 = max(
-                    math.floor(scale_y * (out_j + 0.0) + translate_y - offset_y), 0
-                )
-                src_j1 = min(
-                    math.floor(scale_y * (out_j + 1.0) + translate_y - offset_y), src_h
-                )
+                # Calculate raw indices first
+                raw_j0 = math.floor(scale_y * (out_j + 0.0) + translate_y - offset_y)
+                raw_j1 = math.floor(scale_y * (out_j + 1.0) + translate_y - offset_y)
+
+                # Handle negative scale_y (descending coordinates) - swap before clamping
+                if scale_y < 0 and raw_j0 > raw_j1:
+                    raw_j0, raw_j1 = raw_j1, raw_j0
+
+                # Now clamp to valid range
+                src_j0 = max(raw_j0, 0)
+                src_j1 = min(raw_j1, src_h)
+
                 src_i0 = max(
                     math.floor(scale_x * (out_i + 0.0) + translate_x - offset_x), 0
                 )
@@ -340,20 +572,36 @@ class QuadMeshRaster(QuadMeshRectilinear):
                     for src_i in range(src_i0, src_i1):
                         append(src_j, src_i, out_i, out_j, *aggs_and_cols)
 
+        # We don't parallelize cpu since 2d funcs are already parallelized
+        # and expect out_h >> z-dimension
+        upsample_cpu_3d = _make_3d_from_2d(upsample_cpu, 10, parallel=False)
+        downsample_cpu_3d = _make_3d_from_2d(downsample_cpu, 10, parallel=False)
+        upsample_cuda_3d = _make_3d_from_2d_cuda(upsample_cuda, 10)
+        downsample_cuda_3d = _make_3d_from_2d_cuda(downsample_cuda, 10)
+
         def extend(aggs, xr_ds, vt, bounds,
                    scale_x=None, scale_y=None, translate_x=None, translate_y=None,
                    offset_x=None, offset_y=None, src_xbinsize=None, src_ybinsize=None):
             use_cuda = cupy and isinstance(xr_ds[name].data, cupy.ndarray)
 
+            # Get shape info for 3D or 2D case
+            is_3d, nz, out_h, out_w = self._get_shape_info(aggs)
+
             # Compute output constants
-            out_h, out_w = aggs[0].shape
             out_x0, out_x1, out_y0, out_y1 = bounds
             out_xbinsize = math.fabs((out_x1 - out_x0) / out_w)
             out_ybinsize = math.fabs((out_y1 - out_y0) / out_h)
 
             # Compute source constants
-            xr_ds = xr_ds.transpose(y_name, x_name)
-            src_h, src_w = xr_ds[name].shape
+            # For 3D, need to transpose with the third dimension first
+            if is_3d:
+                # Get the third dimension name (e.g., 'band')
+                third_dim = [d for d in xr_ds[name].dims if d not in (x_name, y_name)][0]
+                xr_ds = xr_ds.transpose(third_dim, y_name, x_name)
+                nz_src, src_h, src_w = xr_ds[name].shape
+            else:
+                xr_ds = xr_ds.transpose(y_name, x_name)
+                src_h, src_w = xr_ds[name].shape
             if (scale_x is None or scale_y is None or
                     translate_x is None or translate_y is None or
                     offset_x is None or offset_y is None or
@@ -380,7 +628,7 @@ class QuadMeshRaster(QuadMeshRectilinear):
                 offset_x = offset_y = 0
 
             # Build aggs_and_cols tuple
-            cols = info(xr_ds, aggs[0].shape[:2])
+            cols = info(xr_ds, aggs[0].shape[-2:])
             aggs_and_cols = tuple(aggs) + tuple(cols)
 
             if src_h == 0 or src_w == 0 or out_h == 0 or out_w == 0:
@@ -388,26 +636,47 @@ class QuadMeshRaster(QuadMeshRectilinear):
                 return
             elif src_xbinsize >= out_xbinsize and src_ybinsize >= out_ybinsize:
                 # Upsample
-                if use_cuda:
-                    do_sampling = upsample_cuda[cuda_args((out_w, out_h))]
+                if is_3d:
+                    if use_cuda:
+                        do_sampling = upsample_cuda_3d(grid_shape=(out_w, out_h))
+                    else:
+                        do_sampling = upsample_cpu_3d(n_arrays=len(aggs_and_cols))
+                    do_sampling(
+                        src_w, src_h, translate_x, translate_y, scale_x, scale_y,
+                        offset_x, offset_y, out_w, out_h, nz, aggs[0], cols[0]
+                    )
                 else:
-                    do_sampling = upsample_cpu
-                return do_sampling(
-                    src_w, src_h, translate_x, translate_y, scale_x, scale_y,
-                    offset_x, offset_y, out_w, out_h, aggs[0], cols[0]
-                )
+                    if use_cuda:
+                        do_sampling = upsample_cuda[cuda_args((out_w, out_h))]
+                    else:
+                        do_sampling = upsample_cpu
+                    return do_sampling(
+                        src_w, src_h, translate_x, translate_y, scale_x, scale_y,
+                        offset_x, offset_y, out_w, out_h, aggs[0], cols[0]
+                    )
             else:
                 # Downsample. Note that caller is responsible for making sure to not
                 # mix upsampling and downsampling.
-                if use_cuda:
-                    do_sampling = downsample_cuda[cuda_args((out_w, out_h))]
+                if is_3d:
+                    if use_cuda:
+                        do_sampling = downsample_cuda_3d(grid_shape=(out_w, out_h))
+                    else:
+                        do_sampling = downsample_cpu_3d(n_arrays=len(aggs_and_cols))
+                    do_sampling(
+                        src_w, src_h, translate_x, translate_y, scale_x, scale_y,
+                        offset_x, offset_y, out_w, out_h, nz, *aggs_and_cols
+                    )
                 else:
-                    do_sampling = downsample_cpu
+                    # 2D downsample
+                    if use_cuda:
+                        do_sampling = downsample_cuda[cuda_args((out_w, out_h))]
+                    else:
+                        do_sampling = downsample_cpu
 
-                return do_sampling(
-                    src_w, src_h, translate_x, translate_y, scale_x, scale_y,
-                    offset_x, offset_y, out_w, out_h, *aggs_and_cols
-                )
+                    return do_sampling(
+                        src_w, src_h, translate_x, translate_y, scale_x, scale_y,
+                        offset_x, offset_y, out_w, out_h, *aggs_and_cols
+                    )
 
         return extend
 
@@ -427,10 +696,16 @@ class QuadMeshCurvilinear(_QuadMeshLike):
         return self.compute_x_bounds(xr_ds), self.compute_y_bounds(xr_ds)
 
     def infer_interval_breaks(self, centers):
-        # Infer breaks for 1D array of centers
-        breaks = infer_interval_breaks(centers, axis=1)
-        breaks = infer_interval_breaks(breaks, axis=0)
-        return breaks
+        if (
+                (bool(cupy) and isinstance(centers, cupy.ndarray))
+                or (bool(dask_array) and isinstance(centers, dask_array.Array))
+            ):
+            breaks = infer_interval_breaks(centers, axis=1)
+            breaks = infer_interval_breaks(breaks, axis=0)
+            return breaks
+        if centers.dtype.kind in "iu":
+            centers = centers.astype(float)
+        return infer_interval_breaks_2d(centers)
 
     @memoize
     def _build_extend(self, x_mapper, y_mapper, info, append, _antialias_stage_2,
@@ -610,12 +885,15 @@ class QuadMeshCurvilinear(_QuadMeshLike):
             intersect = np.zeros(4, dtype=np.int8)
 
             y_len, x_len, = xs.shape
-            for i in range(x_len - 1):
-                for j in range(y_len - 1):
+            for j in range(y_len - 1):
+                for i in range(x_len - 1):
                     perform_extend(
                         i, j, plot_height, plot_width, xs, ys,
                         xverts, yverts, yincreasing, eligible, intersect, *aggs_and_cols
                     )
+
+        extend_cpu_3d = _make_3d_from_2d(extend_cpu, 4)
+        extend_cuda_3d = _make_3d_from_2d_cuda(extend_cuda, 4)
 
         def extend(aggs, xr_ds, vt, bounds, x_breaks=None, y_breaks=None):
             from datashader.core import LinearAxis
@@ -631,15 +909,17 @@ class QuadMeshCurvilinear(_QuadMeshLike):
 
             # Convert from bin centers to interval edges
             if x_breaks is None:
-                x_centers = xr_ds[x_name].values
                 if use_cuda:
-                    x_centers = cupy.array(x_centers)
+                    x_centers = cupy.array(xr_ds[x_name].data)
+                else:
+                    x_centers = xr_ds[x_name].values
                 x_breaks = self.infer_interval_breaks(x_centers)
 
             if y_breaks is None:
-                y_centers = xr_ds[y_name].values
                 if use_cuda:
-                    y_centers = cupy.array(y_centers)
+                    y_centers = cupy.array(xr_ds[y_name].data)
+                else:
+                    y_centers = xr_ds[y_name].values
                 y_breaks = self.infer_interval_breaks(y_centers)
 
             # Scale x and y vertices into integer canvas coordinates
@@ -648,29 +928,45 @@ class QuadMeshCurvilinear(_QuadMeshLike):
             yspan = y1 - y0
 
             if x_mapper is LinearAxis.mapper:
-                xscaled = (x_breaks - x0) / xspan
+                xscaled = x_breaks
             else:
-                xscaled = (x_mapper2(x_breaks) - x0) / xspan
+                xscaled = x_mapper2(x_breaks)
+            xscaled -= x0
 
             if y_mapper is LinearAxis.mapper:
-                yscaled = (y_breaks - y0) / yspan
+                yscaled = y_breaks
             else:
-                yscaled = (y_mapper2(y_breaks) - y0) / yspan
+                yscaled = y_mapper2(y_breaks)
+            yscaled -= y0
 
-            plot_height, plot_width = aggs[0].shape[:2]
+            # Get shape info for 3D or 2D case
+            is_3d, nz, plot_height, plot_width = self._get_shape_info(aggs)
 
-            xs = (xscaled * plot_width).astype(int)
-            ys = (yscaled * plot_height).astype(int)
+            # dtype here matches that in perform_extend
+            xp = cupy if use_cuda else np
+            xs = xp.empty(xscaled.shape, dtype=xp.int32)
+            ys = xp.empty(yscaled.shape, dtype=xp.int32)
+            xp.multiply(xscaled, plot_width/xspan, casting="unsafe", out=xs)
+            xp.multiply(yscaled, plot_height/yspan, casting="unsafe", out=ys)
 
             coord_dims = xr_ds.coords[x_name].dims
-            aggs_and_cols = aggs + info(xr_ds.transpose(*coord_dims), aggs[0].shape[:2])
-            if use_cuda:
-                do_extend = extend_cuda[cuda_args(xr_ds[name].shape)]
-            else:
-                do_extend = extend_cpu
 
-            do_extend(
-                plot_height, plot_width, xs, ys, *aggs_and_cols
-            )
+            if is_3d:
+                aggs_and_cols = aggs + info(xr_ds.transpose(..., *coord_dims), aggs[0].shape)
+                if use_cuda:
+                    do_extend = extend_cuda_3d(grid_shape=(xs.shape[1] - 1, xs.shape[0] - 1))
+                else:
+                    do_extend = extend_cpu_3d(n_arrays=len(aggs_and_cols))
+                do_extend(plot_height, plot_width, xs, ys, nz, *aggs_and_cols)
+            else:
+                aggs_and_cols = aggs + info(xr_ds.transpose(*coord_dims), aggs[0].shape[:2])
+                if use_cuda:
+                    do_extend = extend_cuda[cuda_args(xr_ds[name].shape)]
+                else:
+                    do_extend = extend_cpu
+
+                do_extend(
+                    plot_height, plot_width, xs, ys, *aggs_and_cols
+                )
 
         return extend

@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_verifiedpermissions.paginator import (
         ListIdentitySourcesPaginator,
         ListPoliciesPaginator,
+        ListPolicyStoreAliasesPaginator,
         ListPolicyStoresPaginator,
         ListPolicyTemplatesPaginator,
     )
@@ -23,6 +24,7 @@ Usage::
 
     list_identity_sources_paginator: ListIdentitySourcesPaginator = client.get_paginator("list_identity_sources")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+    list_policy_store_aliases_paginator: ListPolicyStoreAliasesPaginator = client.get_paginator("list_policy_store_aliases")
     list_policy_stores_paginator: ListPolicyStoresPaginator = client.get_paginator("list_policy_stores")
     list_policy_templates_paginator: ListPolicyTemplatesPaginator = client.get_paginator("list_policy_templates")
     ```
@@ -40,6 +42,8 @@ from .type_defs import (
     ListIdentitySourcesOutputTypeDef,
     ListPoliciesInputPaginateTypeDef,
     ListPoliciesOutputTypeDef,
+    ListPolicyStoreAliasesInputPaginateTypeDef,
+    ListPolicyStoreAliasesOutputTypeDef,
     ListPolicyStoresInputPaginateTypeDef,
     ListPolicyStoresOutputTypeDef,
     ListPolicyTemplatesInputPaginateTypeDef,
@@ -55,6 +59,7 @@ else:
 __all__ = (
     "ListIdentitySourcesPaginator",
     "ListPoliciesPaginator",
+    "ListPolicyStoreAliasesPaginator",
     "ListPolicyStoresPaginator",
     "ListPolicyTemplatesPaginator",
 )
@@ -99,6 +104,27 @@ class ListPoliciesPaginator(_ListPoliciesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/paginator/ListPolicies.html#VerifiedPermissions.Paginator.ListPolicies.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/paginators/#listpoliciespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListPolicyStoreAliasesPaginatorBase = Paginator[ListPolicyStoreAliasesOutputTypeDef]
+else:
+    _ListPolicyStoreAliasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListPolicyStoreAliasesPaginator(_ListPolicyStoreAliasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/paginator/ListPolicyStoreAliases.html#VerifiedPermissions.Paginator.ListPolicyStoreAliases)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/paginators/#listpolicystorealiasespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicyStoreAliasesInputPaginateTypeDef]
+    ) -> PageIterator[ListPolicyStoreAliasesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/paginator/ListPolicyStoreAliases.html#VerifiedPermissions.Paginator.ListPolicyStoreAliases.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/paginators/#listpolicystorealiasespaginator)
         """
 
 

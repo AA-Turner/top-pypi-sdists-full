@@ -117,6 +117,7 @@ def gltf(
     import_scene_extras: bool | None = True,
     import_scene_as_collection: bool | None = True,
     import_merge_material_slots: bool | None = True,
+    import_point_as_pointcloud: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a glTF 2.0 file
 
@@ -157,5 +158,6 @@ def gltf(
         :param import_scene_extras: Import Scene Extras, Import scene extras as custom properties. Existing custom properties will be overwritten (optional)
         :param import_scene_as_collection: Import Scene as Collection, Import the scene as a collection (optional)
         :param import_merge_material_slots: Merge Material Slot when possible, Merge material slots when possible (optional)
+        :param import_point_as_pointcloud: Import Points as Point Cloud, Import mesh with only POINTS primitives as Point Cloud objects (optional)
         :return: Result of the operator call.
     """

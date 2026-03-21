@@ -317,6 +317,19 @@ impl<'a> PdfPageText<'a> {
         get_string_from_pdfium_utf16le_bytes(buffer).unwrap_or_default()
     }
 
+    /// Returns the raw `FPDF_PAGEOBJECT` handle for the text object that contains
+    /// the character at the given index, or `None` if the index is out of range or
+    /// the character is not associated with a text object (e.g. generated chars).
+    ///
+    /// The returned handle is an opaque pointer suitable for identity comparison
+    /// (same pointer = same text object). Cast to `usize` for storage.
+    pub fn text_object_for_char_index(&self, index: usize) -> Option<usize> {
+        let handle = self
+            .bindings()
+            .FPDFText_GetTextObject(self.text_page_handle(), index as std::ffi::c_int);
+        if handle.is_null() { None } else { Some(handle as usize) }
+    }
+
     /// Returns all characters that lie within the bounds of the given [PdfPageAnnotation] in the
     /// containing [PdfPage], in the order in which they are defined in the document,
     /// concatenated into a single string.

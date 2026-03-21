@@ -1,6 +1,7 @@
 import copy
 import inspect
 import io
+import json as _json
 import re
 import warnings
 from configparser import (
@@ -30,20 +31,19 @@ from typing import (
     Type,
     Union,
     cast,
+    get_type_hints,
 )
 
-import srsly
-
-try:
-    from pydantic.v1 import BaseModel, Extra, ValidationError, create_model
-    from pydantic.v1.fields import ModelField
-    from pydantic.v1.main import ModelMetaclass
-except ImportError:
-    from pydantic import BaseModel, create_model, ValidationError, Extra  # type: ignore
-    from pydantic.main import ModelMetaclass  # type: ignore
-    from pydantic.fields import ModelField  # type: ignore
-
 from .util import SimpleFrozenDict, SimpleFrozenList  # noqa: F401
+from .validation import (
+    Field,
+    FieldInfo,
+    Schema,
+    ValidationError,
+    create_schema,
+    ensure_schema,
+    validate_type,  # noqa: F401 — public API
+)
 
 # Field used for positional arguments, e.g. [section.*.xyz]. The alias is
 # required for the schema (shouldn't clash with user-defined arg names)
@@ -54,36 +54,49 @@ ARGS_FIELD_ALIAS = "VARIABLE_POSITIONAL_ARGS"
 RESERVED_FIELDS = {"validate": "validate\u0020"}
 # Internal prefix used to mark section references for custom interpolation
 SECTION_PREFIX = "__SECTION__:"
-# Values that shouldn't be loaded during interpolation because it'd cause
-# even explicit string values to be incorrectly parsed as bools/None etc.
-JSON_EXCEPTIONS = ("true", "false", "null")
 # Regex to detect whether a value contains a variable
 VARIABLE_RE = re.compile(r"\$\{[\w\.:]+\}")
 
 
 class CustomInterpolation(ExtendedInterpolation):
+    _KEYCRE: re.Pattern
+
     def before_read(self, parser, section, option, value):
-        # If we're dealing with a quoted string as the interpolation value,
-        # make sure we load and unquote it so we don't end up with '"value"'
-        try:
-            json_value = srsly.json_loads(value)
-            if isinstance(json_value, str) and json_value not in JSON_EXCEPTIONS:
-                value = json_value
-        except ValueError:
-            if value and value[0] == value[-1] == "'":
-                warnings.warn(
-                    f"The value [{value}] seems to be single-quoted, but values "
-                    "use JSON formatting, which requires double quotes."
-                )
-        except Exception:
-            pass
+        # Warn about single-quoted strings (common mistake)
+        if value and value[0] == value[-1] == "'":
+            warnings.warn(
+                f"The value [{value}] seems to be single-quoted, but values "
+                "use JSON formatting, which requires double quotes."
+            )
         return super().before_read(parser, section, option, value)
+
+    def _coerce_for_string_context(self, v):
+        """Coerce a raw config value for use in a compound string expression."""
+        # Don't coerce section references - they need to stay quoted for JSON
+        if SECTION_PREFIX in v:
+            return v
+        try:
+            parsed = _json.loads(v)
+        except (ValueError, TypeError):
+            return v  # Not valid JSON, already a plain string
+        if isinstance(parsed, str):
+            return parsed  # Unwrap JSON string
+        # Use json.dumps() for non-strings, escaping inner quotes so they don't
+        # conflict with the outer JSON string quotes
+        return _json.dumps(parsed).replace('"', '\\"')
 
     def before_get(self, parser, section, option, value, defaults):
         # Mostly copy-pasted from the built-in configparser implementation.
+        # The interpolate() method resolves ${...} references and appends pieces
+        # to L. For a bare reference like ${x}, L has one element. For compound
+        # expressions like "hello ${x}", L has multiple pieces that we join.
+        # Compound results stay as strings (coerced via _coerce_for_string_context),
+        # while bare references keep their JSON type for _interpret_value to parse.
         L = []
         self.interpolate(parser, option, L, value, section, defaults, 1)
-        return "".join(L)
+        if len(L) == 1:
+            return L[0]
+        return "".join(self._coerce_for_string_context(piece) for piece in L)
 
     def interpolate(self, parser, option, accum, rest, section, map, depth):
         # Mostly copy-pasted from the built-in configparser implementation.
@@ -122,10 +135,22 @@ class CustomInterpolation(ExtendedInterpolation):
                 try:
                     if len(path) == 1:
                         opt = parser.optionxform(path[0])
-                        if opt in map:
+                        # Check if the variable references a section rather
+                        # than a key in the current section.  If the key
+                        # exists in the current map but its raw value is the
+                        # same interpolation variable (self-reference), or if
+                        # the key doesn't exist in the map, treat it as a
+                        # section reference.
+                        is_section_ref = opt not in map
+                        if not is_section_ref:
+                            raw = map[opt]
+                            is_section_ref = (
+                                isinstance(raw, str) and f"${{{orig_var}}}" in raw
+                            )
+                        if not is_section_ref:
                             v = map[opt]
                         else:
-                            # We have block reference, store it as a special key
+                            # Block reference — store as a special key
                             section_name = parser[parser.optionxform(path[0])]._name
                             v = self._get_section_name(section_name)
                     elif len(path) == 2:
@@ -169,7 +194,7 @@ class CustomInterpolation(ExtendedInterpolation):
         return f'"{SECTION_PREFIX}{name}"'
 
 
-def get_configparser(interpolate: bool = True):
+def get_configparser(interpolate: bool = True) -> ConfigParser:
     config = ConfigParser(interpolation=CustomInterpolation() if interpolate else None)
     # Preserve case of keys: https://stackoverflow.com/a/1611877/6400719
     config.optionxform = str  # type: ignore
@@ -184,6 +209,8 @@ class Config(dict):
     """
 
     is_interpolated: bool
+    section_order: list[str]
+    _sections: dict
 
     def __init__(
         self,
@@ -235,6 +262,7 @@ class Config(dict):
         # Sort sections by depth, so that we can iterate breadth-first. This
         # allows us to check that we're not expanding an undefined block.
         get_depth = lambda item: len(item[0].split("."))
+        part = ""
         for section, values in sorted(config.items(), key=get_depth):
             if section == "DEFAULT":
                 # Skip [DEFAULT] section so it doesn't cause validation error
@@ -257,14 +285,14 @@ class Config(dict):
             if not isinstance(node, dict):
                 # Happens if both value *and* subsection were defined for a key
                 err = [{"loc": parts, "msg": "found conflicting values"}]
-                err_cfg = f"{self}\n{({part: dict(values)})}"
+                err_cfg = f"{self}\n{ ({part: dict(values)}) }"
                 raise ConfigValidationError(config=err_cfg, errors=err)
             # Set the default section
             node = node.setdefault(parts[-1], {})
             if not isinstance(node, dict):
                 # Happens if both value *and* subsection were defined for a key
                 err = [{"loc": parts, "msg": "found conflicting values"}]
-                err_cfg = f"{self}\n{({part: dict(values)})}"
+                err_cfg = f"{self}\n{ ({part: dict(values)}) }"
                 raise ConfigValidationError(config=err_cfg, errors=err)
             try:
                 keys_values = list(values.items())
@@ -306,13 +334,17 @@ class Config(dict):
         """Get a single section reference."""
         if isinstance(value, str) and value.startswith(f'"{SECTION_PREFIX}'):
             value = try_load_json(value)
-        if isinstance(value, str) and value.startswith(SECTION_PREFIX):
-            parts = value.replace(SECTION_PREFIX, "").split(".")
+        if (
+            isinstance(value, str)
+            and value.startswith(SECTION_PREFIX)
+            and value != SECTION_PREFIX
+        ):
+            parts = value.replace(SECTION_PREFIX, "", 1).split(".")
             result = self
             for item in parts:
                 try:
                     result = result[item]
-                except (KeyError, TypeError):  # This should never happen
+                except (KeyError, TypeError):
                     err_title = "Error parsing reference to config section"
                     err_msg = f"Section '{'.'.join(parts)}' is not defined"
                     err = [{"loc": parts, "msg": err_msg}]
@@ -320,7 +352,11 @@ class Config(dict):
                         config=self, errors=err, title=err_title
                     ) from None
             return result
-        elif isinstance(value, str) and SECTION_PREFIX in value:
+        elif (
+            isinstance(value, str)
+            and SECTION_PREFIX in value
+            and value != SECTION_PREFIX
+        ):
             # String value references a section (either a dict or return
             # value of promise). We can't allow this, since variables are
             # always interpolated *before* configs are resolved.
@@ -413,7 +449,7 @@ class Config(dict):
         except ParsingError as e:
             desc = f"Make sure the sections and values are formatted correctly.\n\n{e}"
             raise ConfigValidationError(desc=desc) from None
-        config._sections = self._sort(config._sections)
+        config._sections = self._sort(config._sections)  # type: ignore
         self._set_overrides(config, overrides)
         self.clear()
         self.interpret_config(config)
@@ -430,10 +466,14 @@ class Config(dict):
         for path, node in queue:
             section_name = ".".join(path)
             is_kwarg = path and path[-1] != "*"
-            if is_kwarg and not flattened.has_section(section_name):
-                # Always create sections for non-'*' sections, not only if
-                # they have leaf entries, as we don't want to expand
-                # blocks that are undefined
+            has_leaves = any(not hasattr(v, "items") for v in node.values())
+            if path and has_leaves and not flattened.has_section(section_name):
+                # Create sections that have leaf values (including * sections).
+                # Skip empty sections whose children are all sub-sections.
+                flattened.add_section(section_name)
+            elif is_kwarg and not flattened.has_section(section_name):
+                # Always create non-* sections even if empty, so we don't
+                # expand blocks that are undefined.
                 flattened.add_section(section_name)
             for key, value in node.items():
                 if hasattr(value, "items"):
@@ -446,7 +486,7 @@ class Config(dict):
                 else:
                     flattened.set(section_name, key, try_dump_json(value, node))
         # Order so subsection follow parent (not all sections, then all subs etc.)
-        flattened._sections = self._sort(flattened._sections)
+        flattened._sections = self._sort(flattened._sections)  # type: ignore
         self._validate_sections(flattened)
         string_io = io.StringIO()
         flattened.write(string_io)
@@ -504,9 +544,12 @@ def _mask_positional_args(name: str) -> List[Optional[str]]:
 
 def try_load_json(value: str) -> Any:
     """Load a JSON string if possible, otherwise default to original value."""
+    # Guard against ujson quirk where "-" parses as 0
+    if value == "-":
+        return value
     try:
-        return srsly.json_loads(value)
-    except Exception:
+        return _json.loads(value)
+    except (ValueError, TypeError):
         return value
 
 
@@ -516,13 +559,13 @@ def try_dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") ->
     # to preserve ${x:y} vs. "${x:y}"
     if isinstance(value, str) and VARIABLE_RE.search(value):
         return value
-    if isinstance(value, str) and value.replace(".", "", 1).isdigit():
-        # Work around values that are strings but numbers
-        value = f'"{value}"'
     try:
-        value = srsly.json_dumps(value)
-        value = re.sub(r"\$([^{])", "$$\1", value)
-        value = re.sub(r"\$$", "$$", value)
+        value = _json.dumps(value, separators=(",", ":"))
+        # Escape all $ to $$ for configparser, then restore valid ${...}
+        # variable references.  This ensures incomplete sequences like "${"
+        # are escaped, while "${foo.bar}" is preserved.
+        value = value.replace("$", "$$")
+        value = re.sub(r"\$(\$\{[\w\.:]+\})", r"\1", value)
         return value
     except Exception as e:
         err_msg = (
@@ -692,32 +735,67 @@ def alias_generator(name: str) -> str:
     return name
 
 
-def copy_model_field(field: ModelField, type_: Any) -> ModelField:
-    """Copy a model field and assign a new type, e.g. to accept an Any type
-    even though the original value is typed differently.
+def _override_field_to_any(schema, field_name):
+    """Return a copy of the schema with one field's type set to Any.
+
+    Creates a new schema class so the original (possibly cached) schema
+    is not mutated.  The copy always uses our own model_validate (not
+    pydantic delegation) since the field types no longer match.
     """
-    return ModelField(
-        name=field.name,
-        type_=type_,
-        class_validators=field.class_validators,
-        model_config=field.model_config,
-        default=field.default,
-        default_factory=field.default_factory,
-        required=field.required,
-        alias=field.alias,
-    )
+    if field_name not in schema.model_fields:
+        return schema
+    # Build a new schema with the overridden field
+    new_fields = {}
+    for name, field in schema.model_fields.items():
+        if name == field_name:
+            new_field = FieldInfo(default=field.default, alias=field.alias)
+            new_field.annotation = Any
+            new_fields[name] = new_field
+        else:
+            new_fields[name] = field
+    new_schema = type(schema.__name__ + "_any", (Schema,), {})
+    new_schema.model_fields = new_fields
+    new_schema.model_config = schema.model_config
+    return new_schema
 
 
-class EmptySchema(BaseModel):
-    class Config:
-        extra = "allow"
-        arbitrary_types_allowed = True
+def _contains_promise(obj):
+    """Check if a config dict contains any promise references (nested)."""
+    if isinstance(obj, dict):
+        if any(k.startswith("@") for k in obj if isinstance(k, str)):
+            return True
+        return any(_contains_promise(v) for v in obj.values())
+    return False
 
 
-class _PromiseSchemaConfig:
-    extra = "forbid"
-    arbitrary_types_allowed = True
-    alias_generator = alias_generator
+def _coerce_basemodel_args(func, kwargs):
+    """Coerce dict kwargs to BaseModel instances where the function signature
+    expects a BaseModel subclass.  This lets registered functions receive
+    constructed model instances instead of raw dicts (issue #58).
+    """
+    try:
+        hints = get_type_hints(func)
+    except Exception:
+        return kwargs
+    result = dict(kwargs)
+    for name, value in result.items():
+        if not isinstance(value, dict) or name not in hints:
+            continue
+        annotation = hints[name]
+        # Check if annotation is a class with __fields__ (pydantic v1)
+        # or model_fields (pydantic v2 / our Schema)
+        if isinstance(annotation, type) and (
+            hasattr(annotation, "__fields__") or hasattr(annotation, "model_fields")
+        ):
+            try:
+                result[name] = annotation(**value)
+            except Exception:
+                pass  # if construction fails, leave as dict
+    return result
+
+
+class EmptySchema(Schema):
+    model_config = {"extra": "allow", "arbitrary_types_allowed": True}
 
 
 @dataclass
@@ -753,10 +831,11 @@ class registry:
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         *,
-        schema: Type[BaseModel] = EmptySchema,
+        schema: Type[Schema] = EmptySchema,
         overrides: Dict[str, Any] = {},
         validate: bool = True,
     ) -> Dict[str, Any]:
+        schema = ensure_schema(schema)
         resolved, _ = cls._make(
             config, schema=schema, overrides=overrides, validate=validate, resolve=True
         )
@@ -767,10 +846,11 @@ class registry:
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         *,
-        schema: Type[BaseModel] = EmptySchema,
+        schema: Type[Schema] = EmptySchema,
         overrides: Dict[str, Any] = {},
         validate: bool = True,
     ):
+        schema = ensure_schema(schema)
         _, filled = cls._make(
             config, schema=schema, overrides=overrides, validate=validate, resolve=False
         )
@@ -781,7 +861,7 @@ class registry:
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         *,
-        schema: Type[BaseModel] = EmptySchema,
+        schema: Type[Schema] = EmptySchema,
         overrides: Dict[str, Any] = {},
         resolve: bool = True,
         validate: bool = True,
@@ -827,7 +907,7 @@ class registry:
     def _fill(
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
-        schema: Type[BaseModel] = EmptySchema,
+        schema: Type[Schema] = EmptySchema,
         *,
         validate: bool = True,
         resolve: bool = True,
@@ -843,6 +923,7 @@ class registry:
            work around problems (e.g. handling of generators).
         3. Final copy with promises replaced by their return values.
         """
+        schema = ensure_schema(schema)
         filled: Dict[str, Any] = {}
         validation: Dict[str, Any] = {}
         final: Dict[str, Any] = {}
@@ -854,12 +935,11 @@ class registry:
                 value = overrides[key_parent]
                 config[key] = value
             if cls.is_promise(value):
-                if key in schema.__fields__ and not resolve:
+                if key in schema.model_fields and not resolve:
                     # If we're not resolving the config, make sure that the field
                     # expecting the promise is typed Any so it doesn't fail
                     # validation if it doesn't receive the function return value
-                    field = schema.__fields__[key]
-                    schema.__fields__[key] = copy_model_field(field, Any)
+                    schema = _override_field_to_any(schema, key)
                 promise_schema = cls.make_promise_schema(value, resolve=resolve)
                 filled[key], validation[v_key], final[key] = cls._fill(
                     value,
@@ -876,6 +956,9 @@ class registry:
                     # just create an instance of the type here, since this
                     # wouldn't work for generics / more complex custom types
                     getter = cls.get(reg_name, func_name)
+                    # Coerce dict values to BaseModel instances where the
+                    # function annotation expects one (fixes #58).
+                    kwargs = _coerce_basemodel_args(getter, kwargs)
                     # We don't want to try/except this and raise our own error
                     # here, because we want the traceback if the function fails.
                     getter_result = getter(*args, **kwargs)
@@ -894,12 +977,17 @@ class registry:
                     validation[v_key] = []
             elif hasattr(value, "items"):
                 field_type = EmptySchema
-                if key in schema.__fields__:
-                    field = schema.__fields__[key]
-                    field_type = field.type_
-                    if not isinstance(field.type_, ModelMetaclass):
-                        # If we don't have a pydantic schema and just a type
+                if key in schema.model_fields:
+                    field = schema.model_fields[key]
+                    field_type = field.annotation
+                    if not hasattr(field_type, "model_fields"):
+                        # If we don't have a schema and just a type
                         field_type = EmptySchema
+                    if not resolve and _contains_promise(value):
+                        # If we're not resolving and the value contains nested
+                        # promises, override the field to Any so validation
+                        # doesn't reject Promise objects in typed containers
+                        schema = _override_field_to_any(schema, key)
                 filled[key], validation[v_key], final[key] = cls._fill(
                     value,
                     field_type,
@@ -914,14 +1002,11 @@ class registry:
                     validation[v_key] = list(validation[v_key].values())
                     final[key] = list(final[key].values())
 
-                    if ARGS_FIELD_ALIAS in schema.__fields__ and not resolve:
+                    if ARGS_FIELD_ALIAS in schema.model_fields and not resolve:
                         # If we're not resolving the config, make sure that the field
                         # expecting the promise is typed Any so it doesn't fail
                         # validation if it doesn't receive the function return value
-                        field = schema.__fields__[ARGS_FIELD_ALIAS]
-                        schema.__fields__[ARGS_FIELD_ALIAS] = copy_model_field(
-                            field, Any
-                        )
+                        schema = _override_field_to_any(schema, ARGS_FIELD_ALIAS)
             else:
                 filled[key] = value
                 # Prevent pydantic from consuming generator if part of a union
@@ -934,26 +1019,30 @@ class registry:
         exclude = []
         if validate:
             try:
-                result = schema.parse_obj(validation)
+                schema.model_validate(validation)
             except ValidationError as e:
                 raise ConfigValidationError(
                     config=config, errors=e.errors(), parent=parent
                 ) from None
         else:
-            # Same as parse_obj, but without validation
-            result = schema.construct(**validation)
             # If our schema doesn't allow extra values, we need to filter them
-            # manually because .construct doesn't parse anything
-            if schema.Config.extra in (Extra.forbid, Extra.ignore):
-                fields = schema.__fields__.keys()
-                # If we have a reserved field, we need to use its alias
-                field_set = [
-                    k if k != ARGS_FIELD else ARGS_FIELD_ALIAS
-                    for k in result.__fields_set__
-                ]
-                exclude = [k for k in field_set if k not in fields]
+            extra_setting = schema.model_config.get("extra", "allow")
+            if extra_setting in ("forbid", "ignore"):
+                schema_fields = set(schema.model_fields.keys())
+                exclude = [k for k in validation if k not in schema_fields]
+        # Update validation dict with defaults from schema
         exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
-        validation.update(result.dict(exclude=exclude_validation))
+        for name, field in schema.model_fields.items():
+            if name in exclude_validation:
+                continue
+            if name not in validation and not field.is_required():
+                default = field.default
+                # Unfreeze frozen containers so _update_from_parsed can write
+                if isinstance(default, dict):
+                    default = dict(default)
+                elif isinstance(default, list):
+                    default = list(default)
+                validation[name] = default
         filled, final = cls._update_from_parsed(validation, filled, final)
         if exclude:
             filled = {k: v for k, v in filled.items() if k not in exclude}
@@ -1059,7 +1148,7 @@ class registry:
     @classmethod
     def make_promise_schema(
         cls, obj: Dict[str, Any], *, resolve: bool = True
-    ) -> Type[BaseModel]:
+    ) -> Type[Schema]:
         """Create a schema for a promise dict (referencing a registry function)
         by inspecting the function signature.
         """
@@ -1069,7 +1158,7 @@ class registry:
         func = cls.get(reg_name, func_name)
         # Read the argument annotations and defaults from the function signature
         id_keys = [k for k in obj.keys() if k.startswith("@")]
-        sig_args: Dict[str, Any] = {id_keys[0]: (str, ...)}
+        sig_args: Dict[str, Any] = {id_keys[0]: (str, Field(...))}
         for param in inspect.signature(func).parameters.values():
             # If no annotation is specified assume it's anything
             annotation = param.annotation if param.annotation != param.empty else Any
@@ -1078,18 +1167,27 @@ class registry:
             # Handle spread arguments and use their annotation as Sequence[whatever]
             if param.kind == param.VAR_POSITIONAL:
                 spread_annot = Sequence[annotation]  # type: ignore
-                sig_args[ARGS_FIELD_ALIAS] = (spread_annot, default)
+                sig_args[ARGS_FIELD_ALIAS] = (spread_annot, Field(default))
             else:
                 name = RESERVED_FIELDS.get(param.name, param.name)
-                sig_args[name] = (annotation, default)
-        sig_args["__config__"] = _PromiseSchemaConfig
-        return create_model("ArgModel", **sig_args)
+                sig_args[name] = (annotation, Field(default))
+        return create_schema(
+            "ArgModel",
+            __config__={
+                "extra": "forbid",
+                "arbitrary_types_allowed": True,
+                "alias_generator": alias_generator,
+            },
+            **sig_args,
+        )
 
 
 __all__ = [
     "Config",
     "registry",
     "ConfigValidationError",
+    "Promise",
+    "Schema",
     "SimpleFrozenDict",
     "SimpleFrozenList",
 ]

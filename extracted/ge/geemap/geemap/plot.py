@@ -17,16 +17,16 @@ def bar_chart(
     x=None,
     y=None,
     color=None,
-    descending=True,
-    sort_column=None,
-    max_rows=None,
-    x_label=None,
-    y_label=None,
-    title=None,
-    legend_title=None,
-    width=None,
-    height=500,
-    layout_args={},
+    descending: bool = True,
+    sort_column: str | None = None,
+    max_rows: int | None = None,
+    x_label: str | None = None,
+    y_label: str | None = None,
+    title: str | None = None,
+    legend_title: str | None = None,
+    width: int | None = None,
+    height: int = 500,
+    layout_args: dict | None = None,
     **kwargs,
 ):
     """Create a bar chart with plotly.express,
@@ -55,19 +55,18 @@ def bar_chart(
             Either a name of a column in `data_frame`, or a pandas Series or
             array_like object. Values from this column or array_like are used to
             assign color to marks.
-        descending (bool, optional): Whether to sort the data in descending order. Defaults to True.
-        sort_column (str, optional): The column to sort the data. Defaults to None.
-        max_rows (int, optional): Maximum number of rows to display. Defaults to None.
-        x_label (str, optional): Label for the x axis. Defaults to None.
-        y_label (str, optional): Label for the y axis. Defaults to None.
-        title (str, optional): Title for the plot. Defaults to None.
-        legend_title (str, optional): Title for the legend. Defaults to None.
-        width (int, optional): Width of the plot in pixels. Defaults to None.
-        height (int, optional): Height of the plot in pixels. Defaults to 500.
-        layout_args (dict, optional): Layout arguments for the plot to be passed to fig.update_layout(),
-            such as {'title':'Plot Title', 'title_x':0.5}. Defaults to None.
+        descending: Whether to sort the data in descending order. Defaults to True.
+        sort_column: The column to sort the data. Defaults to None.
+        max_rows: Maximum number of rows to display. Defaults to None.
+        x_label: Label for the x axis. Defaults to None.
+        y_label: Label for the y axis. Defaults to None.
+        title: Title for the plot. Defaults to None.
+        legend_title: Title for the legend. Defaults to None.
+        width: Width of the plot in pixels. Defaults to None.
+        height: Height of the plot in pixels. Defaults to 500.
+        layout_args: Layout arguments for the plot to be passed to fig.update_layout(),
+            such as {'title':'Plot Title', 'title_x':0.5}. Defaults to no args.
         **kwargs: Any additional arguments to pass to plotly.express.bar(), such as:
-
             pattern_shape: str or int or Series or array-like
                 Either a name of a column in `data_frame`, or a pandas Series or
                 array_like object. Values from this column or array_like are used to
@@ -232,20 +231,15 @@ def bar_chart(
                 The figure template name (must be a key in plotly.io.templates) or
                 definition.
 
-
     Returns:
         plotly.graph_objs._figure.Figure: A plotly figure object.
     """
-
     if isinstance(data, str):
         if data.startswith("http"):
             data = coreutils.github_raw_url(data)
             data = get_direct_url(data)
 
-        try:
-            data = pd.read_csv(data)
-        except Exception as e:
-            raise ValueError(f"Could not read data from {data}. {e}")
+        data = pd.read_csv(data)
 
     if not isinstance(data, pd.DataFrame):
         raise ValueError(
@@ -279,30 +273,30 @@ def bar_chart(
         elif isinstance(y, list):
             labels[y[0]] = y_label  # pytype: disable=unsupported-operands
 
+    if layout_args is None:
+        layout_args = {}
+
     if isinstance(legend_title, str):
         if "legend" not in layout_args:
             layout_args["legend"] = {}
         layout_args["legend"]["title"] = legend_title
 
-    try:
-        fig = px.bar(
-            data,
-            x=x,
-            y=y,
-            color=color,
-            labels=labels,
-            title=title,
-            width=width,
-            height=height,
-            **kwargs,
-        )
+    fig = px.bar(
+        data,
+        x=x,
+        y=y,
+        color=color,
+        labels=labels,
+        title=title,
+        width=width,
+        height=height,
+        **kwargs,
+    )
 
-        if isinstance(layout_args, dict):
-            fig.update_layout(**layout_args)
+    if isinstance(layout_args, dict):
+        fig.update_layout(**layout_args)
 
-        return fig
-    except Exception as e:
-        raise ValueError(f"Could not create bar plot. {e}")
+    return fig
 
 
 def line_chart(
@@ -310,15 +304,15 @@ def line_chart(
     x=None,
     y=None,
     color=None,
-    descending=None,
-    max_rows=None,
-    x_label=None,
-    y_label=None,
-    title=None,
-    legend_title=None,
-    width=None,
-    height=500,
-    layout_args={},
+    descending: bool | None = None,
+    max_rows: int | None = None,
+    x_label: str | None = None,
+    y_label: str | None = None,
+    title: str | None = None,
+    legend_title: str | None = None,
+    width: int | None = None,
+    height: int = 500,
+    layout_args: dict | None = None,
     **kwargs,
 ):
     """Create a line chart with plotly.express,
@@ -347,16 +341,16 @@ def line_chart(
             Either a name of a column in `data_frame`, or a pandas Series or
             array_like object. Values from this column or array_like are used to
             assign color to marks.
-        descending (bool, optional): Whether to sort the data in descending order. Defaults to None.
-        max_rows (int, optional): Maximum number of rows to display. Defaults to None.
-        x_label (str, optional): Label for the x axis. Defaults to None.
-        y_label (str, optional): Label for the y axis. Defaults to None.
-        title (str, optional): Title for the plot. Defaults to None.
-        legend_title (str, optional): Title for the legend. Defaults to None.
-        width (int, optional): Width of the plot in pixels. Defaults to None.
-        height (int, optional): Height of the plot in pixels. Defaults to 500.
-        layout_args (dict, optional): Layout arguments for the plot to be passed to fig.update_layout(),
-            such as {'title':'Plot Title', 'title_x':0.5}. Defaults to None.
+        descending: Whether to sort the data in descending order. Defaults to None.
+        max_rows: Maximum number of rows to display. Defaults to None.
+        x_label: Label for the x axis. Defaults to None.
+        y_label: Label for the y axis. Defaults to None.
+        title: Title for the plot. Defaults to None.
+        legend_title: Title for the legend. Defaults to None.
+        width: Width of the plot in pixels. Defaults to None.
+        height: Height of the plot in pixels. Defaults to 500.
+        layout_args: Layout arguments for the plot to be passed to fig.update_layout(),
+            such as {'title':'Plot Title', 'title_x':0.5}. Defaults to no args.
         **kwargs: Any additional arguments to pass to plotly.express.bar(), such as:
 
             pattern_shape: str or int or Series or array-like
@@ -523,20 +517,15 @@ def line_chart(
                 The figure template name (must be a key in plotly.io.templates) or
                 definition.
 
-
     Returns:
         plotly.graph_objs._figure.Figure: A plotly figure object.
     """
-
     if isinstance(data, str):
         if data.startswith("http"):
             data = coreutils.github_raw_url(data)
             data = get_direct_url(data)
 
-        try:
-            data = pd.read_csv(data)
-        except Exception as e:
-            raise ValueError(f"Could not read data from {data}. {e}")
+        data = pd.read_csv(data)
 
     if not isinstance(data, pd.DataFrame):
         raise ValueError(
@@ -560,30 +549,30 @@ def line_chart(
     if y_label is not None:
         labels[y] = y_label
 
+    if layout_args is None:
+        layout_args = {}
+
     if isinstance(legend_title, str):
         if "legend" not in layout_args:
             layout_args["legend"] = {}
         layout_args["legend"]["title"] = legend_title
 
-    try:
-        fig = px.line(
-            data,
-            x=x,
-            y=y,
-            color=color,
-            labels=labels,
-            title=title,
-            width=width,
-            height=height,
-            **kwargs,
-        )
+    fig = px.line(
+        data,
+        x=x,
+        y=y,
+        color=color,
+        labels=labels,
+        title=title,
+        width=width,
+        height=height,
+        **kwargs,
+    )
 
-        if isinstance(layout_args, dict):
-            fig.update_layout(**layout_args)
+    if isinstance(layout_args, dict):
+        fig.update_layout(**layout_args)
 
-        return fig
-    except Exception as e:
-        raise ValueError(f"Could not create bar plot. {e}")
+    return fig
 
 
 def histogram(
@@ -591,14 +580,14 @@ def histogram(
     x=None,
     y=None,
     color=None,
-    descending=None,
-    max_rows=None,
-    x_label=None,
-    y_label=None,
-    title=None,
-    width=None,
-    height=500,
-    layout_args={},
+    descending: bool | None = None,
+    max_rows: int | None = None,
+    x_label: str | None = None,
+    y_label: str | None = None,
+    title: str | None = None,
+    width: int | None = None,
+    height: int = 500,
+    layout_args: dict | None = None,
     **kwargs,
 ):
     """Create a line chart with plotly.express,
@@ -627,17 +616,16 @@ def histogram(
             Either a name of a column in `data_frame`, or a pandas Series or
             array_like object. Values from this column or array_like are used to
             assign color to marks.
-        descending (bool, optional): Whether to sort the data in descending order. Defaults to None.
-        max_rows (int, optional): Maximum number of rows to display. Defaults to None.
-        x_label (str, optional): Label for the x axis. Defaults to None.
-        y_label (str, optional): Label for the y axis. Defaults to None.
-        title (str, optional): Title for the plot. Defaults to None.
-        width (int, optional): Width of the plot in pixels. Defaults to None.
-        height (int, optional): Height of the plot in pixels. Defaults to 500.
-        layout_args (dict, optional): Layout arguments for the plot to be passed to fig.update_layout(),
-            such as {'title':'Plot Title', 'title_x':0.5}. Defaults to None.
+        descending: Whether to sort the data in descending order. Defaults to None.
+        max_rows: Maximum number of rows to display. Defaults to None.
+        x_label: Label for the x axis. Defaults to None.
+        y_label: Label for the y axis. Defaults to None.
+        title: Title for the plot. Defaults to None.
+        width: Width of the plot in pixels. Defaults to None.
+        height: Height of the plot in pixels. Defaults to 500.
+        layout_args: Layout arguments for the plot to be passed to fig.update_layout(),
+            such as {'title':'Plot Title', 'title_x':0.5}. Defaults to no args.
         **kwargs: Any additional arguments to pass to plotly.express.bar(), such as:
-
             pattern_shape: str or int or Series or array-like
                 Either a name of a column in `data_frame`, or a pandas Series or
                 array_like object. Values from this column or array_like are used to
@@ -802,20 +790,15 @@ def histogram(
                 The figure template name (must be a key in plotly.io.templates) or
                 definition.
 
-
     Returns:
         plotly.graph_objs._figure.Figure: A plotly figure object.
     """
-
     if isinstance(data, str):
         if data.startswith("http"):
             data = coreutils.github_raw_url(data)
             data = get_direct_url(data)
 
-        try:
-            data = pd.read_csv(data)
-        except Exception as e:
-            raise ValueError(f"Could not read data from {data}. {e}")
+        data = pd.read_csv(data)
 
     if not isinstance(data, pd.DataFrame):
         raise ValueError(
@@ -838,34 +821,31 @@ def histogram(
     if y_label is not None:
         labels[y] = y_label
 
-    try:
-        fig = px.histogram(
-            data,
-            x=x,
-            y=y,
-            color=color,
-            labels=labels,
-            title=title,
-            width=width,
-            height=height,
-            **kwargs,
-        )
+    fig = px.histogram(
+        data,
+        x=x,
+        y=y,
+        color=color,
+        labels=labels,
+        title=title,
+        width=width,
+        height=height,
+        **kwargs,
+    )
 
-        if isinstance(layout_args, dict):
-            fig.update_layout(**layout_args)
+    if isinstance(layout_args, dict):
+        fig.update_layout(**layout_args)
 
-        return fig
-    except Exception as e:
-        raise ValueError(f"Could not create bar plot. {e}")
+    return fig
 
 
 def pie_chart(
     data,
     names=None,
     values=None,
-    descending=True,
-    max_rows=None,
-    other_label=None,
+    descending: bool = True,
+    max_rows: int | None = None,
+    other_label: str | None = None,
     color=None,
     color_discrete_sequence=None,
     color_discrete_map=None,
@@ -873,14 +853,14 @@ def pie_chart(
     hover_data=None,
     custom_data=None,
     labels=None,
-    title=None,
+    title: str | None = None,
     legend_title=None,
     template=None,
-    width=None,
-    height=None,
-    opacity=None,
-    hole=None,
-    layout_args={},
+    width: int | None = None,
+    height: int | None = None,
+    opacity: float | None = None,
+    hole: float | None = None,
+    layout_args: dict | None = None,
     **kwargs,
 ):
     """Create a plotly pie chart.
@@ -899,9 +879,9 @@ def pie_chart(
             Either a name of a column in `data_frame`, or a pandas Series or
             array_like object. Values from this column or array_like are used to
             set values associated to sectors.
-        descending (bool, optional): Whether to sort the data in descending order. Defaults to True.
-        max_rows (int, optional): Maximum number of rows to display. Defaults to None.
-        other_label (str, optional): Label for the "other" category. Defaults to None.
+        descending: Whether to sort the data in descending order. Defaults to True.
+        max_rows: Maximum number of rows to display. Defaults to None.
+        other_label: Label for the "other" category. Defaults to None.
         color: str or int or Series or array-like
             Either a name of a column in `data_frame`, or a pandas Series or
             array_like object. Values from this column or array_like are used to
@@ -944,20 +924,16 @@ def pie_chart(
             entries and hovers. This parameter allows this to be overridden. The
             keys of this dict should correspond to column names, and the values
             should correspond to the desired label to be displayed.
-        title: str
-            The figure title.
+        title: The figure title.
         template: str or dict or plotly.graph_objects.layout.Template instance
             The figure template name (must be a key in plotly.io.templates) or
             definition.
-        width: int (default `None`)
-            The figure width in pixels.
-        height: int (default `None`)
-            The figure height in pixels.
-        opacity: float
-            Value between 0 and 1. Sets the opacity for markers.
-        hole: float
-            Sets the fraction of the radius to cut out of the pie.Use this to make
-            a donut chart.
+        width: The figure width in pixels.
+        height: The figure height in pixels.
+        opacity: Value between 0 and 1. Sets the opacity for markers.
+        hole: Fraction of the radius to cut out of the pie. Use this to make a donut
+            chart.
+        layout_args: TODO
 
     Returns:
         plotly.graph_objs._figure.Figure: A plotly figure object.
@@ -967,10 +943,7 @@ def pie_chart(
             data = coreutils.github_raw_url(data)
             data = get_direct_url(data)
 
-        try:
-            data = pd.read_csv(data)
-        except Exception as e:
-            raise ValueError(f"Could not read data from {data}. {e}")
+        data = pd.read_csv(data)
 
     if not isinstance(data, pd.DataFrame):
         raise ValueError(
@@ -988,35 +961,35 @@ def pie_chart(
         value = data.iloc[max_rows][values]
         data.loc[data[values] < value, names] = other_label
 
+    if layout_args is None:
+        layout_args = {}
+
     if isinstance(legend_title, str):
         if "legend" not in layout_args:
             layout_args["legend"] = {}
         layout_args["legend"]["title"] = legend_title
 
-    try:
-        fig = px.pie(
-            data_frame=data,
-            names=names,
-            values=values,
-            color=color,
-            color_discrete_sequence=color_discrete_sequence,
-            color_discrete_map=color_discrete_map,
-            hover_name=hover_name,
-            hover_data=hover_data,
-            custom_data=custom_data,
-            labels=labels,
-            title=title,
-            template=template,
-            width=width,
-            height=height,
-            opacity=opacity,
-            hole=hole,
-            **kwargs,
-        )
+    fig = px.pie(
+        data_frame=data,
+        names=names,
+        values=values,
+        color=color,
+        color_discrete_sequence=color_discrete_sequence,
+        color_discrete_map=color_discrete_map,
+        hover_name=hover_name,
+        hover_data=hover_data,
+        custom_data=custom_data,
+        labels=labels,
+        title=title,
+        template=template,
+        width=width,
+        height=height,
+        opacity=opacity,
+        hole=hole,
+        **kwargs,
+    )
 
-        if isinstance(layout_args, dict):
-            fig.update_layout(**layout_args)
+    if isinstance(layout_args, dict):
+        fig.update_layout(**layout_args)
 
-        return fig
-    except Exception as e:
-        raise Exception(f"Could not create pie chart. {e}")
+    return fig

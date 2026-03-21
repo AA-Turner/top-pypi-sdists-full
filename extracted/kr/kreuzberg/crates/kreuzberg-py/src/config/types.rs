@@ -20,7 +20,7 @@ use crate::keywords::KeywordConfig;
 ///     ...     ocr=OcrConfig(language="eng"),
 ///     ...     use_cache=True
 ///     ... )
-#[pyclass(name = "ExtractionConfig", module = "kreuzberg")]
+#[pyclass(name = "ExtractionConfig", module = "kreuzberg", from_py_object)]
 #[derive(Default)]
 pub struct ExtractionConfig {
     pub inner: kreuzberg::ExtractionConfig,
@@ -57,7 +57,11 @@ impl ExtractionConfig {
         pages=None,
         result_format=None,
         output_format=None,
-        include_document_structure=None
+        include_document_structure=None,
+        layout=None,
+        acceleration=None,
+        email=None,
+        concurrency=None
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -78,6 +82,10 @@ impl ExtractionConfig {
         result_format: Option<String>,
         output_format: Option<String>,
         include_document_structure: Option<bool>,
+        layout: Option<LayoutDetectionConfig>,
+        acceleration: Option<AccelerationConfig>,
+        email: Option<EmailConfig>,
+        concurrency: Option<ConcurrencyConfig>,
     ) -> PyResult<Self> {
         let (html_options_inner, html_options_dict) = parse_html_options_dict(html_options)?;
         Ok(Self {
@@ -129,6 +137,10 @@ impl ExtractionConfig {
                     kreuzberg::core::config::formats::OutputFormat::Plain
                 },
                 security_limits: None,
+                layout: layout.map(Into::into),
+                acceleration: acceleration.map(Into::into),
+                email: email.map(Into::into),
+                concurrency: concurrency.map(Into::into),
             },
             html_options_dict,
         })
@@ -327,6 +339,46 @@ impl ExtractionConfig {
         };
     }
 
+    #[getter]
+    fn layout(&self) -> Option<LayoutDetectionConfig> {
+        self.inner.layout.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_layout(&mut self, value: Option<LayoutDetectionConfig>) {
+        self.inner.layout = value.map(Into::into);
+    }
+
+    #[getter]
+    fn acceleration(&self) -> Option<AccelerationConfig> {
+        self.inner.acceleration.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_acceleration(&mut self, value: Option<AccelerationConfig>) {
+        self.inner.acceleration = value.map(Into::into);
+    }
+
+    #[getter]
+    fn email(&self) -> Option<EmailConfig> {
+        self.inner.email.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_email(&mut self, value: Option<EmailConfig>) {
+        self.inner.email = value.map(Into::into);
+    }
+
+    #[getter]
+    fn concurrency(&self) -> Option<ConcurrencyConfig> {
+        self.inner.concurrency.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_concurrency(&mut self, value: Option<ConcurrencyConfig>) {
+        self.inner.concurrency = value.map(Into::into);
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "ExtractionConfig(use_cache={}, enable_quality_processing={}, ocr={}, force_ocr={})",
@@ -405,7 +457,7 @@ impl ExtractionConfig {
 /// Example:
 ///     >>> from kreuzberg import OcrConfig
 ///     >>> config = OcrConfig(backend="tesseract", language="eng")
-#[pyclass(name = "OcrConfig", module = "kreuzberg")]
+#[pyclass(name = "OcrConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct OcrConfig {
     pub inner: kreuzberg::OcrConfig,
@@ -451,6 +503,9 @@ impl OcrConfig {
                 output_format: None,
                 paddle_ocr_config: paddle_ocr_json,
                 element_config: element_cfg,
+                quality_thresholds: None,
+                pipeline: None,
+                auto_rotate: false,
             },
         })
     }
@@ -513,11 +568,9 @@ impl OcrConfig {
 ///     >>> from kreuzberg import EmbeddingModelType
 ///     >>> # Use a preset
 ///     >>> model = EmbeddingModelType.preset("balanced")
-///     >>> # Use a specific FastEmbed model
-///     >>> model = EmbeddingModelType.fastembed("BGEBaseENV15", 768)
 ///     >>> # Use a custom model
 ///     >>> model = EmbeddingModelType.custom("my-model", 512)
-#[pyclass(name = "EmbeddingModelType", module = "kreuzberg")]
+#[pyclass(name = "EmbeddingModelType", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct EmbeddingModelType {
     pub inner: kreuzberg::EmbeddingModelType,
@@ -533,14 +586,6 @@ impl EmbeddingModelType {
         }
     }
 
-    /// Create a model type from a FastEmbed model name.
-    #[staticmethod]
-    fn fastembed(model: String, dimensions: usize) -> Self {
-        Self {
-            inner: kreuzberg::EmbeddingModelType::FastEmbed { model, dimensions },
-        }
-    }
-
     /// Create a custom ONNX model type.
     #[staticmethod]
     fn custom(model_id: String, dimensions: usize) -> Self {
@@ -552,9 +597,6 @@ impl EmbeddingModelType {
     fn __repr__(&self) -> String {
         match &self.inner {
             kreuzberg::EmbeddingModelType::Preset { name } => format!("EmbeddingModelType.preset('{}')", name),
-            kreuzberg::EmbeddingModelType::FastEmbed { model, dimensions } => {
-                format!("EmbeddingModelType.fastembed('{}', {})", model, dimensions)
-            }
             kreuzberg::EmbeddingModelType::Custom { model_id, dimensions } => {
                 format!("EmbeddingModelType.custom('{}', {})", model_id, dimensions)
             }
@@ -580,7 +622,7 @@ impl EmbeddingModelType {
 ///     ...     normalize=True,
 ///     ...     batch_size=32
 ///     ... )
-#[pyclass(name = "EmbeddingConfig", module = "kreuzberg")]
+#[pyclass(name = "EmbeddingConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct EmbeddingConfig {
     pub inner: kreuzberg::EmbeddingConfig,
@@ -666,7 +708,7 @@ impl EmbeddingConfig {
 ///     ...     max_overlap=400,
 ///     ...     embedding=embedding
 ///     ... )
-#[pyclass(name = "ChunkingConfig", module = "kreuzberg")]
+#[pyclass(name = "ChunkingConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct ChunkingConfig {
     pub inner: kreuzberg::ChunkingConfig,
@@ -797,7 +839,7 @@ impl ChunkingConfig {
 /// Example:
 ///     >>> from kreuzberg import ImageExtractionConfig
 ///     >>> config = ImageExtractionConfig(target_dpi=300, max_image_dimension=4096)
-#[pyclass(name = "ImageExtractionConfig", module = "kreuzberg")]
+#[pyclass(name = "ImageExtractionConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct ImageExtractionConfig {
     pub inner: kreuzberg::ImageExtractionConfig,
@@ -920,7 +962,7 @@ impl ImageExtractionConfig {
 /// Example:
 ///     >>> from kreuzberg import PdfConfig
 ///     >>> config = PdfConfig(extract_images=True, passwords=["pass1", "pass2"])
-#[pyclass(name = "PdfConfig", module = "kreuzberg")]
+#[pyclass(name = "PdfConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct PdfConfig {
     pub inner: kreuzberg::PdfConfig,
@@ -929,7 +971,8 @@ pub struct PdfConfig {
 #[pymethods]
 impl PdfConfig {
     #[new]
-    #[pyo3(signature = (extract_images=None, passwords=None, extract_metadata=None, hierarchy=None, extract_annotations=None, top_margin_fraction=None, bottom_margin_fraction=None))]
+    #[pyo3(signature = (extract_images=None, passwords=None, extract_metadata=None, hierarchy=None, extract_annotations=None, top_margin_fraction=None, bottom_margin_fraction=None, allow_single_column_tables=None))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         extract_images: Option<bool>,
         passwords: Option<Vec<String>>,
@@ -938,6 +981,7 @@ impl PdfConfig {
         extract_annotations: Option<bool>,
         top_margin_fraction: Option<f32>,
         bottom_margin_fraction: Option<f32>,
+        allow_single_column_tables: Option<bool>,
     ) -> Self {
         Self {
             inner: kreuzberg::PdfConfig {
@@ -948,6 +992,7 @@ impl PdfConfig {
                 extract_annotations: extract_annotations.unwrap_or(false),
                 top_margin_fraction,
                 bottom_margin_fraction,
+                allow_single_column_tables: allow_single_column_tables.unwrap_or(false),
             },
         }
     }
@@ -1022,6 +1067,16 @@ impl PdfConfig {
         self.inner.bottom_margin_fraction = value;
     }
 
+    #[getter]
+    fn allow_single_column_tables(&self) -> bool {
+        self.inner.allow_single_column_tables
+    }
+
+    #[setter]
+    fn set_allow_single_column_tables(&mut self, value: bool) {
+        self.inner.allow_single_column_tables = value;
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "PdfConfig(extract_images={}, extract_metadata={}, passwords={})",
@@ -1041,7 +1096,7 @@ impl PdfConfig {
 /// Example:
 ///     >>> from kreuzberg import TokenReductionConfig
 ///     >>> config = TokenReductionConfig(mode="aggressive", preserve_important_words=True)
-#[pyclass(name = "TokenReductionConfig", module = "kreuzberg")]
+#[pyclass(name = "TokenReductionConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct TokenReductionConfig {
     pub inner: kreuzberg::TokenReductionConfig,
@@ -1093,7 +1148,7 @@ impl TokenReductionConfig {
 /// Example:
 ///     >>> from kreuzberg import LanguageDetectionConfig
 ///     >>> config = LanguageDetectionConfig(enabled=True, min_confidence=0.9)
-#[pyclass(name = "LanguageDetectionConfig", module = "kreuzberg")]
+#[pyclass(name = "LanguageDetectionConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct LanguageDetectionConfig {
     pub inner: kreuzberg::LanguageDetectionConfig,
@@ -1156,7 +1211,7 @@ impl LanguageDetectionConfig {
 /// Example:
 ///     >>> from kreuzberg import PostProcessorConfig
 ///     >>> config = PostProcessorConfig(enabled=True, enabled_processors=["entity_extraction"])
-#[pyclass(name = "PostProcessorConfig", module = "kreuzberg")]
+#[pyclass(name = "PostProcessorConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct PostProcessorConfig {
     pub inner: kreuzberg::PostProcessorConfig,
@@ -1225,6 +1280,89 @@ impl PostProcessorConfig {
     }
 }
 
+/// Layout detection configuration.
+///
+/// Controls layout detection behavior for PDF extraction using ONNX-based
+/// document layout models (YOLO or RT-DETR).
+///
+/// Example:
+///     >>> from kreuzberg import LayoutDetectionConfig
+///     >>> config = LayoutDetectionConfig(preset="fast", apply_heuristics=True)
+#[pyclass(name = "LayoutDetectionConfig", module = "kreuzberg", from_py_object)]
+#[derive(Clone)]
+pub struct LayoutDetectionConfig {
+    pub inner: kreuzberg::core::config::layout::LayoutDetectionConfig,
+}
+
+#[pymethods]
+impl LayoutDetectionConfig {
+    #[new]
+    #[pyo3(signature = (preset=None, confidence_threshold=None, apply_heuristics=None))]
+    fn new(preset: Option<String>, confidence_threshold: Option<f32>, apply_heuristics: Option<bool>) -> Self {
+        Self {
+            inner: kreuzberg::core::config::layout::LayoutDetectionConfig {
+                preset: preset.unwrap_or_else(|| "fast".to_string()),
+                confidence_threshold,
+                apply_heuristics: apply_heuristics.unwrap_or(true),
+            },
+        }
+    }
+
+    #[getter]
+    fn preset(&self) -> String {
+        self.inner.preset.clone()
+    }
+
+    #[setter]
+    fn set_preset(&mut self, value: String) {
+        self.inner.preset = value;
+    }
+
+    #[getter]
+    fn confidence_threshold(&self) -> Option<f32> {
+        self.inner.confidence_threshold
+    }
+
+    #[setter]
+    fn set_confidence_threshold(&mut self, value: Option<f32>) {
+        self.inner.confidence_threshold = value;
+    }
+
+    #[getter]
+    fn apply_heuristics(&self) -> bool {
+        self.inner.apply_heuristics
+    }
+
+    #[setter]
+    fn set_apply_heuristics(&mut self, value: bool) {
+        self.inner.apply_heuristics = value;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "LayoutDetectionConfig(preset='{}', confidence_threshold={}, apply_heuristics={})",
+            self.inner.preset,
+            self.inner
+                .confidence_threshold
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "None".to_string()),
+            self.inner.apply_heuristics
+        )
+    }
+}
+
+impl From<LayoutDetectionConfig> for kreuzberg::core::config::layout::LayoutDetectionConfig {
+    fn from(config: LayoutDetectionConfig) -> Self {
+        config.inner
+    }
+}
+
+impl From<kreuzberg::core::config::layout::LayoutDetectionConfig> for LayoutDetectionConfig {
+    fn from(config: kreuzberg::core::config::layout::LayoutDetectionConfig) -> Self {
+        Self { inner: config }
+    }
+}
+
 /// Image preprocessing configuration for OCR.
 ///
 /// Controls how images are preprocessed before OCR to improve text recognition.
@@ -1236,7 +1374,7 @@ impl PostProcessorConfig {
 ///     ...     denoise=True,
 ///     ...     contrast_enhance=True
 ///     ... )
-#[pyclass(name = "ImagePreprocessingConfig", module = "kreuzberg")]
+#[pyclass(name = "ImagePreprocessingConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct ImagePreprocessingConfig {
     pub inner: kreuzberg::types::ImagePreprocessingConfig,
@@ -1367,7 +1505,7 @@ impl ImagePreprocessingConfig {
 ///     ...     enable_table_detection=True,
 ///     ...     tessedit_char_whitelist="0123456789"
 ///     ... )
-#[pyclass(name = "TesseractConfig", module = "kreuzberg")]
+#[pyclass(name = "TesseractConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct TesseractConfig {
     pub inner: kreuzberg::types::TesseractConfig,
@@ -1675,7 +1813,7 @@ impl TesseractConfig {
 /// Example:
 ///     >>> from kreuzberg import PageConfig
 ///     >>> config = PageConfig(extract_pages=True, insert_page_markers=True)
-#[pyclass(name = "PageConfig", module = "kreuzberg")]
+#[pyclass(name = "PageConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct PageConfig {
     pub inner: kreuzberg::core::config::PageConfig,
@@ -1733,6 +1871,207 @@ impl PageConfig {
     }
 }
 
+/// Hardware acceleration configuration for ONNX Runtime.
+///
+/// Controls which execution provider (CPU, CoreML, CUDA, TensorRT) is used
+/// for inference in layout detection and embedding generation.
+///
+/// Attributes:
+///     provider (str): Execution provider ("auto", "cpu", "coreml", "cuda", "tensorrt"). Default: "auto"
+///     device_id (int): GPU device ID for CUDA/TensorRT. Default: 0
+///
+/// Example:
+///     >>> from kreuzberg import AccelerationConfig
+///     >>> # Auto-select provider per platform
+///     >>> config = AccelerationConfig()
+///     >>>
+///     >>> # Force CPU-only
+///     >>> config = AccelerationConfig(provider="cpu")
+///     >>>
+///     >>> # Use CUDA on device 1
+///     >>> config = AccelerationConfig(provider="cuda", device_id=1)
+#[pyclass(name = "AccelerationConfig", module = "kreuzberg", from_py_object)]
+#[derive(Clone)]
+pub struct AccelerationConfig {
+    pub inner: kreuzberg::AccelerationConfig,
+}
+
+#[pymethods]
+impl AccelerationConfig {
+    #[new]
+    #[pyo3(signature = (provider=None, device_id=None))]
+    fn new(provider: Option<String>, device_id: Option<u32>) -> PyResult<Self> {
+        let execution_provider = match provider.as_deref() {
+            Some("auto") | None => kreuzberg::ExecutionProviderType::Auto,
+            Some("cpu") => kreuzberg::ExecutionProviderType::Cpu,
+            Some("coreml") => kreuzberg::ExecutionProviderType::CoreMl,
+            Some("cuda") => kreuzberg::ExecutionProviderType::Cuda,
+            Some("tensorrt") | Some("tensor_rt") => kreuzberg::ExecutionProviderType::TensorRt,
+            Some(other) => {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Invalid provider: {}. Must be 'auto', 'cpu', 'coreml', 'cuda', or 'tensorrt'",
+                    other
+                )));
+            }
+        };
+
+        Ok(Self {
+            inner: kreuzberg::AccelerationConfig {
+                provider: execution_provider,
+                device_id: device_id.unwrap_or(0),
+            },
+        })
+    }
+
+    #[getter]
+    fn provider(&self) -> String {
+        match self.inner.provider {
+            kreuzberg::ExecutionProviderType::Auto => "auto".to_string(),
+            kreuzberg::ExecutionProviderType::Cpu => "cpu".to_string(),
+            kreuzberg::ExecutionProviderType::CoreMl => "coreml".to_string(),
+            kreuzberg::ExecutionProviderType::Cuda => "cuda".to_string(),
+            kreuzberg::ExecutionProviderType::TensorRt => "tensorrt".to_string(),
+        }
+    }
+
+    #[setter]
+    fn set_provider(&mut self, value: String) -> PyResult<()> {
+        self.inner.provider = match value.to_lowercase().as_str() {
+            "auto" => kreuzberg::ExecutionProviderType::Auto,
+            "cpu" => kreuzberg::ExecutionProviderType::Cpu,
+            "coreml" => kreuzberg::ExecutionProviderType::CoreMl,
+            "cuda" => kreuzberg::ExecutionProviderType::Cuda,
+            "tensorrt" | "tensor_rt" => kreuzberg::ExecutionProviderType::TensorRt,
+            other => {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Invalid provider: {}. Must be 'auto', 'cpu', 'coreml', 'cuda', or 'tensorrt'",
+                    other
+                )));
+            }
+        };
+        Ok(())
+    }
+
+    #[getter]
+    fn device_id(&self) -> u32 {
+        self.inner.device_id
+    }
+
+    #[setter]
+    fn set_device_id(&mut self, value: u32) {
+        self.inner.device_id = value;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AccelerationConfig(provider='{}', device_id={})",
+            self.provider(),
+            self.inner.device_id
+        )
+    }
+}
+
+/// Email extraction configuration.
+///
+/// Controls behavior specific to MSG email extraction.
+///
+/// Attributes:
+///     msg_fallback_codepage (int | None): Windows codepage number to use when an MSG file
+///         contains no codepage property. Defaults to None, which falls back to windows-1252.
+///         Common values: 1250 (Central European), 1251 (Cyrillic), 1252 (Western European, default),
+///         1253 (Greek), 1254 (Turkish), 1255 (Hebrew), 1256 (Arabic), 932 (Japanese), 936 (Simplified Chinese).
+///
+/// Example:
+///     >>> from kreuzberg import EmailConfig
+///     >>> # Use default (windows-1252 fallback)
+///     >>> config = EmailConfig()
+///     >>>
+///     >>> # Force Cyrillic codepage for Russian MSG files
+///     >>> config = EmailConfig(msg_fallback_codepage=1251)
+#[pyclass(name = "EmailConfig", module = "kreuzberg", from_py_object)]
+#[derive(Clone)]
+pub struct EmailConfig {
+    pub inner: kreuzberg::EmailConfig,
+}
+
+#[pymethods]
+impl EmailConfig {
+    #[new]
+    #[pyo3(signature = (msg_fallback_codepage=None))]
+    fn new(msg_fallback_codepage: Option<u32>) -> Self {
+        Self {
+            inner: kreuzberg::EmailConfig { msg_fallback_codepage },
+        }
+    }
+
+    #[getter]
+    fn msg_fallback_codepage(&self) -> Option<u32> {
+        self.inner.msg_fallback_codepage
+    }
+
+    #[setter]
+    fn set_msg_fallback_codepage(&mut self, value: Option<u32>) {
+        self.inner.msg_fallback_codepage = value;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "EmailConfig(msg_fallback_codepage={:?})",
+            self.inner.msg_fallback_codepage
+        )
+    }
+}
+
+/// Concurrency configuration.
+///
+/// Controls thread usage for constrained environments.
+///
+/// Example:
+///     >>> from kreuzberg import ConcurrencyConfig
+///     >>> config = ConcurrencyConfig(max_threads=2)
+#[pyclass(name = "ConcurrencyConfig", module = "kreuzberg", from_py_object)]
+#[derive(Default, Clone)]
+pub struct ConcurrencyConfig {
+    pub inner: kreuzberg::core::config::ConcurrencyConfig,
+}
+
+#[pymethods]
+impl ConcurrencyConfig {
+    #[new]
+    #[pyo3(signature = (max_threads=None))]
+    fn new(max_threads: Option<usize>) -> Self {
+        Self {
+            inner: kreuzberg::core::config::ConcurrencyConfig { max_threads },
+        }
+    }
+
+    #[getter]
+    fn max_threads(&self) -> Option<usize> {
+        self.inner.max_threads
+    }
+
+    #[setter]
+    fn set_max_threads(&mut self, value: Option<usize>) {
+        self.inner.max_threads = value;
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ConcurrencyConfig(max_threads={:?})", self.inner.max_threads)
+    }
+}
+
+impl From<ConcurrencyConfig> for kreuzberg::core::config::ConcurrencyConfig {
+    fn from(val: ConcurrencyConfig) -> Self {
+        val.inner
+    }
+}
+
+impl From<kreuzberg::core::config::ConcurrencyConfig> for ConcurrencyConfig {
+    fn from(val: kreuzberg::core::config::ConcurrencyConfig) -> Self {
+        Self { inner: val }
+    }
+}
+
 /// Hierarchy extraction configuration.
 ///
 /// Controls document hierarchy detection based on font size clustering.
@@ -1740,7 +2079,7 @@ impl PageConfig {
 /// Example:
 ///     >>> from kreuzberg import HierarchyConfig
 ///     >>> config = HierarchyConfig(enabled=True, k_clusters=6, include_bbox=True)
-#[pyclass(name = "HierarchyConfig", module = "kreuzberg")]
+#[pyclass(name = "HierarchyConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct HierarchyConfig {
     pub inner: kreuzberg::core::config::HierarchyConfig,
@@ -1810,6 +2149,336 @@ impl HierarchyConfig {
         format!(
             "HierarchyConfig(enabled={}, k_clusters={}, include_bbox={}, ocr_coverage_threshold={:?})",
             self.inner.enabled, self.inner.k_clusters, self.inner.include_bbox, self.inner.ocr_coverage_threshold
+        )
+    }
+}
+
+/// Per-file extraction configuration overrides for batch processing.
+///
+/// All fields are optional — `None` means "use the batch-level default."
+/// Used with `batch_extract_files` and `batch_extract_bytes` via the `file_configs` parameter
+/// to allow heterogeneous extraction settings within a single batch.
+///
+/// Example:
+///     >>> from kreuzberg import FileExtractionConfig
+///     >>> config = FileExtractionConfig(force_ocr=True)
+#[pyclass(name = "FileExtractionConfig", module = "kreuzberg", from_py_object)]
+#[derive(Default)]
+pub struct FileExtractionConfig {
+    pub inner: kreuzberg::FileExtractionConfig,
+    pub html_options_dict: Option<Py<PyDict>>,
+}
+
+impl Clone for FileExtractionConfig {
+    fn clone(&self) -> Self {
+        let html_options_dict = Python::attach(|py| self.html_options_dict.as_ref().map(|dict| dict.clone_ref(py)));
+        Self {
+            inner: self.inner.clone(),
+            html_options_dict,
+        }
+    }
+}
+
+#[pymethods]
+impl FileExtractionConfig {
+    #[new]
+    #[pyo3(signature = (
+        enable_quality_processing=None,
+        ocr=None,
+        force_ocr=None,
+        chunking=None,
+        images=None,
+        pdf_options=None,
+        token_reduction=None,
+        language_detection=None,
+        pages=None,
+        keywords=None,
+        postprocessor=None,
+        html_options=None,
+        result_format=None,
+        output_format=None,
+        include_document_structure=None,
+        layout=None
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        enable_quality_processing: Option<bool>,
+        ocr: Option<OcrConfig>,
+        force_ocr: Option<bool>,
+        chunking: Option<ChunkingConfig>,
+        images: Option<ImageExtractionConfig>,
+        pdf_options: Option<PdfConfig>,
+        token_reduction: Option<TokenReductionConfig>,
+        language_detection: Option<LanguageDetectionConfig>,
+        pages: Option<PageConfig>,
+        keywords: Option<KeywordConfig>,
+        postprocessor: Option<PostProcessorConfig>,
+        html_options: Option<Bound<'_, PyDict>>,
+        result_format: Option<String>,
+        output_format: Option<String>,
+        include_document_structure: Option<bool>,
+        layout: Option<LayoutDetectionConfig>,
+    ) -> PyResult<Self> {
+        let (html_options_inner, html_options_dict) = parse_html_options_dict(html_options)?;
+        Ok(Self {
+            inner: kreuzberg::FileExtractionConfig {
+                enable_quality_processing,
+                ocr: ocr.map(Into::into),
+                force_ocr,
+                chunking: chunking.map(Into::into),
+                images: images.map(Into::into),
+                pdf_options: pdf_options.map(Into::into),
+                token_reduction: token_reduction.map(Into::into),
+                language_detection: language_detection.map(Into::into),
+                pages: pages.map(Into::into),
+                keywords: keywords.map(Into::into),
+                postprocessor: postprocessor.map(Into::into),
+                html_options: html_options_inner,
+                result_format: if let Some(rf) = result_format {
+                    Some(match rf.to_lowercase().as_str() {
+                        "unified" => kreuzberg::types::OutputFormat::Unified,
+                        "element_based" | "element-based" => kreuzberg::types::OutputFormat::ElementBased,
+                        other => {
+                            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                                "Invalid result_format: {}. Must be 'unified' or 'element_based'",
+                                other
+                            )));
+                        }
+                    })
+                } else {
+                    None
+                },
+                output_format: if let Some(of) = output_format {
+                    Some(match of.to_lowercase().as_str() {
+                        "plain" | "text" => kreuzberg::core::config::formats::OutputFormat::Plain,
+                        "markdown" | "md" => kreuzberg::core::config::formats::OutputFormat::Markdown,
+                        "djot" => kreuzberg::core::config::formats::OutputFormat::Djot,
+                        "html" => kreuzberg::core::config::formats::OutputFormat::Html,
+                        "structured" | "json" => kreuzberg::core::config::formats::OutputFormat::Structured,
+                        other => {
+                            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                                "Invalid output_format: {}. Must be 'plain', 'markdown', 'djot', 'html', or 'structured'",
+                                other
+                            )));
+                        }
+                    })
+                } else {
+                    None
+                },
+                include_document_structure,
+                layout: layout.map(Into::into),
+            },
+            html_options_dict,
+        })
+    }
+
+    #[getter]
+    fn enable_quality_processing(&self) -> Option<bool> {
+        self.inner.enable_quality_processing
+    }
+
+    #[setter]
+    fn set_enable_quality_processing(&mut self, value: Option<bool>) {
+        self.inner.enable_quality_processing = value;
+    }
+
+    #[getter]
+    fn ocr(&self) -> Option<OcrConfig> {
+        self.inner.ocr.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_ocr(&mut self, value: Option<OcrConfig>) {
+        self.inner.ocr = value.map(Into::into);
+    }
+
+    #[getter]
+    fn force_ocr(&self) -> Option<bool> {
+        self.inner.force_ocr
+    }
+
+    #[setter]
+    fn set_force_ocr(&mut self, value: Option<bool>) {
+        self.inner.force_ocr = value;
+    }
+
+    #[getter]
+    fn chunking(&self) -> Option<ChunkingConfig> {
+        self.inner.chunking.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_chunking(&mut self, value: Option<ChunkingConfig>) {
+        self.inner.chunking = value.map(Into::into);
+    }
+
+    #[getter]
+    fn images(&self) -> Option<ImageExtractionConfig> {
+        self.inner.images.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_images(&mut self, value: Option<ImageExtractionConfig>) {
+        self.inner.images = value.map(Into::into);
+    }
+
+    #[getter]
+    fn pdf_options(&self) -> Option<PdfConfig> {
+        self.inner.pdf_options.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_pdf_options(&mut self, value: Option<PdfConfig>) {
+        self.inner.pdf_options = value.map(Into::into);
+    }
+
+    #[getter]
+    fn token_reduction(&self) -> Option<TokenReductionConfig> {
+        self.inner.token_reduction.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_token_reduction(&mut self, value: Option<TokenReductionConfig>) {
+        self.inner.token_reduction = value.map(Into::into);
+    }
+
+    #[getter]
+    fn language_detection(&self) -> Option<LanguageDetectionConfig> {
+        self.inner.language_detection.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_language_detection(&mut self, value: Option<LanguageDetectionConfig>) {
+        self.inner.language_detection = value.map(Into::into);
+    }
+
+    #[getter]
+    fn pages(&self) -> Option<PageConfig> {
+        self.inner.pages.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_pages(&mut self, value: Option<PageConfig>) {
+        self.inner.pages = value.map(Into::into);
+    }
+
+    #[getter]
+    fn keywords(&self) -> Option<KeywordConfig> {
+        self.inner.keywords.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_keywords(&mut self, value: Option<KeywordConfig>) {
+        self.inner.keywords = value.map(Into::into);
+    }
+
+    #[getter]
+    fn postprocessor(&self) -> Option<PostProcessorConfig> {
+        self.inner.postprocessor.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_postprocessor(&mut self, value: Option<PostProcessorConfig>) {
+        self.inner.postprocessor = value.map(Into::into);
+    }
+
+    #[getter]
+    fn html_options(&self) -> Option<Py<PyDict>> {
+        Python::attach(|py| self.html_options_dict.as_ref().map(|d| d.clone_ref(py)))
+    }
+
+    #[setter]
+    fn set_html_options(&mut self, value: Option<Bound<'_, PyDict>>) -> PyResult<()> {
+        let (html_options_inner, html_options_dict) = parse_html_options_dict(value)?;
+        self.inner.html_options = html_options_inner;
+        self.html_options_dict = html_options_dict;
+        Ok(())
+    }
+
+    #[getter]
+    fn result_format(&self) -> Option<String> {
+        self.inner.result_format.as_ref().map(|rf| match rf {
+            kreuzberg::types::OutputFormat::Unified => "unified".to_string(),
+            kreuzberg::types::OutputFormat::ElementBased => "element_based".to_string(),
+        })
+    }
+
+    #[setter]
+    fn set_result_format(&mut self, value: Option<String>) -> PyResult<()> {
+        self.inner.result_format = if let Some(rf) = value {
+            Some(match rf.to_lowercase().as_str() {
+                "unified" => kreuzberg::types::OutputFormat::Unified,
+                "element_based" | "element-based" => kreuzberg::types::OutputFormat::ElementBased,
+                other => {
+                    return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                        "Invalid result_format: {}. Must be 'unified' or 'element_based'",
+                        other
+                    )));
+                }
+            })
+        } else {
+            None
+        };
+        Ok(())
+    }
+
+    #[getter]
+    fn output_format(&self) -> Option<String> {
+        self.inner.output_format.as_ref().map(|of| match of {
+            kreuzberg::core::config::formats::OutputFormat::Plain => "plain".to_string(),
+            kreuzberg::core::config::formats::OutputFormat::Markdown => "markdown".to_string(),
+            kreuzberg::core::config::formats::OutputFormat::Djot => "djot".to_string(),
+            kreuzberg::core::config::formats::OutputFormat::Html => "html".to_string(),
+            kreuzberg::core::config::formats::OutputFormat::Structured => "structured".to_string(),
+        })
+    }
+
+    #[setter]
+    fn set_output_format(&mut self, value: Option<String>) -> PyResult<()> {
+        self.inner.output_format = if let Some(of) = value {
+            Some(match of.to_lowercase().as_str() {
+                "plain" | "text" => kreuzberg::core::config::formats::OutputFormat::Plain,
+                "markdown" | "md" => kreuzberg::core::config::formats::OutputFormat::Markdown,
+                "djot" => kreuzberg::core::config::formats::OutputFormat::Djot,
+                "html" => kreuzberg::core::config::formats::OutputFormat::Html,
+                "structured" | "json" => kreuzberg::core::config::formats::OutputFormat::Structured,
+                other => {
+                    return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                        "Invalid output_format: {}. Must be 'plain', 'markdown', 'djot', 'html', or 'structured'",
+                        other
+                    )));
+                }
+            })
+        } else {
+            None
+        };
+        Ok(())
+    }
+
+    #[getter]
+    fn include_document_structure(&self) -> Option<bool> {
+        self.inner.include_document_structure
+    }
+
+    #[setter]
+    fn set_include_document_structure(&mut self, value: Option<bool>) {
+        self.inner.include_document_structure = value;
+    }
+
+    #[getter]
+    fn layout(&self) -> Option<LayoutDetectionConfig> {
+        self.inner.layout.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_layout(&mut self, value: Option<LayoutDetectionConfig>) {
+        self.inner.layout = value.map(Into::into);
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "FileExtractionConfig(force_ocr={:?}, enable_quality_processing={:?}, include_document_structure={:?})",
+            self.inner.force_ocr, self.inner.enable_quality_processing, self.inner.include_document_structure
         )
     }
 }

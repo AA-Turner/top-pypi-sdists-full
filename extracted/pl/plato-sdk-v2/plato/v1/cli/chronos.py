@@ -418,10 +418,10 @@ async def _complete_chronos_session(
     import httpx
 
     from plato.chronos.api.sessions import complete_session
-    from plato.chronos.models import CompleteSessionRequest
+    from plato.chronos.models import CompleteSessionRequest, Status1
 
     body = CompleteSessionRequest(
-        status=status,
+        status=Status1(status),
         exit_code=exit_code,
         error_message=error_message,
     )

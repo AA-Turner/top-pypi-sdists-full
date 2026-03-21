@@ -28,6 +28,7 @@ classifiers = [
 dependencies = [
     "sqlalchemy>=2,<3",
     "hdbcli~=2.10",
+    "typing_extensions~=4.15",
 ]
 description = "SQLAlchemy dialect for SAP HANA"
 keywords = [
@@ -46,7 +47,7 @@ maintainers = [
 name = "sqlalchemy-hana"
 readme = "README.rst"
 requires-python = "~=3.10"
-version = "4.3.0"
+version = "4.4.0"
 
 [project.optional-dependencies]
 alembic = ["alembic~=1.12"]
@@ -63,12 +64,12 @@ hana = "sqlalchemy_hana.dialect:HANAHDBCLIDialect"
 
 [dependency-groups]
 dev = [
-    "isort==7.0.0",
-    "black==26.1.0",
+    "isort==8.0.1",
+    "black==26.3.1",
     "pre-commit==4.5.1",
     "flake8==7.3.0",
-    "flake8-tergeo==26.1.28.0",
-    "pylint==4.0.4",
+    "flake8-tergeo==26.2.20.0",
+    "pylint==4.0.5",
     "mypy==1.19.1",
     "types-hdbcli==2.25.0.20250915",
     "typing-extensions==4.15.0",
@@ -76,12 +77,12 @@ dev = [
     "pyupgrade==3.21.2",
     "pylint-per-file-ignores==3.2.0",
     "toml-sort==0.24.3",
-    "uv==0.9.27",
+    "uv==0.10.11",
 ]
 test = [
     "pytest==9.0.2",
     "pytest-cov==7.0.0",
-    "coverage[toml]==7.13.2",
+    "coverage[toml]==7.13.5",
     "diff-cover[toml]==10.2.0",
     "pytest-randomly==4.0.1",
 ]
@@ -207,7 +208,7 @@ filterwarnings = [
 log_level = "DEBUG"
 markers = [
     "backend: used by sqlalchemy",
-    "sparse_driver_backend: used by sqlalchemy", # TODO: Remove when part of sqlalchemy config
+    "sparse_driver_backend: used by sqlalchemy",
     "mypy: used by sqlalchemy",
 ]
 xfail_strict = true

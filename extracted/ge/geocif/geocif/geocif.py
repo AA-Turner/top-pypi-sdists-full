@@ -1936,6 +1936,7 @@ class Geocif:
             "crop": self.crop,
             "country": self.country,
             "analysis_dir": self.dir_analysis,
+            "db_path": self.db_path,
         }
         
         try:

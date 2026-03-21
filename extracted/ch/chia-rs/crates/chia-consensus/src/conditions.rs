@@ -11,7 +11,7 @@ use super::opcodes::{
     ASSERT_MY_AMOUNT, ASSERT_MY_BIRTH_HEIGHT, ASSERT_MY_BIRTH_SECONDS, ASSERT_MY_COIN_ID,
     ASSERT_MY_PARENT_ID, ASSERT_MY_PUZZLEHASH, ASSERT_PUZZLE_ANNOUNCEMENT, ASSERT_SECONDS_ABSOLUTE,
     ASSERT_SECONDS_RELATIVE, CREATE_COIN, CREATE_COIN_ANNOUNCEMENT, CREATE_COIN_COST,
-    CREATE_PUZZLE_ANNOUNCEMENT, ConditionOpcode, FREE_CONDITIONS, GENERIC_CONDITION_COST,
+    CREATE_PUZZLE_ANNOUNCEMENT, ConditionOpcode, GENERIC_CONDITION_COST, MESSAGE_CONDITION_COST,
     RECEIVE_MESSAGE, REMARK, RESERVE_FEE, SEND_MESSAGE, SOFTFORK, compute_unknown_condition_cost,
     parse_opcode,
 };
@@ -60,6 +60,8 @@ pub const HAS_RELATIVE_CONDITION: u32 = 2;
 // 7. The coin is not referenced by an ASSERT_CONCURRENT_SPEND condition
 // 8. The coin does not issue an CREATE_COIN_ANNOUNCEMENT condition
 pub const ELIGIBLE_FOR_FF: u32 = 4;
+
+pub const MAX_SPENDS_PER_BLOCK: usize = 6000;
 
 pub struct EmptyVisitor {}
 
@@ -1020,7 +1022,6 @@ pub fn parse_conditions<'a, V: SpendVisitor>(
     visitor: &mut V,
 ) -> Result<&'a mut SpendConditions, ValidationErr> {
     let mut announce_countdown: u32 = 1024;
-    let mut free_condition_countdown: usize = FREE_CONDITIONS;
 
     while let Some((mut c, next)) = next(a, iter)? {
         iter = next;
@@ -1030,7 +1031,16 @@ pub fn parse_conditions<'a, V: SpendVisitor>(
             if flags.contains(ConsensusFlags::NO_UNKNOWN_CONDS) {
                 return Err(ValidationErr(c, ErrorCode::InvalidConditionOpcode));
             }
-            // in non-strict mode, we just ignore unknown conditions
+            // in consensus-mode, we ignore unknown conditions, but still charge
+            // cost for them
+            if flags.contains(ConsensusFlags::COST_CONDITIONS) {
+                if *max_cost < GENERIC_CONDITION_COST {
+                    return Err(ValidationErr(c, ErrorCode::CostExceeded));
+                }
+                *max_cost -= GENERIC_CONDITION_COST;
+                ret.condition_cost += GENERIC_CONDITION_COST;
+                spend.condition_cost += GENERIC_CONDITION_COST;
+            }
             continue;
         };
 
@@ -1060,18 +1070,32 @@ pub fn parse_conditions<'a, V: SpendVisitor>(
                 ret.condition_cost += AGG_SIG_COST;
                 spend.condition_cost += AGG_SIG_COST;
             }
-            _ => {}
-        }
-        if flags.contains(ConsensusFlags::COST_CONDITIONS) {
-            if free_condition_countdown == 0 {
-                if *max_cost < GENERIC_CONDITION_COST {
-                    return Err(ValidationErr(c, ErrorCode::CostExceeded));
+            CREATE_COIN_ANNOUNCEMENT
+            | ASSERT_COIN_ANNOUNCEMENT
+            | CREATE_PUZZLE_ANNOUNCEMENT
+            | ASSERT_PUZZLE_ANNOUNCEMENT
+            | ASSERT_CONCURRENT_SPEND
+            | ASSERT_CONCURRENT_PUZZLE
+            | SEND_MESSAGE
+            | RECEIVE_MESSAGE => {
+                if flags.contains(ConsensusFlags::COST_CONDITIONS) {
+                    if *max_cost < MESSAGE_CONDITION_COST {
+                        return Err(ValidationErr(c, ErrorCode::CostExceeded));
+                    }
+                    *max_cost -= MESSAGE_CONDITION_COST;
+                    ret.condition_cost += MESSAGE_CONDITION_COST;
+                    spend.condition_cost += MESSAGE_CONDITION_COST;
                 }
-                *max_cost -= GENERIC_CONDITION_COST;
-                ret.condition_cost += GENERIC_CONDITION_COST;
-                spend.condition_cost += GENERIC_CONDITION_COST;
-            } else {
-                free_condition_countdown -= 1;
+            }
+            _ => {
+                if flags.contains(ConsensusFlags::COST_CONDITIONS) {
+                    if *max_cost < GENERIC_CONDITION_COST {
+                        return Err(ValidationErr(c, ErrorCode::CostExceeded));
+                    }
+                    *max_cost -= GENERIC_CONDITION_COST;
+                    ret.condition_cost += GENERIC_CONDITION_COST;
+                    spend.condition_cost += GENERIC_CONDITION_COST;
+                }
             }
         }
         c = rest(a, c)?;
@@ -1456,9 +1480,19 @@ pub fn parse_spends<V: SpendVisitor>(
 
     let mut cost_left = max_cost;
 
+    let mut spends_left: usize = if flags.contains(ConsensusFlags::LIMIT_SPENDS) {
+        MAX_SPENDS_PER_BLOCK
+    } else {
+        usize::MAX
+    };
+
     let mut iter = first(a, spends)?;
     while let Some((spend, next)) = next(a, iter)? {
         iter = next;
+        if spends_left == 0 {
+            return Err(ValidationErr(spend, ErrorCode::TooManySpends));
+        }
+        spends_left -= 1;
         // cost_left is passed in as a mutable reference and decremented by the
         // cost of the condition (if it has a cost). This let us fail as early
         // as possible if cost is exceeded
@@ -4156,7 +4190,7 @@ fn test_assert_concurrent_puzzle_self() {
 #[case(1001)]
 #[case(5001)]
 #[case(99)]
-fn test_cost_all_conds_after_free(#[case] count: usize) {
+fn test_cost_all_conds(#[case] count: usize) {
     let r = cond_test_cb(
         "((({h1} ({h2} (123 ({} )))",
         ConsensusFlags::COST_CONDITIONS,
@@ -4181,11 +4215,7 @@ fn test_cost_all_conds_after_free(#[case] count: usize) {
     assert!(r.is_ok());
     assert_eq!(
         r.unwrap().1.condition_cost,
-        if count > FREE_CONDITIONS {
-            (count as u64 - FREE_CONDITIONS as u64) * GENERIC_CONDITION_COST
-        } else {
-            0
-        }
+        count as u64 * GENERIC_CONDITION_COST
     );
 }
 
@@ -4195,7 +4225,7 @@ fn test_cost_all_conds_after_free(#[case] count: usize) {
 #[case(1001)]
 #[case(5001)]
 #[case(99)]
-fn test_cost_create_coins_conds_after_free(#[case] count: usize) {
+fn test_cost_create_coins_conds(#[case] count: usize) {
     let r = cond_test_cb(
         "((({h1} ({h2} (1230000000000 ({} )))",
         ConsensusFlags::COST_CONDITIONS,
@@ -4218,15 +4248,7 @@ fn test_cost_create_coins_conds_after_free(#[case] count: usize) {
         None,
     );
     assert!(r.is_ok());
-    assert_eq!(
-        r.unwrap().1.condition_cost,
-        if count > FREE_CONDITIONS {
-            ((count as u64 - FREE_CONDITIONS as u64) * GENERIC_CONDITION_COST)
-                + (CREATE_COIN_COST * count as u64)
-        } else {
-            CREATE_COIN_COST * count as u64
-        }
-    );
+    assert_eq!(r.unwrap().1.condition_cost, CREATE_COIN_COST * count as u64);
 }
 
 #[cfg(test)]
@@ -4235,7 +4257,7 @@ fn test_cost_create_coins_conds_after_free(#[case] count: usize) {
 #[case(1001)]
 #[case(5001)]
 #[case(99)]
-fn test_cost_aggsig_conds_after_free(#[case] count: usize) {
+fn test_cost_aggsig_conds(#[case] count: usize) {
     use chia_bls::{SecretKey, sign};
 
     let sk = SecretKey::from_bytes(SECRET_KEY).expect("secret key");
@@ -4267,15 +4289,7 @@ fn test_cost_aggsig_conds_after_free(#[case] count: usize) {
         None,
     );
     assert!(r.is_ok());
-    assert_eq!(
-        r.unwrap().1.condition_cost,
-        if count > FREE_CONDITIONS {
-            ((count as u64 - FREE_CONDITIONS as u64) * GENERIC_CONDITION_COST)
-                + (AGG_SIG_COST * count as u64)
-        } else {
-            AGG_SIG_COST * count as u64
-        }
-    );
+    assert_eq!(r.unwrap().1.condition_cost, AGG_SIG_COST * count as u64);
 }
 
 // the relative constraints clash because they are on the same coin spend
@@ -6169,4 +6183,62 @@ fn test_dedup_reserve_fee_without_paying() {
 
     // Not eligible for dedup because the output is less than the input
     assert_eq!(cond.spends[1].flags & ELIGIBLE_FOR_DEDUP, 0);
+}
+
+#[cfg(test)]
+fn build_spend_list(a: &mut Allocator, num_spends: usize) -> NodePtr {
+    let mut spend_list = a.nil();
+    for i in (0..num_spends).rev() {
+        let mut parent = [0u8; 32];
+        parent[0..4].copy_from_slice(&(i as u32).to_be_bytes());
+        let parent_id = a.new_atom(&parent).unwrap();
+        let puzzle_hash = a.new_atom(H2).unwrap();
+        let amount = a.new_number(1.into()).unwrap();
+        let conditions = a.nil();
+
+        let nil = a.nil();
+        let spend = a.new_pair(conditions, nil).unwrap();
+        let spend = a.new_pair(amount, spend).unwrap();
+        let spend = a.new_pair(puzzle_hash, spend).unwrap();
+        let spend = a.new_pair(parent_id, spend).unwrap();
+
+        spend_list = a.new_pair(spend, spend_list).unwrap();
+    }
+    let nil = a.nil();
+    a.new_pair(spend_list, nil).unwrap()
+}
+
+#[cfg(test)]
+#[rstest]
+#[case(MAX_SPENDS_PER_BLOCK, ConsensusFlags::LIMIT_SPENDS, None)]
+#[case(MAX_SPENDS_PER_BLOCK + 1, ConsensusFlags::LIMIT_SPENDS, Some(ErrorCode::TooManySpends))]
+#[case(MAX_SPENDS_PER_BLOCK + 1, ConsensusFlags::empty(), None)]
+fn test_limit_spends_parse_spends(
+    #[case] num_spends: usize,
+    #[case] flags: ConsensusFlags,
+    #[case] expected_err: Option<ErrorCode>,
+) {
+    let mut a = Allocator::new();
+    let spends = build_spend_list(&mut a, num_spends);
+    let result = parse_spends::<MempoolVisitor>(
+        &a,
+        spends,
+        11_000_000_000,
+        0,
+        flags | ConsensusFlags::DONT_VALIDATE_SIGNATURE,
+        &Signature::default(),
+        None,
+        &TEST_CONSTANTS,
+    );
+    match (expected_err, result) {
+        (Some(err), Err(e)) => {
+            assert_eq!(e.1, err);
+        }
+        (None, Ok(conds)) => {
+            assert_eq!(conds.spends.len(), num_spends);
+        }
+        _ => {
+            panic!("mismatch");
+        }
+    }
 }

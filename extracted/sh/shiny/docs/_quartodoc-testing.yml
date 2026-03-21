@@ -30,6 +30,7 @@ quartodoc:
         - playwright.controller.InputBookmarkButton
         - playwright.controller.InputCheckbox
         - playwright.controller.InputCheckboxGroup
+        - playwright.controller.InputCodeEditor
         - playwright.controller.InputDarkMode
         - playwright.controller.InputDate
         - playwright.controller.InputDateRange
@@ -45,6 +46,8 @@ quartodoc:
         - playwright.controller.InputTaskButton
         - playwright.controller.InputText
         - playwright.controller.InputTextArea
+        - playwright.controller.ToolbarInputButton
+        - playwright.controller.ToolbarInputSelect
     - title: Value boxes
       desc: Methods for interacting with Shiny app valuebox controller.
       contents:

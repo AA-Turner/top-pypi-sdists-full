@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-verifiedpermissions
-Version: 1.42.33
-Summary: Type annotations for boto3 VerifiedPermissions 1.42.33 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.73
+Summary: Type annotations for boto3 VerifiedPermissions 1.42.73 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 VerifiedPermissions 1.42.33](https://pypi.org/project/boto3/) compatible
+[boto3 VerifiedPermissions 1.42.73](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.33' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.73' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `VerifiedPermissions` service.
 4. Use provided commands to install generated packages.
@@ -343,6 +343,7 @@ from mypy_boto3_verifiedpermissions import VerifiedPermissionsClient
 from mypy_boto3_verifiedpermissions.paginator import (
     ListIdentitySourcesPaginator,
     ListPoliciesPaginator,
+    ListPolicyStoreAliasesPaginator,
     ListPolicyStoresPaginator,
     ListPolicyTemplatesPaginator,
 )
@@ -355,6 +356,9 @@ list_identity_sources_paginator: ListIdentitySourcesPaginator = client.get_pagin
     "list_identity_sources"
 )
 list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+list_policy_store_aliases_paginator: ListPolicyStoreAliasesPaginator = client.get_paginator(
+    "list_policy_store_aliases"
+)
 list_policy_stores_paginator: ListPolicyStoresPaginator = client.get_paginator("list_policy_stores")
 list_policy_templates_paginator: ListPolicyTemplatesPaginator = client.get_paginator(
     "list_policy_templates"
@@ -372,10 +376,10 @@ Full list of `VerifiedPermissions` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/literals/).
 
 ```python
-from mypy_boto3_verifiedpermissions.literals import BatchGetPolicyErrorCodeType
+from mypy_boto3_verifiedpermissions.literals import AliasStateType
 
 
-def check_value(value: BatchGetPolicyErrorCodeType) -> bool: ...
+def check_value(value: AliasStateType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

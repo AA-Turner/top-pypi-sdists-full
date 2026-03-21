@@ -5,11 +5,13 @@ import importlib.util
 import inspect
 import logging
 import os
+import pkgutil
 import re
 import sys
 import typing
 from collections.abc import Mapping
 from functools import lru_cache
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -84,7 +86,7 @@ def get_nested_value(
     current_level = d
     for key in keys:
         if isinstance(current_level, dict):
-            current_level = current_level.get(key, default)  # type: ignore[assignment]
+            current_level = current_level.get(key, default)
             if current_level is default and key != keys[-1]:
                 return default
         else:
@@ -92,7 +94,7 @@ def get_nested_value(
     return current_level
 
 
-def resource_in_path(check, resource) -> bool:
+def resource_in_path(check: "BaseCheck", resource: Any) -> bool:
     """Validate that a check is applicable to a specific resource path.
 
     Returns:
@@ -133,6 +135,10 @@ def find_missing_meta_keys(meta_config, required_keys) -> list[str]:
     ]
 
 
+_SEPARATOR = ">"
+_ESCAPED_SEPARATOR = "\\>"
+
+
 def flatten(
     structure: Any,
     key: str = "",
@@ -148,13 +154,19 @@ def flatten(
     if flattened is None:
         flattened = {}
     if not isinstance(structure, (dict, list)):
-        flattened[((path + ">") if path else "") + key] = structure
+        flattened[((path + _SEPARATOR) if path else "") + key] = structure
     elif isinstance(structure, list):
         for i, item in enumerate(structure):
-            flatten(item, f"{i}", f"{path}>{key}", flattened)
+            flatten(item, f"{i}", f"{path}{_SEPARATOR}{key}", flattened)
     else:
         for new_key, value in structure.items():
-            flatten(value, new_key, f"{path}>{key}", flattened)
+            # Escape the separator in string keys to prevent path corruption
+            escaped_key = (
+                new_key.replace(_SEPARATOR, _ESCAPED_SEPARATOR)
+                if isinstance(new_key, str)
+                else new_key
+            )
+            flatten(value, escaped_key, f"{path}{_SEPARATOR}{key}", flattened)
     return flattened
 
 
@@ -230,7 +242,13 @@ def _load_custom_checks(
                     _extract_checks_from_module(
                         module, unique_module_name, check_objects
                     )
-            except Exception as e:
+            except (
+                AttributeError,
+                ImportError,
+                ModuleNotFoundError,
+                OSError,
+                SyntaxError,
+            ) as e:
                 logging.warning(
                     f"Failed to load custom check file `{check_file}`: {e}. "
                     "This file will be skipped."
@@ -241,19 +259,241 @@ def _load_custom_checks(
         )
 
 
+_ENTRY_POINT_GROUP = "dbt_bouncer.checks"
+
+
+def _load_entry_point_checks(check_objects: list[type["BaseCheck"]]) -> None:
+    """Load check classes from installed packages via entry points.
+
+    Scans the ``dbt_bouncer.checks`` entry point group. Each entry point
+    can resolve to:
+
+    - A module containing Check* classes (inspected directly)
+    - A Check* class (added directly)
+    - A package (recursively walked via pkgutil to find Check* classes
+      in submodules)
+
+    Args:
+        check_objects: A list to which discovered check classes will be
+            appended.
+
+    """
+    eps = entry_points(group=_ENTRY_POINT_GROUP)
+    for ep in eps:
+        try:
+            target = ep.load()
+
+            if inspect.isclass(target) and target.__name__.startswith("Check"):
+                check_objects.append(target)
+            elif inspect.ismodule(target):
+                # Check if it's a package (has __path__) — walk submodules
+                if hasattr(target, "__path__"):
+                    for _importer, modname, _ispkg in pkgutil.walk_packages(
+                        target.__path__, prefix=f"{target.__name__}."
+                    ):
+                        try:
+                            submodule = importlib.import_module(modname)
+                            _extract_checks_from_module(
+                                submodule, modname, check_objects
+                            )
+                        except ImportError:
+                            logging.warning(
+                                f"Failed to import submodule `{modname}` "
+                                f"from entry point `{ep.name}`."
+                            )
+                else:
+                    # Plain module — inspect directly
+                    _extract_checks_from_module(target, target.__name__, check_objects)
+            else:
+                logging.warning(
+                    f"Entry point `{ep.name}` resolved to "
+                    f"{type(target).__name__}, expected a module, package, "
+                    "or Check class. Skipping."
+                )
+        except (AttributeError, ImportError, ModuleNotFoundError) as e:
+            logging.warning(
+                f"Failed to load entry point `{ep.name}`: {e}. "
+                "This plugin will be skipped."
+            )
+
+
+_CATEGORY_TO_SUBDIR: dict[str, str] = {
+    "catalog_checks": "catalog",
+    "manifest_checks": "manifest",
+    "run_results_checks": "run_results",
+}
+
+_SUBDIR_TO_CATEGORY: dict[str, str] = {v: k for k, v in _CATEGORY_TO_SUBDIR.items()}
+
+
+def _build_check_module_map() -> dict[str, dict[str, str]]:
+    """Build a mapping of check_name -> {module, category} by scanning check modules.
+
+    This is the expensive operation that we cache to disk. It imports every
+    check module to discover check classes and their names.
+
+    Returns:
+        dict[str, dict[str, str]]: Mapping like
+            ``{"check_model_names": {"module": "dbt_bouncer.checks.manifest.models.naming", "category": "manifest_checks"}}``.
+
+    """
+    checks_dir = Path(__file__).parent / "checks"
+    mapping: dict[str, dict[str, str]] = {}
+
+    for check_file in (f for f in checks_dir.glob("**/*.py") if f.is_file()):
+        index = check_file.parts.index("checks")
+        module_name = ".".join(
+            ["dbt_bouncer", "checks", *check_file.parts[index + 1 :]]
+        )[:-3]
+
+        # Determine category from path
+        relative_parts = check_file.relative_to(checks_dir).parts
+        category = (
+            _SUBDIR_TO_CATEGORY.get(relative_parts[0], "") if relative_parts else ""
+        )
+
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            continue
+
+        for name, obj in inspect.getmembers(module):
+            if (
+                inspect.isclass(obj)
+                and name.startswith("Check")
+                and obj.__module__ == module_name
+            ):
+                # Extract the Literal name value
+                name_field = obj.model_fields.get("name")
+                if name_field is not None:
+                    args = typing.get_args(name_field.annotation)
+                    if args:
+                        mapping[args[0]] = {
+                            "module": module_name,
+                            "category": category,
+                        }
+
+    return mapping
+
+
+def _get_check_module_map_cached() -> dict[str, dict[str, str]]:
+    """Get the check name -> module mapping, using disk cache.
+
+    The cache is keyed by the dbt-bouncer version and invalidated when the
+    version changes (e.g. after an upgrade that adds new checks).
+
+    Returns:
+        dict[str, dict[str, str]]: The cached mapping.
+
+    """
+    import orjson
+
+    from dbt_bouncer.version import version
+
+    cache_dir = Path.home() / ".cache" / "dbt-bouncer"
+    cache_file = cache_dir / f"check_registry_{version()}.json"
+
+    if cache_file.exists():
+        try:
+            return orjson.loads(cache_file.read_bytes())
+        except (orjson.JSONDecodeError, OSError):
+            pass  # Corrupted cache, rebuild
+
+    mapping = _build_check_module_map()
+
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_file.write_bytes(orjson.dumps(mapping))
+    except OSError:
+        pass  # Can't write cache (e.g. read-only filesystem), continue without it
+
+    return mapping
+
+
+def get_check_objects_for_names(
+    check_names: frozenset[str],
+    custom_checks_dir: Path | None = None,
+) -> list[type["BaseCheck"]]:
+    """Get check classes for a specific set of check names.
+
+    Uses a disk-cached name-to-module mapping to import only the modules that
+    contain the requested checks, avoiding the cost of importing all check
+    modules.
+
+    Falls back to the full ``get_check_objects()`` scan if the cache is
+    unavailable or a requested name is not in the cache.
+
+    Args:
+        check_names: The set of check names to load (e.g.
+            ``{"check_model_names", "check_model_description_populated"}``).
+        custom_checks_dir: Path to a directory containing custom checks.
+
+    Returns:
+        list[type[BaseCheck]]: List of check classes for the requested names.
+
+    """
+    module_map = _get_check_module_map_cached()
+
+    # Check if all requested names are in the cache
+    missing = check_names - module_map.keys()
+    if missing:
+        logging.debug(
+            f"Check names not in cache: {missing}. Falling back to full scan."
+        )
+        return get_check_objects(custom_checks_dir)
+
+    # Import only the needed modules
+    needed_modules: set[str] = {module_map[n]["module"] for n in check_names}
+    check_objects: list[type["BaseCheck"]] = []
+
+    for module_name in sorted(needed_modules):
+        try:
+            module = importlib.import_module(module_name)
+            _extract_checks_from_module(module, module_name, check_objects)
+        except ImportError:
+            logging.warning(f"Failed to import check module: {module_name}")
+
+    # Also load custom checks and entry points
+    if custom_checks_dir is not None:
+        _load_custom_checks(Path(custom_checks_dir), check_objects)
+    _load_entry_point_checks(check_objects)
+
+    # Deduplicate
+    seen: set[type] = set()
+    unique: list[type["BaseCheck"]] = []
+    for cls in check_objects:
+        if cls not in seen:
+            seen.add(cls)
+            unique.append(cls)
+
+    logging.debug(
+        f"Loaded {len(unique)} check classes for {len(check_names)} configured checks."
+    )
+    return unique
+
+
 @lru_cache
 def get_check_objects(
     custom_checks_dir: Path | None = None,
+    check_categories: frozenset[str] | None = None,
 ) -> list[type["BaseCheck"]]:
     """Get list of Check* classes.
 
-    This function dynamically discovers and loads check classes from two sources:
-    1. Internal checks located in the `checks` directory of the package.
-    2. Custom checks located in the specified `custom_checks_dir` (if provided).
+    This function dynamically discovers and loads check classes from three
+    sources:
+
+    1. Internal checks located in the ``checks`` directory of the package.
+    2. Custom checks located in the specified ``custom_checks_dir`` (if
+       provided).
+    3. Entry-point checks from installed packages registered under the
+       ``dbt_bouncer.checks`` entry point group.
 
     It filters for classes that:
     - Start with "Check".
     - Are defined within the loaded module (not imported).
+
+    Results are deduplicated so a class discovered via multiple paths
+    appears only once.
 
     The result is cached using `@lru_cache` to avoid redundant file scanning
     and module loading on subsequent calls. Import errors in individual files
@@ -261,6 +501,10 @@ def get_check_objects(
 
     Args:
         custom_checks_dir: Path to a directory containing custom checks.
+        check_categories: Optional frozenset of category names (e.g.
+            ``"catalog_checks"``, ``"manifest_checks"``,
+            ``"run_results_checks"``) to limit which subdirectories are
+            scanned.  When ``None``, all subdirectories are scanned.
 
     Returns:
         list[type[BaseCheck]]: List of Check* classes.
@@ -269,14 +513,27 @@ def get_check_objects(
     check_objects: list[type["BaseCheck"]] = []
 
     # 1. Load internal checks
-    check_files = [
-        f for f in (Path(__file__).parent / "checks").glob("*/*.py") if f.is_file()
-    ]
+    checks_dir = Path(__file__).parent / "checks"
+
+    if check_categories is not None:
+        # Only scan the subdirectories that correspond to configured categories
+        subdirs = [
+            checks_dir / _CATEGORY_TO_SUBDIR[cat]
+            for cat in check_categories
+            if cat in _CATEGORY_TO_SUBDIR
+        ]
+        check_files: list[Path] = []
+        for subdir in subdirs:
+            check_files.extend(f for f in subdir.glob("**/*.py") if f.is_file())
+        # Always include top-level .py files (e.g. common.py)
+        check_files.extend(f for f in checks_dir.glob("*.py") if f.is_file())
+    else:
+        check_files = [f for f in checks_dir.glob("**/*.py") if f.is_file()]
     for check_file in check_files:
-        # e.g. dbt_bouncer.checks.manifest.check_models
+        index = check_file.parts.index("checks")
         module_name = ".".join(
-            ["dbt_bouncer", "checks", check_file.parts[-2], check_file.stem]
-        )
+            ["dbt_bouncer", "checks"] + list(check_file.parts[index + 1 :])  # noqa: RUF005
+        )[:-3]  # Remove .py suffix
         try:
             module = importlib.import_module(module_name)
             _extract_checks_from_module(module, module_name, check_objects)
@@ -286,6 +543,18 @@ def get_check_objects(
     # 2. Load custom checks (if any)
     if custom_checks_dir is not None:
         _load_custom_checks(Path(custom_checks_dir), check_objects)
+
+    # 3. Load entry-point checks (third-party plugins)
+    _load_entry_point_checks(check_objects)
+
+    # Deduplicate (same class could be found via internal scan + entry points)
+    seen: set[type] = set()
+    unique_checks: list[type["BaseCheck"]] = []
+    for cls in check_objects:
+        if cls not in seen:
+            seen.add(cls)
+            unique_checks.append(cls)
+    check_objects = unique_checks
 
     logging.debug(f"Loaded {len(check_objects)} `Check*` classes.")
 
@@ -383,17 +652,13 @@ def load_config_from_yaml(config_file: Path) -> Mapping[str, Any]:
     """
     config_path = Path().cwd() / config_file
     logging.debug(f"Loading config from {config_path}...")
-    logging.debug(f"Loading config from {config_file}...")
     if (
         not config_path.exists()
     ):  # Shouldn't be needed as click should have already checked this
         raise FileNotFoundError(f"No config file found at {config_path}.")
 
     with Path.open(config_path, "r") as f:
-        try:
-            conf = yaml.load(f, Loader=yaml.CSafeLoader)
-        except AttributeError:
-            conf = yaml.safe_load(f)
+        conf = yaml.load(f, Loader=yaml.CSafeLoader)  # type: ignore[possibly-missing-attribute]
 
     logging.info(f"Loaded config from {config_file}...")
 

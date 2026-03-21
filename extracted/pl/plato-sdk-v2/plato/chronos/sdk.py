@@ -71,13 +71,15 @@ from plato.chronos.models import (
     SessionEnvsResponse,
     SessionListResponse,
     SessionLogsResponse,
+    SessionMetricsResponse,
     SessionNotesPayloadInput,
     SessionResponse,
     SessionStatusResponse,
     SessionTrajectory,
+    Status1,
     TrajectoryMetrics,
     UpdateNotesRequest,
-    WorldConfig,
+    WorldConfigInput,
     WorldRuntimeConfig,
 )
 from plato.chronos.models import (
@@ -144,7 +146,7 @@ class _ChronosBase:
             parent_session_id = os.environ.get("SESSION_ID")
         world_runtime = WorldRuntimeConfig(**runtime) if runtime else None
         return LaunchJobRequest(
-            world=WorldConfig(package=package, config=config, runtime=world_runtime, world_name=world_name),
+            world=WorldConfigInput(package=package, config=config, runtime=world_runtime, world_name=world_name),
             tags=[_normalize_tag(t) for t in tags] if tags else None,
             allow_prerelease=allow_prerelease or None,
             parent_session_id=parent_session_id,
@@ -156,7 +158,7 @@ class _ChronosBase:
         result: dict[str, Any] | None,
         error_message: str | None,
     ) -> CompleteSessionRequest:
-        body = CompleteSessionRequest(status=status, error_message=error_message)
+        body = CompleteSessionRequest(status=Status1(status), error_message=error_message)
         if result is not None:
             body.result = result  # extra="allow"
         return body
@@ -315,7 +317,7 @@ class Chronos(_ChronosBase):
         return complete_session.sync(self._client, public_id=session_id, body=body)
 
     def stop(self, session_id: str) -> SessionResponse:
-        body = CompleteSessionRequest(status="cancelled", error_message="User cancelled")
+        body = CompleteSessionRequest(status=Status1("cancelled"), error_message="User cancelled")
         return complete_session.sync(self._client, public_id=session_id, body=body)
 
     def update_notes(
@@ -431,7 +433,7 @@ class Chronos(_ChronosBase):
         self,
         session_id: str,
         env_alias: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> SessionMetricsResponse:
         """Get VM metrics (CPU, memory, etc.) for a session."""
         return get_metrics_api.sync(
             self._client,
@@ -687,7 +689,7 @@ class AsyncChronos(_ChronosBase):
         return await complete_session.asyncio(self._client, public_id=session_id, body=body)
 
     async def stop(self, session_id: str) -> SessionResponse:
-        body = CompleteSessionRequest(status="cancelled", error_message="User cancelled")
+        body = CompleteSessionRequest(status=Status1("cancelled"), error_message="User cancelled")
         return await complete_session.asyncio(self._client, public_id=session_id, body=body)
 
     async def update_notes(
@@ -805,7 +807,7 @@ class AsyncChronos(_ChronosBase):
         self,
         session_id: str,
         env_alias: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> SessionMetricsResponse:
         """Get VM metrics (CPU, memory, etc.) for a session."""
         return await get_metrics_api.asyncio(
             self._client,

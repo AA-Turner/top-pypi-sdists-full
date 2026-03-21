@@ -87,6 +87,41 @@ def api_post(
     return {}
 
 
+def _is_first_deployment_with_seed_live(host: Optional[str], headers: dict) -> bool:
+    """Best-effort check for first real deployment when seed deployment (id=0) is still live."""
+    try:
+        response = requests.get(f"{host}/v1/deployments", headers=headers)
+        if response.status_code >= 300:
+            return False
+
+        result = response.json()
+        logging.debug(json.dumps(result, indent=2))
+        deployments = result.get("deployments") or []
+        if not deployments:
+            return False
+
+        live_deployment = next((deployment for deployment in deployments if deployment.get("live")), deployments[0])
+        return str(live_deployment.get("id")) == "0"
+    except Exception:
+        # Hint calculation must never break deployment flow.
+        return False
+
+
+def _get_deployment_job(client: TinyB, deployment_id: Optional[Union[str, int]]) -> Optional[Dict[str, Any]]:
+    if deployment_id is None:
+        return None
+
+    try:
+        deployment_id = str(deployment_id)
+        jobs = client.jobs()
+        return next(
+            (job for job in jobs if job.get("kind") == "deployment" and str(job.get("deployment_id")) == deployment_id),
+            None,
+        )
+    except Exception:
+        return None
+
+
 # TODO(eclbg): This logic should be in the server, and there should be a dedicated endpoint for promoting a deployment
 # potato
 def promote_deployment(host: Optional[str], headers: dict, wait: bool, ingest_hint: Optional[bool] = True) -> None:
@@ -243,7 +278,7 @@ def create_deployment(
         ".connection": "text/plain",
     }
 
-    TINYBIRD_API_URL = f"{client.host}/v1/deploy"
+    TINYBIRD_API_DEPLOY_ENDPOINT_URL = f"{client.host}/v1/deploy"
     TINYBIRD_API_KEY = client.token
 
     if project.has_deeper_level():
@@ -273,24 +308,33 @@ def create_deployment(
                 (MULTIPART_BOUNDARY_DATA_PROJECT_VENDORED, (relative_path, fd.read().decode("utf-8"), content_type))
             )
 
-    deployment = None
+    deployment_job: Optional[Dict[str, Any]] = None
+    deployment_request_sent = False
+    deployment = {}
     try:
         HEADERS = {"Authorization": f"Bearer {TINYBIRD_API_KEY}"}
         params = {}
         if check:
             click.echo(FeedbackManager.highlight(message="\n» Validating deployment...\n"))
             params["check"] = "true"
+        elif auto:
+            params["auto_promote"] = "true"
         if allow_destructive_operations:
             params["allow_destructive_operations"] = "true"
 
-        result = api_post(TINYBIRD_API_URL, headers=HEADERS, files=files, params=params)
+        deployment_request_sent = True
+        result = api_post(TINYBIRD_API_DEPLOY_ENDPOINT_URL, headers=HEADERS, files=files, params=params)
 
         print_changes(result, project, output)
 
-        if output == "json" and check:
-            echo_json(result.get("deployment", {}), 8)
-
         deployment = result.get("deployment", {})
+        if not deployment:
+            click.echo(FeedbackManager.error_exception(error="Failed to parse response from API"))
+            sys_exit("deployment_error", "Failed to parse deployment from API response")
+
+        if output == "json" and check:
+            echo_json(deployment, indent=8)
+
         feedback = deployment.get("feedback", [])
         for f in feedback:
             if f.get("level", "").upper() == "ERROR":
@@ -333,22 +377,13 @@ def create_deployment(
                 f"Deployment is not valid: {str(deployment.get('errors') + deployment.get('feedback', []))}",
             )
 
-        status = result.get("result")
         host = get_display_cloud_host(client.host)
         if status in ["success", "failed"]:
             click.echo(
                 FeedbackManager.gray(message="Deployment URL: ")
                 + f"{bcolors.UNDERLINE}{host}/{config.get('name')}/deployments/{deployment.get('id')}{bcolors.ENDC}"
             )
-            jobs = client.jobs()
-            deployment_job = next(
-                (
-                    job
-                    for job in jobs
-                    if job.get("kind") == "deployment" and job.get("deployment_id") == deployment.get("id")
-                ),
-                None,
-            )
+            deployment_job = _get_deployment_job(client, deployment.get("id"))
             if deployment_job:
                 echo_job_url(
                     token=client.token,
@@ -358,10 +393,15 @@ def create_deployment(
                 )
 
         if status == "success":
+            autopromote_frag = (
+                " It will be auto-promoted when ready." if auto else " It won't be auto-promoted when ready."
+            )
             if wait:
-                click.echo(FeedbackManager.info(message="\n* Deployment submitted"))
+                message = "\n* Deployment submitted." + autopromote_frag
+                click.echo(FeedbackManager.info(message=message))
             else:
-                click.echo(FeedbackManager.success(message="\n✓ Deployment submitted successfully"))
+                message = "\n✓ Deployment submitted successfully." + autopromote_frag
+                click.echo(FeedbackManager.success(message=message))
         elif status == "no_changes":
             click.echo(FeedbackManager.warning(message="△ Not deploying. No changes."))
             sys.exit(0)
@@ -378,13 +418,30 @@ def create_deployment(
 
         if not deployment and not check:
             sys_exit("deployment_error", "Deployment failed")
+    except KeyboardInterrupt:
+        if deployment_request_sent and not check:
+            click.echo(
+                FeedbackManager.warning(
+                    message=f"\nDeployment request might have reached the server. Check with `tb --{env} deployment ls`. You can cancel an ongoing deployment with `tb --{env} deployment discard`."
+                )
+            )
+        raise click.Abort()
 
-    if deployment and wait and not check:
-        click.echo(FeedbackManager.highlight(message="» Waiting for deployment to be ready..."))
+    if not wait:
+        if output == "json" and deployment:
+            echo_json(deployment, 8)
+        sys.exit(0)
+
+    click.echo(FeedbackManager.highlight(message="» Waiting for deployment to be ready..."))
+    waiting_auto_promote = False
+    is_first_deployment = str(deployment.get("id")) == "1"
+    times_seen_failed = 0
+    poll_interval = 5
+    try:
         while True:
             url = f"{client.host}/v1/deployments/{deployment.get('id')}"
             res = api_fetch(url, HEADERS)
-            deployment = res.get("deployment")
+            deployment = res.get("deployment", {})
             if not deployment:
                 click.echo(FeedbackManager.error(message="Error parsing deployment from response"))
                 sys_exit("deployment_error", "Error parsing deployment from response")
@@ -395,10 +452,28 @@ def create_deployment(
             feedback = deployment.get("feedback")
 
             if status == "failed":
-                # Just wait until we poll again and see deleting or deleted to report errors
-                pass
+                times_seen_failed += 1
+                # See if it's stuck in failed, otherwise just wait until we see deleting or deleted
+                if times_seen_failed > 60:  # 5s * 60 = 5mins
+                    message = (
+                        "Deployment failed to create and didn't start deleting automatically after 5 minutes. "
+                        "You might need to delete it manually in the UI."
+                    )
+                    click.echo(FeedbackManager.warning(message=message))
+                    sys_exit("deployment_error", "Deployment failed and wasn't deleted automatically")
+                time.sleep(poll_interval)
+                continue
 
             if status == "data_ready":
+                if auto and not deployment.get("live"):
+                    if not waiting_auto_promote:
+                        click.echo(FeedbackManager.info(message="✓ Deployment is ready"))
+                        click.echo(FeedbackManager.highlight(message="» Waiting for deployment to be promoted..."))
+                        if not is_first_deployment:
+                            is_first_deployment = _is_first_deployment_with_seed_live(client.host, HEADERS)
+                        waiting_auto_promote = True
+                    time.sleep(poll_interval)
+                    continue
                 break
 
             if status in ["deleting", "deleted"]:
@@ -413,20 +488,53 @@ def create_deployment(
                     for error in errors:
                         click.echo(FeedbackManager.error(message=f"* {error}"))
                 sys_exit(
-                    "deployment_error", f"Deployment deleted after failure. Errors: {str(errors + (feedback or []))}"
+                    "deployment_error",
+                    f"Deployment deleted after failure. Errors: {str(errors + (feedback or []))}",
                 )
 
-            time.sleep(5)
+            time.sleep(poll_interval)
 
+    except KeyboardInterrupt:
+        should_cancel = True
+        try:
+            prompt = "\nYour deployment is in progress. Do you want to cancel the deployment? If not, it will continue even after exiting this command"
+            should_cancel = click.confirm(FeedbackManager.warning(message=prompt), default=True, show_default=True)
+        except (KeyboardInterrupt, click.Abort):
+            # A second Ctrl+C is interpreted as confirming cancellation.
+            pass
+
+        if not should_cancel:
+            click.echo(FeedbackManager.info(message="Deployment not canceled. Exiting"))
+            sys.exit(0)
+
+        click.echo(FeedbackManager.warning(message="Canceling deployment"))
+        cancel_url = f"{client.host}/v1/deployments/{deployment.get('id')}"
+        r = requests.delete(cancel_url, headers=HEADERS)
+        result = r.json()
+        logging.debug(json.dumps(result, indent=2))
+        if result.get("error"):
+            click.echo(FeedbackManager.error(message="Failed to cancel deployment: " + result.get("error")))
+            sys_exit("deployment_error", result.get("error", "Unknown error"))
+
+        click.echo(FeedbackManager.success(message="Deployment canceled. It will be deleted evenutally."))
+
+        raise click.Abort()
+
+    # We get here when wait is True, after we've finished polling
+    if auto:
+        if not waiting_auto_promote:
+            click.echo(FeedbackManager.info(message="✓ Deployment is ready"))
+            click.echo(FeedbackManager.highlight(message="» Waiting for deployment to be promoted..."))
+        click.echo(FeedbackManager.info(message="✓ Deployment promoted"))
+        click.echo(FeedbackManager.success(message=f"✓ Deployment #{deployment.get('id')} is live!"))
+        if ingest_hint and len(deployment.get("new_data_connector_ids", [])) == 0 and is_first_deployment:
+            click.echo(
+                FeedbackManager.info(
+                    message="Need help ingesting your data? Learn how at https://www.tinybird.co/docs/forward/get-data-in"
+                )
+            )
+    else:
         click.echo(FeedbackManager.info(message="✓ Deployment is ready"))
-
-        if auto:
-            promote_deployment(client.host, HEADERS, wait=wait, ingest_hint=ingest_hint)
-            # Fetch the final deployment state after promotion for JSON output
-            if output == "json":
-                url = f"{client.host}/v1/deployments/{deployment.get('id')}"
-                res = api_fetch(url, HEADERS)
-                deployment = res.get("deployment")
 
     # Output JSON at the appropriate time based on the execution path
     if output == "json" and deployment:

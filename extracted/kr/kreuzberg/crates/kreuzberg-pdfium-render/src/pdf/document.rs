@@ -226,12 +226,6 @@ impl<'a> PdfDocument<'a> {
         self.bindings.is_true(self.bindings.FPDFCatalog_IsTagged(self.handle))
     }
 
-    /// Returns `true` if this [PdfDocument] has a valid cross-reference table.
-    pub fn has_valid_cross_reference_table(&self) -> bool {
-        self.bindings
-            .is_true(self.bindings.FPDF_DocumentHasValidCrossReferenceTable(self.handle))
-    }
-
     /// Returns an immutable reference to the [PdfForm] embedded in this [PdfDocument], if any.
     #[inline]
     pub fn form(&self) -> Option<&PdfForm<'_>> {

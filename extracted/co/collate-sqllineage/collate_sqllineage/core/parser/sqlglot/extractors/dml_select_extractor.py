@@ -117,11 +117,9 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
             if holder.write:
                 self.should_link_columns = True
 
-            if statement.args.get("from"):
-                from_exp = statement.args["from"]
-                from_this = from_exp.this if from_exp else None
-                if from_this is not None:
-                    self._extract_tables_from_expression(from_this, holder, subqueries)
+            from_exp = statement.args.get("from_")
+            if from_exp and from_exp.this:
+                self._extract_tables_from_expression(from_exp.this, holder, subqueries)
 
             if statement.args.get("joins"):
                 for join in statement.args["joins"]:

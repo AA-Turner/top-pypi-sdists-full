@@ -1166,7 +1166,13 @@ def parse_function(
         fqn = get_resolver_fqn(function=fn, name=name)
         short_name = fqn.split(".")[-1]
         sig = inspect.signature(fn)
-        function_source = None if should_skip_source_code_parsing() else _resolver_source_from_rust(error_builder)
+        function_source = None
+
+        if not should_skip_source_code_parsing():
+            try:
+                function_source = inspect.getsource(fn)
+            except:
+                pass
 
         return_annotation = cached_get_type_hints(fn).get("return")
 
@@ -1550,17 +1556,10 @@ def parse_helper_function(
             raise ValueError("Functions with *args are not supported")
         if param.kind == param.VAR_KEYWORD:
             raise ValueError("Functions with **kwargs are not supported")
-    file_path = Path(fn.__code__.co_filename).resolve()
-    index = get_project_ast_context()
-    function_ast = index.function_ast_in_file(str(file_path), fn.__name__)
-    if function_ast is None:
-        function_ast = index.function_ast(fn.__module__, fn.__name__)
-    if function_ast is None:
-        raise ValueError(f"Could not find Rust AST source for helper function '{fn.__name__}'")
     module = inspect.getmodule(fn)
     module_name = module.__name__ if module is not None else None
     return FunctionCapturedGlobalFunction(
-        source=function_ast.source,
+        source=inspect.getsource(fn),
         module=module_name,
         captured_globals=parse_extract_function_object_captured_globals(fn, gas),
         name=fn.__name__,
@@ -2077,11 +2076,6 @@ def simplify_function_definition(text: str) -> str:
     return "\n".join(definition_lines)
 
 
-def _resolver_source_from_rust(error_builder: ResolverErrorBuilder) -> str | None:
-    resolver_node = error_builder.resolver_node
-    return resolver_node.source if resolver_node is not None else None
-
-
 def parse_sink_function(
     fn: Callable[P, T],
     glbs: Optional[Dict[str, Any]],
@@ -2092,7 +2086,12 @@ def parse_sink_function(
     fqn = get_resolver_fqn(function=fn, name=name)
     sig = inspect.signature(fn)
     annotation_parser = ResolverAnnotationParser(fn, glbs, lcls, error_builder)
-    function_definition = None if should_skip_source_code_parsing() else _resolver_source_from_rust(error_builder)
+    function_definition = None
+    if not should_skip_source_code_parsing():
+        try:
+            function_definition = inspect.getsource(fn)
+        except:
+            pass
     annotations = [annotation_parser.parse_annotation(p) for p in sig.parameters.keys()]
 
     if len(annotations) == 1 and isinstance(annotations[0], type) and issubclass(annotations[0], DataFrame):

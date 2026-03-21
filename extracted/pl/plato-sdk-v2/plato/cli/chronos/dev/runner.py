@@ -24,7 +24,7 @@ from plato.chronos.api.registry import (
     get_agent_schema_api_registry_agents__agent_name__schema_get as get_agent_schema_api,
 )
 from plato.chronos.api.sessions import complete_session, create_session
-from plato.chronos.models import CompleteSessionRequest, CreateSessionRequest, CreateSessionResponse
+from plato.chronos.models import CompleteSessionRequest, CreateSessionRequest, CreateSessionResponse, Status1
 from plato.cli.chronos.config import Config
 from plato.cli.chronos.dev.ecr import ensure_image_exists
 from plato.cli.chronos.dev.paths import get_sdk_root
@@ -175,7 +175,9 @@ class DevRunner:
 
                         async def _fetch_schema():
                             with self._startup_profiler.time("setup.images.fetch_world_schema"):
-                                world_schema = await get_world_schema(world_package, world_version)
+                                world_schema = await get_world_schema(
+                                    world_package, world_version, self.config.world.world_name
+                                )
                             self.world_image = world_schema.get("image", "")
                             if not self.world_image:
                                 raise ValueError(f"No image found in schema for {world_package}")
@@ -494,7 +496,7 @@ class DevRunner:
 
         try:
             body = CompleteSessionRequest(
-                status=status,
+                status=Status1(status),
                 exit_code=exit_code,
                 error_message=error_message,
             )

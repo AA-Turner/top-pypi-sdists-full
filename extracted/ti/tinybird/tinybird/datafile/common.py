@@ -1426,7 +1426,8 @@ def schema_to_sql_columns(schema: List[Dict[str, Any]]) -> List[str]:
         name = x["normalized_name"] if "normalized_name" in x else x["name"]
         if x["nullable"]:
             if (_type := try_to_fix_nullable_in_simple_aggregating_function(x["type"])) is None:
-                _type = "Nullable(%s)" % x["type"]
+                # Skip wrapping if Nullable already present, e.g. LowCardinality(Nullable(String))
+                _type = x["type"] if "Nullable(" in x["type"] else "Nullable(%s)" % x["type"]
         else:
             _type = x["type"]
         parts = [col_name(name, backquotes=True), _type]

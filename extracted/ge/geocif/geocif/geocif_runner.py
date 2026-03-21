@@ -246,6 +246,12 @@ def main(logger, parser):
         ut.display_run_summary("GeoCIF ML Runner", params, wait=20)
         execute_models(inputs, logger, parser)
 
+    # Upload outputs to HuggingFace Hub if configured
+    push_to_hf = parser.getboolean("ML", "push_to_hf", fallback=False)
+    if push_to_hf:
+        from geocif.hf_sync import upload_to_hf
+        upload_to_hf(parser)
+
 
 def run(path_config_files=[Path("../config/geocif.txt")]):
     logger, parser = log.setup_logger_parser(path_config_files)

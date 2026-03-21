@@ -11,13 +11,15 @@ namespace pdflib
   {
   public:
 
-    pdf_state(const decode_page_config& config,
+    pdf_state(const decode_config& config,
               page_item<PAGE_CELLS>& page_cells_,
               page_item<PAGE_SHAPES>& page_shapes_,
               page_item<PAGE_IMAGES>& page_images_,
 
-              std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts_,
-              std::shared_ptr<pdf_resource<PAGE_GRPHS>> page_grphs_);
+	      std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts_,
+              std::shared_ptr<pdf_resource<PAGE_GRPHS>> page_grphs_,
+
+              pdf_render_instructions& instructions_);
 
     pdf_state(const pdf_state<GLOBAL>& other);
 
@@ -25,17 +27,17 @@ namespace pdflib
 
     pdf_state<GLOBAL>& operator=(const pdf_state<GLOBAL>& other);
 
-    void cm(std::vector<qpdf_instruction>& instructions);
+    void cm(std::vector<qpdf_stream_instruction>& instructions);
     void cm(std::array<double, 6> matrix);
 
   private:
 
-    bool verify(std::vector<qpdf_instruction>& instructions,
+    bool verify(std::vector<qpdf_stream_instruction>& instructions,
                 std::size_t num_instr, std::string name);
 
   public:
 
-    const decode_page_config& config;
+    const decode_config& config;
 
     page_item<PAGE_CELLS>& page_cells;
     page_item<PAGE_SHAPES>& page_shapes;
@@ -43,6 +45,8 @@ namespace pdflib
 
     std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts;
     std::shared_ptr<pdf_resource<PAGE_GRPHS>> page_grphs;
+
+    pdf_render_instructions& instructions;
 
     std::array<double, 9> trafo_matrix;
 
@@ -53,13 +57,17 @@ namespace pdflib
     pdf_state<BITMAP> bitmap_state;
   };
 
-  pdf_state<GLOBAL>::pdf_state(const decode_page_config& config_,
+  pdf_state<GLOBAL>::pdf_state(const decode_config& config_,
                                page_item<PAGE_CELLS>& page_cells_,
                                page_item<PAGE_SHAPES>& page_shapes_,
                                page_item<PAGE_IMAGES>& page_images_,
 
-                               std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts_,
-                               std::shared_ptr<pdf_resource<PAGE_GRPHS>> page_grphs_):
+			       std::shared_ptr<pdf_resource<PAGE_FONTS>> page_fonts_,
+			       std::shared_ptr<pdf_resource<PAGE_GRPHS>> page_grphs_,
+
+                               pdf_render_instructions& instructions_):
+
+
     config(config_),
 
     page_cells(page_cells_),
@@ -69,14 +77,16 @@ namespace pdflib
     page_fonts(page_fonts_),
     page_grphs(page_grphs_),
 
+    instructions(instructions_),
+
     trafo_matrix({1.0, 0.0, 0.0,
         0.0, 1.0, 0.0,
         0.0, 0.0, 1.0}),
 
     grph_state(trafo_matrix, page_grphs),
-    text_state(config, grph_state, trafo_matrix, page_cells, page_fonts),
-    shape_state(config, grph_state, trafo_matrix, page_shapes),
-    bitmap_state(config, grph_state, trafo_matrix, page_images)
+    text_state(config, grph_state, trafo_matrix, page_cells, page_fonts, instructions),
+    shape_state(config, grph_state, trafo_matrix, page_shapes, instructions),
+    bitmap_state(config, grph_state, trafo_matrix, page_images, instructions)
   {
     //LOG_S(INFO) << "pdf_state<GLOBAL>";
   }
@@ -91,14 +101,17 @@ namespace pdflib
     page_fonts(other.page_fonts),
     page_grphs(other.page_grphs),
 
+    instructions(other.instructions),
+
     trafo_matrix(other.trafo_matrix),
 
     grph_state(trafo_matrix, page_grphs),
-    text_state(config, grph_state, trafo_matrix, page_cells, page_fonts),
-    shape_state(config, grph_state, trafo_matrix, page_shapes),
-    bitmap_state(config, grph_state, trafo_matrix, page_images)
+    text_state(config, grph_state, trafo_matrix, page_cells, page_fonts, instructions),
+    shape_state(config, grph_state, trafo_matrix, page_shapes, instructions),
+    bitmap_state(config, grph_state, trafo_matrix, page_images, instructions)
   {
     //LOG_S(INFO) << "pdf_state<GLOBAL>(const pdf_state<GLOBAL>& other)";
+
     shape_state = other.shape_state;
     grph_state = other.grph_state;
     text_state = other.text_state;
@@ -122,7 +135,7 @@ namespace pdflib
     return *this;
   }
 
-  bool pdf_state<GLOBAL>::verify(std::vector<qpdf_instruction>& instructions,
+  bool pdf_state<GLOBAL>::verify(std::vector<qpdf_stream_instruction>& instructions,
                                  std::size_t num_instr, std::string name)
   {
     if(instructions.size()==num_instr)
@@ -147,7 +160,7 @@ namespace pdflib
     return false;
   }
 
-  void pdf_state<GLOBAL>::cm(std::vector<qpdf_instruction>& instructions)
+  void pdf_state<GLOBAL>::cm(std::vector<qpdf_stream_instruction>& instructions)
   {
     if(not verify(instructions, 6, __FUNCTION__) ) { return; }
 

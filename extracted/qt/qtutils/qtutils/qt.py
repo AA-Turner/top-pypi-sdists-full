@@ -17,10 +17,17 @@
 #####################################################################
 
 import sys
+import enum
 
 PYSIDE6 = 'PySide6'
 PYQT5 = 'PyQt5'
 PYQT6 = 'PyQt6'
+
+PYQT_LIBS = [PYQT5, PYQT6]
+PYSIDE_LIBS = [PYSIDE6]
+QT5_LIBS = [PYQT5]
+QT6_LIBS = [PYQT6, PYSIDE6]
+
 QT_ENV = None
 
 libs = [PYQT5, PYSIDE6, PYQT6]
@@ -46,22 +53,42 @@ elif QT_ENV == PYQT6:
     from PyQt6 import QtGui, QtCore, QtWidgets
 elif QT_ENV == PYSIDE6:
     from PySide6 import QtGui, QtCore, QtWidgets
+else:
+    raise NotImplementedError(QT_ENV)
 
 sys.modules['qtutils.qt.QtGui'] = QtGui
 sys.modules['qtutils.qt.QtWidgets'] = QtWidgets
 sys.modules['qtutils.qt.QtCore'] = QtCore
 
 # Make Signal available under both names 'Signal' and 'pyqtSignal':
-if QT_ENV in (PYQT5, PYQT6):
+if QT_ENV in PYQT_LIBS:
     QtCore.Signal = QtCore.pyqtSignal
-else:
+elif QT_ENV in PYSIDE_LIBS:
     QtCore.pyqtSignal = QtCore.Signal
+else:
+    raise NotImplementedError(QT_ENV)
 
-# Make some names that moved from QtWidgets to QtGui available in both modules:
-if QT_ENV == PYQT5:
+# Make some names that moved from QtWidgets in Qt5 to QtGui in Qt6 available in both
+# modules:
+if QT_ENV in QT5_LIBS:
     QtGui.QAction = QtWidgets.QAction
     QtGui.QShortcut = QtWidgets.QShortcut
-else:
+elif QT_ENV in QT6_LIBS:
     QtWidgets.QAction = QtGui.QAction
     QtWidgets.QDesktopWidget = QtGui.QScreen
     QtWidgets.QShortcut = QtGui.QShortcut
+else:
+    raise NotImplementedError(QT_ENV)
+
+def _add_enum_aliases():
+    for module in (QtCore, QtGui, QtWidgets):
+        for cls in [c for c in module.__dict__.values() if isinstance(c, type)]:
+            for a in [a for a in cls.__dict__.values() if isinstance(a, enum.EnumMeta)]:
+                for member in a:
+                    if not hasattr(cls, member.name):
+                        setattr(cls, member.name, member)
+
+if QT_ENV == PYQT6:
+    # Add shims for short enum names in PyQt6 as supported in PyQt5 and PySide6:
+    _add_enum_aliases()
+    

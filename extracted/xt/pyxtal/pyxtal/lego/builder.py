@@ -137,9 +137,8 @@ def generate_xtal(dim, spg, wps, niter, elements, calculator,
 def minimize_from_x(x, dim, spg, wps, elements, calculator, ref_environments,
                     T=0.2, niter=20, early_quit=0.02, opt_type='local',
                     minimizers=[('Nelder-Mead', 100), ('L-BFGS-B', 100)],
-                    filename='local_opt_data.txt', random_state=None,
-                    #derivative=True):
-                    derivative=False):
+                    filename='local_opt_data.txt', opt_xyz=False,
+                    random_state=None, derivative=False):
     """
     Generate xtal from the 1d representation
 
@@ -214,28 +213,27 @@ def minimize_from_x(x, dim, spg, wps, elements, calculator, ref_environments,
     x0 = np.array(x.copy())
     # Extract variables, call from Pyxtal
     [N_abc, N_ang] = Lattice.get_dofs(xtal.lattice.ltype)
-    rep = xtal.get_1D_representation()
-    xyzs = rep.x[1:]
 
     # Set constraints and minimization
     bounds = [(1.5, 50)] * (N_abc) + [(30, 150)] * (N_ang)
 
     # Special treatment in case the random lattice is small
     for i in range(N_abc):
-        if x[i] < 1.5:
-            x[i] = 1.5
-        if x[i] > 50.0:
-            x[i] = 50.0
+        if x[i] < 1.5: x[i] = 1.5
+        if x[i] > 50.0: x[i] = 50.0
 
     for i in range(N_abc, N_abc + N_ang):
-        if x[i] < 30.0:
-            x[i] = 30.0
-        if x[i] > 150.0:
-            x[i] = 150.0
+        if x[i] < 30.0: x[i] = 30.0
+        if x[i] > 150.0: x[i] = 150.0
 
-    for xyz in xyzs:
-        if len(xyz) > 2:
-            bounds += [(0.0, 1.0)] * len(xyz[2:])
+    if opt_xyz:
+        rep = xtal.get_1D_representation()
+        xyzs = rep.x[1:]
+        for xyz in xyzs:
+            if len(xyz) > 2:
+                bounds += [(0.0, 1.0)] * len(xyz[2:])
+    else:
+        x = x[:N_abc + N_ang]
 
     if len(x) != len(bounds):
         print('debug before min', xtal, x, bounds, len(x), len(bounds))
@@ -336,16 +334,22 @@ def minimize_from_x(x, dim, spg, wps, elements, calculator, ref_environments,
                            niter=niter,
                            take_step=bounded_step,
                            callback=callback)
-        if xtal.lattice is None:
-            return None
+        if xtal.lattice is None: return None
 
     # Extract the optimized xtal
     xtal = pyxtal()
-    try:
-        xtal.from_1d_rep(res.x, sites, dim=dim)
+    #try:
+    if True:
+        if opt_xyz:
+            x0 = res.x
+        else:
+            x0[:len(bounds)] = res.x
+        #print('debug', x0)
+        xtal.from_1d_rep(x0, sites, dim=dim)
+        print('Extract the optimized xtal', xtal)
         return xtal, (x0, res.x)
-    except:
-        return None
+    #except:
+    #    return None
 
 
 
@@ -800,7 +804,7 @@ class builder(object):
                       T=0.2, niter=20, early_quit=0.02,
                       add_db=True, symmetrize=False,
                       minimizers=[('Nelder-Mead', 100), ('L-BFGS-B', 100)],
-                      filename=None):
+                      opt_xyz=True, filename=None):
         """
         Further optimize the input xtal w.r.t reference environment
 
@@ -820,16 +824,17 @@ class builder(object):
                                      self.elements, self.calculator,
                                      self.ref_environments,
                                      opt_type=opt_type,
+                                     opt_xyz = opt_xyz,
                                      T=T,
                                      niter=niter,
                                      early_quit=early_quit,
                                      minimizers=minimizers,
                                      filename=filename)
-            xtal, xs = result
             if result is not None:
+                xtal, xs = result
                 status = xtal.check_validity(self.criteria, verbose=self.verbose)
                 sim1 = self.get_similarity(xtal)
-                #print("after optim", sim1, status)
+                print("after optim", sim1, status)
             else:
                 xtal, xs, status, sim1 = None, None, False, None
         else:
@@ -853,7 +858,7 @@ class builder(object):
                 print(xtal.get_xtal_string())
             #import sys; sys.exit()
             #xtal.to_file(f'{count}.cif')
-            xtal = None
+            #xtal = None
 
         return xtal, sim1, xs
 

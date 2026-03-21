@@ -81,7 +81,8 @@ COOKIE_DOMAINS = (
     "github.com",
     "yupp.ai",
     "chat.deepseek.com",
-    ".perplexity.ai"
+    ".perplexity.ai",
+    "ollama.com"
 )
 
 if has_browser_cookie3 and os.environ.get("DBUS_SESSION_BUS_ADDRESS", "/dev/null") == "/dev/null":
@@ -262,3 +263,12 @@ def read_cookie_files(dir_path: Optional[str] = None, domains_filter: Optional[L
             if not domains_filter or domain in domains_filter:
                 CookiesConfig.cookies[domain] = cookies
                 debug.log(f"Cookies added: {len(cookies)} from {domain}")
+
+    # Load custom model routing config (config.yaml)
+    try:
+        from .providers.config_provider import RouterConfig
+        config_path = os.path.join(dir_path, "config.yaml")
+        RouterConfig.load(config_path)
+    except Exception as e:
+        config_path = os.path.join(dir_path, "config.yaml")
+        debug.error(f"config.yaml: Failed to load routing config from {config_path}:", e)

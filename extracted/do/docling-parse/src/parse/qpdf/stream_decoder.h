@@ -13,7 +13,7 @@ namespace pdflib
   {
   public:
 
-    qpdf_stream_decoder(std::vector<qpdf_instruction>& stream_);
+    qpdf_stream_decoder(std::vector<qpdf_stream_instruction>& stream_);
     ~qpdf_stream_decoder();
 
     void print();
@@ -31,14 +31,14 @@ namespace pdflib
     
   private:
 
-    std::vector<qpdf_instruction>& stream;
+    std::vector<qpdf_stream_instruction>& stream;
 
     std::regex value_pattern_0;
     std::regex value_pattern_1;
     std::regex value_pattern_2;
   };
 
-  qpdf_stream_decoder::qpdf_stream_decoder(std::vector<qpdf_instruction>& stream_):
+  qpdf_stream_decoder::qpdf_stream_decoder(std::vector<qpdf_stream_instruction>& stream_):
     QPDFObjectHandle::ParserCallbacks(),
     stream(stream_),
 
@@ -81,7 +81,7 @@ namespace pdflib
   {
     LOG_S(INFO) << __FUNCTION__;
 
-    qpdf_instruction row;
+    qpdf_stream_instruction row;
     {
       row.key = obj.getTypeName();
       row.val = obj.unparse();
@@ -98,7 +98,7 @@ namespace pdflib
   {
     //LOG_S(INFO) << __FUNCTION__ << "\t offset: " << offset << ", len: " << len;
 
-    qpdf_instruction row;
+    qpdf_stream_instruction row;
     {
       row.key = obj.getTypeName();
       row.val = obj.unparse();
@@ -114,57 +114,63 @@ namespace pdflib
       }
     */
 
-    std::smatch match;
-    
     // if the row is null, reinterprete it as an empty array. We encountered
     // this usecase for a parameter of the d operator (see Table 56) that is
     // null but in reality should be an empty array.
-    if(row.is_null()) 
+    if(row.is_null())
       {
 	row.key = "parameter";
 	row.val = "[]";
       }
-    else if (std::regex_match(row.val, match, value_pattern_0))
+    // All three regex patterns match malformed numbers containing '-' at
+    // position > 0 (e.g. "1.23-45", "--123.4").  Skip the expensive regex
+    // calls for the vast majority of tokens that don't have this.
+    else if (row.val.find('-', 1) != std::string::npos)
       {
-	std::string mvalue = match[1].str();	
-	LOG_S(WARNING) << "match-1: " << std::setw(12) << row.key << " | " << row.val << " => new matched value: " << mvalue;
+	std::smatch match;
 
-	double value = std::stod(mvalue);	
-	
-	// Creating a real (floating-point) QPDFObjectHandle
-	QPDFObjectHandle new_obj = QPDFObjectHandle::newReal(value);
+	if (std::regex_match(row.val, match, value_pattern_0))
+	  {
+	    std::string mvalue = match[1].str();
+	    LOG_S(WARNING) << "match-1: " << std::setw(12) << row.key << " | " << row.val << " => new matched value: " << mvalue;
 
-	row.key = new_obj.getTypeName();
-	row.val = new_obj.unparse();
-	row.obj = new_obj;
-      }
-    else if (std::regex_match(row.val, match, value_pattern_1))
-      {
-	std::string mvalue = match[1].str() + match[4].str();	
-	LOG_S(WARNING) << "match-2: " << std::setw(12) << row.key << " | " << row.val << " => new matched value: " << mvalue;
-	
-	double value = std::stod(mvalue);
-	
-	// Creating a real (floating-point) QPDFObjectHandle
-	QPDFObjectHandle new_obj = QPDFObjectHandle::newReal(value);
+	    double value = std::stod(mvalue);
 
-	row.key = new_obj.getTypeName();
-	row.val = new_obj.unparse();
-	row.obj = new_obj;
-      }
-    else if (std::regex_match(row.val, match, value_pattern_2))
-      {
-	std::string mvalue = match[3].str() + match[7].str();	
-	LOG_S(WARNING) << "match-3: " << std::setw(12) << row.key << " | " << row.val << " => new matched value: " << mvalue;
-	
-	double value = std::stod(mvalue);
-	
-	// Creating a real (floating-point) QPDFObjectHandle
-	QPDFObjectHandle new_obj = QPDFObjectHandle::newReal(value);
+	    // Creating a real (floating-point) QPDFObjectHandle
+	    QPDFObjectHandle new_obj = QPDFObjectHandle::newReal(value);
 
-	row.key = new_obj.getTypeName();
-	row.val = new_obj.unparse();
-	row.obj = new_obj;
+	    row.key = new_obj.getTypeName();
+	    row.val = new_obj.unparse();
+	    row.obj = new_obj;
+	  }
+	else if (std::regex_match(row.val, match, value_pattern_1))
+	  {
+	    std::string mvalue = match[1].str() + match[4].str();
+	    LOG_S(WARNING) << "match-2: " << std::setw(12) << row.key << " | " << row.val << " => new matched value: " << mvalue;
+
+	    double value = std::stod(mvalue);
+
+	    // Creating a real (floating-point) QPDFObjectHandle
+	    QPDFObjectHandle new_obj = QPDFObjectHandle::newReal(value);
+
+	    row.key = new_obj.getTypeName();
+	    row.val = new_obj.unparse();
+	    row.obj = new_obj;
+	  }
+	else if (std::regex_match(row.val, match, value_pattern_2))
+	  {
+	    std::string mvalue = match[3].str() + match[7].str();
+	    LOG_S(WARNING) << "match-3: " << std::setw(12) << row.key << " | " << row.val << " => new matched value: " << mvalue;
+
+	    double value = std::stod(mvalue);
+
+	    // Creating a real (floating-point) QPDFObjectHandle
+	    QPDFObjectHandle new_obj = QPDFObjectHandle::newReal(value);
+
+	    row.key = new_obj.getTypeName();
+	    row.val = new_obj.unparse();
+	    row.obj = new_obj;
+	  }
       }
     
     stream.push_back(row);

@@ -44,6 +44,18 @@ class TestVoiceClones:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    def test_method_create_with_all_params(self, client: Telnyx) -> None:
+        voice_clone = client.voice_clones.create(
+            gender="male",
+            language="en",
+            name="clone-narrator",
+            voice_design_id="550e8400-e29b-41d4-a716-446655440000",
+            provider="telnyx",
+        )
+        assert_matches_type(VoiceCloneCreateResponse, voice_clone, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     def test_raw_response_create(self, client: Telnyx) -> None:
         response = client.voice_clones.with_raw_response.create(
             gender="male",
@@ -142,6 +154,7 @@ class TestVoiceClones:
     def test_method_list_with_all_params(self, client: Telnyx) -> None:
         voice_clone = client.voice_clones.list(
             filter_name="filter[name]",
+            filter_provider="telnyx",
             page_number=1,
             page_size=1,
             sort="name",
@@ -231,6 +244,7 @@ class TestVoiceClones:
             name="name",
             gender="male",
             label="label",
+            provider="telnyx",
             ref_text="ref_text",
         )
         assert_matches_type(VoiceCloneCreateFromUploadResponse, voice_clone, path=["response"])
@@ -340,6 +354,18 @@ class TestAsyncVoiceClones:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    async def test_method_create_with_all_params(self, async_client: AsyncTelnyx) -> None:
+        voice_clone = await async_client.voice_clones.create(
+            gender="male",
+            language="en",
+            name="clone-narrator",
+            voice_design_id="550e8400-e29b-41d4-a716-446655440000",
+            provider="telnyx",
+        )
+        assert_matches_type(VoiceCloneCreateResponse, voice_clone, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     async def test_raw_response_create(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.voice_clones.with_raw_response.create(
             gender="male",
@@ -438,6 +464,7 @@ class TestAsyncVoiceClones:
     async def test_method_list_with_all_params(self, async_client: AsyncTelnyx) -> None:
         voice_clone = await async_client.voice_clones.list(
             filter_name="filter[name]",
+            filter_provider="telnyx",
             page_number=1,
             page_size=1,
             sort="name",
@@ -527,6 +554,7 @@ class TestAsyncVoiceClones:
             name="name",
             gender="male",
             label="label",
+            provider="telnyx",
             ref_text="ref_text",
         )
         assert_matches_type(VoiceCloneCreateFromUploadResponse, voice_clone, path=["response"])

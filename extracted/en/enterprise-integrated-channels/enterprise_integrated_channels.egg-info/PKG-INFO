@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: enterprise-integrated-channels
-Version: 0.1.53
+Version: 0.1.54
 Summary: An integrated channel is an abstraction meant to represent a third-party system                 which provides an API that can be used to transmit EdX data to the third-party system.
 Home-page: https://github.com/openedx/enterprise-integrated-channels
 Author: Open edX Project
@@ -209,6 +209,11 @@ Change Log
 
 Unreleased
 **********
+
+0.1.54 – 2026-03-20
+*******************
+
+* fix: added backward compatibility for ENT-9662
 
 0.1.53 – 2026-03-17
 *******************

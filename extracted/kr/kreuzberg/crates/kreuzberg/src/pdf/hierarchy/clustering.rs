@@ -80,7 +80,7 @@ pub fn cluster_font_sizes(blocks: &[TextBlock], k: usize) -> Result<Vec<FontSize
         .map(|b| b.font_size)
         .filter(|fs| fs.is_finite()) // Filter out NaN/Inf from corrupt PDFs
         .collect();
-    font_sizes.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)); // Sort descending
+    font_sizes.sort_by(|a, b| b.total_cmp(a)); // Sort descending
     // Tolerance-based dedup: merge font sizes within 0.05pt (float imprecision)
     font_sizes.dedup_by(|a, b| (*a - *b).abs() < 0.05);
 
@@ -110,7 +110,7 @@ pub fn cluster_font_sizes(blocks: &[TextBlock], k: usize) -> Result<Vec<FontSize
             centroids.push(interpolated);
         }
 
-        centroids.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+        centroids.sort_by(|a, b| b.total_cmp(a));
         // Keep sorted descending
     }
 
@@ -162,7 +162,7 @@ pub fn cluster_font_sizes(blocks: &[TextBlock], k: usize) -> Result<Vec<FontSize
     }
 
     // Sort by centroid size in descending order (largest font = H1)
-    result.sort_by(|a, b| b.centroid.partial_cmp(&a.centroid).unwrap_or(std::cmp::Ordering::Equal));
+    result.sort_by(|a, b| b.centroid.total_cmp(&a.centroid));
 
     Ok(result)
 }
@@ -207,11 +207,13 @@ pub fn assign_heading_levels_smart(
 
     let body_centroid = clusters[body_idx].centroid;
 
-    // Collect heading candidates: clusters with sufficiently larger font size than body
-    // Must pass both ratio gate AND absolute gap gate
+    // Collect heading candidates: clusters with sufficiently larger font size than body.
+    // Must pass EITHER the ratio gate OR the absolute gap gate (whichever is less
+    // restrictive). This captures LaTeX subsection headings (12pt vs 10pt body)
+    // that pass the ratio gate (1.2 > 1.15) but not the gap gate (2.0 < 1.5+10=11.5).
     let min_heading_size = body_centroid * min_heading_ratio;
     let min_heading_abs = body_centroid + min_heading_gap;
-    let heading_threshold = min_heading_size.max(min_heading_abs);
+    let heading_threshold = min_heading_size.min(min_heading_abs);
 
     let mut heading_candidates: Vec<(usize, f32)> = clusters
         .iter()
@@ -221,7 +223,7 @@ pub fn assign_heading_levels_smart(
         .collect();
 
     // Sort heading candidates by centroid descending (largest = H1)
-    heading_candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    heading_candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
 
     // Assign heading levels H1-H6 (max 6 heading levels)
     let max_headings = 6usize;

@@ -1,18 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyspark_nested_functions
-Version: 0.1.7
+Version: 0.1.8
 Summary: Utility functions to manipulate nested structures using pyspark
 Home-page: https://github.com/golosegor/pyspark-nested-fields-functions
 Author: Brend Braeckmans <brend@distilleddata.be>, Egor Goloshchapov <golosegor@gmail.com>
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.7, <3.12
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8, <3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 [![Python tests](https://github.com/golosegor/pyspark-nested-fields-functions/actions/workflows/python-tests.yml/badge.svg)](https://github.com/golosegor/pyspark-nested-fields-functions/actions/workflows/python-tests.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)

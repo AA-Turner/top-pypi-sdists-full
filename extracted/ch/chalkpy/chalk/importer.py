@@ -48,7 +48,7 @@ from chalk.parsed.duplicate_input_gql import (
 from chalk.sql import SQLSourceGroup
 from chalk.sql._internal.sql_file_resolver import get_sql_file_resolvers, get_sql_file_resolvers_from_paths
 from chalk.sql._internal.sql_source import BaseSQLSource
-from chalk.utils.collections import FrozenOrderedSet, OrderedSet, ensure_tuple
+from chalk.utils.collections import FrozenOrderedSet, ensure_tuple
 from chalk.utils.duration import parse_chalk_duration_s, timedelta_to_duration
 from chalk.utils.import_utils import py_path_to_module
 from chalk.utils.log_with_context import get_logger
@@ -1252,6 +1252,17 @@ def import_all_python_files_from_dir(
     _logger.debug(f"REPO_ROOT: {resolved_root}")
     sys.path.insert(0, str(resolved_root))
     sys.path.insert(0, str(repo_root.parent.resolve()))
+    # Due to the path modifications above, we might have already imported
+    # some files under a different module name, and Python doesn't detect
+    # duplicate inputs of the same filename under different module names.
+    # We can manually detect this by building a set of all absolute
+    # filepaths we imported, and then comparing filepaths against this
+    # set before attempting to import the module again.
+    already_imported_files = {
+        Path(v.__file__).resolve(): k
+        for (k, v) in sys.modules.copy().items()
+        if hasattr(v, "__file__") and isinstance(v.__file__, str)
+    }
     token = CHALK_IMPORT_FLAG.set(True)
     try:
         if file_allowlist is not None:
@@ -1264,58 +1275,29 @@ def import_all_python_files_from_dir(
             ignore_config = get_default_combined_ignore_config(resolved_root) if check_ignores else None
             repo_files = _get_py_files_fast(resolved_root, venv_path, ignore_config)
 
-        # Due to the path modifications above, we might have already imported
-        # some files under a different module name, and Python doesn't detect
-        # duplicate inputs of the same filename under different module names.
-        # We can manually detect this by building a set of the repo files that
-        # are already imported, but only pay the `realpath` cost for module
-        # files that could plausibly match a repo file by basename.
-        repo_files_by_basename_mut: dict[str, OrderedSet[str]] = {}
-        for path in repo_files:
-            repo_files_by_basename_mut.setdefault(path.name, OrderedSet()).add(str(path))
-        repo_files_by_basename: dict[str, FrozenOrderedSet[str]] = {
-            basename: paths.freeze() for basename, paths in repo_files_by_basename_mut.items()
-        }
-
-        already_imported_files = OrderedSet[str]()
-        for module in tuple(sys.modules.values()):
-            module_file = getattr(module, "__file__", None)
-            if not isinstance(module_file, str):
-                continue
-            candidates = repo_files_by_basename.get(os.path.basename(module_file))
-            if candidates is None:
-                continue
-            if module_file in candidates:
-                already_imported_files.add(module_file)
-                continue
-            module_file_realpath = os.path.realpath(module_file)
-            if module_file_realpath in candidates:
-                already_imported_files.add(module_file_realpath)
-
         CHALK_IMPORTER.add_repo_files(repo_files)
         set_project_ast_context(resolved_root, repo_files)
         for filename in repo_files:
-            filename_str = str(filename)
             # we want resolved_root in case repo_root contains a symlink
-            if filename_str in already_imported_files:
-                _logger.debug("Skipping import of '%s' since it is already imported", filename_str)
+            if filename in already_imported_files:
+                _logger.debug(
+                    f"Skipping import of '{filename}' since it is already imported as module {already_imported_files[filename]}"
+                )
                 continue
             module_path = py_path_to_module(filename, resolved_root)
             if module_path.startswith(".eggs") or module_path.startswith("venv") or filename.name == "setup.py":
                 continue
-            if filename_str in CHALK_IMPORTER.errors:
-                previous_errored_file = CHALK_IMPORTER.errors[filename_str].filename
+            if str(filename) in CHALK_IMPORTER.errors:
+                previous_errored_file = CHALK_IMPORTER.errors[str(filename)].filename
                 _logger.warning(
-                    "Skipping import of '%s' because it already resulted in an error while importing file '%s'",
-                    filename_str,
-                    previous_errored_file,
+                    f"Skipping import of '{filename} because it already resulted in an error while importing file '{previous_errored_file}'"
                 )
                 continue
             try:
                 start = time.perf_counter()
                 importlib.import_module(module_path)
                 end = time.perf_counter()
-                _import_logger.debug("Imported '%s' in %s seconds", module_path, end - start)
+                _import_logger.debug(f"Imported '{module_path}' in {end - start} seconds")
             except Exception as e:
                 if not LSPErrorBuilder.promote_exception(e):
                     ex_type, ex_value, ex_traceback = sys.exc_info()
@@ -1323,10 +1305,10 @@ def import_all_python_files_from_dir(
                     assert ex_value is not None
                     assert ex_traceback is not None
                     CHALK_IMPORTER.add_error(ex_type, ex_value, ex_traceback, filename, module_path)
-                    _logger.debug("Failed while importing %s", module_path, exc_info=True)
+                    _logger.debug(f"Failed while importing {module_path}", exc_info=True)
             else:
-                _logger.debug("Imported '%s' as module %s", filename_str, module_path)
-                already_imported_files.add(filename_str)
+                _logger.debug(f"Imported '{filename}' as module {module_path}")
+                already_imported_files[filename] = module_path
     finally:
         CHALK_IMPORT_FLAG.reset(token)
         # Let's remove our added entries in sys.path so we don't pollute it

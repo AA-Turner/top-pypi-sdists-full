@@ -178,6 +178,14 @@ def test_select_join_in_ansi89_syntax_with_subquery():
     )
 
 
+def test_select_join_in_ansi89_syntax_with_ansi92_join():
+    """Comma-join mixed with explicit JOIN: FROM a, b INNER JOIN c ON ..."""
+    assert_table_lineage_equal(
+        "SELECT * FROM tab1 a, tab2 b INNER JOIN tab3 c ON b.id = c.id",
+        {"tab1", "tab2", "tab3"},
+    )
+
+
 def test_select_group_by():
     assert_table_lineage_equal(
         "SELECT col1, col2 FROM tab1 GROUP BY col1, col2", {"tab1"}

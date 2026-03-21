@@ -1155,7 +1155,18 @@ def function_setup(  # noqa: PLR0915
             # populate litellm_params["metadata"] so callbacks (e.g. Langfuse) that
             # read API key info from litellm_params["metadata"] see the fields.
             if not litellm_params.get("metadata"):
-                litellm_params["metadata"] = kwargs["litellm_metadata"].copy()
+                litellm_params["metadata"] = dict(kwargs["litellm_metadata"])
+            else:
+                # Merge litellm_metadata into metadata without overwriting existing
+                # keys. This ensures API key fields (user_api_key_hash, etc.) are
+                # visible to callbacks even when Anthropic's native metadata field
+                # is present in /v1/messages requests from Claude Code.
+                litellm_params["metadata"] = dict(
+                    litellm_params["metadata"]
+                )  # don't mutate caller's dict
+                for key, value in kwargs["litellm_metadata"].items():
+                    if key not in litellm_params["metadata"]:
+                        litellm_params["metadata"][key] = value
 
         logging_obj.update_environment_variables(
             model=model,
@@ -6160,7 +6171,10 @@ def validate_environment(  # noqa: PLR0915
                     ["AZURE_API_BASE", "AZURE_API_VERSION", "AZURE_API_KEY"]
                 )
         elif custom_llm_provider == "anthropic":
-            if "ANTHROPIC_API_KEY" in os.environ:
+            if (
+                "ANTHROPIC_API_KEY" in os.environ
+                or "ANTHROPIC_AUTH_TOKEN" in os.environ
+            ):
                 keys_in_environment = True
             else:
                 missing_keys.append("ANTHROPIC_API_KEY")
@@ -6399,7 +6413,10 @@ def validate_environment(  # noqa: PLR0915
                 missing_keys.append("OPENAI_API_KEY")
         ## anthropic
         elif model in litellm.anthropic_models:
-            if "ANTHROPIC_API_KEY" in os.environ:
+            if (
+                "ANTHROPIC_API_KEY" in os.environ
+                or "ANTHROPIC_AUTH_TOKEN" in os.environ
+            ):
                 keys_in_environment = True
             else:
                 missing_keys.append("ANTHROPIC_API_KEY")
@@ -8593,9 +8610,7 @@ class ProviderConfigManager:
 
             return ManusFilesConfig()
         elif LlmProviders.ANTHROPIC == provider:
-            from litellm.llms.anthropic.files.transformation import (
-                AnthropicFilesConfig,
-            )
+            from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
 
             return AnthropicFilesConfig()
         return None

@@ -208,7 +208,7 @@ from .portouts import (
     PortoutsResourceWithStreamingResponse,
     AsyncPortoutsResourceWithStreamingResponse,
 )
-from .webhooks import WebhooksResource, AsyncWebhooksResource, TelnyxWebhookVerificationError
+from .webhooks import WebhooksResource, AsyncWebhooksResource
 from .whatsapp import (
     WhatsappResource,
     AsyncWhatsappResource,
@@ -1105,6 +1105,7 @@ from .sub_number_orders_report import (
     SubNumberOrdersReportResourceWithStreamingResponse,
     AsyncSubNumberOrdersReportResourceWithStreamingResponse,
 )
+from ..lib.webhook_verification import TelnyxWebhookVerificationError
 from .call_control_applications import (
     CallControlApplicationsResource,
     AsyncCallControlApplicationsResource,
@@ -2188,18 +2189,18 @@ __all__ = [
     "AsyncSessionAnalysisResourceWithRawResponse",
     "SessionAnalysisResourceWithStreamingResponse",
     "AsyncSessionAnalysisResourceWithStreamingResponse",
-    "TrafficPolicyProfilesResource",
-    "AsyncTrafficPolicyProfilesResource",
-    "TrafficPolicyProfilesResourceWithRawResponse",
-    "AsyncTrafficPolicyProfilesResourceWithRawResponse",
-    "TrafficPolicyProfilesResourceWithStreamingResponse",
-    "AsyncTrafficPolicyProfilesResourceWithStreamingResponse",
     "WhatsappResource",
     "AsyncWhatsappResource",
     "WhatsappResourceWithRawResponse",
     "AsyncWhatsappResourceWithRawResponse",
     "WhatsappResourceWithStreamingResponse",
     "AsyncWhatsappResourceWithStreamingResponse",
+    "WhatsappMessageTemplatesResource",
+    "AsyncWhatsappMessageTemplatesResource",
+    "WhatsappMessageTemplatesResourceWithRawResponse",
+    "AsyncWhatsappMessageTemplatesResourceWithRawResponse",
+    "WhatsappMessageTemplatesResourceWithStreamingResponse",
+    "AsyncWhatsappMessageTemplatesResourceWithStreamingResponse",
     "X402Resource",
     "AsyncX402Resource",
     "X402ResourceWithRawResponse",
@@ -2218,4 +2219,10 @@ __all__ = [
     "AsyncVoiceDesignsResourceWithRawResponse",
     "VoiceDesignsResourceWithStreamingResponse",
     "AsyncVoiceDesignsResourceWithStreamingResponse",
+    "TrafficPolicyProfilesResource",
+    "AsyncTrafficPolicyProfilesResource",
+    "TrafficPolicyProfilesResourceWithRawResponse",
+    "AsyncTrafficPolicyProfilesResourceWithRawResponse",
+    "TrafficPolicyProfilesResourceWithStreamingResponse",
+    "AsyncTrafficPolicyProfilesResourceWithStreamingResponse",
 ]

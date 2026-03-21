@@ -138,6 +138,9 @@ class AgentRunner:
         self._exit_condition: Callable[[], Awaitable[bool]] | None = None
         self._max_continuations: int = 2
         self._continuation_instruction: str = "Continue. Complete all remaining work."
+        # File trigger settings (set via with_file_triggers())
+        self._file_trigger_patterns: list[str] | None = None
+        self._trigger_server_url: str | None = None
 
     def on_prepare(self, fn: Callable[[PreparedAgent], Awaitable[None]]) -> AgentRunner:
         """Register a hook that runs after the environment is ready but before the agent task.
@@ -183,6 +186,26 @@ class AgentRunner:
         self._exit_condition = exit_condition
         self._max_continuations = max_continuations
         self._continuation_instruction = continuation_instruction
+        return self
+
+    def with_file_triggers(
+        self,
+        patterns: list[str],
+        trigger_server_url: str,
+    ) -> AgentRunner:
+        """Configure file-pattern checkpoint triggers.
+
+        Starts a file watcher sidecar on the agent VM that monitors workspace
+        directories for files matching *patterns* and pushes trigger events
+        (with span context) to the world VM's trigger server.
+
+        Args:
+            patterns: Glob patterns to watch, e.g. ``["**/progress.json"]``.
+            trigger_server_url: TCP address of the world's trigger server,
+                e.g. ``"10.0.0.1:8765"``.
+        """
+        self._file_trigger_patterns = patterns
+        self._trigger_server_url = trigger_server_url
         return self
 
     def _all_transports(self) -> list[Transport]:
@@ -353,6 +376,38 @@ class AgentRunner:
                     timeout=10,
                 )
                 logger.debug("Wrote audit and tool execution context to agent VM")
+
+                # Start file watcher sidecar if triggers configured
+                if self._file_trigger_patterns and self._trigger_server_url:
+                    watch_paths = list({scope.mount_path for scope in scopes})
+                    watcher_config = json.dumps(
+                        {
+                            "server_url": self._trigger_server_url,
+                            "patterns": self._file_trigger_patterns,
+                            "watch_paths": watch_paths,
+                            "poll_interval_s": 2.0,
+                        }
+                    )
+                    await run_ssh(
+                        self._runtime.ssh_key_path,
+                        prepared.hostname,
+                        (
+                            f"cat > /tmp/plato-file-watcher-config.json << 'WATCHER_EOF'\n"
+                            f"{watcher_config}\n"
+                            "WATCHER_EOF\n"
+                            "nohup python3 -m plato.utils.file_watcher "
+                            "/tmp/plato-file-watcher-config.json "
+                            "> /tmp/plato-file-watcher.log 2>&1 &\n"
+                            "echo $! > /tmp/plato-file-watcher.pid"
+                        ),
+                        timeout=10,
+                    )
+                    logger.info(
+                        "Started file watcher sidecar on %s (patterns=%s, server=%s)",
+                        prepared.hostname,
+                        self._file_trigger_patterns,
+                        self._trigger_server_url,
+                    )
         except Exception:
             logger.warning("Failed to write audit context to agent VM", exc_info=True)
 
@@ -635,6 +690,21 @@ class AgentRunner:
             run_error = exc
             logger.exception("Agent run failed on VM %s", prepared.agent_id)
         finally:
+            # Kill file watcher sidecar if started
+            if self._file_trigger_patterns and self._trigger_server_url:
+                try:
+                    if isinstance(self._runtime, PlatoVMRuntime) and self._runtime.ssh_key_path:
+                        await run_ssh(
+                            self._runtime.ssh_key_path,
+                            prepared.hostname,
+                            "if [ -f /tmp/plato-file-watcher.pid ]; then "
+                            "kill $(cat /tmp/plato-file-watcher.pid) 2>/dev/null; "
+                            "rm -f /tmp/plato-file-watcher.pid; fi",
+                            timeout=5,
+                        )
+                except Exception:
+                    logger.debug("Failed to stop file watcher sidecar", exc_info=True)
+
             await self._collect_and_store_audit(
                 prepared,
                 audit_scopes,

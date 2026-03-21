@@ -324,19 +324,19 @@ rules:
 """,
         "analyze": """\
 rules:
-  - when: "!item.is_system_note"
+  - when: "!item.is_system_note && (item.content_length > 500 || item.has_uri) && !(has(item.tags._source) && item.tags._source == 'link') && !(has(item.tags._source) && item.tags._source == 'auto-vivify')"
     id: analyzed
     do: analyze
 """,
         "tag": """\
 rules:
-  - when: "!item.is_system_note && item.has_content"
+  - when: "!item.is_system_note && item.has_content && !(has(item.tags._source) && item.tags._source == 'link')"
     id: tagged
     do: auto_tag
 """,
         "links": """\
 rules:
-  - when: "!item.is_system_note && item.has_content && item.content_type == 'text/markdown'"
+  - when: "!item.is_system_note && item.has_content && item.content_type == 'text/markdown' && !(has(item.tags._source) && item.tags._source == 'link')"
     id: linked
     do: extract_links
     with:

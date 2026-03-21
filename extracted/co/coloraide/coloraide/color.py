@@ -15,7 +15,6 @@ from . import interpolate
 from . import filters
 from . import contrast
 from . import harmonies
-from . import average
 from . import temperature
 from . import util
 from . import algebra as alg
@@ -137,7 +136,7 @@ class ColorMeta(abc.ABCMeta):
             cls.CAT_MAP = cls.CAT_MAP.copy()  # type: dict[str, CAT]
             cls.FILTER_MAP = cls.FILTER_MAP.copy()  # type: dict[str, Filter]
             cls.CONTRAST_MAP = cls.CONTRAST_MAP.copy()  # type: dict[str, ColorContrast]
-            cls.INTERPOLATE_MAP = cls.INTERPOLATE_MAP.copy()  # type: dict[str, Interpolate[Any]]
+            cls.INTERPOLATE_MAP = cls.INTERPOLATE_MAP.copy()  # type: dict[str, Interpolate]
             cls.CCT_MAP = cls.CCT_MAP.copy()  # type: dict[str, CCT]
 
         # Ensure each derived class tracks its own conversion paths for color spaces
@@ -165,7 +164,7 @@ class Color(metaclass=ColorMeta):
     CAT_MAP = {}  # type: dict[str, CAT]
     CONTRAST_MAP = {}  # type: dict[str, ColorContrast]
     FILTER_MAP = {}  # type: dict[str, Filter]
-    INTERPOLATE_MAP = {}  # type: dict[str, Interpolate[Self]]
+    INTERPOLATE_MAP = {}  # type: dict[str, Interpolate]
     CCT_MAP = {}  # type: dict[str, CCT]
     PRECISION = util.DEF_PREC
     ROUNDING = util.DEF_ROUND_MODE
@@ -795,12 +794,17 @@ class Color(metaclass=ColorMeta):
     def uv(self, mode: str = '1976', *, white: VectorLike | None = None) -> Vector:
         """Convert to `xy`."""
 
-        return self.split_chromaticity('uv-' + mode)[:-1]
+        return self.split_chromaticity('uv-' + mode, white=white)[:-1]
 
     def xy(self, *, white: VectorLike | None = None) -> Vector:
         """Convert to `xy`."""
 
-        return self.split_chromaticity('xy-1931')[:-1]
+        return self.split_chromaticity('xy-1931', white=white)[:-1]
+
+    def Y(self, *, white: VectorLike | None = None) -> float:
+        """Convert to `Y` (luminance)."""
+
+        return self.split_chromaticity('xy-1931', white=white)[-1]
 
     def split_chromaticity(
         self,
@@ -1208,7 +1212,7 @@ class Color(metaclass=ColorMeta):
             method if method is not None else cls.INTERPOLATOR,
             colors=colors,
             space=space,
-            out_space=out_space,
+            out_space=space if out_space is None else out_space,
             progress=progress,
             hue=hue,
             premultiplied=premultiplied,
@@ -1219,6 +1223,41 @@ class Color(metaclass=ColorMeta):
             powerless=powerless if powerless is not None else cls.POWERLESS,
             **kwargs
         )
+
+    @classmethod
+    def weighted_mix(
+        cls,
+        colors: Sequence[ColorInput],
+        weights: Sequence[float] | None = None,
+        *,
+        space: str | None = None,
+        out_space: str | None = None,
+        method: str | None = None,
+        premultiplied: bool = True,
+        carryforward: bool = False,
+        powerless: bool = False,
+        hue: str = 'shorter',
+        **kwargs: Any
+    ) -> Self:
+        """Perform a weighted mix of multiple colors."""
+
+        color = interpolate.weighted_mix(
+            cls,
+            method if method is not None else cls.INTERPOLATOR,
+            colors,
+            weights,
+            space,
+            premultiplied,
+            carryforward,
+            powerless,
+            hue,
+            **kwargs
+        )
+        if out_space is None:
+            out_space = space
+        if out_space is not None and color.space() != out_space:
+            color.convert(out_space, in_place=True)
+        return color
 
     @classmethod
     def average(
@@ -1234,20 +1273,21 @@ class Color(metaclass=ColorMeta):
     ) -> Self:
         """Average the colors."""
 
-        if space is None:
-            space = cls.AVERAGE
-
-        if out_space is None:
-            out_space = space
-
-        return average.average(
+        color = interpolate.multi_mix(
             cls,
             colors,
             weights,
-            space,
+            space if space is not None else cls.AVERAGE,
             premultiplied,
-            carryforward if carryforward is not None else cls.CARRYFORWARD
-        ).convert(out_space, in_place=True)
+            carryforward if carryforward is not None else cls.CARRYFORWARD,
+            average=True
+        )
+
+        if out_space is None:
+            out_space = space
+        if out_space is not None and color.space() != out_space:
+            color.convert(out_space, in_place=True)
+        return color
 
     def filter(  # noqa: A003
         self,

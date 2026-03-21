@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.31.0
+Version: 1.32.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -51,7 +51,7 @@ Requires-Dist: google-genai<2.0.0,>=1.32.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
 Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
-Requires-Dist: mistralai>=1.8.2; extra == 'all'
+Requires-Dist: mistralai<2.0.0,>=1.8.2; extra == 'all'
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
@@ -64,19 +64,19 @@ Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'all'
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: bidi
-Requires-Dist: aws-sdk-bedrock-runtime; (python_version >= '3.12') and extra == 'bidi'
-Requires-Dist: smithy-aws-core>=0.0.1; (python_version >= '3.12') and extra == 'bidi'
+Requires-Dist: aws-sdk-bedrock-runtime<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi'
+Requires-Dist: smithy-aws-core<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi'
 Provides-Extra: bidi-all
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'bidi-all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'bidi-all'
-Requires-Dist: aws-sdk-bedrock-runtime; (python_version >= '3.12') and extra == 'bidi-all'
+Requires-Dist: aws-sdk-bedrock-runtime<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi-all'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'bidi-all'
 Requires-Dist: google-genai<2.0.0,>=1.32.0; extra == 'bidi-all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'bidi-all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'bidi-all'
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-all'
 Requires-Dist: pyaudio<1.0.0,>=0.2.13; extra == 'bidi-all'
-Requires-Dist: smithy-aws-core>=0.0.1; (python_version >= '3.12') and extra == 'bidi-all'
+Requires-Dist: smithy-aws-core<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi-all'
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'bidi-all'
 Requires-Dist: sphinx-rtd-theme<4.0.0,>=1.0.0; extra == 'bidi-all'
 Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'bidi-all'
@@ -115,7 +115,7 @@ Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'
 Provides-Extra: mistral
-Requires-Dist: mistralai>=1.8.2; extra == 'mistral'
+Requires-Dist: mistralai<2.0.0,>=1.8.2; extra == 'mistral'
 Provides-Extra: ollama
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'ollama'
 Provides-Extra: openai

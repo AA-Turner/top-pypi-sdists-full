@@ -7,6 +7,7 @@ import inspect
 import ast
 import textwrap
 
+prop_re = re.compile(r"^_(\d+)$")
 
 class NameVisitor(ast.NodeVisitor):
     """
@@ -44,7 +45,6 @@ class NameVisitor(ast.NodeVisitor):
         -------
         list of str
         """
-        prop_re = re.compile(r"^_(\d+)$")
         matching_names = [n for n in self.names if prop_re.match(n)]
         if matching_names:
             start_number = max([int(n[1:]) for n in matching_names]) + 1
@@ -75,16 +75,11 @@ class ExpandVarargTransformer(ast.NodeTransformer):
         self.starred_name = starred_name
         self.expand_names = expand_names
 
-
-class ExpandVarargTransformerStarred(ExpandVarargTransformer):
-    # Python 3
     def visit_Starred(self, node):
-        if node.value.id == self.starred_name:
+        if (value_id := getattr(node.value, "id", None)) and value_id == self.starred_name:
             return [ast.Name(id=name, ctx=node.ctx) for name in
                     self.expand_names]
-        else:
-            return node
-
+        return node
 
 def function_to_ast(fn):
     """
@@ -116,7 +111,7 @@ def compile_function_ast(fn_ast):
     assert isinstance(fn_ast, ast.Module)
     fndef_ast = fn_ast.body[0]
     assert isinstance(fndef_ast, ast.FunctionDef)
-    return compile(fn_ast, "<%s>" % fndef_ast.name, mode='exec')
+    return compile(fn_ast, f"<{fndef_ast.name}>", mode='exec')
 
 
 def function_ast_to_function(fn_ast, stacklevel=1):
@@ -221,9 +216,7 @@ Input function AST does not have a variable length positional argument
     expand_names = before_name_visitor.get_new_names(expand_number)
 
     # Replace use of *args in function body
-    expand_transformer = ExpandVarargTransformerStarred
-
-    new_fn_ast = expand_transformer(
+    new_fn_ast = ExpandVarargTransformer(
         vararg_name, expand_names
     ).visit(fn_ast)
 
@@ -235,14 +228,14 @@ Input function AST does not have a variable length positional argument
     )
     new_fndef_ast.args.vararg = None
 
-    # Run a new NameVistor an see if there were any other non-starred uses
+    # Run a new NameVisitor an see if there were any other non-starred uses
     # of the variable length argument. If so, raise an exception
     after_name_visitor = NameVisitor()
     after_name_visitor.visit(new_fn_ast)
     if vararg_name in after_name_visitor.names:
-        raise ValueError("""\
-The variable length positional argument {n} is used in an unsupported context
-""".format(n=vararg_name))
+        raise ValueError(f"""\
+The variable length positional argument {vararg_name} is used in an unsupported context
+""")
 
     # Remove decorators if present to avoid recursion
     fndef_ast.decorator_list = []

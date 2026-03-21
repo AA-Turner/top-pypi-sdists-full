@@ -1573,6 +1573,55 @@ class MainController:
         workflow_position: tuple[int, int] = (0, 0),
         id: str | None = None,
     ) -> PageStage:
+        """
+        Create a new page stage in the project workflow.
+
+        Pages are custom HTML interfaces with server-side Python functions.
+        They provide full HTML/CSS/JS control and are the preferred way to build
+        dashboards, interactive tools, data visualizations, and any user-facing interface.
+
+        Args:
+            title (str): Display name for the page stage.
+            file (str): Relative path where the page's Python code will be stored.
+                Must end with .py extension.
+            workflow_position (Tuple[int, int], optional): X, Y coordinates for the
+                page's position in the visual workflow editor. Defaults to (0, 0).
+            id (Optional[str], optional): Custom identifier for the page. If None,
+                a unique ID will be automatically generated.
+
+        Returns:
+            PageStage: The newly created page stage object containing all page metadata.
+
+        Example:
+            ```python
+            controller = MainController(repositories)
+
+            # Create a simple page
+            page = controller.create_page_stage(
+                title="Sales Dashboard",
+                file="page_dashboard.py"
+            )
+            print(f"Created page with ID: {page.id}")
+
+            # Create page with custom position and ID
+            custom_page = controller.create_page_stage(
+                title="Admin Panel",
+                file="page_admin.py",
+                workflow_position=(100, 200),
+                id="custom-page-id"
+            )
+            ```
+
+        Note:
+            - The page file will be initialized with default page template code
+            - The file path is relative to the project root directory
+            - Page stages can be connected to other workflow stages via transitions
+            - Pages use @register_function to expose Python functions callable from the browser
+
+        Copywritings:
+            Create a new page stage
+            Creating a new page stage...
+        """
         page = PageStage.create(title, file, workflow_position=workflow_position, id=id)
         self.init_code_file(page.file, new_page_code)
         with self.repositories.project.atomic() as project:

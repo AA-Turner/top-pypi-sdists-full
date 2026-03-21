@@ -48,7 +48,7 @@
 
 #include <parse/qpdf/to_json.h>
 #include <parse/qpdf/annots.h>
-#include <parse/qpdf/instruction.h>
+#include <parse/qpdf/stream_instruction.h>
 #include <parse/qpdf/stream_decoder.h>
 
 // page-item
@@ -64,6 +64,7 @@
 #include <parse/page_items/page_widgets.h>
 #include <parse/page_items/page_hyperlink.h>
 #include <parse/page_items/page_hyperlinks.h>
+#include <parse/page_items/render_instructions.h>
 
 // pdf-resource
 #include <parse/pdf_resource.h>
@@ -90,7 +91,6 @@
 #include <parse/pdf_resources/page_xobject_postscript.h>
 #include <parse/pdf_resources/page_xobjects.h>
 
-//  
 #include <parse/pdf_sanitator.h>
 #include <parse/page_item_sanitator.h>
 #include <parse/pdf_sanitators/constants.h>

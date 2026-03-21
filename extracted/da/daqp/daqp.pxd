@@ -38,6 +38,14 @@ cdef extern from "types.h":
 
         double sing_tol;
         double refactor_tol;
+        double time_limit;
+
+    ctypedef struct DAQPWorkspace:
+        int n
+        int m
+        int ms
+        int nh
+        DAQPSettings* settings
 
 cdef extern from "api.h":
     ctypedef struct DAQPResult:
@@ -58,6 +66,26 @@ cdef extern from "api.h":
         int daqp_minrep(int *is_redundant, double *A, double*b, int n, int m, int ms)
     cdef extern nogil:
         int daqp_default_settings(DAQPSettings *settings)
+    cdef extern nogil:
+        void daqp_primal_init_active(DAQPProblem *qp, double *x)
+    cdef extern nogil:
+        void daqp_dual_init_active(DAQPProblem *qp, double *lam)
+    cdef extern nogil:
+        void daqp_set_primal_start(DAQPWorkspace *work, double *x)
+    cdef extern nogil:
+        int setup_daqp(DAQPProblem *qp, DAQPWorkspace *work, double *setup_time)
+    cdef extern nogil:
+        void daqp_solve(DAQPResult *res, DAQPWorkspace *work)
+    cdef extern nogil:
+        void free_daqp_workspace(DAQPWorkspace *work)
+    cdef extern nogil:
+        void free_daqp_ldp(DAQPWorkspace *work)
+    cdef extern nogil:
+        void allocate_daqp_settings(DAQPWorkspace *work)
+
+cdef extern from "utils.h":
+    cdef extern nogil:
+        int daqp_update_ldp(int mask, DAQPWorkspace *work, DAQPProblem *qp)
 
 cdef extern from "constants.h":
     cdef double DAQP_INF

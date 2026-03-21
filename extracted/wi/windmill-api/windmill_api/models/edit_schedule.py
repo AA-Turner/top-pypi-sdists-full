@@ -55,10 +55,10 @@ class EditSchedule:
             features
         dynamic_skip (Union[Unset, None, str]): Path to a script that validates scheduled datetimes. Receives
             scheduled_for datetime and returns boolean to skip (true) or run (false)
-        email (Union[Unset, str]): Email of the user who the scheduled jobs run as. Used during deployment to preserve
-            the original schedule owner.
-        preserve_email (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group, preserves
-            the original email value instead of overwriting it.
+        permissioned_as (Union[Unset, None, str]): The user or group this schedule runs as (e.g., 'u/admin' or
+            'g/mygroup'). Only admins and wm_deployers can set this via preserve_permissioned_as.
+        preserve_permissioned_as (Union[Unset, None, bool]): If true and user is admin/wm_deployers, preserve the
+            provided permissioned_as instead of using the deploying user's identity
     """
 
     schedule: str
@@ -82,8 +82,8 @@ class EditSchedule:
     paused_until: Union[Unset, None, datetime.datetime] = UNSET
     cron_version: Union[Unset, None, str] = UNSET
     dynamic_skip: Union[Unset, None, str] = UNSET
-    email: Union[Unset, str] = UNSET
-    preserve_email: Union[Unset, bool] = UNSET
+    permissioned_as: Union[Unset, None, str] = UNSET
+    preserve_permissioned_as: Union[Unset, None, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -124,8 +124,8 @@ class EditSchedule:
 
         cron_version = self.cron_version
         dynamic_skip = self.dynamic_skip
-        email = self.email
-        preserve_email = self.preserve_email
+        permissioned_as = self.permissioned_as
+        preserve_permissioned_as = self.preserve_permissioned_as
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -172,10 +172,10 @@ class EditSchedule:
             field_dict["cron_version"] = cron_version
         if dynamic_skip is not UNSET:
             field_dict["dynamic_skip"] = dynamic_skip
-        if email is not UNSET:
-            field_dict["email"] = email
-        if preserve_email is not UNSET:
-            field_dict["preserve_email"] = preserve_email
+        if permissioned_as is not UNSET:
+            field_dict["permissioned_as"] = permissioned_as
+        if preserve_permissioned_as is not UNSET:
+            field_dict["preserve_permissioned_as"] = preserve_permissioned_as
 
         return field_dict
 
@@ -270,9 +270,9 @@ class EditSchedule:
 
         dynamic_skip = d.pop("dynamic_skip", UNSET)
 
-        email = d.pop("email", UNSET)
+        permissioned_as = d.pop("permissioned_as", UNSET)
 
-        preserve_email = d.pop("preserve_email", UNSET)
+        preserve_permissioned_as = d.pop("preserve_permissioned_as", UNSET)
 
         edit_schedule = cls(
             schedule=schedule,
@@ -296,8 +296,8 @@ class EditSchedule:
             paused_until=paused_until,
             cron_version=cron_version,
             dynamic_skip=dynamic_skip,
-            email=email,
-            preserve_email=preserve_email,
+            permissioned_as=permissioned_as,
+            preserve_permissioned_as=preserve_permissioned_as,
         )
 
         edit_schedule.additional_properties = d

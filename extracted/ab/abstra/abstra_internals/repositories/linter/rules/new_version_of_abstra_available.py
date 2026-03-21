@@ -1,6 +1,8 @@
 import webbrowser
 from typing import List
 
+from abstra_internals.environment import EDITOR_MODE
+from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
@@ -22,9 +24,17 @@ def _update_lib_version():
             [sys.executable, "-m", "pip", "install", "--upgrade", "abstra"]
         )
 
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        if EDITOR_MODE == "web":
+            # Force immediate process termination for Kubernetes to restart
+            # sys.exit(0) doesn't work because Flask runs in threaded mode
+            # os._exit() bypasses threads and terminates the process directly
+            AbstraLogger.warning("[UpdateAbstra] Restarting editor after update")
+            os._exit(0)
+        else:
+            # Local: restart process in place
+            os.execv(sys.executable, [sys.executable] + sys.argv)
     except Exception as e:
-        print(f"Failed to update Abstra: {e}")
+        AbstraLogger.error(f"[UpdateAbstra] Failed to update Abstra: {e}")
 
 
 class UpdateAbstraVersion(LinterFix):
@@ -46,7 +56,7 @@ class OpenChangeLog(LinterFix):
 class NewVersionOfAbstraAvailableFound(LinterIssue):
     def __init__(self) -> None:
         package_version = PackageVersionManager("abstra")
-        self.label = f"Latest version is {package_version.cached_latest_version}, but you have {package_version.current_local_version}."
+        self.label = f"Latest version is {package_version.cached_latest_version}, but you have {package_version.current_local_version}. Updating may take up to 2 minutes."
         if is_windows():
             self.fixes = [OpenChangeLog()]
         else:

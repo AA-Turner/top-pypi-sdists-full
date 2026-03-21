@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from plato.chronos.errors import raise_for_status
+from plato.chronos.models import PlatoUser
 
 
 def _build_request_args(
@@ -29,7 +30,7 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> PlatoUser:
     """Get current authenticated user.
 
     Requires X-API-Key header or SSO cookie."""
@@ -40,13 +41,13 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return PlatoUser.model_validate(response.json())
 
 
 async def asyncio(
     client: httpx.AsyncClient,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> PlatoUser:
     """Get current authenticated user.
 
     Requires X-API-Key header or SSO cookie."""
@@ -57,4 +58,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return PlatoUser.model_validate(response.json())

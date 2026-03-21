@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: aenum
-Version: 3.1.16
+Version: 3.1.17
 Summary: Advanced Enumerations (compatible with Python's stdlib Enum), NamedTuples, and NamedConstants
 Home-page: https://github.com/ethanfurman/aenum
 Author: Ethan Furman

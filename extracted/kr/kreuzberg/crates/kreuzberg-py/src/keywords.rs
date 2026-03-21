@@ -11,7 +11,7 @@ use pyo3::prelude::*;
 ///     >>> from kreuzberg import KeywordAlgorithm
 ///     >>> algo = KeywordAlgorithm.Yake
 ///     >>> assert algo == KeywordAlgorithm.Yake
-#[pyclass(name = "KeywordAlgorithm", module = "kreuzberg")]
+#[pyclass(name = "KeywordAlgorithm", module = "kreuzberg", from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum KeywordAlgorithm {
     /// YAKE (Yet Another Keyword Extractor) - statistical approach
@@ -45,7 +45,7 @@ impl From<kreuzberg::keywords::KeywordAlgorithm> for KeywordAlgorithm {
 ///     >>> from kreuzberg import YakeParams
 ///     >>> params = YakeParams(window_size=3)
 ///     >>> assert params.window_size == 3
-#[pyclass(name = "YakeParams", module = "kreuzberg")]
+#[pyclass(name = "YakeParams", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct YakeParams {
     pub inner: kreuzberg::keywords::YakeParams,
@@ -95,7 +95,7 @@ impl From<kreuzberg::keywords::YakeParams> for YakeParams {
 /// Example:
 ///     >>> from kreuzberg import RakeParams
 ///     >>> params = RakeParams(min_word_length=2, max_words_per_phrase=4)
-#[pyclass(name = "RakeParams", module = "kreuzberg")]
+#[pyclass(name = "RakeParams", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct RakeParams {
     pub inner: kreuzberg::keywords::RakeParams,
@@ -165,7 +165,7 @@ impl From<kreuzberg::keywords::RakeParams> for RakeParams {
 ///     ...     language="en"
 ///     ... )
 ///     >>> assert config.max_keywords == 15
-#[pyclass(name = "KeywordConfig", module = "kreuzberg")]
+#[pyclass(name = "KeywordConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct KeywordConfig {
     pub inner: kreuzberg::keywords::KeywordConfig,

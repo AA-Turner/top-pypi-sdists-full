@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.21                                                                                #
-# Generated on 2026-03-12T01:00:36.664477                                                            #
+# MF version: 2.19.22                                                                                #
+# Generated on 2026-03-20T22:45:05.850458                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import metaflow
-import typing
 import enum
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.datastore.inputs
     import metaflow.exception
     import metaflow.unbounded_foreach
+    import metaflow.datastore.inputs
     import enum
     import metaflow.flowspec
 

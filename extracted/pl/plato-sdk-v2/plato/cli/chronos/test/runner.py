@@ -15,7 +15,7 @@ import httpx
 from rich.console import Console
 
 from plato.chronos.api.sessions import complete_session, create_session
-from plato.chronos.models import CompleteSessionRequest, CreateSessionRequest, CreateSessionResponse
+from plato.chronos.models import CompleteSessionRequest, CreateSessionRequest, CreateSessionResponse, Status1
 from plato.cli.chronos.dev.paths import get_sdk_root
 from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command, build_ssh_command_string
 from plato.cli.chronos.dev.sync import SyncManager
@@ -142,7 +142,7 @@ class TestRunner:
         world_package, world_version = parse_package_string(self.config.world.package)
         world_image = self.config.world.image
         if not world_image:
-            world_schema = await get_world_schema(world_package, world_version)
+            world_schema = await get_world_schema(world_package, world_version, self.config.world.world_name)
             world_image = world_schema.get("image", "")
             if not world_image:
                 raise RuntimeError(f"No world image found in schema for {self.config.world.package}")
@@ -515,7 +515,7 @@ class TestRunner:
             return
 
         body = CompleteSessionRequest(
-            status=status,
+            status=Status1(status),
             exit_code=exit_code,
             error_message=error_message[:500] if error_message else None,
         )

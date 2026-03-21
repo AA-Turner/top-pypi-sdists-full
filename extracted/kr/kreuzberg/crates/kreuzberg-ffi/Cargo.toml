@@ -23,6 +23,7 @@ rayon = ["dep:rayon"]
 pdf = []
 keywords-yake = []
 keywords-rake = []
+layout-detection = ["kreuzberg/layout-detection"]
 
 [dependencies]
 serde_json = { workspace = true }

@@ -2,13 +2,18 @@ import hashlib
 import os
 import sys
 import tarfile
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from random import randint
 
 import psutil
 import pytest
 
 from fastar import ArchiveClosedError, ArchiveReader, ArchiveUnpackingError
+
+if sys.version_info >= (3, 9) and sys.version_info < (3, 14):
+    from backports.zstd import tarfile
+else:
+    import tarfile
 
 
 def test_open_raises_on_unsupported_mode(archive_path):
@@ -37,12 +42,12 @@ def test_open_raises_if_file_does_not_exist(archive_path, read_mode):
         https://doc.rust-lang.org/beta/std/os/wasi/fs/trait.OpenOptionsExt.html#tymethod.directory
     """
 )
-def test_open_raises_if_path_is_directory(tmp_path, read_mode):
+def test_open_raises_if_path_is_directory(source_path, read_mode):
     with pytest.raises(
         IsADirectoryError,
         match="is a directory, not an archive file",
     ):
-        ArchiveReader.open(tmp_path, read_mode)
+        ArchiveReader.open(source_path, read_mode)
 
 
 def test_open_raises_if_insufficient_permissions(archive_path, read_mode):
@@ -291,14 +296,11 @@ def test_unpack_preserves_file_modification_time_only_if_option_is_true(
     with tarfile.open(archive_path, write_mode) as archive:
         archive.add(input_file, arcname="file.txt")
 
-    archive_open_time = datetime.now().timestamp()
-
     with ArchiveReader.open(archive_path, read_mode) as reader:
         reader.unpack(target_path, preserve_mtime=preserve)
 
     output_file = target_path / "file.txt"
     assert (output_file.stat().st_mtime == timestamp) == preserve
-    assert (output_file.stat().st_mtime >= archive_open_time) == (not preserve)
 
 
 @pytest.mark.parametrize("permissions", [0o755, 0o700, 0o775, 0o777])
@@ -557,3 +559,28 @@ def test_unpack_raises_when_archive_entries_are_not_iterable(target_path, archiv
             ArchiveUnpackingError, match="failed to iterate over archive"
         ):
             reader.unpack(target_path)
+
+
+def test_unpack_raises_when_sent_to_another_thread(
+    source_path, target_path, archive_path, write_mode, read_mode
+):
+    input_dir = source_path / "dir"
+    input_dir.mkdir()
+    input_file = input_dir / "file.txt"
+    input_file.touch()
+
+    with tarfile.open(archive_path, write_mode) as archive:
+        archive.add(input_dir)
+        archive.add(input_file)
+
+    def worker(reader, target_path):
+        reader.unpack(target_path)
+
+    # pyo3's PanicException isn't exported to Python and inherits from BaseException
+    # see https://github.com/PyO3/pyo3/issues/3918
+    with pytest.raises(
+        BaseException, match="fastar::reader::ArchiveReader is unsendable"
+    ):
+        with ArchiveReader.open(archive_path, read_mode) as reader:
+            with ThreadPoolExecutor(max_workers=1) as tpe:
+                tpe.submit(worker, reader, target_path).result()

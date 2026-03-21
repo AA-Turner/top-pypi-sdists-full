@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastar
-Version: 0.8.0
+Version: 0.9.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -18,15 +18,16 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 License-File: LICENSE
 Summary: High-level bindings for the Rust tar crate
 Author-email: Jonathan Ehwald <github@ehwald.info>
 License-Expression: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: documentation, https://github.com/DoctorJohn/fastar
 Project-URL: homepage, https://github.com/DoctorJohn/fastar
 Project-URL: repository, https://github.com/DoctorJohn/fastar
-Project-URL: documentation, https://github.com/DoctorJohn/fastar
 
 # Fastar
 

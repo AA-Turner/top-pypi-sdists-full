@@ -126,18 +126,34 @@ def _delete_rows(cur, model_id: int, set_id: int,
     return cur.rowcount
 
 
+def _ensure_connection(conn, cur, database_url):
+    """Reconnect if the connection is closed or broken."""
+    try:
+        cur.execute("SELECT true")
+        cur.fetchone()
+        return conn, cur
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        print("  Reconnecting to database ...")
+        conn = _get_db_connection(database_url)
+        cur = conn.cursor()
+        cur.execute(
+            "SET statement_" + "timeout = %s",
+            (PG_STATEMENT_NO_LIMIT,),
+        )
+        return conn, cur
+
+
 def cleanup_migrated_activations(
     database_url: Optional[str] = None,
     dry_run: bool = True,
 ) -> dict:
     """Check HF index and drop matching Supabase Activation rows.
 
-    Args:
-        database_url: Supabase connection string (or DATABASE_URL env).
-        dry_run: If True, only report what would be deleted.
-
-    Returns:
-        Summary dict with per-combo counts.
+    Commits after each layer DELETE and reconnects on failure.
     """
     print("Downloading HF index.json ...")
     index = _download_hf_index()
@@ -154,6 +170,7 @@ def cleanup_migrated_activations(
     results = []
 
     for model, task, strategy, layers in combos:
+        conn, cur = _ensure_connection(conn, cur, database_url)
         if model not in model_cache:
             model_cache[model] = _resolve_model_id(cur, model)
         model_id = model_cache[model]
@@ -172,6 +189,7 @@ def cleanup_migrated_activations(
 
         combo_deleted = RECURSION_INITIAL_DEPTH
         for layer in layers:
+            conn, cur = _ensure_connection(conn, cur, database_url)
             count = _count_rows(cur, model_id, set_id, strategy, layer)
             if count == RECURSION_INITIAL_DEPTH:
                 continue
@@ -182,9 +200,20 @@ def cleanup_migrated_activations(
                 )
                 combo_deleted += count
             else:
-                deleted = _delete_rows(
-                    cur, model_id, set_id, strategy, layer
-                )
+                try:
+                    deleted = _delete_rows(
+                        cur, model_id, set_id, strategy, layer
+                    )
+                    conn.commit()
+                except Exception as exc:
+                    print(f"  ERR on layer={layer}: {exc}")
+                    conn, cur = _ensure_connection(
+                        conn, cur, database_url
+                    )
+                    deleted = _delete_rows(
+                        cur, model_id, set_id, strategy, layer
+                    )
+                    conn.commit()
                 combo_deleted += deleted
                 print(
                     f"  Deleted {deleted} rows: "
@@ -202,8 +231,7 @@ def cleanup_migrated_activations(
             total_deleted += combo_deleted
 
     if not dry_run:
-        conn.commit()
-        print(f"\nCommitted. Total deleted: {total_deleted}")
+        print(f"\nDone. Total deleted: {total_deleted}")
     else:
         conn.rollback()
         print(f"\n[DRY-RUN] Would delete total: {total_deleted}")

@@ -2212,3 +2212,39 @@ def test_4907():
             print(f'{i=}')
             display_list = page.get_displaylist(annots=False)
             text_page = display_list.get_textpage()
+
+def test_4928():
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_4928.pdf')
+    with pymupdf.open(path) as document:
+        try:
+            document.scrub()
+        except Exception as e:
+            print(f'Ignoring expected exception: {e}')
+    
+def test_4902():
+    print()
+    print(f'test_4902(): {pymupdf.mupdf_version_tuple=}')
+    with pymupdf.open() as doc:
+        page = doc.new_page()
+        text = 'Hello World'
+        bw = 0.4
+        fontsize = 20
+        page.insert_text(
+                (72, 72),
+                text,
+                fontsize=fontsize,
+                render_mode=2,
+                color=(1, 0, 0),
+                fill=(0, 1, 0),
+                border_width=bw,
+                )
+        data = doc.tobytes()
+    with pymupdf.open('pdf', data) as doc:
+        page = doc[0]
+        spans = page.get_texttrace()
+        for i, span in enumerate(spans):
+            cs = ''.join([chr(cc[0]) for cc in span['chars']])
+            print(f'test_4902(): {i=} {span["linewidth"]=} {cs=}')
+        assert len(spans) == 2
+        assert spans[0]['linewidth'] is None
+        assert spans[1]['linewidth'] == 8.0

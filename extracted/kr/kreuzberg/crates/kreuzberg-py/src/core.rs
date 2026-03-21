@@ -2,26 +2,147 @@
 //!
 //! Provides both synchronous and asynchronous extraction functions for Python.
 
-use crate::config::ExtractionConfig;
+use crate::config::{ExtractionConfig, FileExtractionConfig};
 use crate::error::to_py_err;
 use crate::types::ExtractionResult;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
+use std::path::PathBuf;
+
+type BatchBytesItem = (Vec<u8>, String, Option<kreuzberg::FileExtractionConfig>);
+
+/// Build file items from separate paths and optional per-file configs.
+fn build_file_items(
+    path_strings: Vec<String>,
+    file_configs: Option<Vec<Option<FileExtractionConfig>>>,
+) -> PyResult<Vec<(PathBuf, Option<kreuzberg::FileExtractionConfig>)>> {
+    if let Some(ref configs) = file_configs
+        && configs.len() != path_strings.len()
+    {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "file_configs length ({}) must match paths length ({})",
+            configs.len(),
+            path_strings.len()
+        )));
+    }
+
+    let items = match file_configs {
+        Some(configs) => path_strings
+            .into_iter()
+            .zip(configs)
+            .map(|(p, fc)| (PathBuf::from(p), fc.map(Into::into)))
+            .collect(),
+        None => path_strings.into_iter().map(|p| (PathBuf::from(p), None)).collect(),
+    };
+    Ok(items)
+}
+
+/// Build bytes items from separate data/mime lists and optional per-item configs.
+fn build_bytes_items(
+    data_list: Vec<Vec<u8>>,
+    mime_types: Vec<String>,
+    file_configs: Option<Vec<Option<FileExtractionConfig>>>,
+) -> PyResult<Vec<BatchBytesItem>> {
+    if let Some(ref configs) = file_configs
+        && configs.len() != data_list.len()
+    {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "file_configs length ({}) must match data_list length ({})",
+            configs.len(),
+            data_list.len()
+        )));
+    }
+
+    let items = match file_configs {
+        Some(configs) => data_list
+            .into_iter()
+            .zip(mime_types)
+            .zip(configs)
+            .map(|((data, mime), fc)| (data, mime, fc.map(Into::into)))
+            .collect(),
+        None => data_list
+            .into_iter()
+            .zip(mime_types)
+            .map(|(data, mime)| (data, mime, None))
+            .collect(),
+    };
+    Ok(items)
+}
 
 /// Extract format strings from ExtractionConfig before it's consumed.
+fn output_format_to_string(fmt: &kreuzberg::core::config::formats::OutputFormat) -> String {
+    match fmt {
+        kreuzberg::core::config::formats::OutputFormat::Plain => "plain".to_string(),
+        kreuzberg::core::config::formats::OutputFormat::Markdown => "markdown".to_string(),
+        kreuzberg::core::config::formats::OutputFormat::Djot => "djot".to_string(),
+        kreuzberg::core::config::formats::OutputFormat::Html => "html".to_string(),
+        kreuzberg::core::config::formats::OutputFormat::Structured => "structured".to_string(),
+    }
+}
+
+fn result_format_to_string(fmt: &kreuzberg::types::OutputFormat) -> String {
+    match fmt {
+        kreuzberg::types::OutputFormat::Unified => "unified".to_string(),
+        kreuzberg::types::OutputFormat::ElementBased => "element_based".to_string(),
+    }
+}
+
 fn extract_format_strings(config: &ExtractionConfig) -> (Option<String>, Option<String>) {
-    let output_fmt = match config.inner.output_format {
-        kreuzberg::core::config::formats::OutputFormat::Plain => Some("plain".to_string()),
-        kreuzberg::core::config::formats::OutputFormat::Markdown => Some("markdown".to_string()),
-        kreuzberg::core::config::formats::OutputFormat::Djot => Some("djot".to_string()),
-        kreuzberg::core::config::formats::OutputFormat::Html => Some("html".to_string()),
-        kreuzberg::core::config::formats::OutputFormat::Structured => Some("structured".to_string()),
-    };
-    let result_fmt = match config.inner.result_format {
-        kreuzberg::types::OutputFormat::Unified => Some("unified".to_string()),
-        kreuzberg::types::OutputFormat::ElementBased => Some("element_based".to_string()),
-    };
-    (output_fmt, result_fmt)
+    (
+        Some(output_format_to_string(&config.inner.output_format)),
+        Some(result_format_to_string(&config.inner.result_format)),
+    )
+}
+
+/// Collect per-item format strings, using file_config overrides where present.
+/// Returns an iterator that yields (output_format, result_format) for each result.
+fn collect_per_item_formats(
+    config: &ExtractionConfig,
+    file_configs: &Option<Vec<Option<FileExtractionConfig>>>,
+) -> PerItemFormats {
+    let default_output = output_format_to_string(&config.inner.output_format);
+    let default_result = result_format_to_string(&config.inner.result_format);
+
+    match file_configs {
+        Some(configs) => {
+            let formats: Vec<_> = configs
+                .iter()
+                .map(|fc| {
+                    let output = fc
+                        .as_ref()
+                        .and_then(|c| c.inner.output_format.as_ref())
+                        .map(output_format_to_string)
+                        .unwrap_or_else(|| default_output.clone());
+                    let result = fc
+                        .as_ref()
+                        .and_then(|c| c.inner.result_format.as_ref())
+                        .map(result_format_to_string)
+                        .unwrap_or_else(|| default_result.clone());
+                    (output, result)
+                })
+                .collect();
+            PerItemFormats::Explicit(formats)
+        }
+        None => PerItemFormats::Default(default_output, default_result),
+    }
+}
+
+/// Per-item format info that can be either explicit per-item or a repeated default.
+enum PerItemFormats {
+    Explicit(Vec<(String, String)>),
+    Default(String, String),
+}
+
+impl PerItemFormats {
+    fn get(&self, index: usize) -> (String, String) {
+        match self {
+            PerItemFormats::Explicit(formats) => formats
+                .get(index)
+                .cloned()
+                .unwrap_or_else(|| formats.last().cloned().unwrap_or_default()),
+            PerItemFormats::Default(output, result) => (output.clone(), result.clone()),
+        }
+    }
 }
 
 /// Extract a path string from Python input (str, pathlib.Path, or bytes).
@@ -143,12 +264,13 @@ pub fn extract_bytes_sync(
 /// Args:
 ///     paths: List of file paths to extract (str, pathlib.Path, or bytes)
 ///     config: Extraction configuration
+///     file_configs: Optional list of per-file extraction config overrides
 ///
 /// Returns:
 ///     List of ExtractionResult objects (one per file)
 ///
 /// Raises:
-///     ValueError: Invalid configuration
+///     ValueError: Invalid configuration or file_configs length mismatch
 ///     IOError: File access errors
 ///     RuntimeError: Extraction failures
 ///
@@ -163,26 +285,30 @@ pub fn extract_bytes_sync(
 ///     >>> paths = [Path("doc1.pdf"), Path("doc2.docx")]
 ///     >>> results = batch_extract_files_sync(paths, ExtractionConfig())
 #[pyfunction]
-#[pyo3(signature = (paths, config=ExtractionConfig::default()))]
+#[pyo3(signature = (paths, config=ExtractionConfig::default(), file_configs=None))]
 pub fn batch_extract_files_sync(
     py: Python,
     paths: &Bound<'_, PyList>,
     config: ExtractionConfig,
+    file_configs: Option<Vec<Option<FileExtractionConfig>>>,
 ) -> PyResult<Py<PyList>> {
     let path_strings: PyResult<Vec<String>> = paths.iter().map(|p| extract_path_string(&p)).collect();
     let path_strings = path_strings?;
 
-    let (output_fmt, result_fmt) = extract_format_strings(&config);
+    let per_item_formats = collect_per_item_formats(&config, &file_configs);
+    let items = build_file_items(path_strings, file_configs)?;
+
     let rust_config = config.into();
 
     // Release GIL during sync batch extraction - OSError/RuntimeError must bubble up ~keep
-    let results =
-        Python::detach(py, || kreuzberg::batch_extract_file_sync(path_strings, &rust_config)).map_err(to_py_err)?;
+    let results = Python::detach(py, || kreuzberg::batch_extract_file_sync(items, &rust_config)).map_err(to_py_err)?;
 
     let converted: PyResult<Vec<_>> = results
         .into_iter()
-        .map(|result| {
-            ExtractionResult::from_rust(result, py, output_fmt.as_ref().cloned(), result_fmt.as_ref().cloned())
+        .enumerate()
+        .map(|(i, result)| {
+            let (output_fmt, result_fmt) = per_item_formats.get(i);
+            ExtractionResult::from_rust(result, py, Some(output_fmt), Some(result_fmt))
         })
         .collect();
     let list = PyList::new(py, converted?)?;
@@ -195,6 +321,7 @@ pub fn batch_extract_files_sync(
 ///     data_list: List of bytes objects to extract
 ///     mime_types: List of MIME types (one per data object)
 ///     config: Extraction configuration
+///     file_configs: Optional list of per-item extraction config overrides
 ///
 /// Returns:
 ///     List of ExtractionResult objects (one per data object)
@@ -209,12 +336,13 @@ pub fn batch_extract_files_sync(
 ///     >>> mime_types = ["application/pdf", "application/pdf"]
 ///     >>> results = batch_extract_bytes_sync(data_list, mime_types, ExtractionConfig())
 #[pyfunction]
-#[pyo3(signature = (data_list, mime_types, config=ExtractionConfig::default()))]
+#[pyo3(signature = (data_list, mime_types, config=ExtractionConfig::default(), file_configs=None))]
 pub fn batch_extract_bytes_sync(
     py: Python,
     data_list: Vec<Vec<u8>>,
     mime_types: Vec<String>,
     config: ExtractionConfig,
+    file_configs: Option<Vec<Option<FileExtractionConfig>>>,
 ) -> PyResult<Py<PyList>> {
     if data_list.len() != mime_types.len() {
         return Err(pyo3::exceptions::PyValueError::new_err(format!(
@@ -224,27 +352,21 @@ pub fn batch_extract_bytes_sync(
         )));
     }
 
-    let (output_fmt, result_fmt) = extract_format_strings(&config);
+    let per_item_formats = collect_per_item_formats(&config, &file_configs);
+    let items = build_bytes_items(data_list, mime_types, file_configs)?;
+
     let rust_config = config.into();
 
-    let contents: Vec<(&[u8], &str)> = data_list
-        .iter()
-        .zip(mime_types.iter())
-        .map(|(data, mime)| (data.as_slice(), mime.as_str()))
-        .collect();
-
-    let owned_contents: Vec<(Vec<u8>, String)> = contents
-        .into_iter()
-        .map(|(bytes, mime)| (bytes.to_vec(), mime.to_string()))
-        .collect();
-
     // Release GIL during sync batch extraction - OSError/RuntimeError must bubble up ~keep
-    let results =
-        Python::detach(py, || kreuzberg::batch_extract_bytes_sync(owned_contents, &rust_config)).map_err(to_py_err)?;
+    let results = Python::detach(py, || kreuzberg::batch_extract_bytes_sync(items, &rust_config)).map_err(to_py_err)?;
 
     let converted: PyResult<Vec<_>> = results
         .into_iter()
-        .map(|result| ExtractionResult::from_rust(result, py, output_fmt.clone(), result_fmt.clone()))
+        .enumerate()
+        .map(|(i, result)| {
+            let (output_fmt, result_fmt) = per_item_formats.get(i);
+            ExtractionResult::from_rust(result, py, Some(output_fmt), Some(result_fmt))
+        })
         .collect();
     let list = PyList::new(py, converted?)?;
     Ok(list.unbind())
@@ -343,12 +465,13 @@ pub fn extract_bytes<'py>(
 /// Args:
 ///     paths: List of file paths to extract (str, pathlib.Path, or bytes)
 ///     config: Extraction configuration
+///     file_configs: Optional list of per-file extraction config overrides
 ///
 /// Returns:
 ///     List of ExtractionResult objects (one per file)
 ///
 /// Raises:
-///     ValueError: Invalid configuration
+///     ValueError: Invalid configuration or file_configs length mismatch
 ///     IOError: File access errors
 ///     RuntimeError: Extraction failures
 ///
@@ -367,27 +490,32 @@ pub fn extract_bytes<'py>(
 ///     ...     paths = [Path("doc1.pdf"), Path("doc2.docx")]
 ///     ...     results = await batch_extract_files(paths, ExtractionConfig())
 #[pyfunction]
-#[pyo3(signature = (paths, config=ExtractionConfig::default()))]
+#[pyo3(signature = (paths, config=ExtractionConfig::default(), file_configs=None))]
 pub fn batch_extract_files<'py>(
     py: Python<'py>,
     paths: &Bound<'py, PyList>,
     config: ExtractionConfig,
+    file_configs: Option<Vec<Option<FileExtractionConfig>>>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let path_strings: PyResult<Vec<String>> = paths.iter().map(|p| extract_path_string(&p)).collect();
     let path_strings = path_strings?;
 
-    let (output_fmt, result_fmt) = extract_format_strings(&config);
+    let per_item_formats = collect_per_item_formats(&config, &file_configs);
+    let items = build_file_items(path_strings, file_configs)?;
+
     let rust_config: kreuzberg::ExtractionConfig = config.into();
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
-        let results = kreuzberg::batch_extract_file(path_strings, &rust_config)
+        let results = kreuzberg::batch_extract_file(items, &rust_config)
             .await
             .map_err(to_py_err)?;
 
         Python::attach(|py| {
             let converted: PyResult<Vec<_>> = results
                 .into_iter()
-                .map(|result| {
-                    ExtractionResult::from_rust(result, py, output_fmt.as_ref().cloned(), result_fmt.as_ref().cloned())
+                .enumerate()
+                .map(|(i, result)| {
+                    let (output_fmt, result_fmt) = per_item_formats.get(i);
+                    ExtractionResult::from_rust(result, py, Some(output_fmt), Some(result_fmt))
                 })
                 .collect();
             let list = PyList::new(py, converted?)?;
@@ -402,6 +530,7 @@ pub fn batch_extract_files<'py>(
 ///     data_list: List of bytes objects to extract
 ///     mime_types: List of MIME types (one per data object)
 ///     config: Extraction configuration
+///     file_configs: Optional list of per-item extraction config overrides
 ///
 /// Returns:
 ///     List of ExtractionResult objects (one per data object)
@@ -419,12 +548,13 @@ pub fn batch_extract_files<'py>(
 ///     ...     results = await batch_extract_bytes(data_list, mime_types, ExtractionConfig())
 ///     >>> asyncio.run(main())
 #[pyfunction]
-#[pyo3(signature = (data_list, mime_types, config=ExtractionConfig::default()))]
+#[pyo3(signature = (data_list, mime_types, config=ExtractionConfig::default(), file_configs=None))]
 pub fn batch_extract_bytes<'py>(
     py: Python<'py>,
     data_list: Vec<Vec<u8>>,
     mime_types: Vec<String>,
     config: ExtractionConfig,
+    file_configs: Option<Vec<Option<FileExtractionConfig>>>,
 ) -> PyResult<Bound<'py, PyAny>> {
     if data_list.len() != mime_types.len() {
         return Err(pyo3::exceptions::PyValueError::new_err(format!(
@@ -434,29 +564,22 @@ pub fn batch_extract_bytes<'py>(
         )));
     }
 
-    let (output_fmt, result_fmt) = extract_format_strings(&config);
+    let per_item_formats = collect_per_item_formats(&config, &file_configs);
+    let items = build_bytes_items(data_list, mime_types, file_configs)?;
+
     let rust_config: kreuzberg::ExtractionConfig = config.into();
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
-        let contents: Vec<(&[u8], &str)> = data_list
-            .iter()
-            .zip(mime_types.iter())
-            .map(|(data, mime)| (data.as_slice(), mime.as_str()))
-            .collect();
-
-        let owned_contents: Vec<(Vec<u8>, String)> = contents
-            .into_iter()
-            .map(|(bytes, mime)| (bytes.to_vec(), mime.to_string()))
-            .collect();
-
-        let results = kreuzberg::batch_extract_bytes(owned_contents, &rust_config)
+        let results = kreuzberg::batch_extract_bytes(items, &rust_config)
             .await
             .map_err(to_py_err)?;
 
         Python::attach(|py| {
             let converted: PyResult<Vec<_>> = results
                 .into_iter()
-                .map(|result| {
-                    ExtractionResult::from_rust(result, py, output_fmt.as_ref().cloned(), result_fmt.as_ref().cloned())
+                .enumerate()
+                .map(|(i, result)| {
+                    let (output_fmt, result_fmt) = per_item_formats.get(i);
+                    ExtractionResult::from_rust(result, py, Some(output_fmt), Some(result_fmt))
                 })
                 .collect();
             let list = PyList::new(py, converted?)?;
@@ -547,6 +670,7 @@ mod tests {
                 vec![b"a".to_vec(), b"b".to_vec()],
                 vec!["text/plain".to_string()],
                 ExtractionConfig::default(),
+                None,
             )
             .expect_err("length mismatch should error");
             assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
@@ -558,7 +682,7 @@ mod tests {
         with_py(|py| {
             let data = vec![b"first".to_vec(), b"second".to_vec()];
             let mimes = vec!["text/plain".to_string(), "text/plain".to_string()];
-            let list = batch_extract_bytes_sync(py, data, mimes, ExtractionConfig::default())
+            let list = batch_extract_bytes_sync(py, data, mimes, ExtractionConfig::default(), None)
                 .expect("batch extraction should succeed");
             assert_eq!(list.bind(py).len(), 2);
         });

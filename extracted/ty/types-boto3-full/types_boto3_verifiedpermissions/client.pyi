@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListIdentitySourcesPaginator,
     ListPoliciesPaginator,
+    ListPolicyStoreAliasesPaginator,
     ListPolicyStoresPaginator,
     ListPolicyTemplatesPaginator,
 )
@@ -43,18 +44,23 @@ from .type_defs import (
     CreateIdentitySourceOutputTypeDef,
     CreatePolicyInputTypeDef,
     CreatePolicyOutputTypeDef,
+    CreatePolicyStoreAliasInputTypeDef,
+    CreatePolicyStoreAliasOutputTypeDef,
     CreatePolicyStoreInputTypeDef,
     CreatePolicyStoreOutputTypeDef,
     CreatePolicyTemplateInputTypeDef,
     CreatePolicyTemplateOutputTypeDef,
     DeleteIdentitySourceInputTypeDef,
     DeletePolicyInputTypeDef,
+    DeletePolicyStoreAliasInputTypeDef,
     DeletePolicyStoreInputTypeDef,
     DeletePolicyTemplateInputTypeDef,
     GetIdentitySourceInputTypeDef,
     GetIdentitySourceOutputTypeDef,
     GetPolicyInputTypeDef,
     GetPolicyOutputTypeDef,
+    GetPolicyStoreAliasInputTypeDef,
+    GetPolicyStoreAliasOutputTypeDef,
     GetPolicyStoreInputTypeDef,
     GetPolicyStoreOutputTypeDef,
     GetPolicyTemplateInputTypeDef,
@@ -69,6 +75,8 @@ from .type_defs import (
     ListIdentitySourcesOutputTypeDef,
     ListPoliciesInputTypeDef,
     ListPoliciesOutputTypeDef,
+    ListPolicyStoreAliasesInputTypeDef,
+    ListPolicyStoreAliasesOutputTypeDef,
     ListPolicyStoresInputTypeDef,
     ListPolicyStoresOutputTypeDef,
     ListPolicyTemplatesInputTypeDef,
@@ -205,6 +213,16 @@ class VerifiedPermissionsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#create_policy_store)
         """
 
+    def create_policy_store_alias(
+        self, **kwargs: Unpack[CreatePolicyStoreAliasInputTypeDef]
+    ) -> CreatePolicyStoreAliasOutputTypeDef:
+        """
+        Creates a policy store alias for the specified policy store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/create_policy_store_alias.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#create_policy_store_alias)
+        """
+
     def create_policy_template(
         self, **kwargs: Unpack[CreatePolicyTemplateInputTypeDef]
     ) -> CreatePolicyTemplateOutputTypeDef:
@@ -244,6 +262,16 @@ class VerifiedPermissionsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#delete_policy_store)
         """
 
+    def delete_policy_store_alias(
+        self, **kwargs: Unpack[DeletePolicyStoreAliasInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified policy store alias.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/delete_policy_store_alias.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#delete_policy_store_alias)
+        """
+
     def delete_policy_template(
         self, **kwargs: Unpack[DeletePolicyTemplateInputTypeDef]
     ) -> dict[str, Any]:
@@ -280,6 +308,16 @@ class VerifiedPermissionsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/get_policy_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#get_policy_store)
+        """
+
+    def get_policy_store_alias(
+        self, **kwargs: Unpack[GetPolicyStoreAliasInputTypeDef]
+    ) -> GetPolicyStoreAliasOutputTypeDef:
+        """
+        Retrieves details about the specified policy store alias.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/get_policy_store_alias.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#get_policy_store_alias)
         """
 
     def get_policy_template(
@@ -342,6 +380,17 @@ class VerifiedPermissionsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/list_policies.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#list_policies)
+        """
+
+    def list_policy_store_aliases(
+        self, **kwargs: Unpack[ListPolicyStoreAliasesInputTypeDef]
+    ) -> ListPolicyStoreAliasesOutputTypeDef:
+        """
+        Returns a paginated list of all policy store aliases in the calling Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/list_policy_store_aliases.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#list_policy_store_aliases)
         """
 
     def list_policy_stores(
@@ -459,6 +508,17 @@ class VerifiedPermissionsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policies"]
     ) -> ListPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_verifiedpermissions/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_store_aliases"]
+    ) -> ListPolicyStoreAliasesPaginator:
         """
         Create a paginator for an operation.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kerykeion
-Version: 5.12.1
+Version: 5.12.6
 Summary: A Python library for astrological calculations, including natal charts, houses, planetary aspects, and SVG chart generation.
 Project-URL: Homepage, https://www.kerykeion.net/
 Project-URL: Repository, https://github.com/g-battaglia/kerykeion

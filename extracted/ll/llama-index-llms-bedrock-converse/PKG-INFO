@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-bedrock-converse
-Version: 0.14.2
+Version: 0.14.3
 Summary: llama-index llms bedrock converse integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

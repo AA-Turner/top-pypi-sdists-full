@@ -49,10 +49,10 @@ class CreateHttpTriggerJsonBody:
         error_handler_args (Union[Unset, CreateHttpTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
         retry (Union[Unset, CreateHttpTriggerJsonBodyRetry]): Retry configuration for failed module executions
-        email (Union[Unset, str]): Email of the user who triggered jobs run as. Used during deployment to preserve the
-            original trigger owner.
-        preserve_email (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group, preserves
-            the original email value instead of overwriting it.
+        permissioned_as (Union[Unset, str]): The user or group this trigger runs as. Used during deployment to preserve
+            the original trigger owner.
+        preserve_permissioned_as (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group,
+            preserves the original permissioned_as value instead of overwriting it.
     """
 
     path: str
@@ -75,8 +75,8 @@ class CreateHttpTriggerJsonBody:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "CreateHttpTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "CreateHttpTriggerJsonBodyRetry"] = UNSET
-    email: Union[Unset, str] = UNSET
-    preserve_email: Union[Unset, bool] = UNSET
+    permissioned_as: Union[Unset, str] = UNSET
+    preserve_permissioned_as: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -117,8 +117,8 @@ class CreateHttpTriggerJsonBody:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
-        email = self.email
-        preserve_email = self.preserve_email
+        permissioned_as = self.permissioned_as
+        preserve_permissioned_as = self.preserve_permissioned_as
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -159,10 +159,10 @@ class CreateHttpTriggerJsonBody:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
-        if email is not UNSET:
-            field_dict["email"] = email
-        if preserve_email is not UNSET:
-            field_dict["preserve_email"] = preserve_email
+        if permissioned_as is not UNSET:
+            field_dict["permissioned_as"] = permissioned_as
+        if preserve_permissioned_as is not UNSET:
+            field_dict["preserve_permissioned_as"] = preserve_permissioned_as
 
         return field_dict
 
@@ -242,9 +242,9 @@ class CreateHttpTriggerJsonBody:
         else:
             retry = CreateHttpTriggerJsonBodyRetry.from_dict(_retry)
 
-        email = d.pop("email", UNSET)
+        permissioned_as = d.pop("permissioned_as", UNSET)
 
-        preserve_email = d.pop("preserve_email", UNSET)
+        preserve_permissioned_as = d.pop("preserve_permissioned_as", UNSET)
 
         create_http_trigger_json_body = cls(
             path=path,
@@ -267,8 +267,8 @@ class CreateHttpTriggerJsonBody:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
-            email=email,
-            preserve_email=preserve_email,
+            permissioned_as=permissioned_as,
+            preserve_permissioned_as=preserve_permissioned_as,
         )
 
         create_http_trigger_json_body.additional_properties = d
