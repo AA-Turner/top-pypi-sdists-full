@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-cov
-Version: 7.0.0
+Version: 7.1.0
 Summary: Pytest plugin for measuring coverage.
 Project-URL: Sources, https://github.com/pytest-dev/pytest-cov
 Project-URL: Documentation, https://pytest-cov.readthedocs.io/
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
@@ -83,9 +84,9 @@ Overview
     :alt: Supported implementations
     :target: https://pypi.org/project/pytest-cov
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/pytest-dev/pytest-cov/v7.0.0.svg
+.. |commits-since| image:: https://img.shields.io/github/commits-since/pytest-dev/pytest-cov/v7.1.0.svg
     :alt: Commits since latest release
-    :target: https://github.com/pytest-dev/pytest-cov/compare/v7.0.0...master
+    :target: https://github.com/pytest-dev/pytest-cov/compare/v7.1.0...master
 
 .. end-badges
 
@@ -197,6 +198,32 @@ No doubt others have contributed to these tools as well.
 
 Changelog
 =========
+
+7.1.0 (2026-03-21)
+------------------
+
+* Fixed total coverage computation to always be consistent, regardless of reporting settings.
+  Previously some reports could produce different total counts, and consequently can make --cov-fail-under behave different depending on
+  reporting options.
+  See `#641 <https://github.com/pytest-dev/pytest-cov/issues/641>`_.
+
+* Improve handling of ResourceWarning from sqlite3.
+
+  The plugin adds warning filter for sqlite3 ``ResourceWarning`` unclosed database (since 6.2.0).
+  It checks if there is already existing plugin for this message by comparing filter regular expression.
+  When filter is specified on command line the message is escaped and does not match an expected message.
+  A check for an escaped regular expression is added to handle this case.
+
+  With this fix one can suppress ``ResourceWarning`` from sqlite3 from command line::
+
+    pytest -W "ignore:unclosed database in <sqlite3.Connection object at:ResourceWarning" ...
+* Various improvements to documentation.
+  Contributed by Art Pelling in `#718 <https://github.com/pytest-dev/pytest-cov/pull/718>`_ and
+  "vivodi" in `#738 <https://github.com/pytest-dev/pytest-cov/pull/738>`_.
+  Also closed `#736 <https://github.com/pytest-dev/pytest-cov/issues/736>`_.
+* Fixed some assertions in tests.
+  Contributed by in Markéta Machová in `#722 <https://github.com/pytest-dev/pytest-cov/pull/722>`_.
+* Removed unnecessary coverage configuration copying (meant as a backup because reporting commands had configuration side-effects before coverage 5.0).
 
 7.0.0 (2025-09-09)
 ------------------

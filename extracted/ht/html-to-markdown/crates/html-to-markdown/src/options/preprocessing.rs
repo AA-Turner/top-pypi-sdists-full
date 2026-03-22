@@ -192,8 +192,8 @@ mod tests {
         let deserialized: PreprocessingOptions = serde_json::from_str(&json).expect("Failed to deserialize");
 
         // Verify values
-        assert_eq!(deserialized.enabled, true);
+        assert!(deserialized.enabled);
         assert_eq!(deserialized.preset, PreprocessingPreset::Aggressive);
-        assert_eq!(deserialized.remove_navigation, false);
+        assert!(!deserialized.remove_navigation);
     }
 }

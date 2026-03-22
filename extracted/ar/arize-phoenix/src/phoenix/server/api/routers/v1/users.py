@@ -36,6 +36,7 @@ from phoenix.server.api.routers.v1.utils import (
 )
 from phoenix.server.api.types.node import from_global_id_with_expected_type
 from phoenix.server.authorization import is_not_locked, require_admin
+from phoenix.server.bearer_auth import PhoenixUser
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +87,25 @@ User: TypeAlias = Annotated[
 ]
 
 
+class AnonymousUser(V1RoutesBaseModel):
+    auth_method: Literal["ANONYMOUS"]
+
+
+ViewerUser: TypeAlias = Annotated[
+    Union[LocalUser, OAuth2User, LDAPUser, AnonymousUser],
+    Field(..., discriminator="auth_method"),
+]
+
+
 class GetUsersResponseBody(PaginatedResponseBody[User]):
     pass
 
 
 class GetUserResponseBody(ResponseBody[User]):
+    pass
+
+
+class GetViewerResponseBody(ResponseBody[ViewerUser]):
     pass
 
 
@@ -106,6 +121,85 @@ class CreateUserResponseBody(ResponseBody[User]):
 
 
 DEFAULT_PAGINATION_PAGE_LIMIT = 100
+
+
+def _db_user_to_response(user: models.User) -> User:
+    """Convert a database User model to a REST API User response."""
+    global_id = str(GlobalID("User", str(user.id)))
+    if isinstance(user, models.LocalUser):
+        return LocalUser(
+            id=global_id,
+            username=user.username,
+            email=user.email,
+            role=user.role.name,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            auth_method="LOCAL",
+            password_needs_reset=user.reset_password,
+        )
+    elif isinstance(user, models.LDAPUser):
+        return LDAPUser(
+            id=global_id,
+            username=user.username,
+            email=user.email or "",
+            role=user.role.name,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            auth_method="LDAP",
+        )
+    elif isinstance(user, models.OAuth2User):
+        oauth2_user = OAuth2User(
+            id=global_id,
+            username=user.username,
+            email=user.email,
+            role=user.role.name,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            auth_method="OAUTH2",
+        )
+        if user.oauth2_client_id:
+            oauth2_user.oauth2_client_id = user.oauth2_client_id
+        if user.oauth2_user_id:
+            oauth2_user.oauth2_user_id = user.oauth2_user_id
+        if user.profile_picture_url:
+            oauth2_user.profile_picture_url = user.profile_picture_url
+        return oauth2_user
+    raise ValueError(f"Unknown user type: {type(user)}")
+
+
+@router.get(
+    "/user",
+    operation_id="getViewer",
+    summary="Get the authenticated user",
+    description=(
+        "Returns the profile of the currently authenticated user. "
+        "When authentication is disabled, returns an anonymous user representation."
+    ),
+    response_description="The authenticated user's profile.",
+    responses=add_errors_to_responses(
+        [
+            {"status_code": 401, "description": "User not found."},
+        ],
+    ),
+    response_model_by_alias=True,
+    response_model_exclude_unset=True,
+    response_model_exclude_defaults=True,
+)
+async def get_viewer(
+    request: Request,
+) -> GetViewerResponseBody:
+    if not request.app.state.authentication_enabled:
+        return GetViewerResponseBody(data=AnonymousUser(auth_method="ANONYMOUS"))
+    if not isinstance(request.user, PhoenixUser):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = int(request.user.identity)
+    async with request.app.state.db() as session:
+        user = await session.scalar(
+            select(models.User).options(joinedload(models.User.role)).filter_by(id=user_id)
+        )
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return GetViewerResponseBody(data=_db_user_to_response(user))
 
 
 @router.get(
@@ -149,51 +243,7 @@ async def list_users(
         last_user = result[-1]
         next_cursor = str(GlobalID("User", str(last_user.id)))
         result = result[:-1]
-    data: list[User] = []
-    for user in result:
-        if isinstance(user, models.LocalUser):
-            data.append(
-                LocalUser(
-                    id=str(GlobalID("User", str(user.id))),
-                    username=user.username,
-                    email=user.email,
-                    role=user.role.name,
-                    created_at=user.created_at,
-                    updated_at=user.updated_at,
-                    auth_method="LOCAL",
-                    password_needs_reset=user.reset_password,
-                )
-            )
-        elif isinstance(user, models.LDAPUser):
-            # LDAP users have auth_method='LDAP'
-            data.append(
-                LDAPUser(
-                    id=str(GlobalID("User", str(user.id))),
-                    username=user.username,
-                    email=user.email or "",  # email can be NULL for LDAP users
-                    role=user.role.name,
-                    created_at=user.created_at,
-                    updated_at=user.updated_at,
-                    auth_method="LDAP",
-                )
-            )
-        elif isinstance(user, models.OAuth2User):
-            oauth2_user = OAuth2User(
-                id=str(GlobalID("User", str(user.id))),
-                username=user.username,
-                email=user.email,
-                role=user.role.name,
-                created_at=user.created_at,
-                updated_at=user.updated_at,
-                auth_method="OAUTH2",
-            )
-            if user.oauth2_client_id:
-                oauth2_user.oauth2_client_id = user.oauth2_client_id
-            if user.oauth2_user_id:
-                oauth2_user.oauth2_user_id = user.oauth2_user_id
-            if user.profile_picture_url:
-                oauth2_user.profile_picture_url = user.profile_picture_url
-            data.append(oauth2_user)
+    data: list[User] = [_db_user_to_response(user) for user in result]
     return GetUsersResponseBody(next_cursor=next_cursor, data=data)
 
 
@@ -271,6 +321,9 @@ async def create_user(
                 raise HTTPException(status_code=400, detail=f"Role '{role}' not found")
             user.user_role_id = user_role_id
             session.add(user)
+            await session.flush()
+            await session.refresh(user, ["role"])
+            data = _db_user_to_response(user)
     except (PostgreSQLIntegrityError, SQLiteIntegrityError) as e:
         if "users.username" in str(e):
             raise HTTPException(status_code=409, detail="Username already exists")
@@ -281,47 +334,6 @@ async def create_user(
                 status_code=409,
                 detail="Failed to create user due to a conflict with existing data",
             )
-    id_ = str(GlobalID("User", str(user.id)))
-    data: User
-    if isinstance(user_data, LocalUserData):
-        data = LocalUser(
-            id=id_,
-            email=email,
-            username=username,
-            auth_method="LOCAL",
-            role=user_data.role,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-            password_needs_reset=user.reset_password,
-        )
-    elif isinstance(user_data, OAuth2UserData):
-        data = OAuth2User(
-            id=id_,
-            email=email,
-            username=username,
-            auth_method="OAUTH2",
-            role=user_data.role,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-        )
-        if user.oauth2_client_id:
-            data.oauth2_client_id = user.oauth2_client_id
-        if user.oauth2_user_id:
-            data.oauth2_user_id = user.oauth2_user_id
-        if user.profile_picture_url:
-            data.profile_picture_url = user.profile_picture_url
-    elif isinstance(user_data, LDAPUserData):
-        data = LDAPUser(
-            id=id_,
-            email=email,
-            username=username,
-            auth_method="LDAP",
-            role=user_data.role,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-        )
-    else:
-        assert_never(user_data)
     # Send welcome email if requested
     if (
         request_body.send_welcome_email

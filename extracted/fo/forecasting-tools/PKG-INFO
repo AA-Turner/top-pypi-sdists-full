@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: forecasting-tools
-Version: 0.2.85
+Version: 0.2.86
 Summary: AI forecasting and research tools to help humans reason about and forecast the future
 License: MIT
 License-File: LICENSE
 Keywords: ai,forecasting,research,metaculus,prediction,future,market
 Author: Benjamin Wilson
-Author-email: mokoresearch@gmail.com
+Author-email: ben@metaculus.com
 Requires-Python: >=3.11,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
@@ -25,14 +25,14 @@ Requires-Dist: aiolimiter (>=1.1.0,<2.0.0)
 Requires-Dist: asknews (>=0.9.1,<0.14.0)
 Requires-Dist: asyncio (>=3.0.0,<5.0.0)
 Requires-Dist: exceptiongroup (>=1.2.2,<2.0.0)
-Requires-Dist: faker (>=37.0.0,<39.0.0)
-Requires-Dist: hyperbrowser (>=0.53.0,<0.76.0)
+Requires-Dist: faker (>=37.0.0,<41.0.0)
+Requires-Dist: hyperbrowser (>=0.53.0,<0.84.0)
 Requires-Dist: litellm (>=1.59.1,!=1.76.*,!=1.77.*)
 Requires-Dist: nest-asyncio (>=1.5.8,<2.0.0)
 Requires-Dist: numpy (>=1.26.0,<3.0.0)
 Requires-Dist: openai (>=1.51.0,<3.0.0)
-Requires-Dist: openai-agents[litellm] (>=0.2.0,<0.7.0)
-Requires-Dist: pandas (>=2.2.3,<3.0.0)
+Requires-Dist: openai-agents[litellm] (>=0.2.0,<0.10.0)
+Requires-Dist: pandas (>=2.2.3,<4.0.0)
 Requires-Dist: pendulum (>=3.1.0,<4.0.0)
 Requires-Dist: pillow (>=9.0.0,<12.0.0)
 Requires-Dist: plotly (>=5.24.1,<7.0.0)

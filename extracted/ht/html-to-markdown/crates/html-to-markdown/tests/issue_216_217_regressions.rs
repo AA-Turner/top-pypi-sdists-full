@@ -4,25 +4,25 @@
 //! "byte index N is out of bounds of ``"
 //!
 //! Root cause: When inline handlers (strong, em, etc.) collect children into a
-//! fresh String buffer while inheriting a parent context with block_content_start
+//! fresh String buffer while inheriting a parent context with `block_content_start`
 //! set by a paragraph handler, the index points into the wrong buffer.
 
 use html_to_markdown_rs::convert;
 
 /// Minimal reproducer: a <details> containing a <p> with <strong> inside.
 /// The <details> handler collects into a fresh buffer, the <p> sets
-/// block_content_start, and the <strong> handler creates yet another fresh
+/// `block_content_start`, and the <strong> handler creates yet another fresh
 /// buffer — causing the index to be out of bounds.
 #[test]
 fn test_issue_216_217_details_paragraph_strong_no_panic() {
-    let html = r#"
+    let html = r"
     <div>some preceding content</div>
     <details>
         <summary>Summary text</summary>
         <p><strong>Bold text inside details paragraph
 </strong></p>
     </details>
-    "#;
+    ";
 
     let result = convert(html, None);
     assert!(result.is_ok());
@@ -31,14 +31,14 @@ fn test_issue_216_217_details_paragraph_strong_no_panic() {
 /// Same issue can occur with emphasis inside a paragraph inside details.
 #[test]
 fn test_issue_216_217_details_paragraph_em_no_panic() {
-    let html = r#"
+    let html = r"
     <div>some preceding content</div>
     <details>
         <summary>Summary</summary>
         <p><em>Italic text inside details paragraph
 </em></p>
     </details>
-    "#;
+    ";
 
     let result = convert(html, None);
     assert!(result.is_ok());
@@ -48,12 +48,12 @@ fn test_issue_216_217_details_paragraph_em_no_panic() {
 /// collected by any handler that creates a fresh buffer.
 #[test]
 fn test_issue_216_217_nested_strong_in_paragraph_no_panic() {
-    let html = r#"
+    let html = r"
     <details>
         <p>Some text <strong>bold text with trailing newline
 </strong> more text</p>
     </details>
-    "#;
+    ";
 
     let result = convert(html, None);
     assert!(result.is_ok());

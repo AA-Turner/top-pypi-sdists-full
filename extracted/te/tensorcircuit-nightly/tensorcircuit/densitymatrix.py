@@ -32,6 +32,7 @@ class DMCircuit(BaseCircuit):
         empty: bool = False,
         inputs: Optional[Tensor] = None,
         mps_inputs: Optional[QuOperator] = None,
+        tensors: Optional[Sequence[Tensor]] = None,
         dminputs: Optional[Tensor] = None,
         mpo_dminputs: Optional[QuOperator] = None,
         split: Optional[Dict[str, Any]] = None,
@@ -49,6 +50,9 @@ class DMCircuit(BaseCircuit):
         :type inputs: Optional[Tensor], optional
         :param mps_inputs: QuVector for a MPS like initial pure state.
         :type mps_inputs: Optional[QuOperator]
+        :param tensors: Sequence of tensors for a MPS like initial pure state.
+            The order of legs for each tensor is assumed to be (bond-left, physical, bond-right).
+        :type tensors: Optional[Sequence[Tensor]]
         :param dminputs: the density matrix input for the circuit, defaults to None
         :type dminputs: Optional[Tensor], optional
         :param mpo_dminputs: QuOperator for a MPO like initial density matrix.
@@ -64,6 +68,7 @@ class DMCircuit(BaseCircuit):
                 and (dminputs is None)
                 and (mps_inputs is None)
                 and (mpo_dminputs is None)
+                and (tensors is None)
             ):
                 # Get nodes on the interior
                 self._nodes = self.all_zero_nodes(nqubits)
@@ -78,7 +83,7 @@ class DMCircuit(BaseCircuit):
                 N = inputs.shape[0]
                 n = _infer_num_sites(N, self._d)
                 assert n == nqubits
-                inputs = backend.reshape(inputs, [self._d for _ in range(n)])
+                inputs = backend.reshape(inputs, [self._d] * n)
                 inputs_gate = Gate(inputs)
                 self._nodes = [inputs_gate]
                 self.coloring_nodes(self._nodes)
@@ -97,14 +102,16 @@ class DMCircuit(BaseCircuit):
             elif dminputs is not None:
                 dminputs = backend.convert_to_tensor(dminputs)
                 dminputs = backend.cast(dminputs, dtype=dtypestr)
-                dminputs = backend.reshape(
-                    dminputs, [self._d for _ in range(2 * nqubits)]
-                )
+                dminputs = backend.reshape(dminputs, [self._d] * (2 * nqubits))
                 dminputs_gate = Gate(dminputs)
                 nodes = [dminputs_gate]
                 self._front = [dminputs_gate.get_edge(i) for i in range(2 * nqubits)]
                 self._nodes = nodes
                 self.coloring_nodes(self._nodes)
+            elif tensors is not None:
+                self._nodes, self._front = self._tensors_to_nodes(tensors)
+                self.coloring_nodes(self._nodes)
+                self._double_nodes_front()
 
             else:  # mpo_dminputs is not None
                 mpo_nodes = list(mpo_dminputs.nodes)  # type: ignore
@@ -121,6 +128,7 @@ class DMCircuit(BaseCircuit):
         self.inputs = inputs
         self.dminputs = dminputs
         self.mps_inputs = mps_inputs
+        self.tensors = tensors
         self.mpo_dminputs = mpo_dminputs
         self.split = split
 
@@ -128,9 +136,11 @@ class DMCircuit(BaseCircuit):
             "nqubits": nqubits,
             "inputs": inputs,
             "mps_inputs": mps_inputs,
+            "tensors": tensors,
             "dminputs": dminputs,
             "mpo_dminputs": mpo_dminputs,
             "split": split,
+            "dim": dim,
         }
 
         self._qir: List[Dict[str, Any]] = []
@@ -380,7 +390,7 @@ class DMCircuit2(DMCircuit):
         #     index = [index[0] for _ in range(len(kraus))]
         super_op = kraus_to_super_gate(kraus)
         nlegs = 4 * len(index)
-        super_op = backend.reshape(super_op, [self._d for _ in range(nlegs)])
+        super_op = backend.reshape(super_op, [self._d] * nlegs)
         super_op = Gate(super_op)
         o2i = int(nlegs / 2)
         r2l = int(nlegs / 4)

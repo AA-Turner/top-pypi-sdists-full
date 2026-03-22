@@ -23,7 +23,6 @@ from ._stub import Param as _Param
 from ._stub import Params as _Params
 from ._stub import RetType as _RetType
 from ._utils import almost_equal as _almost_equal
-from ._utils import has_bad_return as _has_bad_return
 from ._utils import sentence_tokenizer as _sentence_tokenizer
 from .messages import E as _E
 from .messages import Message as _Message
@@ -65,7 +64,6 @@ class Failure(_t.List[Failed]):
         super().__init__()
         self._retcode = 0
         self._func = func
-        self._docstring_len = len(self._func.docstring.args)
         if target:
             self._func.messages.extend(i for i in _E.all if i not in target)
 
@@ -77,7 +75,6 @@ class Failure(_t.List[Failed]):
         ):
             self._name = f"{self._func.parent.name}.{self._func.name}"
 
-        self._check_property_returns = check_property_returns
         if self._func.error is not None:
             self._sig9xx_error()
         else:
@@ -92,7 +89,7 @@ class Failure(_t.List[Failed]):
                     sig = self._func.signature.args.get(index)
                     self._sig4xx_parameters(doc, sig)
 
-                self._sig5xx_returns()
+                self._sig5xx_returns(check_property_returns)
 
         self.sort()
 
@@ -255,7 +252,7 @@ class Failure(_t.List[Failed]):
             if (
                 sig.name in self._func.docstring.args.names
                 or doc.name in self._func.signature.args.names
-            ) and self._docstring_len > 1:
+            ) and len(self._func.docstring.args) > 1:
                 # params-out-of-order
                 self._add(_E[402])
             elif (
@@ -270,9 +267,9 @@ class Failure(_t.List[Failed]):
                     # param-not-equal-to-arg
                     self._add(_E[404])
 
-    def _sig5xx_returns(self) -> None:
+    def _sig5xx_returns(self, check_property_returns: bool) -> None:
         if not self._func.isinit and not (
-            self._func.isproperty and not self._check_property_returns
+            self._func.isproperty and not check_property_returns
         ):
             # no types, cannot know either way
             if self._func.signature.rettype == _RetType.UNTYPED:
@@ -288,9 +285,14 @@ class Failure(_t.List[Failed]):
             # return-type is some, so return should be documented
             elif self._func.signature.returns:
                 # return-missing
+                lines = str(self._func.docstring.string).splitlines()
                 self._add(
                     _E[503],
-                    hint=_has_bad_return(str(self._func.docstring.string)),
+                    hint=(
+                        len(lines) > 1
+                        and "return" in lines[-1]
+                        and ":param" not in lines[-1]
+                    ),
                 )
         elif self._func.docstring.returns:
             # this method is init, so no return should be documented
@@ -298,7 +300,7 @@ class Failure(_t.List[Failed]):
                 # class-return-documented
                 self._add(_E[504], hint=True)
             # method is property and not set to document property
-            elif self._func.isproperty and not self._check_property_returns:
+            elif self._func.isproperty and not check_property_returns:
                 # return-documented-for-property
                 self._add(_E[505], hint=True)
 

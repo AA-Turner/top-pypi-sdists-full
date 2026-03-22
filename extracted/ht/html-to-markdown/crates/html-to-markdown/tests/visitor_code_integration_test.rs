@@ -21,7 +21,7 @@ impl HtmlVisitor for CodeVisitor {
 
     fn visit_code_inline(&mut self, _ctx: &NodeContext, code: &str) -> VisitResult {
         self.inline_codes.push(code.to_string());
-        VisitResult::Custom(format!("`{}`", code))
+        VisitResult::Custom(format!("`{code}`"))
     }
 }
 
@@ -98,12 +98,12 @@ fn test_code_block_language_detection() {
         }));
 
         let result = convert_with_visitor(html, None, Some(visitor.clone()));
-        assert!(result.is_ok(), "Failed to convert: {}", html);
+        assert!(result.is_ok(), "Failed to convert: {html}");
 
         let visitor_ref = visitor.borrow();
         assert_eq!(visitor_ref.code_blocks.len(), 1);
         if expected_lang != "unknown" {
-            assert!(visitor_ref.code_blocks[0].starts_with(&format!("[{}]", expected_lang)));
+            assert!(visitor_ref.code_blocks[0].starts_with(&format!("[{expected_lang}]")));
         }
     }
 }

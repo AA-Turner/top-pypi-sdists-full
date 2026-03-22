@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pyinstaller"
-version = "6.19.0.20260215"
+version = "6.19.0.20260322"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pyinstaller"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`7ad79d00cc532173a204de0405f04daeafc655f3`](https://github.com/python/typeshed/commit/7ad79d00cc532173a204de0405f04daeafc655f3).
+[`282b1a838a565f10a4b2e9139adc26ab828b2e9d`](https://github.com/python/typeshed/commit/282b1a838a565f10a4b2e9139adc26ab828b2e9d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -48,3 +48,7 @@ dependencies = []
 [tool.setuptools]
 packages = ['PyInstaller-stubs', 'pyi_splash-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'PyInstaller-stubs' = ['__init__.pyi', '__main__.pyi', 'building/__init__.pyi', 'building/api.pyi', 'building/build_main.pyi', 'building/datastruct.pyi', 'building/splash.pyi', 'compat.pyi', 'depend/__init__.pyi', 'depend/analysis.pyi', 'depend/imphookapi.pyi', 'isolated/__init__.pyi', 'isolated/_parent.pyi', 'lib/__init__.pyi', 'lib/modulegraph/__init__.pyi', 'lib/modulegraph/modulegraph.pyi', 'utils/__init__.pyi', 'utils/hooks/__init__.pyi', 'utils/hooks/conda.pyi', 'utils/win32/versioninfo.pyi', 'METADATA.toml', 'py.typed']
+'pyi_splash-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']

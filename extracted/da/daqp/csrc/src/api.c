@@ -11,23 +11,31 @@ void daqp_solve(DAQPResult *res, DAQPWorkspace *work){
     tic(&timer);
     if(work->settings->time_limit > 0)  work->timer = &timer;
 #endif
-    // Select algorithm
-    if(work->settings->eps_prox==0){
-        if(work->avi == NULL){
-            if(work->bnb != NULL)
-                res->exitflag = daqp_bnb(work);
-            else if(work->nh > 1)
-                res->exitflag = daqp_hiqp(work,res->lam);
-            else
-                res->exitflag = daqp_ldp(work);
-            if(res->exitflag > 0) ldp2qp_solution(work); // Retrieve qp solution 
+    if(work->sing_ind != DAQP_UNCONSTRAINED_OPTIMAL){
+        // Select algorithm
+        if(work->n_prox==0){
+            if(work->avi == NULL){
+                if(work->bnb != NULL)
+                    res->exitflag = daqp_bnb(work);
+                else if(work->nh > 1)
+                    res->exitflag = daqp_hiqp(work,res->lam);
+                else
+                    res->exitflag = daqp_ldp(work);
+                if(res->exitflag > 0) ldp2qp_solution(work); // Retrieve qp solution 
+            }
+            else{ //AVI
+                res->exitflag = daqp_solve_avi(work);
+            }
         }
-        else{ //AVI
-            res->exitflag = daqp_solve_avi(work);
+        else{//Prox
+            res->exitflag = daqp_prox(work);
         }
     }
-    else{//Prox
-        res->exitflag = daqp_prox(work);
+    else{// Unconstrained optimum 
+        work->iterations = 1;
+        work->fval = 0;
+        work->soft_slack = 0;
+        res->exitflag = DAQP_EXIT_OPTIMAL;
     }
 #ifdef PROFILING
     work->timer = NULL;
@@ -150,8 +158,8 @@ int setup_daqp_ldp(DAQPWorkspace *work, DAQPProblem *qp){
         alloc_R = 1;
         update_mask+=DAQP_UPDATE_Rinv;
     }
-    // Only allocate v if f is not NULL, or if proximal
-    if(qp->f!=NULL || work->settings->eps_prox != 0){
+    // Only allocate v if f is not NULL (QP linear term or LP objective).
+    if(qp->f!=NULL){
         alloc_v = 1;
         update_mask+=DAQP_UPDATE_v;
     }
@@ -168,6 +176,10 @@ int setup_daqp_ldp(DAQPWorkspace *work, DAQPProblem *qp){
         free_daqp_ldp(work);
         return error_flag;
     }
+    // For LPs (no Hessian), mark all directions as needing proximal regularisation.
+    // This lets daqp_solve dispatch to daqp_prox based on n_prox rather than eps_prox.
+    if(qp->H == NULL && qp->f!=NULL)
+        work->n_prox = work->n;
     return 1;
 }
 
@@ -244,6 +256,7 @@ void allocate_daqp_settings(DAQPWorkspace *work){
 
 void free_daqp_bnb(DAQPWorkspace* work){
     if(work->bnb != NULL){
+        free(work->bnb->bin_ids);
         free(work->bnb->tree);
         free(work->bnb->tree_WS);
         free(work->bnb->fixed_ids);
@@ -277,6 +290,9 @@ void allocate_daqp_workspace(DAQPWorkspace *work, int n, int ns){
     work->x = work->u; 
 
     work->xold= malloc(work->n*sizeof(c_float));
+
+    work->prox_mask = calloc(work->n, sizeof(int)); // all zeros initially
+    work->n_prox = 0;
 
 #ifdef SOFT_WEIGHTS
     work->d_ls= NULL;
@@ -362,6 +378,8 @@ void free_daqp_workspace(DAQPWorkspace *work){
 
         free(work->xold);
 
+        free(work->prox_mask);
+
         work->lam = NULL;
     }
 
@@ -413,14 +431,15 @@ void daqp_extract_result(DAQPResult* res, DAQPWorkspace* work){
     }
 
     // Shift back function value
-    if(work->v != NULL && work->avi == NULL && (work->settings->eps_prox == 0
-                || work->Rinv != NULL || work->RinvD != NULL)){ // Normal QP
+    if(work->v != NULL && work->avi == NULL && (work->Rinv != NULL || work->RinvD != NULL)){ // QP
         res->fval = work->fval;
         for(i=0;i<work->n;i++) res->fval-=work->v[i]*work->v[i];
         res->fval *=0.5;
-        if(work->settings->eps_prox != 0)
-            for(i=0;i<work->n;i++) // compensate for proximal iterations
-                res->fval+= work->settings->eps_prox*work->x[i]*work->x[i];
+        if(work->n_prox > 0)
+            for(i=0;i<work->n;i++) // remove proximal bias: at fixed point x≈x_old so
+                // true_fval = perturbed_fval + 0.5*eps*||x_mask||^2
+                if(work->prox_mask == NULL || work->prox_mask[i])
+                    res->fval+= 0.5*work->settings->eps_prox*work->x[i]*work->x[i];
     }
     else if(work->qp != NULL && work->qp->f != NULL ){ // LP
         res->fval = 0;
@@ -444,7 +463,7 @@ void daqp_default_settings(DAQPSettings* settings){
     settings->iter_limit = DAQP_DEFAULT_ITER_LIMIT;
     settings->fval_bound = DAQP_INF; 
 
-    settings->eps_prox = 0;
+    settings->eps_prox = DAQP_DEFAULT_EPS_PROX;
     settings->eta_prox = DAQP_DEFAULT_ETA;
 
     settings->rho_soft = DAQP_DEFAULT_RHO_SOFT; 
@@ -565,6 +584,8 @@ void daqp_dual_init_active(DAQPProblem* qp, c_float* lam){
 
 // Set the starting iterate
 void daqp_set_primal_start(DAQPWorkspace* work, c_float* x){
-    int i;
-    for(i = 0; i < work->n; i++) work->x[i] = x[i];
+    if(work->sing_ind != DAQP_UNCONSTRAINED_OPTIMAL){
+        int i;
+        for(i = 0; i < work->n; i++) work->x[i] = x[i];
+    }
 }

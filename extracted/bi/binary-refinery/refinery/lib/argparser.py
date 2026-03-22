@@ -65,6 +65,22 @@ class LineWrapRawTextHelpFormatter(RawDescriptionHelpFormatter):
         return switches
 
 
+class HelpAction(Action):
+    """
+    A custom help action that calls the parser's custom print_help method during
+    parsing, before required arguments are validated. The `generics` parameter
+    controls whether the full help (including generic options) is displayed.
+    """
+
+    def __init__(self, option_strings, dest, default=0, generics=False, **kwargs):
+        super().__init__(option_strings=option_strings, dest=dest, default=default, nargs=0, **kwargs)
+        self.generics = generics
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.print_help(generics=self.generics)
+        parser.exit(0)
+
+
 class ArgumentParserWithKeywordHooks(ArgumentParser):
     """
     The refinery argument parser remembers the order of arguments in the property `order`.
@@ -105,9 +121,25 @@ class ArgumentParserWithKeywordHooks(ArgumentParser):
         self.keywords = keywords
         self.order = []
 
-    def print_help(self, file: SupportsWrite[str] | None = None) -> None:
+    def print_help(self, file: SupportsWrite[str] | None = None, generics: bool = False) -> None:
         out = file or sys.stderr
-        super().print_help(file=out)
+        if generics:
+            super().print_help(file=out)
+        else:
+            formatter = self._get_formatter()
+            formatter.add_usage(self.usage, self._actions, self._mutually_exclusive_groups)
+            formatter.add_text(self.description)
+            for ag in self._action_groups:
+                formatter.start_section(ag.title)
+                formatter.add_text(ag.description)
+                if ag.title and ag.title.startswith('generic'):
+                    formatter.add_text('[see usage; show descriptions with -h]')
+                else:
+                    formatter.add_arguments(ag._group_actions)
+                formatter.end_section()
+            formatter.add_text(self.epilog)
+            text = formatter.format_help()
+            self._print_message(text, out)
         if file is None:
             sys.stdout.close()
 
@@ -171,10 +203,7 @@ class ArgumentParserWithKeywordHooks(ArgumentParser):
         for name in keywords:
             param = getattr(parsed, name, None)
             if param != keywords[name]:
-                self.error(
-                    F'parameter "{name}" duplicated with conflicting '
-                    F'values {param} and {keywords[name]}'
-                )
+                self.error(F'parameter "{name}" duplicated with conflicting values {param} and {keywords[name]}')
         for name in vars(parsed):
             if name not in self.order:
                 self.order.append(name)

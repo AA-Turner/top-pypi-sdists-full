@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonata-python
-Version: 0.6.1
+Version: 0.6.2
 Summary: Pure Python implementation of JSONata
 Project-URL: Homepage, https://github.com/rayokota/jsonata-python
 Project-URL: Bug Reports, https://github.com/rayokota/jsonata-python/issues
@@ -212,7 +212,7 @@ Keywords: json,jsonata
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 # jsonata-python

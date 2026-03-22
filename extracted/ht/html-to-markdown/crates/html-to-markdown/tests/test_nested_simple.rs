@@ -28,11 +28,11 @@ fn test_nested_simple() {
     let html = fs::read_to_string(fixture_path("test-nested-simple.html")).expect("read html");
     let expected = fs::read_to_string(fixture_path("test-nested-simple.md")).expect("read markdown");
 
-    eprintln!("HTML: {}", html);
-    eprintln!("Expected: {}", expected);
+    eprintln!("HTML: {html}");
+    eprintln!("Expected: {expected}");
 
     let result = convert(&html, Some(default_options())).expect("convert html");
-    eprintln!("Result: {}", result);
+    eprintln!("Result: {result}");
 
     assert_eq!(normalize_newlines(&result), normalize_newlines(&expected));
 }

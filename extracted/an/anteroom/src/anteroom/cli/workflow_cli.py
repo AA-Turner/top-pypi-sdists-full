@@ -245,8 +245,8 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
     action = getattr(args, "workflow_action", None)
     if not action:
         console.print(
-            "Usage: aroom workflow"
-            " {run,status,list,history,resume,cancel,approve,deny,respond,watch,triggers,schedule,validate,simulate}"
+            "Usage: aroom workflow {run,status,list,history,resume,repair,"
+            "cancel,approve,deny,respond,watch,triggers,schedule,validate,simulate}"
         )
         return
 
@@ -271,6 +271,8 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
         _handle_history(db, args)
     elif action == "resume":
         _handle_resume(config, db, args)
+    elif action == "repair":
+        _handle_repair(config, db, args)
     elif action == "cancel":
         _handle_cancel(db, args)
     elif action == "approve":
@@ -489,12 +491,17 @@ def _handle_status(db: Any, args: argparse.Namespace) -> None:
             result_artifacts = step.get("result_artifacts") or {}
             if result_artifacts.get("structured_output") is not None:
                 step_type_display += " (json)"
+            summary = (step.get("result_summary") or "")[:60]
+            if result_artifacts.get("cache_hit"):
+                summary += " (cached)"
+            elif result_artifacts.get("fallback_used"):
+                summary += f" (fallback: {result_artifacts['model']})"
             table.add_row(
                 step["step_id"],
                 step_type_display,
                 step["status"],
                 dur,
-                (step.get("result_summary") or "")[:60],
+                summary,
             )
         console.print(table)
 
@@ -595,6 +602,11 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
             step_id_display = step["step_id"]
             if step.get("is_compensation"):
                 step_id_display = f"<- {step_id_display}"
+            summary = (step.get("result_summary") or "")[:50]
+            if artifacts.get("cache_hit"):
+                summary += " (cached)"
+            elif artifacts.get("fallback_used"):
+                summary += f" (fallback: {artifacts['model']})"
             table.add_row(
                 step_id_display,
                 step_type_display,
@@ -604,7 +616,7 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
                 dur,
                 tokens,
                 idem_key[:30] if len(idem_key) > 30 else idem_key,
-                (step.get("result_summary") or "")[:50],
+                summary,
             )
         console.print(table)
 
@@ -732,14 +744,87 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
     _cleanup_event_bus(_event_bus)
 
 
+def _handle_repair(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow repair <run_id> --field <path> --value <value>`.
+
+    Repairs a field on a paused/waiting run or one of its completed steps.
+    Shows before/after diff.
+    """
+    import json as json_mod
+
+    from ..services.workflow_storage import get_workflow_run
+
+    run_id = getattr(args, "run_id", None)
+    if not run_id:
+        console.print("[red]Error:[/red] run_id is required")
+        return
+
+    field_path = getattr(args, "field", None)
+    raw_value = getattr(args, "value", None)
+    if not field_path or raw_value is None:
+        console.print("[red]Error:[/red] --field and --value are required")
+        return
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        console.print(f"[red]Error:[/red] Run not found: {run_id}")
+        return
+
+    # Parse value as JSON; fall back to string
+    try:
+        parsed_value = json_mod.loads(raw_value)
+    except (json_mod.JSONDecodeError, TypeError):
+        parsed_value = raw_value
+
+    # Determine scope: "step.<step_id>.<field>" or "<field>"
+    parts = field_path.split(".", 2)
+    step_id: str | None = None
+    field_name: str
+
+    if len(parts) >= 3 and parts[0] == "step":
+        step_id = parts[1]
+        field_name = parts[2]
+        if not step_id:
+            console.print("[red]Error:[/red] Step ID cannot be empty. Use 'step.<step_id>.<field>'.")
+            return
+    elif len(parts) == 1:
+        field_name = parts[0]
+    else:
+        console.print(
+            "[red]Error:[/red] Invalid field path. Use 'inputs' for run fields "
+            "or 'step.<step_id>.result_artifacts' for step fields."
+        )
+        return
+
+    engine, _event_bus = _create_engine(config, db)
+
+    try:
+        if step_id:
+            # Capture old value for display
+            from ..services.workflow_storage import list_workflow_steps
+
+            steps = list_workflow_steps(db, run_id)
+            old_step = next((s for s in reversed(steps) if s["step_id"] == step_id), None)
+            old_step_value = old_step.get(field_name) if old_step else None
+            asyncio.run(engine.repair_step(run_id, step_id, field_name, parsed_value))
+            console.print(f"[green]Repaired step {step_id} field '{field_name}'[/green]")
+            console.print(f"  [dim]Old:[/dim] {old_step_value}")
+            console.print(f"  [dim]New:[/dim] {parsed_value}")
+        else:
+            old_value = run.get(field_name)
+            asyncio.run(engine.repair_run(run_id, field_name, parsed_value))
+            console.print(f"[green]Repaired run field '{field_name}'[/green]")
+            console.print(f"  [dim]Old:[/dim] {old_value}")
+            console.print(f"  [dim]New:[/dim] {parsed_value}")
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+    finally:
+        _cleanup_event_bus(_event_bus)
+
+
 def _handle_cancel(db: Any, args: argparse.Namespace) -> None:
-    """Handle `aroom workflow cancel <run_id>`. Paused runs only in V1."""
-    from ..services.workflow_storage import (
-        create_workflow_event,
-        get_workflow_run,
-        release_lock,
-        update_workflow_run,
-    )
+    """Handle `aroom workflow cancel <run_id>`. Uses engine request_cancel (#890)."""
+    from ..services.workflow_storage import get_workflow_run
 
     run_id = getattr(args, "run_id", None)
     if not run_id:
@@ -751,29 +836,20 @@ def _handle_cancel(db: Any, args: argparse.Namespace) -> None:
         console.print(f"[red]Error:[/red] Run not found: {run_id}")
         return
 
-    if run["status"] == "running":
-        console.print(
-            "[red]Error:[/red] Cannot cancel an active run from another terminal. "
-            "Use Ctrl-C in the terminal running the workflow."
-        )
+    terminal = {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
+    if run["status"] in terminal:
+        console.print(f"[red]Error:[/red] Run is already in terminal status: {run['status']}. Cannot cancel.")
         return
 
-    if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input"):
-        console.print(
-            f"[red]Error:[/red] Run is not cancellable (status: {run['status']}). "
-            "Only paused or waiting_for_approval runs can be cancelled."
-        )
+    from ..services.workflow_engine import WorkflowEngine
+
+    try:
+        updated = asyncio.run(WorkflowEngine.request_cancel(db, run_id))
+    except ValueError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
         return
 
-    update_workflow_run(db, run_id, status="cancelled")
-    release_lock(db, run_id=run_id)
-    create_workflow_event(
-        db,
-        run_id=run_id,
-        event_type="run_cancelled",
-        payload={"cancelled_from_status": run["status"]},
-    )
-    console.print(f"[green]Run {run_id[:12]}... cancelled[/green]")
+    console.print(f"[green]Run {run_id[:12]}... cancel requested (status: {updated['status']})[/green]")
 
 
 def _handle_approve(db: Any, args: argparse.Namespace) -> None:
@@ -926,7 +1002,7 @@ def _handle_watch(db: Any, args: argparse.Namespace) -> None:
         console.print(f"[red]Error:[/red] Run not found: {run_id}")
         return
 
-    terminal_statuses = {"completed", "failed", "cancelled", "blocked"}
+    terminal_statuses = {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
     seen_events: set[int] = set()
     console.print(f"[bold]Watching run {run_id[:12]}...[/bold] (Ctrl+C to stop)\n")
 

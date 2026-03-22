@@ -3,12 +3,6 @@ resolver = "2"
 
 members = ["splashsurf_lib", "splashsurf", "pysplashsurf"]
 
-# Exclude the python bindings to avoid building it by default with cargo run/build
-default-members = [
-    "splashsurf_lib",
-    "splashsurf"
-]
-
 [workspace.package]
 authors = ["Fabian Löschner <fabian.loeschner@rwth-aachen.de>"]
 license = "MIT"

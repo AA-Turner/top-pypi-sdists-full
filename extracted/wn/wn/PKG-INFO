@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: wn
-Version: 1.0.0
+Version: 1.1.0
 Summary: Wordnet interface library
 Project-URL: homepage, https://github.com/goodmami/wn
 Project-URL: documentation, https://wn.readthedocs.io
 Project-URL: changelog, https://github.com/goodmami/wn/blob/main/CHANGELOG.md
-Author-email: Michael Wayne Goodman <goodman.m.w@gmail.com>
+Author-email: Michael Wayne Goodman <1428419+goodmami@users.noreply.github.com>
 License: MIT License
         
         Copyright (c) 2020 Michael Wayne Goodman

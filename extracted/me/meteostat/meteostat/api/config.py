@@ -145,6 +145,8 @@ class Config(ConfigService):
 
     # Network settings
     network_proxies: Optional[dict] = None
+    network_timeout: int = 30
+    network_max_retries: int = 3
 
     # Station meta data settings
     stations_db_ttl: int = TTL.WEEK
@@ -170,6 +172,8 @@ class Config(ConfigService):
     dwd_hourly_modes: Optional[List[str]] = None
     dwd_daily_modes: Optional[List[str]] = None
     dwd_climat_modes: Optional[List[str]] = None
+    # DWD publishes MOSMIX_L every 6 hours; 12 hours gives a 6-hour buffer for server delays
+    dwd_mosmix_staleness_threshold: int = 43200  # 12 hours in seconds
 
     # [Provider] NOAA settings
     aviationweather_endpoint: str = (

@@ -155,7 +155,12 @@ pub fn handle_table(
         distinct_counts.sort_unstable();
         distinct_counts.dedup();
 
-        let looks_like_layout = table_scan.has_nested_table || table_scan.has_span || distinct_counts.len() > 1;
+        let has_border_zero = tag
+            .attributes()
+            .get("border")
+            .is_some_and(|v| v.as_ref().is_some_and(|b| b.as_utf8_str() == "0"));
+        let looks_like_layout =
+            table_scan.has_nested_table || distinct_counts.len() > 1 || (table_scan.has_span && has_border_zero);
         let link_count = table_scan.link_count;
         let is_blank_table = !table_scan.has_text;
 

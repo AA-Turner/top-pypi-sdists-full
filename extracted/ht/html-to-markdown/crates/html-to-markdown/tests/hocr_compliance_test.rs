@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![allow(missing_docs, clippy::float_cmp, clippy::items_after_statements)]
 
 //! hOCR 1.2 compliance integration tests
 //!
@@ -306,9 +306,9 @@ fn test_dropcap_and_glyphs() {
 
     assert!(markdown.contains("**T**"));
     assert!(markdown.contains("his is text"));
-    assert!(markdown.contains("A"));
-    assert!(markdown.contains("B"));
-    assert!(markdown.contains("C"));
+    assert!(markdown.contains('A'));
+    assert!(markdown.contains('B'));
+    assert!(markdown.contains('C'));
 }
 
 #[test]

@@ -8,6 +8,7 @@ extern "C" {
 #include <stddef.h>
 
 #define DAQP_EMPTY_IND -1 
+#define DAQP_UNCONSTRAINED_OPTIMAL -2
 #define DAQP_INF ((c_float)1e30)
 
 // DEFAULT SETTINGS 
@@ -15,6 +16,7 @@ extern "C" {
 #define DAQP_DEFAULT_DUAL_TOL 1e-12
 #define DAQP_DEFAULT_ZERO_TOL 1e-11
 #define DAQP_DEFAULT_PROG_TOL 1e-14
+#define DAQP_DEFAULT_LP_PROG_TOL 1e-10
 #define DAQP_DEFAULT_PIVOT_TOL 1e-6
 #define DAQP_DEFAULT_CYCLE_TOL 10
 #define DAQP_DEFAULT_ETA 1e-6
@@ -24,6 +26,7 @@ extern "C" {
 #define DAQP_DEFAULT_ABS_SUBOPT 0
 #define DAQP_DEFAULT_SING_TOL (3.7e-11)
 #define DAQP_DEFAULT_REFACTOR_TOL 1e-9
+#define DAQP_DEFAULT_EPS_PROX 1e-6
 
 // MACROS
 #define DAQP_ARSUM(x) ((x)*(x+1)/2)

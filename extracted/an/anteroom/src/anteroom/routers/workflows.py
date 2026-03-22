@@ -6,13 +6,16 @@ executor (#888). All other endpoints remain read-only.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["workflows"])
 
 _MAX_INPUTS_BYTES = 65536  # 64KB cap on serialized inputs
@@ -216,6 +219,280 @@ async def get_workflow_events(request: Request, run_id: str) -> list[dict[str, A
         raise HTTPException(status_code=404, detail="Run not found")
 
     return list_workflow_events(db, run_id)
+
+
+# ---------------------------------------------------------------------------
+# Workflow Repair (#995)
+# ---------------------------------------------------------------------------
+
+
+class RepairRequest(BaseModel):
+    field_path: str = Field(max_length=256)
+    value: Any
+
+
+@router.patch("/workflow-runs/{run_id}/repair")
+async def repair_workflow_run(request: Request, run_id: str, body: RepairRequest) -> dict[str, Any]:
+    """Repair a field on a paused/waiting workflow run or one of its completed steps.
+
+    Field path format:
+    - Run field: "inputs"
+    - Step field: "step.<step_id>.result_artifacts" or "step.<step_id>.result_summary"
+    """
+    from ..services.workflow_storage import get_workflow_run as ws_get
+
+    db = _get_db(request)
+    run = ws_get(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    parts = body.field_path.split(".", 2)
+    step_id: str | None = None
+    field_name: str
+
+    if len(parts) >= 3 and parts[0] == "step":
+        step_id = parts[1]
+        field_name = parts[2]
+        if not step_id:
+            raise HTTPException(status_code=422, detail="Step ID cannot be empty in field_path.")
+    elif len(parts) == 1:
+        field_name = parts[0]
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid field_path. Use 'inputs' or 'step.<step_id>.<field>'.",
+        )
+
+    from ..services.workflow_engine import WorkflowEngine
+    from ..services.workflow_runners import create_default_registry
+
+    config = request.app.state.config
+
+    # Resolve actor from server-side identity — never trust client-supplied values
+    actor = "operator"
+    if hasattr(config, "identity") and config.identity:
+        actor = config.identity.user_id
+
+    engine = WorkflowEngine(
+        db,
+        config.workflow,
+        create_default_registry(),
+        event_bus=getattr(request.app.state, "event_bus", None),
+        audit_writer=getattr(request.app.state, "audit_writer", None),
+    )
+
+    try:
+        if step_id:
+            result = await engine.repair_step(run_id, step_id, field_name, body.value, actor=actor)
+        else:
+            result = await engine.repair_run(run_id, field_name, body.value, actor=actor)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Workflow Cancel / Approve / Deny / Respond / Resume (#890)
+# ---------------------------------------------------------------------------
+
+
+class CancelResponse(BaseModel):
+    run_id: str
+    status: str
+
+
+class ApprovalActionRequest(BaseModel):
+    resolved_by: str | None = Field(default=None, max_length=256)
+
+
+class RespondRequest(BaseModel):
+    selected_option: str = Field(max_length=256)
+    resolved_by: str | None = Field(default=None, max_length=256)
+
+
+@router.post("/workflow-runs/{run_id}/cancel")
+async def cancel_workflow_run(request: Request, run_id: str) -> CancelResponse:
+    """Request cancellation of a workflow run."""
+    from ..services.workflow_engine import WorkflowEngine
+    from ..services.workflow_storage import get_workflow_run as ws_get
+
+    db = _get_db(request)
+    run = ws_get(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    terminal = {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
+    if run["status"] in terminal:
+        raise HTTPException(status_code=409, detail=f"Run already in terminal status: {run['status']}")
+
+    event_bus = getattr(request.app.state, "event_bus", None)
+    try:
+        updated = await WorkflowEngine.request_cancel(db, run_id, event_bus=event_bus)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    return CancelResponse(run_id=run_id, status=updated["status"])
+
+
+@router.post("/workflow-runs/{run_id}/approve")
+async def approve_workflow_run(
+    request: Request, run_id: str, body: ApprovalActionRequest | None = None
+) -> dict[str, Any]:
+    """Approve a pending tool approval request for a workflow run."""
+    from ..services import workflow_storage as ws
+
+    db = _get_db(request)
+    ws.check_approval_timeouts(db)
+
+    run = ws.get_workflow_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    pending = ws.get_pending_approval(db, run_id)
+    if not pending:
+        raise HTTPException(status_code=404, detail="No pending approval request")
+
+    resolved_by = body.resolved_by if body else None
+    resolved = ws.resolve_approval_request(db, pending["id"], status="approved", resolved_by=resolved_by or "operator")
+    if not resolved:
+        raise HTTPException(status_code=409, detail="Approval request already resolved")
+
+    return {"run_id": run_id, "approval_id": pending["id"], "status": "approved"}
+
+
+@router.post("/workflow-runs/{run_id}/deny")
+async def deny_workflow_run(request: Request, run_id: str, body: ApprovalActionRequest | None = None) -> dict[str, Any]:
+    """Deny a pending tool approval request, pausing the workflow run."""
+    from ..services import workflow_storage as ws
+
+    db = _get_db(request)
+    ws.check_approval_timeouts(db)
+
+    run = ws.get_workflow_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    pending = ws.get_pending_approval(db, run_id)
+    if not pending:
+        raise HTTPException(status_code=404, detail="No pending approval request")
+
+    resolved_by = body.resolved_by if body else None
+    resolved = ws.resolve_approval_request(db, pending["id"], status="denied", resolved_by=resolved_by or "operator")
+    if not resolved:
+        raise HTTPException(status_code=409, detail="Approval request already resolved")
+
+    ws.update_workflow_run(db, run_id, status="paused", stop_reason="approval_denied")
+
+    return {"run_id": run_id, "approval_id": pending["id"], "status": "denied"}
+
+
+@router.post("/workflow-runs/{run_id}/respond")
+async def respond_workflow_run(request: Request, run_id: str, body: RespondRequest) -> dict[str, Any]:
+    """Resolve a pending human gate decision for a workflow run."""
+    from ..services import workflow_storage as ws
+
+    db = _get_db(request)
+    run = ws.get_workflow_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    pending = ws.get_pending_decision(db, run_id)
+    if not pending:
+        raise HTTPException(status_code=404, detail="No pending human decision")
+
+    try:
+        resolved = ws.resolve_human_decision(
+            db,
+            pending["id"],
+            selected_option=body.selected_option,
+            resolved_by=body.resolved_by or "operator",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    if not resolved:
+        raise HTTPException(status_code=409, detail="Decision already resolved")
+
+    return {"run_id": run_id, "decision_id": pending["id"], "selected_option": body.selected_option}
+
+
+@router.post("/workflow-runs/{run_id}/resume")
+async def resume_workflow_run(request: Request, run_id: str) -> dict[str, Any]:
+    """Resume a paused or waiting workflow run from its last checkpoint.
+
+    Loads the workflow definition from the stored snapshot, constructs
+    an engine, and calls resume_run() as a background task. The run
+    continues from the last completed step, not from the beginning.
+    """
+    from ..services import workflow_storage as ws
+    from ..services.workflow_credentials import CredentialResolver
+    from ..services.workflow_engine import WorkflowEngine, load_definition
+    from ..services.workflow_runners import create_default_registry
+
+    db = _get_db(request)
+    run = ws.get_workflow_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    resumable = {"paused", "waiting_for_approval", "waiting_for_input", "compensating"}
+    if run["status"] not in resumable:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Run is not resumable (status: {run['status']}). Only paused/waiting runs can be resumed.",
+        )
+
+    # Validate that waiting runs have their gate resolved before resuming
+    if run["status"] == "waiting_for_approval":
+        pending = ws.get_pending_approval(db, run_id)
+        if pending:
+            raise HTTPException(
+                status_code=409,
+                detail="Run has an unresolved approval request. Approve or deny it first.",
+            )
+    elif run["status"] == "waiting_for_input":
+        pending_decision = ws.get_pending_decision(db, run_id)
+        if pending_decision:
+            raise HTTPException(
+                status_code=409,
+                detail="Run has an unresolved human decision. Respond to it first.",
+            )
+
+    # Load definition from stored snapshot or resolve by workflow_id
+    definition_content = run.get("definition_content")
+    if definition_content:
+        definition = load_definition(definition_content)
+    else:
+        from ..services.workflow_resolution import resolve_workflow_path
+
+        path = resolve_workflow_path(run["workflow_id"], allow_filesystem=False)
+        if not path:
+            raise HTTPException(status_code=422, detail="Cannot resolve workflow definition for resume")
+        definition = load_definition(path)
+
+    config = request.app.state.config
+    cred_resolver = CredentialResolver(config.workflow.credentials)
+    engine = WorkflowEngine(
+        db,
+        config.workflow,
+        create_default_registry(),
+        event_bus=getattr(request.app.state, "event_bus", None),
+        credential_resolver=cred_resolver,
+        artifact_registry=getattr(request.app.state, "artifact_registry", None),
+        skill_registry=getattr(request.app.state, "skill_registry", None),
+        egress_allowed_domains=config.ai.allowed_domains,
+        egress_block_localhost=config.ai.block_localhost_api,
+        audit_writer=getattr(request.app.state, "audit_writer", None),
+    )
+
+    async def _do_resume() -> None:
+        try:
+            await engine.resume_run(run_id, definition)
+        except Exception:
+            logger.exception("Background resume failed for run %s", run_id)
+
+    asyncio.create_task(_do_resume())
+    return {"run_id": run_id, "status": "resuming", "message": "Run resuming from last checkpoint"}
 
 
 # ---------------------------------------------------------------------------

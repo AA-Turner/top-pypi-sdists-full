@@ -4,10 +4,10 @@ use html_to_markdown_rs::{ConversionOptions, convert};
 
 #[test]
 fn test_basic_row_and_cell_conversion() {
-    let html = r#"<table>
+    let html = r"<table>
     <row><cell>Header 1</cell><cell>Header 2</cell></row>
     <row><cell>Cell 1</cell><cell>Cell 2</cell></row>
-    </table>"#;
+    </table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Header 1 | Header 2 |"));
@@ -91,9 +91,9 @@ fn test_graphic_in_table_cells() {
 
 #[test]
 fn test_empty_cells_xml() {
-    let html = r#"<table>
+    let html = r"<table>
     <row><cell>Data</cell><cell></cell></row>
-    </table>"#;
+    </table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Data |  |"));
@@ -118,11 +118,11 @@ fn test_nested_content_in_cells() {
 
 #[test]
 fn test_mixed_tr_and_row_in_same_table() {
-    let html = r#"<table>
+    let html = r"<table>
     <tr><th>Col 1</th><th>Col 2</th></tr>
     <row><cell>Data 1</cell><cell>Data 2</cell></row>
     <tr><td>Data 3</td><td>Data 4</td></tr>
-    </table>"#;
+    </table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Col 1 | Col 2 |"));
@@ -132,10 +132,10 @@ fn test_mixed_tr_and_row_in_same_table() {
 
 #[test]
 fn test_cell_without_role_attribute_defaults_to_data() {
-    let html = r#"<table>
+    let html = r"<table>
     <row><cell>Header</cell></row>
     <row><cell>Data Cell</cell></row>
-    </table>"#;
+    </table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Header |"));

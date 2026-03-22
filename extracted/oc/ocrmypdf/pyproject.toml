@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ocrmypdf"
-version = "17.3.0"
+version = "17.4.0"
 description = "OCRmyPDF adds an OCR text layer to scanned PDF files, allowing them to be searched"
 readme = "README.md"
 license = "MPL-2.0"
@@ -156,7 +156,12 @@ quote-style = "preserve"
 
 [dependency-groups]
 # Developer-only tools - use `uv sync --group <name>`
-dev = ["mypy>=1.13.0", "ipykernel>=6.29.5", "reportlab>=4.4.4"]
+dev = [
+    "mypy>=1.13.0",
+    "ipykernel>=6.29.5",
+    "reportlab>=4.4.4",
+    "cyclopts>=4.5.1",
+]
 test = [
   # Core testing framework
   "coverage[toml]>=6.2",

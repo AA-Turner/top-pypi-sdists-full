@@ -34,7 +34,7 @@ fn normalize_newlines(input: &str) -> String {
 
 #[test]
 fn converts_should_not_escape_in_pre_or_code_fixture() {
-    let pre_html = r#"<pre>This pipe | should not be escaped.<pre/>"#;
+    let pre_html = r"<pre>This pipe | should not be escaped.<pre/>";
 
     let pre_markdown_without_misc = convert(pre_html, Some(default_options())).expect("conversion should succeed");
     assert_eq!(pre_markdown_without_misc.trim(), "This pipe | should not be escaped.");
@@ -42,7 +42,7 @@ fn converts_should_not_escape_in_pre_or_code_fixture() {
     let pre_markdown_with_misc = convert(pre_html, Some(escape_misc_options())).expect("conversion should succeed");
     assert_eq!(pre_markdown_with_misc.trim(), "This pipe | should not be escaped.");
 
-    let code_html = r#"<code>This pipe | should not be escaped.<code/>"#;
+    let code_html = r"<code>This pipe | should not be escaped.<code/>";
 
     let code_markdown_without_misc = convert(code_html, None).expect("conversion should succeed");
     assert_eq!(
@@ -75,7 +75,7 @@ fn converts_table_cell_pipe_fixture() {
 
 #[test]
 fn escapes_only_literal_pipes_in_table_cells() {
-    let html = r#"
+    let html = r"
         <table>
             <thead><tr><th>Type</th><th>Span</th><th>Block</th></tr></thead>
             <tbody>
@@ -86,7 +86,7 @@ fn escapes_only_literal_pipes_in_table_cells() {
                 </tr>
             </tbody>
         </table>
-    "#;
+    ";
 
     let markdown = convert(html, Some(default_options())).expect("conversion should succeed");
     assert!(
@@ -127,7 +127,7 @@ fn escapes_only_literal_pipes_in_table_cells() {
 
 #[test]
 fn nested_tables_do_not_double_escape_pipes() {
-    let html = r#"
+    let html = r"
         <table>
             <thead><tr><th>Outer A</th><th>Outer B</th></tr></thead>
             <tbody>
@@ -144,7 +144,7 @@ fn nested_tables_do_not_double_escape_pipes() {
                 </tr>
             </tbody>
         </table>
-    "#;
+    ";
 
     let markdown = convert(html, Some(default_options())).expect("conversion should succeed");
     assert!(

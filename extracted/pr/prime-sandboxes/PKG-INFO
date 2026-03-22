@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime-sandboxes
-Version: 0.2.16
+Version: 0.2.18
 Summary: Prime Intellect Sandboxes SDK - Manage remote code execution environments
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime-cli
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime-cli/tree/main/packages/prime-sandboxes

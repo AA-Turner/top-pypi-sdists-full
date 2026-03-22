@@ -84,6 +84,8 @@ LM_EVAL_EXTRACTOR_BASE_IMPORT = "wisent.extractors.lm_eval.lm_task_extractors."
 BASE_CLASS_NAME = "base"
 CLEAN_STEP_DEFAULT_NAME = "step"
 BASE_OPTIMIZER_NAME = "base-optimizer"
+EXTRA_TRIALS_DEFAULT = 0
+HASH_PREFIX_LEN = 12
 # LiveMathBench defaults
 LIVEMATHBENCH_DEFAULT_DATASET_CONFIG = "v202412_CNMO_en"
 LIVEMATHBENCH_DEFAULT_CONFIG_LABEL = "cnmo_en"
@@ -132,6 +134,7 @@ HF_RETRY_JITTER_MAX = 1.2
 HF_RETRY_RETRYABLE_PATTERNS = ("429", "412", "timeout", "Timeout", "ConnectionError")
 # --- Database statement controls ---
 PG_STATEMENT_NO_LIMIT = "0"
+PARALLEL_CLEANUP_WORKERS = 8
 # --- Gradio app defaults ---
 GRADIO_SERVER_PORT = 7860
 GRADIO_SERVER_HOST = "0.0.0.0"

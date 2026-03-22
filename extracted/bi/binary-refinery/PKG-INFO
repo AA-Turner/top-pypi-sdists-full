@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binary-refinery
-Version: 0.10.4
+Version: 0.10.5
 Summary: A toolkit to transform and refine (mostly) binary data.
 Home-page: https://github.com/binref/refinery/
 Author: Jesko Huettenhain
@@ -27,114 +27,109 @@ Requires-Dist: toml
 Requires-Dist: wheel
 Requires-Dist: pyperclip
 Provides-Extra: all
-Requires-Dist: brotli; extra == "all"
-Requires-Dist: orjson; extra == "all"
-Requires-Dist: openpyxl; extra == "all"
-Requires-Dist: decompyle3; extra == "all"
-Requires-Dist: pyppmd; extra == "all"
-Requires-Dist: Pillow; extra == "all"
-Requires-Dist: xlrd2; extra == "all"
-Requires-Dist: scapy; extra == "all"
-Requires-Dist: uncompyle6>=3.9.3; extra == "all"
-Requires-Dist: pikepdf<=9.5; extra == "all"
-Requires-Dist: pyonenote; extra == "all"
-Requires-Dist: python-idb<=0.8.0; extra == "all"
-Requires-Dist: pefile; extra == "all"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "all"
 Requires-Dist: Pygments; extra == "all"
-Requires-Dist: icicle-emu>=0.0.11; extra == "all"
-Requires-Dist: pymupdf; extra == "all"
-Requires-Dist: minidump==0.0.24; extra == "all"
-Requires-Dist: chardet; extra == "all"
-Requires-Dist: smda<2.0; extra == "all"
-Requires-Dist: capstone; extra == "all"
-Requires-Dist: pypcapkit[scapy]>=1.3; extra == "all"
+Requires-Dist: python-idb<=0.8.0; extra == "all"
+Requires-Dist: python-registry; extra == "all"
 Requires-Dist: pyxlsb2; extra == "all"
-Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "all"
-Requires-Dist: jsbeautifier; extra == "all"
-Requires-Dist: numpy; extra == "all"
+Requires-Dist: capstone; extra == "all"
+Requires-Dist: smda<2.0; extra == "all"
 Requires-Dist: pyzstd; extra == "all"
+Requires-Dist: decompyle3; extra == "all"
+Requires-Dist: Pillow; extra == "all"
+Requires-Dist: jsbeautifier; extra == "all"
+Requires-Dist: uncompyle6>=3.9.3; extra == "all"
+Requires-Dist: pyppmd; extra == "all"
+Requires-Dist: pefile; extra == "all"
 Requires-Dist: javaobj-py3>=0.4.0.1; extra == "all"
 Requires-Dist: python-evtx; extra == "all"
-Requires-Dist: pyasn1; extra == "all"
+Requires-Dist: pymupdf; extra == "all"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "all"
 Requires-Dist: xdis; extra == "all"
-Requires-Dist: python-registry; extra == "all"
+Requires-Dist: brotli; extra == "all"
+Requires-Dist: icicle-emu>=0.0.11; extra == "all"
+Requires-Dist: orjson; extra == "all"
+Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "all"
+Requires-Dist: chardet; extra == "all"
+Requires-Dist: numpy; extra == "all"
+Requires-Dist: openpyxl; extra == "all"
+Requires-Dist: pyonenote; extra == "all"
 Requires-Dist: colorama; extra == "all"
+Requires-Dist: xlrd2; extra == "all"
+Requires-Dist: pikepdf<=9.5; extra == "all"
+Requires-Dist: minidump==0.0.24; extra == "all"
 Provides-Extra: speed
 Requires-Dist: numpy; extra == "speed"
 Requires-Dist: orjson; extra == "speed"
 Provides-Extra: default
-Requires-Dist: chardet; extra == "default"
-Requires-Dist: capstone; extra == "default"
-Requires-Dist: orjson; extra == "default"
-Requires-Dist: numpy; extra == "default"
-Requires-Dist: pikepdf<=9.5; extra == "default"
-Requires-Dist: pyasn1; extra == "default"
-Requires-Dist: pefile; extra == "default"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "default"
 Requires-Dist: pymupdf; extra == "default"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "default"
+Requires-Dist: orjson; extra == "default"
+Requires-Dist: chardet; extra == "default"
+Requires-Dist: numpy; extra == "default"
+Requires-Dist: capstone; extra == "default"
 Requires-Dist: colorama; extra == "default"
+Requires-Dist: pikepdf<=9.5; extra == "default"
 Requires-Dist: minidump==0.0.24; extra == "default"
+Requires-Dist: pefile; extra == "default"
 Provides-Extra: extended
-Requires-Dist: orjson; extra == "extended"
-Requires-Dist: openpyxl; extra == "extended"
-Requires-Dist: pyppmd; extra == "extended"
-Requires-Dist: xlrd2; extra == "extended"
-Requires-Dist: Pillow; extra == "extended"
-Requires-Dist: uncompyle6>=3.9.3; extra == "extended"
-Requires-Dist: pikepdf<=9.5; extra == "extended"
-Requires-Dist: pyonenote; extra == "extended"
-Requires-Dist: pefile; extra == "extended"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "extended"
 Requires-Dist: Pygments; extra == "extended"
-Requires-Dist: icicle-emu>=0.0.11; extra == "extended"
-Requires-Dist: pymupdf; extra == "extended"
-Requires-Dist: minidump==0.0.24; extra == "extended"
-Requires-Dist: chardet; extra == "extended"
-Requires-Dist: capstone; extra == "extended"
 Requires-Dist: pyxlsb2; extra == "extended"
-Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "extended"
-Requires-Dist: jsbeautifier; extra == "extended"
-Requires-Dist: numpy; extra == "extended"
+Requires-Dist: capstone; extra == "extended"
 Requires-Dist: pyzstd; extra == "extended"
-Requires-Dist: pyasn1; extra == "extended"
+Requires-Dist: Pillow; extra == "extended"
+Requires-Dist: jsbeautifier; extra == "extended"
+Requires-Dist: uncompyle6>=3.9.3; extra == "extended"
+Requires-Dist: pyppmd; extra == "extended"
+Requires-Dist: pefile; extra == "extended"
+Requires-Dist: pymupdf; extra == "extended"
 Requires-Dist: xdis; extra == "extended"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "extended"
+Requires-Dist: icicle-emu>=0.0.11; extra == "extended"
+Requires-Dist: orjson; extra == "extended"
+Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "extended"
+Requires-Dist: chardet; extra == "extended"
+Requires-Dist: numpy; extra == "extended"
+Requires-Dist: openpyxl; extra == "extended"
+Requires-Dist: pyonenote; extra == "extended"
 Requires-Dist: colorama; extra == "extended"
+Requires-Dist: xlrd2; extra == "extended"
+Requires-Dist: pikepdf<=9.5; extra == "extended"
+Requires-Dist: minidump==0.0.24; extra == "extended"
 Provides-Extra: arc
-Requires-Dist: decompyle3; extra == "arc"
-Requires-Dist: pyppmd; extra == "arc"
 Requires-Dist: xdis; extra == "arc"
 Requires-Dist: uncompyle6>=3.9.3; extra == "arc"
+Requires-Dist: pyppmd; extra == "arc"
+Requires-Dist: decompyle3; extra == "arc"
 Requires-Dist: pyzstd; extra == "arc"
 Provides-Extra: python
-Requires-Dist: decompyle3; extra == "python"
 Requires-Dist: xdis; extra == "python"
+Requires-Dist: decompyle3; extra == "python"
 Requires-Dist: uncompyle6>=3.9.3; extra == "python"
 Provides-Extra: formats
+Requires-Dist: pymupdf; extra == "formats"
+Requires-Dist: python-registry; extra == "formats"
 Requires-Dist: pyxlsb2; extra == "formats"
 Requires-Dist: openpyxl; extra == "formats"
-Requires-Dist: Pillow; extra == "formats"
+Requires-Dist: pyonenote; extra == "formats"
 Requires-Dist: xlrd2; extra == "formats"
+Requires-Dist: Pillow; extra == "formats"
 Requires-Dist: pikepdf<=9.5; extra == "formats"
+Requires-Dist: minidump==0.0.24; extra == "formats"
 Requires-Dist: javaobj-py3>=0.4.0.1; extra == "formats"
 Requires-Dist: python-evtx; extra == "formats"
-Requires-Dist: pyonenote; extra == "formats"
-Requires-Dist: python-registry; extra == "formats"
-Requires-Dist: pymupdf; extra == "formats"
-Requires-Dist: minidump==0.0.24; extra == "formats"
 Provides-Extra: a
 Requires-Dist: python-idb<=0.8.0; extra == "a"
 Provides-Extra: l
 Requires-Dist: python-idb<=0.8.0; extra == "l"
 Provides-Extra: office
-Requires-Dist: pyonenote; extra == "office"
 Requires-Dist: xlrd2; extra == "office"
-Requires-Dist: pyxlsb2; extra == "office"
 Requires-Dist: openpyxl; extra == "office"
+Requires-Dist: pyonenote; extra == "office"
+Requires-Dist: pyxlsb2; extra == "office"
 Provides-Extra: display
+Requires-Dist: jsbeautifier; extra == "display"
 Requires-Dist: Pygments; extra == "display"
 Requires-Dist: colorama; extra == "display"
-Requires-Dist: jsbeautifier; extra == "display"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -269,6 +264,18 @@ pip install -U git+git://github.com/binref/refinery.git
 ```
 Finally, if you are using [REMnux][remnux-main], you can use their [refinery docker container][remnux].
 
+## Claude Skill Installation
+
+If you want to teach your local malware analysis [Claude][] to use binary refinery:
+```
+/plugin marketplace add binref/refinery
+/plugin install refinery@binref
+```
+Then invoke your skill as follows:
+```
+/refinery:agent
+```
+
 ## Shell Support
 
 The following is a summary of how well various shell environments are currently supported:
@@ -286,12 +293,12 @@ If you are using a different shell and have some feedback to share, please [let 
 ## Heavyweight Dependencies
 
 There are some units that have rather heavy-weight dependencies.
-For example, [pcap][] is the only unit that requires a packet capture file parsing library.
+For example, [stego][] is a unit that requires the image parsing library `Pillow`.
 These libraries are not installed by default to keep the installation time for refinery at a reasonable level for first-time users.
 The corresponding units will tell you what to do when their dependency is missing:
 ```
-$ emit archive.7z | xt7z -l
-(13:37:00) failure in xt7z: dependency py7zr is missing; run pip install py7zr
+$ emit config.png | stego RG
+(13:37:00) failure in stego: dependency Pillow is missing; run pip install Pillow
 ```
 You can then install these missing dependencies manually.
 If you do not want to be bothered by missing dependencies and don't mind a long refinery installation, you can install the package as follows:
@@ -415,7 +422,7 @@ emit c0019718c4d4538452affb97c70d16b7af3e4816d059010c277c4e579075c944 \
 Extract an AgentTesla configuration:
 ```
 emit fb47a566911905d37bdb464a08ca66b9078f18f10411ce019e9d5ab747571b40 \
-  | dnfields [| aes x::32 --iv x::16 -Q ]] \
+  | dnfields [| aes x::32 --iv x::16 -T ]] \
   | rex -M "((??email))\n(.*)\n(.*)\n:Zone" addr={1} pass={2} host={3}
 ```
 Extract the PowerShell payload from a malicious XLS macro dropper:
@@ -527,12 +534,13 @@ emit "Once upon a time, at the foot of a great mountain ..." ^
 [dump]: https://binref.github.io/#refinery.dump
 [emit]: https://binref.github.io/#refinery.emit
 [stego]: https://binref.github.io/#refinery.stego
-[pcap]: https://binref.github.io/#refinery.pcap
 [hex]: https://binref.github.io/#refinery.hex
 [zl]: https://binref.github.io/#refinery.zl
 [b64]: https://binref.github.io/#refinery.b64
 [carve]: https://binref.github.io/#refinery.carve
 [pack]: https://binref.github.io/#refinery.pack
+
+[Claude]: https://code.claude.com/docs/en/overview
 
 [jupyter]: https://jupyter.org/install
 [jupyter-vscode]: https://code.visualstudio.com/docs/datascience/jupyter-notebooks

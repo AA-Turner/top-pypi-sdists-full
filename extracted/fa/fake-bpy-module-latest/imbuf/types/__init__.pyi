@@ -103,5 +103,17 @@ class ImBufFileType:
     file_extensions: typing.Any
     """ Undocumented, consider contributing."""
 
+    has_read_file: typing.Any
+    """ Undocumented, consider contributing."""
+
+    has_read_memory: typing.Any
+    """ Undocumented, consider contributing."""
+
+    has_write_file: typing.Any
+    """ Undocumented, consider contributing."""
+
+    has_write_memory: typing.Any
+    """ Undocumented, consider contributing."""
+
     id: typing.Any
     """ Undocumented, consider contributing."""

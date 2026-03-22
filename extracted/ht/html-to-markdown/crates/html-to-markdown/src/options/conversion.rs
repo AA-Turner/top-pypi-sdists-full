@@ -436,7 +436,7 @@ mod tests {
         // Verify values
         assert_eq!(deserialized.list_indent_width, 4);
         assert_eq!(deserialized.bullets, "*");
-        assert_eq!(deserialized.escape_asterisks, true);
+        assert!(deserialized.escape_asterisks);
         assert_eq!(deserialized.heading_style, HeadingStyle::AtxClosed);
         assert_eq!(deserialized.whitespace_mode, WhitespaceMode::Strict);
     }
@@ -459,8 +459,8 @@ mod tests {
         assert_eq!(deserialized.bullets, "*");
 
         // Verify missing fields use defaults
-        assert_eq!(deserialized.escape_asterisks, false); // default
-        assert_eq!(deserialized.escape_underscores, false); // default
+        assert!(!deserialized.escape_asterisks); // default
+        assert!(!deserialized.escape_underscores); // default
         assert_eq!(deserialized.list_indent_type, ListIndentType::Spaces); // default
     }
 }

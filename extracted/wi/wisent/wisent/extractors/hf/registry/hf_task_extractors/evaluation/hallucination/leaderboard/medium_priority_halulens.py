@@ -42,7 +42,7 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
     """
 
     # Evaluator that should be used for this benchmark
-    evaluator_name = "hallucination_classification"
+    evaluator_name = "generation"
 
     # Question templates for generating factual questions
     QUESTION_TEMPLATES = [

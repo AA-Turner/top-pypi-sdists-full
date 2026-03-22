@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-WebOb"
-version = "1.8.0.20260223"
+version = "1.8.0.20260322"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for WebOb"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`24827c4590595507c5542ecea5c0850b070df4fc`](https://github.com/python/typeshed/commit/24827c4590595507c5542ecea5c0850b070df4fc).
+[`282b1a838a565f10a4b2e9139adc26ab828b2e9d`](https://github.com/python/typeshed/commit/282b1a838a565f10a4b2e9139adc26ab828b2e9d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['webob-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'webob-stubs' = ['__init__.pyi', '_types.pyi', 'acceptparse.pyi', 'byterange.pyi', 'cachecontrol.pyi', 'client.pyi', 'compat.pyi', 'cookies.pyi', 'datetime_utils.pyi', 'dec.pyi', 'descriptors.pyi', 'etag.pyi', 'exc.pyi', 'headers.pyi', 'multidict.pyi', 'request.pyi', 'response.pyi', 'static.pyi', 'util.pyi', 'METADATA.toml', 'py.typed']

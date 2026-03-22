@@ -13,7 +13,7 @@ fn long_multibyte_link_label_does_not_panic() {
     let expected_label = format!("{}👍", "a".repeat(511));
 
     assert!(
-        markdown.contains(&format!("[{}]", expected_label)),
+        markdown.contains(&format!("[{expected_label}]")),
         "expected full label to appear in markdown output; got: {markdown}"
     );
 }

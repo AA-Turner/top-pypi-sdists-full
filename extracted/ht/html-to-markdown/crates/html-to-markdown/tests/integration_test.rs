@@ -522,7 +522,7 @@ fn test_mixed_content() {
 
 #[test]
 fn test_ordered_list_with_heading_and_table() {
-    let html = r#"
+    let html = r"
 <ol>
   <li>
     <h3>h3</h3>
@@ -536,7 +536,7 @@ fn test_ordered_list_with_heading_and_table() {
     </table>
   </li>
 </ol>
-"#;
+";
 
     let result = convert(html, None).unwrap();
     let expected = "1. ### h3\n2. *table*\n\n    | blah |\n    | --- |\n";
@@ -562,7 +562,7 @@ fn test_link_text_escaping_issue_114() {
 
 #[test]
 fn test_uppercase_tags_issue_113() {
-    let html = r#"<B>Foo<Br />Bar</B>"#;
+    let html = r"<B>Foo<Br />Bar</B>";
     let result = convert(html, None).unwrap();
     assert_eq!(result, "**Foo  \nBar**\n");
 }

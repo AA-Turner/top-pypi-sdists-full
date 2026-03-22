@@ -123,7 +123,7 @@ fn scan_table_node(
                                         normalized_tag_name(cell_tag.name().as_utf8_str()).into_owned().into()
                                     });
                                 if matches!(cell_name.as_ref(), "td" | "th" | "cell") {
-                                    cell_count += 1;
+                                    cell_count += super::cell::get_colspan(child, parser);
                                     let attrs = cell_tag.attributes();
                                     if attrs.get("colspan").is_some() || attrs.get("rowspan").is_some() {
                                         scan.has_span = true;

@@ -1602,26 +1602,6 @@ class bpy_struct[_GenericType1]:
         :param key:
         """
 
-class ContextTempOverride:
-    def __enter__(self) -> typing_extensions.Self:
-        """
-
-        :return:
-        """
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb,
-    ) -> None:
-        """
-
-        :param exc_type:
-        :param exc_val:
-        :param exc_tb:
-        """
-
 class bpy_prop_collection[_GenericType1](bpy_prop):
     """built-in class used for all collections."""
 
@@ -1785,7 +1765,118 @@ class bpy_prop_array(bpy_prop):
         :param seq:
         """
 
-class AOVs(bpy_prop_collection, bpy_prop):
+class bpy_prop_collection_idprop[_GenericType1](bpy_prop_collection):
+    """built-in class used for user defined collections."""
+
+    def add(self) -> _GenericType1:
+        """This is a function to add a new item to a collection.
+
+        :return: A newly created item.
+        """
+
+    def clear(self) -> None:
+        """This is a function to remove all items from a collection."""
+
+    def move(self, src_index: int | None, dst_index: int | None) -> None:
+        """This is a function to move an item in a collection.
+
+        :param src_index: Source item index.
+        :param dst_index: Destination item index.
+        """
+
+    def remove(self, index: int | None) -> None:
+        """This is a function to remove an item from a collection.
+
+        :param index: Index of the item to be removed.
+        """
+
+    @typing.overload
+    def __getitem__(self, key: int | str) -> _GenericType1:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(self, key: slice) -> list[_GenericType1]:
+        """
+
+        :param key:
+        :return:
+        """
+
+    def __setitem__(self, key: int | str, value: _GenericType1 | None) -> None:
+        """
+
+        :param key:
+        :param value:
+        """
+
+    @typing.overload
+    def __setitem__(self, key: int, value: _GenericType1 | None) -> None:
+        """
+
+        :param key:
+        :param value:
+        """
+
+    @typing.overload
+    def __setitem__(self, key: str, value: _GenericType1) -> None:
+        """
+
+        :param key:
+        :param value:
+        """
+
+    def __iter__(self) -> collections.abc.Iterator[_GenericType1]:
+        """
+
+        :return:
+        """
+
+    def __next__(self) -> _GenericType1:
+        """
+
+        :return:
+        """
+
+    def __len__(self) -> int:
+        """
+
+        :return:
+        """
+
+    def __contains__(self, key: str | tuple[str, ...] | _GenericType1) -> bool:
+        """
+
+        :param key:
+        :return:
+        """
+
+    def get[_GenericType2](
+        self, key: str, default: _GenericType2 = None
+    ) -> _GenericType1 | _GenericType2:
+        """
+
+        :param key:
+        :param default:
+        :return:
+        """
+
+    def values(self) -> list[_GenericType1]:
+        """
+
+        :return:
+        """
+
+    def items(self) -> list[tuple[str, _GenericType1]]:
+        """
+
+        :return:
+        """
+
+class AOVs(bpy_prop, bpy_prop_collection[AOV], bpy_struct):
     """Collection of AOVs"""
 
     def add(self) -> AOV:
@@ -1828,7 +1919,7 @@ class AOVs(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ActionChannelbagFCurves(bpy_prop_collection, bpy_prop):
+class ActionChannelbagFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct):
     """Collection of F-Curves for a specific action slot, on a specific strip"""
 
     def new(
@@ -1916,7 +2007,7 @@ class ActionChannelbagFCurves(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ActionChannelbagGroups(bpy_prop_collection, bpy_prop):
+class ActionChannelbagGroups(bpy_prop, bpy_prop_collection[ActionGroup], bpy_struct):
     """Collection of f-curve groups"""
 
     def new(self, name: str | None) -> ActionGroup:
@@ -1960,7 +2051,7 @@ class ActionChannelbagGroups(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ActionChannelbags(bpy_prop_collection, bpy_prop):
+class ActionChannelbags(bpy_prop, bpy_prop_collection[ActionChannelbag], bpy_struct):
     """For each action slot, a list of animation channels that are meant for that slot"""
 
     def new(self, slot: ActionSlot | None) -> ActionChannelbag:
@@ -2004,7 +2095,7 @@ class ActionChannelbags(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ActionLayers(bpy_prop_collection, bpy_prop):
+class ActionLayers(bpy_prop, bpy_prop_collection[ActionLayer], bpy_struct):
     """Collection of animation layers"""
 
     def new(self, name: str | None) -> ActionLayer:
@@ -2048,7 +2139,7 @@ class ActionLayers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ActionPoseMarkers(bpy_prop_collection, bpy_prop):
+class ActionPoseMarkers(bpy_prop, bpy_prop_collection[TimelineMarker], bpy_struct):
     """Collection of timeline markers"""
 
     active: TimelineMarker | None
@@ -2098,7 +2189,7 @@ class ActionPoseMarkers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ActionSlots(bpy_prop_collection, bpy_prop):
+class ActionSlots(bpy_prop, bpy_prop_collection[ActionSlot], bpy_struct):
     """Collection of action slots"""
 
     active: ActionSlot | None
@@ -2150,7 +2241,7 @@ class ActionSlots(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ActionStrips(bpy_prop_collection, bpy_prop):
+class ActionStrips(bpy_prop, bpy_prop_collection[ActionStrip], bpy_struct):
     """Collection of animation strips"""
 
     def new(
@@ -2199,7 +2290,7 @@ class ActionStrips(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class Addons(bpy_prop_collection, bpy_prop):
+class Addons(bpy_prop, bpy_prop_collection[Addon], bpy_struct):
     """Collection of add-ons"""
 
     @classmethod
@@ -2244,7 +2335,7 @@ class Addons(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AnimDataDrivers(bpy_prop_collection, bpy_prop):
+class AnimDataDrivers(bpy_prop, bpy_prop_collection[FCurve], bpy_struct):
     """Collection of Driver F-Curves"""
 
     def new(self, data_path: str | None, *, index: int | None = 0) -> FCurve:
@@ -2304,7 +2395,7 @@ class AnimDataDrivers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AnnotationFrames(bpy_prop_collection, bpy_prop):
+class AnnotationFrames(bpy_prop, bpy_prop_collection[AnnotationFrame], bpy_struct):
     """Collection of annotation frames"""
 
     def new(
@@ -2358,7 +2449,7 @@ class AnnotationFrames(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AnnotationLayers(bpy_prop_collection, bpy_prop):
+class AnnotationLayers(bpy_prop, bpy_prop_collection[AnnotationLayer], bpy_struct):
     """Collection of annotation layers"""
 
     active_index: int | None
@@ -2411,7 +2502,9 @@ class AnnotationLayers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AnnotationStrokePoints(bpy_prop_collection, bpy_prop):
+class AnnotationStrokePoints(
+    bpy_prop, bpy_prop_collection[AnnotationStrokePoint], bpy_struct
+):
     """Collection of annotation stroke points"""
 
     def add(
@@ -2462,7 +2555,7 @@ class AnnotationStrokePoints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AnnotationStrokes(bpy_prop_collection, bpy_prop):
+class AnnotationStrokes(bpy_prop, bpy_prop_collection[AnnotationStroke], bpy_struct):
     """Collection of annotation strokes"""
 
     def new(self) -> AnnotationStroke:
@@ -2505,7 +2598,7 @@ class AnnotationStrokes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AreaSpaces(bpy_prop_collection, bpy_prop):
+class AreaSpaces(bpy_prop, bpy_prop_collection[Space], bpy_struct):
     """Collection of spaces"""
 
     active: Space | None
@@ -2539,7 +2632,7 @@ class AreaSpaces(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ArmatureBones(bpy_prop_collection, bpy_prop):
+class ArmatureBones(bpy_prop, bpy_prop_collection[Bone], bpy_struct):
     """Collection of armature bones"""
 
     active: Bone | None
@@ -2573,7 +2666,9 @@ class ArmatureBones(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ArmatureConstraintTargets(bpy_prop_collection, bpy_prop):
+class ArmatureConstraintTargets(
+    bpy_prop, bpy_prop_collection[ConstraintTargetBone], bpy_struct
+):
     """Collection of target bones and weights"""
 
     def new(self) -> ConstraintTargetBone:
@@ -2619,7 +2714,7 @@ class ArmatureConstraintTargets(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ArmatureEditBones(bpy_prop_collection, bpy_prop):
+class ArmatureEditBones(bpy_prop, bpy_prop_collection[EditBone], bpy_struct):
     """Collection of armature edit bones"""
 
     active: EditBone | None
@@ -2666,7 +2761,9 @@ class ArmatureEditBones(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AssetLibraryCollection(bpy_prop_collection, bpy_prop):
+class AssetLibraryCollection(
+    bpy_prop, bpy_prop_collection[UserAssetLibrary], bpy_struct
+):
     """Collection of user asset libraries"""
 
     @classmethod
@@ -2715,7 +2812,7 @@ class AssetLibraryCollection(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AssetTags(bpy_prop_collection, bpy_prop):
+class AssetTags(bpy_prop, bpy_prop_collection[AssetTag], bpy_struct):
     """Collection of custom asset tags"""
 
     def new(self, name: str | None, *, skip_if_exists: bool | None = False) -> AssetTag:
@@ -2760,7 +2857,7 @@ class AssetTags(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AttributeGroupCurves(bpy_prop_collection, bpy_prop):
+class AttributeGroupCurves(bpy_prop, bpy_prop_collection[Attribute], bpy_struct):
     """Group of geometry attributes"""
 
     active: Attribute | None
@@ -2827,7 +2924,7 @@ class AttributeGroupCurves(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AttributeGroupGreasePencil(bpy_prop_collection, bpy_prop):
+class AttributeGroupGreasePencil(bpy_prop, bpy_prop_collection[Attribute], bpy_struct):
     """Group of geometry attributes"""
 
     active: Attribute | None
@@ -2894,7 +2991,9 @@ class AttributeGroupGreasePencil(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AttributeGroupGreasePencilDrawing(bpy_prop_collection, bpy_prop):
+class AttributeGroupGreasePencilDrawing(
+    bpy_prop, bpy_prop_collection[Attribute], bpy_struct
+):
     """Group of geometry attributes"""
 
     active: Attribute | None
@@ -2961,7 +3060,7 @@ class AttributeGroupGreasePencilDrawing(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AttributeGroupMesh(bpy_prop_collection, bpy_prop):
+class AttributeGroupMesh(bpy_prop, bpy_prop_collection[Attribute], bpy_struct):
     """Group of geometry attributes"""
 
     active: Attribute | None
@@ -3043,7 +3142,7 @@ class AttributeGroupMesh(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class AttributeGroupPointCloud(bpy_prop_collection, bpy_prop):
+class AttributeGroupPointCloud(bpy_prop, bpy_prop_collection[Attribute], bpy_struct):
     """Group of geometry attributes"""
 
     active: Attribute | None
@@ -3110,7 +3209,7 @@ class AttributeGroupPointCloud(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataActions(bpy_prop_collection, bpy_prop):
+class BlendDataActions(bpy_prop, bpy_prop_collection[Action], bpy_struct):
     """Collection of actions"""
 
     def new(self, name: str | None) -> Action:
@@ -3170,7 +3269,7 @@ class BlendDataActions(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataAnnotations(bpy_prop_collection, bpy_prop):
+class BlendDataAnnotations(bpy_prop, bpy_prop_collection[Annotation], bpy_struct):
     """Collection of annotations"""
 
     def tag(self, value: bool | None) -> None:
@@ -3230,7 +3329,7 @@ class BlendDataAnnotations(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataArmatures(bpy_prop_collection, bpy_prop):
+class BlendDataArmatures(bpy_prop, bpy_prop_collection[Armature], bpy_struct):
     """Collection of armatures"""
 
     def new(self, name: str | None) -> Armature:
@@ -3290,7 +3389,7 @@ class BlendDataArmatures(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataBrushes(bpy_prop_collection, bpy_prop):
+class BlendDataBrushes(bpy_prop, bpy_prop_collection[Brush], bpy_struct):
     """Collection of brushes"""
 
     def new(
@@ -3363,7 +3462,7 @@ class BlendDataBrushes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataCacheFiles(bpy_prop_collection, bpy_prop):
+class BlendDataCacheFiles(bpy_prop, bpy_prop_collection[CacheFile], bpy_struct):
     """Collection of cache files"""
 
     def tag(self, value: bool | None) -> None:
@@ -3400,7 +3499,7 @@ class BlendDataCacheFiles(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataCameras(bpy_prop_collection, bpy_prop):
+class BlendDataCameras(bpy_prop, bpy_prop_collection[Camera], bpy_struct):
     """Collection of cameras"""
 
     def new(self, name: str | None) -> Camera:
@@ -3460,7 +3559,7 @@ class BlendDataCameras(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataCollections(bpy_prop_collection, bpy_prop):
+class BlendDataCollections(bpy_prop, bpy_prop_collection[Collection], bpy_struct):
     """Collection of collections"""
 
     def new(self, name: str | None) -> Collection:
@@ -3520,7 +3619,7 @@ class BlendDataCollections(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataCurves(bpy_prop_collection, bpy_prop):
+class BlendDataCurves(bpy_prop, bpy_prop_collection[Curve], bpy_struct):
     """Collection of curves"""
 
     def new(
@@ -3585,7 +3684,7 @@ class BlendDataCurves(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataFonts(bpy_prop_collection, bpy_prop):
+class BlendDataFonts(bpy_prop, bpy_prop_collection[VectorFont], bpy_struct):
     """Collection of fonts"""
 
     def load(
@@ -3648,7 +3747,7 @@ class BlendDataFonts(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataGreasePencilsV3(bpy_prop_collection, bpy_prop):
+class BlendDataGreasePencilsV3(bpy_prop, bpy_prop_collection[GreasePencil], bpy_struct):
     """Collection of Grease Pencils"""
 
     def tag(self, value: bool | None) -> None:
@@ -3708,7 +3807,7 @@ class BlendDataGreasePencilsV3(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataHairCurves(bpy_prop_collection, bpy_prop):
+class BlendDataHairCurves(bpy_prop, bpy_prop_collection[Curves], bpy_struct):
     """Collection of hair curves"""
 
     def new(self, name: str | None) -> Curves:
@@ -3768,7 +3867,7 @@ class BlendDataHairCurves(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataImages(bpy_prop_collection, bpy_prop):
+class BlendDataImages(bpy_prop, bpy_prop_collection[Image], bpy_struct):
     """Collection of images"""
 
     def new(
@@ -3856,7 +3955,7 @@ class BlendDataImages(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataLattices(bpy_prop_collection, bpy_prop):
+class BlendDataLattices(bpy_prop, bpy_prop_collection[Lattice], bpy_struct):
     """Collection of lattices"""
 
     def new(self, name: str | None) -> Lattice:
@@ -3916,7 +4015,7 @@ class BlendDataLattices(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataLibraries(bpy_prop_collection, bpy_prop):
+class BlendDataLibraries(bpy_prop, bpy_prop_collection[Library], bpy_struct):
     """Collection of libraries"""
 
     def tag(self, value: bool | None) -> None:
@@ -4031,7 +4130,7 @@ class BlendDataLibraries(bpy_prop_collection, bpy_prop):
                 :param compress: When True, write a compressed blend file.
         """
 
-class BlendDataLights(bpy_prop_collection, bpy_prop):
+class BlendDataLights(bpy_prop, bpy_prop_collection[Light], bpy_struct):
     """Collection of lights"""
 
     def new(
@@ -4096,7 +4195,9 @@ class BlendDataLights(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataLineStyles(bpy_prop_collection, bpy_prop):
+class BlendDataLineStyles(
+    bpy_prop, bpy_prop_collection[FreestyleLineStyle], bpy_struct
+):
     """Collection of line styles"""
 
     def tag(self, value: bool | None) -> None:
@@ -4156,7 +4257,7 @@ class BlendDataLineStyles(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataMasks(bpy_prop_collection, bpy_prop):
+class BlendDataMasks(bpy_prop, bpy_prop_collection[Mask], bpy_struct):
     """Collection of masks"""
 
     def tag(self, value: bool | None) -> None:
@@ -4216,7 +4317,7 @@ class BlendDataMasks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataMaterials(bpy_prop_collection, bpy_prop):
+class BlendDataMaterials(bpy_prop, bpy_prop_collection[Material], bpy_struct):
     """Collection of materials"""
 
     def new(self, name: str | None) -> Material:
@@ -4288,7 +4389,7 @@ class BlendDataMaterials(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataMeshes(bpy_prop_collection, bpy_prop):
+class BlendDataMeshes(bpy_prop, bpy_prop_collection[Mesh], bpy_struct):
     """Collection of meshes"""
 
     def new(self, name: str | None) -> Mesh:
@@ -4363,7 +4464,7 @@ class BlendDataMeshes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataMetaBalls(bpy_prop_collection, bpy_prop):
+class BlendDataMetaBalls(bpy_prop, bpy_prop_collection[MetaBall], bpy_struct):
     """Collection of metaballs"""
 
     def new(self, name: str | None) -> MetaBall:
@@ -4423,7 +4524,7 @@ class BlendDataMetaBalls(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataMovieClips(bpy_prop_collection, bpy_prop):
+class BlendDataMovieClips(bpy_prop, bpy_prop_collection[MovieClip], bpy_struct):
     """Collection of movie clips"""
 
     def tag(self, value: bool | None) -> None:
@@ -4486,7 +4587,7 @@ class BlendDataMovieClips(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataNodeTrees(bpy_prop_collection, bpy_prop):
+class BlendDataNodeTrees(bpy_prop, bpy_prop_collection[NodeTree], bpy_struct):
     """Collection of node trees"""
 
     def new(
@@ -4569,7 +4670,7 @@ class BlendDataNodeTrees(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataObjects(bpy_prop_collection, bpy_prop):
+class BlendDataObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
     """Collection of objects"""
 
     def new(self, name: str | None, object_data: ID | None) -> Object:
@@ -4630,7 +4731,7 @@ class BlendDataObjects(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataPaintCurves(bpy_prop_collection, bpy_prop):
+class BlendDataPaintCurves(bpy_prop, bpy_prop_collection[PaintCurve], bpy_struct):
     """Collection of paint curves"""
 
     def tag(self, value: bool | None) -> None:
@@ -4667,7 +4768,7 @@ class BlendDataPaintCurves(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataPalettes(bpy_prop_collection, bpy_prop):
+class BlendDataPalettes(bpy_prop, bpy_prop_collection[Palette], bpy_struct):
     """Collection of palettes"""
 
     def new(self, name: str | None) -> Palette:
@@ -4727,7 +4828,7 @@ class BlendDataPalettes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataParticles(bpy_prop_collection, bpy_prop):
+class BlendDataParticles(bpy_prop, bpy_prop_collection[ParticleSettings], bpy_struct):
     """Collection of particle settings"""
 
     def new(self, name: str | None) -> ParticleSettings:
@@ -4787,7 +4888,7 @@ class BlendDataParticles(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataPointClouds(bpy_prop_collection, bpy_prop):
+class BlendDataPointClouds(bpy_prop, bpy_prop_collection[PointCloud], bpy_struct):
     """Collection of point clouds"""
 
     def new(self, name: str | None) -> PointCloud:
@@ -4847,7 +4948,7 @@ class BlendDataPointClouds(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataProbes(bpy_prop_collection, bpy_prop):
+class BlendDataProbes(bpy_prop, bpy_prop_collection[LightProbe], bpy_struct):
     """Collection of light probes"""
 
     def new(
@@ -4912,7 +5013,7 @@ class BlendDataProbes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataScenes(bpy_prop_collection, bpy_prop):
+class BlendDataScenes(bpy_prop, bpy_prop_collection[Scene], bpy_struct):
     """Collection of scenes"""
 
     def new(self, name: str | None) -> Scene:
@@ -4963,7 +5064,7 @@ class BlendDataScenes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataScreens(bpy_prop_collection, bpy_prop):
+class BlendDataScreens(bpy_prop, bpy_prop_collection[Screen], bpy_struct):
     """Collection of screens"""
 
     def tag(self, value: bool | None) -> None:
@@ -5000,7 +5101,7 @@ class BlendDataScreens(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataSounds(bpy_prop_collection, bpy_prop):
+class BlendDataSounds(bpy_prop, bpy_prop_collection[Sound], bpy_struct):
     """Collection of sounds"""
 
     def load(
@@ -5063,7 +5164,7 @@ class BlendDataSounds(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataSpeakers(bpy_prop_collection, bpy_prop):
+class BlendDataSpeakers(bpy_prop, bpy_prop_collection[Speaker], bpy_struct):
     """Collection of speakers"""
 
     def new(self, name: str | None) -> Speaker:
@@ -5123,7 +5224,7 @@ class BlendDataSpeakers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataTexts(bpy_prop_collection, bpy_prop):
+class BlendDataTexts(bpy_prop, bpy_prop_collection[Text], bpy_struct):
     """Collection of texts"""
 
     def new(self, name: str | None) -> Text:
@@ -5191,7 +5292,7 @@ class BlendDataTexts(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataTextures(bpy_prop_collection, bpy_prop):
+class BlendDataTextures(bpy_prop, bpy_prop_collection[Texture], bpy_struct):
     """Collection of textures"""
 
     def new(
@@ -5256,7 +5357,7 @@ class BlendDataTextures(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataVolumes(bpy_prop_collection, bpy_prop):
+class BlendDataVolumes(bpy_prop, bpy_prop_collection[Volume], bpy_struct):
     """Collection of volumes"""
 
     def new(self, name: str | None) -> Volume:
@@ -5316,7 +5417,7 @@ class BlendDataVolumes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataWindowManagers(bpy_prop_collection, bpy_prop):
+class BlendDataWindowManagers(bpy_prop, bpy_prop_collection[WindowManager], bpy_struct):
     """Collection of window managers"""
 
     def tag(self, value: bool | None) -> None:
@@ -5353,7 +5454,7 @@ class BlendDataWindowManagers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataWorkSpaces(bpy_prop_collection, bpy_prop):
+class BlendDataWorkSpaces(bpy_prop, bpy_prop_collection[WorkSpace], bpy_struct):
     """Collection of workspaces"""
 
     def tag(self, value: bool | None) -> None:
@@ -5390,7 +5491,7 @@ class BlendDataWorkSpaces(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendDataWorlds(bpy_prop_collection, bpy_prop):
+class BlendDataWorlds(bpy_prop, bpy_prop_collection[World], bpy_struct):
     """Collection of worlds"""
 
     def new(self, name: str | None) -> World:
@@ -5450,7 +5551,9 @@ class BlendDataWorlds(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendImportContextItems(bpy_prop_collection, bpy_prop):
+class BlendImportContextItems(
+    bpy_prop, bpy_prop_collection[BlendImportContextItem], bpy_struct
+):
     """Collection of blendfile import context items"""
 
     @classmethod
@@ -5481,7 +5584,9 @@ class BlendImportContextItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BlendImportContextLibraries(bpy_prop_collection, bpy_prop):
+class BlendImportContextLibraries(
+    bpy_prop, bpy_prop_collection[BlendImportContextLibrary], bpy_struct
+):
     """Collection of source libraries, i.e. blendfile paths"""
 
     @classmethod
@@ -5512,7 +5617,9 @@ class BlendImportContextLibraries(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BoneCollectionMemberships(bpy_prop_collection, bpy_prop):
+class BoneCollectionMemberships(
+    bpy_prop, bpy_prop_collection[BoneCollection], bpy_struct
+):
     """The Bone Collections that contain this Bone"""
 
     def clear(self) -> None:
@@ -5546,7 +5653,7 @@ class BoneCollectionMemberships(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class BoneCollections(bpy_prop_collection, bpy_prop):
+class BoneCollections(bpy_prop, bpy_prop_collection[BoneCollection], bpy_struct):
     """The Bone Collections of this Armature"""
 
     active: BoneCollection | None
@@ -5612,7 +5719,7 @@ class BoneCollections(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CacheFileLayers(bpy_prop_collection, bpy_prop):
+class CacheFileLayers(bpy_prop, bpy_prop_collection[CacheFileLayer], bpy_struct):
     """Collection of cache layers"""
 
     active: CacheFileLayer | None
@@ -5659,7 +5766,7 @@ class CacheFileLayers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CacheObjectPaths(bpy_prop_collection, bpy_prop):
+class CacheObjectPaths(bpy_prop, bpy_prop_collection[CacheObjectPath], bpy_struct):
     """Collection of object paths"""
 
     @classmethod
@@ -5690,7 +5797,9 @@ class CacheObjectPaths(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CameraBackgroundImages(bpy_prop_collection, bpy_prop):
+class CameraBackgroundImages(
+    bpy_prop, bpy_prop_collection[CameraBackgroundImage], bpy_struct
+):
     """Collection of background images"""
 
     def new(self) -> CameraBackgroundImage:
@@ -5736,7 +5845,7 @@ class CameraBackgroundImages(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ChannelDriverVariables(bpy_prop_collection, bpy_prop):
+class ChannelDriverVariables(bpy_prop, bpy_prop_collection[DriverVariable], bpy_struct):
     """Collection of channel driver Variables"""
 
     def new(self) -> DriverVariable:
@@ -5779,7 +5888,7 @@ class ChannelDriverVariables(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CollectionChildren(bpy_prop_collection, bpy_prop):
+class CollectionChildren(bpy_prop, bpy_prop_collection[Collection], bpy_struct):
     """Collection of child collections"""
 
     def link(self, child: Collection | None) -> None:
@@ -5822,7 +5931,7 @@ class CollectionChildren(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CollectionExports(bpy_prop_collection, bpy_prop):
+class CollectionExports(bpy_prop, bpy_prop_collection[CollectionExport], bpy_struct):
     """Collection of export handlers"""
 
     def new(
@@ -5888,7 +5997,7 @@ class CollectionExports(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CollectionObjects(bpy_prop_collection, bpy_prop):
+class CollectionObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
     """Collection of collection objects"""
 
     def link(self, object: Object | None) -> None:
@@ -5931,7 +6040,7 @@ class CollectionObjects(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ColorRampElements(bpy_prop_collection, bpy_prop):
+class ColorRampElements(bpy_prop, bpy_prop_collection[ColorRampElement], bpy_struct):
     """Collection of Color Ramp Elements"""
 
     def new(self, position: float | None) -> ColorRampElement:
@@ -5975,7 +6084,27 @@ class ColorRampElements(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CurveMapPoints(bpy_prop_collection, bpy_prop):
+class ContextTempOverride:
+    def __enter__(self) -> typing_extensions.Self:
+        """
+
+        :return:
+        """
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb,
+    ) -> None:
+        """
+
+        :param exc_type:
+        :param exc_val:
+        :param exc_tb:
+        """
+
+class CurveMapPoints(bpy_prop, bpy_prop_collection[CurveMapPoint], bpy_struct):
     """Collection of Curve Map Points"""
 
     def new(self, position: float | None, value: float | None) -> CurveMapPoint:
@@ -6020,7 +6149,7 @@ class CurveMapPoints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CurveProfilePoints(bpy_prop_collection, bpy_prop):
+class CurveProfilePoints(bpy_prop, bpy_prop_collection[CurveProfilePoint], bpy_struct):
     """Collection of Profile Points"""
 
     def add(self, x: float | None, y: float | None) -> CurveProfilePoint:
@@ -6065,7 +6194,7 @@ class CurveProfilePoints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class CurveSplines(bpy_prop_collection, bpy_prop):
+class CurveSplines(bpy_prop, bpy_prop_collection[Spline], bpy_struct):
     """Collection of curve splines"""
 
     active: Spline | None
@@ -6115,7 +6244,9 @@ class CurveSplines(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class DynamicPaintSurfaces(bpy_prop_collection, bpy_prop):
+class DynamicPaintSurfaces(
+    bpy_prop, bpy_prop_collection[DynamicPaintSurface], bpy_struct
+):
     """Collection of Dynamic Paint Canvas surfaces"""
 
     active: DynamicPaintSurface | None
@@ -6152,7 +6283,7 @@ class DynamicPaintSurfaces(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class FCurveKeyframePoints(bpy_prop_collection, bpy_prop):
+class FCurveKeyframePoints(bpy_prop, bpy_prop_collection[Keyframe], bpy_struct):
     """Collection of keyframe points"""
 
     def insert(
@@ -6237,7 +6368,7 @@ class FCurveKeyframePoints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class FCurveModifiers(bpy_prop_collection, bpy_prop):
+class FCurveModifiers(bpy_prop, bpy_prop_collection[FModifier], bpy_struct):
     """Collection of F-Curve Modifiers"""
 
     active: FModifier | None
@@ -6287,7 +6418,9 @@ class FCurveModifiers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class FModifierEnvelopeControlPoints(bpy_prop_collection, bpy_prop):
+class FModifierEnvelopeControlPoints(
+    bpy_prop, bpy_prop_collection[FModifierEnvelopeControlPoint], bpy_struct
+):
     """Control points defining the shape of the envelope"""
 
     def add(self, frame: float | None) -> FModifierEnvelopeControlPoint:
@@ -6331,7 +6464,9 @@ class FModifierEnvelopeControlPoints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class FreestyleModules(bpy_prop_collection, bpy_prop):
+class FreestyleModules(
+    bpy_prop, bpy_prop_collection[FreestyleModuleSettings], bpy_struct
+):
     """A list of style modules (to be applied from top to bottom)"""
 
     def new(self) -> FreestyleModuleSettings:
@@ -6374,7 +6509,9 @@ class FreestyleModules(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class GeometryNodeFieldToGridItems(bpy_prop_collection, bpy_prop):
+class GeometryNodeFieldToGridItems(
+    bpy_prop, bpy_prop_collection[GeometryNodeFieldToGridItem], bpy_struct
+):
     """Collection of field to grid items"""
 
     def new(
@@ -6434,7 +6571,9 @@ class GeometryNodeFieldToGridItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class GeometryNodeFieldToListItems(bpy_prop_collection, bpy_prop):
+class GeometryNodeFieldToListItems(
+    bpy_prop, bpy_prop_collection[GeometryNodeFieldToListItem], bpy_struct
+):
     """Collection of field to list items"""
 
     def new(
@@ -6494,7 +6633,7 @@ class GeometryNodeFieldToListItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class Gizmos(bpy_prop_collection, bpy_prop):
+class Gizmos(bpy_prop, bpy_prop_collection[Gizmo], bpy_struct):
     """Collection of gizmos"""
 
     def new(self, type: str | None) -> Gizmo:
@@ -6541,7 +6680,7 @@ class Gizmos(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class GreasePencilFrames(bpy_prop_collection, bpy_prop):
+class GreasePencilFrames(bpy_prop, bpy_prop_collection[GreasePencilFrame], bpy_struct):
     """Collection of Grease Pencil frames"""
 
     def new(self, frame_number: int | None) -> GreasePencilFrame:
@@ -6610,7 +6749,9 @@ class GreasePencilFrames(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class GreasePencilLayerMasks(bpy_prop_collection, bpy_prop):
+class GreasePencilLayerMasks(
+    bpy_prop, bpy_prop_collection[GreasePencilLayerMask], bpy_struct
+):
     """Collection of Grease Pencil masking layers"""
 
     active_mask_index: int | None
@@ -6657,7 +6798,9 @@ class GreasePencilLayerMasks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class GreasePencilv3LayerGroup(bpy_prop_collection, bpy_prop):
+class GreasePencilv3LayerGroup(
+    bpy_prop, bpy_prop_collection[GreasePencilLayerGroup], bpy_struct
+):
     """Collection of Grease Pencil layers"""
 
     active: GreasePencilLayerGroup | None
@@ -6747,7 +6890,9 @@ class GreasePencilv3LayerGroup(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class GreasePencilv3Layers(bpy_prop_collection, bpy_prop):
+class GreasePencilv3Layers(
+    bpy_prop, bpy_prop_collection[GreasePencilLayer], bpy_struct
+):
     """Collection of Grease Pencil layers"""
 
     active: GreasePencilLayer | None
@@ -6834,7 +6979,7 @@ class GreasePencilv3Layers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class IDMaterials(bpy_prop_collection, bpy_prop):
+class IDMaterials(bpy_prop, bpy_prop_collection[Material], bpy_struct):
     """Collection of materials"""
 
     def append(self, material: Material | None) -> None:
@@ -6904,7 +7049,9 @@ class IDMaterials(bpy_prop_collection, bpy_prop):
         :return:
         """
 
-class IDOverrideLibraryProperties(bpy_prop_collection, bpy_prop):
+class IDOverrideLibraryProperties(
+    bpy_prop, bpy_prop_collection[IDOverrideLibraryProperty], bpy_struct
+):
     """Collection of override properties"""
 
     def add(self, rna_path: str | None) -> IDOverrideLibraryProperty:
@@ -6948,7 +7095,9 @@ class IDOverrideLibraryProperties(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class IDOverrideLibraryPropertyOperations(bpy_prop_collection, bpy_prop):
+class IDOverrideLibraryPropertyOperations(
+    bpy_prop, bpy_prop_collection[IDOverrideLibraryPropertyOperation], bpy_struct
+):
     """Collection of override operations"""
 
     def add(
@@ -7040,7 +7189,7 @@ class IDOverrideLibraryPropertyOperations(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class KeyConfigurations(bpy_prop_collection, bpy_prop):
+class KeyConfigurations(bpy_prop, bpy_prop_collection[KeyConfig], bpy_struct):
     """Collection of KeyConfigs"""
 
     active: KeyConfig | None
@@ -7126,7 +7275,7 @@ class KeyConfigurations(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class KeyMapItems(bpy_prop_collection, bpy_prop):
+class KeyMapItems(bpy_prop, bpy_prop_collection[KeyMapItem], bpy_struct):
     """Collection of keymap items"""
 
     def new(
@@ -7286,7 +7435,7 @@ class KeyMapItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class KeyMaps(bpy_prop_collection, bpy_prop):
+class KeyMaps(bpy_prop, bpy_prop_collection[KeyMap], bpy_struct):
     """Collection of keymaps"""
 
     def new(
@@ -7378,7 +7527,7 @@ class KeyMaps(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class KeyingSetPaths(bpy_prop_collection, bpy_prop):
+class KeyingSetPaths(bpy_prop, bpy_prop_collection[KeyingSetPath], bpy_struct):
     """Collection of keying set paths"""
 
     active: KeyingSetPath | None
@@ -7446,7 +7595,7 @@ class KeyingSetPaths(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class KeyingSets(bpy_prop_collection, bpy_prop):
+class KeyingSets(bpy_prop, bpy_prop_collection[KeyingSet], bpy_struct):
     """Scene keying sets"""
 
     active: KeyingSet | None
@@ -7493,7 +7642,7 @@ class KeyingSets(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class KeyingSetsAll(bpy_prop_collection, bpy_prop):
+class KeyingSetsAll(bpy_prop, bpy_prop_collection[KeyingSet], bpy_struct):
     """All available keying sets"""
 
     active: KeyingSet | None
@@ -7530,7 +7679,7 @@ class KeyingSetsAll(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class LayerObjects(bpy_prop_collection, bpy_prop):
+class LayerObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
     """Collections of objects"""
 
     active: Object | None
@@ -7567,7 +7716,7 @@ class LayerObjects(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class Lightgroups(bpy_prop_collection, bpy_prop):
+class Lightgroups(bpy_prop, bpy_prop_collection[Lightgroup], bpy_struct):
     """Collection of Lightgroups"""
 
     def add(self, *, name: str | None = "") -> Lightgroup:
@@ -7611,7 +7760,9 @@ class Lightgroups(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class LineStyleAlphaModifiers(bpy_prop_collection, bpy_prop):
+class LineStyleAlphaModifiers(
+    bpy_prop, bpy_prop_collection[LineStyleAlphaModifier], bpy_struct
+):
     """Alpha modifiers for changing line alphas"""
 
     def new(
@@ -7663,7 +7814,9 @@ class LineStyleAlphaModifiers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class LineStyleColorModifiers(bpy_prop_collection, bpy_prop):
+class LineStyleColorModifiers(
+    bpy_prop, bpy_prop_collection[LineStyleColorModifier], bpy_struct
+):
     """Color modifiers for changing line colors"""
 
     def new(
@@ -7715,7 +7868,9 @@ class LineStyleColorModifiers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class LineStyleGeometryModifiers(bpy_prop_collection, bpy_prop):
+class LineStyleGeometryModifiers(
+    bpy_prop, bpy_prop_collection[LineStyleGeometryModifier], bpy_struct
+):
     """Geometry modifiers for changing line geometries"""
 
     def new(
@@ -7767,7 +7922,9 @@ class LineStyleGeometryModifiers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class LineStyleTextureSlots(bpy_prop_collection, bpy_prop):
+class LineStyleTextureSlots(
+    bpy_prop, bpy_prop_collection[LineStyleTextureSlot], bpy_struct
+):
     """Collection of texture slots"""
 
     @classmethod
@@ -7820,7 +7977,9 @@ class LineStyleTextureSlots(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class LineStyleThicknessModifiers(bpy_prop_collection, bpy_prop):
+class LineStyleThicknessModifiers(
+    bpy_prop, bpy_prop_collection[LineStyleThicknessModifier], bpy_struct
+):
     """Thickness modifiers for changing line thickness"""
 
     def new(
@@ -7872,7 +8031,7 @@ class LineStyleThicknessModifiers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class Linesets(bpy_prop_collection, bpy_prop):
+class Linesets(bpy_prop, bpy_prop_collection[FreestyleLineSet], bpy_struct):
     """Line sets for associating lines and style parameters"""
 
     active: FreestyleLineSet | None
@@ -7922,7 +8081,7 @@ class Linesets(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class LoopColors(bpy_prop_collection, bpy_prop):
+class LoopColors(bpy_prop, bpy_prop_collection[MeshLoopColorLayer], bpy_struct):
     """Collection of vertex colors"""
 
     active: MeshLoopColorLayer | None
@@ -7975,7 +8134,7 @@ class LoopColors(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MaskLayers(bpy_prop_collection, bpy_prop):
+class MaskLayers(bpy_prop, bpy_prop_collection[MaskLayer], bpy_struct):
     """Collection of layers used by mask"""
 
     active: MaskLayer | None
@@ -8025,7 +8184,7 @@ class MaskLayers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MaskSplinePoints(bpy_prop_collection, bpy_prop):
+class MaskSplinePoints(bpy_prop, bpy_prop_collection[MaskSplinePoint], bpy_struct):
     """Collection of masking spline points"""
 
     def add(self, count: int | None) -> None:
@@ -8068,7 +8227,7 @@ class MaskSplinePoints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MaskSplines(bpy_prop_collection, bpy_prop):
+class MaskSplines(bpy_prop, bpy_prop_collection[MaskSpline], bpy_struct):
     """Collection of masking splines"""
 
     active: MaskSpline | None
@@ -8117,7 +8276,7 @@ class MaskSplines(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MeshEdges(bpy_prop_collection, bpy_prop):
+class MeshEdges(bpy_prop, bpy_prop_collection[MeshEdge], bpy_struct):
     """Collection of mesh edges"""
 
     def add(self, count: int | None) -> None:
@@ -8154,7 +8313,7 @@ class MeshEdges(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MeshLoopTriangles(bpy_prop_collection, bpy_prop):
+class MeshLoopTriangles(bpy_prop, bpy_prop_collection[MeshLoopTriangle], bpy_struct):
     """Tessellation of mesh polygons into triangles"""
 
     @classmethod
@@ -8185,7 +8344,7 @@ class MeshLoopTriangles(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MeshLoops(bpy_prop_collection, bpy_prop):
+class MeshLoops(bpy_prop, bpy_prop_collection[MeshLoop], bpy_struct):
     """Collection of mesh loops"""
 
     def add(self, count: int | None) -> None:
@@ -8222,7 +8381,7 @@ class MeshLoops(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MeshPolygons(bpy_prop_collection, bpy_prop):
+class MeshPolygons(bpy_prop, bpy_prop_collection[MeshPolygon], bpy_struct):
     """Collection of mesh polygons"""
 
     active: int | None
@@ -8262,7 +8421,7 @@ class MeshPolygons(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MeshVertices(bpy_prop_collection, bpy_prop):
+class MeshVertices(bpy_prop, bpy_prop_collection[MeshVertex], bpy_struct):
     """Collection of mesh vertices"""
 
     def add(self, count: int | None) -> None:
@@ -8299,7 +8458,7 @@ class MeshVertices(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MetaBallElements(bpy_prop_collection, bpy_prop):
+class MetaBallElements(bpy_prop, bpy_prop_collection[MetaElement], bpy_struct):
     """Collection of metaball elements"""
 
     active: MetaElement | None
@@ -8354,7 +8513,9 @@ class MetaBallElements(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MovieTrackingMarkers(bpy_prop_collection, bpy_prop):
+class MovieTrackingMarkers(
+    bpy_prop, bpy_prop_collection[MovieTrackingMarker], bpy_struct
+):
     """Collection of markers for movie tracking track"""
 
     def find_frame(
@@ -8414,7 +8575,9 @@ class MovieTrackingMarkers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MovieTrackingObjectPlaneTracks(bpy_prop_collection, bpy_prop):
+class MovieTrackingObjectPlaneTracks(
+    bpy_prop, bpy_prop_collection[MovieTrackingPlaneTrack], bpy_struct
+):
     """Collection of tracking plane tracks"""
 
     active: MovieTrackingTrack | None
@@ -8448,7 +8611,9 @@ class MovieTrackingObjectPlaneTracks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MovieTrackingObjectTracks(bpy_prop_collection, bpy_prop):
+class MovieTrackingObjectTracks(
+    bpy_prop, bpy_prop_collection[MovieTrackingTrack], bpy_struct
+):
     """Collection of movie tracking tracks"""
 
     active: MovieTrackingTrack | None
@@ -8492,7 +8657,9 @@ class MovieTrackingObjectTracks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MovieTrackingObjects(bpy_prop_collection, bpy_prop):
+class MovieTrackingObjects(
+    bpy_prop, bpy_prop_collection[MovieTrackingObject], bpy_struct
+):
     """Collection of movie tracking objects"""
 
     active: MovieTrackingObject | None
@@ -8539,7 +8706,9 @@ class MovieTrackingObjects(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MovieTrackingPlaneMarkers(bpy_prop_collection, bpy_prop):
+class MovieTrackingPlaneMarkers(
+    bpy_prop, bpy_prop_collection[MovieTrackingPlaneMarker], bpy_struct
+):
     """Collection of markers for movie tracking plane track"""
 
     def find_frame(
@@ -8593,7 +8762,9 @@ class MovieTrackingPlaneMarkers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MovieTrackingPlaneTracks(bpy_prop_collection, bpy_prop):
+class MovieTrackingPlaneTracks(
+    bpy_prop, bpy_prop_collection[MovieTrackingPlaneTrack], bpy_struct
+):
     """Collection of movie tracking plane tracks"""
 
     active: MovieTrackingPlaneTrack | None
@@ -8627,7 +8798,9 @@ class MovieTrackingPlaneTracks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MovieTrackingReconstructedCameras(bpy_prop_collection, bpy_prop):
+class MovieTrackingReconstructedCameras(
+    bpy_prop, bpy_prop_collection[MovieReconstructedCamera], bpy_struct
+):
     """Collection of solved cameras"""
 
     def find_frame(self, *, frame: int | None = 1) -> MovieReconstructedCamera:
@@ -8672,7 +8845,9 @@ class MovieTrackingReconstructedCameras(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class MovieTrackingTracks(bpy_prop_collection, bpy_prop):
+class MovieTrackingTracks(
+    bpy_prop, bpy_prop_collection[MovieTrackingTrack], bpy_struct
+):
     """Collection of movie tracking tracks"""
 
     active: MovieTrackingTrack | None
@@ -8716,7 +8891,7 @@ class MovieTrackingTracks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NlaStripFCurves(bpy_prop_collection, bpy_prop):
+class NlaStripFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct):
     """Collection of NLA strip F-Curves"""
 
     def find(self, data_path: str | None, *, index: int | None = 0) -> FCurve:
@@ -8755,7 +8930,7 @@ class NlaStripFCurves(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NlaStrips(bpy_prop_collection, bpy_prop):
+class NlaStrips(bpy_prop, bpy_prop_collection[NlaStrip], bpy_struct):
     """Collection of NLA Strips"""
 
     def new(
@@ -8803,7 +8978,7 @@ class NlaStrips(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NlaTracks(bpy_prop_collection, bpy_prop):
+class NlaTracks(bpy_prop, bpy_prop_collection[NlaTrack], bpy_struct):
     """Collection of NLA Tracks"""
 
     active: NlaTrack | None
@@ -8850,7 +9025,9 @@ class NlaTracks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeClosureInputItems(bpy_prop_collection, bpy_prop):
+class NodeClosureInputItems(
+    bpy_prop, bpy_prop_collection[NodeClosureInputItem], bpy_struct
+):
     def new(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
@@ -8908,7 +9085,9 @@ class NodeClosureInputItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeClosureOutputItems(bpy_prop_collection, bpy_prop):
+class NodeClosureOutputItems(
+    bpy_prop, bpy_prop_collection[NodeClosureOutputItem], bpy_struct
+):
     def new(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
@@ -8966,7 +9145,9 @@ class NodeClosureOutputItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeCombineBundleItems(bpy_prop_collection, bpy_prop):
+class NodeCombineBundleItems(
+    bpy_prop, bpy_prop_collection[NodeCombineBundleItem], bpy_struct
+):
     """Collection of combine bundle items"""
 
     def new(
@@ -9026,7 +9207,9 @@ class NodeCombineBundleItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeCompositorFileOutputItems(bpy_prop_collection, bpy_prop):
+class NodeCompositorFileOutputItems(
+    bpy_prop, bpy_prop_collection[NodeCompositorFileOutputItem], bpy_struct
+):
     """Collection of file output items"""
 
     def new(
@@ -9086,7 +9269,9 @@ class NodeCompositorFileOutputItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeEvaluateClosureInputItems(bpy_prop_collection, bpy_prop):
+class NodeEvaluateClosureInputItems(
+    bpy_prop, bpy_prop_collection[NodeEvaluateClosureInputItem], bpy_struct
+):
     def new(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
@@ -9144,7 +9329,9 @@ class NodeEvaluateClosureInputItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeEvaluateClosureOutputItems(bpy_prop_collection, bpy_prop):
+class NodeEvaluateClosureOutputItems(
+    bpy_prop, bpy_prop_collection[NodeEvaluateClosureOutputItem], bpy_struct
+):
     def new(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
@@ -9202,7 +9389,9 @@ class NodeEvaluateClosureOutputItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeFunctionFormatStringItems(bpy_prop_collection, bpy_prop):
+class NodeFunctionFormatStringItems(
+    bpy_prop, bpy_prop_collection[NodeFunctionFormatStringItem], bpy_struct
+):
     """Collection of format string items"""
 
     def new(
@@ -9262,7 +9451,9 @@ class NodeFunctionFormatStringItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeGeometryBakeItems(bpy_prop_collection, bpy_prop):
+class NodeGeometryBakeItems(
+    bpy_prop, bpy_prop_collection[NodeGeometryBakeItem], bpy_struct
+):
     """Collection of bake items"""
 
     def new(
@@ -9322,7 +9513,9 @@ class NodeGeometryBakeItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeGeometryCaptureAttributeItems(bpy_prop_collection, bpy_prop):
+class NodeGeometryCaptureAttributeItems(
+    bpy_prop, bpy_prop_collection[NodeGeometryCaptureAttributeItem], bpy_struct
+):
     """Collection of capture attribute items"""
 
     def new(
@@ -9382,7 +9575,9 @@ class NodeGeometryCaptureAttributeItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeGeometryForeachGeometryElementGenerationItems(bpy_prop_collection, bpy_prop):
+class NodeGeometryForeachGeometryElementGenerationItems(
+    bpy_prop, bpy_prop_collection[ForeachGeometryElementGenerationItem], bpy_struct
+):
     """Collection of generation items"""
 
     def new(
@@ -9442,7 +9637,9 @@ class NodeGeometryForeachGeometryElementGenerationItems(bpy_prop_collection, bpy
         :return: The class or default when not found.
         """
 
-class NodeGeometryForeachGeometryElementInputItems(bpy_prop_collection, bpy_prop):
+class NodeGeometryForeachGeometryElementInputItems(
+    bpy_prop, bpy_prop_collection[ForeachGeometryElementInputItem], bpy_struct
+):
     """Collection of input items"""
 
     def new(
@@ -9502,7 +9699,9 @@ class NodeGeometryForeachGeometryElementInputItems(bpy_prop_collection, bpy_prop
         :return: The class or default when not found.
         """
 
-class NodeGeometryForeachGeometryElementMainItems(bpy_prop_collection, bpy_prop):
+class NodeGeometryForeachGeometryElementMainItems(
+    bpy_prop, bpy_prop_collection[ForeachGeometryElementMainItem], bpy_struct
+):
     """Collection of main items"""
 
     def new(
@@ -9562,7 +9761,9 @@ class NodeGeometryForeachGeometryElementMainItems(bpy_prop_collection, bpy_prop)
         :return: The class or default when not found.
         """
 
-class NodeGeometryRepeatOutputItems(bpy_prop_collection, bpy_prop):
+class NodeGeometryRepeatOutputItems(
+    bpy_prop, bpy_prop_collection[RepeatItem], bpy_struct
+):
     """Collection of repeat items"""
 
     def new(
@@ -9622,7 +9823,9 @@ class NodeGeometryRepeatOutputItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeGeometrySimulationOutputItems(bpy_prop_collection, bpy_prop):
+class NodeGeometrySimulationOutputItems(
+    bpy_prop, bpy_prop_collection[SimulationStateItem], bpy_struct
+):
     """Collection of simulation items"""
 
     def new(
@@ -9682,7 +9885,9 @@ class NodeGeometrySimulationOutputItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeGeometryViewerItems(bpy_prop_collection, bpy_prop):
+class NodeGeometryViewerItems(
+    bpy_prop, bpy_prop_collection[NodeGeometryViewerItem], bpy_struct
+):
     """Collection of viewer items"""
 
     def new(
@@ -9742,7 +9947,7 @@ class NodeGeometryViewerItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeIndexSwitchItems(bpy_prop_collection, bpy_prop):
+class NodeIndexSwitchItems(bpy_prop, bpy_prop_collection[IndexSwitchItem], bpy_struct):
     """Collection of index_switch items"""
 
     def new(self) -> IndexSwitchItem:
@@ -9795,7 +10000,7 @@ class NodeIndexSwitchItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeInputs(bpy_prop_collection, bpy_prop):
+class NodeInputs(bpy_prop, bpy_prop_collection[NodeSocket], bpy_struct):
     """Collection of Node Sockets"""
 
     def new(
@@ -9859,7 +10064,7 @@ class NodeInputs(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeLinks(bpy_prop_collection, bpy_prop):
+class NodeLinks(bpy_prop, bpy_prop_collection[NodeLink], bpy_struct):
     """Collection of Node Links"""
 
     def new(
@@ -9916,7 +10121,7 @@ class NodeLinks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeMenuSwitchItems(bpy_prop_collection, bpy_prop):
+class NodeMenuSwitchItems(bpy_prop, bpy_prop_collection[NodeEnumItem], bpy_struct):
     """Collection of items that make up an enum"""
 
     def new(self, name: str | None) -> NodeEnumItem:
@@ -9970,7 +10175,7 @@ class NodeMenuSwitchItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeOutputs(bpy_prop_collection, bpy_prop):
+class NodeOutputs(bpy_prop, bpy_prop_collection[NodeSocket], bpy_struct):
     """Collection of Node Sockets"""
 
     def new(
@@ -10034,7 +10239,9 @@ class NodeOutputs(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodeSeparateBundleItems(bpy_prop_collection, bpy_prop):
+class NodeSeparateBundleItems(
+    bpy_prop, bpy_prop_collection[NodeSeparateBundleItem], bpy_struct
+):
     """Collection of separate bundle items"""
 
     def new(
@@ -10094,7 +10301,7 @@ class NodeSeparateBundleItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class Nodes(bpy_prop_collection, bpy_prop):
+class Nodes(bpy_prop, bpy_prop_collection[Node], bpy_struct):
     """Collection of Nodes"""
 
     active: Node | None
@@ -10144,7 +10351,9 @@ class Nodes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodesModifierBakeDataBlocks(bpy_prop_collection, bpy_prop):
+class NodesModifierBakeDataBlocks(
+    bpy_prop, bpy_prop_collection[NodesModifierDataBlock], bpy_struct
+):
     """Collection of data-blocks that can be referenced by baked data"""
 
     active_index: int | None
@@ -10178,7 +10387,7 @@ class NodesModifierBakeDataBlocks(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodesModifierBakes(bpy_prop_collection, bpy_prop):
+class NodesModifierBakes(bpy_prop, bpy_prop_collection[NodesModifierBake], bpy_struct):
     """Bake data for every bake node"""
 
     @classmethod
@@ -10209,7 +10418,9 @@ class NodesModifierBakes(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class NodesModifierPanels(bpy_prop_collection, bpy_prop):
+class NodesModifierPanels(
+    bpy_prop, bpy_prop_collection[NodesModifierPanel], bpy_struct
+):
     """State of all panels defined by the node group"""
 
     @classmethod
@@ -10240,7 +10451,7 @@ class NodesModifierPanels(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ObjectConstraints(bpy_prop_collection, bpy_prop):
+class ObjectConstraints(bpy_prop, bpy_prop_collection[Constraint], bpy_struct):
     """Collection of object constraints"""
 
     active: Constraint | None
@@ -10307,7 +10518,7 @@ class ObjectConstraints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ObjectModifiers(bpy_prop_collection, bpy_prop):
+class ObjectModifiers(bpy_prop, bpy_prop_collection[Modifier], bpy_struct):
     """Collection of object modifiers"""
 
     active: Modifier | None
@@ -10370,7 +10581,7 @@ class ObjectModifiers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ObjectShaderFx(bpy_prop_collection, bpy_prop):
+class ObjectShaderFx(bpy_prop, bpy_prop_collection[ShaderFx], bpy_struct):
     """Collection of object effects"""
 
     def new(
@@ -10423,7 +10634,7 @@ class ObjectShaderFx(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class PaletteColors(bpy_prop_collection, bpy_prop):
+class PaletteColors(bpy_prop, bpy_prop_collection[PaletteColor], bpy_struct):
     """Collection of palette colors"""
 
     active: PaletteColor | None
@@ -10471,7 +10682,9 @@ class PaletteColors(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ParticleSettingsTextureSlots(bpy_prop_collection, bpy_prop):
+class ParticleSettingsTextureSlots(
+    bpy_prop, bpy_prop_collection[ParticleSettingsTextureSlot], bpy_struct
+):
     """Collection of texture slots"""
 
     @classmethod
@@ -10524,7 +10737,7 @@ class ParticleSettingsTextureSlots(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ParticleSystems(bpy_prop_collection, bpy_prop):
+class ParticleSystems(bpy_prop, bpy_prop_collection[ParticleSystem], bpy_struct):
     """Collection of particle systems"""
 
     active: ParticleSystem | None
@@ -10561,7 +10774,7 @@ class ParticleSystems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class PathCompareCollection(bpy_prop_collection, bpy_prop):
+class PathCompareCollection(bpy_prop, bpy_prop_collection[PathCompare], bpy_struct):
     """Collection of paths"""
 
     @classmethod
@@ -10606,7 +10819,7 @@ class PathCompareCollection(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class PointCaches(bpy_prop_collection, bpy_prop):
+class PointCaches(bpy_prop, bpy_prop_collection[PointCacheItem], bpy_struct):
     """Collection of point caches"""
 
     active_index: int | None
@@ -10640,7 +10853,7 @@ class PointCaches(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class PoseBoneConstraints(bpy_prop_collection, bpy_prop):
+class PoseBoneConstraints(bpy_prop, bpy_prop_collection[Constraint], bpy_struct):
     """Collection of pose bone constraints"""
 
     active: Constraint | None
@@ -10704,7 +10917,7 @@ class PoseBoneConstraints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class RenderPasses(bpy_prop_collection, bpy_prop):
+class RenderPasses(bpy_prop, bpy_prop_collection[RenderPass], bpy_struct):
     """Collection of render passes"""
 
     def find_by_name(self, name: str | None, view: str | None) -> RenderPass:
@@ -10743,7 +10956,7 @@ class RenderPasses(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class RenderSlots(bpy_prop_collection, bpy_prop):
+class RenderSlots(bpy_prop, bpy_prop_collection[RenderSlot], bpy_struct):
     """Collection of render layers"""
 
     active: RenderSlot | None
@@ -10787,7 +11000,7 @@ class RenderSlots(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class RenderViews(bpy_prop_collection, bpy_prop):
+class RenderViews(bpy_prop, bpy_prop_collection[SceneRenderView], bpy_struct):
     """Collection of render views"""
 
     active: SceneRenderView | None
@@ -10837,7 +11050,7 @@ class RenderViews(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class RetimingKeys(bpy_prop_collection, bpy_prop):
+class RetimingKeys(bpy_prop, bpy_prop_collection[RetimingKey], bpy_struct):
     """Collection of RetimingKey"""
 
     def add(self, *, timeline_frame: int | None = 0) -> RetimingKey:
@@ -10878,7 +11091,7 @@ class RetimingKeys(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class SceneObjects(bpy_prop_collection, bpy_prop):
+class SceneObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
     """All of the scene objects"""
 
     @classmethod
@@ -10909,7 +11122,9 @@ class SceneObjects(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ScriptDirectoryCollection(bpy_prop_collection, bpy_prop):
+class ScriptDirectoryCollection(
+    bpy_prop, bpy_prop_collection[ScriptDirectory], bpy_struct
+):
     @classmethod
     def new(cls) -> ScriptDirectory:
         """Add a new Python script directory
@@ -10952,7 +11167,7 @@ class ScriptDirectoryCollection(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class SpaceNodeEditorPath(bpy_prop_collection, bpy_prop):
+class SpaceNodeEditorPath(bpy_prop, bpy_prop_collection[NodeTreePath], bpy_struct):
     """Get the node tree path as a string"""
 
     to_string: str
@@ -11005,7 +11220,7 @@ class SpaceNodeEditorPath(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class SplineBezierPoints(bpy_prop_collection, bpy_prop):
+class SplineBezierPoints(bpy_prop, bpy_prop_collection[BezierSplinePoint], bpy_struct):
     """Collection of spline Bézier points"""
 
     def add(self, count: int | None) -> None:
@@ -11042,7 +11257,7 @@ class SplineBezierPoints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class SplinePoints(bpy_prop_collection, bpy_prop):
+class SplinePoints(bpy_prop, bpy_prop_collection[SplinePoint], bpy_struct):
     """Collection of spline points"""
 
     def add(self, count: int | None) -> None:
@@ -11079,7 +11294,7 @@ class SplinePoints(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class SpreadsheetTables(bpy_prop_collection, bpy_prop):
+class SpreadsheetTables(bpy_prop, bpy_prop_collection[SpreadsheetTable], bpy_struct):
     """Active table and persisted state of previously displayed tables"""
 
     active: SpreadsheetTable | None
@@ -11113,7 +11328,7 @@ class SpreadsheetTables(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class StripElements(bpy_prop_collection, bpy_prop):
+class StripElements(bpy_prop, bpy_prop_collection[StripElement], bpy_struct):
     """Collection of StripElement"""
 
     def append(self, filename: str | None) -> StripElement:
@@ -11157,7 +11372,7 @@ class StripElements(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class StripModifiers(bpy_prop_collection, bpy_prop):
+class StripModifiers(bpy_prop, bpy_prop_collection[StripModifier], bpy_struct):
     """Collection of strip modifiers"""
 
     active: StripModifier | None
@@ -11212,7 +11427,7 @@ class StripModifiers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class StripsMeta(bpy_prop_collection, bpy_prop):
+class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
     """Collection of Strips"""
 
     def new_clip(
@@ -11457,7 +11672,7 @@ class StripsMeta(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class StripsTopLevel(bpy_prop_collection, bpy_prop):
+class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
     """Collection of Strips"""
 
     def new_clip(
@@ -11702,7 +11917,7 @@ class StripsTopLevel(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class StudioLights(bpy_prop_collection, bpy_prop):
+class StudioLights(bpy_prop, bpy_prop_collection[StudioLight], bpy_struct):
     """Collection of studio lights"""
 
     def load(
@@ -11759,7 +11974,7 @@ class StudioLights(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class TimelineMarkers(bpy_prop_collection, bpy_prop):
+class TimelineMarkers(bpy_prop, bpy_prop_collection[TimelineMarker], bpy_struct):
     """Collection of timeline markers"""
 
     def new(self, name: str | None, *, frame: int | None = 1) -> TimelineMarker:
@@ -11807,7 +12022,7 @@ class TimelineMarkers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class UDIMTiles(bpy_prop_collection, bpy_prop):
+class UDIMTiles(bpy_prop, bpy_prop_collection[UDIMTile], bpy_struct):
     """Collection of UDIM tiles"""
 
     active: UDIMTile | None
@@ -11865,7 +12080,7 @@ class UDIMTiles(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class UVLoopLayers(bpy_prop_collection, bpy_prop):
+class UVLoopLayers(bpy_prop, bpy_prop_collection[MeshUVLoopLayer], bpy_struct):
     """Collection of UV map layers"""
 
     active: MeshUVLoopLayer | None
@@ -11918,7 +12133,9 @@ class UVLoopLayers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class UserExtensionRepoCollection(bpy_prop_collection, bpy_prop):
+class UserExtensionRepoCollection(
+    bpy_prop, bpy_prop_collection[UserExtensionRepo], bpy_struct
+):
     """Collection of user extension repositories"""
 
     @classmethod
@@ -11982,7 +12199,7 @@ class UserExtensionRepoCollection(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class VertexGroups(bpy_prop_collection, bpy_prop):
+class VertexGroups(bpy_prop, bpy_prop_collection[VertexGroup], bpy_struct):
     """Collection of vertex groups"""
 
     active: VertexGroup | None
@@ -12035,7 +12252,7 @@ class VertexGroups(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class ViewLayers(bpy_prop_collection, bpy_prop):
+class ViewLayers(bpy_prop, bpy_prop_collection[ViewLayer], bpy_struct):
     """Collection of render layers"""
 
     def new(self, name: str | None) -> ViewLayer:
@@ -12086,7 +12303,7 @@ class ViewLayers(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class VolumeGrids(bpy_prop_collection, bpy_prop):
+class VolumeGrids(bpy_prop, bpy_prop_collection[VolumeGrid], bpy_struct):
     """3D volume grids"""
 
     active_index: int | None
@@ -12148,7 +12365,7 @@ class VolumeGrids(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class Windows(bpy_prop_collection, bpy_prop):
+class Windows(bpy_prop, bpy_prop_collection[Window], bpy_struct):
     """Collection of windows"""
 
     def find_playing(self, *, scrub: bool | None = False) -> Window:
@@ -12186,7 +12403,9 @@ class Windows(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class XrActionMapBindings(bpy_prop_collection, bpy_prop):
+class XrActionMapBindings(
+    bpy_prop, bpy_prop_collection[XrActionMapBinding], bpy_struct
+):
     """Collection of XR action map bindings"""
 
     def new(
@@ -12249,7 +12468,7 @@ class XrActionMapBindings(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class XrActionMapItems(bpy_prop_collection, bpy_prop):
+class XrActionMapItems(bpy_prop, bpy_prop_collection[XrActionMapItem], bpy_struct):
     """Collection of XR action map items"""
 
     def new(self, name: str | None, replace_existing: bool | None) -> XrActionMapItem:
@@ -12308,7 +12527,7 @@ class XrActionMapItems(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class XrActionMaps(bpy_prop_collection, bpy_prop):
+class XrActionMaps(bpy_prop, bpy_prop_collection[XrActionMap], bpy_struct):
     """Collection of XR action maps"""
 
     @classmethod
@@ -12386,7 +12605,7 @@ class XrActionMaps(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class XrComponentPaths(bpy_prop_collection, bpy_prop):
+class XrComponentPaths(bpy_prop, bpy_prop_collection[XrComponentPath], bpy_struct):
     """Collection of OpenXR component paths"""
 
     def new(self, path: str | None) -> XrComponentPath:
@@ -12437,7 +12656,7 @@ class XrComponentPaths(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class XrUserPaths(bpy_prop_collection, bpy_prop):
+class XrUserPaths(bpy_prop, bpy_prop_collection[XrUserPath], bpy_struct):
     """Collection of OpenXR user paths"""
 
     def new(self, path: str | None) -> XrUserPath:
@@ -12488,7 +12707,7 @@ class XrUserPaths(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class wmOwnerIDs(bpy_prop_collection, bpy_prop):
+class wmOwnerIDs(bpy_prop, bpy_prop_collection[wmOwnerID], bpy_struct):
     def new(self, name: str | None) -> wmOwnerID:
         """Add ui tag
 
@@ -12533,7 +12752,7 @@ class wmOwnerIDs(bpy_prop_collection, bpy_prop):
         :return: The class or default when not found.
         """
 
-class wmTools(bpy_prop_collection, bpy_prop):
+class wmTools(bpy_prop, bpy_prop_collection[WorkSpaceTool], bpy_struct):
     def from_space_view3d_mode(
         self,
         mode: typing.Literal[bpy.stub_internal.rna_enums.ContextModeItems] | None,
@@ -12723,13 +12942,13 @@ class Action(ID, bpy_struct):
     is_empty: bool
     """ False when there is any Layer, Slot, or legacy F-Curve (default False, readonly)"""
 
-    layers: typing.Any
+    layers: ActionLayers | None
     """ The list of layers that make up this Action (default None, readonly)"""
 
-    pose_markers: typing.Any
+    pose_markers: ActionPoseMarkers | None
     """ Markers specific to this action, for labeling poses (default None, readonly)"""
 
-    slots: typing.Any
+    slots: ActionSlots | None
     """ The list of slots in this Action (default None, readonly)"""
 
     use_cyclic: bool
@@ -12795,10 +13014,10 @@ class Action(ID, bpy_struct):
 class ActionChannelbag(bpy_struct):
     """Collection of animation channels, typically associated with an action slot"""
 
-    fcurves: typing.Any
+    fcurves: ActionChannelbagFCurves | None
     """ The individual F-Curves that animate the slot (default None, readonly)"""
 
-    groups: typing.Any
+    groups: ActionChannelbagGroups | None
     """ Groupings of F-Curves for display purposes, in e.g. the dopesheet and graph editor (default None, readonly)"""
 
     slot: ActionSlot | None
@@ -12999,7 +13218,7 @@ class ActionGroup(bpy_struct):
 class ActionKeyframeStrip(ActionStrip, bpy_struct):
     """Strip with a set of F-Curves for each action slot"""
 
-    channelbags: typing.Any
+    channelbags: ActionChannelbags | None
     """ (default None, readonly)"""
 
     def channelbag(
@@ -13062,7 +13281,7 @@ class ActionLayer(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    strips: typing.Any
+    strips: ActionStrips | None
     """ The list of strips that are on this animation layer (default None, readonly)"""
 
     @classmethod
@@ -13512,13 +13731,13 @@ class AnimData(bpy_struct):
     action_tweak_storage: Action | None
     """ Storage to temporarily hold the main action while in tweak mode"""
 
-    drivers: typing.Any
+    drivers: AnimDataDrivers | None
     """ The Drivers/Expressions for this data-block (default None, readonly)"""
 
     last_slot_identifier: str
     """ The identifier of the most recently assigned action slot. The slot identifies which sub-set of the Action is considered to be for this data-block, and its identifier is used to find the right slot when assigning an Action. (default "", never None)"""
 
-    nla_tracks: typing.Any
+    nla_tracks: NlaTracks | None
     """ NLA Tracks (i.e. Animation Layers) (default None, readonly)"""
 
     use_nla: bool
@@ -13697,7 +13916,7 @@ class Annotation(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    layers: typing.Any
+    layers: AnnotationLayers | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -13737,7 +13956,7 @@ class AnnotationFrame(bpy_struct):
     select: bool
     """ Frame is selected for editing in the Dope Sheet (default False)"""
 
-    strokes: typing.Any
+    strokes: AnnotationStrokes | None
     """ Freehand curves defining the sketch on this frame (default None, readonly)"""
 
     @classmethod
@@ -13798,7 +14017,7 @@ class AnnotationLayer(bpy_struct):
     color: mathutils.Color
     """ Color for all strokes in this layer (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    frames: typing.Any
+    frames: AnnotationFrames | None
     """ Sketches for this layer on different frames (default None, readonly)"""
 
     info: str
@@ -13859,7 +14078,7 @@ class AnnotationStroke(bpy_struct):
     display_mode: typing.Literal["3DSPACE", "2DSPACE", "2DIMAGE"]
     """ Coordinate space that stroke is in (default '3DSPACE')"""
 
-    points: typing.Any
+    points: AnnotationStrokePoints | None
     """ Stroke data points (default None, readonly)"""
 
     @classmethod
@@ -13967,7 +14186,7 @@ class Area(bpy_struct):
     show_menus: bool
     """ Show menus in the header (default True)"""
 
-    spaces: typing.Any
+    spaces: AreaSpaces | None
     """ Spaces contained in this area, the first being the active space (NOTE: Useful for example to restore a previously used 3D view space in a certain area to get the old view orientation) (default None, readonly)"""
 
     type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
@@ -14105,10 +14324,10 @@ class Armature(ID, bpy_struct):
     axes_position: float
     """ The position for the axes on the bone. Increasing the value moves it closer to the tip; decreasing moves it closer to the root. (in [0, 1], default 0.0)"""
 
-    bones: typing.Any
+    bones: ArmatureBones | None
     """ (default None, readonly)"""
 
-    collections: typing.Any
+    collections: BoneCollections | None
     """ (default None)"""
 
     collections_all: typing.Any
@@ -14117,7 +14336,7 @@ class Armature(ID, bpy_struct):
     display_type: typing.Literal["OCTAHEDRAL", "STICK", "BBONE", "ENVELOPE", "WIRE"]
     """ (default 'OCTAHEDRAL')"""
 
-    edit_bones: typing.Any
+    edit_bones: ArmatureEditBones | None
     """ (default None, readonly)"""
 
     is_editmode: bool
@@ -14186,7 +14405,7 @@ class Armature(ID, bpy_struct):
 class ArmatureConstraint(Constraint, bpy_struct):
     """Applies transformations done by the Armature modifier"""
 
-    targets: typing.Any
+    targets: ArmatureConstraintTargets | None
     """ Target Bones (default None, readonly)"""
 
     use_bone_envelopes: bool
@@ -14415,7 +14634,7 @@ class AssetMetaData(bpy_struct):
     license: str
     """ The type of license this asset is distributed under. An empty license name does not necessarily indicate that this is free of licensing terms. Contact the author if any clarification is needed. (default "", never None)"""
 
-    tags: typing.Any
+    tags: AssetTags | None
     """ Custom tags (name tokens) for the asset, used for filtering and general asset management (default None, readonly)"""
 
     @classmethod
@@ -15141,46 +15360,46 @@ class BezierSplinePoint(bpy_struct):
 class BlendData(bpy_struct):
     """Main data structure representing a .blend file and all its data-blocks"""
 
-    actions: typing.Any
+    actions: BlendDataActions | None
     """ Action data-blocks (default None, readonly)"""
 
-    annotations: typing.Any
+    annotations: BlendDataAnnotations | None
     """ Annotation data-blocks (legacy Grease Pencil) (default None, readonly)"""
 
-    armatures: typing.Any
+    armatures: BlendDataArmatures | None
     """ Armature data-blocks (default None, readonly)"""
 
-    brushes: typing.Any
+    brushes: BlendDataBrushes | None
     """ Brush data-blocks (default None, readonly)"""
 
-    cache_files: typing.Any
+    cache_files: BlendDataCacheFiles | None
     """ Cache Files data-blocks (default None, readonly)"""
 
-    cameras: typing.Any
+    cameras: BlendDataCameras | None
     """ Camera data-blocks (default None, readonly)"""
 
-    collections: typing.Any
+    collections: BlendDataCollections | None
     """ Collection data-blocks (default None, readonly)"""
 
     colorspace: BlendFileColorspace | None
     """ Information about the color space used for data-blocks in a blend file (readonly, never None)"""
 
-    curves: typing.Any
+    curves: BlendDataCurves | None
     """ Curve data-blocks (default None, readonly)"""
 
     filepath: str
     """ Path to the .blend file (default "", readonly, never None)"""
 
-    fonts: typing.Any
+    fonts: BlendDataFonts | None
     """ Vector font data-blocks (default None, readonly)"""
 
-    grease_pencils: typing.Any
+    grease_pencils: BlendDataGreasePencilsV3 | None
     """ Grease Pencil data-blocks (default None, readonly)"""
 
-    hair_curves: typing.Any
+    hair_curves: BlendDataHairCurves | None
     """ Hair curve data-blocks (default None, readonly)"""
 
-    images: typing.Any
+    images: BlendDataImages | None
     """ Image data-blocks (default None, readonly)"""
 
     is_dirty: bool
@@ -15189,73 +15408,73 @@ class BlendData(bpy_struct):
     is_saved: bool
     """ Has the current session been saved to disk as a .blend file (default False, readonly)"""
 
-    lattices: typing.Any
+    lattices: BlendDataLattices | None
     """ Lattice data-blocks (default None, readonly)"""
 
-    libraries: typing.Any
+    libraries: BlendDataLibraries | None
     """ Library data-blocks (default None, readonly)"""
 
-    lightprobes: typing.Any
+    lightprobes: BlendDataProbes | None
     """ Light Probe data-blocks (default None, readonly)"""
 
-    lights: typing.Any
+    lights: BlendDataLights | None
     """ Light data-blocks (default None, readonly)"""
 
-    linestyles: typing.Any
+    linestyles: BlendDataLineStyles | None
     """ Line Style data-blocks (default None, readonly)"""
 
-    masks: typing.Any
+    masks: BlendDataMasks | None
     """ Masks data-blocks (default None, readonly)"""
 
-    materials: typing.Any
+    materials: BlendDataMaterials | None
     """ Material data-blocks (default None, readonly)"""
 
-    meshes: typing.Any
+    meshes: BlendDataMeshes | None
     """ Mesh data-blocks (default None, readonly)"""
 
-    metaballs: typing.Any
+    metaballs: BlendDataMetaBalls | None
     """ Metaball data-blocks (default None, readonly)"""
 
-    movieclips: typing.Any
+    movieclips: BlendDataMovieClips | None
     """ Movie Clip data-blocks (default None, readonly)"""
 
-    node_groups: typing.Any
+    node_groups: BlendDataNodeTrees | None
     """ Node group data-blocks (default None, readonly)"""
 
-    objects: typing.Any
+    objects: BlendDataObjects | None
     """ Object data-blocks (default None, readonly)"""
 
-    paint_curves: typing.Any
+    paint_curves: BlendDataPaintCurves | None
     """ Paint Curves data-blocks (default None, readonly)"""
 
-    palettes: typing.Any
+    palettes: BlendDataPalettes | None
     """ Palette data-blocks (default None, readonly)"""
 
-    particles: typing.Any
+    particles: BlendDataParticles | None
     """ Particle data-blocks (default None, readonly)"""
 
-    pointclouds: typing.Any
+    pointclouds: BlendDataPointClouds | None
     """ Point cloud data-blocks (default None, readonly)"""
 
-    scenes: typing.Any
+    scenes: BlendDataScenes | None
     """ Scene data-blocks (default None, readonly)"""
 
-    screens: typing.Any
+    screens: BlendDataScreens | None
     """ Screen data-blocks (default None, readonly)"""
 
     shape_keys: typing.Any
     """ Shape Key data-blocks (default None, readonly)"""
 
-    sounds: typing.Any
+    sounds: BlendDataSounds | None
     """ Sound data-blocks (default None, readonly)"""
 
-    speakers: typing.Any
+    speakers: BlendDataSpeakers | None
     """ Speaker data-blocks (default None, readonly)"""
 
-    texts: typing.Any
+    texts: BlendDataTexts | None
     """ Text data-blocks (default None, readonly)"""
 
-    textures: typing.Any
+    textures: BlendDataTextures | None
     """ Texture data-blocks (default None, readonly)"""
 
     use_autopack: bool
@@ -15264,16 +15483,16 @@ class BlendData(bpy_struct):
     version: typing.Any
     """ File format version the .blend file was saved with (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
-    volumes: typing.Any
+    volumes: BlendDataVolumes | None
     """ Volume data-blocks (default None, readonly)"""
 
-    window_managers: typing.Any
+    window_managers: BlendDataWindowManagers | None
     """ Window manager data-blocks (default None, readonly)"""
 
-    workspaces: typing.Any
+    workspaces: BlendDataWorkSpaces | None
     """ Workspace data-blocks (default None, readonly)"""
 
-    worlds: typing.Any
+    worlds: BlendDataWorlds | None
     """ World data-blocks (default None, readonly)"""
 
     def pack_linked_ids_hierarchy(self, root_id: ID | None) -> ID:
@@ -15350,9 +15569,17 @@ class BlendData(bpy_struct):
         :return: dictionary of `bpy.types.ID` instances, with sets of file path strings as their values.
         """
 
-    def orphans_purge(self) -> int:
+    def orphans_purge(
+        self,
+        do_local_ids: bool | None = True,
+        do_linked_ids: bool | None = True,
+        do_recursive: bool | None = False,
+    ) -> int:
         """Remove (delete) all IDs with no user.
 
+        :param do_local_ids: Include unused local IDs in the deletion, defaults to True
+        :param do_linked_ids: Include unused linked IDs in the deletion, defaults to True
+        :param do_recursive: Recursively check for unused IDs, ensuring no orphaned one remain after a single run of that function, defaults to False
         :return: The number of deleted IDs.
         """
 
@@ -15424,7 +15651,7 @@ class BlendFileColorspace(bpy_struct):
 class BlendImportContext(bpy_struct):
     """Contextual data for a blendfile library/linked-data related operation. Currently only exposed as read-only data for the pre/post blendimport handlers"""
 
-    import_items: typing.Any
+    import_items: BlendImportContextItems | None
     """ (default None, readonly)"""
 
     options: set[
@@ -15506,7 +15733,7 @@ class BlendImportContextItem(bpy_struct):
     reusable_local_id: ID | None
     """ The already existing local ID that may be reused in append & reuse case. None until it has been found (readonly)"""
 
-    source_libraries: typing.Any
+    source_libraries: BlendImportContextLibraries | None
     """ List of libraries to search and import that ID from. The ID will be imported from the first file in that list that contains it (default None, readonly)"""
 
     source_library: Library | None
@@ -16163,7 +16390,7 @@ class Bone(bpy_struct):
     children: typing.Any
     """ Bones which are children of this bone (default None, readonly)"""
 
-    collections: typing.Any
+    collections: BoneCollectionMemberships | None
     """ Bone Collections that contain this bone (default None, readonly)"""
 
     color: BoneColor | None
@@ -18520,10 +18747,10 @@ class CacheFile(ID, bpy_struct):
     is_sequence: bool
     """ Whether the cache is separated in a series of files (default False)"""
 
-    layers: typing.Any
+    layers: CacheFileLayers | None
     """ Layers of the cache (default None, readonly)"""
 
-    object_paths: typing.Any
+    object_paths: CacheObjectPaths | None
     """ Paths of the objects inside the Alembic archive (default None, readonly)"""
 
     override_frame: bool
@@ -18655,7 +18882,7 @@ class Camera(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    background_images: typing.Any
+    background_images: CameraBackgroundImages | None
     """ List of background images (default None, readonly)"""
 
     central_cylindrical_radius: float
@@ -19767,7 +19994,7 @@ class Collection(ID, bpy_struct):
     all_objects: typing.Any
     """ Objects that are in this collection and its child collections (default None, readonly)"""
 
-    children: typing.Any
+    children: CollectionChildren | None
     """ Collections that are immediate children of this collection (default None, readonly)"""
 
     collection_children: typing.Any
@@ -19779,7 +20006,7 @@ class Collection(ID, bpy_struct):
     color_tag: typing.Literal[bpy.stub_internal.rna_enums.CollectionColorItems]
     """ Color tag for a collection (default 'COLOR_01')"""
 
-    exporters: typing.Any
+    exporters: CollectionExports | None
     """ Export Handlers configured for the collection (default None, readonly)"""
 
     hide_render: bool
@@ -19813,7 +20040,7 @@ class Collection(ID, bpy_struct):
     lineart_use_intersection_mask: bool
     """ Use custom intersection mask for faces in this collection (default False)"""
 
-    objects: typing.Any
+    objects: CollectionObjects | None
     """ Objects that are directly in this collection (default None, readonly)"""
 
     use_lineart_intersection_priority: bool
@@ -20501,7 +20728,7 @@ class ColorRamp(bpy_struct):
     color_mode: typing.Literal["RGB", "HSV", "HSL"]
     """ Set color mode to use for interpolation (default 'RGB')"""
 
-    elements: typing.Any
+    elements: ColorRampElements | None
     """ (default None, readonly)"""
 
     hue_interpolation: typing.Literal["NEAR", "FAR", "CW", "CCW"]
@@ -24085,7 +24312,7 @@ class CompositorNodeOutputFile(CompositorNode, NodeInternal, Node, bpy_struct):
     file_name: str
     """ The base name of the file. Other information might be included in the final file name depending on the node options (default "", never None, Supports template expressions)"""
 
-    file_output_items: typing.Any
+    file_output_items: NodeCompositorFileOutputItems | None
     """ (default None, readonly)"""
 
     format: ImageFormatSettings | None
@@ -26547,7 +26774,7 @@ class Curve(ID, bpy_struct):
     is_editmode: bool
     """ True when used in editmode (default False, readonly)"""
 
-    materials: typing.Any
+    materials: IDMaterials | None
     """ (default None, readonly)"""
 
     offset: float
@@ -26571,7 +26798,7 @@ class Curve(ID, bpy_struct):
     shape_keys: Key | None
     """ (readonly)"""
 
-    splines: typing.Any
+    splines: CurveSplines | None
     """ Collection of splines in this curve data object (default None, readonly)"""
 
     taper_object: Object | None
@@ -26673,7 +26900,7 @@ class Curve(ID, bpy_struct):
 class CurveMap(bpy_struct):
     """Curve in a curve mapping"""
 
-    points: typing.Any
+    points: CurveMapPoints | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -26985,7 +27212,7 @@ class CurvePoint(bpy_struct):
 class CurveProfile(bpy_struct):
     """Profile Path editor used to build a profile path"""
 
-    points: typing.Any
+    points: CurveProfilePoints | None
     """ Profile control points (default None, readonly)"""
 
     preset: typing.Literal["LINE", "SUPPORTS", "CORNICE", "CROWN", "STEPS"]
@@ -27142,10 +27369,10 @@ class Curves(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    attributes: typing.Any
+    attributes: AttributeGroupCurves | None
     """ Geometry attributes (default None, readonly)"""
 
-    color_attributes: typing.Any
+    color_attributes: AttributeGroupCurves | None
     """ Geometry color attributes (default None, readonly)"""
 
     curve_offset_data: typing.Any
@@ -27154,7 +27381,7 @@ class Curves(ID, bpy_struct):
     curves: typing.Any
     """ All curves in the data-block (default None, readonly)"""
 
-    materials: typing.Any
+    materials: IDMaterials | None
     """ (default None, readonly)"""
 
     normals: typing.Any
@@ -28224,7 +28451,7 @@ class Driver(bpy_struct):
     use_self: bool
     """ Include a 'self' variable in the name-space, so drivers can easily reference the data being modified (object, bone, etc...) (default False)"""
 
-    variables: typing.Any
+    variables: ChannelDriverVariables | None
     """ Properties acting as inputs for this driver (default None, readonly)"""
 
     @classmethod
@@ -28498,7 +28725,7 @@ class DynamicPaintBrushSettings(bpy_struct):
 class DynamicPaintCanvasSettings(bpy_struct):
     """Dynamic Paint canvas settings"""
 
-    canvas_surfaces: typing.Any
+    canvas_surfaces: DynamicPaintSurfaces | None
     """ Paint surface list (default None, readonly)"""
 
     @classmethod
@@ -29656,13 +29883,13 @@ class FCurve(bpy_struct):
     is_valid: bool
     """ False when F-Curve could not be evaluated in past, so should be skipped when evaluating (default True)"""
 
-    keyframe_points: typing.Any
+    keyframe_points: FCurveKeyframePoints | None
     """ User-editable keyframes (default None, readonly)"""
 
     lock: bool
     """ F-Curve's settings cannot be edited (default False)"""
 
-    modifiers: typing.Any
+    modifiers: FCurveModifiers | None
     """ Modifiers affecting the shape of the F-Curve (default None, readonly)"""
 
     mute: bool
@@ -30114,7 +30341,7 @@ class FModifierCycles(FModifier, bpy_struct):
 class FModifierEnvelope(FModifier, bpy_struct):
     """Scale the values of the modified F-Curve"""
 
-    control_points: typing.Any
+    control_points: FModifierEnvelopeControlPoints | None
     """ Control points defining the shape of the envelope (default None, readonly)"""
 
     default_max: float
@@ -33003,7 +33230,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     alpha: float
     """ Base alpha transparency, possibly modified by alpha transparency modifiers (in [0, 1], default 1.0)"""
 
-    alpha_modifiers: typing.Any
+    alpha_modifiers: LineStyleAlphaModifiers | None
     """ List of alpha transparency modifiers (default None, readonly)"""
 
     angle_max: float
@@ -33027,7 +33254,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     color: mathutils.Color
     """ Base line color, possibly modified by line color modifiers (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
 
-    color_modifiers: typing.Any
+    color_modifiers: LineStyleColorModifiers | None
     """ List of line color modifiers (default None, readonly)"""
 
     dash1: int
@@ -33048,7 +33275,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     gap3: int
     """ Length of the 3rd gap for dashed lines (in [0, 65535], default 0)"""
 
-    geometry_modifiers: typing.Any
+    geometry_modifiers: LineStyleGeometryModifiers | None
     """ List of stroke geometry modifiers (default None, readonly)"""
 
     integration_type: typing.Literal["MEAN", "MIN", "MAX", "FIRST", "LAST"]
@@ -33103,7 +33330,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     split_length: float
     """ Curvilinear 2D length for chain splitting (in [0, 10000], default 100.0)"""
 
-    texture_slots: typing.Any
+    texture_slots: LineStyleTextureSlots | None
     """ Texture slots defining the mapping and influence of textures (default None, readonly)"""
 
     texture_spacing: float
@@ -33112,7 +33339,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     thickness: float
     """ Base line thickness, possibly modified by line thickness modifiers (in [0, 10000], default 3.0)"""
 
-    thickness_modifiers: typing.Any
+    thickness_modifiers: LineStyleThicknessModifiers | None
     """ List of line thickness modifiers (default None, readonly)"""
 
     thickness_position: typing.Literal["CENTER", "INSIDE", "OUTSIDE", "RELATIVE"]
@@ -33237,13 +33464,13 @@ class FreestyleSettings(bpy_struct):
     kr_derivative_epsilon: float
     """ Kr derivative epsilon for computing suggestive contours (in [-1000, 1000], default 0.0)"""
 
-    linesets: typing.Any
+    linesets: Linesets | None
     """ (default None, readonly)"""
 
     mode: typing.Literal["SCRIPT", "EDITOR"]
     """ Select the Freestyle control mode (default 'SCRIPT')"""
 
-    modules: typing.Any
+    modules: FreestyleModules | None
     """ A list of style modules (to be applied from top to bottom) (default None, readonly)"""
 
     sphere_radius: float
@@ -34123,7 +34350,7 @@ class FunctionNodeFormatString(FunctionNode, NodeInternal, Node, bpy_struct):
     active_index: int | None
     """ Index of the active item (in [0, inf], default 0)"""
 
-    format_items: typing.Any
+    format_items: NodeFunctionFormatStringItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -37079,7 +37306,7 @@ class GeometryNodeBake(GeometryNode, NodeInternal, Node, bpy_struct):
     active_item: RepeatItem | None
     """ Index of the active item"""
 
-    bake_items: typing.Any
+    bake_items: NodeGeometryBakeItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -37364,7 +37591,7 @@ class GeometryNodeCaptureAttribute(GeometryNode, NodeInternal, Node, bpy_struct)
     active_item: RepeatItem | None
     """ Index of the active item"""
 
-    capture_items: typing.Any
+    capture_items: NodeGeometryCaptureAttributeItems | None
     """ (default None, readonly)"""
 
     domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
@@ -39829,7 +40056,7 @@ class GeometryNodeFieldToGrid(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Data type for topology grid (default 'FLOAT')"""
 
-    grid_items: typing.Any
+    grid_items: GeometryNodeFieldToGridItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -39933,7 +40160,7 @@ class GeometryNodeFieldToList(GeometryNode, NodeInternal, Node, bpy_struct):
     active_item: GeometryNodeFieldToListItem | None
     """ Index of the active item"""
 
-    list_items: typing.Any
+    list_items: GeometryNodeFieldToListItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -40329,16 +40556,16 @@ class GeometryNodeForeachGeometryElementOutput(
     domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Geometry domain that is iterated over (default 'POINT')"""
 
-    generation_items: typing.Any
+    generation_items: NodeGeometryForeachGeometryElementGenerationItems | None
     """ (default None, readonly)"""
 
-    input_items: typing.Any
+    input_items: NodeGeometryForeachGeometryElementInputItems | None
     """ (default None, readonly)"""
 
     inspection_index: int
     """ Iteration index that is used by inspection features like the viewer node or socket inspection (in [-inf, inf], default 0)"""
 
-    main_items: typing.Any
+    main_items: NodeGeometryForeachGeometryElementMainItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -42146,7 +42373,7 @@ class GeometryNodeIndexSwitch(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'GEOMETRY')"""
 
-    index_switch_items: typing.Any
+    index_switch_items: NodeIndexSwitchItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -44626,7 +44853,7 @@ class GeometryNodeMenuSwitch(GeometryNode, NodeInternal, Node, bpy_struct):
     enum_definition: Node | None
     """ The enum definition can now be accessed directly on the node. This exists for backward compatibility. (readonly)"""
 
-    enum_items: typing.Any
+    enum_items: NodeMenuSwitchItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -46420,7 +46647,7 @@ class GeometryNodeRepeatOutput(GeometryNode, NodeInternal, Node, bpy_struct):
     inspection_index: int
     """ Iteration index that is used by inspection features like the viewer node or socket inspection (in [-inf, inf], default 0)"""
 
-    repeat_items: typing.Any
+    repeat_items: NodeGeometryRepeatOutputItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -49104,7 +49331,7 @@ class GeometryNodeSimulationOutput(GeometryNode, NodeInternal, Node, bpy_struct)
     active_item: SimulationStateItem | None
     """ Index of the active item"""
 
-    state_items: typing.Any
+    state_items: NodeGeometrySimulationOutputItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -50787,7 +51014,7 @@ class GeometryNodeViewer(GeometryNode, NodeInternal, Node, bpy_struct):
     ui_shortcut: int
     """ (in [-32768, 32767], default 0)"""
 
-    viewer_items: typing.Any
+    viewer_items: NodeGeometryViewerItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -51420,7 +51647,7 @@ class GizmoGroup(bpy_struct):
     bl_space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ The space where the panel is going to be used in (default 'EMPTY')"""
 
-    gizmos: typing.Any
+    gizmos: Gizmos | None
     """ List of gizmos in the Gizmo Map (default None, readonly)"""
 
     name: str
@@ -51758,13 +51985,13 @@ class GreasePencil(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    attributes: typing.Any
+    attributes: AttributeGroupGreasePencil | None
     """ Geometry attributes (default None, readonly)"""
 
     before_color: mathutils.Color
     """ Base color for ghosts before the active frame (array of 3 items, in [0, 1], default (0.145098, 0.419608, 0.137255))"""
 
-    color_attributes: typing.Any
+    color_attributes: AttributeGroupGreasePencil | None
     """ Geometry color attributes (default None, readonly)"""
 
     ghost_after_range: int
@@ -51773,13 +52000,13 @@ class GreasePencil(ID, bpy_struct):
     ghost_before_range: int
     """ Maximum number of frames to show before current frame (0 = don't show any frames before current) (in [0, 120], default 1)"""
 
-    layer_groups: typing.Any
+    layer_groups: GreasePencilv3LayerGroup | None
     """ Grease Pencil layer groups (default None, readonly)"""
 
-    layers: typing.Any
+    layers: GreasePencilv3Layers | None
     """ Grease Pencil layers (default None, readonly)"""
 
-    materials: typing.Any
+    materials: IDMaterials | None
     """ (default None, readonly)"""
 
     onion_factor: float
@@ -52355,10 +52582,10 @@ class GreasePencilDashModifierSegment(bpy_struct):
 class GreasePencilDrawing(bpy_struct):
     """A Grease Pencil drawing"""
 
-    attributes: typing.Any
+    attributes: AttributeGroupGreasePencilDrawing | None
     """ Geometry attributes (default None, readonly)"""
 
-    color_attributes: typing.Any
+    color_attributes: AttributeGroupGreasePencilDrawing | None
     """ Geometry color attributes (default None, readonly)"""
 
     curve_offsets: typing.Any
@@ -52837,7 +53064,7 @@ class GreasePencilLayer(GreasePencilTreeNode, bpy_struct):
     ]
     """ Blend mode (default 'REGULAR')"""
 
-    frames: typing.Any
+    frames: GreasePencilFrames | None
     """ Grease Pencil frames (default None, readonly)"""
 
     ignore_locked_materials: bool
@@ -52846,7 +53073,7 @@ class GreasePencilLayer(GreasePencilTreeNode, bpy_struct):
     lock_frame: bool
     """ Lock current frame displayed by layer (default False)"""
 
-    mask_layers: typing.Any
+    mask_layers: GreasePencilLayerMasks | None
     """ List of Masking Layers (default None, readonly)"""
 
     matrix_local: mathutils.Matrix
@@ -55576,7 +55803,7 @@ class IDOverrideLibrary(bpy_struct):
     is_system_override: bool
     """ Whether this library override exists only for the override hierarchy, or if it is actually editable by the user (default False)"""
 
-    properties: typing.Any
+    properties: IDOverrideLibraryProperties | None
     """ List of overridden properties (default None, readonly)"""
 
     reference: ID | None
@@ -55653,7 +55880,7 @@ class IDOverrideLibrary(bpy_struct):
 class IDOverrideLibraryProperty(bpy_struct):
     """Description of an overridden property"""
 
-    operations: typing.Any
+    operations: IDOverrideLibraryPropertyOperations | None
     """ List of overriding operations for a property (default None, readonly)"""
 
     rna_path: str
@@ -56177,7 +56404,7 @@ class Image(ID, bpy_struct):
     pixels: float
     """ Image buffer pixels in floating-point values (in [-inf, inf], default 0.0)"""
 
-    render_slots: typing.Any
+    render_slots: RenderSlots | None
     """ Render slots of the image (default None, readonly)"""
 
     resolution: mathutils.Vector
@@ -56195,7 +56422,7 @@ class Image(ID, bpy_struct):
     stereo_3d_format: Stereo3dFormat | None
     """ Settings for stereo 3d (readonly, never None)"""
 
-    tiles: typing.Any
+    tiles: UDIMTiles | None
     """ Tiles of the image (default None, readonly)"""
 
     type: typing.Literal[
@@ -56707,7 +56934,7 @@ class ImageStrip(Strip, bpy_struct):
     directory: str
     """ (default "", never None, blend relative // prefix supported)"""
 
-    elements: typing.Any
+    elements: StripElements | None
     """ (default None, readonly)"""
 
     multiply_alpha: bool
@@ -56716,7 +56943,7 @@ class ImageStrip(Strip, bpy_struct):
     proxy: StripProxy | None
     """ (readonly)"""
 
-    retiming_keys: typing.Any
+    retiming_keys: RetimingKeys | None
     """ (default None, readonly)"""
 
     stereo_3d_format: Stereo3dFormat | None
@@ -57294,7 +57521,7 @@ class KeyConfig(bpy_struct):
     is_user_defined: bool
     """ Indicates that a keyconfig was defined by the user (default False, readonly)"""
 
-    keymaps: typing.Any
+    keymaps: KeyMaps | None
     """ Key maps configured as part of this configuration (default None, readonly)"""
 
     name: str
@@ -57384,7 +57611,7 @@ class KeyMap(bpy_struct):
     is_user_modified: bool
     """ Keymap is defined by the user (default False)"""
 
-    keymap_items: typing.Any
+    keymap_items: KeyMapItems | None
     """ Items in the keymap, linking an operator to an input event (default None, readonly)"""
 
     modal_event_values: typing.Any
@@ -57670,7 +57897,7 @@ class KeyingSet(bpy_struct):
     is_path_absolute: bool
     """ Keying Set defines specific paths/settings to be keyframed (i.e. is not reliant on context info) (default False, readonly)"""
 
-    paths: typing.Any
+    paths: KeyingSetPaths | None
     """ Keying Set Paths to define settings that get keyframed together (default None, readonly)"""
 
     type_info: KeyingSetInfo | None
@@ -62504,7 +62731,7 @@ class Mask(ID, bpy_struct):
     frame_start: int
     """ First frame of the mask (used for sequencer) (in [0, 1048574], default 0)"""
 
-    layers: typing.Any
+    layers: MaskLayers | None
     """ Collection of layers which defines this mask (default None, readonly)"""
 
     @classmethod
@@ -62577,7 +62804,7 @@ class MaskLayer(bpy_struct):
     select: bool
     """ Layer is selected for editing in the Dope Sheet (default False)"""
 
-    splines: typing.Any
+    splines: MaskSplines | None
     """ Collection of splines which defines this layer (default None, readonly)"""
 
     use_fill_holes: bool
@@ -62715,7 +62942,7 @@ class MaskSpline(bpy_struct):
     offset_mode: typing.Literal["EVEN", "SMOOTH"]
     """ The method used for calculating the feather offset (default 'EVEN')"""
 
-    points: typing.Any
+    points: MaskSplinePoints | None
     """ Collection of points (default None, readonly)"""
 
     use_cyclic: bool
@@ -63495,13 +63722,13 @@ class Mesh(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    attributes: typing.Any
+    attributes: AttributeGroupMesh | None
     """ Geometry attributes (default None, readonly)"""
 
     auto_texspace: bool
     """ Adjust active object's texture space automatically when transforming object (default True)"""
 
-    color_attributes: typing.Any
+    color_attributes: AttributeGroupMesh | None
     """ Geometry color attributes (default None, readonly)"""
 
     corner_normals: typing.Any
@@ -63510,7 +63737,7 @@ class Mesh(ID, bpy_struct):
     cycles: typing.Any
     """ Cycles mesh settings (readonly)"""
 
-    edges: typing.Any
+    edges: MeshEdges | None
     """ Edges of the mesh (default None, readonly)"""
 
     has_custom_normals: bool
@@ -63522,13 +63749,13 @@ class Mesh(ID, bpy_struct):
     loop_triangle_polygons: typing.Any
     """ The face index for each loop triangle (default None, readonly)"""
 
-    loop_triangles: typing.Any
+    loop_triangles: MeshLoopTriangles | None
     """ Tessellation of mesh polygons into triangles (default None, readonly)"""
 
-    loops: typing.Any
+    loops: MeshLoops | None
     """ Loops of the mesh (face corners) (default None, readonly)"""
 
-    materials: typing.Any
+    materials: IDMaterials | None
     """ (default None, readonly)"""
 
     normals_domain: typing.Literal["POINT", "FACE", "CORNER"]
@@ -63537,7 +63764,7 @@ class Mesh(ID, bpy_struct):
     polygon_normals: typing.Any
     """ The normal direction of each face, defined by the winding order and position of its vertices (default None, readonly)"""
 
-    polygons: typing.Any
+    polygons: MeshPolygons | None
     """ Polygons of the mesh (default None, readonly)"""
 
     radial_symmetry: typing.Any
@@ -63627,16 +63854,16 @@ class Mesh(ID, bpy_struct):
     uv_layer_stencil_index: int
     """ Mask UV loop layer index (in [0, inf], default 0)"""
 
-    uv_layers: typing.Any
+    uv_layers: UVLoopLayers | None
     """ All UV loop layers (default None, readonly)"""
 
-    vertex_colors: typing.Any
+    vertex_colors: LoopColors | None
     """ Legacy vertex color layers. Deprecated, use color attributes instead. (default None, readonly)"""
 
     vertex_normals: typing.Any
     """ The normal direction of each vertex, defined as the average of the surrounding face normals (default None, readonly)"""
 
-    vertices: typing.Any
+    vertices: MeshVertices | None
     """ Vertices of the mesh (default None, readonly)"""
 
     edge_creases: typing.Any
@@ -64710,13 +64937,13 @@ class MetaBall(ID, bpy_struct):
     cycles: typing.Any
     """ Cycles mesh settings (readonly)"""
 
-    elements: typing.Any
+    elements: MetaBallElements | None
     """ Metaball elements (default None, readonly)"""
 
     is_editmode: bool
     """ True when used in editmode (default False, readonly)"""
 
-    materials: typing.Any
+    materials: IDMaterials | None
     """ (default None, readonly)"""
 
     render_resolution: float
@@ -64885,7 +65112,7 @@ class MetaStrip(Strip, bpy_struct):
     proxy: StripProxy | None
     """ (readonly)"""
 
-    strips: typing.Any
+    strips: StripsMeta | None
     """ Strips nested in meta strip (default None, readonly)"""
 
     strobe: float
@@ -65626,7 +65853,7 @@ class MovieStrip(Strip, bpy_struct):
     proxy: StripProxy | None
     """ (readonly)"""
 
-    retiming_keys: typing.Any
+    retiming_keys: RetimingKeys | None
     """ (default None, readonly)"""
 
     stereo_3d_format: Stereo3dFormat | None
@@ -65717,10 +65944,10 @@ class MovieTracking(bpy_struct):
     dopesheet: MovieTrackingDopesheet | None
     """ (readonly)"""
 
-    objects: typing.Any
+    objects: MovieTrackingObjects | None
     """ Collection of objects in this tracking data object (default None, readonly)"""
 
-    plane_tracks: typing.Any
+    plane_tracks: MovieTrackingPlaneTracks | None
     """ Collection of plane tracks in this tracking data object. Deprecated, use objects[name].plane_tracks (default None, readonly)"""
 
     reconstruction: MovieTrackingReconstruction | None
@@ -65732,7 +65959,7 @@ class MovieTracking(bpy_struct):
     stabilization: MovieTrackingStabilization | None
     """ (readonly)"""
 
-    tracks: typing.Any
+    tracks: MovieTrackingTracks | None
     """ Collection of tracks in this tracking data object. Deprecated, use objects[name].tracks (default None, readonly)"""
 
     @classmethod
@@ -65978,7 +66205,7 @@ class MovieTrackingObject(bpy_struct):
     name: str
     """ Unique name of object (default "", never None)"""
 
-    plane_tracks: typing.Any
+    plane_tracks: MovieTrackingObjectPlaneTracks | None
     """ Collection of plane tracks in this tracking data object (default None, readonly)"""
 
     reconstruction: MovieTrackingReconstruction | None
@@ -65987,7 +66214,7 @@ class MovieTrackingObject(bpy_struct):
     scale: float
     """ Scale of object solution in camera space (in [0.0001, 10000], default 1.0)"""
 
-    tracks: typing.Any
+    tracks: MovieTrackingObjectTracks | None
     """ Collection of tracks in this tracking data object (default None, readonly)"""
 
     @classmethod
@@ -66067,7 +66294,7 @@ class MovieTrackingPlaneTrack(bpy_struct):
     image_opacity: float
     """ Opacity of the image (in [0, 1], default 0.0)"""
 
-    markers: typing.Any
+    markers: MovieTrackingPlaneMarkers | None
     """ Collection of markers in track (default None, readonly)"""
 
     name: str
@@ -66113,7 +66340,7 @@ class MovieTrackingReconstruction(bpy_struct):
     average_error: float
     """ Average error of reconstruction (in [-inf, inf], default 0.0, readonly)"""
 
-    cameras: typing.Any
+    cameras: MovieTrackingReconstructedCameras | None
     """ Collection of solved cameras (default None, readonly)"""
 
     is_valid: bool
@@ -66376,7 +66603,7 @@ class MovieTrackingTrack(bpy_struct):
     margin: int
     """ Distance from image boundary at which marker stops tracking (in [0, 300], default 0)"""
 
-    markers: typing.Any
+    markers: MovieTrackingMarkers | None
     """ Collection of markers in track (default None, readonly)"""
 
     motion_model: typing.Literal[
@@ -66848,7 +67075,7 @@ class NlaStrip(bpy_struct):
     extrapolation: typing.Literal["NOTHING", "HOLD", "HOLD_FORWARD"]
     """ Action to take for gaps past the strip extents (default 'HOLD')"""
 
-    fcurves: typing.Any
+    fcurves: NlaStripFCurves | None
     """ F-Curves for controlling the strip's influence and timing (default None, readonly)"""
 
     frame_end: float
@@ -66972,7 +67199,7 @@ class NlaTrack(bpy_struct):
     select: bool
     """ NLA Track is selected (default False)"""
 
-    strips: typing.Any
+    strips: NlaStrips | None
     """ NLA Strips on this NLA-track (default None, readonly)"""
 
     @classmethod
@@ -67072,7 +67299,7 @@ class Node(bpy_struct):
     hide: bool
     """ Node collapsed state (default False)"""
 
-    inputs: typing.Any
+    inputs: NodeInputs | None
     """ (default None, readonly)"""
 
     internal_links: typing.Any
@@ -67093,7 +67320,7 @@ class Node(bpy_struct):
     name: str
     """ Unique node identifier (default "", never None)"""
 
-    outputs: typing.Any
+    outputs: NodeOutputs | None
     """ (default None, readonly)"""
 
     parent: Node | None
@@ -67359,10 +67586,10 @@ class NodeClosureOutput(NodeInternal, Node, bpy_struct):
     define_signature: bool
     """ This zone defines a closure signature that should be used by other nodes (default False)"""
 
-    input_items: typing.Any
+    input_items: NodeClosureInputItems | None
     """ (default None, readonly)"""
 
-    output_items: typing.Any
+    output_items: NodeClosureOutputItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -67465,7 +67692,7 @@ class NodeCombineBundle(NodeInternal, Node, bpy_struct):
     active_index: int | None
     """ Index of the active item (in [0, inf], default 0)"""
 
-    bundle_items: typing.Any
+    bundle_items: NodeCombineBundleItems | None
     """ (default None, readonly)"""
 
     define_signature: bool
@@ -67752,10 +67979,10 @@ class NodeEvaluateClosure(NodeInternal, Node, bpy_struct):
     define_signature: bool
     """ This node defines a closure signature that should be used by other nodes (default False)"""
 
-    input_items: typing.Any
+    input_items: NodeEvaluateClosureInputItems | None
     """ (default None, readonly)"""
 
-    output_items: typing.Any
+    output_items: NodeEvaluateClosureOutputItems | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -68715,7 +68942,7 @@ class NodeSeparateBundle(NodeInternal, Node, bpy_struct):
     active_index: int | None
     """ Index of the active item (in [0, inf], default 0)"""
 
-    bundle_items: typing.Any
+    bundle_items: NodeSeparateBundleItems | None
     """ (default None, readonly)"""
 
     define_signature: bool
@@ -71811,10 +72038,10 @@ class NodeTree(ID, bpy_struct):
     interface: NodeTreeInterface | None
     """ Interface declaration for this node tree (readonly)"""
 
-    links: typing.Any
+    links: NodeLinks | None
     """ (default None, readonly)"""
 
-    nodes: typing.Any
+    nodes: Nodes | None
     """ (default None, readonly)"""
 
     type: typing.Literal[
@@ -77048,7 +77275,7 @@ class NodesModifier(Modifier, bpy_struct):
     bake_target: typing.Literal["PACKED", "DISK"]
     """ Where to store the baked data (default 'PACKED')"""
 
-    bakes: typing.Any
+    bakes: NodesModifierBakes | None
     """ (default None, readonly)"""
 
     node_group: NodeTree | None
@@ -77075,7 +77302,7 @@ class NodesModifier(Modifier, bpy_struct):
     open_warnings_panel: bool
     """ (default False)"""
 
-    panels: typing.Any
+    panels: NodesModifierPanels | None
     """ (default None, readonly)"""
 
     show_group_selector: bool
@@ -77145,7 +77372,7 @@ class NodesModifierBake(bpy_struct):
     bake_target: typing.Literal["INHERIT", "PACKED", "DISK"]
     """ Where to store the baked data (default 'INHERIT')"""
 
-    data_blocks: typing.Any
+    data_blocks: NodesModifierBakeDataBlocks | None
     """ (default None, readonly)"""
 
     directory: str
@@ -77436,7 +77663,7 @@ class Object(ID, bpy_struct):
     color: typing.Any
     """ Object color and alpha, used when the Object Color mode is enabled (array of 4 items, in [0, inf], default (1.0, 1.0, 1.0, 1.0))"""
 
-    constraints: typing.Any
+    constraints: ObjectConstraints | None
     """ Constraints affecting the transformation of the object (default None, readonly)"""
 
     cycles: typing.Any
@@ -77599,7 +77826,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectModeItems]
     """ Object interaction mode (default 'OBJECT', readonly)"""
 
-    modifiers: typing.Any
+    modifiers: ObjectModifiers | None
     """ Modifiers affecting the geometric data of the object (default None, readonly)"""
 
     motion_path: MotionPath | None
@@ -77619,7 +77846,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     parent_vertices: typing.Any
     """ Indices of vertices in case of a vertex parenting relation (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
-    particle_systems: typing.Any
+    particle_systems: ParticleSystems | None
     """ Particle systems emitted from the object (default None, readonly)"""
 
     pass_index: int
@@ -77652,7 +77879,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     selection_sets: typing.Any
     """ List of groups of bones for easy selection (default None, readonly)"""
 
-    shader_effects: typing.Any
+    shader_effects: ObjectShaderFx | None
     """ Effects affecting display of object (default None, readonly)"""
 
     shadow_terminator_geometry_offset: float
@@ -77754,7 +77981,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     use_simulation_cache: bool
     """ Cache frames during simulation nodes playback (default True)"""
 
-    vertex_groups: typing.Any
+    vertex_groups: VertexGroups | None
     """ Vertex groups of the object (default None, readonly)"""
 
     visible_camera: bool
@@ -79375,7 +79602,7 @@ class PaintModeSettings(bpy_struct):
         """
 
 class Palette(ID, bpy_struct):
-    colors: typing.Any
+    colors: PaletteColors | None
     """ (default None, readonly)"""
 
     @classmethod
@@ -80465,7 +80692,7 @@ class ParticleSettings(ID, bpy_struct):
     tangent_phase: float
     """ Rotate the surface tangent (in [-1, 1], default 0.0)"""
 
-    texture_slots: typing.Any
+    texture_slots: ParticleSettingsTextureSlots | None
     """ Texture slots defining the mapping and influence of textures (default None, readonly)"""
 
     time_tweak: float
@@ -81276,7 +81503,7 @@ class PointCache(bpy_struct):
     name: str
     """ Cache name (default "", never None)"""
 
-    point_caches: typing.Any
+    point_caches: PointCaches | None
     """ (default None, readonly)"""
 
     use_disk_cache: bool
@@ -81395,13 +81622,13 @@ class PointCloud(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    attributes: typing.Any
+    attributes: AttributeGroupPointCloud | None
     """ Geometry attributes (default None, readonly)"""
 
-    color_attributes: typing.Any
+    color_attributes: AttributeGroupPointCloud | None
     """ Geometry color attributes (default None, readonly)"""
 
-    materials: typing.Any
+    materials: IDMaterials | None
     """ (default None, readonly)"""
 
     points: typing.Any
@@ -81683,7 +81910,7 @@ class PoseBone(bpy_struct):
     color: BoneColor | None
     """ (readonly)"""
 
-    constraints: typing.Any
+    constraints: PoseBoneConstraints | None
     """ Constraints that act on this pose channel (default None, readonly)"""
 
     custom_shape: Object | None
@@ -81987,7 +82214,7 @@ class Preferences(bpy_struct):
     )
     """ Preferences (default 'INTERFACE')"""
 
-    addons: typing.Any
+    addons: Addons | None
     """ (default None, readonly)"""
 
     app_template: str
@@ -81996,7 +82223,7 @@ class Preferences(bpy_struct):
     apps: PreferencesApps | None
     """ Preferences that work only for apps (readonly, never None)"""
 
-    autoexec_paths: typing.Any
+    autoexec_paths: PathCompareCollection | None
     """ (default None, readonly)"""
 
     edit: PreferencesEdit | None
@@ -82023,7 +82250,7 @@ class Preferences(bpy_struct):
     show_hidden_ids: bool
     """ Show data-blocks with dot-prefixed names in search menus (default False)"""
 
-    studio_lights: typing.Any
+    studio_lights: StudioLights | None
     """ (default None, readonly)"""
 
     system: PreferencesSystem | None
@@ -82416,7 +82643,7 @@ class PreferencesExtensions(bpy_struct):
     active_repo: int | None
     """ Index of the extensions repository being edited in the Preferences UI (in [-32768, 32767], default 0)"""
 
-    repos: typing.Any
+    repos: UserExtensionRepoCollection | None
     """ (default None, readonly)"""
 
     use_online_access_handled: bool
@@ -82464,7 +82691,7 @@ class PreferencesFilePaths(bpy_struct):
     ]
     """ Preset configs for external animation players (default 'INTERNAL')"""
 
-    asset_libraries: typing.Any
+    asset_libraries: AssetLibraryCollection | None
     """ (default None, readonly)"""
 
     auto_save_time: int
@@ -82494,7 +82721,7 @@ class PreferencesFilePaths(bpy_struct):
     save_version: int
     """ The number of old versions to maintain in the current directory, when manually saving (in [0, 32], default 1)"""
 
-    script_directories: typing.Any
+    script_directories: ScriptDirectoryCollection | None
     """ (default None, readonly)"""
 
     show_hidden_files_datablocks: bool
@@ -84465,7 +84692,7 @@ class RenderLayer(bpy_struct):
     name: str
     """ View layer name (default "", readonly, never None)"""
 
-    passes: typing.Any
+    passes: RenderPasses | None
     """ (default None, readonly)"""
 
     use_ao: bool
@@ -85001,7 +85228,7 @@ class RenderSettings(bpy_struct):
     use_stamp_time: bool
     """ Include the rendered frame timecode as HH:MM:SS.FF in image metadata (default True)"""
 
-    views: typing.Any
+    views: RenderViews | None
     """ (default None, readonly)"""
 
     views_format: typing.Literal["STEREO_3D", "MULTIVIEW"]
@@ -85959,16 +86186,16 @@ class Scene(ID, bpy_struct):
     is_nla_tweakmode: bool
     """ Whether there is any action referenced by NLA being edited (strictly read-only) (default False, readonly)"""
 
-    keying_sets: typing.Any
+    keying_sets: KeyingSets | None
     """ Absolute Keying Sets for this Scene (default None, readonly)"""
 
-    keying_sets_all: typing.Any
+    keying_sets_all: KeyingSetsAll | None
     """ All Keying Sets available for use (Builtins and Absolute Keying Sets for this Scene) (default None, readonly)"""
 
     lock_frame_selection_to_range: bool
     """ Don't allow frame to be selected with mouse outside of frame range (default False)"""
 
-    objects: typing.Any
+    objects: SceneObjects | None
     """ (default None, readonly)"""
 
     playback_loop_mode: typing.Literal[
@@ -86012,7 +86239,7 @@ class Scene(ID, bpy_struct):
     time_jump_unit: typing.Literal["FRAME", "SECOND"]
     """ Which unit to use for time jumps in the timeline (default 'SECOND')"""
 
-    timeline_markers: typing.Any
+    timeline_markers: TimelineMarkers | None
     """ Markers used in all timelines for the current scene (default None, readonly)"""
 
     tool_settings: ToolSettings | None
@@ -86045,7 +86272,7 @@ class Scene(ID, bpy_struct):
     use_stamp_note: str
     """ User defined note for the render stamping (default "", never None)"""
 
-    view_layers: typing.Any
+    view_layers: ViewLayers | None
     """ (default None, readonly)"""
 
     view_settings: ColorManagedViewSettings | None
@@ -86552,7 +86779,7 @@ class SceneStrip(Strip, bpy_struct):
     proxy: StripProxy | None
     """ (readonly)"""
 
-    retiming_keys: typing.Any
+    retiming_keys: RetimingKeys | None
     """ (default None, readonly)"""
 
     scene: Scene | None
@@ -87070,7 +87297,7 @@ class SequenceEditor(bpy_struct):
     show_overlay_frame: bool
     """ Partial overlay on top of the sequencer with a frame offset (default False)"""
 
-    strips: typing.Any
+    strips: StripsTopLevel | None
     """ Top-level strips only (default None, readonly)"""
 
     strips_all: typing.Any
@@ -95047,7 +95274,7 @@ class SoundStrip(Strip, bpy_struct):
     pitch_correction: bool
     """ Maintain the original pitch of the audio when changing playback speed (default False)"""
 
-    retiming_keys: typing.Any
+    retiming_keys: RetimingKeys | None
     """ (default None, readonly)"""
 
     show_waveform: bool
@@ -96347,7 +96574,7 @@ class SpaceNodeEditor(Space, bpy_struct):
     overlay: SpaceNodeOverlay | None
     """ Settings for display of overlays in the Node Editor (readonly, never None)"""
 
-    path: typing.Any
+    path: SpaceNodeEditorPath | None
     """ Path from the data-block to the currently edited node tree (default None, readonly)"""
 
     pin: bool
@@ -97112,7 +97339,7 @@ class SpaceSpreadsheet(Space, bpy_struct):
     show_region_ui: bool
     """ (default False)"""
 
-    tables: typing.Any
+    tables: SpreadsheetTables | None
     """ Persistent data for the tables shown in this spreadsheet editor (default None, readonly)"""
 
     use_filter: bool
@@ -97848,7 +98075,7 @@ class SpeedControlStrip(EffectStrip, Strip, bpy_struct):
 class Spline(bpy_struct):
     """Element of a curve, either NURBS, Bézier or Polyline or a character with text objects"""
 
-    bezier_points: typing.Any
+    bezier_points: SplineBezierPoints | None
     """ Collection of points for Bézier curves only (default None, readonly)"""
 
     character_index: int
@@ -97872,7 +98099,7 @@ class Spline(bpy_struct):
     point_count_v: int
     """ Total number points for the surface on the V direction (in [0, inf], default 0, readonly)"""
 
-    points: typing.Any
+    points: SplinePoints | None
     """ Collection of points that make up this poly or nurbs spline (default None, readonly)"""
 
     radius_interpolation: typing.Literal["LINEAR", "CARDINAL", "BSPLINE", "EASE"]
@@ -98792,7 +99019,7 @@ class Strip(bpy_struct):
     lock: bool
     """ Lock strip so that it cannot be transformed (default False)"""
 
-    modifiers: typing.Any
+    modifiers: StripModifiers | None
     """ Modifiers affecting this strip (default None, readonly)"""
 
     mute: bool
@@ -110611,7 +110838,7 @@ class ViewLayer(bpy_struct):
     active_lightgroup_index: int | None
     """ Index of active lightgroup (in [0, inf], default 0)"""
 
-    aovs: typing.Any
+    aovs: AOVs | None
     """ (default None, readonly)"""
 
     cycles: typing.Any
@@ -110632,7 +110859,7 @@ class ViewLayer(bpy_struct):
     layer_collection: LayerCollection | None
     """ Root of collections hierarchy of this view layer, its 'collection' pointer property is the same as the scene's master collection (readonly, never None)"""
 
-    lightgroups: typing.Any
+    lightgroups: Lightgroups | None
     """ (default None, readonly)"""
 
     material_override: Material | None
@@ -110641,7 +110868,7 @@ class ViewLayer(bpy_struct):
     name: str
     """ View layer name (default "", never None)"""
 
-    objects: typing.Any
+    objects: LayerObjects | None
     """ All the objects in this layer (default None, readonly)"""
 
     pass_alpha_threshold: float
@@ -110993,13 +111220,13 @@ class Volume(ID, bpy_struct):
     frame_start: int
     """ Global starting frame of the sequence, assuming first has a #1 (in [-1048574, 1048574], default 1)"""
 
-    grids: typing.Any
+    grids: VolumeGrids | None
     """ 3D volume grids (default None, readonly)"""
 
     is_sequence: bool
     """ Whether the cache is separated in a series of files (default False)"""
 
-    materials: typing.Any
+    materials: IDMaterials | None
     """ (default None, readonly)"""
 
     packed_file: PackedFile | None
@@ -112000,7 +112227,7 @@ class WindowManager(ID, bpy_struct):
     is_interface_locked: bool
     """ If true, the interface is currently locked by a running job and data should not be modified from application timers. Otherwise, the running job might conflict with the handler causing unexpected results or even crashes. (default False, readonly)"""
 
-    keyconfigs: typing.Any
+    keyconfigs: KeyConfigurations | None
     """ Registered key configurations (default None, readonly)"""
 
     operators: typing.Any
@@ -112010,7 +112237,7 @@ class WindowManager(ID, bpy_struct):
     preset_name: str
     """ Name for new preset (default "New Preset", never None)"""
 
-    windows: typing.Any
+    windows: Windows | None
     """ Open windows (default None, readonly)"""
 
     xr_session_settings: XrSessionSettings | None
@@ -112597,14 +112824,14 @@ class WorkSpace(ID, bpy_struct):
     object_mode: typing.Literal[bpy.stub_internal.rna_enums.WorkspaceObjectModeItems]
     """ Switch to this object mode when activating the workspace (default 'OBJECT')"""
 
-    owner_ids: typing.Any
+    owner_ids: wmOwnerIDs | None
     """ (default None, readonly)"""
 
     screens: typing.Any
     """ Screen layouts of a workspace (default None, readonly)"""
 
     sequencer_scene: Scene | None
-    tools: typing.Any
+    tools: wmTools | None
     """ (default None, readonly)"""
 
     use_filter_by_owner: bool
@@ -112950,7 +113177,7 @@ class WorldMistSettings(bpy_struct):
         """
 
 class XrActionMap(bpy_struct):
-    actionmap_items: typing.Any
+    actionmap_items: XrActionMapItems | None
     """ Items in the action map, mapping an XR event to an operator, pose, or haptic output (default None, readonly)"""
 
     name: str
@@ -112996,7 +113223,7 @@ class XrActionMapBinding(bpy_struct):
     axis1_region: typing.Literal["ANY", "POSITIVE", "NEGATIVE"]
     """ Action execution region for the second input axis (default 'ANY')"""
 
-    component_paths: typing.Any
+    component_paths: XrComponentPaths | None
     """ OpenXR component paths (default None, readonly)"""
 
     name: str
@@ -113046,7 +113273,7 @@ class XrActionMapItem(bpy_struct):
     bimanual: bool
     """ The action depends on the states/poses of both user paths (default False)"""
 
-    bindings: typing.Any
+    bindings: XrActionMapBindings | None
     """ Bindings for the action map item, mapping the action to an XR input (default None, readonly)"""
 
     haptic_amplitude: float
@@ -113094,7 +113321,7 @@ class XrActionMapItem(bpy_struct):
     type: typing.Literal["FLOAT", "VECTOR2D", "POSE", "VIBRATION"]
     """ Action type (default 'FLOAT')"""
 
-    user_paths: typing.Any
+    user_paths: XrUserPaths | None
     """ OpenXR user paths (default None, readonly)"""
 
     @classmethod
@@ -113464,7 +113691,7 @@ class XrSessionSettings(bpy_struct):
 class XrSessionState(bpy_struct):
     """Runtime state information about the VR session"""
 
-    actionmaps: typing.Any
+    actionmaps: XrActionMaps | None
     """ (default None, readonly)"""
 
     active_actionmap: int | None
@@ -113763,117 +113990,6 @@ class wmOwnerID(bpy_struct):
         :param id: The RNA type identifier.
         :param default: The value to return when not found.
         :return: The class or default when not found.
-        """
-
-class bpy_prop_collection_idprop[_GenericType1](bpy_prop_collection):
-    """built-in class used for user defined collections."""
-
-    def add(self) -> _GenericType1:
-        """This is a function to add a new item to a collection.
-
-        :return: A newly created item.
-        """
-
-    def clear(self) -> None:
-        """This is a function to remove all items from a collection."""
-
-    def move(self, src_index: int | None, dst_index: int | None) -> None:
-        """This is a function to move an item in a collection.
-
-        :param src_index: Source item index.
-        :param dst_index: Destination item index.
-        """
-
-    def remove(self, index: int | None) -> None:
-        """This is a function to remove an item from a collection.
-
-        :param index: Index of the item to be removed.
-        """
-
-    @typing.overload
-    def __getitem__(self, key: int | str) -> _GenericType1:
-        """
-
-        :param key:
-        :return:
-        """
-
-    @typing.overload
-    def __getitem__(self, key: slice) -> list[_GenericType1]:
-        """
-
-        :param key:
-        :return:
-        """
-
-    def __setitem__(self, key: int | str, value: _GenericType1 | None) -> None:
-        """
-
-        :param key:
-        :param value:
-        """
-
-    @typing.overload
-    def __setitem__(self, key: int, value: _GenericType1 | None) -> None:
-        """
-
-        :param key:
-        :param value:
-        """
-
-    @typing.overload
-    def __setitem__(self, key: str, value: _GenericType1) -> None:
-        """
-
-        :param key:
-        :param value:
-        """
-
-    def __iter__(self) -> collections.abc.Iterator[_GenericType1]:
-        """
-
-        :return:
-        """
-
-    def __next__(self) -> _GenericType1:
-        """
-
-        :return:
-        """
-
-    def __len__(self) -> int:
-        """
-
-        :return:
-        """
-
-    def __contains__(self, key: str | tuple[str, ...] | _GenericType1) -> bool:
-        """
-
-        :param key:
-        :return:
-        """
-
-    def get[_GenericType2](
-        self, key: str, default: _GenericType2 = None
-    ) -> _GenericType1 | _GenericType2:
-        """
-
-        :param key:
-        :param default:
-        :return:
-        """
-
-    def values(self) -> list[_GenericType1]:
-        """
-
-        :return:
-        """
-
-    def items(self) -> list[tuple[str, _GenericType1]]:
-        """
-
-        :return:
         """
 
 ANIM_MT_keyframe_insert_pie: bl_ui.anim.ANIM_MT_keyframe_insert_pie

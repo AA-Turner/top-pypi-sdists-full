@@ -1,5 +1,5 @@
 //! Integration tests for async visitor functionality
-//! Tests that async visitors work correctly with current_thread runtime
+//! Tests that async visitors work correctly with `current_thread` runtime
 
 #![cfg(feature = "async-visitor")]
 
@@ -15,7 +15,7 @@ struct CustomOutputVisitor;
 impl AsyncHtmlVisitor for CustomOutputVisitor {
     async fn visit_heading(&mut self, _ctx: &NodeContext, level: u32, text: &str, _id: Option<&str>) -> VisitResult {
         // Return custom output for headings
-        VisitResult::Custom(format!("[HEADING-{}] {}\n\n", level, text))
+        VisitResult::Custom(format!("[HEADING-{level}] {text}\n\n"))
     }
 
     async fn visit_text(&mut self, _ctx: &NodeContext, _text: &str) -> VisitResult {

@@ -20,8 +20,7 @@ fn footer_without_navigation_hint_is_preserved() {
     let markdown = convert(html, None).unwrap();
     assert!(
         markdown.contains("Test page for processors validation"),
-        "footer content should be retained in markdown:\n{}",
-        markdown
+        "footer content should be retained in markdown:\n{markdown}"
     );
 }
 
@@ -50,7 +49,6 @@ fn footer_with_navigation_hint_is_removed() {
     let markdown = convert(html, Some(options)).unwrap();
     assert!(
         !markdown.contains("processors validation"),
-        "navigational footers should still be stripped entirely:\n{}",
-        markdown
+        "navigational footers should still be stripped entirely:\n{markdown}"
     );
 }

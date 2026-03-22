@@ -8,7 +8,7 @@ from setuptools import setup
 base_dir = os.path.dirname(__file__)
 setup(
     name='elastalert2',
-    version='2.28.0',
+    version='2.29.0',
     description='Automated rule-based alerting for Elasticsearch',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
@@ -51,6 +51,7 @@ setup(
         'prison>=0.2.1',
         'prometheus_client>=0.23.1',
         'python-dateutil>=2.9.0.post0',
+        'pytz>=2026.1',
         'PyYAML>=6.0.3',
         'zabbix-utils>=2.0.3',
         'requests>=2.31.0',

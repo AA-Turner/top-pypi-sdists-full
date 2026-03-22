@@ -4,17 +4,20 @@ This is the testing Models
 
 import binascii
 import datetime
+import json
 import os
 import re
 import uuid
 from decimal import Decimal
 from enum import Enum, IntEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
 from tortoise import fields
 from tortoise.exceptions import NoValuesFetched, ValidationError
 from tortoise.fields import NO_ACTION
+from tortoise.fields.db_defaults import Now, RandomHex, SqlDefault
 from tortoise.indexes import Index
 from tortoise.manager import Manager
 from tortoise.models import Model
@@ -23,10 +26,12 @@ from tortoise.timezone import UTC
 from tortoise.validators import (
     CommaSeparatedIntegerListValidator,
     MaxValueValidator,
+    MinLengthValidator,
     MinValueValidator,
     RegexValidator,
     validate_ipv4_address,
     validate_ipv6_address,
+    validate_ipv46_address,
 )
 
 
@@ -359,6 +364,24 @@ def raise_if_not_dict_or_list(value: dict | list):
         raise ValidationError("Value must be a dict or list.")
 
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return super().default(obj)
+
+    @classmethod
+    def dumps(cls, obj: Any) -> str:
+        return json.dumps(obj, cls=cls)
+
+
+class IndexEncoder(DecimalEncoder):
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, Index):
+            return obj.describe()
+        return super().default(obj)
+
+
 class JSONFields(Model):
     """
     This model contains many JSON blobs
@@ -376,6 +399,10 @@ class JSONFields(Model):
     data_pydantic = fields.JSONField[TestSchemaForJSONField](
         default=json_pydantic_default, field_type=TestSchemaForJSONField
     )
+
+    # Test cases where encoders are provided
+    data_decimal = fields.JSONField[dict | list](null=True, encoder=DecimalEncoder.dumps)
+    data_index = fields.JSONField[dict | list](null=True, encoder=IndexEncoder.dumps)
 
 
 class UUIDFields(Model):
@@ -868,6 +895,29 @@ class DefaultModel(Model):
     )
 
 
+class SqlDefaultModel(Model):
+    """Model with SqlDefault expressions for db_default."""
+
+    name = fields.CharField(max_length=100)
+    created_at = fields.DatetimeField(db_default=Now())
+    counter = fields.IntField(db_default=SqlDefault("0"))
+    tracking_id = fields.CharField(max_length=36, null=True, db_default=RandomHex())
+
+    class Meta:
+        table = "sql_default_model"
+
+
+class NoFetchDefaultModel(Model):
+    """Model with fetch_db_defaults = False."""
+
+    int_val = fields.IntField(db_default=1)
+    char_val = fields.CharField(max_length=20, db_default="test")
+
+    class Meta:
+        table = "no_fetch_default"
+        fetch_db_defaults = False
+
+
 class RequiredPKModel(Model):
     id = fields.CharField(primary_key=True, max_length=100)
     name = fields.CharField(max_length=255)
@@ -876,8 +926,10 @@ class RequiredPKModel(Model):
 class ValidatorModel(Model):
     regex = fields.CharField(max_length=100, null=True, validators=[RegexValidator("abc.+", re.I)])
     max_length = fields.CharField(max_length=5, null=True)
+    min_length = fields.CharField(max_length=5, null=True, validators=[MinLengthValidator(3)])
     ipv4 = fields.CharField(max_length=100, null=True, validators=[validate_ipv4_address])
     ipv6 = fields.CharField(max_length=100, null=True, validators=[validate_ipv6_address])
+    ipv46 = fields.CharField(max_length=100, null=True, validators=[validate_ipv46_address])
     max_value = fields.IntField(null=True, validators=[MaxValueValidator(20.0)])
     min_value = fields.IntField(null=True, validators=[MinValueValidator(10.0)])
     max_value_decimal = fields.DecimalField(

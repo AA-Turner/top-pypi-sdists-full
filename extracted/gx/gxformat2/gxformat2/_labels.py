@@ -1,5 +1,8 @@
 """Utilities for handling unlabelled objects when translating workflow formats."""
 
+UNLABELED_INPUT_PREFIX = "_unlabeled_input_"
+UNLABELED_STEP_PREFIX = "_unlabeled_step_"
+
 
 class Labels:
     """Track labels assigned and generate anonymous ones."""
@@ -25,3 +28,18 @@ class Labels:
         # in Galaxy that doesn't define a label in order to great a .ga file without output
         # labels (which is completely normal).
         return not label or label.startswith("_anonymous_output_")
+
+    @staticmethod
+    def is_unlabeled_input(label) -> bool:
+        """Predicate determining if supplied label is a synthetic sentinel for an unlabeled input."""
+        return isinstance(label, str) and label.startswith(UNLABELED_INPUT_PREFIX)
+
+    @staticmethod
+    def is_unlabeled_step(label) -> bool:
+        """Predicate determining if supplied label is a synthetic sentinel for an unlabeled tool step."""
+        return isinstance(label, str) and label.startswith(UNLABELED_STEP_PREFIX)
+
+    @staticmethod
+    def is_unlabeled(label) -> bool:
+        """Predicate for any synthetic unlabeled sentinel (input or step)."""
+        return Labels.is_unlabeled_input(label) or Labels.is_unlabeled_step(label)

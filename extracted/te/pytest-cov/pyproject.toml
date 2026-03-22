@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pytest-cov"
 dynamic = ["readme"]
-version = "7.0.0"
+version = "7.1.0"
 description = "Pytest plugin for measuring coverage."
 license = "MIT"
 requires-python = ">=3.9"
@@ -39,6 +39,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Testing",

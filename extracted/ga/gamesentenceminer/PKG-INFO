@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2026.3.13
+Version: 2026.3.22
 Summary: A tool for mining sentences from games. Update: Dependencies, replay buffer based line searching, and bug fixes.
 Author-email: Beangate <bpwhelan95@gmail.com>
 License: MIT License
@@ -14,7 +14,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests~=2.32.5
 Requires-Dist: watchdog~=6.0.0
-Requires-Dist: DateTime~=5.5
 Requires-Dist: soundfile~=0.13.1
 Requires-Dist: toml~=0.10.2
 Requires-Dist: psutil~=7.1.0
@@ -24,6 +23,7 @@ Requires-Dist: keyboard~=0.13.5
 Requires-Dist: websockets~=15.0.1
 Requires-Dist: dataclasses_json~=0.6.7
 Requires-Dist: obsws-python~=1.8.0
+Requires-Dist: DateTime~=5.5
 Requires-Dist: numpy==2.2.6
 Requires-Dist: faster-whisper~=1.2.1
 Requires-Dist: silero-vad~=6.2.0
@@ -77,6 +77,9 @@ Provides-Extra: gpu
 Requires-Dist: onnxruntime-gpu[cuda,cudnn]; extra == "gpu"
 Provides-Extra: dev
 Requires-Dist: pytest>=9.0.2; extra == "dev"
+Requires-Dist: hypothesis>=6.100.0; extra == "dev"
+Requires-Dist: pre-commit>=4.3.0; extra == "dev"
+Requires-Dist: ruff>=0.14.0; extra == "dev"
 Dynamic: license-file
 
 <p align="center">
@@ -153,7 +156,7 @@ GSM includes a transparent overlay for instant dictionary lookups.
 Track your immersion habits with the stats dashboard.
 *   **Kanji Grid:** View every Kanji you've encountered and click them to see their source sentences.
 *   **Goals:** Set daily reading targets.
-*   **Database Management:** Clean up and organize your mining history.
+*   **Tools:** Clean up and organize your mining history.
 
 ![stats](docs/images/overview2.png)
 

@@ -359,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_escape_ascii() {
-        assert_eq!(escape(r##"!"#$%&"##, false, false, false, true), r##"\!\"\#\$\%\&"##);
+        assert_eq!(escape(r##"!"#$%&"##, false, false, false, true), r#"\!\"\#\$\%\&"#);
         assert_eq!(escape("*+,-./", false, false, false, true), r"\*\+\,\-\.\/");
         assert_eq!(escape("<=>?@", false, false, false, true), r"\<\=\>\?\@");
         assert_eq!(escape(r"[\]^_`", false, false, false, true), r"\[\\\]\^\_\`");

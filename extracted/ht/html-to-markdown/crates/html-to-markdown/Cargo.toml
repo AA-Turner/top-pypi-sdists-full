@@ -36,14 +36,26 @@ thiserror.workspace = true
 base64.workspace = true
 ahash.workspace = true
 html-escape = "0.2.13"
-image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "bmp", "webp"], optional = true }
+image = { version = "0.25", default-features = false, features = [
+  "gif",
+  "jpeg",
+  "png",
+  "bmp",
+  "webp",
+], optional = true }
 html5ever.workspace = true
 lru = "0.16"
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
 async-trait = { workspace = true, optional = true }
 futures = { version = "0.3", optional = true }
-tokio = { version = "1.50", features = ["rt-multi-thread", "sync"], optional = true }
+tokio = { version = "1.50", features = [
+  "rt-multi-thread",
+  "sync",
+], optional = true }
+
+[package.metadata.cargo-machete]
+ignored = ["once_cell", "futures"]
 
 [dev-dependencies]
 serde = { version = "1.0", features = ["derive"] }

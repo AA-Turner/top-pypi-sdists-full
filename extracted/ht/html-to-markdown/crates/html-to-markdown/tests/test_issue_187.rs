@@ -1,8 +1,8 @@
-//! Test to reproduce issue #187: visit_div is not executed
+//! Test to reproduce issue #187: `visit_div` is not executed
 //!
 //! This test demonstrates that:
-//! 1. There is NO visit_div, visit_script, visit_style method
-//! 2. Instead, users should use visit_element_start with tag_name filtering
+//! 1. There is NO `visit_div`, `visit_script`, `visit_style` method
+//! 2. Instead, users should use `visit_element_start` with `tag_name` filtering
 //! 3. The documentation incorrectly shows these non-existent methods
 
 #![cfg(feature = "visitor")]
@@ -13,7 +13,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// This is what the documentation SHOWS (but doesn't work)
-/// The methods visit_div, visit_script, visit_style DO NOT EXIST
+/// The methods `visit_div`, `visit_script`, `visit_style` DO NOT EXIST
 #[allow(dead_code)]
 #[derive(Debug, Default)]
 struct DocumentedButBrokenVisitor {
@@ -46,14 +46,14 @@ struct ContentFilter {
 }
 
 impl HtmlVisitor for ContentFilter {
-    /// Use visit_element_start to filter ANY element by tag name
+    /// Use `visit_element_start` to filter ANY element by tag name
     fn visit_element_start(&mut self, ctx: &NodeContext) -> VisitResult {
         let tag_name = ctx.tag_name.as_str();
 
         match tag_name {
             "div" => {
                 // Filter divs with unwanted classes
-                let classes = ctx.attributes.get("class").map(|s| s.as_str()).unwrap_or("");
+                let classes = ctx.attributes.get("class").map_or("", std::string::String::as_str);
                 if classes.contains("ad")
                     || classes.contains("advertisement")
                     || classes.contains("tracking")
@@ -82,19 +82,19 @@ impl HtmlVisitor for ContentFilter {
     /// Still use specific methods for links and images
     fn visit_image(&mut self, ctx: &NodeContext, src: &str, _alt: &str, _title: Option<&str>) -> VisitResult {
         // Remove tracking pixels (1x1 images)
-        let width = ctx.attributes.get("width").map(|s| s.as_str()).unwrap_or("");
-        let height = ctx.attributes.get("height").map(|s| s.as_str()).unwrap_or("");
+        let width = ctx.attributes.get("width").map_or("", std::string::String::as_str);
+        let height = ctx.attributes.get("height").map_or("", std::string::String::as_str);
 
         if width == "1" && height == "1" {
             self.skipped_elements
-                .push(("img".to_string(), format!("tracking pixel: {}", src)));
+                .push(("img".to_string(), format!("tracking pixel: {src}")));
             return VisitResult::Skip;
         }
 
         // Skip images with "tracking" or "analytics" in the URL
         if src.to_lowercase().contains("tracking") || src.to_lowercase().contains("analytics") {
             self.skipped_elements
-                .push(("img".to_string(), format!("tracking URL: {}", src)));
+                .push(("img".to_string(), format!("tracking URL: {src}")));
             return VisitResult::Skip;
         }
 
@@ -106,7 +106,7 @@ impl HtmlVisitor for ContentFilter {
         if href.to_lowercase().contains("utm_") {
             // Strip tracking params but keep the link
             if let Some(base_url) = href.split('?').next() {
-                return VisitResult::Custom(format!("[{}]({})", text, base_url));
+                return VisitResult::Custom(format!("[{text}]({base_url})"));
             }
         }
 
@@ -149,10 +149,10 @@ fn test_issue_187_content_filter() {
     let visitor = Rc::new(RefCell::new(ContentFilter::default()));
     let result = convert_with_visitor(html, None, Some(visitor.clone())).unwrap();
 
-    println!("Converted Markdown:\n{}", result);
+    println!("Converted Markdown:\n{result}");
     println!("\nSkipped Elements:");
     for (tag, info) in &visitor.borrow().skipped_elements {
-        println!("- {}: {}", tag, info);
+        println!("- {tag}: {info}");
     }
 
     // Verify that unwanted content was filtered out

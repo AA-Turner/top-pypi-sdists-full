@@ -55,7 +55,7 @@ def prepare_correctness_bundle(bundle_dir: Path) -> Path:
         {
             "relpath": UNKNOWN_SIZE_RELPATH,
             "md5": "f" * 32,
-            "size": 0,
+            "size": len(unknown_content),
             "isexec": False,
             "islink": False,
             "symlink_target": "",

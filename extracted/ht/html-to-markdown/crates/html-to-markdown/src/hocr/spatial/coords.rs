@@ -1,4 +1,9 @@
-#![allow(clippy::cast_precision_loss, clippy::cast_sign_loss, clippy::unused_self)]
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::unused_self,
+    clippy::float_cmp
+)]
 //! Coordinate types and parsing from hOCR bbox attributes
 
 /// Represents a word extracted from hOCR with position and confidence information

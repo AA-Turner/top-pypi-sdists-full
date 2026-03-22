@@ -1,6 +1,6 @@
 [package]
 name = "toml-rs"
-version = "0.3.6"
+version = "0.3.7"
 edition = "2024"
 license = "Unlicense"
 repository = "https://github.com/lava-sh/toml-rs"
@@ -39,7 +39,7 @@ features = [
 ###########################################################
 [dependencies.toml_v1]
 git = "https://github.com/lava-sh/toml"
-rev = "5078b745d494e4f5963faf33506432d436cb3154"
+rev = "b1581597f0fc10c0cc61faa03a3668b8f49e23f3"
 features = [
     "fast_hash", # uses `foldhash`
     "unbounded", # disables default recursion limit
@@ -48,7 +48,7 @@ features = [
 
 [dependencies.toml_parser_v1]
 git = "https://github.com/lava-sh/toml"
-rev = "5078b745d494e4f5963faf33506432d436cb3154"
+rev = "b1581597f0fc10c0cc61faa03a3668b8f49e23f3"
 features = [
     "std",
     "simd",
@@ -57,7 +57,7 @@ features = [
 
 [dependencies.toml_edit_v1]
 git = "https://github.com/lava-sh/toml"
-rev = "5078b745d494e4f5963faf33506432d436cb3154"
+rev = "b1581597f0fc10c0cc61faa03a3668b8f49e23f3"
 features = [
     "serde",
     "unbounded",
@@ -69,7 +69,7 @@ features = [
 ##############################################################
 [dependencies.toml]
 git = "https://github.com/lava-sh/toml"
-rev = "65fa925a29040502b89b718123e312d6da172cb5"
+rev = "2ea4efedff151141f4c35fe98b0ff13e8f48d142"
 features = [
     "fast_hash", # uses `foldhash`
     "unbounded", # disables default recursion limit
@@ -78,7 +78,7 @@ features = [
 
 [dependencies.toml_parser]
 git = "https://github.com/lava-sh/toml"
-rev = "65fa925a29040502b89b718123e312d6da172cb5"
+rev = "2ea4efedff151141f4c35fe98b0ff13e8f48d142"
 features = [
     "std",
     "simd",
@@ -87,7 +87,7 @@ features = [
 
 [dependencies.toml_edit]
 git = "https://github.com/lava-sh/toml"
-rev = "65fa925a29040502b89b718123e312d6da172cb5"
+rev = "2ea4efedff151141f4c35fe98b0ff13e8f48d142"
 features = [
     "serde",
     "unbounded",

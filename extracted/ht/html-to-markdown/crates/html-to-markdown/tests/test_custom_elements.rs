@@ -23,10 +23,10 @@ fn default_options() -> ConversionOptions {
 fn test_custom_elements() {
     let html = fs::read_to_string(fixture_path("test-with-custom-elements.html")).expect("read html");
 
-    eprintln!("HTML: {}", html);
+    eprintln!("HTML: {html}");
 
     let result = convert(&html, Some(default_options())).expect("convert html");
-    eprintln!("Result: {}", result);
+    eprintln!("Result: {result}");
 
     assert!(result.contains("Team Appraisal"));
     assert!(result.contains("Team"));

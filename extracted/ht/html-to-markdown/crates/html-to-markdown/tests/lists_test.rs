@@ -4,11 +4,11 @@ use html_to_markdown_rs::{ConversionOptions, convert};
 
 #[test]
 fn test_basic_unordered_list() {
-    let html = r#"<ul>
+    let html = r"<ul>
     <li>Item 1</li>
     <li>Item 2</li>
     <li>Item 3</li>
-    </ul>"#;
+    </ul>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("- Item 1"));
@@ -18,11 +18,11 @@ fn test_basic_unordered_list() {
 
 #[test]
 fn test_basic_ordered_list() {
-    let html = r#"<ol>
+    let html = r"<ol>
     <li>First</li>
     <li>Second</li>
     <li>Third</li>
-    </ol>"#;
+    </ol>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("1. First"));
@@ -32,7 +32,7 @@ fn test_basic_ordered_list() {
 
 #[test]
 fn test_nested_lists() {
-    let html = r#"<ul>
+    let html = r"<ul>
     <li>Item 1
         <ul>
             <li>Nested 1</li>
@@ -40,7 +40,7 @@ fn test_nested_lists() {
         </ul>
     </li>
     <li>Item 2</li>
-    </ul>"#;
+    </ul>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("- Item 1"));
@@ -51,14 +51,14 @@ fn test_nested_lists() {
 
 #[test]
 fn test_ordered_nested_in_unordered() {
-    let html = r#"<ul>
+    let html = r"<ul>
     <li>Outer item
         <ol>
             <li>Inner item 1</li>
             <li>Inner item 2</li>
         </ol>
     </li>
-    </ul>"#;
+    </ul>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("- Outer item"));
@@ -68,11 +68,11 @@ fn test_ordered_nested_in_unordered() {
 
 #[test]
 fn test_list_with_formatting() {
-    let html = r#"<ul>
+    let html = r"<ul>
     <li><strong>Bold</strong> item</li>
     <li><em>Italic</em> item</li>
     <li><code>Code</code> item</li>
-    </ul>"#;
+    </ul>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("- **Bold** item"));
@@ -106,13 +106,13 @@ fn test_task_list() {
 
 #[test]
 fn test_list_indent_spaces() {
-    let html = r#"<ul>
+    let html = r"<ul>
     <li>Parent
         <ul>
             <li>Child</li>
         </ul>
     </li>
-    </ul>"#;
+    </ul>";
 
     let options = ConversionOptions {
         list_indent_type: html_to_markdown_rs::ListIndentType::Spaces,
@@ -127,13 +127,13 @@ fn test_list_indent_spaces() {
 
 #[test]
 fn test_list_indent_tabs() {
-    let html = r#"<ul>
+    let html = r"<ul>
     <li>Parent
         <ul>
             <li>Child</li>
         </ul>
     </li>
-    </ul>"#;
+    </ul>";
 
     let options = ConversionOptions {
         list_indent_type: html_to_markdown_rs::ListIndentType::Tabs,
@@ -147,10 +147,10 @@ fn test_list_indent_tabs() {
 
 #[test]
 fn test_custom_bullet_symbols() {
-    let html = r#"<ul>
+    let html = r"<ul>
     <li>Item 1</li>
     <li>Item 2</li>
-    </ul>"#;
+    </ul>";
 
     let options = ConversionOptions {
         bullets: "*+-".to_string(),
@@ -163,11 +163,11 @@ fn test_custom_bullet_symbols() {
 
 #[test]
 fn test_empty_list_item() {
-    let html = r#"<ul>
+    let html = r"<ul>
     <li>Item 1</li>
     <li></li>
     <li>Item 3</li>
-    </ul>"#;
+    </ul>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("- Item 1"));
@@ -186,7 +186,7 @@ fn test_list_with_code_block() {
     </ul>"#;
 
     let result = convert(html, None).unwrap();
-    println!("Result:\n{}", result);
+    println!("Result:\n{result}");
     assert!(result.contains("- Item with code:"));
     assert!(result.contains("fn main()"));
 }

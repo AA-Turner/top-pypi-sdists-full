@@ -54,6 +54,17 @@
 //!   - Python versions 3.8 through 3.13
 //!   - Documentation at <https://satellite-toolkit.readthedocs.io/>
 //!
+//! ## Linear Algebra
+//!
+//! SatKit uses the [`numeris`](https://crates.io/crates/numeris) crate for all linear algebra
+//! (vectors, matrices, quaternions, ODE solvers). Types are re-exported via [`mathtypes`].
+//! If you need nalgebra types for interoperability with other crates, enable the `nalgebra`
+//! feature on `numeris` for zero-cost `From`/`Into` conversions:
+//!
+//! ```toml
+//! numeris = { version = "0.5.5", features = ["nalgebra"] }
+//! ```
+//!
 //! ## Optional Features
 //!
 //! - **chrono**: Enables interoperability with `chrono::DateTime` by implementing the `TimeLike` trait.
@@ -105,6 +116,21 @@
 //! ).unwrap();
 //! ```
 //!
+//! ## Running Tests
+//!
+//! Tests require external data files and test vectors. Download them with the provided scripts:
+//!
+//! ```bash
+//! pip install requests
+//! python python/test/download_testvecs.py
+//! ```
+//!
+//! Then run with the environment variables set:
+//!
+//! ```bash
+//! SATKIT_DATA=astro-data SATKIT_TESTVEC_ROOT=satkit-testvecs cargo test
+//! ```
+//!
 //! ## References
 //!
 //! This implementation relies heavily on the following excellent references:
@@ -121,7 +147,7 @@
 #![warn(clippy::all, clippy::use_self, clippy::cargo)]
 #![allow(clippy::multiple_crate_versions)]
 
-// Math type definitions, mostly nalgebra based
+// Math type definitions using the numeris crate
 pub mod mathtypes;
 
 /// Universal constants
@@ -139,18 +165,20 @@ pub mod itrfcoord;
 pub mod jplephem;
 /// Keplerian orbital elements
 pub mod kepler;
+/// Lambert's problem solver for orbital targeting
+pub mod lambert;
 /// Low-precision ephemeris for sun and moon
 pub mod lpephem;
 /// NRLMSISE-00 Density model
 pub mod nrlmsise;
-/// High-Precision Orbit Propagation via Runge-Kutta 9(8) Integration
+/// High-Precision Orbit Propagation using numeris ODE solvers
 pub mod orbitprop;
 /// SGP-4 Orbit Propagator
 pub mod sgp4;
-/// Solar system bodies
-mod solarsystem;
 /// Solar Cycle Forecast (NOAA/SWPC predicted F10.7)
 pub mod solar_cycle_forecast;
+/// Solar system bodies
+mod solarsystem;
 /// Space Weather
 pub mod spaceweather;
 /// Two-line Element Set
@@ -158,15 +186,9 @@ pub mod tle;
 /// Utility functions
 pub mod utils;
 
-// Filters
-pub mod filters;
-
 /// Coordinate frames
 /// Currently not used
 mod frames;
-
-// Integrate ordinary differential equations
-mod ode;
 
 // Orbital Mean-Element Messages
 pub mod omm;
@@ -202,14 +224,15 @@ pub mod prelude {
     pub use crate::frames::Frame;
     pub use crate::itrfcoord::{Geodetic, ITRFCoord};
     pub use crate::kepler::{Anomaly, Kepler};
+    pub use crate::lambert::lambert;
     pub use crate::omm::OMM;
     pub use crate::solarsystem::SolarSystem;
     pub use crate::tle::TLE;
 
     // Propagation
     pub use crate::orbitprop::{
-        propagate, CovState, PropSettings, PropagationResult, SatProperties,
-        SatPropertiesStatic, SatState, SimpleState, StateCov,
+        propagate, CovState, PropSettings, PropagationResult, SatProperties, SatPropertiesStatic,
+        SatState, SimpleState, StateCov,
     };
 
     // SGP4

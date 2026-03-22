@@ -13,26 +13,25 @@ fn djot_options() -> ConversionOptions {
 fn test_djot_emphasis() {
     let html = "<p>Text with <em>emphasis</em> word</p>";
     let result = convert(html, Some(djot_options())).unwrap();
-    assert!(result.contains("_emphasis_"), "Expected _emphasis_, got: {}", result);
+    assert!(result.contains("_emphasis_"), "Expected _emphasis_, got: {result}");
 }
 
 #[test]
 fn test_djot_italic() {
     let html = "<p>Text with <i>italic</i> word</p>";
     let result = convert(html, Some(djot_options())).unwrap();
-    assert!(result.contains("_italic_"), "Expected _italic_, got: {}", result);
+    assert!(result.contains("_italic_"), "Expected _italic_, got: {result}");
 }
 
 #[test]
 fn test_djot_strong() {
     let html = "<p>Text with <strong>strong</strong> word</p>";
     let result = convert(html, Some(djot_options())).unwrap();
-    assert!(result.contains("*strong*"), "Expected *strong*, got: {}", result);
+    assert!(result.contains("*strong*"), "Expected *strong*, got: {result}");
     // Should NOT have double asterisks
     assert!(
         !result.contains("**strong**"),
-        "Should not have **strong**, got: {}",
-        result
+        "Should not have **strong**, got: {result}"
     );
 }
 
@@ -40,12 +39,11 @@ fn test_djot_strong() {
 fn test_djot_bold() {
     let html = "<p>Text with <b>bold</b> word</p>";
     let result = convert(html, Some(djot_options())).unwrap();
-    assert!(result.contains("*bold*"), "Expected *bold*, got: {}", result);
+    assert!(result.contains("*bold*"), "Expected *bold*, got: {result}");
     // Should NOT have double asterisks
     assert!(
         !result.contains("**bold**"),
-        "Should not have double asterisks, got: {}",
-        result
+        "Should not have double asterisks, got: {result}"
     );
 }
 
@@ -61,11 +59,7 @@ fn test_djot_options_debug() {
 fn test_djot_strikethrough() {
     let html = "<p>Text with <del>deleted</del> word</p>";
     let result = convert(html, Some(djot_options())).unwrap();
-    assert!(
-        result.contains("{-deleted-}"),
-        "Expected {{-deleted-}}, got: {}",
-        result
-    );
+    assert!(result.contains("{-deleted-}"), "Expected {{-deleted-}}, got: {result}");
 }
 
 #[test]
@@ -74,8 +68,7 @@ fn test_djot_strikethrough_s_tag() {
     let result = convert(html, Some(djot_options())).unwrap();
     assert!(
         result.contains("{-strikethrough-}"),
-        "Expected {{-strikethrough-}}, got: {}",
-        result
+        "Expected {{-strikethrough-}}, got: {result}"
     );
 }
 
@@ -85,8 +78,7 @@ fn test_djot_inserted() {
     let result = convert(html, Some(djot_options())).unwrap();
     assert!(
         result.contains("{+inserted+}"),
-        "Expected {{+inserted+}}, got: {}",
-        result
+        "Expected {{+inserted+}}, got: {result}"
     );
 }
 
@@ -96,8 +88,7 @@ fn test_djot_highlight() {
     let result = convert(html, Some(djot_options())).unwrap();
     assert!(
         result.contains("{=highlighted=}"),
-        "Expected {{=highlighted=}}, got: {}",
-        result
+        "Expected {{=highlighted=}}, got: {result}"
     );
 }
 
@@ -105,27 +96,23 @@ fn test_djot_highlight() {
 fn test_djot_subscript() {
     let html = "<p>H<sub>2</sub>O</p>";
     let result = convert(html, Some(djot_options())).unwrap();
-    assert!(result.contains("~2~"), "Expected ~2~, got: {}", result);
+    assert!(result.contains("~2~"), "Expected ~2~, got: {result}");
 }
 
 #[test]
 fn test_djot_superscript() {
     let html = "<p>x<sup>2</sup></p>";
     let result = convert(html, Some(djot_options())).unwrap();
-    assert!(result.contains("^2^"), "Expected ^2^, got: {}", result);
+    assert!(result.contains("^2^"), "Expected ^2^, got: {result}");
 }
 
 #[test]
 fn test_djot_combined_formatting() {
     let html = "<p><strong>Bold</strong> and <em>italic</em> and <del>deleted</del></p>";
     let result = convert(html, Some(djot_options())).unwrap();
-    assert!(result.contains("*Bold*"), "Expected *Bold*, got: {}", result);
-    assert!(result.contains("_italic_"), "Expected _italic_, got: {}", result);
-    assert!(
-        result.contains("{-deleted-}"),
-        "Expected {{-deleted-}}, got: {}",
-        result
-    );
+    assert!(result.contains("*Bold*"), "Expected *Bold*, got: {result}");
+    assert!(result.contains("_italic_"), "Expected _italic_, got: {result}");
+    assert!(result.contains("{-deleted-}"), "Expected {{-deleted-}}, got: {result}");
 }
 
 #[test]
@@ -135,13 +122,11 @@ fn test_markdown_output_unchanged() {
     let result = convert(html, None).unwrap();
     assert!(
         result.contains("**Bold**"),
-        "Expected **Bold** for Markdown, got: {}",
-        result
+        "Expected **Bold** for Markdown, got: {result}"
     );
     assert!(
         result.contains("*italic*"),
-        "Expected *italic* for Markdown, got: {}",
-        result
+        "Expected *italic* for Markdown, got: {result}"
     );
 }
 
@@ -151,8 +136,7 @@ fn test_markdown_strikethrough_unchanged() {
     let result = convert(html, None).unwrap();
     assert!(
         result.contains("~~deleted~~"),
-        "Expected ~~deleted~~ for Markdown, got: {}",
-        result
+        "Expected ~~deleted~~ for Markdown, got: {result}"
     );
 }
 

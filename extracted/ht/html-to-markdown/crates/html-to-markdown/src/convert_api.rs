@@ -859,7 +859,7 @@ mod table_extraction_tests {
 
     #[test]
     fn test_convert_with_tables_basic() {
-        let html = r#"<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>"#;
+        let html = r"<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>";
         let result = tables_from_html(html);
         assert_eq!(result.tables.len(), 1);
         assert_eq!(result.tables[0].cells.len(), 2);
@@ -872,7 +872,7 @@ mod table_extraction_tests {
 
     #[test]
     fn test_convert_with_tables_nested() {
-        let html = r#"
+        let html = r"
         <table>
             <tr><th>Category</th><th>Details</th></tr>
             <tr>
@@ -884,7 +884,7 @@ mod table_extraction_tests {
                     </table>
                 </td>
             </tr>
-        </table>"#;
+        </table>";
         let result = tables_from_html(html);
         assert!(
             result.tables.len() >= 2,
@@ -909,7 +909,7 @@ mod table_extraction_tests {
 
     #[test]
     fn test_convert_with_tables_headers_only() {
-        let html = r#"<table><thead><tr><th>A</th><th>B</th></tr></thead></table>"#;
+        let html = r"<table><thead><tr><th>A</th><th>B</th></tr></thead></table>";
         let result = tables_from_html(html);
         assert_eq!(result.tables.len(), 1);
         assert!(result.tables[0].is_header_row[0]);
@@ -918,12 +918,12 @@ mod table_extraction_tests {
 
     #[test]
     fn test_convert_with_tables_thead_tbody_tfoot() {
-        let html = r#"
+        let html = r"
         <table>
             <thead><tr><th>H1</th></tr></thead>
             <tbody><tr><td>B1</td></tr></tbody>
             <tfoot><tr><td>F1</td></tr></tfoot>
-        </table>"#;
+        </table>";
         let result = tables_from_html(html);
         assert_eq!(result.tables.len(), 1);
         let t = &result.tables[0];
@@ -935,17 +935,17 @@ mod table_extraction_tests {
 
     #[test]
     fn test_convert_with_tables_multiple_separate() {
-        let html = r#"
+        let html = r"
         <table><tr><td>T1</td></tr></table>
         <p>Between tables</p>
-        <table><tr><td>T2</td></tr></table>"#;
+        <table><tr><td>T2</td></tr></table>";
         let result = tables_from_html(html);
         assert_eq!(result.tables.len(), 2, "Should find 2 separate tables");
     }
 
     #[test]
     fn test_convert_with_tables_special_chars() {
-        let html = r#"<table><tr><td>a | b</td><td>c*d</td></tr></table>"#;
+        let html = r"<table><tr><td>a | b</td><td>c*d</td></tr></table>";
         let result = tables_from_html(html);
         assert_eq!(result.tables.len(), 1);
         assert!(!result.tables[0].cells[0].is_empty());
@@ -953,7 +953,7 @@ mod table_extraction_tests {
 
     #[test]
     fn test_convert_with_tables_single_cell() {
-        let html = r#"<table><tr><td>Only cell</td></tr></table>"#;
+        let html = r"<table><tr><td>Only cell</td></tr></table>";
         let result = tables_from_html(html);
         assert_eq!(result.tables.len(), 1);
         assert_eq!(result.tables[0].cells.len(), 1);
@@ -962,7 +962,7 @@ mod table_extraction_tests {
 
     #[test]
     fn test_convert_with_tables_content_preserved() {
-        let html = r#"<p>Before</p><table><tr><td>Cell</td></tr></table><p>After</p>"#;
+        let html = r"<p>Before</p><table><tr><td>Cell</td></tr></table><p>After</p>";
         let result = tables_from_html(html);
         assert!(result.content.contains("Before"));
         assert!(result.content.contains("After"));
@@ -975,7 +975,7 @@ mod table_extraction_tests {
             heading_style: crate::options::HeadingStyle::Underlined,
             ..ConversionOptions::default()
         };
-        let html = r#"<h1>Title</h1><table><tr><td>Cell</td></tr></table>"#;
+        let html = r"<h1>Title</h1><table><tr><td>Cell</td></tr></table>";
         let result = convert_with_tables(
             html,
             Some(options),
@@ -995,7 +995,7 @@ mod table_extraction_tests {
             output_format: crate::options::OutputFormat::Plain,
             ..ConversionOptions::default()
         };
-        let html = r#"<table><tr><th>Name</th></tr><tr><td>Alice</td></tr></table>"#;
+        let html = r"<table><tr><th>Name</th></tr><tr><td>Alice</td></tr></table>";
         let result = convert_with_tables(
             html,
             Some(options),

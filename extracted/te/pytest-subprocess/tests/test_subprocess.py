@@ -7,11 +7,13 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import pytest
 
 import pytest_subprocess
 from pytest_subprocess.fake_popen import FakePopen
+from tests.imported_popen_fixture import run_imported_popen
 
 PYTHON = sys.executable
 
@@ -359,8 +361,10 @@ def test_universal_newlines(fp, fake):
         (PYTHON, "example_script.py"), universal_newlines=True, stdout=subprocess.PIPE
     )
     process.wait()
+    output = process.stdout.read()
+    process.stdout.close()
 
-    assert process.stdout.read() == "Stdout line 1\nStdout line 2\n"
+    assert output == "Stdout line 1\nStdout line 2\n"
 
 
 @pytest.mark.parametrize("fake", [False, True])
@@ -382,8 +386,10 @@ def test_text(fp, fake):
             (PYTHON, "example_script.py"), stdout=subprocess.PIPE, text=True
         )
         process.wait()
+        output = process.stdout.read()
+        process.stdout.close()
 
-        assert process.stdout.read().splitlines() == ["Stdout line 1", "Stdout line 2"]
+        assert output.splitlines() == ["Stdout line 1", "Stdout line 2"]
 
 
 def test_binary(fp):
@@ -922,12 +928,14 @@ def test_encoding(fp, fake, argument):
     if fake:
         fp.register(["whoami"], stdout=username)
 
-    output = subprocess.check_output(
-        ["whoami"], **{argument: values.get(argument)}
-    ).strip()
+    output = (
+        subprocess.check_output(["whoami"], **{argument: values.get(argument)})
+        .strip()
+        .lower()
+    )
 
     assert isinstance(output, str)
-    assert output.endswith(username)
+    assert output.endswith(username.lower())
 
 
 @pytest.mark.parametrize("command", ["ls -lah", ["ls", "-lah"]])
@@ -1204,6 +1212,39 @@ def test_non_piped_same_file(tmpdir, fp, fake, bytes):
     assert output == ["Stdout line 1\n", "Stdout line 2\n", "Stderr line 1\n"]
 
 
+@pytest.mark.parametrize("fake", [False, True])
+@pytest.mark.parametrize("bytes", [True, False])
+def test_non_piped_stdout_file_stderr_stdout(tmpdir, fp, fake, bytes):
+    fp.allow_unregistered(not fake)
+    if fake:
+        fp.register(
+            [PYTHON, "-u", "example_script.py", "stderr"],
+            stdout=["Stdout line 1", "Stdout line 2"],
+            stderr="Stderr line 1\n",
+        )
+
+    output_path = tmpdir.join("output")
+
+    mode = "wb" if bytes else "w"
+
+    with open(output_path, mode) as out_file:
+        process = subprocess.Popen(
+            [PYTHON, "-u", "example_script.py", "stderr"],
+            stdout=out_file,
+            stderr=subprocess.STDOUT,
+        )
+
+        err, out = process.communicate()
+
+    assert out is None
+    assert err is None
+
+    with open(output_path, "r") as out_file:
+        output = out_file.readlines()
+
+    assert output == ["Stdout line 1\n", "Stdout line 2\n", "Stderr line 1\n"]
+
+
 def test_process_recorder(fp):
     fp.keep_last_process(True)
     recorder = fp.register(["test_script", fp.any()])
@@ -1280,3 +1321,83 @@ def test_fake_popen_is_typed(fp):
     proc.wait()
 
     assert proc.stdout.read() == "Stdout line 1\nStdout line 2\n"
+
+
+def test_stdin_pipe(fp):
+    """
+    Test that stdin is a writable buffer when using subprocess.PIPE.
+    """
+    fp.register(["my-command"])
+
+    process = subprocess.Popen(
+        ["my-command"],
+        stdin=subprocess.PIPE,
+    )
+
+    assert process.stdin is not None
+    assert process.stdin.writable()
+
+    # We can write to the buffer.
+    process.stdin.write(b"some data")
+    process.stdin.flush()
+
+    # The data can be read back from the buffer for inspection.
+    process.stdin.seek(0)
+    assert process.stdin.read() == b"some data"
+
+    # After closing, it should raise a ValueError.
+    process.stdin.close()
+    with pytest.raises(ValueError):
+        process.stdin.write(b"more data")
+
+
+def test_stdout_stderr_as_file_bug(fp):
+    """
+    Test that no TypeError is raised when stdout/stderr is a file
+    and the stream is not registered.
+
+    From GitHub #144
+    """
+    # register process with stdout but no stderr
+    fp.register(
+        ["test-no-stderr"],
+        stdout="test",
+    )
+    # register process with stderr but no stdout
+    fp.register(
+        ["test-no-stdout"],
+        stderr="test",
+    )
+    # register process with no streams
+    fp.register(
+        ["test-no-streams"],
+    )
+
+    with NamedTemporaryFile("wb") as temp_file:
+        # test with stderr not registered
+        process = subprocess.Popen(
+            "test-no-stderr", stdout=temp_file.file, stderr=temp_file.file
+        )
+        process.wait()
+
+        # test with stdout not registered
+        process = subprocess.Popen(
+            "test-no-stdout", stdout=temp_file.file, stderr=temp_file.file
+        )
+        process.wait()
+
+        # test with no streams registered
+        process = subprocess.Popen(
+            "test-no-streams", stdout=temp_file.file, stderr=temp_file.file
+        )
+        process.wait()
+
+
+def test_imported_popen_is_patched(fp):
+    fp.register(["echo", "-ne", "\\x00"], stdout=bytes.fromhex("00"))
+
+    process = run_imported_popen(["echo", "-ne", "\\x00"])
+    out, _ = process.communicate()
+
+    assert process.returncode == 0
+    assert out == b"\x00"

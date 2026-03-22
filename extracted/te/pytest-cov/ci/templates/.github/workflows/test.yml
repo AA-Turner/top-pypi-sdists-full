@@ -7,14 +7,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["pypy-3.9", "3.11"]
+        python-version: ["pypy-3.11", "3.11"]
         target: [
             "src-layout",
             "adhoc-layout",
         ]
         include:
           # Add new helper variables to existing jobs
-          - {python-version: "pypy-3.9", tox-python-version: "pypy3"}
+          - {python-version: "pypy-3.11", tox-python-version: "pypy11"}
           - {python-version: "3.11", tox-python-version: "py311"}
     steps:
       - uses: actions/checkout@v5
@@ -25,7 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key:
@@ -88,7 +88,7 @@ jobs:
 {% endfor %}
 {% endfor %}
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
     - uses: actions/setup-python@v6

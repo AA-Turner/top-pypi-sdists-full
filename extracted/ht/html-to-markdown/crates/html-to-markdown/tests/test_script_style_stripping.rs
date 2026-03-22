@@ -11,19 +11,19 @@ use html_to_markdown_rs::{ConversionOptions, MetadataConfig, convert, convert_wi
 #[test]
 fn test_strip_simple_script_tag() {
     // Simple script with plain JavaScript
-    let html = r#"<html>
+    let html = r"<html>
 <head>
   <script>var x = 1; var y = 2;</script>
 </head>
 <body>
   <p>Real content here</p>
 </body>
-</html>"#;
+</html>";
 
     let options = ConversionOptions::default();
     let result = convert(html, Some(options)).expect("Failed to convert");
 
-    println!("Output:\n{}", result);
+    println!("Output:\n{result}");
 
     // Should extract body content
     assert!(result.contains("Real content"), "Should contain body content");
@@ -56,7 +56,7 @@ fn test_strip_script_with_html_like_content() {
     let options = ConversionOptions::default();
     let result = convert(html, Some(options)).expect("Failed to convert");
 
-    println!("Output:\n{}", result);
+    println!("Output:\n{result}");
 
     // Should extract body content
     assert!(
@@ -72,7 +72,7 @@ fn test_strip_script_with_html_like_content() {
 #[test]
 fn test_strip_style_tag() {
     // Style tags with CSS that has HTML-like syntax
-    let html = r#"<html>
+    let html = r"<html>
 <head>
   <style>
     div { content: '<fake>test</fake>'; }
@@ -82,12 +82,12 @@ fn test_strip_style_tag() {
 <body>
   <p>Paragraph content</p>
 </body>
-</html>"#;
+</html>";
 
     let options = ConversionOptions::default();
     let result = convert(html, Some(options)).expect("Failed to convert");
 
-    println!("Output:\n{}", result);
+    println!("Output:\n{result}");
 
     // Should have body content
     assert!(result.contains("Paragraph content"), "Should contain paragraph");
@@ -125,7 +125,7 @@ fn test_preserve_json_ld_script() {
     let (markdown, metadata) =
         convert_with_metadata(html, Some(options), MetadataConfig::default(), None).expect("Failed to convert");
 
-    println!("Markdown:\n{}", markdown);
+    println!("Markdown:\n{markdown}");
     println!("Metadata: {:?}", metadata.document.title);
 
     // Should extract both content and metadata
@@ -182,7 +182,7 @@ fn test_multiple_script_tags() {
     let (markdown, metadata) =
         convert_with_metadata(html, Some(options), MetadataConfig::default(), None).expect("Failed to convert");
 
-    println!("Markdown:\n{}", markdown);
+    println!("Markdown:\n{markdown}");
 
     // Should have real content
     assert!(markdown.contains("Real Title"), "Should have h1");
@@ -243,7 +243,7 @@ fn test_reuters_like_structure() {
     let (markdown, metadata) =
         convert_with_metadata(html, Some(options), MetadataConfig::default(), None).expect("Failed to convert");
 
-    println!("Markdown output:\n{}", markdown);
+    println!("Markdown output:\n{markdown}");
     println!("Metadata title: {:?}", metadata.document.title);
 
     // Should have extracted metadata
@@ -310,7 +310,7 @@ fn test_complex_nested_script_content() {
     let options = ConversionOptions::default();
     let result = convert(html, Some(options)).expect("Failed to convert");
 
-    println!("Output:\n{}", result);
+    println!("Output:\n{result}");
 
     // Should have actual content
     assert!(result.contains("Main Content"), "Should have h2");
@@ -327,7 +327,7 @@ fn test_complex_nested_script_content() {
 #[test]
 fn test_case_insensitive_script_style_tags() {
     // Test that script/style tags are matched case-insensitively
-    let html = r#"<html>
+    let html = r"<html>
 <head>
   <SCRIPT>console.log('uppercase script');</SCRIPT>
   <Style>body { margin: 0; }</Style>
@@ -336,12 +336,12 @@ fn test_case_insensitive_script_style_tags() {
 <body>
   <p>Content</p>
 </body>
-</html>"#;
+</html>";
 
     let options = ConversionOptions::default();
     let result = convert(html, Some(options)).expect("Failed to convert");
 
-    println!("Output:\n{}", result);
+    println!("Output:\n{result}");
 
     // Should have content
     assert!(result.contains("Content"), "Should have content");
@@ -355,14 +355,14 @@ fn test_case_insensitive_script_style_tags() {
 #[test]
 fn test_performance_large_script() {
     // Performance test: large script tag shouldn't cause issues
-    let mut html = String::from(r#"<html><head><script>"#);
+    let mut html = String::from(r"<html><head><script>");
 
     // Add 1MB of fake content
     for _ in 0..10000 {
         html.push_str("var data = '<div>fake content</div>'; ");
     }
 
-    html.push_str(r#"</script></head><body><p>Real content</p></body></html>"#);
+    html.push_str(r"</script></head><body><p>Real content</p></body></html>");
 
     println!("Testing with {} byte HTML", html.len());
 
@@ -392,7 +392,7 @@ fn test_inline_script_attributes_not_affected() {
     let options = ConversionOptions::default();
     let result = convert(html, Some(options)).expect("Failed to convert");
 
-    println!("Output:\n{}", result);
+    println!("Output:\n{result}");
 
     // Should have content and button
     assert!(result.contains("Click me"), "Should have button text");

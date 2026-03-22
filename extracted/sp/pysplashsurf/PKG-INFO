@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysplashsurf
-Version: 0.14.0.0
+Version: 0.14.1.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -21,9 +21,9 @@ Author: Interactive Computer Graphics, Fabian Löschner
 License-Expression: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Documentation, https://pysplashsurf.readthedocs.io/
 Project-URL: Homepage, https://splashsurf.physics-simulation.org/
 Project-URL: Repository, https://github.com/InteractiveComputerGraphics/splashsurf.git
-Project-URL: Documentation, https://pysplashsurf.readthedocs.io/
 
 # pySplashsurf
 
@@ -60,7 +60,7 @@ pysplashsurf --help
 ```
 For example, to reconstruct a surface from particle data in a VTK file with some smoothing:
 ```bash
-splashsurf reconstruct particles.vtk -r=0.025 -l=2.0 -c=0.5 -t=0.6 --mesh-smoothing-weights=on --mesh-smoothing-iters=15 --normals=on --normals-smoothing-iters=10
+pysplashsurf reconstruct particles.vtk -r=0.025 -l=2.0 -c=0.5 -t=0.6 --mesh-smoothing-weights=on --mesh-smoothing-iters=15 --normals=on --normals-smoothing-iters=10
 ```
 
 For more information on the CLI and its arguments, refer to the [splashsurf documentation](https://github.com/InteractiveComputerGraphics/splashsurf).
@@ -105,9 +105,9 @@ The extension supports single (`np.float32`) and double precision floats (`np.fl
 ## Build instructions
 You can also manually build the package from the source code:
 1. Clone the repository
-2. cd to the `pysplashsurf` directory
+2. `cd` to the `pysplashsurf` directory
 3. Create an environment from `python_environment.yaml` and activate it
-    - I recommend creating it in a subfolder, e.g.
+    - It is recommended to create it in a subfolder, e.g.
     ```conda env create --prefix ./env -f python_environment.yaml```
     - Then activate it using `conda activate ./env`
 4. Now, to build the project, use maturin: `maturin develop`

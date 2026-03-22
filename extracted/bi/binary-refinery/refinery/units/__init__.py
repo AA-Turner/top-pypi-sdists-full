@@ -148,7 +148,7 @@ import os
 import sys
 
 from abc import ABCMeta
-from argparse import ONE_OR_MORE, OPTIONAL, REMAINDER, ZERO_OR_MORE, ArgumentTypeError, Namespace
+from argparse import ONE_OR_MORE, OPTIONAL, REMAINDER, ZERO_OR_MORE, SUPPRESS, ArgumentTypeError, Namespace
 from collections import OrderedDict
 from enum import Enum
 from functools import partial, wraps
@@ -174,7 +174,7 @@ from typing import (
 )
 
 from refinery.lib.annotations import evaluate
-from refinery.lib.argparser import ArgparseError, ArgumentParserWithKeywordHooks
+from refinery.lib.argparser import ArgparseError, ArgumentParserWithKeywordHooks, HelpAction
 from refinery.lib.dependencies import dependency_accessor
 from refinery.lib.environment import Logger, LogLevel, environment, logger
 from refinery.lib.exceptions import (
@@ -404,8 +404,7 @@ class Arg(Argument):
 
         try:
             help_string: str = self.kwargs['help']
-            self.kwargs.update(
-                help=help_string.format_map(formatting()))
+            self.kwargs.update(help=help_string.format_map(formatting()))
         except Exception:
             pass
 
@@ -2195,7 +2194,11 @@ class Unit(UnitBase, abstract=True):
         base = argp.add_argument_group('generic options')
 
         base.set_defaults(reverse=False, squeeze=False, iff=0)
-        base.add_argument('-h', '--help', action='help', help='Show this help message and exit.')
+        help = base.add_mutually_exclusive_group()
+        help.add_argument('-h', '--help', action=HelpAction, generics=True,
+            help='Show this help message and exit.')
+        help.add_argument('-?', action=HelpAction, generics=False, help=SUPPRESS)
+
         base.add_argument('-L', '--lenient', action='count', default=0,
             help='Increase the leniency, allowing partial results and ignoring more errors.')
         base.add_argument('-Q', '--quiet', action='store_true', help='Disables all log output.')

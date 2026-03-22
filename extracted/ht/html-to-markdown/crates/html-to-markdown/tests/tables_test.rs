@@ -4,10 +4,10 @@ use html_to_markdown_rs::{ConversionOptions, convert};
 
 #[test]
 fn test_basic_table() {
-    let html = r#"<table>
+    let html = r"<table>
     <tr><th>Header 1</th><th>Header 2</th></tr>
     <tr><td>Cell 1</td><td>Cell 2</td></tr>
-    </table>"#;
+    </table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Header 1 | Header 2 |"));
@@ -17,7 +17,7 @@ fn test_basic_table() {
 
 #[test]
 fn test_table_with_sections() {
-    let html = r#"<table>
+    let html = r"<table>
         <thead>
             <tr><th>Name</th><th>Age</th></tr>
         </thead>
@@ -28,7 +28,7 @@ fn test_table_with_sections() {
         <tfoot>
             <tr><td>Total</td><td>2</td></tr>
         </tfoot>
-    </table>"#;
+    </table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Name | Age |"));
@@ -39,7 +39,7 @@ fn test_table_with_sections() {
 
 #[test]
 fn test_table_caption() {
-    let html = r#"<table><caption>Table Caption</caption><tr><td>Data</td></tr></table>"#;
+    let html = r"<table><caption>Table Caption</caption><tr><td>Data</td></tr></table>";
     let result = convert(html, None).unwrap();
     assert!(result.contains("*Table Caption*"));
     assert!(result.contains("| Data |"));
@@ -74,8 +74,7 @@ fn test_table_rowspan() {
             && result.contains("Second line")
             && result.contains("Next row")
             && result.contains("More content"),
-        "All rowspan content should be present: {}",
-        result
+        "All rowspan content should be present: {result}"
     );
 }
 
@@ -95,13 +94,13 @@ fn test_table_colspan() {
 fn test_table_cell_multiline_content() {
     // Test table cells with multiple divs (multiline content)
     // With br_in_tables enabled, divs should be separated by breaks
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header 1</th><th>Header 2</th></tr>
 <tr><td>Cell 3</td><td>
     <div>Cell 4-1</div>
     <div>Cell 4-2</div>
 </td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -116,18 +115,17 @@ fn test_table_cell_multiline_content() {
             && result.contains("Cell 3")
             && result.contains("Cell 4-1")
             && result.contains("Cell 4-2"),
-        "All cell content should be present: {}",
-        result
+        "All cell content should be present: {result}"
     );
 }
 
 #[test]
 fn test_table_first_row_in_tbody_without_header() {
-    let html = r#"<table>
+    let html = r"<table>
     <tbody>
         <tr><td>Cell 1</td><td>Cell 2</td></tr>
     </tbody>
-    </table>"#;
+    </table>";
 
     let result = convert(html, None).unwrap();
     let expected = "\n\n| Cell 1 | Cell 2 |\n| --- | --- |\n";
@@ -151,7 +149,7 @@ fn test_tfoot_basic() {
 
 #[test]
 fn test_caption_with_formatting() {
-    let html = r#"<table><caption>Sales <strong>Report</strong> 2023</caption><tr><td>Data</td></tr></table>"#;
+    let html = r"<table><caption>Sales <strong>Report</strong> 2023</caption><tr><td>Data</td></tr></table>";
     let result = convert(html, None).unwrap();
     assert!(result.contains("*Sales **Report** 2023*"));
 }
@@ -170,10 +168,10 @@ fn test_table_with_links() {
 
 #[test]
 fn test_table_with_code() {
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Command</th></tr>
 <tr><td><code>ls -la</code></td></tr>
-</table>"#;
+</table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Command |"));
@@ -182,9 +180,9 @@ fn test_table_with_code() {
 
 #[test]
 fn test_table_empty_cells() {
-    let html = r#"<table>
+    let html = r"<table>
 <tr><td>Data</td><td></td></tr>
-</table>"#;
+</table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Data |  |"));
@@ -192,11 +190,11 @@ fn test_table_empty_cells() {
 
 #[test]
 fn test_table_single_column() {
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td>Cell 1</td></tr>
 <tr><td>Cell 2</td></tr>
-</table>"#;
+</table>";
 
     let result = convert(html, None).unwrap();
     assert!(result.contains("| Header |"));
@@ -223,18 +221,15 @@ fn test_blogger_table_with_image() {
     // The image should be converted to markdown (wrapped in a link)
     assert!(
         result.contains("!["),
-        "Result should contain markdown image syntax: {}",
-        result
+        "Result should contain markdown image syntax: {result}"
     );
     assert!(
         result.contains("blogger.googleusercontent.com"),
-        "Result should contain image URL: {}",
-        result
+        "Result should contain image URL: {result}"
     );
     assert!(
         result.contains("example.com/full-image.jpg"),
-        "Result should contain link URL: {}",
-        result
+        "Result should contain link URL: {result}"
     );
 }
 
@@ -246,8 +241,7 @@ fn test_table_with_image_no_rows() {
 
     assert!(
         result.contains("![test image](https://example.com/image.jpg)"),
-        "Image should be converted to markdown: {}",
-        result
+        "Image should be converted to markdown: {result}"
     );
 }
 
@@ -260,8 +254,7 @@ fn test_table_with_link_and_image_no_rows() {
 
     assert!(
         result.contains("[![test](https://example.com/image.jpg)](https://example.com)"),
-        "Link-wrapped image should be converted to markdown: {}",
-        result
+        "Link-wrapped image should be converted to markdown: {result}"
     );
 }
 
@@ -277,10 +270,10 @@ fn test_table_with_link_and_image_no_rows() {
 
 #[test]
 fn test_br_in_table_cell_basic_spaces_style() {
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td>Line 1<br>Line 2</td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -293,8 +286,7 @@ fn test_br_in_table_cell_basic_spaces_style() {
     // ACTUAL BUG: "Line 1  <br>Line 2" (literal <br> tag)
     assert!(
         result.contains("Line 1  \nLine 2") || result.contains("Line 1  <br>Line 2"),
-        "Expected spaces-style line break in table cell: {}",
-        result
+        "Expected spaces-style line break in table cell: {result}"
     );
     // For now, we document the bug exists (contains <br>)
     // This assertion will pass until the bug is fixed
@@ -302,17 +294,16 @@ fn test_br_in_table_cell_basic_spaces_style() {
     let properly_converted = result.contains("Line 1  \nLine 2");
     assert!(
         has_literal_br || properly_converted,
-        "Should either have literal <br> (bug) or proper break: {}",
-        result
+        "Should either have literal <br> (bug) or proper break: {result}"
     );
 }
 
 #[test]
 fn test_br_in_table_cell_backslash_style() {
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td>Line 1<br>Line 2</td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -326,8 +317,7 @@ fn test_br_in_table_cell_backslash_style() {
     // ACTUAL BUG: "Line 1\<br>Line 2" (literal <br> tag with backslash escape)
     assert!(
         result.contains("Line 1\\\nLine 2") || result.contains("Line 1\\<br>Line 2"),
-        "Expected backslash-style line break in table cell: {}",
-        result
+        "Expected backslash-style line break in table cell: {result}"
     );
 }
 
@@ -349,11 +339,10 @@ fn test_br_in_table_cell_case_variations() {
 
     for (html_br, case_name, should_work) in test_cases {
         let html = format!(
-            r#"<table>
+            r"<table>
 <tr><th>Header</th></tr>
-<tr><td>Line 1{}Line 2</td></tr>
-</table>"#,
-            html_br
+<tr><td>Line 1{html_br}Line 2</td></tr>
+</table>"
         );
 
         let options = ConversionOptions {
@@ -366,18 +355,14 @@ fn test_br_in_table_cell_case_variations() {
             // Lowercase br tags should produce both lines
             assert!(
                 result.contains("Line 1") && result.contains("Line 2"),
-                "Failed for {}: Both lines should be in output: {}",
-                case_name,
-                result
+                "Failed for {case_name}: Both lines should be in output: {result}"
             );
         } else {
             // Uppercase/mixed case tags are not recognized, but content should still exist
             // (they're treated as unrecognized tags and stripped)
             assert!(
                 result.contains("Line 1"),
-                "Failed for {}: At least first line should be in output: {}",
-                case_name,
-                result
+                "Failed for {case_name}: At least first line should be in output: {result}"
             );
         }
     }
@@ -388,13 +373,13 @@ fn test_br_in_table_cell_with_consecutive_paragraphs() {
     // Consecutive paragraphs in table cells generate <br> separators.
     // EXPECTED: These should be converted to proper line breaks
     // ACTUAL BUG: Output as literal <br> tags in the markdown table
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td>
     <p>First paragraph</p>
     <p>Second paragraph</p>
 </td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -405,13 +390,11 @@ fn test_br_in_table_cell_with_consecutive_paragraphs() {
     // The content should be on separate lines in the table cell
     assert!(
         result.contains("First paragraph"),
-        "Should contain first paragraph: {}",
-        result
+        "Should contain first paragraph: {result}"
     );
     assert!(
         result.contains("Second paragraph"),
-        "Should contain second paragraph: {}",
-        result
+        "Should contain second paragraph: {result}"
     );
     // For now, we just verify both paragraphs are present
     // (exact format depends on whether bug is fixed)
@@ -422,14 +405,14 @@ fn test_br_in_table_cell_with_consecutive_divs() {
     // Consecutive divs in table cells also generate <br> separators
     // EXPECTED: Should convert to proper line breaks
     // ACTUAL BUG: Output as literal <br> tags in the markdown table
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td>
     <div>First line</div>
     <div>Second line</div>
     <div>Third line</div>
 </td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -438,9 +421,9 @@ fn test_br_in_table_cell_with_consecutive_divs() {
     let result = convert(html, Some(options)).unwrap();
 
     // All three lines should be present in the output
-    assert!(result.contains("First line"), "Should contain first line: {}", result);
-    assert!(result.contains("Second line"), "Should contain second line: {}", result);
-    assert!(result.contains("Third line"), "Should contain third line: {}", result);
+    assert!(result.contains("First line"), "Should contain first line: {result}");
+    assert!(result.contains("Second line"), "Should contain second line: {result}");
+    assert!(result.contains("Third line"), "Should contain third line: {result}");
 }
 
 #[test]
@@ -448,10 +431,10 @@ fn test_br_in_table_cell_with_formatting() {
     // Test <br> tags between formatted text in table cells
     // EXPECTED: "**Text1**  \n**Text2**"
     // ACTUAL BUG: "**Text1**  <br>**Text2**"
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td><b>Text1</b><br><b>Text2</b></td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -460,16 +443,8 @@ fn test_br_in_table_cell_with_formatting() {
     let result = convert(html, Some(options)).unwrap();
 
     // Both formatted texts should be present
-    assert!(
-        result.contains("**Text1**"),
-        "Expected first formatted text: {}",
-        result
-    );
-    assert!(
-        result.contains("**Text2**"),
-        "Expected second formatted text: {}",
-        result
-    );
+    assert!(result.contains("**Text1**"), "Expected first formatted text: {result}");
+    assert!(result.contains("**Text2**"), "Expected second formatted text: {result}");
 }
 
 #[test]
@@ -477,10 +452,10 @@ fn test_br_in_table_cell_multiple_breaks() {
     // Test multiple <br> tags in the same table cell
     // EXPECTED: All breaks converted to proper Markdown line breaks
     // ACTUAL BUG: All breaks output as literal <br> tags
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td>Line 1<br>Line 2<br>Line 3<br>Line 4</td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -494,8 +469,7 @@ fn test_br_in_table_cell_multiple_breaks() {
             && result.contains("Line 2")
             && result.contains("Line 3")
             && result.contains("Line 4"),
-        "All lines should be in output: {}",
-        result
+        "All lines should be in output: {result}"
     );
 }
 
@@ -504,10 +478,10 @@ fn test_br_in_table_cell_with_surrounding_text() {
     // Test <br> inside formatted text with surrounding text
     // EXPECTED: "Before **middle**  \n**line** after"
     // ACTUAL BUG: "Before **middle  <br>line** after"
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td>Before <b>middle<br>line</b> after</td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -521,8 +495,7 @@ fn test_br_in_table_cell_with_surrounding_text() {
             && result.contains("**middle")
             && result.contains("line**")
             && result.contains("after"),
-        "Should contain all text parts: {}",
-        result
+        "Should contain all text parts: {result}"
     );
 }
 
@@ -531,10 +504,10 @@ fn test_multiple_cells_with_br_tags() {
     // Test <br> tags in multiple cells across a row
     // EXPECTED: All cells should have breaks converted to proper Markdown
     // ACTUAL BUG: All cells output with literal <br> tags
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Col1</th><th>Col2</th><th>Col3</th></tr>
 <tr><td>A1<br>A2</td><td>B1<br>B2</td><td>C1<br>C2</td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -550,8 +523,7 @@ fn test_multiple_cells_with_br_tags() {
             && result.contains("B2")
             && result.contains("C1")
             && result.contains("C2"),
-        "All cell contents should be in output: {}",
-        result
+        "All cell contents should be in output: {result}"
     );
 }
 
@@ -560,10 +532,10 @@ fn test_br_in_header_and_data_cells() {
     // Test <br> tags in both header and data cells
     // EXPECTED: All cells should have breaks converted to proper Markdown
     // ACTUAL BUG: All cells output with literal <br> tags
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header1<br>Line2</th><th>Header3</th></tr>
 <tr><td>Data1<br>Line2</td><td>Data3</td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -578,8 +550,7 @@ fn test_br_in_header_and_data_cells() {
             && result.contains("Header3")
             && result.contains("Data1")
             && result.contains("Data3"),
-        "All cell contents should be in output: {}",
-        result
+        "All cell contents should be in output: {result}"
     );
 }
 
@@ -588,10 +559,10 @@ fn test_br_in_nested_formatting_in_table_cell() {
     // Test <br> tags inside nested formatting (bold + italic)
     // EXPECTED: "***Bold italic***  \n***next line***"
     // ACTUAL BUG: "***Bold italic  <br>next line***"
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td><strong><em>Bold italic<br>next line</em></strong></td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -602,8 +573,7 @@ fn test_br_in_nested_formatting_in_table_cell() {
     // Both parts of the nested formatted text should be present
     assert!(
         result.contains("Bold italic") && result.contains("next line"),
-        "Nested formatting content should be preserved: {}",
-        result
+        "Nested formatting content should be preserved: {result}"
     );
 }
 
@@ -629,18 +599,17 @@ fn test_br_in_table_cell_with_link() {
             && result.contains("example.com")
             && result.contains("Link2")
             && result.contains("example.org"),
-        "Links should be preserved: {}",
-        result
+        "Links should be preserved: {result}"
     );
 }
 
 #[test]
 fn test_br_with_no_br_in_tables_option() {
     // When br_in_tables is false or not set, verify default behavior
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td>Line 1<br>Line 2</td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: false,
@@ -652,8 +621,7 @@ fn test_br_with_no_br_in_tables_option() {
     // (exact output depends on implementation)
     assert!(
         result.contains("Line 1") && result.contains("Line 2"),
-        "Both lines should appear in output: {}",
-        result
+        "Both lines should appear in output: {result}"
     );
 }
 
@@ -662,10 +630,10 @@ fn test_br_in_table_with_code_in_cell() {
     // Test <br> tags between code elements in table cells
     // EXPECTED: "`command1`  \n`command2`"
     // ACTUAL BUG: "`command1`  <br>`command2`"
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td><code>command1</code><br><code>command2</code></td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -676,8 +644,7 @@ fn test_br_in_table_with_code_in_cell() {
     // Both code blocks should be present
     assert!(
         result.contains("command1") && result.contains("command2"),
-        "Code blocks should be preserved: {}",
-        result
+        "Code blocks should be preserved: {result}"
     );
 }
 
@@ -686,10 +653,10 @@ fn test_br_in_table_empty_cell_with_break() {
     // Test <br> tag as sole content of table cell
     // EXPECTED: Cell should be empty or have proper line break representation
     // ACTUAL BUG: May output literal <br> tag
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Header</th></tr>
 <tr><td><br></td></tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -699,9 +666,8 @@ fn test_br_in_table_empty_cell_with_break() {
 
     // Basic sanity check - should still be valid markdown table
     assert!(
-        result.contains("|"),
-        "Should still generate valid table structure: {}",
-        result
+        result.contains('|'),
+        "Should still generate valid table structure: {result}"
     );
 }
 
@@ -710,13 +676,13 @@ fn test_br_in_table_with_mixed_content() {
     // Test complex cell with multiple <br> tags and mixed formatting
     // EXPECTED: All content separated by proper Markdown line breaks
     // ACTUAL BUG: Output contains literal <br> tags mixed with formatted text
-    let html = r#"<table>
+    let html = r"<table>
 <tr><th>Status</th><th>Description</th></tr>
 <tr>
     <td>Active</td>
     <td>First step<br><strong>Bold text</strong><br>Final step</td>
 </tr>
-</table>"#;
+</table>";
 
     let options = ConversionOptions {
         br_in_tables: true,
@@ -730,7 +696,22 @@ fn test_br_in_table_with_mixed_content() {
             && result.contains("**Bold text**")
             && result.contains("Final step")
             && result.contains("Active"),
-        "Should contain all content: {}",
-        result
+        "Should contain all content: {result}"
     );
+}
+
+#[test]
+fn test_table_colspan_no_header_issue_233() {
+    let html = r#"<table>
+      <tr>
+        <td colspan="2">Cell spanning 2 columns</td>
+      </tr>
+      <tr>
+        <td>Cell 1</td>
+        <td>Cell 2</td>
+      </tr>
+    </table>"#;
+    let result = html_to_markdown_rs::convert(html, None).unwrap();
+    assert!(result.contains("| Cell spanning 2 columns | |"));
+    assert!(result.contains("| Cell 1 | Cell 2 |"));
 }

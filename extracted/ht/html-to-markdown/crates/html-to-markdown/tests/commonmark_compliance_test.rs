@@ -1,11 +1,11 @@
 #![allow(missing_docs)]
 
-//! CommonMark Specification Compliance Tests
+//! `CommonMark` Specification Compliance Tests
 //!
 //! This test suite verifies that our HTML-to-Markdown converter produces
-//! CommonMark-compliant output by testing against the official CommonMark spec.
+//! CommonMark-compliant output by testing against the official `CommonMark` spec.
 //!
-//! The test cases are derived from https://spec.commonmark.org/
+//! The test cases are derived from <https://spec.commonmark.org>/
 
 use html_to_markdown_rs::{ConversionOptions, convert};
 use serde::Deserialize;
@@ -212,7 +212,7 @@ fn test_commonmark_compliance() {
             }
             Err(e) => {
                 failed += 1;
-                failures.push((test, format!("Error: {:?}", e)));
+                failures.push((test, format!("Error: {e:?}")));
             }
         }
     }
@@ -220,19 +220,23 @@ fn test_commonmark_compliance() {
     let total = tests.len();
     let tested = passed + failed;
     let pass_rate = if tested > 0 {
-        (passed as f64 / tested as f64) * 100.0
+        (f64::from(passed) / f64::from(tested)) * 100.0
     } else {
         0.0
     };
 
     println!("\n=== CommonMark Compliance Test Results ===");
-    println!("Total tests: {}", total);
+    println!("Total tests: {total}");
     if skipped > 0 {
-        println!("Skipped: {} (escaping tests with escaping disabled)", skipped);
-        println!("Tested: {}", tested);
+        println!("Skipped: {skipped} (escaping tests with escaping disabled)");
+        println!("Tested: {tested}");
     }
-    println!("Passed: {} ({:.1}%)", passed, pass_rate);
-    println!("Failed: {} ({:.1}%)", failed, (failed as f64 / tested as f64) * 100.0);
+    println!("Passed: {passed} ({pass_rate:.1}%)");
+    println!(
+        "Failed: {} ({:.1}%)",
+        failed,
+        (f64::from(failed) / f64::from(tested)) * 100.0
+    );
 
     if !failures.is_empty() {
         println!("\n=== Failed Tests (first 20) ===");
@@ -240,17 +244,17 @@ fn test_commonmark_compliance() {
             println!("\nExample {} ({}:{})", test.example, test.section, test.start_line);
             println!("HTML input:\n{}", test.html);
             println!("Expected markdown:\n{}", test.markdown);
-            println!("Got:\n{}", output);
+            println!("Got:\n{output}");
             println!("---");
         }
 
         println!("\n=== Autolinks Failures ===");
-        for (test, output) in failures.iter() {
+        for (test, output) in &failures {
             if test.section == "Autolinks" {
                 println!("\nExample {} ({}:{})", test.example, test.section, test.start_line);
                 println!("HTML input:\n{}", test.html);
                 println!("Expected markdown:\n{}", test.markdown);
-                println!("Got:\n{}", output);
+                println!("Got:\n{output}");
                 println!("---");
             }
         }
@@ -264,21 +268,19 @@ fn test_commonmark_compliance() {
         let mut sections: Vec<_> = section_failures.iter().collect();
         sections.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
         for (section, count) in sections {
-            println!("{}: {} failures", section, count);
+            println!("{section}: {count} failures");
         }
 
         panic!(
-            "\nCommonMark compliance test FAILED: {}/{} tests passing ({:.1}%)\n\
-                {} tests skipped (escaping tests with escaping disabled)\n\
+            "\nCommonMark compliance test FAILED: {passed}/{tested} tests passing ({pass_rate:.1}%)\n\
+                {skipped} tests skipped (escaping tests with escaping disabled)\n\
                 Default library settings must be CommonMark compliant!\n\
-                This is a mandatory test for v2.0 release.",
-            passed, tested, pass_rate, skipped
+                This is a mandatory test for v2.0 release."
         );
     }
 
     println!(
-        "\n✓ All {} CommonMark tests passed! ({} skipped) Library defaults are CommonMark compliant.",
-        tested, skipped
+        "\n✓ All {tested} CommonMark tests passed! ({skipped} skipped) Library defaults are CommonMark compliant."
     );
 }
 

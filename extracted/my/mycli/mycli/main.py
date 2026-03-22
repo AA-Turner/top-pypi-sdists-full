@@ -26,7 +26,6 @@ from random import choice
 from textwrap import dedent
 from time import sleep, time
 from urllib.parse import parse_qs, unquote, urlparse
-import warnings
 
 from cli_helpers.tabular_output import TabularOutputFormatter, preprocessors
 from cli_helpers.tabular_output.output_formatter import MISSING_VALUE as DEFAULT_MISSING_VALUE
@@ -59,17 +58,8 @@ import pymysql
 from pymysql.constants.CR import CR_SERVER_LOST
 from pymysql.constants.ER import ACCESS_DENIED_ERROR, HANDSHAKE_ERROR
 from pymysql.cursors import Cursor
+import sqlglot
 import sqlparse
-
-with warnings.catch_warnings():
-    # for sqlglot v29.0.1
-    warnings.filterwarnings(
-        'ignore',
-        message=r'sqlglot\[rs\] is deprecated',
-        category=UserWarning,
-        module='sqlglot',
-    )
-    import sqlglot
 
 from mycli import __version__
 from mycli.clibuffer import cli_is_multiline
@@ -89,6 +79,7 @@ from mycli.constants import (
 from mycli.key_bindings import mycli_bindings
 from mycli.lexer import MyCliLexer
 from mycli.packages import special
+from mycli.packages.batch_utils import statements_from_filehandle
 from mycli.packages.checkup import do_checkup
 from mycli.packages.filepaths import dir_path_exists, guess_socket_location
 from mycli.packages.hybrid_redirection import get_redirect_components, is_redirect_command
@@ -119,7 +110,6 @@ SUPPORT_INFO = f"Home: {HOME_URL}\nBug tracker: {ISSUES_URL}"
 DEFAULT_WIDTH = 80
 DEFAULT_HEIGHT = 25
 MIN_COMPLETION_TRIGGER = 1
-MAX_MULTILINE_BATCH_STATEMENT = 5000
 EMPTY_PASSWORD_FLAG_SENTINEL = -1
 
 
@@ -1920,8 +1910,15 @@ class MyCli:
 @click.command()
 @click.option("-h", "--host", envvar="MYSQL_HOST", help="Host address of the database.")
 @click.option("-P", "--port", envvar="MYSQL_TCP_PORT", type=int, help="Port number to use for connection. Honors $MYSQL_TCP_PORT.")
-@click.option("-u", "--user", help="User name to connect to the database.")
-@click.option("-S", "--socket", envvar="MYSQL_UNIX_PORT", help="The socket file to use for connection.")
+@click.option(
+    '-u',
+    '--user',
+    '--username',
+    'user',
+    envvar='MYSQL_USER',
+    help='User name to connect to the database.',
+)
+@click.option("-S", "--socket", envvar="MYSQL_UNIX_SOCKET", help="The socket file to use for connection.")
 @click.option(
     "-p",
     "--pass",
@@ -2002,6 +1999,7 @@ class MyCli:
     "--password-file", type=click.Path(), help="File or FIFO path containing the password to connect to the db if not specified otherwise."
 )
 @click.argument("database", default=None, nargs=1)
+@click.option('--batch', 'batch_file', type=str, help='SQL script to execute in batch mode.')
 @click.option("--noninteractive", is_flag=True, help="Don't prompt during batch input.  Recommended.")
 @click.option(
     '--format', 'batch_format', type=click.Choice(['default', 'csv', 'tsv', 'table']), help='Format for batch or --execute output.'
@@ -2021,7 +2019,7 @@ class MyCli:
 )
 @click.option("--checkup", is_flag=True, help="Run a checkup on your config file.")
 @click.pass_context
-def cli(
+def click_entrypoint(
     ctx: click.Context,
     database: str | None,
     user: str | None,
@@ -2071,6 +2069,7 @@ def cli(
     character_set: str | None,
     password_file: str | None,
     noninteractive: bool,
+    batch_file: str | None,
     batch_format: str | None,
     throttle: float,
     use_keyring_cli_opt: str | None,
@@ -2196,6 +2195,7 @@ def cli(
             else:
                 click.secho(alias)
         sys.exit(0)
+
     if list_ssh_config:
         ssh_config = read_ssh_config(ssh_config_path)
         try:
@@ -2210,6 +2210,18 @@ def cli(
             else:
                 click.secho(host_entry)
         sys.exit(0)
+
+    if 'MYSQL_UNIX_PORT' in os.environ:
+        # deprecated 2026-03
+        click.secho(
+            "The MYSQL_UNIX_PORT environment variable is deprecated in favor of MYSQL_UNIX_SOCKET.  "
+            "MYSQL_UNIX_PORT will be removed in a future release.",
+            err=True,
+            fg="red",
+        )
+        if not socket:
+            socket = os.environ['MYSQL_UNIX_PORT']
+
     # Choose which ever one has a valid value.
     database = dbname or database
 
@@ -2494,6 +2506,10 @@ def cli(
 
     #  --execute argument
     if execute:
+        if not sys.stdin.isatty():
+            click.secho('Ignoring STDIN since --execute was also given.', err=True, fg='red')
+        if batch_file:
+            click.secho('Ignoring --batch since --execute was also given.', err=True, fg='red')
         try:
             if batch_format == 'csv':
                 mycli.main_formatter.format_name = 'csv'
@@ -2556,38 +2572,26 @@ def cli(
             click.secho(str(e), err=True, fg="red")
             sys.exit(1)
 
-    if sys.stdin.isatty():
-        mycli.run_cli()
-    else:
-        stdin = click.get_text_stream("stdin")
-        statements = ''
-        line_counter = 0
-        batch_counter = 0
-        for stdin_text in stdin:
-            line_counter += 1
-            if line_counter > MAX_MULTILINE_BATCH_STATEMENT:
-                click.secho(
-                    f'Saw single input statement greater than {MAX_MULTILINE_BATCH_STATEMENT} lines; assuming a parsing error.',
-                    err=True,
-                    fg="red",
-                )
-                sys.exit(1)
-            statements += stdin_text
+    if batch_file or not sys.stdin.isatty():
+        if batch_file:
+            if not sys.stdin.isatty() and batch_file != '-':
+                click.secho('Ignoring STDIN since --batch was also given.', err=True, fg='red')
             try:
-                tokens = sqlglot.tokenize(statements, read='mysql')
-                if not tokens:
-                    continue
-                # we don't handle changing the delimiter within the batch input
-                if tokens[-1].text == ';':
-                    dispatch_batch_statements(statements, batch_counter)
-                    batch_counter += 1
-                    statements = ''
-                    line_counter = 0
-            except sqlglot.errors.TokenError:
-                continue
-        if statements:
-            dispatch_batch_statements(statements, batch_counter)
+                batch_h = click.open_file(batch_file)
+            except (OSError, FileNotFoundError):
+                click.secho(f'Failed to open --batch file: {batch_file}', err=True, fg='red')
+                sys.exit(1)
+        else:
+            batch_h = click.get_text_stream('stdin')
+        try:
+            for statement, counter in statements_from_filehandle(batch_h):
+                dispatch_batch_statements(statement, counter)
+        except ValueError as e:
+            click.secho(str(e), err=True, fg='red')
+            sys.exit(1)
         sys.exit(0)
+
+    mycli.run_cli()
     mycli.close()
 
 
@@ -2702,5 +2706,31 @@ def read_ssh_config(ssh_config_path: str):
         return ssh_config
 
 
+def main() -> int | None:
+    try:
+        result = click_entrypoint.main(
+            sys.argv[1:],
+            standalone_mode=False,  # disable builtin exception handling
+            prog_name='mycli',
+        )
+    except click.Abort:
+        print('Aborted!', file=sys.stderr)
+        sys.exit(1)
+    except BrokenPipeError:
+        sys.exit(1)
+    except click.ClickException as e:
+        e.show()
+        if hasattr(e, 'exit_code'):
+            sys.exit(e.exit_code)
+        else:
+            sys.exit(2)
+    if result is None:
+        return 0
+    elif isinstance(result, int):
+        return result
+    else:
+        return 1
+
+
 if __name__ == "__main__":
-    cli()
+    sys.exit(main())

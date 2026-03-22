@@ -2797,6 +2797,9 @@ static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_nn_
 /* CheckUnpickleChecksum.proto */
 static CYTHON_INLINE int __Pyx_CheckUnpickleChecksum(long checksum, long checksum1, long checksum2, long checksum3, const char *members);
 
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint8_t(PyObject *, int writable_flag);
+
 /* MemviewSliceCopy.proto */
 static __Pyx_memviewslice
 __pyx_memoryview_copy_new_contig(const __Pyx_memviewslice *from_mvs,
@@ -3004,6 +3007,7 @@ static void __pyx_memoryview__slice_assign_scalar(char *, Py_ssize_t *, Py_ssize
 static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *, PyObject *); /*proto*/
 /* #### Code section: typeinfo ### */
 static const __Pyx_TypeInfo __Pyx_TypeInfo_nn_uint32_t = { "uint32_t", NULL, sizeof(uint32_t), { 0 }, 0, __PYX_IS_UNSIGNED(uint32_t) ? 'U' : 'I', __PYX_IS_UNSIGNED(uint32_t), 0 };
+static const __Pyx_TypeInfo __Pyx_TypeInfo_nn_uint8_t = { "uint8_t", NULL, sizeof(uint8_t), { 0 }, 0, __PYX_IS_UNSIGNED(uint8_t) ? 'U' : 'I', __PYX_IS_UNSIGNED(uint8_t), 0 };
 /* #### Code section: before_global_var ### */
 #define __Pyx_MODULE_NAME "refinery.lib.seven.huffman"
 extern int __pyx_module_is_main_refinery__lib__seven__huffman;
@@ -3072,12 +3076,12 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_23HuffmanStartOutOfBoun
 static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14BitDecoderBase_get_value(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED int __pyx_v_num_bits); /* proto */
 static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14BitDecoderBase_2move_position(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED int __pyx_v_num_bits); /* proto */
 static int __pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder___init__(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder *__pyx_v_self, int __pyx_v_num_bits_max, int __pyx_v_num_symbols, int __pyx_v_num_table_bits); /* proto */
-static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder *__pyx_v_self, PyObject *__pyx_v_lens); /* proto */
+static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder *__pyx_v_self, __Pyx_memviewslice __pyx_v_lens); /* proto */
 static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_4decode(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder *__pyx_v_self, PyObject *__pyx_v_bits); /* proto */
 static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_6__reduce_cython__(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_8__setstate_cython__(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
 static int __pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b___init__(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder7b *__pyx_v_self, int __pyx_v_num_symbols); /* proto */
-static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2build(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder7b *__pyx_v_self, PyObject *__pyx_v_lens); /* proto */
+static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2build(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder7b *__pyx_v_self, __Pyx_memviewslice __pyx_v_lens); /* proto */
 static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_4decode(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder7b *__pyx_v_self, PyObject *__pyx_v_bits); /* proto */
 static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_6__reduce_cython__(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder7b *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_8__setstate_cython__(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder7b *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
@@ -18088,7 +18092,7 @@ static int __pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder___init__(str
  *         self._lens = array.array('I', bytes(lens_size * 4))
  *         self._symbols = array.array('I', bytes(symbols_size * 4))             # <<<<<<<<<<<<<<
  * 
- *     def build(self, lens):
+ *     def build(self, uint8_t[::1] lens):
 */
   __pyx_t_4 = __pyx_v_array;
   __Pyx_INCREF(__pyx_t_4);
@@ -18149,7 +18153,7 @@ static int __pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder___init__(str
 /* "refinery/lib/seven/huffman.pyx":64
  *         self._symbols = array.array('I', bytes(symbols_size * 4))
  * 
- *     def build(self, lens):             # <<<<<<<<<<<<<<
+ *     def build(self, uint8_t[::1] lens):             # <<<<<<<<<<<<<<
  *         cdef int num_bits_max = self.num_bits_max
  *         cdef int num_symbols = self.num_symbols
 */
@@ -18170,7 +18174,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
-  PyObject *__pyx_v_lens = 0;
+  __Pyx_memviewslice __pyx_v_lens = { 0, 0, { 0 }, { 0 }, { 0 } };
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
@@ -18214,7 +18218,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 64, __pyx_L3_error)
     }
-    __pyx_v_lens = values[0];
+    __pyx_v_lens = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_lens.memview)) __PYX_ERR(0, 64, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
@@ -18225,6 +18229,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
     Py_XDECREF(values[__pyx_temp]);
   }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_lens, 1);
   __Pyx_AddTraceback("refinery.lib.seven.huffman.HuffmanDecoder.build", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
@@ -18235,11 +18240,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
     Py_XDECREF(values[__pyx_temp]);
   }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_lens, 1);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder *__pyx_v_self, PyObject *__pyx_v_lens) {
+static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder *__pyx_v_self, __Pyx_memviewslice __pyx_v_lens) {
   int __pyx_v_num_bits_max;
   int __pyx_v_num_symbols;
   int __pyx_v_num_table_bits;
@@ -18277,14 +18283,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
   int __pyx_t_10;
   int __pyx_t_11;
   Py_ssize_t __pyx_t_12;
-  Py_ssize_t __pyx_t_13;
+  long __pyx_t_13;
   long __pyx_t_14;
-  long __pyx_t_15;
-  int __pyx_t_16;
-  uint32_t __pyx_t_17;
+  int __pyx_t_15;
+  uint32_t __pyx_t_16;
+  int __pyx_t_17;
   int __pyx_t_18;
   int __pyx_t_19;
-  int __pyx_t_20;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -18292,7 +18297,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
 
   /* "refinery/lib/seven/huffman.pyx":65
  * 
- *     def build(self, lens):
+ *     def build(self, uint8_t[::1] lens):
  *         cdef int num_bits_max = self.num_bits_max             # <<<<<<<<<<<<<<
  *         cdef int num_symbols = self.num_symbols
  *         cdef int num_table_bits = self.num_table_bits
@@ -18301,7 +18306,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
   __pyx_v_num_bits_max = __pyx_t_1;
 
   /* "refinery/lib/seven/huffman.pyx":66
- *     def build(self, lens):
+ *     def build(self, uint8_t[::1] lens):
  *         cdef int num_bits_max = self.num_bits_max
  *         cdef int num_symbols = self.num_symbols             # <<<<<<<<<<<<<<
  *         cdef int num_table_bits = self.num_table_bits
@@ -18471,12 +18476,9 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  * 
  *         limits[0] = 0
 */
-    __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_lens, __pyx_v_sym, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 85, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_12 = __Pyx_PyIndex_AsSsize_t(__pyx_t_2); if (unlikely((__pyx_t_12 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 85, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_13 = __pyx_t_12;
-    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts_view.data) + __pyx_t_13)) )) += 1;
+    __pyx_t_12 = __pyx_v_sym;
+    __pyx_t_8 = (*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_v_lens.data) + __pyx_t_12)) )));
+    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts_view.data) + __pyx_t_8)) )) += 1;
   }
 
   /* "refinery/lib/seven/huffman.pyx":87
@@ -18486,8 +18488,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *         start_pos = 0
  *         count_sum = 0
 */
-  __pyx_t_13 = 0;
-  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_13)) )) = 0;
+  __pyx_t_12 = 0;
+  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_12)) )) = 0;
 
   /* "refinery/lib/seven/huffman.pyx":88
  * 
@@ -18514,9 +18516,9 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *             count = counts_view[i]
  *             start_pos += count << (num_bits_max - i)
 */
-  __pyx_t_14 = (__pyx_v_num_bits_max + 1);
-  __pyx_t_15 = __pyx_t_14;
-  for (__pyx_t_1 = 1; __pyx_t_1 < __pyx_t_15; __pyx_t_1+=1) {
+  __pyx_t_13 = (__pyx_v_num_bits_max + 1);
+  __pyx_t_14 = __pyx_t_13;
+  for (__pyx_t_1 = 1; __pyx_t_1 < __pyx_t_14; __pyx_t_1+=1) {
     __pyx_v_i = __pyx_t_1;
 
     /* "refinery/lib/seven/huffman.pyx":92
@@ -18526,8 +18528,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *             start_pos += count << (num_bits_max - i)
  *             if start_pos > max_value:
 */
-    __pyx_t_13 = __pyx_v_i;
-    __pyx_v_count = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts_view.data) + __pyx_t_13)) )));
+    __pyx_t_12 = __pyx_v_i;
+    __pyx_v_count = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts_view.data) + __pyx_t_12)) )));
 
     /* "refinery/lib/seven/huffman.pyx":93
  *         for i in range(1, num_bits_max + 1):
@@ -18545,8 +18547,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *                 raise HuffmanStartOutOfBounds(start_pos, max_value)
  *             limits[i] = start_pos
 */
-    __pyx_t_16 = (__pyx_v_start_pos > __pyx_v_max_value);
-    if (unlikely(__pyx_t_16)) {
+    __pyx_t_15 = (__pyx_v_start_pos > __pyx_v_max_value);
+    if (unlikely(__pyx_t_15)) {
 
       /* "refinery/lib/seven/huffman.pyx":95
  *             start_pos += count << (num_bits_max - i)
@@ -18604,8 +18606,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *             counts_view[i] = count_sum
  *             poses[i] = count_sum
 */
-    __pyx_t_13 = __pyx_v_i;
-    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_13)) )) = __pyx_v_start_pos;
+    __pyx_t_12 = __pyx_v_i;
+    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_12)) )) = __pyx_v_start_pos;
 
     /* "refinery/lib/seven/huffman.pyx":97
  *                 raise HuffmanStartOutOfBounds(start_pos, max_value)
@@ -18614,8 +18616,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *             poses[i] = count_sum
  *             count_sum += count
 */
-    __pyx_t_13 = __pyx_v_i;
-    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts_view.data) + __pyx_t_13)) )) = __pyx_v_count_sum;
+    __pyx_t_12 = __pyx_v_i;
+    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts_view.data) + __pyx_t_12)) )) = __pyx_v_count_sum;
 
     /* "refinery/lib/seven/huffman.pyx":98
  *             limits[i] = start_pos
@@ -18624,8 +18626,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *             count_sum += count
  *             count_sum &= 0xFFFFFFFF
 */
-    __pyx_t_13 = __pyx_v_i;
-    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_poses.data) + __pyx_t_13)) )) = __pyx_v_count_sum;
+    __pyx_t_12 = __pyx_v_i;
+    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_poses.data) + __pyx_t_12)) )) = __pyx_v_count_sum;
 
     /* "refinery/lib/seven/huffman.pyx":99
  *             counts_view[i] = count_sum
@@ -18648,9 +18650,9 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
     __pyx_t_4 = PyNumber_InPlaceAnd(__pyx_t_2, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 100, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_17 = __Pyx_PyLong_As_uint32_t(__pyx_t_4); if (unlikely((__pyx_t_17 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L1_error)
+    __pyx_t_16 = __Pyx_PyLong_As_uint32_t(__pyx_t_4); if (unlikely((__pyx_t_16 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_v_count_sum = __pyx_t_17;
+    __pyx_v_count_sum = __pyx_t_16;
   }
 
   /* "refinery/lib/seven/huffman.pyx":102
@@ -18660,8 +18662,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *         poses[0] = count_sum
  *         limits[num_bits_max + 1] = max_value
 */
-  __pyx_t_13 = 0;
-  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts_view.data) + __pyx_t_13)) )) = __pyx_v_count_sum;
+  __pyx_t_12 = 0;
+  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts_view.data) + __pyx_t_12)) )) = __pyx_v_count_sum;
 
   /* "refinery/lib/seven/huffman.pyx":103
  * 
@@ -18670,8 +18672,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *         limits[num_bits_max + 1] = max_value
  * 
 */
-  __pyx_t_13 = 0;
-  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_poses.data) + __pyx_t_13)) )) = __pyx_v_count_sum;
+  __pyx_t_12 = 0;
+  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_poses.data) + __pyx_t_12)) )) = __pyx_v_count_sum;
 
   /* "refinery/lib/seven/huffman.pyx":104
  *         counts_view[0] = count_sum
@@ -18680,8 +18682,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  * 
  *         for sym in range(num_symbols):
 */
-  __pyx_t_13 = (__pyx_v_num_bits_max + 1);
-  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_13)) )) = __pyx_v_max_value;
+  __pyx_t_12 = (__pyx_v_num_bits_max + 1);
+  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_12)) )) = __pyx_v_max_value;
 
   /* "refinery/lib/seven/huffman.pyx":106
  *         limits[num_bits_max + 1] = max_value
@@ -18702,11 +18704,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *             if not length:
  *                 continue
 */
-    __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_lens, __pyx_v_sym, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_17 = __Pyx_PyLong_As_uint32_t(__pyx_t_4); if (unlikely((__pyx_t_17 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 107, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_v_length = __pyx_t_17;
+    __pyx_t_12 = __pyx_v_sym;
+    __pyx_v_length = (*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_v_lens.data) + __pyx_t_12)) )));
 
     /* "refinery/lib/seven/huffman.pyx":108
  *         for sym in range(num_symbols):
@@ -18715,8 +18714,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *                 continue
  *             offset = counts_view[length]
 */
-    __pyx_t_16 = (!(__pyx_v_length != 0));
-    if (__pyx_t_16) {
+    __pyx_t_15 = (!(__pyx_v_length != 0));
+    if (__pyx_t_15) {
 
       /* "refinery/lib/seven/huffman.pyx":109
  *             length = lens[sym]
@@ -18773,8 +18772,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *                 offset -= poses[length]
  *                 num = 1 << (num_table_bits - length)
 */
-    __pyx_t_16 = (((int)__pyx_v_length) <= __pyx_v_num_table_bits);
-    if (__pyx_t_16) {
+    __pyx_t_15 = (((int)__pyx_v_length) <= __pyx_v_num_table_bits);
+    if (__pyx_t_15) {
 
       /* "refinery/lib/seven/huffman.pyx":114
  *             symbols[offset] = sym
@@ -18811,8 +18810,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *                 for k in range(<int>num):
  *                     lens_table[pos + k] = val
 */
-      __pyx_t_13 = (__pyx_v_length - 1);
-      __pyx_v_pos = (((*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_13)) ))) >> (__pyx_v_num_bits_max - __pyx_v_num_table_bits)) + (__pyx_v_offset << (__pyx_v_num_table_bits - __pyx_v_length)));
+      __pyx_t_12 = (__pyx_v_length - 1);
+      __pyx_v_pos = (((*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_12)) ))) >> (__pyx_v_num_bits_max - __pyx_v_num_table_bits)) + (__pyx_v_offset << (__pyx_v_num_table_bits - __pyx_v_length)));
 
       /* "refinery/lib/seven/huffman.pyx":118
  *                 val = length | (sym << _NUM_PAIR_LEN_BITS)
@@ -18821,10 +18820,10 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
  *                     lens_table[pos + k] = val
  * 
 */
-      __pyx_t_18 = ((int)__pyx_v_num);
-      __pyx_t_19 = __pyx_t_18;
-      for (__pyx_t_20 = 0; __pyx_t_20 < __pyx_t_19; __pyx_t_20+=1) {
-        __pyx_v_k = __pyx_t_20;
+      __pyx_t_17 = ((int)__pyx_v_num);
+      __pyx_t_18 = __pyx_t_17;
+      for (__pyx_t_19 = 0; __pyx_t_19 < __pyx_t_18; __pyx_t_19+=1) {
+        __pyx_v_k = __pyx_t_19;
 
         /* "refinery/lib/seven/huffman.pyx":119
  *                 pos = (limits[length - 1] >> (num_bits_max - num_table_bits)) + (offset << (num_table_bits - length))
@@ -18863,7 +18862,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_14HuffmanDecoder_2build
   /* "refinery/lib/seven/huffman.pyx":64
  *         self._symbols = array.array('I', bytes(symbols_size * 4))
  * 
- *     def build(self, lens):             # <<<<<<<<<<<<<<
+ *     def build(self, uint8_t[::1] lens):             # <<<<<<<<<<<<<<
  *         cdef int num_bits_max = self.num_bits_max
  *         cdef int num_symbols = self.num_symbols
 */
@@ -19818,7 +19817,7 @@ static int __pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b___init__(s
  *         self.num_symbols = num_symbols
  *         memset(self._lens, 0, 128)             # <<<<<<<<<<<<<<
  * 
- *     def build(self, lens):
+ *     def build(self, uint8_t[::1] lens):
 */
   (void)(memset(__pyx_v_self->_lens, 0, 0x80));
 
@@ -19838,7 +19837,7 @@ static int __pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b___init__(s
 /* "refinery/lib/seven/huffman.pyx":155
  *         memset(self._lens, 0, 128)
  * 
- *     def build(self, lens):             # <<<<<<<<<<<<<<
+ *     def build(self, uint8_t[::1] lens):             # <<<<<<<<<<<<<<
  *         cdef int num_symbols = self.num_symbols
  *         cdef int num_bits_max = 7
 */
@@ -19859,7 +19858,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
-  PyObject *__pyx_v_lens = 0;
+  __Pyx_memviewslice __pyx_v_lens = { 0, 0, { 0 }, { 0 }, { 0 } };
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
@@ -19903,7 +19902,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 155, __pyx_L3_error)
     }
-    __pyx_v_lens = values[0];
+    __pyx_v_lens = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_lens.memview)) __PYX_ERR(0, 155, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
@@ -19914,6 +19913,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
     Py_XDECREF(values[__pyx_temp]);
   }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_lens, 1);
   __Pyx_AddTraceback("refinery.lib.seven.huffman.HuffmanDecoder7b.build", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
@@ -19924,11 +19924,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
     Py_XDECREF(values[__pyx_temp]);
   }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_lens, 1);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2build(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder7b *__pyx_v_self, PyObject *__pyx_v_lens) {
+static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2build(struct __pyx_obj_8refinery_3lib_5seven_7huffman_HuffmanDecoder7b *__pyx_v_self, __Pyx_memviewslice __pyx_v_lens) {
   int __pyx_v_num_symbols;
   int __pyx_v_num_bits_max;
   int __pyx_v_num_pair_len_bits;
@@ -19967,14 +19968,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
   int __pyx_t_10;
   int __pyx_t_11;
   Py_ssize_t __pyx_t_12;
-  Py_ssize_t __pyx_t_13;
+  long __pyx_t_13;
   long __pyx_t_14;
-  long __pyx_t_15;
-  int __pyx_t_16;
-  uint32_t __pyx_t_17;
+  int __pyx_t_15;
+  uint32_t __pyx_t_16;
+  int __pyx_t_17;
   int __pyx_t_18;
   int __pyx_t_19;
-  int __pyx_t_20;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -19982,7 +19982,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
 
   /* "refinery/lib/seven/huffman.pyx":156
  * 
- *     def build(self, lens):
+ *     def build(self, uint8_t[::1] lens):
  *         cdef int num_symbols = self.num_symbols             # <<<<<<<<<<<<<<
  *         cdef int num_bits_max = 7
  *         cdef int num_pair_len_bits = 3
@@ -19991,7 +19991,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
   __pyx_v_num_symbols = __pyx_t_1;
 
   /* "refinery/lib/seven/huffman.pyx":157
- *     def build(self, lens):
+ *     def build(self, uint8_t[::1] lens):
  *         cdef int num_symbols = self.num_symbols
  *         cdef int num_bits_max = 7             # <<<<<<<<<<<<<<
  *         cdef int num_pair_len_bits = 3
@@ -20184,12 +20184,9 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  * 
  *         max_value = 1 << num_bits_max
 */
-    __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_lens, __pyx_v_sym, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 174, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_12 = __Pyx_PyIndex_AsSsize_t(__pyx_t_2); if (unlikely((__pyx_t_12 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 174, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_13 = __pyx_t_12;
-    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts.data) + __pyx_t_13)) )) += 1;
+    __pyx_t_12 = __pyx_v_sym;
+    __pyx_t_8 = (*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_v_lens.data) + __pyx_t_12)) )));
+    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts.data) + __pyx_t_8)) )) += 1;
   }
 
   /* "refinery/lib/seven/huffman.pyx":176
@@ -20208,8 +20205,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *         start_pos = 0
  *         count_sum = 0
 */
-  __pyx_t_13 = 0;
-  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_13)) )) = 0;
+  __pyx_t_12 = 0;
+  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_12)) )) = 0;
 
   /* "refinery/lib/seven/huffman.pyx":178
  *         max_value = 1 << num_bits_max
@@ -20236,9 +20233,9 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *             count = counts[i]
  *             start_pos += count << (num_bits_max - i)
 */
-  __pyx_t_14 = (__pyx_v_num_bits_max + 1);
-  __pyx_t_15 = __pyx_t_14;
-  for (__pyx_t_1 = 1; __pyx_t_1 < __pyx_t_15; __pyx_t_1+=1) {
+  __pyx_t_13 = (__pyx_v_num_bits_max + 1);
+  __pyx_t_14 = __pyx_t_13;
+  for (__pyx_t_1 = 1; __pyx_t_1 < __pyx_t_14; __pyx_t_1+=1) {
     __pyx_v_i = __pyx_t_1;
 
     /* "refinery/lib/seven/huffman.pyx":182
@@ -20248,8 +20245,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *             start_pos += count << (num_bits_max - i)
  *             if start_pos > max_value:
 */
-    __pyx_t_13 = __pyx_v_i;
-    __pyx_v_count = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts.data) + __pyx_t_13)) )));
+    __pyx_t_12 = __pyx_v_i;
+    __pyx_v_count = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts.data) + __pyx_t_12)) )));
 
     /* "refinery/lib/seven/huffman.pyx":183
  *         for i in range(1, num_bits_max + 1):
@@ -20267,8 +20264,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *                 raise HuffmanStartOutOfBounds(start_pos, max_value)
  *             limits[i] = start_pos
 */
-    __pyx_t_16 = (__pyx_v_start_pos > __pyx_v_max_value);
-    if (unlikely(__pyx_t_16)) {
+    __pyx_t_15 = (__pyx_v_start_pos > __pyx_v_max_value);
+    if (unlikely(__pyx_t_15)) {
 
       /* "refinery/lib/seven/huffman.pyx":185
  *             start_pos += count << (num_bits_max - i)
@@ -20326,8 +20323,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *             counts[i] = count_sum
  *             _poses[i] = count_sum
 */
-    __pyx_t_13 = __pyx_v_i;
-    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_13)) )) = __pyx_v_start_pos;
+    __pyx_t_12 = __pyx_v_i;
+    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_12)) )) = __pyx_v_start_pos;
 
     /* "refinery/lib/seven/huffman.pyx":187
  *                 raise HuffmanStartOutOfBounds(start_pos, max_value)
@@ -20336,8 +20333,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *             _poses[i] = count_sum
  *             count_sum += count
 */
-    __pyx_t_13 = __pyx_v_i;
-    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts.data) + __pyx_t_13)) )) = __pyx_v_count_sum;
+    __pyx_t_12 = __pyx_v_i;
+    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts.data) + __pyx_t_12)) )) = __pyx_v_count_sum;
 
     /* "refinery/lib/seven/huffman.pyx":188
  *             limits[i] = start_pos
@@ -20346,8 +20343,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *             count_sum += count
  *             count_sum &= 0xFFFFFFFF
 */
-    __pyx_t_13 = __pyx_v_i;
-    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v__poses.data) + __pyx_t_13)) )) = __pyx_v_count_sum;
+    __pyx_t_12 = __pyx_v_i;
+    *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v__poses.data) + __pyx_t_12)) )) = __pyx_v_count_sum;
 
     /* "refinery/lib/seven/huffman.pyx":189
  *             counts[i] = count_sum
@@ -20370,9 +20367,9 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
     __pyx_t_4 = PyNumber_InPlaceAnd(__pyx_t_2, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_17 = __Pyx_PyLong_As_uint32_t(__pyx_t_4); if (unlikely((__pyx_t_17 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 190, __pyx_L1_error)
+    __pyx_t_16 = __Pyx_PyLong_As_uint32_t(__pyx_t_4); if (unlikely((__pyx_t_16 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_v_count_sum = __pyx_t_17;
+    __pyx_v_count_sum = __pyx_t_16;
   }
 
   /* "refinery/lib/seven/huffman.pyx":192
@@ -20382,8 +20379,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *         _poses[0] = count_sum
  * 
 */
-  __pyx_t_13 = 0;
-  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts.data) + __pyx_t_13)) )) = __pyx_v_count_sum;
+  __pyx_t_12 = 0;
+  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_counts.data) + __pyx_t_12)) )) = __pyx_v_count_sum;
 
   /* "refinery/lib/seven/huffman.pyx":193
  * 
@@ -20392,8 +20389,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  * 
  *         for sym in range(num_symbols):
 */
-  __pyx_t_13 = 0;
-  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v__poses.data) + __pyx_t_13)) )) = __pyx_v_count_sum;
+  __pyx_t_12 = 0;
+  *((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v__poses.data) + __pyx_t_12)) )) = __pyx_v_count_sum;
 
   /* "refinery/lib/seven/huffman.pyx":195
  *         _poses[0] = count_sum
@@ -20414,11 +20411,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *             if not length:
  *                 continue
 */
-    __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_lens, __pyx_v_sym, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 196, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_17 = __Pyx_PyLong_As_uint32_t(__pyx_t_4); if (unlikely((__pyx_t_17 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 196, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_v_length = __pyx_t_17;
+    __pyx_t_12 = __pyx_v_sym;
+    __pyx_v_length = (*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_v_lens.data) + __pyx_t_12)) )));
 
     /* "refinery/lib/seven/huffman.pyx":197
  *         for sym in range(num_symbols):
@@ -20427,8 +20421,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *                 continue
  *             offset = counts[length]
 */
-    __pyx_t_16 = (!(__pyx_v_length != 0));
-    if (__pyx_t_16) {
+    __pyx_t_15 = (!(__pyx_v_length != 0));
+    if (__pyx_t_15) {
 
       /* "refinery/lib/seven/huffman.pyx":198
  *             length = lens[sym]
@@ -20503,8 +20497,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *             for k in range(<int>num):
  *                 self._lens[pos + k] = <uint8_t>val
 */
-    __pyx_t_13 = (__pyx_v_length - 1);
-    __pyx_v_pos = ((*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_13)) ))) + (__pyx_v_offset << (__pyx_v_num_bits_max - __pyx_v_length)));
+    __pyx_t_12 = (__pyx_v_length - 1);
+    __pyx_v_pos = ((*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_12)) ))) + (__pyx_v_offset << (__pyx_v_num_bits_max - __pyx_v_length)));
 
     /* "refinery/lib/seven/huffman.pyx":205
  *             val = length | (sym << num_pair_len_bits)
@@ -20513,10 +20507,10 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *                 self._lens[pos + k] = <uint8_t>val
  * 
 */
-    __pyx_t_18 = ((int)__pyx_v_num);
-    __pyx_t_19 = __pyx_t_18;
-    for (__pyx_t_20 = 0; __pyx_t_20 < __pyx_t_19; __pyx_t_20+=1) {
-      __pyx_v_k = __pyx_t_20;
+    __pyx_t_17 = ((int)__pyx_v_num);
+    __pyx_t_18 = __pyx_t_17;
+    for (__pyx_t_19 = 0; __pyx_t_19 < __pyx_t_18; __pyx_t_19+=1) {
+      __pyx_v_k = __pyx_t_19;
 
       /* "refinery/lib/seven/huffman.pyx":206
  *             pos = limits[length - 1] + (offset << (num_bits_max - length))
@@ -20537,8 +20531,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
  *         num = (1 << num_bits_max) - limit
  *         for k in range(<int>num):
 */
-  __pyx_t_13 = __pyx_v_num_bits_max;
-  __pyx_v_limit = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_13)) )));
+  __pyx_t_12 = __pyx_v_num_bits_max;
+  __pyx_v_limit = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_limits.data) + __pyx_t_12)) )));
 
   /* "refinery/lib/seven/huffman.pyx":209
  * 
@@ -20586,7 +20580,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5seven_7huffman_16HuffmanDecoder7b_2bui
   /* "refinery/lib/seven/huffman.pyx":155
  *         memset(self._lens, 0, 128)
  * 
- *     def build(self, lens):             # <<<<<<<<<<<<<<
+ *     def build(self, uint8_t[::1] lens):             # <<<<<<<<<<<<<<
  *         cdef int num_symbols = self.num_symbols
  *         cdef int num_bits_max = 7
 */
@@ -24167,7 +24161,7 @@ __Pyx_RefNannySetupContext("PyInit_huffman", 0);
   /* "refinery/lib/seven/huffman.pyx":64
  *         self._symbols = array.array('I', bytes(symbols_size * 4))
  * 
- *     def build(self, lens):             # <<<<<<<<<<<<<<
+ *     def build(self, uint8_t[::1] lens):             # <<<<<<<<<<<<<<
  *         cdef int num_bits_max = self.num_bits_max
  *         cdef int num_symbols = self.num_symbols
 */
@@ -24229,7 +24223,7 @@ __Pyx_RefNannySetupContext("PyInit_huffman", 0);
   /* "refinery/lib/seven/huffman.pyx":155
  *         memset(self._lens, 0, 128)
  * 
- *     def build(self, lens):             # <<<<<<<<<<<<<<
+ *     def build(self, uint8_t[::1] lens):             # <<<<<<<<<<<<<<
  *         cdef int num_symbols = self.num_symbols
  *         cdef int num_bits_max = 7
 */
@@ -31156,6 +31150,29 @@ static const char* __Pyx_BufFmt_CheckString(__Pyx_BufFmt_Context* ctx, const cha
           return 0;
       __Pyx_RaiseUnpickleChecksumError(checksum, checksum1, checksum2, checksum3, members);
       return -1;
+  }
+  
+/* ObjectToMemviewSlice */
+  static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint8_t(PyObject *obj, int writable_flag) {
+      __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+      __Pyx_BufFmt_StackElem stack[1];
+      int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
+      int retcode;
+      if (obj == Py_None) {
+          result.memview = (struct __pyx_memoryview_obj *) Py_None;
+          return result;
+      }
+      retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                   (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 1,
+                                                   &__Pyx_TypeInfo_nn_uint8_t, stack,
+                                                   &result, obj);
+      if (unlikely(retcode == -1))
+          goto __pyx_fail;
+      return result;
+  __pyx_fail:
+      result.memview = NULL;
+      result.data = NULL;
+      return result;
   }
   
 /* MemviewSliceCopy */

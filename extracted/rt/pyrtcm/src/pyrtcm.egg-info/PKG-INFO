@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrtcm
-Version: 1.1.11
+Version: 1.1.12
 Summary: RTCM3 protocol parser
 Author-email: Steve Smith <semuadmin@semuconsulting.com>
 Maintainer-email: Steve Smith <semuadmin@semuconsulting.com>
@@ -30,7 +30,7 @@ Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pynmeagps>=1.0.56
+Requires-Dist: pynmeagps>=1.1.2
 Dynamic: license-file
 
 # pyrtcm

@@ -44,6 +44,12 @@ _TERMINAL_RUN_STATUSES = frozenset(
     {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
 )
 
+_REPAIRABLE_RUN_STATUSES = frozenset({"paused", "waiting_for_approval", "waiting_for_input"})
+
+_REPAIRABLE_RUN_FIELDS = frozenset({"inputs"})
+
+_REPAIRABLE_STEP_FIELDS = frozenset({"result_artifacts", "result_summary"})
+
 _VALID_STEP_STATUSES = frozenset({"pending", "running", "completed", "failed", "interrupted", "skipped"})
 
 _VALID_APPROVAL_STATUSES = frozenset({"pending", "approved", "denied", "expired"})
@@ -65,6 +71,8 @@ _ALLOWED_RUN_UPDATE_COLUMNS: set[str] = {
     "trigger_meta_json",
     "claimed_by",
     "claimed_at",
+    "cancel_requested",
+    "conversation_id",
 }
 
 
@@ -88,6 +96,7 @@ def create_workflow_run(
     trigger_source: str | None = None,
     trigger_meta: dict[str, Any] | None = None,
     params: dict[str, Any] | None = None,
+    conversation_id: str | None = None,
 ) -> dict[str, Any]:
     rid = _uuid()
     now = _now()
@@ -113,8 +122,8 @@ def create_workflow_run(
         " (id, workflow_id, workflow_version, status, target_kind, target_ref,"
         "  inputs_json, params_json, space_id, definition_hash, definition_content,"
         "  budget_json, budget_usage_json, trigger_source, trigger_meta_json,"
-        "  created_at, updated_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "  conversation_id, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             rid,
             workflow_id,
@@ -131,6 +140,7 @@ def create_workflow_run(
             budget_usage_json,
             trigger_source,
             trigger_meta_json,
+            conversation_id,
             now,
             now,
         ),
@@ -161,6 +171,8 @@ def create_workflow_run(
         "trigger_meta": trigger_meta,
         "claimed_by": None,
         "claimed_at": None,
+        "cancel_requested": 0,
+        "conversation_id": conversation_id,
     }
 
 
@@ -347,6 +359,39 @@ def list_completed_step_ids(
         (run_id,),
     )
     return {r["step_id"] for r in rows}
+
+
+# ---------------------------------------------------------------------------
+# Cancel-request helpers (#890)
+# ---------------------------------------------------------------------------
+
+
+def set_cancel_requested(db: ThreadSafeConnection, run_id: str) -> None:
+    """Mark a workflow run as cancel-requested."""
+    db.execute("UPDATE workflow_runs SET cancel_requested = 1 WHERE id = ?", (run_id,))
+    db.commit()
+
+
+def is_cancel_requested(db: ThreadSafeConnection, run_id: str) -> bool:
+    """Check whether cancel has been requested for a workflow run."""
+    row = db.execute_fetchone("SELECT cancel_requested FROM workflow_runs WHERE id = ?", (run_id,))
+    if not row:
+        return False
+    return bool(row["cancel_requested"])
+
+
+def get_active_run_for_conversation(db: ThreadSafeConnection, conversation_id: str) -> dict[str, Any] | None:
+    """Return the most recent non-terminal workflow run for a conversation."""
+    terminal = tuple(_TERMINAL_RUN_STATUSES)
+    placeholders = ", ".join("?" for _ in terminal)
+    row = db.execute_fetchone(
+        f"SELECT * FROM workflow_runs WHERE conversation_id = ? AND status NOT IN ({placeholders})"
+        " ORDER BY created_at DESC LIMIT 1",
+        (conversation_id, *terminal),
+    )
+    if not row:
+        return None
+    return _deserialize_run(dict(row))
 
 
 # ---------------------------------------------------------------------------
@@ -954,6 +999,147 @@ def _checkpoint_row_to_dict(row: Any) -> dict[str, Any]:
     raw_budget = d.pop("budget_usage_json", None)
     d["budget_usage"] = json.loads(raw_budget) if raw_budget else None
     return d
+
+
+# ---------------------------------------------------------------------------
+# Workflow Repair (#995)
+# ---------------------------------------------------------------------------
+
+
+def apply_run_repair(
+    db: ThreadSafeConnection,
+    run_id: str,
+    field: str,
+    value: Any,
+    *,
+    actor: str = "operator",
+) -> dict[str, Any]:
+    """Apply a repair to a repairable field on a paused/waiting run.
+
+    Validates the run is in a repairable status and the field is allowed.
+    Records the repair as a workflow event with before/after context.
+    Returns the updated run dict.
+    """
+    if field not in _REPAIRABLE_RUN_FIELDS:
+        raise ValueError(f"Field {field!r} is not repairable. Allowed: {sorted(_REPAIRABLE_RUN_FIELDS)}")
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        raise ValueError(f"Run not found: {run_id}")
+    if run["status"] not in _REPAIRABLE_RUN_STATUSES:
+        raise ValueError(
+            f"Run {run_id} is not repairable (status: {run['status']}). "
+            f"Only {sorted(_REPAIRABLE_RUN_STATUSES)} runs can be repaired."
+        )
+
+    old_value = run.get(field)
+
+    # Apply the repair via direct column update
+    if field == "inputs":
+        serialized = json.dumps(value) if value is not None else None
+        if serialized and len(serialized.encode("utf-8")) > _MAX_INPUTS_SIZE:
+            raise ValueError("Repaired inputs exceed 64KB limit")
+        db.execute(
+            "UPDATE workflow_runs SET inputs_json = ?, updated_at = ? WHERE id = ?",
+            (serialized, _now(), run_id),
+        )
+    else:
+        raise ValueError(f"No update handler for repairable field {field!r}")
+    db.commit()
+
+    # Record as event
+    create_workflow_event(
+        db,
+        run_id=run_id,
+        event_type="repair_applied",
+        payload={
+            "scope": "run",
+            "field": field,
+            "old_value": old_value,
+            "new_value": value,
+            "actor": actor,
+        },
+    )
+
+    return get_workflow_run(db, run_id)  # type: ignore[return-value]
+
+
+def apply_step_repair(
+    db: ThreadSafeConnection,
+    run_id: str,
+    step_id: str,
+    field: str,
+    value: Any,
+    *,
+    actor: str = "operator",
+) -> dict[str, Any]:
+    """Apply a repair to a repairable field on a completed step within a paused/waiting run.
+
+    Validates the run status, the step exists and is completed, and the field
+    is allowed. Records the repair as a workflow event.
+    Returns the updated step dict.
+    """
+    if field not in _REPAIRABLE_STEP_FIELDS:
+        raise ValueError(f"Field {field!r} is not repairable. Allowed: {sorted(_REPAIRABLE_STEP_FIELDS)}")
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        raise ValueError(f"Run not found: {run_id}")
+    if run["status"] not in _REPAIRABLE_RUN_STATUSES:
+        raise ValueError(
+            f"Run {run_id} is not repairable (status: {run['status']}). "
+            f"Only {sorted(_REPAIRABLE_RUN_STATUSES)} runs can be repaired."
+        )
+
+    # Find the latest step record for this step_id
+    steps = list_workflow_steps(db, run_id)
+    step_record = None
+    for s in reversed(steps):
+        if s["step_id"] == step_id:
+            step_record = s
+            break
+    if not step_record:
+        raise ValueError(f"Step {step_id!r} not found in run {run_id}")
+    if step_record["status"] != "completed":
+        raise ValueError(
+            f"Step {step_id!r} is not completed (status: {step_record['status']}). "
+            f"Only completed steps can be repaired."
+        )
+
+    old_value = step_record.get(field)
+
+    # Apply the repair
+    update_kwargs: dict[str, Any] = {}
+    if field == "result_artifacts":
+        update_kwargs["result_artifacts"] = value
+    elif field == "result_summary":
+        update_kwargs["result_summary"] = value
+
+    update_workflow_step(db, step_record["id"], **update_kwargs)
+
+    # Record as event
+    create_workflow_event(
+        db,
+        run_id=run_id,
+        step_id=step_id,
+        event_type="repair_applied",
+        payload={
+            "scope": "step",
+            "step_id": step_id,
+            "field": field,
+            "old_value": old_value,
+            "new_value": value,
+            "actor": actor,
+        },
+    )
+
+    return get_workflow_step(db, step_record["id"])  # type: ignore[return-value]
+
+
+def list_repairs(db: ThreadSafeConnection, run_id: str) -> list[dict[str, Any]]:
+    """List all repair events for a run."""
+    events = list_workflow_events(db, run_id)
+    return [e for e in events if e["event_type"] == "repair_applied"]
 
 
 # ---------------------------------------------------------------------------

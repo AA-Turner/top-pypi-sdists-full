@@ -48,7 +48,7 @@ class BaseCircuit(AbstractCircuit):
     @staticmethod
     def all_zero_nodes(n: int, prefix: str = "qb-", dim: int = 2) -> List[tn.Node]:
         prefix = "qd-" if dim > 2 else prefix
-        l = [0.0 for _ in range(dim)]
+        l = [0.0] * dim
         l[0] = 1.0
         nodes = [
             tn.Node(
@@ -65,6 +65,38 @@ class BaseCircuit(AbstractCircuit):
     @staticmethod
     def front_from_nodes(nodes: List[tn.Node]) -> List[tn.Edge]:
         return [n.get_edge(0) for n in nodes]
+
+    def _tensors_to_nodes(
+        self, tensors: Sequence[Tensor]
+    ) -> Tuple[List[tn.Node], List[tn.Edge]]:
+        """
+        Internal method to convert a sequence of MPS tensors to a list of nodes and front edges.
+        (bond-left, physical, bond-right) order is assumed for MPS tensors.
+
+        :param tensors: A sequence of tensors representing an MPS.
+        :type tensors: Sequence[Tensor]
+        :return: A tuple of (all nodes including dummy boundary nodes, front/physical edges).
+        :rtype: Tuple[List[tn.Node], List[tn.Edge]]
+        """
+        nodes = [
+            tn.Node(backend.cast(backend.convert_to_tensor(t), dtypestr))
+            for t in tensors
+        ]
+        for i in range(len(nodes) - 1):
+            nodes[i].get_edge(2) ^ nodes[i + 1].get_edge(0)
+
+        q_nodes = nodes
+        all_nodes = list(q_nodes)
+        for i, axis in zip([0, -1], [0, 2]):
+            if q_nodes[i].get_edge(axis).dimension == 1:
+                dummy = tn.Node(
+                    backend.cast(backend.convert_to_tensor([1.0]), dtypestr)
+                )
+                q_nodes[i].get_edge(axis) ^ dummy.get_edge(0)
+                all_nodes.append(dummy)
+
+        front = [q_nodes[i].get_edge(1) for i in range(len(tensors))]
+        return all_nodes, front
 
     @staticmethod
     def coloring_nodes(
@@ -377,44 +409,6 @@ class BaseCircuit(AbstractCircuit):
             if j not in occupied:  # edge1[j].is_dangling invalid here!
                 newdang[j] ^ newdang[j + nq]
         return nodes
-
-    def to_qir(self) -> List[Dict[str, Any]]:
-        """
-        Return the quantum intermediate representation of the circuit.
-
-        :Example:
-
-        .. code-block:: python
-
-            >>> c = tc.Circuit(2)
-            >>> c.CNOT(0, 1)
-            >>> c.to_qir()
-            [{'gatef': cnot, 'gate': Gate(
-                name: 'cnot',
-                tensor:
-                    array([[[[1.+0.j, 0.+0.j],
-                            [0.+0.j, 0.+0.j]],
-
-                            [[0.+0.j, 1.+0.j],
-                            [0.+0.j, 0.+0.j]]],
-
-
-                        [[[0.+0.j, 0.+0.j],
-                            [0.+0.j, 1.+0.j]],
-
-                            [[0.+0.j, 0.+0.j],
-                            [1.+0.j, 0.+0.j]]]], dtype=complex64),
-                edges: [
-                    Edge(Dangling Edge)[0],
-                    Edge(Dangling Edge)[1],
-                    Edge('cnot'[2] -> 'qb-1'[0] ),
-                    Edge('cnot'[3] -> 'qb-2'[0] )
-                ]), 'index': (0, 1), 'name': 'cnot', 'split': None, 'mpo': False}]
-
-        :return: The quantum intermediate representation of the circuit.
-        :rtype: List[Dict[str, Any]]
-        """
-        return self._qir
 
     def perfect_sampling(self, status: Optional[Tensor] = None) -> Tuple[str, float]:
         """
@@ -951,7 +945,7 @@ class BaseCircuit(AbstractCircuit):
         N = inputs.shape[0]
         n = _infer_num_sites(N, self._d)
         assert n == self._nqubits
-        inputs = backend.reshape(inputs, [self._d for _ in range(n)])
+        inputs = backend.reshape(inputs, [self._d] * n)
         if self.inputs is not None:
             self._nodes[0].tensor = inputs
             if self.is_dm:

@@ -10,9 +10,9 @@ from __future__ import annotations as _
 import logging as _logging
 import os as _os
 import sys as _sys
-import typing as _t
 import warnings as _warnings
 from pathlib import Path as _Path
+from tokenize import TokenError as _TokenError
 from warnings import warn as _warn
 
 import astroid as _ast
@@ -107,11 +107,7 @@ def _run_check(
         parent,
         config,
     ):
-        failure = _Failure(
-            child,
-            config.target,
-            config.check.property_returns,
-        )
+        failure = _Failure(child, config.target, config.check.property_returns)
         if failure:
             failures.append(failure)
 
@@ -125,13 +121,10 @@ def _from_file(path: _Path, config: _Config) -> _Parent:
     try:
         code = path.read_text(encoding="utf-8")
         parent = _from_str(
-            context={
-                "code": code,
-                "module_name": _derive_module_name(path),
-                "path": path,
-            },
-            config=config,
-            path=path,
+            code,
+            config,
+            str(path)[:-3].replace(_os.sep, ".").replace("-", "_"),
+            path,
         )
     except UnicodeDecodeError as err:
         logger = _logging.getLogger(__package__)
@@ -145,16 +138,27 @@ def _from_file(path: _Path, config: _Config) -> _Parent:
 
 
 def _from_str(
-    context: dict[str, _t.Any],
+    code: str,
     config: _Config,
+    module_name: str = "",
     path: _Path | None = None,
 ) -> _Parent:
     logger = _logging.getLogger(__package__)
     source_name = path or "stdin"
     try:
+        try:
+            directive = _Directives.from_text(code, config.disable)
+        except _TokenError as err:
+            directive = _Directives()
+            logger.debug(
+                _FILE_INFO,
+                source_name,
+                f"error parsing comments {err}".lower(),
+            )
+
         parent = _Parent(
-            _ast.parse(**context),
-            _Directives.from_text(context["code"], config.disable),
+            _ast.parse(code, module_name, str(path)),
+            directive,
             path,
             config.ignore.args,
             config.ignore.kwargs,
@@ -216,34 +220,6 @@ def _report(
                 print(f"    {extra}")
 
     return max(retcodes)
-
-
-def _run_docsig(
-    *path: str | _Path,
-    string: str | None = None,
-    config: _Config,
-) -> int:
-    setup_logger(config.verbose)
-    if config.list_checks:
-        return int(bool(_print_checks()))  # type: ignore
-
-    if string is None:
-        retcodes = [0]
-        paths = _Paths(
-            *path,
-            patterns=config.exclude,
-            excludes=config.excludes,
-            include_ignored=config.include_ignored,
-        )
-        for path_ in paths:
-            failures = runner(path_, config)
-            retcodes.append(_report(failures, config, str(path_)))
-
-        return max(retcodes)
-
-    module = _from_str({"code": string}, config)
-    failures = _get_failures(module, config)
-    return _report(failures, config)
 
 
 def handle_deprecations(
@@ -386,11 +362,24 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         exclude=exclude_,
         excludes=excludes,
     )
-    return _run_docsig(*path, string=string, config=config)
+    setup_logger(config.verbose)
+    if config.list_checks:
+        return int(bool(_print_checks()))  # type: ignore
 
+    if string is None:
+        retcodes = [0]
+        paths = _Paths(
+            *path,
+            patterns=config.exclude,
+            excludes=config.excludes,
+            include_ignored=config.include_ignored,
+        )
+        for path_ in paths:
+            failures = runner(path_, config)
+            retcodes.append(_report(failures, config, str(path_)))
 
-def _derive_module_name(file_path: str | _Path) -> str:
-    converted = _os.path.splitext(str(file_path))[0]
-    converted = converted.replace(_os.sep, ".")
-    converted = converted.replace("-", "_")
-    return converted
+        return max(retcodes)
+
+    module = _from_str(string, config)
+    failures = _get_failures(module, config)
+    return _report(failures, config)

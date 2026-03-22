@@ -433,9 +433,9 @@ mod tests {
 
         let categorized = collector.categorize_links();
 
-        assert_eq!(categorized.get("anchor").map(|v| v.len()), Some(1));
-        assert_eq!(categorized.get("external").map(|v| v.len()), Some(1));
-        assert_eq!(categorized.get("email").map(|v| v.len()), Some(1));
+        assert_eq!(categorized.get("anchor").map(std::vec::Vec::len), Some(1));
+        assert_eq!(categorized.get("external").map(std::vec::Vec::len), Some(1));
+        assert_eq!(categorized.get("email").map(std::vec::Vec::len), Some(1));
     }
 
     #[test]

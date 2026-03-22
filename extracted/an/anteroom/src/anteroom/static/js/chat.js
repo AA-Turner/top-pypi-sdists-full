@@ -423,6 +423,12 @@ const Chat = (() => {
             case 'budget_warning':
                 showToast(data.message || 'Token budget warning');
                 break;
+            case 'workflow_cancel_requested':
+                hideThinking();
+                if (typeof showToast === 'function') {
+                    showToast('Workflow cancel requested (run ' + (data.run_id || '').substring(0, 12) + '...)', 'info');
+                }
+                break;
             case 'error':
                 hideThinking();
                 if (currentAssistantEl) {

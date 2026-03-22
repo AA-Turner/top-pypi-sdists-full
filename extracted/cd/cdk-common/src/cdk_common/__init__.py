@@ -5904,6 +5904,22 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSELEMENTAL_MEDIA_CONNECT_CREATE_FLOW = "AWSELEMENTAL_MEDIA_CONNECT_CREATE_FLOW"
+    '''
+    :stability: experimental
+    '''
+    AWSELEMENTAL_MEDIA_CONNECT_CREATE_BRIDGE = "AWSELEMENTAL_MEDIA_CONNECT_CREATE_BRIDGE"
+    '''
+    :stability: experimental
+    '''
+    AWSELEMENTAL_MEDIA_CONNECT_DELETE_FLOW = "AWSELEMENTAL_MEDIA_CONNECT_DELETE_FLOW"
+    '''
+    :stability: experimental
+    '''
+    AWSELEMENTAL_MEDIA_CONNECT_DELETE_BRIDGE = "AWSELEMENTAL_MEDIA_CONNECT_DELETE_BRIDGE"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

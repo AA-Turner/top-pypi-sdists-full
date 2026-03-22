@@ -16,6 +16,9 @@ from .example_wfs import (
     OPTIONAL_INPUT,
     PAIRED_LIST_COLLECTION_INPUT,
     SAMPLE_SHEET_COLLECTION_INPUT,
+    SLASH_IN_INPUT_LABEL,
+    SLASH_IN_LABEL_CHAINED,
+    SLASH_IN_STEP_LABEL_EXPLICIT_OUTPUT,
     TRS_URL_SUBWORKFLOW,
     URL_SUBWORKFLOW,
     WHEN_EXAMPLE,
@@ -508,6 +511,162 @@ def test_native_trs_url_subworkflow_to_format2():
     }
     as_format2 = from_native(native_workflow)
     assert as_format2["steps"]["nested_workflow"]["run"] == trs_url
+
+
+def test_slash_in_input_label():
+    """Input label containing '/' should round-trip without error."""
+    as_native = to_native(SLASH_IN_INPUT_LABEL)
+    assert_valid_native(as_native)
+    # Input step should be connected to the cat step
+    cat_step = as_native["steps"]["1"]
+    conn = cat_step["input_connections"]["input1"]
+    assert conn[0]["id"] == 0
+
+
+def test_slash_in_step_label_explicit_output():
+    """Step label containing '/' with explicit output should round-trip."""
+    as_native = to_native(SLASH_IN_STEP_LABEL_EXPLICIT_OUTPUT)
+    assert_valid_native(as_native)
+    steps = as_native["steps"]
+    assert len(steps) == 2
+
+
+def test_slash_in_label_chained():
+    """Both input and step labels with '/' and chained connections."""
+    as_native = to_native(SLASH_IN_LABEL_CHAINED)
+    assert_valid_native(as_native)
+    steps = as_native["steps"]
+    assert len(steps) == 3
+    # second_cat connects to Host/Contaminant Filter's out_file1
+    second_cat = steps["2"]
+    conn = second_cat["input_connections"]["input1"]
+    assert conn[0]["id"] == 1
+    assert conn[0]["output_name"] == "out_file1"
+
+
+def test_slash_in_input_label_round_trip():
+    """Full round-trip: input label with '/' survives native→format2."""
+    as_dict = round_trip(SLASH_IN_INPUT_LABEL)
+    assert "Host/Contaminant Genome" in str(as_dict["inputs"])
+
+
+def test_slash_in_label_chained_round_trip():
+    """Full round-trip: chained steps with '/' in labels."""
+    as_dict = round_trip(SLASH_IN_LABEL_CHAINED)
+    assert "Host/Contaminant Filter" in str(as_dict["steps"])
+    assert "Host/Contaminant Genome" in str(as_dict["inputs"])
+
+
+def test_unlabeled_tool_step_round_trip():
+    """Unlabeled tool step referenced by another step survives round-trip."""
+    native_workflow = {
+        "a_galaxy_workflow": "true",
+        "format-version": "0.1",
+        "name": "Unlabeled Tool Test",
+        "steps": {
+            "0": {
+                "id": 0,
+                "type": "data_input",
+                "label": "input_data",
+                "tool_state": '{"name": "input_data"}',
+                "input_connections": {},
+                "workflow_outputs": [],
+            },
+            "1": {
+                "id": 1,
+                "type": "tool",
+                "label": None,
+                "tool_id": "cat1",
+                "tool_version": "1.0",
+                "tool_state": "{}",
+                "input_connections": {
+                    "input1": [{"id": 0, "output_name": "output"}],
+                },
+                "workflow_outputs": [],
+            },
+            "2": {
+                "id": 2,
+                "type": "tool",
+                "label": "final_cat",
+                "tool_id": "cat1",
+                "tool_version": "1.0",
+                "tool_state": "{}",
+                "input_connections": {
+                    "input1": [{"id": 1, "output_name": "out_file1"}],
+                },
+                "workflow_outputs": [{"output_name": "out_file1", "label": "the_output"}],
+            },
+        },
+    }
+    as_format2 = from_native(native_workflow)
+    # Re-import to native and verify the connection is preserved
+    as_native_rt = to_native(as_format2)
+    assert_valid_native(as_native_rt)
+    # Should have 3 steps: input + 2 tools
+    assert len(as_native_rt["steps"]) == 3
+    # final_cat should connect to step 1 (the unlabeled tool), not step 0
+    final_cat = as_native_rt["steps"]["2"]
+    assert final_cat["tool_id"] == "cat1"
+    assert final_cat["label"] == "final_cat"
+    conn = final_cat["input_connections"]["input1"]
+    assert conn[0]["id"] == 1
+    assert conn[0]["output_name"] == "out_file1"
+    # Step 1 should be a tool, not a parameter input
+    step1 = as_native_rt["steps"]["1"]
+    assert step1["type"] == "tool"
+    assert step1["label"] is None
+
+
+def test_unlabeled_pause_step_round_trip():
+    """Unlabeled pause step referenced by another step survives round-trip."""
+    native_workflow = {
+        "a_galaxy_workflow": "true",
+        "format-version": "0.1",
+        "name": "Unlabeled Pause Test",
+        "steps": {
+            "0": {
+                "id": 0,
+                "type": "data_input",
+                "label": "input_data",
+                "tool_state": '{"name": "input_data"}',
+                "input_connections": {},
+                "workflow_outputs": [],
+            },
+            "1": {
+                "id": 1,
+                "type": "pause",
+                "label": None,
+                "tool_state": "{}",
+                "input_connections": {
+                    "input": [{"id": 0, "output_name": "output"}],
+                },
+                "workflow_outputs": [],
+            },
+            "2": {
+                "id": 2,
+                "type": "tool",
+                "label": "final_cat",
+                "tool_id": "cat1",
+                "tool_version": "1.0",
+                "tool_state": "{}",
+                "input_connections": {
+                    "input1": [{"id": 1, "output_name": "output"}],
+                },
+                "workflow_outputs": [{"output_name": "out_file1", "label": "the_output"}],
+            },
+        },
+    }
+    as_format2 = from_native(native_workflow)
+    as_native_rt = to_native(as_format2)
+    assert_valid_native(as_native_rt)
+    assert len(as_native_rt["steps"]) == 3
+    # final_cat should connect to step 1 (the unlabeled pause)
+    final_cat = as_native_rt["steps"]["2"]
+    conn = final_cat["input_connections"]["input1"]
+    assert conn[0]["id"] == 1
+    # Step 1 should be a pause, not reassigned
+    assert as_native_rt["steps"]["1"]["type"] == "pause"
+    assert as_native_rt["steps"]["1"]["label"] is None
 
 
 def assert_valid_format2(as_dict_format2):

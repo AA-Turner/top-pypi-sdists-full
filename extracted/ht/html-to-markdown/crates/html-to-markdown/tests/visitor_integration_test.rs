@@ -3,7 +3,7 @@
 //! Integration tests for the visitor pattern
 //!
 //! These tests verify that visitor callbacks are properly invoked during
-//! HTML→Markdown conversion and that all VisitResult variants work correctly.
+//! HTML→Markdown conversion and that all `VisitResult` variants work correctly.
 
 #![cfg(feature = "visitor")]
 
@@ -18,36 +18,27 @@ struct CustomizingVisitor;
 
 impl HtmlVisitor for CustomizingVisitor {
     fn visit_text(&mut self, _ctx: &NodeContext, text: &str) -> VisitResult {
-        VisitResult::Custom(format!("[TEXT:{}]", text))
+        VisitResult::Custom(format!("[TEXT:{text}]"))
     }
 
     fn visit_link(&mut self, _ctx: &NodeContext, href: &str, text: &str, _title: Option<&str>) -> VisitResult {
-        VisitResult::Custom(format!("[LINK:{} -> {}]", text, href))
+        VisitResult::Custom(format!("[LINK:{text} -> {href}]"))
     }
 
     fn visit_image(&mut self, _ctx: &NodeContext, src: &str, alt: &str, _title: Option<&str>) -> VisitResult {
-        VisitResult::Custom(format!("[IMAGE:{} @ {}]", alt, src))
+        VisitResult::Custom(format!("[IMAGE:{alt} @ {src}]"))
     }
 
     fn visit_heading(&mut self, _ctx: &NodeContext, level: u32, text: &str, _id: Option<&str>) -> VisitResult {
-        VisitResult::Custom(format!("[H{}: {}]", level, text))
+        VisitResult::Custom(format!("[H{level}: {text}]"))
     }
 }
 
 /// Test visitor that skips certain elements
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct SkippingVisitor {
     skip_images: bool,
     skip_links: bool,
-}
-
-impl Default for SkippingVisitor {
-    fn default() -> Self {
-        Self {
-            skip_images: false,
-            skip_links: false,
-        }
-    }
 }
 
 impl HtmlVisitor for SkippingVisitor {
@@ -69,15 +60,9 @@ impl HtmlVisitor for SkippingVisitor {
 }
 
 /// Test visitor that preserves HTML for certain elements
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct PreservingVisitor {
     preserve_links: bool,
-}
-
-impl Default for PreservingVisitor {
-    fn default() -> Self {
-        Self { preserve_links: false }
-    }
 }
 
 impl HtmlVisitor for PreservingVisitor {
@@ -111,7 +96,7 @@ impl HtmlVisitor for ContextCheckingVisitor {
 
 #[test]
 fn test_custom_visitor_transforms_text() {
-    let html = r#"<p>Hello world</p>"#;
+    let html = r"<p>Hello world</p>";
     let visitor = Rc::new(RefCell::new(CustomizingVisitor));
 
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
@@ -128,8 +113,7 @@ fn test_custom_visitor_transforms_links() {
 
     assert!(
         result.contains("[LINK:Example -> https://example.com]"),
-        "Should contain custom link format, got: {}",
-        result
+        "Should contain custom link format, got: {result}"
     );
 }
 
@@ -142,22 +126,20 @@ fn test_custom_visitor_transforms_images() {
 
     assert!(
         result.contains("[IMAGE:Test @ /test.png]"),
-        "Should contain custom image format, got: {}",
-        result
+        "Should contain custom image format, got: {result}"
     );
 }
 
 #[test]
 fn test_custom_visitor_transforms_headings() {
-    let html = r#"<h2>My Heading</h2>"#;
+    let html = r"<h2>My Heading</h2>";
     let visitor = Rc::new(RefCell::new(CustomizingVisitor));
 
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
 
     assert!(
         result.contains("[H2: My Heading]"),
-        "Should contain custom heading format, got: {}",
-        result
+        "Should contain custom heading format, got: {result}"
     );
 }
 
@@ -173,8 +155,7 @@ fn test_skipping_visitor_removes_links() {
 
     assert!(
         !result.contains("example.com"),
-        "Should not contain link URL when skipped, got: {}",
-        result
+        "Should not contain link URL when skipped, got: {result}"
     );
 }
 
@@ -190,8 +171,7 @@ fn test_skipping_visitor_removes_images() {
 
     assert!(
         !result.contains("test.png") && !result.contains("!["),
-        "Should not contain image when skipped, got: {}",
-        result
+        "Should not contain image when skipped, got: {result}"
     );
 }
 
@@ -204,8 +184,7 @@ fn test_preserving_visitor_keeps_html() {
 
     assert!(
         result.contains("<a") && result.contains("href"),
-        "Should preserve HTML tags when PreserveHtml is returned, got: {}",
-        result
+        "Should preserve HTML tags when PreserveHtml is returned, got: {result}"
     );
 }
 
@@ -249,7 +228,7 @@ fn test_visitor_works_with_complex_document() {
 
 #[test]
 fn test_visitor_with_conversion_options() {
-    let html = r#"<h1>Title</h1><p>Text with *asterisks* and _underscores_.</p>"#;
+    let html = r"<h1>Title</h1><p>Text with *asterisks* and _underscores_.</p>";
 
     let mut options = ConversionOptions::default();
     options.escape_asterisks = true;
@@ -266,8 +245,7 @@ fn test_visitor_with_conversion_options() {
 
     assert!(
         result.contains(r"\*") || result.contains(r"\_"),
-        "Should respect escape options with visitor, got: {}",
-        result
+        "Should respect escape options with visitor, got: {result}"
     );
 }
 
@@ -282,15 +260,14 @@ fn test_visitor_continue_result_produces_default_markdown() {
         }
     }
 
-    let html = r#"<h1>Title</h1>"#;
+    let html = r"<h1>Title</h1>";
     let visitor = Rc::new(RefCell::new(ContinueVisitor));
 
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
 
     assert!(
         result.contains("# Title"),
-        "Continue should produce default markdown, got: {}",
-        result
+        "Continue should produce default markdown, got: {result}"
     );
 }
 
@@ -323,7 +300,7 @@ fn test_visitor_skip_vs_continue() {
 
 #[test]
 fn test_multiple_elements_of_same_type() {
-    let html = r#"<h1>First</h1><h2>Second</h2><h3>Third</h3>"#;
+    let html = r"<h1>First</h1><h2>Second</h2><h3>Third</h3>";
     let visitor = Rc::new(RefCell::new(CustomizingVisitor));
 
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
@@ -384,8 +361,7 @@ fn test_visitor_code_block() {
 
     assert!(
         result.contains("[CODE_BLOCK:rust -> fn main() {}]"),
-        "Should contain custom code block format, got: {}",
-        result
+        "Should contain custom code block format, got: {result}"
     );
 }
 
@@ -396,18 +372,17 @@ fn test_visitor_code_inline() {
 
     impl HtmlVisitor for InlineCodeVisitor {
         fn visit_code_inline(&mut self, _ctx: &NodeContext, code: &str) -> VisitResult {
-            VisitResult::Custom(format!("[CODE:{}]", code))
+            VisitResult::Custom(format!("[CODE:{code}]"))
         }
     }
 
-    let html = r#"<p>Use <code>println!</code> macro</p>"#;
+    let html = r"<p>Use <code>println!</code> macro</p>";
     let visitor = Rc::new(RefCell::new(InlineCodeVisitor));
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
 
     assert!(
         result.contains("[CODE:println!]"),
-        "Should contain custom inline code format, got: {}",
-        result
+        "Should contain custom inline code format, got: {result}"
     );
 }
 
@@ -439,26 +414,20 @@ fn test_visitor_list_callbacks() {
         }
     }
 
-    let html = r#"<ul><li>First</li><li>Second</li></ul>"#;
+    let html = r"<ul><li>First</li><li>Second</li></ul>";
     let visitor = Rc::new(RefCell::new(ListVisitor::default()));
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
 
     assert!(
         result.contains("[LIST_START:UL:1]"),
-        "Should see list start, got: {}",
-        result
+        "Should see list start, got: {result}"
     );
-    assert!(
-        result.contains("[LI:1:First]"),
-        "Should see first item, got: {}",
-        result
-    );
+    assert!(result.contains("[LI:1:First]"), "Should see first item, got: {result}");
     assert!(
         result.contains("[LI:1:Second]"),
-        "Should see second item, got: {}",
-        result
+        "Should see second item, got: {result}"
     );
-    assert!(result.contains("[LIST_END:1]"), "Should see list end, got: {}", result);
+    assert!(result.contains("[LIST_END:1]"), "Should see list end, got: {result}");
 }
 
 #[test]
@@ -489,30 +458,23 @@ fn test_visitor_table_callbacks() {
         }
     }
 
-    let html = r#"<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>"#;
+    let html = r"<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>";
     let visitor = Rc::new(RefCell::new(TableVisitor::default()));
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
 
     assert!(
         result.contains("[TABLE_START]"),
-        "Should see table start, got: {}",
-        result
+        "Should see table start, got: {result}"
     );
     assert!(
         result.contains("[ROW:HEADER:1:Name|Age]"),
-        "Should see header row, got: {}",
-        result
+        "Should see header row, got: {result}"
     );
     assert!(
         result.contains("[ROW:DATA:2:Alice|30]"),
-        "Should see data row, got: {}",
-        result
+        "Should see data row, got: {result}"
     );
-    assert!(
-        result.contains("[TABLE_END:2]"),
-        "Should see table end, got: {}",
-        result
-    );
+    assert!(result.contains("[TABLE_END:2]"), "Should see table end, got: {result}");
 }
 
 #[test]
@@ -526,14 +488,13 @@ fn test_visitor_blockquote() {
         }
     }
 
-    let html = r#"<blockquote>This is a quote</blockquote>"#;
+    let html = r"<blockquote>This is a quote</blockquote>";
     let visitor = Rc::new(RefCell::new(BlockquoteVisitor));
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
 
     assert!(
         result.contains("[QUOTE:This is a quote]"),
-        "Should contain custom blockquote format, got: {}",
-        result
+        "Should contain custom blockquote format, got: {result}"
     );
 }
 
@@ -544,28 +505,27 @@ fn test_visitor_inline_formatting() {
 
     impl HtmlVisitor for FormattingVisitor {
         fn visit_strong(&mut self, _ctx: &NodeContext, text: &str) -> VisitResult {
-            VisitResult::Custom(format!("[STRONG:{}]", text))
+            VisitResult::Custom(format!("[STRONG:{text}]"))
         }
 
         fn visit_emphasis(&mut self, _ctx: &NodeContext, text: &str) -> VisitResult {
-            VisitResult::Custom(format!("[EM:{}]", text))
+            VisitResult::Custom(format!("[EM:{text}]"))
         }
 
         fn visit_strikethrough(&mut self, _ctx: &NodeContext, text: &str) -> VisitResult {
-            VisitResult::Custom(format!("[DEL:{}]", text))
+            VisitResult::Custom(format!("[DEL:{text}]"))
         }
     }
 
-    let html = r#"<p><strong>bold</strong> <em>italic</em> <del>struck</del></p>"#;
+    let html = r"<p><strong>bold</strong> <em>italic</em> <del>struck</del></p>";
     let visitor = Rc::new(RefCell::new(FormattingVisitor));
     let result = convert_with_visitor(html, None, Some(visitor)).expect("conversion failed");
 
-    assert!(result.contains("[STRONG:bold]"), "Should see strong, got: {}", result);
-    assert!(result.contains("[EM:italic]"), "Should see emphasis, got: {}", result);
+    assert!(result.contains("[STRONG:bold]"), "Should see strong, got: {result}");
+    assert!(result.contains("[EM:italic]"), "Should see emphasis, got: {result}");
     assert!(
         result.contains("[DEL:struck]"),
-        "Should see strikethrough, got: {}",
-        result
+        "Should see strikethrough, got: {result}"
     );
 }
 
@@ -617,7 +577,7 @@ fn test_no_double_visit_in_headings() {
         }
     }
 
-    let html = r#"<h1>heading text</h1>"#;
+    let html = r"<h1>heading text</h1>";
     let visitor = Rc::new(RefCell::new(CountingVisitor::default()));
     let _result = convert_with_visitor(html, None, Some(visitor.clone())).expect("conversion failed");
 
@@ -633,7 +593,7 @@ fn test_no_double_visit_in_headings() {
 // Integration tests: Visitor + Feature combinations
 // ============================================================================
 
-/// Test that visitor callbacks work correctly when skip_images option is enabled
+/// Test that visitor callbacks work correctly when `skip_images` option is enabled
 #[test]
 fn test_visitor_with_skip_images() {
     #[derive(Debug, Default)]
@@ -663,19 +623,17 @@ fn test_visitor_with_skip_images() {
     };
 
     let visitor = Rc::new(RefCell::new(SkipImageVisitor::default()));
-    let result = convert_with_visitor(html, Some(options), Some(visitor.clone()))
+    let result = convert_with_visitor(html, Some(options), Some(visitor))
         .expect("conversion with skip_images and visitor should succeed");
 
     // When skip_images is true, images should not appear in output
     assert!(
         !result.contains("!["),
-        "skip_images should prevent image markdown in output, got: {}",
-        result
+        "skip_images should prevent image markdown in output, got: {result}"
     );
     assert!(
         !result.contains("image1.png"),
-        "skip_images should prevent image src in output, got: {}",
-        result
+        "skip_images should prevent image src in output, got: {result}"
     );
 
     // When skip_images is true, the conversion still happens correctly
@@ -684,12 +642,11 @@ fn test_visitor_with_skip_images() {
     // without conflicts - both are optional and can be combined
     assert!(
         result.contains("Some text") && result.contains("More text"),
-        "Other content should still be present in output, got: {}",
-        result
+        "Other content should still be present in output, got: {result}"
     );
 }
 
-/// Test that the main convert() function accepts optional visitor parameter
+/// Test that the main `convert()` function accepts optional visitor parameter
 #[test]
 fn test_convert_accepts_visitor_parameter() {
     #[derive(Debug, Default)]
@@ -730,7 +687,7 @@ fn test_convert_accepts_visitor_parameter() {
     );
 }
 
-/// Test visitor + inline_images feature combination
+/// Test visitor + `inline_images` feature combination
 #[cfg(feature = "inline-images")]
 #[test]
 fn test_convert_with_inline_images_accepts_visitor() {
@@ -950,7 +907,7 @@ fn test_image_visitor_with_metadata_does_not_panic() {
     assert!(result.is_ok(), "conversion panicked or errored: {:?}", result.err());
 }
 
-/// Regression test: visit_element_end returning Custom/Skip with metadata extraction used
+/// Regression test: `visit_element_end` returning Custom/Skip with metadata extraction used
 /// to produce stale parent offsets and either panic or silently drop subsequent content.
 #[test]
 fn test_element_end_replacement_with_metadata_preserves_subsequent_content() {

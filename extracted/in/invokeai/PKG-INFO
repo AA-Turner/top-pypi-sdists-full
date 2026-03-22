@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: InvokeAI
-Version: 6.11.1
+Version: 6.12.0
 Summary: A full-featured AI-assisted image generation environment designed for creatives and enthusiasts.
 Author-email: Invoke <support@invoke.ai>
 License:                                  Apache License
@@ -234,14 +234,18 @@ Requires-Dist: pydantic
 Requires-Dist: python-socketio
 Requires-Dist: uvicorn[standard]
 Requires-Dist: blake3
+Requires-Dist: bcrypt<4.0.0
 Requires-Dist: Deprecated
 Requires-Dist: dnspython
 Requires-Dist: dynamicprompts
 Requires-Dist: einops
+Requires-Dist: email-validator>=2.0.0
+Requires-Dist: passlib[bcrypt]>=1.7.4
 Requires-Dist: picklescan
 Requires-Dist: pillow
 Requires-Dist: prompt-toolkit
 Requires-Dist: pypatchmatch
+Requires-Dist: python-jose[cryptography]>=3.3.0
 Requires-Dist: python-multipart
 Requires-Dist: requests
 Requires-Dist: semver~=3.0.1
@@ -347,7 +351,7 @@ The Unified Canvas is a fully integrated canvas implementation with support for 
 
 ### Workflows & Nodes
 
-Invoke offers a fully featured workflow management solution, enabling users to combine the power of node-based workflows with the easy of a UI. This allows for customizable generation pipelines to be developed and shared by users looking to create specific workflows to support their production use-cases.
+Invoke offers a fully featured workflow management solution, enabling users to combine the power of node-based workflows with the ease of a UI. This allows for customizable generation pipelines to be developed and shared by users looking to create specific workflows to support their production use-cases.
 
 ### Board & Gallery Management
 

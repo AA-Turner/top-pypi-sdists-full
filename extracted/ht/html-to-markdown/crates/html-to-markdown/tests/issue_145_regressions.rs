@@ -10,11 +10,11 @@ use html_to_markdown_rs::{ConversionOptions, convert};
 
 #[test]
 fn test_strip_newlines_preserves_block_spacing() {
-    let html = r#"<section>
+    let html = r"<section>
     <h1>Heading</h1>
     <p>Paragraph one.</p>
     <p>Paragraph two.</p>
-</section>"#;
+</section>";
 
     let options = ConversionOptions {
         strip_newlines: true,
@@ -38,29 +38,19 @@ fn test_strip_newlines_preserves_block_spacing() {
 
     assert!(
         max_consecutive_blank <= 1,
-        "excessive blank lines detected: {} consecutive blanks in:\n{}",
-        max_consecutive_blank,
-        result
+        "excessive blank lines detected: {max_consecutive_blank} consecutive blanks in:\n{result}"
     );
 
-    assert!(result.contains("Heading"), "heading missing from: {}", result);
-    assert!(
-        result.contains("Paragraph one"),
-        "paragraph one missing from: {}",
-        result
-    );
-    assert!(
-        result.contains("Paragraph two"),
-        "paragraph two missing from: {}",
-        result
-    );
+    assert!(result.contains("Heading"), "heading missing from: {result}");
+    assert!(result.contains("Paragraph one"), "paragraph one missing from: {result}");
+    assert!(result.contains("Paragraph two"), "paragraph two missing from: {result}");
 }
 
 #[test]
 fn test_strip_newlines_removes_inline_newlines() {
-    let html = r#"<p>This is a paragraph
+    let html = r"<p>This is a paragraph
 with line breaks
-in the middle</p>"#;
+in the middle</p>";
 
     let options = ConversionOptions {
         strip_newlines: true,
@@ -82,14 +72,13 @@ in the middle</p>"#;
 
     assert!(
         has_paragraph_line,
-        "paragraph should have inline newlines converted to spaces in: {}",
-        result
+        "paragraph should have inline newlines converted to spaces in: {result}"
     );
 }
 
 #[test]
 fn test_strip_newlines_handles_nested_blocks() {
-    let html = r#"<section>
+    let html = r"<section>
     <div>
         <h2>Nested Heading</h2>
         <p>Content inside nested div.</p>
@@ -98,7 +87,7 @@ fn test_strip_newlines_handles_nested_blocks() {
         <h2>Another Section</h2>
         <p>More content here.</p>
     </div>
-</section>"#;
+</section>";
 
     let options = ConversionOptions {
         strip_newlines: true,
@@ -109,23 +98,19 @@ fn test_strip_newlines_handles_nested_blocks() {
 
     assert!(
         result.contains("Nested Heading"),
-        "nested heading missing from: {}",
-        result
+        "nested heading missing from: {result}"
     );
     assert!(
         result.contains("Content inside nested div"),
-        "nested content missing from: {}",
-        result
+        "nested content missing from: {result}"
     );
     assert!(
         result.contains("Another Section"),
-        "another section heading missing from: {}",
-        result
+        "another section heading missing from: {result}"
     );
     assert!(
         result.contains("More content here"),
-        "more content missing from: {}",
-        result
+        "more content missing from: {result}"
     );
 
     let lines: Vec<&str> = result.lines().collect();
@@ -142,8 +127,6 @@ fn test_strip_newlines_handles_nested_blocks() {
 
     assert!(
         max_consecutive_blank <= 1,
-        "excessive blank lines in nested blocks: {} consecutive blanks in:\n{}",
-        max_consecutive_blank,
-        result
+        "excessive blank lines in nested blocks: {max_consecutive_blank} consecutive blanks in:\n{result}"
     );
 }

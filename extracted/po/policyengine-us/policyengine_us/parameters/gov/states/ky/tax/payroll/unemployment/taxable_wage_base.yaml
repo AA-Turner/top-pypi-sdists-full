@@ -1,0 +1,11 @@
+description: Employer-side unemployment insurance taxable wage base for Kentucky.
+values:
+  0000-01-01: 11_400
+
+metadata:
+  period: year
+  unit: currency-USD
+  label: Kentucky unemployment taxable wage base
+  reference:
+    - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
+      href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=27

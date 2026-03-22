@@ -166,11 +166,11 @@ class EvaluatorRotator(BaseRotator[BaseEvaluator]):
                 f"Please add 'evaluator_name' attribute to the extractor class."
             )
 
+        cls = BaseEvaluator.get(evaluator_name)
         logger.info(
             f"Auto-selected evaluator '{evaluator_name}' for task "
             f"'{self._task_name}' (from extractor)"
         )
-        cls = BaseEvaluator.get(evaluator_name)
         sig = inspect.signature(cls.__init__)
         accepted = set(sig.parameters.keys()) - {"self"}
         filtered_kwargs = {

@@ -44,12 +44,14 @@ class ProcessDispatcher:
     _cache: Dict["FakeProcess", Dict["FakeProcess", AnyType]] = dict()
     _keep_last_process: bool = False
     _pid: int = 0
+    _patched_popen_locations: List[Tuple[AnyType, str]] = []
 
     @classmethod
     def register(cls, process: "FakeProcess") -> None:
         if not cls.process_list:
             cls.built_in_popen = subprocess.Popen
             subprocess.Popen = FakePopenWrapper  # type: ignore
+            cls._patch_popen_references(subprocess.Popen)
 
             cls.built_in_async_subprocess = asyncio.subprocess
             asyncio.create_subprocess_shell = cls.async_shell  # type: ignore
@@ -68,6 +70,10 @@ class ProcessDispatcher:
         for proc, processes in cache.items():
             proc.definitions = processes
         if not cls.process_list:
+            if cls.built_in_popen is None:
+                raise exceptions.PluginInternalError
+
+            cls._restore_popen_references(cls.built_in_popen)
             subprocess.Popen = cls.built_in_popen  # type: ignore
             cls.built_in_popen = None
 
@@ -82,6 +88,28 @@ class ProcessDispatcher:
                 cls.built_in_async_subprocess.create_subprocess_exec
             )
             cls.built_in_async_subprocess = None
+
+    @classmethod
+    def _patch_popen_references(cls, new_popen: Callable) -> None:
+        """Replace module-level aliases of the original Popen."""
+        old_popen = cls.built_in_popen
+        cls._patched_popen_locations = []
+        for module in list(sys.modules.values()):
+            if not module or not hasattr(module, "__dict__"):
+                continue
+            module_dict = module.__dict__
+            for name, value in list(module_dict.items()):
+                if value is old_popen:
+                    module_dict[name] = new_popen
+                    cls._patched_popen_locations.append((module, name))
+
+    @classmethod
+    def _restore_popen_references(cls, original_popen: Callable) -> None:
+        """Restore module-level aliases patched earlier."""
+        for module, name in cls._patched_popen_locations:
+            if getattr(module, name, None) is FakePopenWrapper:
+                setattr(module, name, original_popen)
+        cls._patched_popen_locations = []
 
     @classmethod
     def dispatch(
@@ -113,7 +141,7 @@ class ProcessDispatcher:
         method = partial(
             cls.built_in_async_subprocess.create_subprocess_shell,  # type: ignore
             cmd,
-            **kwargs
+            **kwargs,
         )
         if isinstance(cmd, bytes):
             cmd = cmd.decode()
@@ -131,7 +159,7 @@ class ProcessDispatcher:
             cls.built_in_async_subprocess.create_subprocess_exec,  # type: ignore
             program,
             *args,
-            **kwargs
+            **kwargs,
         )
         if isinstance(program, bytes):
             program = program.decode()
@@ -157,12 +185,12 @@ class ProcessDispatcher:
             async_shell: Awaitable[asyncio.subprocess.Process] = async_method()
             return await async_shell
 
-        if sys.platform == "win32" and isinstance(
-            asyncio.get_event_loop_policy().get_event_loop(), asyncio.SelectorEventLoop
-        ):
-            raise NotImplementedError(
-                "The SelectorEventLoop doesn't support subprocess"
-            )
+        if sys.platform == "win32":
+            loop = asyncio.get_running_loop()
+            if isinstance(loop, asyncio.SelectorEventLoop):
+                raise NotImplementedError(
+                    "The SelectorEventLoop doesn't support subprocess"
+                )
 
         result = cls._prepare_instance(AsyncFakePopen, command, kwargs, process)
         if not isinstance(result, AsyncFakePopen):

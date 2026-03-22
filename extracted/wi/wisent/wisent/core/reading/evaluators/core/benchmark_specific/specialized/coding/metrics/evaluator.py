@@ -132,12 +132,10 @@ class CodingEvaluator(BaseEvaluator):
 
         logger.debug(f"CodingEvaluator.evaluate() called with test_code={'present (' + str(len(test_code)) + ' chars)' if test_code else 'MISSING'}, task_name={task_name}")
         if not test_code:
-            logger.warning(f"CodingEvaluator: No test_code provided. kwargs keys: {list(kwargs.keys())}")
-
-        if not test_code:
-            return EvalResult(
-                ground_truth="UNKNOWN", method_used=self.name,
-                confidence=0.0, details="No test code provided for code execution",
+            from wisent.core.reading.evaluators.core.atoms import EvaluatorError
+            raise EvaluatorError(
+                f"coding evaluator requires 'test_code' kwarg but it was not provided. "
+                f"kwargs keys: {list(kwargs.keys())}"
             )
 
         if 'ds1000' in task_name.lower() or 'ds_1000' in task_name.lower():

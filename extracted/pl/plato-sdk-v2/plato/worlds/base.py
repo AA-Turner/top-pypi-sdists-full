@@ -29,7 +29,7 @@ from plato.otel import get_tracer, init_tracing, shutdown_tracing
 from plato.runtime import RuntimeConfig, VMRuntimeConfig
 from plato.v2.async_.session import Session
 from plato.vm_metrics import instrument_system_metrics, shutdown_metrics
-from plato.worlds.config import AgentConfig, DevConfig, LLMConfig, RunConfig, SessionConfig
+from plato.worlds.config import AgentConfig, DevConfig, LLMConfig, RunConfig, SessionConfig, WorkspaceSourceSpec
 from plato.worlds.human_annotation import RequiresHumanAnnotation
 from plato.worlds.models import Observation, StateHistoryEntry, StepResult, WorkspaceSnapshot
 from plato.worlds.schema import get_world_schema
@@ -551,18 +551,31 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         repo_to_field: dict[str, str] = {}
         for field_name in self._workspaces:
             repo_to_field[self.workspace_repo_name(field_name)] = field_name
-        # Normalize workspace_specs keys: convert full repo names to field names
-        workspace_specs: dict[str, str] = {}
+
+        # Normalize workspace_specs: field → (override_repo | None, ref_spec)
+        workspace_specs: dict[str, tuple[str | None, str]] = {}
         for key, val in raw_workspace_specs.items():
-            field = repo_to_field.get(key)
-            if field is None:
-                self.logger.warning(
-                    "Ignoring unknown workspace repo name '%s' in state.workspaces. Expected one of: %s",
-                    key,
-                    list(repo_to_field.keys()),
-                )
-                continue
-            workspace_specs[field] = val
+            if isinstance(val, (dict, WorkspaceSourceSpec)):
+                # New explicit format: {repo: "...", ref: "..."}
+                spec = val if isinstance(val, WorkspaceSourceSpec) else WorkspaceSourceSpec(**val)
+                if key not in self._workspaces:
+                    self.logger.warning(
+                        "Unknown workspace field '%s' in state.workspaces",
+                        key,
+                    )
+                    continue
+                workspace_specs[key] = (spec.repo, spec.ref)
+            elif isinstance(val, str):
+                # Legacy string format: key is repo name or field name
+                field = repo_to_field.get(key) or (key if key in self._workspaces else None)
+                if field is None:
+                    self.logger.warning(
+                        "Ignoring unknown workspace key '%s' in state.workspaces. Expected one of: %s",
+                        key,
+                        list(repo_to_field.keys()) + list(self._workspaces.keys()),
+                    )
+                    continue
+                workspace_specs[field] = (None, val)
         use_workspace_specs_mode = bool(workspace_specs)
         sid = session_id or self.session.session_id
         if not sid and not use_workspace_specs_mode:
@@ -594,28 +607,39 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             if workspace.tracked:
                 snap = saved_snapshots.get(name)
                 if use_workspace_specs_mode:
-                    spec = (workspace_specs.get(name) or "").strip()
-                    if not spec:
+                    ws_entry = workspace_specs.get(name)
+                    if ws_entry is None:
                         self.logger.info(
                             "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
                             name,
                         )
                         continue
-                    if ":" in spec:
-                        source_session_id, exact_step = spec.split(":", 1)
+                    override_repo_from_spec, ref_spec = ws_entry
+                    ref_spec = ref_spec.strip()
+                    if not ref_spec:
+                        self.logger.info(
+                            "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
+                            name,
+                        )
+                        continue
+                    if ":" in ref_spec:
+                        source_session_id, exact_step = ref_spec.split(":", 1)
                         source_session_id = source_session_id.strip()
                         exact_step = exact_step.strip()
                     else:
                         source_session_id = (session_id or self.config.state.resume_from or "").strip()
-                        exact_step = spec
+                        exact_step = ref_spec
                     if not source_session_id:
                         raise RuntimeError(
-                            f"Workspace resume spec for '{name}' must include session_id:step (got '{spec}')"
+                            f"Workspace resume spec for '{name}' must include session_id:step (got '{ref_spec}')"
                         )
                     if not exact_step:
-                        raise RuntimeError(f"Workspace resume spec for '{name}' is missing step name (got '{spec}')")
+                        raise RuntimeError(
+                            f"Workspace resume spec for '{name}' is missing step name (got '{ref_spec}')"
+                        )
                     should_record_resume_input = source_session_id != (self.session.session_id or "")
                 else:
+                    override_repo_from_spec = None
                     if not snap:
                         self.logger.info(
                             "State has no snapshot for tracked workspace '%s'; treating as empty workspace",
@@ -647,7 +671,9 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                         workspace.session_id = source_session_id
 
                     # Override repo config for cross-session resume
-                    override_repo = resume_repos.get(name)
+                    override_repo = (override_repo_from_spec if use_workspace_specs_mode else None) or resume_repos.get(
+                        name
+                    )
                     if (
                         not override_repo
                         and not use_workspace_specs_mode

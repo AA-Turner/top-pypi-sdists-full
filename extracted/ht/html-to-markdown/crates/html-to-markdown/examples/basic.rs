@@ -8,12 +8,12 @@ fn main() {
     match convert(html, None) {
         Ok(markdown) => {
             println!("HTML:");
-            println!("{}", html);
+            println!("{html}");
             println!("\nMarkdown:");
-            println!("{}", markdown);
+            println!("{markdown}");
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
         }
     }
 }

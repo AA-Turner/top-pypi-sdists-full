@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorcircuit-nightly
-Version: 1.5.0.dev20260320
+Version: 1.5.0.dev20260321
 Summary: High performance unified quantum computing framework for the NISQ era
 Author-email: TensorCircuit-NG Authors <znfesnpbh@gmail.com>
 License-Expression: Apache-2.0
@@ -69,7 +69,7 @@ Dynamic: license-file
 
 <p align="center"> English | <a href="README_cn.md"> 简体中文 </a></p>
 
-TensorCircuit-NG is the next-generation open-source high-performance quantum software framework, and the world's first AI-native quantum programming platform purpose-built for agentic research and automated scientific discovery.
+TensorCircuit-NG is the next-generation open-source high-performance quantum software framework, and the world's first [AI-native quantum programming platform](https://tensorcircuit-ng.readthedocs.io/en/latest/agent_landing/index.html) purpose-built for agentic research and automated scientific discovery.
 
 TensorCircuit-NG is built upon tensornetwork engines, supporting for automatic differentiation, just-in-time compiling, hardware acceleration, vectorized parallelism and distributed training, providing unified infrastructures and interfaces for quantum programming. It can compose quantum circuits, neural networks and tensor networks seamlessly with high simulation efficiency and flexibility.
 
@@ -82,11 +82,11 @@ TensorCircuit-NG is the technical successor to TensorCircuit, led and maintained
 
 Please begin with [Quick Start](/docs/source/quickstart.rst) in the [full documentation](https://tensorcircuit-ng.readthedocs.io/).
 
-For more information on software usage, sota algorithm implementation and engineer paradigm demonstration, please refer to 140+ [example scripts](/examples) and 40+ [tutorial notebooks](https://tensorcircuit-ng.readthedocs.io/en/latest/#tutorials). API docstrings and test cases in [tests](/tests) are also informative. One can also refer to AI-native docs for tensorcircuit-ng: [Devin Deepwiki](https://deepwiki.com/tensorcircuit/tensorcircuit-ng) and [Context7 MCP](https://context7.com/tensorcircuit/tensorcircuit-ng).
+For more information on software usage, sota algorithm implementation and engineer paradigm demonstration, please refer to 140+ [example scripts](/examples) and 40+ [tutorial notebooks](https://tensorcircuit-ng.readthedocs.io/en/latest/#tutorials). API docstrings and test cases in [tests](/tests) are also informative. One can also refer to AI-native docs for tensorcircuit-ng: [Devin Deepwiki](https://deepwiki.com/tensorcircuit/tensorcircuit-ng), [Google Code Wiki](https://codewiki.google/github.com/tensorcircuit/tensorcircuit-ng), and [Context7 MCP](https://context7.com/tensorcircuit/tensorcircuit-ng).
 
 For beginners, please refer to [quantum computing lectures with TC-NG](https://github.com/sxzgroup/qc_lecture) to learn both quantum computing basics and representative usage of TensorCircuit-NG.
 
-### AI-Assisted Development (Recommended)
+### AI-Native R&D (Recommended)
 
 To write TC-NG scripts and applications efficiently with AI coding agents (e.g., Claude Code, Cursor, Antigravity), we strongly recommend **working directly within the local tensorcircuit-ng repository** rather than an empty folder.
 
@@ -403,6 +403,7 @@ TensorCircuit-NG is open source, released under the Apache License, Version 2.0.
     </tr>
     <tr>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/Yoshiyuki-F"><img src="https://avatars.githubusercontent.com/u/45096493?v=4?s=100" width="100px;" alt="Yoshiyuki-F"/><br /><sub><b>Yoshiyuki-F</b></sub></a><br /><a href="https://github.com/tensorcircuit/tensorcircuit-ng/commits?author=Yoshiyuki-F" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/QingyunQian"><img src="https://avatars.githubusercontent.com/u/69110244?v=4?s=100" width="100px;" alt="QingyunQian"/><br /><sub><b>QingyunQian</b></sub></a><br /><a href="#example-QingyunQian" title="Examples">💡</a></td>
     </tr>
   </tbody>
 </table>

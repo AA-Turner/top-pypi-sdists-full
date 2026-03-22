@@ -28,7 +28,6 @@ CONFIG_PATH = Path(__file__).parent / "configs" / "fuse-correctness-test.json"
 
 
 class TestPlatoFuseCorrectness:
-    @pytest.mark.skip(reason="unknown-size stat mismatch: getattr does not hydrate unknown-size files")
     def test_fuse_correctness(self, tmp_path: Path) -> None:
         bundle_dir = prepare_correctness_bundle(tmp_path / "fuse-bundle")
 

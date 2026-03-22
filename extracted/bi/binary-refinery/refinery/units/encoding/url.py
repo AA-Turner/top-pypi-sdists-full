@@ -14,7 +14,8 @@ class url(Unit):
 
     The unit preserves only alphanumeric characters, backslash, slash, underscore, dots, dashes,
     and the tilde character when encoding. Every other character is escaped by hex-encoding it and
-    prefixing it with a percent symbol.
+    prefixing it with a percent symbol. The unit can also unescape seuqences of the form `%uFFFF`
+    as they are used in javascript.
     """
 
     def __init__(

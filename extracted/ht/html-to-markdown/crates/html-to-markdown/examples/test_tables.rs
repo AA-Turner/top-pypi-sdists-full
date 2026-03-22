@@ -3,7 +3,7 @@
 use html_to_markdown_rs::convert;
 
 fn main() {
-    let html = r#"<table>
+    let html = r"<table>
         <tr>
             <th>Name</th>
             <th>Age</th>
@@ -16,13 +16,13 @@ fn main() {
             <td>Bob</td>
             <td>25</td>
         </tr>
-    </table>"#;
+    </table>";
 
     match convert(html, None) {
         Ok(markdown) => {
             println!("Test - Simple table with header:");
-            println!("HTML: {}", html);
-            println!("\nMarkdown:\n{}", markdown);
+            println!("HTML: {html}");
+            println!("\nMarkdown:\n{markdown}");
             println!("Expected:");
             println!("| Name | Age |");
             println!("| --- | --- |");
@@ -30,7 +30,7 @@ fn main() {
             println!("| Bob | 25 |");
             println!();
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(e) => eprintln!("Error: {e}"),
     }
 
     let html2 = r#"<table>
@@ -48,18 +48,18 @@ fn main() {
     match convert(html2, None) {
         Ok(markdown) => {
             println!("Test - Table with colspan:");
-            println!("HTML: {}", html2);
-            println!("\nMarkdown:\n{}", markdown);
+            println!("HTML: {html2}");
+            println!("\nMarkdown:\n{markdown}");
             println!("Expected:");
             println!("| Full Name | | Age |");
             println!("| --- | --- | --- |");
             println!("| Alice | Smith | 30 |");
             println!();
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(e) => eprintln!("Error: {e}"),
     }
 
-    let html3 = r#"<table>
+    let html3 = r"<table>
         <thead>
             <tr>
                 <th>Product</th>
@@ -76,13 +76,13 @@ fn main() {
                 <td>$15</td>
             </tr>
         </tbody>
-    </table>"#;
+    </table>";
 
     match convert(html3, None) {
         Ok(markdown) => {
             println!("Test - Table with thead/tbody:");
-            println!("HTML: {}", html3);
-            println!("\nMarkdown:\n{}", markdown);
+            println!("HTML: {html3}");
+            println!("\nMarkdown:\n{markdown}");
             println!("Expected:");
             println!("| Product | Price |");
             println!("| --- | --- |");
@@ -90,6 +90,6 @@ fn main() {
             println!("| Gadget | $15 |");
             println!();
         }
-        Err(e) => eprintln!("Error: {}", e),
+        Err(e) => eprintln!("Error: {e}"),
     }
 }

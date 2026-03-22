@@ -155,8 +155,15 @@ class HTTP2EchoClient:
                 async for data in response.aiter_text():
                     await self.on_message(data)
         except httpx.RemoteProtocolError as exception_:
+            # Remote terminated the stream.
             self.on_close(f"Disconnect detected: {exception_}")
-            raise
+
+            # If we never reached "open", treat as a failed connect.
+            if not self._opened.is_set():
+                raise
+
+            # Otherwise, normal disconnect.
+            return
         except Exception as exception_:
             # Surface unexpected failures so callers waiting for open can fail fast.
             _LOGGER.debug("HTTP2 exception: %s", exception_)

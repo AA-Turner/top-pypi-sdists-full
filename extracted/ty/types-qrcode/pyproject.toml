@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-qrcode"
-version = "8.2.0.20250914"
+version = "8.2.0.20260322"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for qrcode"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`4b0623f4fb2c4e5a04a0244e1592b1481a26e47e`](https://github.com/python/typeshed/commit/4b0623f4fb2c4e5a04a0244e1592b1481a26e47e).
+[`282b1a838a565f10a4b2e9139adc26ab828b2e9d`](https://github.com/python/typeshed/commit/282b1a838a565f10a4b2e9139adc26ab828b2e9d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['Pillow>=10.3.0']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['Pillow>=10.3.0']
 [tool.setuptools]
 packages = ['qrcode-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'qrcode-stubs' = ['LUT.pyi', '__init__.pyi', '_types.pyi', 'base.pyi', 'console_scripts.pyi', 'constants.pyi', 'exceptions.pyi', 'image/__init__.pyi', 'image/base.pyi', 'image/pil.pyi', 'image/pure.pyi', 'image/styledpil.pyi', 'image/styles/__init__.pyi', 'image/styles/colormasks.pyi', 'image/styles/moduledrawers/__init__.pyi', 'image/styles/moduledrawers/base.pyi', 'image/styles/moduledrawers/pil.pyi', 'image/styles/moduledrawers/svg.pyi', 'image/svg.pyi', 'main.pyi', 'release.pyi', 'util.pyi', 'METADATA.toml', 'py.typed']

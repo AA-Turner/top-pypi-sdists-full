@@ -35,6 +35,7 @@ __all__ = [
     "SessionConfig",
     "VMResources",
     "VMRuntimeConfig",
+    "WorkspaceSourceSpec",
 ]
 
 
@@ -142,6 +143,17 @@ class AgentConfig(BaseModel):
 # =============================================================================
 
 
+class WorkspaceSourceSpec(BaseModel):
+    """Explicit workspace source for cross-world restore.
+
+    Allows mounting workspaces from a different world by specifying the
+    full source repo name alongside the resume ref.
+    """
+
+    repo: str = Field(description="Full source repo name, e.g. 'webclone/stripe/code'")
+    ref: str = Field(description="Resume ref in 'session_id:step_name' format")
+
+
 class StateConfig(BaseModel):
     """Configuration for world state persistence.
 
@@ -162,10 +174,10 @@ class StateConfig(BaseModel):
         description="Map workspace name → repo name for cross-session resume, "
         "e.g. {'recordings': 'webclone/recordings'}",
     )
-    workspaces: dict[str, str] = Field(
+    workspaces: dict[str, str | WorkspaceSourceSpec] = Field(
         default_factory=dict,
-        description="Per-workspace resume spec in '<session_id>:<step_name>' format, "
-        "e.g. {'code': 'ccebb0fb-...:step.1.stage.copy_template'}",
+        description="Per-workspace resume spec. Value can be a string 'session_id:step_name' "
+        "(uses world's repo name) or a WorkspaceSourceSpec {repo, ref} for cross-world restore.",
     )
     checkpoint_interval_s: int = 300  # background checkpoint interval in seconds (0 = disabled)
 

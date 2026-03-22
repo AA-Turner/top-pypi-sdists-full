@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uv-dynamic-versioning
-Version: 0.13.0
+Version: 0.14.0
 Summary: Dynamic versioning based on VCS tags for uv/hatch project
 Project-URL: Repository, https://github.com/ninoseki/uv-dynamic-versioning/
 Project-URL: Homepage, https://github.com/ninoseki/uv-dynamic-versioning/
@@ -30,14 +30,13 @@ Keywords: hatch,uv
 Classifier: Framework :: Hatch
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4.0,>=3.10
-Requires-Dist: dunamai~=1.25
+Requires-Dist: dunamai~=1.26
 Requires-Dist: hatchling~=1.26
 Requires-Dist: jinja2~=3.0
 Requires-Dist: tomlkit~=0.13
@@ -81,9 +80,14 @@ See [Examples](https://github.com/ninoseki/uv-dynamic-versioning/tree/main/examp
 
 ## Projects Using `uv-dynamic-versioning`
 
-- [microsoft/essex-toolkit](https://github.com/microsoft/essex-toolkit): uses the version source plugin.
-- [modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk): uses the version source plugin.
-- [pydantic/pydantic-ai](https://github.com/pydantic/pydantic-ai): uses the version source and the metadata hook plugins.
+- Version Source:
+  - [IBM/Agentics](https://github.com/IBM/Agentics)
+  - [microsoft/agent-framework](https://github.com/microsoft/agent-framework)
+  - [modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk)
+- Metadata Hook:
+  - [mkdocstrings/griffe](https://github.com/mkdocstrings/griffe)
+  - [NVIDIA-NeMo/DataDesigner](https://github.com/NVIDIA-NeMo/DataDesigner)
+  - [pydantic/pydantic-ai](https://github.com/pydantic/pydantic-ai)
 
 And more.
 

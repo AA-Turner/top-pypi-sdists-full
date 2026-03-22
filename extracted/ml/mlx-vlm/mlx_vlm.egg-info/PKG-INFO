@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-vlm
-Version: 0.4.0
+Version: 0.4.1
 Summary: MLX-VLM is a package for inference and fine-tuning of Vision Language Models (VLMs) and Omni Models (VLMs with audio and video support) on your Mac using MLX.
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License: MIT
@@ -20,25 +20,19 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mlx>=0.30.0
-Requires-Dist: datasets>=2.19.1
-Requires-Dist: tqdm>=4.66.2
 Requires-Dist: transformers>=5.1.0
-Requires-Dist: mlx-lm>=0.31.0
+Requires-Dist: datasets>=2.19.1
+Requires-Dist: miniaudio>=1.59
+Requires-Dist: tqdm>=4.66.2
 Requires-Dist: Pillow>=10.3.0
 Requires-Dist: requests>=2.31.0
-Requires-Dist: fastapi>=0.95.1
-Requires-Dist: soundfile>=0.13.1
+Requires-Dist: mlx-lm>=0.31.0
 Requires-Dist: opencv-python>=4.12.0.88
-Requires-Dist: numpy
+Requires-Dist: fastapi>=0.95.1
 Requires-Dist: uvicorn
+Requires-Dist: numpy
 Provides-Extra: ui
 Requires-Dist: gradio>=5.19.0; extra == "ui"
-Provides-Extra: torch
-Requires-Dist: torch; extra == "torch"
-Requires-Dist: torchvision; extra == "torch"
-Requires-Dist: einops; extra == "torch"
-Requires-Dist: blobfile; extra == "torch"
-Requires-Dist: tiktoken; extra == "torch"
 Provides-Extra: cuda
 Requires-Dist: mlx-cuda; extra == "cuda"
 Provides-Extra: cpu
@@ -77,6 +71,7 @@ Some models have detailed documentation with prompt formats, examples, and best 
 | Phi-4 Reasoning Vision | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/phi4_siglip/README.md) |
 | MiniCPM-o | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/minicpmo/README.md) |
 | Phi-4 Multimodal | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/phi4mm/README.md) |
+| MolmoPoint | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/molmo_point/README.md) |
 | Moondream3 | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/moondream3/README.md) |
 
 ## Installation
@@ -86,14 +81,6 @@ The easiest way to get started is to install the `mlx-vlm` package using pip:
 ```sh
 pip install -U mlx-vlm
 ```
-
-Some models (e.g., Qwen2-VL) require additional dependencies from the `torch` extra:
-
-```sh
-pip install -U mlx-vlm[torch]
-```
-
-This installs `torch`, `torchvision`, and other dependencies needed by certain model processors.
 
 ## Usage
 
@@ -236,12 +223,20 @@ Start the server:
 ```sh
 mlx_vlm.server --port 8080
 
+# Preload a model at startup (Hugging Face repo or local path)
+mlx_vlm.server --model <hf_repo_or_local_path>
+
+# Preload a model with adapter
+mlx_vlm.server --model <hf_repo_or_local_path> --adapter-path <adapter_path>
+
 # With trust remote code enabled (required for some models)
 mlx_vlm.server --trust-remote-code
 ```
 
 #### Server Options
 
+- `--model`: Preload a model at server startup, accepts a Hugging Face repo ID or local path (optional, loads lazily on first request if omitted)
+- `--adapter-path`: Path for adapter weights to use with the preloaded model
 - `--host`: Host address (default: `0.0.0.0`)
 - `--port`: Port number (default: `8080`)
 - `--trust-remote-code`: Trust remote code when loading models from Hugging Face Hub
@@ -385,6 +380,9 @@ curl -X POST "http://localhost:8080/responses" \
 - `max_tokens`: Maximum tokens to generate
 - `temperature`: Sampling temperature
 - `top_p`: Top-p sampling parameter
+- `top_k`: Top-k sampling cutoff
+- `min_p`: Min-p sampling threshold
+- `repetition_penalty`: Penalty applied to repeated tokens
 - `stream`: Enable streaming responses
 
 

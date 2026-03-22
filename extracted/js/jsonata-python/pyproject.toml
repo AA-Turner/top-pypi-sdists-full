@@ -7,10 +7,10 @@ jsonata = "jsonata.cli.__main__:main"
 
 [project]
 name = "jsonata-python"
-version = "0.6.1"
+version = "0.6.2"
 description = "Pure Python implementation of JSONata"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 keywords = ["jsonata", "json"]
 authors = [

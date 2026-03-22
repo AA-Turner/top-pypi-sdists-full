@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: APIFlask
-Version: 3.0.2
+Version: 3.1.0
 Summary: A lightweight web API framework based on Flask.
 Author-email: Grey Li <withlihui@gmail.com>
 License: MIT

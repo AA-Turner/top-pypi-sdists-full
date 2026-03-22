@@ -85,6 +85,8 @@ class WorkflowStepDef:
     temperature: float | None = None
     max_tokens: int | None = None
     response_format: str | None = None  # "json_object" for structured output (#984)
+    fallback: list[dict[str, Any]] | None = None  # fallback model chain (#986)
+    cache: dict[str, Any] | None = None  # response caching (#988)
     # Conditional execution (#959)
     when: dict[str, Any] | None = None
     # Retry configuration (#962)
@@ -482,6 +484,8 @@ def _parse_step(raw: dict[str, Any], *, _inside_parallel: bool = False) -> Workf
         temperature=raw.get("temperature"),
         max_tokens=raw.get("max_tokens"),
         response_format=raw.get("response_format"),
+        fallback=raw.get("fallback"),
+        cache=raw.get("cache"),
         branches=branches,
         join=join,
         compensate=compensate,
@@ -610,6 +614,31 @@ def _validate_step_common(step: WorkflowStepDef, seen_step_ids: set[str], defn: 
                 raise ValueError(
                     f"LLM step {step.id!r}: response_format must be 'json_object', got {step.response_format!r}"
                 )
+        if step.fallback is not None:
+            if not isinstance(step.fallback, list):
+                raise ValueError(f"LLM step {step.id!r}: 'fallback' must be a list of model specs")
+            for i, entry in enumerate(step.fallback):
+                if not isinstance(entry, dict) or "model" not in entry:
+                    raise ValueError(
+                        f"LLM step {step.id!r}: fallback entry {i} must be a mapping with at least a 'model' key"
+                    )
+
+    if step.fallback is not None and step.type != "llm":
+        raise ValueError(f"Step {step.id!r}: 'fallback' is only allowed on llm steps")
+
+    if step.cache is not None:
+        if step.type != "llm":
+            raise ValueError(f"Step {step.id!r}: 'cache' is only allowed on llm steps")
+        if not isinstance(step.cache, dict):
+            raise ValueError(f"LLM step {step.id!r}: 'cache' must be a mapping")
+        if "enabled" not in step.cache:
+            raise ValueError(f"LLM step {step.id!r}: 'cache' must include an 'enabled' field")
+        if not isinstance(step.cache["enabled"], bool):
+            raise ValueError(f"LLM step {step.id!r}: cache.enabled must be a boolean")
+        if "ttl" in step.cache:
+            ttl = step.cache["ttl"]
+            if not isinstance(ttl, int) or ttl < 0:
+                raise ValueError(f"LLM step {step.id!r}: cache.ttl must be a non-negative integer (0 = no expiration)")
 
     if step.response_format is not None and step.type != "llm":
         raise ValueError(f"Step {step.id!r}: response_format is only allowed on llm steps")
@@ -928,6 +957,70 @@ class WorkflowEngine:
         self._pending_hook_tasks: list[Any] = []
         self._preapproved_step_id: str | None = None
         self._progress_callback: Any | None = None  # Callable[[str, str, dict], None]
+
+    @staticmethod
+    async def request_cancel(
+        db: ThreadSafeConnection,
+        run_id: str,
+        event_bus: Any | None = None,
+    ) -> dict[str, Any]:
+        """Request cancellation of a workflow run (#890).
+
+        Sets the cancel_requested flag. Running workflows poll this flag
+        and stop at the next safe boundary. Paused/waiting runs are
+        cancelled immediately.
+        """
+        from . import workflow_storage as ws
+
+        run = ws.get_workflow_run(db, run_id)
+        if run is None:
+            raise ValueError(f"Run not found: {run_id}")
+
+        terminal = {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
+        if run["status"] in terminal:
+            raise ValueError(f"Run {run_id} is already in terminal status: {run['status']}")
+
+        ws.set_cancel_requested(db, run_id)
+        ws.create_workflow_event(
+            db,
+            run_id=run_id,
+            event_type="cancel_requested",
+            payload={"from_status": run["status"]},
+        )
+
+        # For paused/waiting runs, cancel immediately since no engine loop is polling
+        if run["status"] in ("paused", "waiting_for_approval", "waiting_for_input"):
+            ws.update_workflow_run(
+                db,
+                run_id,
+                status="cancelled",
+                completed_at=datetime.now(timezone.utc).isoformat(),
+            )
+            ws.release_lock(db, run_id=run_id)
+            ws.create_workflow_event(
+                db,
+                run_id=run_id,
+                event_type="run_cancelled",
+                payload={"cancelled_from_status": run["status"]},
+            )
+
+        if event_bus is not None:
+            try:
+                import asyncio
+
+                asyncio.ensure_future(
+                    event_bus.publish(
+                        f"workflow:{run_id}",
+                        {
+                            "type": "workflow_cancel_requested",
+                            "data": {"run_id": run_id, "from_status": run["status"]},
+                        },
+                    )
+                )
+            except Exception:
+                logger.warning("Failed to publish cancel_requested event", exc_info=True)
+
+        return ws.get_workflow_run(db, run_id) or run
 
     def set_progress_callback(self, callback: Any) -> None:
         """Set a callback for real-time progress reporting.
@@ -1253,6 +1346,7 @@ class WorkflowEngine:
         inputs: dict[str, Any] | None = None,
         space_id: str | None = None,
         param_overrides: dict[str, str] | None = None,
+        conversation_id: str | None = None,
     ) -> dict[str, Any]:
         """Start a new workflow run. Returns the run dict."""
         from . import workflow_storage as ws
@@ -1312,6 +1406,7 @@ class WorkflowEngine:
             definition_content=definition.raw_yaml.decode("utf-8", errors="replace") if definition.raw_yaml else None,
             budget=budget or None,
             params=resolved_params or None,
+            conversation_id=conversation_id,
         )
 
         # Acquire concurrency lock
@@ -1382,6 +1477,7 @@ class WorkflowEngine:
         trigger_source: str | None = None,
         trigger_meta: dict[str, Any] | None = None,
         param_overrides: dict[str, str] | None = None,
+        conversation_id: str | None = None,
     ) -> dict[str, Any]:
         """Enqueue a workflow run as pending without executing it.
 
@@ -1428,6 +1524,7 @@ class WorkflowEngine:
             trigger_source=trigger_source,
             trigger_meta=trigger_meta,
             params=resolved_params or None,
+            conversation_id=conversation_id,
         )
 
         await self._emit_event(
@@ -1589,6 +1686,49 @@ class WorkflowEngine:
             )
             recovered.append(run)
         return recovered
+
+    async def repair_run(
+        self,
+        run_id: str,
+        field: str,
+        value: Any,
+        *,
+        actor: str = "operator",
+    ) -> dict[str, Any]:
+        """Repair a field on a paused/waiting run with audit trail.
+
+        Validates the field is repairable, delegates to storage, and emits
+        an engine-level event. Returns the updated run.
+        """
+        from . import workflow_storage as ws
+
+        result = ws.apply_run_repair(self._db, run_id, field, value, actor=actor)
+        # Storage already persists the durable event; only publish for live monitoring
+        await self._publish_event(run_id, "repair_applied", {"scope": "run", "field": field, "actor": actor})
+        return result
+
+    async def repair_step(
+        self,
+        run_id: str,
+        step_id: str,
+        field: str,
+        value: Any,
+        *,
+        actor: str = "operator",
+    ) -> dict[str, Any]:
+        """Repair a field on a completed step within a paused/waiting run.
+
+        Validates the field is repairable, delegates to storage, and emits
+        an engine-level event. Returns the updated step.
+        """
+        from . import workflow_storage as ws
+
+        result = ws.apply_step_repair(self._db, run_id, step_id, field, value, actor=actor)
+        # Storage already persists the durable event; only publish for live monitoring
+        await self._publish_event(
+            run_id, "repair_applied", {"scope": "step", "step_id": step_id, "field": field, "actor": actor}
+        )
+        return result
 
     async def resume_run(
         self,
@@ -2243,10 +2383,29 @@ class WorkflowEngine:
         # For elapsed_seconds on resume, we need the prior elapsed time
         prior_elapsed = budget_usage.get("elapsed_seconds", 0)
 
+        committed_steps: list[str] = []
+
         for step_def in steps:
             if skip_completed and step_def.id in skip_completed:
                 logger.info("Skipping completed step %r on resume", step_def.id)
                 continue
+
+            # Cancel-request poll (#890)
+            if ws.is_cancel_requested(self._db, run["id"]):
+                _updated = ws.update_workflow_run(
+                    self._db,
+                    run["id"],
+                    status="cancelled",
+                    completed_at=datetime.now(timezone.utc).isoformat(),
+                )
+                if _updated is not None:
+                    run = _updated
+                await self._emit_event(
+                    run_id=run["id"],
+                    event_type="run_cancelled",
+                    payload={"committed_steps": committed_steps},
+                )
+                return run
 
             # Conditional execution: evaluate when clause (#959)
             if step_def.when is not None:
@@ -2559,6 +2718,25 @@ class WorkflowEngine:
                         duration_ms=duration_ms,
                         completed_at=datetime.now(timezone.utc).isoformat(),
                     )
+
+                    # Cancel-race fix (#890): if cancel was requested and the step
+                    # "failed" due to cancellation, treat as cancelled, not failed.
+                    if ws.is_cancel_requested(self._db, run["id"]):
+                        run = ws.update_workflow_run(
+                            self._db,
+                            run["id"],
+                            status="cancelled",
+                            stop_reason="cancel_requested",
+                            completed_at=datetime.now(timezone.utc).isoformat(),
+                        )
+                        ws.release_lock(self._db, run_id=run["id"])
+                        await self._emit_event(
+                            run_id=run["id"],
+                            event_type="run_cancelled",
+                            payload={"committed_steps": committed_steps},
+                        )
+                        return run
+
                     if attempt < max_attempts:
                         delay = self._calculate_backoff(
                             attempt,
@@ -2649,6 +2827,10 @@ class WorkflowEngine:
                 step_id=step_def.id,
                 payload={"result_status": result.status, "duration_ms": duration_ms},
             )
+
+            # Track irreversible (publish) steps for cancel reporting (#890)
+            if step_def.type == "publish":
+                committed_steps.append(step_def.id)
 
             step_results[step_def.id] = {
                 "result_status": result.status,
@@ -2955,6 +3137,31 @@ class WorkflowEngine:
         result.artifacts["idempotency_key"] = idem_key
         return result
 
+    def _create_llm_service_for_model(
+        self,
+        model: str,
+        temperature: float | None = None,
+    ) -> Any:
+        """Create an AI service configured for a specific model (#986).
+
+        Clones the engine's AI config, overrides the model (and optionally
+        temperature), then delegates to create_ai_service().
+        Returns the engine's own service unchanged when the model matches.
+        """
+        import copy
+
+        from .ai_service import create_ai_service
+
+        assert self._ai_service is not None  # noqa: S101 — caller checks
+        current_model = getattr(getattr(self._ai_service, "config", None), "model", None)
+        if model == current_model and temperature is None:
+            return self._ai_service
+        step_config = copy.deepcopy(self._ai_service.config)
+        step_config.model = model
+        if temperature is not None:
+            step_config.temperature = temperature
+        return create_ai_service(step_config)
+
     async def _execute_llm_step(
         self,
         step_def: WorkflowStepDef,
@@ -2963,15 +3170,19 @@ class WorkflowEngine:
         step_results: dict[str, dict[str, Any]],
         definition: WorkflowDefinition,
     ) -> RunnerResult:
-        """Execute a bounded LLM inference step (#983, #984)."""
-        import copy
+        """Execute a bounded LLM inference step (#983, #984, #986)."""
         import json
 
-        from .ai_service import create_ai_service
         from .workflow_runners import RunnerResult
 
         if self._ai_service is None:
             return RunnerResult(status="failed", summary="LLM step requires ai_service", duration_ms=0)
+
+        # Cancel check before LLM call (#890)
+        from . import workflow_storage as ws_cancel
+
+        if ws_cancel.is_cancel_requested(self._db, run["id"]):
+            return RunnerResult(status="failed", summary="Cancelled before LLM call", duration_ms=0)
 
         start = time.monotonic()
 
@@ -3004,58 +3215,158 @@ class WorkflowEngine:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        ai_service = self._ai_service
-        if step_def.model and step_def.model != getattr(ai_service, "config", object()).model:
-            step_config = copy.deepcopy(ai_service.config)
-            step_config.model = step_def.model
-            if step_def.temperature is not None:
-                step_config.temperature = step_def.temperature
-            ai_service = create_ai_service(step_config)
+        # Build model chain: primary + fallback entries (#986)
+        default_model = getattr(getattr(self._ai_service, "config", None), "model", "") or ""
+        primary_spec: dict[str, Any] = {"model": step_def.model or default_model}
+        if step_def.temperature is not None:
+            primary_spec["temperature"] = step_def.temperature
+        if step_def.max_tokens is not None:
+            primary_spec["max_tokens"] = step_def.max_tokens
+        model_chain: list[dict[str, Any]] = [primary_spec] + (step_def.fallback or [])
 
-        # Build kwargs for complete_with_usage
-        complete_kwargs: dict[str, Any] = {
-            "max_completion_tokens": step_def.max_tokens or 4096,
-            "temperature": step_def.temperature,
-        }
-        if step_def.response_format == "json_object":
-            complete_kwargs["response_format"] = {"type": "json_object"}
+        artifacts: dict[str, Any] = {}
+        last_error_msg: str = ""
 
-        try:
-            text, usage = await ai_service.complete_with_usage(messages, **complete_kwargs)
-        except Exception as exc:
-            duration_ms = int((time.monotonic() - start) * 1000)
-            return RunnerResult(
-                status="failed",
-                summary=f"LLM completion failed: {exc}",
-                duration_ms=duration_ms,
-            )
+        # Response caching (#988)
+        from . import workflow_cache as wc
 
-        duration_ms = int((time.monotonic() - start) * 1000)
-        model_name = step_def.model or getattr(getattr(self._ai_service, "config", None), "model", "")
+        cache_enabled = bool(step_def.cache and step_def.cache.get("enabled", False))
+        cache_ttl = step_def.cache.get("ttl", 3600) if cache_enabled else 0
+        space_id = run.get("space_id") or ""
 
-        artifacts: dict[str, Any] = {
-            "model": model_name,
-            "prompt_tokens": usage.get("prompt_tokens", 0),
-            "completion_tokens": usage.get("completion_tokens", 0),
-            "total_tokens": usage.get("total_tokens", 0),
-        }
+        resolved_prompt = prompt
 
-        # Parse structured output (#984)
-        if step_def.response_format == "json_object" and text is not None:
+        for i, model_spec in enumerate(model_chain):
+            cache_key: str | None = None
+            if cache_enabled:
+                effective_temp = (
+                    model_spec.get("temperature") if model_spec.get("temperature") is not None else step_def.temperature
+                )
+                effective_max_tokens = model_spec.get("max_tokens") or step_def.max_tokens or 4096
+                cache_key = wc.compute_cache_key(
+                    model=model_spec["model"],
+                    prompt=resolved_prompt,
+                    system_prompt=system_prompt,
+                    temperature=effective_temp,
+                    max_tokens=effective_max_tokens,
+                    response_format=step_def.response_format,
+                )
+                cached = wc.get_cached_response(self._db, cache_key, space_id)
+                if cached:
+                    artifacts["cache_hit"] = True
+                    artifacts["model"] = cached["model"]
+                    artifacts["primary_model"] = primary_spec["model"]
+                    artifacts["fallback_used"] = i > 0
+                    artifacts["fallback_index"] = i
+                    artifacts["prompt_tokens"] = 0
+                    artifacts["completion_tokens"] = 0
+                    artifacts["total_tokens"] = 0
+                    artifacts["original_tokens"] = (cached.get("prompt_tokens", 0) or 0) + (
+                        cached.get("completion_tokens", 0) or 0
+                    )
+
+                    text = cached["response"]
+                    if step_def.response_format == "json_object" and text is not None:
+                        try:
+                            parsed = json.loads(text)
+                            artifacts["structured_output"] = parsed
+                        except json.JSONDecodeError:
+                            pass
+
+                    duration_ms = int((time.monotonic() - start) * 1000)
+                    return RunnerResult(
+                        status="success",
+                        summary=(text or "")[:2000],
+                        artifacts=artifacts,
+                        duration_ms=duration_ms,
+                    )
+
             try:
-                parsed = json.loads(text)
-                artifacts["structured_output"] = parsed
-            except json.JSONDecodeError:
+                service = self._create_llm_service_for_model(
+                    model=model_spec["model"],
+                    temperature=model_spec.get("temperature"),
+                )
+
+                complete_kwargs: dict[str, Any] = {
+                    "max_completion_tokens": (model_spec.get("max_tokens") or step_def.max_tokens or 4096),
+                    "temperature": (
+                        model_spec.get("temperature")
+                        if model_spec.get("temperature") is not None
+                        else step_def.temperature
+                    ),
+                }
+                if step_def.response_format == "json_object":
+                    complete_kwargs["response_format"] = {"type": "json_object"}
+
+                text, usage = await service.complete_with_usage(messages, **complete_kwargs)
+
+                artifacts["model"] = model_spec["model"]
+                artifacts["primary_model"] = primary_spec["model"]
+                artifacts["fallback_used"] = i > 0
+                artifacts["fallback_index"] = i
+                artifacts["prompt_tokens"] = usage.get("prompt_tokens", 0)
+                artifacts["completion_tokens"] = usage.get("completion_tokens", 0)
+                artifacts["total_tokens"] = usage.get("total_tokens", 0)
+                artifacts["cache_hit"] = False
+
+                # Store in cache after successful API call (#988)
+                if cache_enabled and cache_key and text is not None:
+                    wc.put_cached_response(
+                        self._db,
+                        cache_key=cache_key,
+                        space_id=space_id,
+                        workflow_id=run.get("workflow_id", ""),
+                        model=model_spec["model"],
+                        response=text,
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                        response_format=step_def.response_format,
+                        ttl_seconds=cache_ttl,
+                    )
+
+                # Parse structured output (#984)
+                if step_def.response_format == "json_object" and text is not None:
+                    try:
+                        parsed = json.loads(text)
+                        artifacts["structured_output"] = parsed
+                    except json.JSONDecodeError:
+                        duration_ms = int((time.monotonic() - start) * 1000)
+                        return RunnerResult(
+                            status="failed",
+                            summary=f"LLM response was not valid JSON: {text[:200]}",
+                            artifacts={**artifacts, "raw_response": text[:2000]},
+                            duration_ms=duration_ms,
+                        )
+
+                duration_ms = int((time.monotonic() - start) * 1000)
                 return RunnerResult(
-                    status="failed",
-                    summary=f"LLM response was not valid JSON: {text[:200]}",
-                    artifacts={**artifacts, "raw_response": text[:2000]},
+                    status="success",
+                    summary=(text or "")[:2000],
+                    artifacts=artifacts,
                     duration_ms=duration_ms,
                 )
 
+            except Exception as exc:
+                last_error_msg = str(exc)
+                await self._emit_event(
+                    run_id=run["id"],
+                    event_type="llm_fallback",
+                    step_id=step_def.id,
+                    payload={
+                        "failed_model": model_spec["model"],
+                        "error": str(exc),
+                        "next_index": i + 1,
+                        "remaining": len(model_chain) - i - 1,
+                    },
+                    definition=definition,
+                )
+                continue
+
+        # All models exhausted
+        duration_ms = int((time.monotonic() - start) * 1000)
         return RunnerResult(
-            status="success",
-            summary=(text or "")[:2000],
+            status="failed",
+            summary=f"All {len(model_chain)} model(s) failed. Last error: {last_error_msg}",
             artifacts=artifacts,
             duration_ms=duration_ms,
         )

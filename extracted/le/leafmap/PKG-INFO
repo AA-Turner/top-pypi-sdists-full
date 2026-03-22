@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: leafmap
-Version: 0.61.0
+Version: 0.61.1
 Summary: A Python package for geospatial analysis and interactive mapping in a Jupyter environment.
 Author-email: Qiusheng Wu <giswqs@gmail.com>
 License: MIT license
@@ -29,6 +29,7 @@ Requires-Dist: geopandas
 Requires-Dist: ipyevents
 Requires-Dist: ipyfilechooser
 Requires-Dist: ipyleaflet
+Requires-Dist: ipyvue<1.12.0
 Requires-Dist: ipyvuetify
 Requires-Dist: ipywidgets
 Requires-Dist: maplibre
@@ -106,6 +107,7 @@ Requires-Dist: anywidget; extra == "maplibre"
 Requires-Dist: geopandas; extra == "maplibre"
 Requires-Dist: fiona; extra == "maplibre"
 Requires-Dist: h3; extra == "maplibre"
+Requires-Dist: ipyvue<1.12.0; extra == "maplibre"
 Requires-Dist: ipyvuetify; extra == "maplibre"
 Requires-Dist: localtileserver; extra == "maplibre"
 Requires-Dist: mapclassify; extra == "maplibre"

@@ -21,7 +21,7 @@ def test_spec(app):
 def test_spec_processor(app, client):
     @app.spec_processor
     def edit_spec(spec):
-        assert spec['openapi'] == '3.0.3'
+        assert spec['openapi'] == '3.1.0'
         spec['openapi'] = '3.0.2'
         assert app.title == 'APIFlask'
         assert spec['info']['title'] == 'APIFlask'
@@ -154,6 +154,11 @@ def test_spec_schemas(app):
     assert 'Baz' in spec['components']['schemas']
     assert 'Spam' in spec['components']['schemas']
     assert 'Ham' in spec['components']['schemas']
+
+    list_schema = spec['paths']['/bar']['get']['responses']['200']['content']['application/json'][
+        'schema'
+    ]
+    assert 'array' == list_schema['type']
 
 
 def test_servers_and_externaldocs(app):

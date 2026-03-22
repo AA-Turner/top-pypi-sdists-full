@@ -321,7 +321,9 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
     trigger_source TEXT,
     trigger_meta_json TEXT,
     claimed_by TEXT,
-    claimed_at TEXT
+    claimed_at TEXT,
+    cancel_requested INTEGER DEFAULT 0,
+    conversation_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS workflow_steps (
@@ -435,6 +437,20 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
     claimed_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_llm_cache (
+    cache_key TEXT NOT NULL,
+    space_id TEXT NOT NULL DEFAULT '',
+    workflow_id TEXT,
+    model TEXT,
+    response TEXT NOT NULL,
+    prompt_tokens INTEGER DEFAULT 0,
+    completion_tokens INTEGER DEFAULT 0,
+    response_format TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT,
+    PRIMARY KEY (cache_key, space_id)
 );
 
 CREATE TABLE IF NOT EXISTS agent_runs (
@@ -1536,7 +1552,9 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 trigger_source TEXT,
                 trigger_meta_json TEXT,
                 claimed_by TEXT,
-                claimed_at TEXT
+                claimed_at TEXT,
+                cancel_requested INTEGER DEFAULT 0,
+                conversation_id TEXT
             )"""
         )
     if "workflow_steps" not in wf_tables:
@@ -1954,7 +1972,9 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                     trigger_source TEXT,
                     trigger_meta_json TEXT,
                     claimed_by TEXT,
-                    claimed_at TEXT
+                    claimed_at TEXT,
+                    cancel_requested INTEGER DEFAULT 0,
+                    conversation_id TEXT
                 )"""
             )
             # Copy existing data — new columns get NULL defaults
@@ -1993,6 +2013,15 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             conn.commit()
             logger.info("workflow_runs table rebuilt with 'claimed' status and executor columns")
 
+    # Add cancel_requested and conversation_id columns to workflow_runs (#890)
+    if "workflow_runs" in wf_tables:
+        wf_run_cols_v3 = {row[1] for row in conn.execute("PRAGMA table_info(workflow_runs)").fetchall()}
+        if "cancel_requested" not in wf_run_cols_v3:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN cancel_requested INTEGER DEFAULT 0")
+        if "conversation_id" not in wf_run_cols_v3:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN conversation_id TEXT DEFAULT NULL")
+        conn.commit()
+
     # Workflow schedules table (#969)
     if "workflow_schedules" not in wf_tables:
         conn.execute(
@@ -2020,6 +2049,24 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_workflow_schedules_due ON workflow_schedules(enabled, next_run_at)"
+        )
+
+    # Workflow LLM cache table (#988)
+    if "workflow_llm_cache" not in wf_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS workflow_llm_cache (
+                cache_key TEXT NOT NULL,
+                space_id TEXT NOT NULL DEFAULT '',
+                workflow_id TEXT,
+                model TEXT,
+                response TEXT NOT NULL,
+                prompt_tokens INTEGER DEFAULT 0,
+                completion_tokens INTEGER DEFAULT 0,
+                response_format TEXT,
+                created_at TEXT NOT NULL,
+                expires_at TEXT,
+                PRIMARY KEY (cache_key, space_id)
+            )"""
         )
 
     # Add agent_runs and agent_run_events tables (#887)

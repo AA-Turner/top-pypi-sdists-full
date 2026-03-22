@@ -33,30 +33,25 @@ fn test_strip_tags_prevents_metadata_extraction() {
 
     assert!(
         result.contains("Main content here"),
-        "Body content should be preserved: {}",
-        result
+        "Body content should be preserved: {result}"
     );
 
     assert!(
         result.contains("title: Test Document"),
-        "Title should still be extracted in frontmatter: {}",
-        result
+        "Title should still be extracted in frontmatter: {result}"
     );
 
     assert!(
         !result.contains("meta-author"),
-        "meta-author should NOT be in frontmatter when strip_tags=['meta']: {}",
-        result
+        "meta-author should NOT be in frontmatter when strip_tags=['meta']: {result}"
     );
     assert!(
         !result.contains("meta-description"),
-        "meta-description should NOT be in frontmatter when strip_tags=['meta']: {}",
-        result
+        "meta-description should NOT be in frontmatter when strip_tags=['meta']: {result}"
     );
     assert!(
         !result.contains("meta-og-title"),
-        "meta-og-title should NOT be in frontmatter when strip_tags=['meta']: {}",
-        result
+        "meta-og-title should NOT be in frontmatter when strip_tags=['meta']: {result}"
     );
 }
 
@@ -85,25 +80,21 @@ fn test_strip_tags_title_prevents_extraction() {
 
     assert!(
         result.contains("Document Heading") && result.contains("Some content"),
-        "Body content should be preserved: {}",
-        result
+        "Body content should be preserved: {result}"
     );
 
     assert!(
         result.contains("meta-author"),
-        "meta-author should still be extracted when only title is stripped: {}",
-        result
+        "meta-author should still be extracted when only title is stripped: {result}"
     );
     assert!(
         result.contains("meta-keywords"),
-        "meta-keywords should still be extracted when only title is stripped: {}",
-        result
+        "meta-keywords should still be extracted when only title is stripped: {result}"
     );
 
     assert!(
         !result.contains("title: Should Be Stripped"),
-        "title should NOT be in frontmatter when strip_tags=['title']: {}",
-        result
+        "title should NOT be in frontmatter when strip_tags=['title']: {result}"
     );
 }
 
@@ -133,24 +124,20 @@ fn test_preserve_tags_prevents_metadata_extraction() {
 
     assert!(
         result.contains("Body content"),
-        "Body content should be preserved: {}",
-        result
+        "Body content should be preserved: {result}"
     );
 
     assert!(
         result.contains("title: Preserved Title"),
-        "title should still be extracted in frontmatter: {}",
-        result
+        "title should still be extracted in frontmatter: {result}"
     );
 
     assert!(
         !result.contains("meta-viewport"),
-        "meta-viewport should NOT be in YAML frontmatter when preserve_tags=['meta']: {}",
-        result
+        "meta-viewport should NOT be in YAML frontmatter when preserve_tags=['meta']: {result}"
     );
     assert!(
         !result.contains("meta-author"),
-        "meta-author should NOT be in YAML frontmatter when preserve_tags=['meta']: {}",
-        result
+        "meta-author should NOT be in YAML frontmatter when preserve_tags=['meta']: {result}"
     );
 }

@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-docker"
-version = "7.1.0.20260109"
+version = "7.1.0.20260322"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for docker"
@@ -29,13 +29,13 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`9a175299c4cc4ffe0c9aafc33b2248916b23c3fa`](https://github.com/python/typeshed/commit/9a175299c4cc4ffe0c9aafc33b2248916b23c3fa).
+[`282b1a838a565f10a4b2e9139adc26ab828b2e9d`](https://github.com/python/typeshed/commit/282b1a838a565f10a4b2e9139adc26ab828b2e9d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['types-paramiko', 'types-requests', 'urllib3>=2']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['types-paramiko', 'types-requests', 'urllib3>=2']
 [tool.setuptools]
 packages = ['docker-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'docker-stubs' = ['__init__.pyi', '_types.pyi', 'api/__init__.pyi', 'api/build.pyi', 'api/client.pyi', 'api/config.pyi', 'api/container.pyi', 'api/daemon.pyi', 'api/exec_api.pyi', 'api/image.pyi', 'api/network.pyi', 'api/plugin.pyi', 'api/secret.pyi', 'api/service.pyi', 'api/swarm.pyi', 'api/volume.pyi', 'auth.pyi', 'client.pyi', 'constants.pyi', 'context/__init__.pyi', 'context/api.pyi', 'context/config.pyi', 'context/context.pyi', 'credentials/__init__.pyi', 'credentials/constants.pyi', 'credentials/errors.pyi', 'credentials/store.pyi', 'credentials/utils.pyi', 'errors.pyi', 'models/__init__.pyi', 'models/configs.pyi', 'models/containers.pyi', 'models/images.pyi', 'models/networks.pyi', 'models/nodes.pyi', 'models/plugins.pyi', 'models/resource.pyi', 'models/secrets.pyi', 'models/services.pyi', 'models/swarm.pyi', 'models/volumes.pyi', 'tls.pyi', 'transport/__init__.pyi', 'transport/basehttpadapter.pyi', 'transport/npipeconn.pyi', 'transport/npipesocket.pyi', 'transport/sshconn.pyi', 'transport/unixconn.pyi', 'types/__init__.pyi', 'types/base.pyi', 'types/containers.pyi', 'types/daemon.pyi', 'types/healthcheck.pyi', 'types/networks.pyi', 'types/services.pyi', 'types/swarm.pyi', 'utils/__init__.pyi', 'utils/build.pyi', 'utils/config.pyi', 'utils/decorators.pyi', 'utils/fnmatch.pyi', 'utils/json_stream.pyi', 'utils/ports.pyi', 'utils/proxy.pyi', 'utils/socket.pyi', 'utils/utils.pyi', 'version.pyi', 'METADATA.toml', 'py.typed']

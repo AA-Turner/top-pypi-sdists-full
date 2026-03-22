@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toml-rs
-Version: 0.3.6
+Version: 0.3.7
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python

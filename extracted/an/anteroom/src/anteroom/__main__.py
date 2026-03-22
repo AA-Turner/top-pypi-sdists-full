@@ -2612,6 +2612,12 @@ def main() -> None:
         default=False,
         help="Force resume even if definition has changed (drift override)",
     )
+    workflow_repair_parser = workflow_subparsers.add_parser("repair", help="Repair a field on a paused workflow run")
+    workflow_repair_parser.add_argument("run_id", help="Run identifier")
+    workflow_repair_parser.add_argument(
+        "--field", required=True, help="Field path (e.g. 'inputs' or 'step.<id>.result_artifacts')"
+    )
+    workflow_repair_parser.add_argument("--value", required=True, help="New value (JSON or string)")
     workflow_cancel_parser = workflow_subparsers.add_parser("cancel", help="Cancel a paused workflow run")
     workflow_cancel_parser.add_argument("run_id", help="Run identifier")
     workflow_approve_parser = workflow_subparsers.add_parser("approve", help="Approve a pending tool request")

@@ -36,6 +36,12 @@ router = APIRouter(tags=["chat"])
 _CANVAS_STREAMING_TOOLS = {"create_canvas", "update_canvas"}
 MAX_CANVAS_ARGS_ACCUM = 100_000 + 1024
 
+# Workflow cancel-intent patterns — compiled once at module level (#890)
+_CANCEL_INTENT_PATTERNS = [
+    re.compile(r"\b(cancel|stop|abort|halt|kill)\b.*\b(workflow|run|task)\b", re.IGNORECASE),
+    re.compile(r"^(cancel|stop|abort)$", re.IGNORECASE),
+]
+
 
 def _extract_streaming_content(accumulated_args: str) -> str | None:
     """Extract partial 'content' value from an incomplete JSON argument string.
@@ -1820,6 +1826,36 @@ async def chat(conversation_id: str, request: Request) -> Any:
 
     if not regenerate and not message_text.strip():
         raise HTTPException(status_code=400, detail="Message content cannot be empty")
+
+    # Workflow cancel-intent detection (#890)
+    if not regenerate and message_text.strip():
+        if any(p.search(message_text.strip()) for p in _CANCEL_INTENT_PATTERNS):
+            try:
+                from ..services.workflow_storage import get_active_run_for_conversation
+
+                active_run = get_active_run_for_conversation(db, conversation_id)
+                if active_run:
+                    from ..services.workflow_engine import WorkflowEngine
+
+                    event_bus = getattr(request.app.state, "event_bus", None)
+                    updated = await WorkflowEngine.request_cancel(db, active_run["id"], event_bus=event_bus)
+
+                    async def _cancel_stream() -> Any:
+                        yield {
+                            "event": "message",
+                            "data": json.dumps(
+                                {
+                                    "type": "workflow_cancel_requested",
+                                    "run_id": active_run["id"],
+                                    "status": updated["status"],
+                                }
+                            ),
+                        }
+                        yield {"event": "message", "data": json.dumps({"type": "done"})}
+
+                    return EventSourceResponse(_cancel_stream())
+            except Exception:
+                logger.debug("Workflow cancel-intent detection failed", exc_info=True)
 
     uid, uname = _get_identity(request)
 

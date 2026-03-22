@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: satkit
-Version: 0.13.0
+Version: 0.14.1
 Summary: Satellite Orbital Dynamics Toolkit
 Author-email: Steven Michael <ssmichael@gmail.com>
 Maintainer-email: Steven Michael <ssmichael@gmail.com>
@@ -165,6 +165,14 @@ Seamless conversion between UTC, TAI, TT, TDB, UT1, and GPS time scales with ful
 - Fast analytical Sun/Moon models for lower-precision work
 - Sunrise/sunset and Moon phase calculations
 
+### Linear Algebra
+
+SatKit uses [numeris](https://crates.io/crates/numeris) for all linear algebra (vectors, matrices, quaternions, ODE integration). If you also use nalgebra in your project, enable the `nalgebra` feature on numeris for zero-cost `From`/`Into` conversions between types:
+
+```toml
+numeris = { version = "0.5.5", features = ["nalgebra"] }
+```
+
 ### Cargo Features
 
 | Feature | Default | Description |
@@ -189,7 +197,29 @@ The library is validated against:
 - **ICGEM** reference values for gravity field calculations
 - **GPS SP3** precise ephemerides for multi-day numerical propagation
 
-106 unit tests and 36 doc-tests run on every commit across Linux, macOS, and Windows.
+142 tests (106 unit + 36 doc-tests) run on every commit across Linux, macOS, and Windows.
+
+### Running Tests Locally
+
+Tests require two sets of external data: the **astro-data** files (gravity models, ephemerides, etc.) and the **test vectors** (reference outputs for validation). Download both before running:
+
+```bash
+# Install the download helper
+pip install requests
+
+# Download test vectors
+python python/test/download_testvecs.py
+```
+
+Then run tests with the environment variables pointing to the downloaded directories:
+
+```bash
+# Rust tests
+SATKIT_DATA=astro-data SATKIT_TESTVEC_ROOT=satkit-testvecs cargo test
+
+# Python tests
+SATKIT_DATA=astro-data SATKIT_TESTVEC_ROOT=satkit-testvecs pytest python/test/test.py
+```
 
 ## Documentation
 
