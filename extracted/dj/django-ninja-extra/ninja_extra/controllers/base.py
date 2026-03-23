@@ -560,6 +560,21 @@ class APIController:
         for path_view in self.path_operations.values():
             for operation in path_view.operations:
                 operation.api = api
+                # Inherit API-level auth when neither the controller nor the
+                # route function specified an explicit auth value, mirroring
+                # the behaviour of Ninja's BoundRouter._bind_operations.
+                if (
+                    getattr(operation, "auth_param", NOT_SET) is NOT_SET
+                    and self.auth is NOT_SET
+                    and api.auth is not NOT_SET
+                ):
+                    operation._set_auth(api.auth)
+
+                if operation.throttle_param == NOT_SET and api.throttle != NOT_SET:
+                    throttle = api.throttle
+                    operation.throttle_objects = (
+                        isinstance(throttle, BaseThrottle) and [throttle] or throttle  # type: ignore[assignment]
+                    )
 
     def is_registered(self, api: "NinjaExtraAPI") -> bool:
         keys = (

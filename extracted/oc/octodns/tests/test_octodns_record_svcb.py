@@ -6,6 +6,7 @@ from unittest import TestCase
 
 from helpers import SimpleProvider
 
+from octodns.processor.templating import Templating
 from octodns.record import Record
 from octodns.record.exception import ValidationError
 from octodns.record.rr import RrParseError
@@ -267,10 +268,10 @@ class TestRecordSvcb(TestCase):
         # Hash
         values = set()
         values.add(a)
-        self.assertTrue(a in values)
-        self.assertFalse(b in values)
+        self.assertIn(a, values)
+        self.assertNotIn(b, values)
         values.add(b)
-        self.assertTrue(b in values)
+        self.assertIn(b, values)
 
     def test_validation(self):
         # doesn't blow up
@@ -361,7 +362,7 @@ class TestRecordSvcb(TestCase):
                 },
             )
         self.assertEqual(
-            ['SVCB value "foo.bar.baz" missing trailing .'],
+            ['SVCB targetname "foo.bar.baz" missing trailing .'],
             ctx.exception.reasons,
         )
 
@@ -393,7 +394,7 @@ class TestRecordSvcb(TestCase):
                 },
             )
         self.assertEqual(
-            ['Invalid SVCB target "bla foo.bar.com." is not a valid FQDN.'],
+            ['SVCB targetname "bla foo.bar.com." is not a valid FQDN'],
             ctx.exception.reasons,
         )
 
@@ -688,3 +689,64 @@ class TestSrvValue(TestCase):
         got = value.template({'needle': 42})
         self.assertIsNot(value, got)
         self.assertEqual('foo.42.example.com.', got.targetname)
+
+    def test_template_validation(self):
+        templ = Templating('test')
+
+        zone = Zone('unit.tests.', [])
+        svcb = Record.new(
+            zone,
+            '',
+            {
+                'type': 'SVCB',
+                'ttl': 600,
+                # Only the "targetname" field can be templated.
+                'value': {
+                    'svcpriority': 1,
+                    'targetname': '{zone_name}example.com.',
+                    'svcparams': {
+                        'alpn': ['h3', 'h2'],
+                        'ipv4hint': ['10.0.0.1'],
+                        'ipv6hint': ['2001:db8::1'],
+                        'port': 8061,
+                    },
+                },
+            },
+            lenient=False,
+        )
+        zone.add_record(svcb)
+
+        # Should not raise any ValidationError related to the templating
+        # variables as target value validation must takes place after variables
+        # substitution.
+        templ.process_source_and_target_zones(zone, None, None)
+
+        svcb = Record.new(
+            zone,
+            '',
+            {
+                'type': 'SVCB',
+                'ttl': 600,
+                'value': {
+                    'svcpriority': 1,
+                    # "targetname" is missing an trailing dot
+                    'targetname': '{zone_name}example.com',
+                    'svcparams': {
+                        'alpn': ['h3', 'h2'],
+                        'ipv4hint': ['10.0.0.1'],
+                        'ipv6hint': ['2001:db8::1'],
+                        'port': 8061,
+                    },
+                },
+            },
+            lenient=False,
+        )
+
+        zone.add_record(svcb, replace=True)
+
+        with self.assertRaises(ValidationError) as ctx:
+            templ.process_source_and_target_zones(zone, None, None)
+        self.assertEqual(
+            ['SVCB targetname "unit.tests.example.com" missing trailing .'],
+            ctx.exception.reasons,
+        )

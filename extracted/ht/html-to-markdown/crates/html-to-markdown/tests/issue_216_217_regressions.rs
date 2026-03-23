@@ -1,7 +1,7 @@
 //! Regression tests for issues #216 and #217.
 //!
-//! Both issues report a panic at text_node.rs:191:
-//! "byte index N is out of bounds of ``"
+//! Both issues report a panic at `text_node.rs:191`:
+//! "byte index N is out of bounds of \`\`"
 //!
 //! Root cause: When inline handlers (strong, em, etc.) collect children into a
 //! fresh String buffer while inheriting a parent context with `block_content_start`

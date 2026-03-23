@@ -13,50 +13,50 @@ description = "High-performance HTML to Markdown converter using the astral-tl p
 keywords = ["html", "markdown", "converter", "astral-tl", "doc-processing"]
 categories = ["parsing", "text-processing", "web-programming"]
 
+[package.metadata.cargo-machete]
+ignored = ["once_cell", "futures"]
 
-[lints]
-workspace = true
+[lib]
+crate-type = ["rlib"]
 
 [features]
 default = ["metadata"]
+full = ["inline-images", "metadata", "visitor", "async-visitor", "serde"]
 inline-images = ["dep:image"]
 metadata = ["dep:serde", "dep:serde_json"]
 visitor = []
 async-visitor = ["visitor", "dep:async-trait", "dep:futures", "dep:tokio"]
 serde = ["dep:serde", "dep:serde_json"]
 
-[lib]
-crate-type = ["rlib"]
-
 [dependencies]
-tl.workspace = true
-regex.workspace = true
-once_cell.workspace = true
-thiserror.workspace = true
-base64.workspace = true
 ahash.workspace = true
+async-trait = { workspace = true, optional = true }
+base64.workspace = true
+futures = { version = "0.3", optional = true }
 html-escape = "0.2.13"
-image = { version = "0.25", default-features = false, features = [
-  "gif",
-  "jpeg",
-  "png",
-  "bmp",
-  "webp",
-], optional = true }
 html5ever.workspace = true
+image = { version = "0.25", default-features = false, features = [
+    "gif",
+    "jpeg",
+    "png",
+    "bmp",
+    "webp",
+], optional = true }
 lru = "0.16"
+once_cell.workspace = true
+regex.workspace = true
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
-async-trait = { workspace = true, optional = true }
-futures = { version = "0.3", optional = true }
+thiserror.workspace = true
+tl.workspace = true
 tokio = { version = "1.50", features = [
-  "rt-multi-thread",
-  "sync",
+    "rt-multi-thread",
+    "sync",
 ], optional = true }
-
-[package.metadata.cargo-machete]
-ignored = ["once_cell", "futures"]
 
 [dev-dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+[lints]
+workspace = true

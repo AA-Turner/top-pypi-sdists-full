@@ -2151,7 +2151,11 @@ class Const(_base_nodes.NoChildrenNode, Instance):
                 message="Type error {error!r}", node=self, index=index, context=context
             ) from exc
 
-        raise AstroidTypeError(f"{self!r} (value={self.value})")
+        try:
+            value_str = str(self.value)
+        except ValueError:
+            value_str = f"<{type(self.value).__name__} (too large to display)>"
+        raise AstroidTypeError(f"{self!r} (value={value_str})")
 
     def has_dynamic_getattr(self) -> bool:
         """Check if the node has a custom __getattr__ or __getattribute__.
@@ -4756,8 +4760,9 @@ class FormattedValue(NodeNG):
                         end_col_offset=self.end_col_offset,
                     )
                     continue
-                except (ValueError, TypeError):
-                    # happens when format_spec.value is invalid
+                except (ValueError, TypeError, MemoryError):
+                    # ValueError/TypeError: invalid format spec
+                    # MemoryError: format spec with huge width (e.g. f'{0:11111111111}')
                     yield util.Uninferable
                     uninferable_already_generated = True
                 continue

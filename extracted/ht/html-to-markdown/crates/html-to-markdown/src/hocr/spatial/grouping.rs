@@ -103,11 +103,11 @@ mod tests {
         assert_eq!(words.len(), 2);
         assert_eq!(words[0].text, "Hello");
         assert_eq!(words[0].left, 100);
-        assert_eq!(words[0].confidence, 95.0);
+        assert!((words[0].confidence - 95.0).abs() < f64::EPSILON);
 
         assert_eq!(words[1].text, "World");
         assert_eq!(words[1].left, 160);
-        assert_eq!(words[1].confidence, 92.0);
+        assert!((words[1].confidence - 92.0).abs() < f64::EPSILON);
     }
 
     #[test]

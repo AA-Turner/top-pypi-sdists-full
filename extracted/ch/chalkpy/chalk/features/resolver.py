@@ -2201,16 +2201,14 @@ def online(
     output_row_order: Literal["one-to-one"] | None = None,
     venv: str | None = None,
     incremental: IncrementalConfig | None = None,
-) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]:
-    ...
+) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]: ...
 
 
 @overload
 def online(
     fn: Callable[P, T],
     /,
-) -> ResolverProtocol[P, T]:
-    ...
+) -> ResolverProtocol[P, T]: ...
 
 
 def online(
@@ -2463,16 +2461,14 @@ def offline(
     output_row_order: Literal["one-to-one"] | None = None,
     venv: str | None = None,
     incremental: IncrementalConfig | None = None,
-) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]:
-    ...
+) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]: ...
 
 
 @overload
 def offline(
     fn: Callable[P, T],
     /,
-) -> ResolverProtocol[P, T]:
-    ...
+) -> ResolverProtocol[P, T]: ...
 
 
 def offline(
@@ -2701,16 +2697,14 @@ def sink(
     upsert: bool = False,
     integration: BaseSQLSourceProtocol | SinkIntegrationProtocol | None = None,
     owner: str | None = None,
-) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]:
-    ...
+) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]: ...
 
 
 @overload
 def sink(
     fn: Callable[P, T],
     /,
-) -> ResolverProtocol[P, T]:
-    ...
+) -> ResolverProtocol[P, T]: ...
 
 
 def sink(

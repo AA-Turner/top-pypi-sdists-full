@@ -27,6 +27,7 @@ fn load_spec_tests() -> Vec<CommonMarkTest> {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn test_commonmark_compliance() {
     let tests = load_spec_tests();
     let mut passed = 0;

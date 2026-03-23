@@ -82,6 +82,23 @@ async def sync_dev_code(
     exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, f"uv pip install --system {editables}", timeout=300)
     if exit_code != 0:
         raise RuntimeError(f"Failed to install packages: {stderr or stdout}")
+
+    # Also update the plato CLI tool so agent VMs have the latest CLI commands
+    # (the base image may have an old version baked in).
+    # Include the agent package (--with -e /app) so entry points are discoverable
+    # by plato-agent-runner in the tool's isolated environment.
+    tool_cmd = "uv tool install -e /sdk --force --python 3.12"
+    if agent_synced:
+        tool_cmd += " --with-editable /app"
+    exit_code, stdout, stderr = await run_ssh(
+        ssh_key,
+        hostname,
+        tool_cmd,
+        timeout=120,
+    )
+    if exit_code != 0:
+        logger.warning("Failed to update plato CLI tool: %s", stderr or stdout)
+
     return agent_synced
 
 

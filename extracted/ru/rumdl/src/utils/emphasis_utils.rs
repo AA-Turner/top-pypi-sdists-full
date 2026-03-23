@@ -12,7 +12,8 @@ static INLINE_MATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$\$[^$]*\$\
 static LIST_MARKER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*[*+-]\s+").unwrap());
 
 // Documentation style patterns
-static DOC_METADATA_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*\*?\s*\*\*[^*]+\*\*\s*:").unwrap());
+static DOC_METADATA_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s*\*?\s*\*\*(?:[^*\s][^*]*[^*\s]|[^*\s])\*\*\s*:").unwrap());
 
 // Bold text pattern (for preserving bold text in documentation) - only match valid bold without spaces
 static BOLD_TEXT_PATTERN: LazyLock<Regex> =
@@ -426,5 +427,23 @@ mod tests {
         assert!(!has_doc_patterns("This has * spaces * in emphasis"));
         // Only opening brace without closing should not match
         assert!(!has_doc_patterns("{* incomplete"));
+    }
+
+    #[test]
+    fn test_doc_pattern_rejects_spaced_bold_metadata() {
+        // Valid bold metadata — should be treated as doc pattern (skip MD037)
+        assert!(has_doc_patterns("**Key**: value"));
+        assert!(has_doc_patterns("**Name**: another value"));
+        assert!(has_doc_patterns("**X**: single char"));
+        assert!(has_doc_patterns("* **Key**: list item with bold key"));
+
+        // Broken bold with internal spaces — should NOT be treated as doc pattern
+        // so MD037 can flag the spacing issue
+        assert!(!has_doc_patterns("** Key**: value"));
+        assert!(!has_doc_patterns("**Key **: value"));
+        assert!(!has_doc_patterns("** Key **: value"));
+        assert!(!has_doc_patterns(
+            "** Explicit Import**: Convert markdownlint configs to rumdl format:"
+        ));
     }
 }

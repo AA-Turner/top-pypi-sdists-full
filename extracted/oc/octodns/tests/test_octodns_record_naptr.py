@@ -277,10 +277,10 @@ class TestRecordNaptr(TestCase):
         )
         values = set()
         values.add(v)
-        self.assertTrue(v in values)
-        self.assertFalse(o in values)
+        self.assertIn(v, values)
+        self.assertNotIn(o, values)
         values.add(o)
-        self.assertTrue(o in values)
+        self.assertIn(o, values)
 
         self.assertEqual(30, o.order)
         o.order = o.order + 1
@@ -449,6 +449,47 @@ class TestRecordNaptr(TestCase):
         with self.assertRaises(ValidationError) as ctx:
             Record.new(self.zone, '', {'type': 'NAPTR', 'ttl': 600, 'value': v})
         self.assertEqual(['unrecognized flags "X"'], ctx.exception.reasons)
+
+    def test_flags_case_insensitive(self):
+        # RFC3404 specifies that flags are case-insensitive
+        # Test that both uppercase and lowercase flags are accepted
+        base_value = {
+            'order': 10,
+            'preference': 20,
+            'service': 'srv',
+            'regexp': '.*',
+            'replacement': '.',
+        }
+
+        # Test all valid flags in uppercase
+        for flag in ('S', 'A', 'U', 'P'):
+            v = dict(base_value)
+            v['flags'] = flag
+            record = Record.new(
+                self.zone, '', {'type': 'NAPTR', 'ttl': 600, 'value': v}
+            )
+            self.assertEqual(flag, record.values[0].flags)
+
+        # Test all valid flags in lowercase
+        for flag in ('s', 'a', 'u', 'p'):
+            v = dict(base_value)
+            v['flags'] = flag
+            record = Record.new(
+                self.zone, '', {'type': 'NAPTR', 'ttl': 600, 'value': v}
+            )
+            self.assertEqual(flag.upper(), record.values[0].flags)
+
+        # Test that mixed case or invalid flags still fail
+        for invalid_flag in ('x', 'X', 'B', 'b', 'sA', 'Sa'):
+            v = dict(base_value)
+            v['flags'] = invalid_flag
+            with self.assertRaises(ValidationError) as ctx:
+                Record.new(
+                    self.zone, '', {'type': 'NAPTR', 'ttl': 600, 'value': v}
+                )
+            self.assertEqual(
+                [f'unrecognized flags "{invalid_flag}"'], ctx.exception.reasons
+            )
 
 
 class TestNaptrValue(TestCase):

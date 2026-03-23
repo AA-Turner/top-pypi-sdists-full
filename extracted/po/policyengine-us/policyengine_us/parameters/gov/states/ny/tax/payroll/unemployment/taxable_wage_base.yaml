@@ -7,5 +7,7 @@ metadata:
   unit: currency-USD
   label: New York unemployment taxable wage base
   reference:
+    - title: New York Labor Law Section 518
+      href: https://www.nysenate.gov/legislation/laws/LAB/518
     - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
       href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=42

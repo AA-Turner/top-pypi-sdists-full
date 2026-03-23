@@ -5,5 +5,4 @@ if TYPE_CHECKING:
 
 
 class BaseCatalog(Protocol):
-    def write_to_catalog(self, revision: "DatasetRevision", destination: str) -> None:
-        ...
+    def write_to_catalog(self, revision: "DatasetRevision", destination: str) -> None: ...

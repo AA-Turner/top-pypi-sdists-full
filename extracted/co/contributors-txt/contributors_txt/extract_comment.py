@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import argparse
 import json
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
 from contributors_txt.__main__ import add_default_arguments, set_logging
 from contributors_txt.const import DEFAULT_CONTRIBUTOR_PATH, DEFAULT_TEAM_ROLE
@@ -15,7 +16,7 @@ THE_REGEX = re.compile(
 )
 
 
-def main(args: Optional[list[str]] = None) -> None:
+def main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(__doc__)
     add_default_arguments(parser)
     parser.add_argument(
@@ -54,7 +55,7 @@ def extract_comment(input_path: Path, aliases_path: Path, output_path: Path) -> 
 
 
 def _get_new_alias(
-    authoritative_mail: str, old_alias: Optional[Alias], input_: dict[str, str]
+    authoritative_mail: str, old_alias: Alias | None, input_: dict[str, str]
 ) -> Alias:
     comment = input_.get("comment", "")
     if old_alias is None:

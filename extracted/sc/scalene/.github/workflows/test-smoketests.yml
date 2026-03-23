@@ -38,12 +38,26 @@ jobs:
     - name: Build scalene
       run: pip -v install -e .
 
+    - name: --off flag smoke test
+      # Verify that --off starts with profiling disabled and the program
+      # still runs to completion. This is the primary cross-platform test
+      # for the --on/--off lifecycle feature (issue #1009).
+      run: python -m scalene run --off --cpu-only test/testme.py
+
     - name: cpu-only smoke test
       run: python test/smoketest.py test/testme.py --cpu-only
 
     - name: multiprocessing smoke test
       if: matrix.os != 'windows-latest'
       run: python test/smoketest.py test/multiprocessing_test.py
+
+    # NOTE: This test verifies that spawn-mode Pool.map completes under
+    # Scalene without hanging (regression test for #998). Uses a wrapper
+    # script with subprocess timeout because the multiprocessing resource
+    # tracker can hang during cleanup on some platforms.
+    - name: multiprocessing spawn pool smoke test
+      run: python test/smoketest_pool_spawn.py
+      timeout-minutes: 5
 
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test

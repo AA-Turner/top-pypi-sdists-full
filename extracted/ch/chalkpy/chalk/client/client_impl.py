@@ -1267,8 +1267,7 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         extra_headers: Mapping[str, str] | None = None,
         timeout: float | None | ellipsis = ...,
         connect_timeout: float | None | ellipsis = ...,
-    ) -> requests.Response:
-        ...
+    ) -> requests.Response: ...
 
     @overload
     def _request(
@@ -1286,8 +1285,7 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         extra_headers: Mapping[str, str] | None = None,
         timeout: float | None | ellipsis = ...,
         connect_timeout: float | None | ellipsis = ...,
-    ) -> T:
-        ...
+    ) -> T: ...
 
     def _do_request_inner(
         self,
@@ -2438,9 +2436,7 @@ https://docs.chalk.ai/cli/apply
                     input_times_tuple: Sequence[QueryInputTime] = (
                         [None] * len(input)
                         if input_times is None
-                        else [input_times for _ in input]
-                        if isinstance(input_times, datetime)
-                        else input_times
+                        else [input_times for _ in input] if isinstance(input_times, datetime) else input_times
                     )
                     run_asynchronously = True
                     multi_input = list(zip(input, input_times_tuple))
@@ -2706,6 +2702,24 @@ https://docs.chalk.ai/cli/apply
             query_version=query_version,
         )
 
+    def get_offline_store_table_name(
+        self,
+        feature: Any,
+        include_historical: bool = False,
+    ) -> "str | list[str]":
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+        return client_grpc.get_offline_store_table_name(
+            feature=feature,
+            include_historical=include_historical,
+        )
+
     def prompt_evaluation(
         self,
         prompts: list[Prompt | str],
@@ -2832,9 +2846,7 @@ https://docs.chalk.ai/cli/apply
                 input_times_tuple: Sequence[QueryInputTime] = (
                     [None] * len(input)
                     if input_times is None
-                    else [input_times for _ in input]
-                    if isinstance(input_times, datetime)
-                    else input_times
+                    else [input_times for _ in input] if isinstance(input_times, datetime) else input_times
                 )
                 run_asynchronously = True
                 multi_input = list(zip(input, input_times_tuple))
@@ -3060,8 +3072,7 @@ https://docs.chalk.ai/cli/apply
         self,
         dataset_name: str,
         environment: EnvironmentId | None = None,
-    ) -> Dataset:
-        ...
+    ) -> Dataset: ...
 
     @overload
     def get_dataset(
@@ -3069,8 +3080,7 @@ https://docs.chalk.ai/cli/apply
         *,
         revision_id: str | uuid.UUID,
         environment: EnvironmentId | None = None,
-    ) -> Dataset:
-        ...
+    ) -> Dataset: ...
 
     @overload
     def get_dataset(
@@ -3078,8 +3088,7 @@ https://docs.chalk.ai/cli/apply
         *,
         job_id: str | uuid.UUID,
         environment: EnvironmentId | None = None,
-    ) -> Dataset:
-        ...
+    ) -> Dataset: ...
 
     @overload
     def get_dataset(
@@ -3087,8 +3096,7 @@ https://docs.chalk.ai/cli/apply
         *,
         dataset_id: str | uuid.UUID,
         environment: EnvironmentId | None = None,
-    ) -> Dataset:
-        ...
+    ) -> Dataset: ...
 
     @overload
     def get_dataset(
@@ -3099,8 +3107,7 @@ https://docs.chalk.ai/cli/apply
         revision_id: str | uuid.UUID | None = None,
         job_id: str | uuid.UUID | None = None,
         environment: EnvironmentId | None = None,
-    ) -> Dataset:
-        ...
+    ) -> Dataset: ...
 
     def get_dataset(
         self,
@@ -3512,8 +3519,7 @@ https://docs.chalk.ai/cli/apply
         query_inputs: bool,
         return_type: Literal["polars_dataframe"],
         skip_failed_shards: bool = False,
-    ) -> pl.DataFrame:
-        ...
+    ) -> pl.DataFrame: ...
 
     @overload
     def load_dataset(
@@ -3528,8 +3534,7 @@ https://docs.chalk.ai/cli/apply
         query_inputs: bool,
         return_type: Literal["polars_lazyframe"],
         skip_failed_shards: bool = False,
-    ) -> pl.LazyFrame:
-        ...
+    ) -> pl.LazyFrame: ...
 
     @overload
     def load_dataset(
@@ -3544,8 +3549,7 @@ https://docs.chalk.ai/cli/apply
         query_inputs: bool,
         return_type: Literal["pandas"],
         skip_failed_shards: bool = False,
-    ) -> pd.DataFrame:
-        ...
+    ) -> pd.DataFrame: ...
 
     @overload
     def load_dataset(
@@ -3560,8 +3564,7 @@ https://docs.chalk.ai/cli/apply
         query_inputs: bool,
         return_type: Literal["pyarrow"],
         skip_failed_shards: bool = False,
-    ) -> pa.Table:
-        ...
+    ) -> pa.Table: ...
 
     def load_dataset(
         self,

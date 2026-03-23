@@ -228,16 +228,18 @@ fn test_visitor_works_with_complex_document() {
 
 #[test]
 fn test_visitor_with_conversion_options() {
-    let html = r"<h1>Title</h1><p>Text with *asterisks* and _underscores_.</p>";
-
-    let mut options = ConversionOptions::default();
-    options.escape_asterisks = true;
-    options.escape_underscores = true;
-
     #[derive(Debug, Default)]
     struct ContinueVisitor;
 
     impl HtmlVisitor for ContinueVisitor {}
+
+    let html = r"<h1>Title</h1><p>Text with *asterisks* and _underscores_.</p>";
+
+    let options = ConversionOptions {
+        escape_asterisks: true,
+        escape_underscores: true,
+        ..Default::default()
+    };
 
     let visitor = Rc::new(RefCell::new(ContinueVisitor));
 
@@ -616,10 +618,9 @@ fn test_visitor_with_skip_images() {
     "#;
 
     // Test with skip_images enabled and visitor
-    let options = {
-        let mut opts = ConversionOptions::default();
-        opts.skip_images = true;
-        opts
+    let options = ConversionOptions {
+        skip_images: true,
+        ..Default::default()
     };
 
     let visitor = Rc::new(RefCell::new(SkipImageVisitor::default()));
@@ -649,6 +650,8 @@ fn test_visitor_with_skip_images() {
 /// Test that the main `convert()` function accepts optional visitor parameter
 #[test]
 fn test_convert_accepts_visitor_parameter() {
+    use html_to_markdown_rs::convert_with_visitor;
+
     #[derive(Debug, Default)]
     struct CountingVisitor {
         text_count: usize,
@@ -671,7 +674,6 @@ fn test_convert_accepts_visitor_parameter() {
     let visitor = Rc::new(RefCell::new(CountingVisitor::default()));
 
     // Test using the main convert() function with visitor parameter
-    use html_to_markdown_rs::convert_with_visitor;
     let _result = convert_with_visitor(html, None, Some(visitor.clone())).expect("convert with visitor should work");
 
     let borrowed = visitor.borrow();

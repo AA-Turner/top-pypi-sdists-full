@@ -6120,7 +6120,36 @@ def shuffle(array: Underscore):
     return UnderscoreFunction("shuffle", array)
 
 
+########################################################################################################################
+# Catalog Functions                                                                                                    #
+########################################################################################################################
+
+
+def catalog_call(qualified_name: str, *args: Any, **kwargs: Any):
+    """Call a function registered in the active chalkdf Catalog.
+
+    Parameters
+    ----------
+    qualified_name
+        Dotted name like "ServiceName.method_name" matching a function
+        registered via ``Catalog.register()``.
+    *args
+        Column expressions (underscore expressions) to pass as inputs.
+
+    Examples
+    --------
+    >>> from chalkdf import Catalog
+    >>> import chalk.functions as F
+    >>> from chalk.features import _
+    >>> c = Catalog.local_catalog()
+    >>> c.register("Tour", "get_known_for", tour_svc, output_type=pa.string())
+    >>> df = df.with_columns({"known_for": F.catalog_call("Tour.get_known_for", _.city)})
+    """
+    return UnderscoreFunction("catalog_call", qualified_name, *args, **kwargs)
+
+
 __all__ = (
+    "catalog_call",
     "DayOfWeek",
     "Then",
     "When",

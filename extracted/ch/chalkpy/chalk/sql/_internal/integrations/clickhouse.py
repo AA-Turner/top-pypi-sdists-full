@@ -71,13 +71,15 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
         self.use_tls = (
             use_tls
             if isinstance(use_tls, bool)
-            else use_tls in _TRUTHY_VALUES
-            if isinstance(use_tls, str)
-            else load_integration_variable(
-                name=_CLICKHOUSE_USE_TLS,
-                integration_name=name,
-                override=integration_variable_override,
-                parser=lambda x: x in _TRUTHY_VALUES,
+            else (
+                use_tls in _TRUTHY_VALUES
+                if isinstance(use_tls, str)
+                else load_integration_variable(
+                    name=_CLICKHOUSE_USE_TLS,
+                    integration_name=name,
+                    override=integration_variable_override,
+                    parser=lambda x: x in _TRUTHY_VALUES,
+                )
             )
         )
         self.ingested_tables: Dict[str, Any] = {}
@@ -149,7 +151,7 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
         import pyarrow.compute as pc
 
         # Use existing connection or create new one
-        with (self.get_engine().connect() if connection is None else contextlib.nullcontext(connection)) as cnx:
+        with self.get_engine().connect() if connection is None else contextlib.nullcontext(connection) as cnx:
             with cnx.begin():
                 # Handle temp tables
                 with contextlib.ExitStack() as exit_stack:

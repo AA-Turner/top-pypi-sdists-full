@@ -73,8 +73,7 @@ if TYPE_CHECKING:
 
     from chalk.sql import BaseSQLSourceProtocol, SQLSourceGroup
 
-    def validator(*args: str, pre: bool = ...) -> Callable[[Callable[P, T]], Callable[P, T]]:
-        ...
+    def validator(*args: str, pre: bool = ...) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
 
 else:
     try:
@@ -1952,9 +1951,7 @@ def make_sql_file_resolver(
         timeout=(
             timeout
             if timeout is None
-            else timedelta_to_duration(timeout)
-            if isinstance(timeout, timedelta)
-            else timeout
+            else timedelta_to_duration(timeout) if isinstance(timeout, timedelta) else timeout
         ),
         cron=cron,
         owner=owner,

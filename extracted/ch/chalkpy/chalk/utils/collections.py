@@ -55,23 +55,19 @@ def flatten(v: Sequence[T | Sequence[T | Sequence[T]]]) -> List[T]:
 
 
 @overload
-def chunks(lst: List[T], n: int) -> Iterable[List[T]]:
-    ...
+def chunks(lst: List[T], n: int) -> Iterable[List[T]]: ...
 
 
 @overload
-def chunks(lst: Set[T], n: int) -> Iterable[Set[T]]:
-    ...
+def chunks(lst: Set[T], n: int) -> Iterable[Set[T]]: ...
 
 
 @overload
-def chunks(lst: Tuple[T, ...], n: int) -> Iterable[Tuple[T, ...]]:
-    ...
+def chunks(lst: Tuple[T, ...], n: int) -> Iterable[Tuple[T, ...]]: ...
 
 
 @overload
-def chunks(lst: Iterable[T], n: int) -> Iterable[Iterable[T]]:
-    ...
+def chunks(lst: Iterable[T], n: int) -> Iterable[Iterable[T]]: ...
 
 
 def chunks(lst: Iterable[T], n: int) -> Iterable[Iterable[T]]:

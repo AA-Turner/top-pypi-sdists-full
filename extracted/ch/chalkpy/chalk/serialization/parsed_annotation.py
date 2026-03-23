@@ -274,9 +274,11 @@ class ParsedAnnotation:
                 label=label,
                 code=code,
                 code_href=code_href,
-                range=(builder.annotation_range(self._attribute_name) or builder.property_range(self._attribute_name))
-                if self._attribute_name
-                else builder.class_definition_range(),
+                range=(
+                    (builder.annotation_range(self._attribute_name) or builder.property_range(self._attribute_name))
+                    if self._attribute_name
+                    else builder.class_definition_range()
+                ),
             )
         raise TypeError(message)
 

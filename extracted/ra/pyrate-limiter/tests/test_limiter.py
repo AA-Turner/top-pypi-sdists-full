@@ -24,6 +24,7 @@ from pyrate_limiter import InMemoryBucket
 from pyrate_limiter import Limiter
 from pyrate_limiter import RedisBucket
 from pyrate_limiter import Rate
+from pyrate_limiter import RateItem
 from pyrate_limiter import SingleBucketFactory
 
 buffer_ms = 10
@@ -80,6 +81,111 @@ async def test_limiter_constructor_02(
 
 
 @pytest.mark.asyncio
+async def test_try_acquire_allows_async_factory_get():
+    class AsyncGetFactory(BucketFactory):
+        def __init__(self, bucket: AbstractBucket):
+            self.bucket = bucket
+
+        def wrap_item(self, name: str, weight: int = 1):
+            return RateItem(name=name, timestamp=0, weight=weight)
+
+        async def get(self, _: RateItem):
+            await asyncio.sleep(0)
+            return self.bucket
+
+    bucket = InMemoryBucket(DEFAULT_RATES)
+    limiter = Limiter(AsyncGetFactory(bucket))
+
+    acquired = limiter.try_acquire("example", blocking=False)
+    assert isawaitable(acquired)
+    assert await acquired
+
+
+@pytest.mark.asyncio
+async def test_try_acquire_allows_async_bucket_put_result():
+    class AsyncPutBucket(AbstractBucket):
+        def __init__(self, rates):
+            self._inner = InMemoryBucket(rates)
+            self.rates = self._inner.rates
+
+        def now(self):
+            return self._inner.now()
+
+        async def put(self, item: RateItem):
+            result = self._inner.put(item)
+            self.failing_rate = self._inner.failing_rate
+            return result
+
+        def leak(self, current_timestamp=None):
+            result = self._inner.leak(current_timestamp)
+            self.failing_rate = self._inner.failing_rate
+            return result
+
+        def flush(self):
+            self._inner.flush()
+            self.failing_rate = self._inner.failing_rate
+
+        def count(self):
+            return self._inner.count()
+
+        def peek(self, index: int):
+            return self._inner.peek(index)
+
+    bucket = AsyncPutBucket(DEFAULT_RATES)
+    limiter = Limiter(bucket)
+
+    acquired = limiter.try_acquire("example", blocking=False)
+    assert isawaitable(acquired)
+    assert await acquired
+
+
+@pytest.mark.asyncio
+async def test_handle_async_result_cancels_pending_task_on_timeout():
+    limiter = Limiter(DEFAULT_RATES[0])
+    task = asyncio.create_task(asyncio.sleep(1))
+
+    with pytest.raises(TimeoutError):
+        await limiter._handle_async_result(task, deadline=time.monotonic() - 0.01)
+
+    await asyncio.sleep(0)
+    assert task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_delay_waiter_handles_sync_waiting_with_async_put():
+    class MixedModeBucket(AbstractBucket):
+        def __init__(self):
+            self.rates = [Rate(1, Duration.SECOND)]
+            self.failing_rate = self.rates[0]
+
+        def put(self, item: RateItem):
+            async def _put_result():
+                return True
+
+            return _put_result()
+
+        def leak(self, current_timestamp=None):
+            return 0
+
+        def flush(self):
+            return None
+
+        def count(self):
+            return 0
+
+        def peek(self, index: int):
+            return None
+
+    limiter = Limiter(DEFAULT_RATES[0], buffer_ms=0)
+    bucket = MixedModeBucket()
+    item = RateItem(name="demo", timestamp=0, weight=1)
+
+    delayed = limiter._delay_waiter(bucket, item, blocking=True)
+    assert isawaitable(delayed)
+    assert await delayed is True
+
+
+@pytest.mark.asyncio
 async def test_limiter_01(
     request,
     create_bucket,
@@ -126,6 +232,7 @@ async def test_limiter_01(
 @pytest.mark.asyncio
 async def test_limiter_async_factory_get_weight0(
 ):
+    pytest.importorskip("redis")
     factory = DemoAsyncGetBucketFactory()
     limiter = Limiter(
         factory,
@@ -157,6 +264,7 @@ async def test_limiter_async_factory_get_weight0(
 @pytest.mark.asyncio
 async def test_limiter_async_factory_get(
 ):
+    pytest.importorskip("redis")
     factory = DemoAsyncGetBucketFactory()
     limiter = Limiter(
         factory,
@@ -247,7 +355,9 @@ async def test_limiter_decorator(
         nonlocal counter
         counter += num
 
-    if isawaitable(bucket.count()):
+    bucket_count = bucket.count()
+    if isawaitable(bucket_count):
+        await bucket_count
         with pytest.raises(RuntimeError):
             @limiter_wrapper
             def inc_counter(num: int):
@@ -290,7 +400,7 @@ async def test_wait_too_long():
     # raise_when_fail = True
     limiter = Limiter(bucket)
 
-    tasks = [limiter.try_acquire_async("mytest", 1, timeout=0.0001) for i in range(500)]
+    tasks = [limiter.try_acquire_async("mytest", 1, timeout=0.01) for i in range(500)]
     r = await asyncio.gather(*tasks)
 
     # Not all requests could be satisfied within the timeout
@@ -310,3 +420,20 @@ async def test_bucket_no_schedule_leak():
 
     await asyncio.sleep(1.2)
     assert bucket.count() == 2
+
+
+def test_limiter_pickle():
+    """Test that Limiter can be pickled and unpickled (issue #262)"""
+    import pickle
+
+    limiter = Limiter(Rate(10, Duration.SECOND))
+
+    assert limiter.try_acquire("test")
+
+    # Pickle roundtrip
+    pickled = pickle.dumps(limiter)
+    restored = pickle.loads(pickled)
+
+    # Verify
+    assert restored.try_acquire("test")
+    assert restored.buffer_ms == limiter.buffer_ms

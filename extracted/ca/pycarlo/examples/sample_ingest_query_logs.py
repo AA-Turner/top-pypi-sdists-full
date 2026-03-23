@@ -13,7 +13,7 @@ Usage:
         --key-id <INGESTION_KEY_ID> \
         --key-token <INGESTION_KEY_SECRET> \
         --resource-uuid <WAREHOUSE_UUID> \
-        --resource-type snowflake \
+        --log-type snowflake \
         --asset-prefix query_logs_run_01
 """
 
@@ -126,9 +126,9 @@ def main():
     )
     parser.add_argument("--resource-uuid", default="your-warehouse-uuid", help="Resource UUID")
     parser.add_argument(
-        "--resource-type",
+        "--log-type",
         default="snowflake",
-        help="Resource type (e.g. snowflake, bigquery)",
+        help="Log type (e.g. snowflake, bigquery) — the connection/warehouse type identifier",
     )
     parser.add_argument(
         "--payload-file",
@@ -165,7 +165,7 @@ def main():
         print(f"Sending {len(events)} query log events to resource {args.resource_uuid} ...")
         result = service.send_query_logs(
             resource_uuid=args.resource_uuid,
-            resource_type=args.resource_type,
+            log_type=args.log_type,
             events=events,
         )
         invocation_id = service.extract_invocation_id(result)

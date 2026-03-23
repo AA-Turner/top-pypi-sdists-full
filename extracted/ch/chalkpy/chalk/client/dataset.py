@@ -636,8 +636,7 @@ def load_dataset(
     executor: Optional[ThreadPoolExecutor] = None,
     columns: Optional[Sequence["ColumnMetadata"]] = None,
     output_oat: bool = False,
-) -> pl.DataFrame:
-    ...
+) -> pl.DataFrame: ...
 
 
 @overload
@@ -651,8 +650,7 @@ def load_dataset(
     executor: Optional[ThreadPoolExecutor] = None,
     columns: Optional[Sequence["ColumnMetadata"]] = None,
     output_oat: bool = False,
-) -> pl.LazyFrame:
-    ...
+) -> pl.LazyFrame: ...
 
 
 @overload
@@ -666,8 +664,7 @@ def load_dataset(
     executor: Optional[ThreadPoolExecutor] = None,
     columns: Optional[Sequence["ColumnMetadata"]] = None,
     output_oat: bool = False,
-) -> pd.DataFrame:
-    ...
+) -> pd.DataFrame: ...
 
 
 @overload
@@ -681,8 +678,7 @@ def load_dataset(
     executor: Optional[ThreadPoolExecutor] = None,
     columns: Optional[Sequence["ColumnMetadata"]] = None,
     output_oat: bool = False,
-) -> pa.Table:
-    ...
+) -> pa.Table: ...
 
 
 def load_dataset(

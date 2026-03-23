@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-dateparser
-Version: 1.3.0.20260211
+Version: 1.3.0.20260323
 Summary: Typing stubs for dateparser
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -35,4 +35,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`c492f449fce5baa3acaae54c1e8d24c5ea98734f`](https://github.com/python/typeshed/commit/c492f449fce5baa3acaae54c1e8d24c5ea98734f).
+[`81a6d245c205f06232febe2f02e9510b1a35c7b4`](https://github.com/python/typeshed/commit/81a6d245c205f06232febe2f02e9510b1a35c7b4).

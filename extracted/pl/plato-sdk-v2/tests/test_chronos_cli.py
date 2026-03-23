@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from plato.chronos.models import OTelTraceResponse
+from plato.chronos.models import OTelMetricDataPoint, OTelTraceResponse, SessionMetricsResponse
 from plato.cli.chronos.main import chronos_app
 
 runner = CliRunner()
@@ -21,6 +21,41 @@ def _mock_trace_response() -> OTelTraceResponse:
         filtered_count=0,
         has_more=False,
         cursor=None,
+    )
+
+
+def _mock_metrics_response() -> SessionMetricsResponse:
+    return SessionMetricsResponse(
+        session_id="test-session-id",
+        data_points=[
+            OTelMetricDataPoint(
+                name="system.cpu.utilization",
+                unit="1",
+                env_alias="agent",
+                job_id="job-1",
+                value=0.75,
+                time_unix_nano="123",
+                attributes={"state": "user", "cpu": 0},
+            ),
+            OTelMetricDataPoint(
+                name="system.memory.usage",
+                unit="By",
+                env_alias="agent",
+                job_id="job-1",
+                value=1024.0,
+                time_unix_nano="124",
+                attributes={"state": "used"},
+            ),
+            OTelMetricDataPoint(
+                name="system.memory.usage",
+                unit="By",
+                env_alias="world",
+                job_id="job-2",
+                value=2048.0,
+                time_unix_nano="125",
+                attributes={"state": "used"},
+            ),
+        ],
     )
 
 
@@ -123,3 +158,33 @@ class TestTracesCommand:
         assert data["filters"] == {"atif_only": True, "errors_only": True, "search": "foo"}
         # filters should be the first key
         assert list(data.keys())[0] == "filters"
+
+
+class TestMetricsCommand:
+    """Test the metrics CLI command."""
+
+    @patch.dict("os.environ", {"PLATO_API_KEY": "test-key"})
+    @patch("plato.cli.chronos.main.Chronos")
+    def test_metrics_writes_json_and_prints_summary(self, mock_chronos_cls, tmp_path):
+        """Metrics command should handle Pydantic responses without dict-style access."""
+        mock_client = MagicMock()
+        mock_client.get_session_metrics.return_value = _mock_metrics_response()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_chronos_cls.return_value = mock_client
+
+        out = tmp_path / "metrics.json"
+        result = runner.invoke(chronos_app, ["metrics", "test-session-id", "--output", str(out)])
+
+        assert result.exit_code == 0
+        data = json.loads(out.read_text())
+        assert data["session_id"] == "test-session-id"
+        assert len(data["data_points"]) == 3
+        assert "Metrics Summary for test-session" in result.output
+        assert "system.cpu.utilization" in result.output
+        assert "system.memory.usage" in result.output
+
+        mock_client.get_session_metrics.assert_called_once_with(
+            "test-session-id",
+            env_alias=None,
+        )

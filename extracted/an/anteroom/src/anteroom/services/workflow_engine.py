@@ -3421,8 +3421,39 @@ class WorkflowEngine:
         for round_num in range(1, max_rounds + 1):
             all_succeeded = True
             for nested_step in step_def.steps:
-                # Persist nested step record (same durability as top-level steps)
                 nested_step_id = f"{nested_step.id}_r{round_num}"
+
+                # Conditional execution inside loops (#1095)
+                if nested_step.when is not None:
+                    if not self._evaluate_when(nested_step.when, step_results):
+                        skipped_record = ws.create_workflow_step(
+                            self._db,
+                            run_id=run["id"],
+                            step_id=nested_step_id,
+                            step_type=nested_step.type,
+                            runner_type=nested_step.runner,
+                        )
+                        ws.update_workflow_step(
+                            self._db,
+                            skipped_record["id"],
+                            status="skipped",
+                            result_summary="Condition not met",
+                            completed_at=datetime.now(timezone.utc).isoformat(),
+                        )
+                        await self._emit_event(
+                            run_id=run["id"],
+                            event_type="step_skipped",
+                            step_id=nested_step_id,
+                            payload={
+                                "reason": "condition_not_met",
+                                "when": nested_step.when,
+                                "loop": step_def.id,
+                                "round": round_num,
+                            },
+                        )
+                        continue  # neutral skip — all_succeeded unchanged
+
+                # Persist nested step record (same durability as top-level steps)
                 nested_record = ws.create_workflow_step(
                     self._db,
                     run_id=run["id"],

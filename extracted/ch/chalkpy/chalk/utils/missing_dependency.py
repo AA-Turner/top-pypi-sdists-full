@@ -1,8 +1,7 @@
 import chalk
 
 
-class MissingDependencyException(ImportError):
-    ...
+class MissingDependencyException(ImportError): ...
 
 
 def missing_dependency_exception(name: str, original_error: Exception | None = None):

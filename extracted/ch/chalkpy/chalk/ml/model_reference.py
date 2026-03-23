@@ -117,9 +117,11 @@ class ModelReference:
                 identifier=identifier,
                 model_type=model_type_from_proto(model_artifact_metadata.spec.model_type),
                 model_encoding=model_encoding_from_proto(model_artifact_metadata.spec.model_encoding),
-                model_class=ModelClass(model_artifact_metadata.spec.model_class)
-                if model_artifact_metadata.spec.model_class
-                else None,
+                model_class=(
+                    ModelClass(model_artifact_metadata.spec.model_class)
+                    if model_artifact_metadata.spec.model_class
+                    else None
+                ),
                 resource_hint=resource_hint,
                 resource_group=resource_group,
             )

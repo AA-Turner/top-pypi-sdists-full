@@ -478,8 +478,8 @@ def metrics(
         with Chronos(base_url=chronos_url, api_key=api_key) as client:
             result = client.get_session_metrics(session_id, env_alias=env_alias)
 
-        data_points = result.get("data_points", [])
-        data = json.dumps(result, indent=2)
+        data_points = result.data_points
+        data = result.model_dump_json(indent=2)
         out = output or _default_output_path("metrics", session_id)
         _write_output(data, out)
 
@@ -487,7 +487,7 @@ def metrics(
         if data_points:
             counts: dict[str, int] = {}
             for dp in data_points:
-                name = dp.get("name", "unknown")
+                name = dp.name or "unknown"
                 counts[name] = counts.get(name, 0) + 1
 
             table = Table(title=f"Metrics Summary for {session_id[:12]}...")

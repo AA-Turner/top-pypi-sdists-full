@@ -1323,13 +1323,19 @@ pub struct LayoutDetectionConfig {
 #[pymethods]
 impl LayoutDetectionConfig {
     #[new]
-    #[pyo3(signature = (preset=None, confidence_threshold=None, apply_heuristics=None))]
-    fn new(preset: Option<String>, confidence_threshold: Option<f32>, apply_heuristics: Option<bool>) -> Self {
+    #[pyo3(signature = (preset=None, confidence_threshold=None, apply_heuristics=None, table_model=None))]
+    fn new(
+        preset: Option<String>,
+        confidence_threshold: Option<f32>,
+        apply_heuristics: Option<bool>,
+        table_model: Option<String>,
+    ) -> Self {
         Self {
             inner: kreuzberg::core::config::layout::LayoutDetectionConfig {
                 preset: preset.unwrap_or_else(|| "fast".to_string()),
                 confidence_threshold,
                 apply_heuristics: apply_heuristics.unwrap_or(true),
+                table_model,
             },
         }
     }
@@ -1364,15 +1370,30 @@ impl LayoutDetectionConfig {
         self.inner.apply_heuristics = value;
     }
 
+    #[getter]
+    fn table_model(&self) -> Option<String> {
+        self.inner.table_model.clone()
+    }
+
+    #[setter]
+    fn set_table_model(&mut self, value: Option<String>) {
+        self.inner.table_model = value;
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "LayoutDetectionConfig(preset='{}', confidence_threshold={}, apply_heuristics={})",
+            "LayoutDetectionConfig(preset='{}', confidence_threshold={}, apply_heuristics={}, table_model={})",
             self.inner.preset,
             self.inner
                 .confidence_threshold
                 .map(|v| v.to_string())
                 .unwrap_or_else(|| "None".to_string()),
-            self.inner.apply_heuristics
+            self.inner.apply_heuristics,
+            self.inner
+                .table_model
+                .as_deref()
+                .map(|v| format!("'{v}'"))
+                .unwrap_or_else(|| "None".to_string()),
         )
     }
 }

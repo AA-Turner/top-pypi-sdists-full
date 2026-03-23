@@ -6,8 +6,7 @@ from chalk.clogging import chalk_logger
 
 
 class CancellableQuery(Protocol):
-    def cancel(self) -> None:
-        ...
+    def cancel(self) -> None: ...
 
 
 class QueryRegistry:

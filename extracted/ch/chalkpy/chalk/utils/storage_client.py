@@ -86,8 +86,7 @@ class StorageClient(Protocol):
         content_type: str,
         data: bytes | BinaryIO,
         metadata: Mapping[str, str] | None = None,
-    ):
-        ...
+    ): ...
 
     def get_uri(self, filename: str) -> str:
         """Return a URI for a filename"""
@@ -140,8 +139,7 @@ class StorageClient(Protocol):
         """
         ...
 
-    def async_list_files(self, prefix: str, delimiter: Optional[str] = None) -> AsyncIterator[str]:
-        ...
+    def async_list_files(self, prefix: str, delimiter: Optional[str] = None) -> AsyncIterator[str]: ...
 
     def copy(self, source_filename: str, dest_filename: str) -> None:
         """Copy ``source_filename`` to dest_filename``, including all metadata"""
@@ -264,13 +262,11 @@ class GCSStorageClient(StorageClient):
 
     @overload
     @override
-    def download_object(self, filename: str) -> bytes:
-        ...
+    def download_object(self, filename: str) -> bytes: ...
 
     @overload
     @override
-    def download_object(self, filename: str, destination: BinaryIO | str) -> None:
-        ...
+    def download_object(self, filename: str, destination: BinaryIO | str) -> None: ...
 
     @override
     def download_object(self, filename: str, destination: str | BinaryIO | None = None) -> bytes | None:
@@ -300,13 +296,11 @@ class GCSStorageClient(StorageClient):
 
     @overload
     @override
-    async def async_download_object(self, filename: str) -> bytes:
-        ...
+    async def async_download_object(self, filename: str) -> bytes: ...
 
     @overload
     @override
-    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None:
-        ...
+    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None: ...
 
     @override
     async def async_download_object(self, filename: str, destination: str | BinaryIO | None = None) -> bytes | None:
@@ -471,13 +465,11 @@ class S3StorageClient(StorageClient):
 
     @overload
     @override
-    def download_object(self, filename: str) -> bytes:
-        ...
+    def download_object(self, filename: str) -> bytes: ...
 
     @overload
     @override
-    def download_object(self, filename: str, destination: BinaryIO | str) -> None:
-        ...
+    def download_object(self, filename: str, destination: BinaryIO | str) -> None: ...
 
     def _download_to_file(self, filename: str, output_filename: str):
         self._s3_client.download_file(
@@ -519,13 +511,11 @@ class S3StorageClient(StorageClient):
 
     @overload
     @override
-    async def async_download_object(self, filename: str) -> bytes:
-        ...
+    async def async_download_object(self, filename: str) -> bytes: ...
 
     @overload
     @override
-    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None:
-        ...
+    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None: ...
 
     @override
     async def async_download_object(self, filename: str, destination: str | BinaryIO | None = None) -> bytes | None:
@@ -743,13 +733,11 @@ class AzureBlobStorageClient(StorageClient):
 
     @overload
     @override
-    def download_object(self, filename: str) -> bytes:
-        ...
+    def download_object(self, filename: str) -> bytes: ...
 
     @overload
     @override
-    def download_object(self, filename: str, destination: BinaryIO | str) -> None:
-        ...
+    def download_object(self, filename: str, destination: BinaryIO | str) -> None: ...
 
     @override
     def download_object(self, filename: str, destination: str | BinaryIO | None = None) -> bytes | None:
@@ -767,13 +755,11 @@ class AzureBlobStorageClient(StorageClient):
 
     @overload
     @override
-    async def async_download_object(self, filename: str) -> bytes:
-        ...
+    async def async_download_object(self, filename: str) -> bytes: ...
 
     @overload
     @override
-    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None:
-        ...
+    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None: ...
 
     @override
     async def async_download_object(self, filename: str, destination: str | BinaryIO | None = None) -> bytes | None:
@@ -965,13 +951,11 @@ class LocalStorageClient(StorageClient):
 
     @overload
     @override
-    def download_object(self, filename: str) -> bytes:
-        ...
+    def download_object(self, filename: str) -> bytes: ...
 
     @overload
     @override
-    def download_object(self, filename: str, destination: BinaryIO | str) -> None:
-        ...
+    def download_object(self, filename: str, destination: BinaryIO | str) -> None: ...
 
     def download_object(self, filename: str, destination: BinaryIO | str | None = None) -> bytes | None:
         """Download ``bucket/filename`` to the destination, which can either be an io object or a filepath"""
@@ -987,13 +971,11 @@ class LocalStorageClient(StorageClient):
 
     @overload
     @override
-    async def async_download_object(self, filename: str) -> bytes:
-        ...
+    async def async_download_object(self, filename: str) -> bytes: ...
 
     @overload
     @override
-    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None:
-        ...
+    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None: ...
 
     async def async_download_object(self, filename: str, destination: BinaryIO | str | None = None):
         """Download ``filename`` and return the contents as bytes"""

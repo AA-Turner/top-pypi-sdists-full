@@ -1,7 +1,7 @@
 """Providers module."""
 
-import asyncio
-import functools
+from asyncio import Future, ensure_future, gather
+from functools import partial
 
 cimport cython
 
@@ -224,11 +224,19 @@ cdef class Dict(Provider):
     cpdef object _provide(self, tuple args, dict kwargs)
 
 
-cdef class Resource(Provider):
+cdef class ResourceState:
+    cdef object resource
+    cdef object shutdowner
+    cdef bint is_async
+    cdef bint async_done
+
+    cdef void from_coro(self, coro, error_callback)
+    cdef void from_async_context_manager(self, acm, error_callback)
+    cdef object from_context_manager(self, cm, error_callback)
+
+
+cdef class BaseResource(Provider):
     cdef object _provides
-    cdef bint _initialized
-    cdef object _shutdowner
-    cdef object _resource
 
     cdef tuple _args
     cdef int _args_len
@@ -237,6 +245,16 @@ cdef class Resource(Provider):
     cdef int _kwargs_len
 
     cpdef object _provide(self, tuple args, dict kwargs)
+    cdef void set_state(self, ResourceState state)
+    cdef ResourceState get_state(self)
+
+
+cdef class Resource(BaseResource):
+    cdef ResourceState _state
+
+
+cdef class ContextLocalResource(BaseResource):
+    cdef object _cvar
 
 
 cdef class Container(Provider):
@@ -469,18 +487,18 @@ cdef inline object __provide_keyword_args(
 
 
 cdef inline object __combine_future_injections(object injections, list future_injections):
-    future_result = asyncio.Future()
+    future_result = Future()
 
-    injections_ready = asyncio.gather(*[value for _, value in future_injections])
+    injections_ready = gather(*[value for _, value in future_injections])
     injections_ready.add_done_callback(
-        functools.partial(
+        partial(
             __async_prepare_args_kwargs_callback,
             future_result,
             injections,
             future_injections,
         ),
     )
-    asyncio.ensure_future(injections_ready)
+    ensure_future(injections_ready)
 
     return future_result
 
@@ -523,16 +541,16 @@ cdef inline object __provide_attributes(tuple attributes, int attributes_len):
 
 
 cdef inline object __async_inject_attributes(future_instance, future_attributes):
-    future_result = asyncio.Future()
+    future_result = Future()
 
-    attributes_ready = asyncio.gather(future_instance, future_attributes)
+    attributes_ready = gather(future_instance, future_attributes)
     attributes_ready.add_done_callback(
-        functools.partial(
+        partial(
             __async_inject_attributes_callback,
             future_result,
         ),
     )
-    asyncio.ensure_future(attributes_ready)
+    ensure_future(attributes_ready)
 
     return future_result
 
@@ -587,17 +605,17 @@ cdef inline object __call(
         future_args = args if is_future_args else __future_result(args)
         future_kwargs = kwargs if is_future_kwargs else __future_result(kwargs)
 
-        future_result = asyncio.Future()
+        future_result = Future()
 
-        args_kwargs_ready = asyncio.gather(future_args, future_kwargs)
+        args_kwargs_ready = gather(future_args, future_kwargs)
         args_kwargs_ready.add_done_callback(
-            functools.partial(
+            partial(
                 __async_call_callback,
                 future_result,
                 call,
             ),
         )
-        asyncio.ensure_future(args_kwargs_ready)
+        ensure_future(args_kwargs_ready)
 
         return future_result
 
@@ -612,8 +630,8 @@ cdef inline void __async_call_callback(object future_result, object call, object
         future_result.set_exception(exception)
     else:
         if __is_future_or_coroutine(result):
-            result = asyncio.ensure_future(result)
-            result.add_done_callback(functools.partial(__async_result_callback, future_result))
+            result = ensure_future(result)
+            result.add_done_callback(partial(__async_result_callback, future_result))
             return
         future_result.set_result(result)
 
@@ -694,7 +712,7 @@ cdef inline bint __iscoroutine(object obj):
 
 
 cdef inline object __future_result(object instance):
-    future_result = asyncio.Future()
+    future_result = Future()
     future_result.set_result(instance)
     return future_result
 

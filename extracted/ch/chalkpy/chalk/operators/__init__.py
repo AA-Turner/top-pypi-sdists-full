@@ -257,9 +257,11 @@ class StaticOperator(abc.ABC):
                     return ParquetScanOperator(
                         files=tuple(convert_proto_expr_to_literal(call.kwargs["files"])),
                         column_names=tuple(convert_proto_expr_to_literal(call.kwargs["column_names"])),
-                        aws_role_arn=convert_proto_expr_to_literal(call.kwargs["aws_role_arn"])
-                        if "aws_role_arn" in call.kwargs
-                        else None,
+                        aws_role_arn=(
+                            convert_proto_expr_to_literal(call.kwargs["aws_role_arn"])
+                            if "aws_role_arn" in call.kwargs
+                            else None
+                        ),
                     )
                 elif func.identifier.name == IcebergScanOperator._chalk__operator_name:
                     if "target" not in call.kwargs:
@@ -357,8 +359,7 @@ _empty_mapping = {}
 
 
 class BaseScanCatalog(BaseCatalog, Protocol):
-    def to_scan_options(self) -> Mapping[str, str | int | None]:
-        ...
+    def to_scan_options(self) -> Mapping[str, str | int | None]: ...
 
 
 def scan_iceberg(

@@ -1,20 +1,22 @@
 """Containers module."""
 
-import asyncio
-import contextlib
-import copy as copy_module
-import json
-import importlib
-import inspect
+from asyncio import gather
+from contextlib import suppress
+from copy import deepcopy as copy_deepcopy
+from importlib import import_module
+from inspect import getmodule, stack as inspect_stack
+from json import load as json_load
 
 try:
     import yaml
 except ImportError:
     yaml = None
 
-from . import providers, errors
+from . import errors, providers
+
 from .providers cimport __is_future_or_coroutine
-from .wiring import wire, unwire
+
+from .wiring import unwire, wire
 
 
 class WiringConfiguration:
@@ -113,7 +115,7 @@ class DynamicContainer(Container):
 
         copied.provider_type = providers.Provider
         copied.overridden = providers.deepcopy(self.overridden, memo)
-        copied.wiring_config = copy_module.deepcopy(self.wiring_config, memo)
+        copied.wiring_config = copy_deepcopy(self.wiring_config, memo)
         copied.declarative_parent = self.declarative_parent
 
         for name, provider in providers.deepcopy(self.providers, memo).items():
@@ -301,10 +303,10 @@ class DynamicContainer(Container):
                     from_package = self.wiring_config.from_package
                 elif self.declarative_parent is not None \
                         and (self.wiring_config.modules or self.wiring_config.packages):
-                    with contextlib.suppress(Exception):
+                    with suppress(Exception):
                         from_package = _resolve_package_name_from_cls(self.declarative_parent)
                 else:
-                    with contextlib.suppress(Exception):
+                    with suppress(Exception):
                         from_package = _resolve_calling_package_name()
 
         modules = _resolve_string_imports(modules, from_package)
@@ -339,10 +341,10 @@ class DynamicContainer(Container):
         self.wired_to_modules.clear()
         self.wired_to_packages.clear()
 
-    def init_resources(self, resource_type=providers.Resource):
+    def init_resources(self, resource_type=providers.BaseResource):
         """Initialize all container resources."""
 
-        if not issubclass(resource_type, providers.Resource):
+        if not issubclass(resource_type, providers.BaseResource):
             raise TypeError("resource_type must be a subclass of Resource provider")
 
         futures = []
@@ -354,12 +356,12 @@ class DynamicContainer(Container):
                 futures.append(resource)
 
         if futures:
-            return asyncio.gather(*futures)
+            return gather(*futures)
 
-    def shutdown_resources(self, resource_type=providers.Resource):
+    def shutdown_resources(self, resource_type=providers.BaseResource):
         """Shutdown all container resources."""
 
-        if not issubclass(resource_type, providers.Resource):
+        if not issubclass(resource_type, providers.BaseResource):
             raise TypeError("resource_type must be a subclass of Resource provider")
 
         def _independent_resources(resources):
@@ -382,7 +384,7 @@ class DynamicContainer(Container):
                     result = resource.shutdown()
                     if __is_future_or_coroutine(result):
                         futures.append(result)
-                await asyncio.gather(*futures)
+                await gather(*futures)
 
         def _sync_ordered_shutdown(resources):
             while any(resource.initialized for resource in resources):
@@ -469,7 +471,7 @@ class DynamicContainer(Container):
     def from_json_schema(self, filepath):
         """Build container providers from JSON schema."""
         with open(filepath) as file:
-            schema = json.load(file)
+            schema = json_load(file)
         self.from_schema(schema)
 
     def resolve_provider_name(self, provider):
@@ -735,7 +737,7 @@ class DeclarativeContainer(Container, metaclass=DeclarativeContainerMetaClass):
         """
         container = cls.instance_type()
         container.provider_type = cls.provider_type
-        container.wiring_config = copy_module.deepcopy(cls.wiring_config)
+        container.wiring_config = copy_deepcopy(cls.wiring_config)
         container.declarative_parent = cls
 
         copied_providers = providers.deepcopy({ **cls.providers, **{"@@self@@": cls.__self__}})
@@ -924,18 +926,18 @@ cpdef bint _any_relative_string_imports_in(object modules):
 
 cpdef list _resolve_string_imports(object modules, object from_package):
     return [
-        importlib.import_module(module, from_package) if isinstance(module, str) else module
+        import_module(module, from_package) if isinstance(module, str) else module
         for module in modules
     ]
 
 
 cpdef object _resolve_calling_package_name():
-    stack = inspect.stack()
+    stack = inspect_stack()
     pre_last_frame = stack[0]
-    module = inspect.getmodule(pre_last_frame[0])
+    module = getmodule(pre_last_frame[0])
     return module.__package__
 
 
 cpdef object _resolve_package_name_from_cls(cls):
-    module = importlib.import_module(cls.__module__)
+    module = import_module(cls.__module__)
     return module.__package__

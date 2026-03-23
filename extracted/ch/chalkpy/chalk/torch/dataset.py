@@ -8,11 +8,9 @@ try:
     import torch
 except ModuleNotFoundError:
 
-    class ChalkTorchMapDatasetFromRevision:
-        ...
+    class ChalkTorchMapDatasetFromRevision: ...
 
-    class ChalkTorchIterDatasetFromRevision:
-        ...
+    class ChalkTorchIterDatasetFromRevision: ...
 
 else:
 
@@ -106,18 +104,18 @@ else:
                     total_rows = 0
                     uris: List[str] = []
                     row_groups: List[ParquetRowGroupMetadata] = []
-                    for uri_idx in range(len(signed_uris)):
-                        uri = signed_uris[uri_idx]
+                    for uri in signed_uris:
                         parq_file = parquet_file_from_uri(uri)
                         if parq_file.metadata.num_rows == 0:
                             # For simplicity, we ignore tables with 0 rows, if any exist
                             continue
+                        file_idx = len(uris)
                         uris.append(uri)
                         for row_group_idx in range(parq_file.num_row_groups):
                             row_group_num_rows = parq_file.metadata.row_group(row_group_idx).num_rows
                             row_groups.append(
                                 ParquetRowGroupMetadata(
-                                    file_idx=uri_idx,
+                                    file_idx=file_idx,
                                     row_group_idx=row_group_idx,
                                     num_rows=row_group_num_rows,
                                     dataset_row_start_idx=total_rows,

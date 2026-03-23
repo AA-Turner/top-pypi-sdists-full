@@ -1,19 +1,12 @@
-"""Tests for validate_code_change and get_security_context MCP tool logic."""
-
-import os
 import textwrap
-import tempfile
-
-import pytest
 
 from skylos_mcp.server import _validate_code_change_impl, _get_security_context_impl
 
 
 def _make_diff(filename, removed_lines=None, added_lines=None, hunk_start=1):
-    """Helper to build a realistic unified diff string."""
     removed_lines = removed_lines or []
     added_lines = added_lines or []
-    old_count = len(removed_lines) + 1  # context line
+    old_count = len(removed_lines) + 1
     new_count = len(added_lines) + 1
     lines = [
         f"--- a/{filename}",
@@ -26,11 +19,6 @@ def _make_diff(filename, removed_lines=None, added_lines=None, hunk_start=1):
     for a in added_lines:
         lines.append(f"+{a}")
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# validate_code_change tests
-# ---------------------------------------------------------------------------
 
 
 class TestValidateCodeChangeRegressions:
@@ -136,7 +124,6 @@ class TestValidateCodeChangeDangerousPatterns:
 
 class TestValidateCodeChangeSecrets:
     def test_github_token_in_added_code(self):
-        # ghp_ followed by 36 alphanumeric chars
         fake_token = "ghp_" + "A" * 36
         diff = _make_diff(
             "config.py",
@@ -149,7 +136,6 @@ class TestValidateCodeChangeSecrets:
         assert any("SKY-S101" == f["rule_id"] for f in secret_findings)
 
     def test_aws_key_in_added_code(self):
-        # AKIA followed by 16 uppercase chars
         fake_key = "AKIA" + "B" * 16
         diff = _make_diff(
             "settings.py",
@@ -260,11 +246,6 @@ class TestValidateCodeChangeSummary:
         result = _validate_code_change_impl(diff)
         assert "dangerous pattern" in result["summary"]
         assert "secret" in result["summary"]
-
-
-# ---------------------------------------------------------------------------
-# get_security_context tests
-# ---------------------------------------------------------------------------
 
 
 class TestGetSecurityContextFrameworks:
@@ -464,7 +445,6 @@ class TestGetSecurityContextPolicy:
             exclude:
               - tests/
         """))
-        # Need a scannable file so the dir isn't completely empty
         (tmp_path / "app.py").write_text("x = 1\n")
         result = _get_security_context_impl(str(tmp_path))
         assert result["policy"] is not None
@@ -506,7 +486,6 @@ class TestGetSecurityContextSkipsDirs:
         nm.mkdir(parents=True)
         evil_file = nm / "app.py"
         evil_file.write_text("from flask import Flask\n")
-        # No other files => Flask should NOT be detected
         (tmp_path / "readme.py").write_text("x = 1\n")
         result = _get_security_context_impl(str(tmp_path))
         assert "Flask" not in result["frameworks"]

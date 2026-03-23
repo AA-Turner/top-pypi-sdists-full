@@ -200,19 +200,21 @@ def export_from_registry() -> export_pb.Export:
                 output=[str(f) for f in cron.output],
                 max_samples=cron.max_samples,
                 recompute=RecomputeSettings(
-                    feature_fqns=list(cron.recompute_features)
-                    if isinstance(cron.recompute_features, Collection)
-                    else None,
-                    all_features=cron.recompute_features  # pyright: ignore[reportArgumentType]
-                    if isinstance(cron.recompute_features, bool)
-                    else None,
+                    feature_fqns=(
+                        list(cron.recompute_features) if isinstance(cron.recompute_features, Collection) else None
+                    ),
+                    all_features=(
+                        cron.recompute_features  # pyright: ignore[reportArgumentType]
+                        if isinstance(cron.recompute_features, bool)
+                        else None
+                    ),
                 ),
-                lower_bound=datetime_to_proto_timestamp(cron.lower_bound)
-                if cron.lower_bound is not None
-                else cron.lower_bound,
-                upper_bound=datetime_to_proto_timestamp(cron.upper_bound)
-                if cron.upper_bound is not None
-                else cron.upper_bound,
+                lower_bound=(
+                    datetime_to_proto_timestamp(cron.lower_bound) if cron.lower_bound is not None else cron.lower_bound
+                ),
+                upper_bound=(
+                    datetime_to_proto_timestamp(cron.upper_bound) if cron.upper_bound is not None else cron.upper_bound
+                ),
                 tags=cron.tags,
                 required_resolver_tags=cron.required_resolver_tags,
                 store_online=cron.store_online,
@@ -220,9 +222,11 @@ def export_from_registry() -> export_pb.Export:
                 file_name=cron.filename,
                 resource_group=cron.resource_group,
                 planner_options=cron.planner_options,
-                completion_deadline=timedelta_to_proto_duration(cron.completion_deadline)
-                if cron.completion_deadline is not None
-                else cron.completion_deadline,
+                completion_deadline=(
+                    timedelta_to_proto_duration(cron.completion_deadline)
+                    if cron.completion_deadline is not None
+                    else cron.completion_deadline
+                ),
                 num_shards=cron.num_shards,
                 num_workers=cron.num_workers,
             )

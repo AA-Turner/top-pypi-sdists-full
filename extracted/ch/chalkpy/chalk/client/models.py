@@ -336,8 +336,7 @@ class ChalkError(BaseModel, frozen=True):
     if TYPE_CHECKING:
         # Defining __hash__ only when type checking
         # since pydantic provides a hash for frozen models
-        def __hash__(self) -> int:
-            ...
+        def __hash__(self) -> int: ...
 
 
 class ResolverRunStatus(str, Enum):
@@ -1095,12 +1094,12 @@ class NamedQueryMetadata:
             meta=dict(proto_nq.meta) if proto_nq.meta else None,
             staleness=staleness,
             planner_options=dict(proto_nq.planner_options) if proto_nq.planner_options else None,
-            additional_logged_features=list(proto_nq.additional_logged_features)
-            if proto_nq.additional_logged_features
-            else None,
-            valid_plan_not_required=proto_nq.valid_plan_not_required
-            if proto_nq.HasField("valid_plan_not_required")
-            else None,
+            additional_logged_features=(
+                list(proto_nq.additional_logged_features) if proto_nq.additional_logged_features else None
+            ),
+            valid_plan_not_required=(
+                proto_nq.valid_plan_not_required if proto_nq.HasField("valid_plan_not_required") else None
+            ),
         )
 
 

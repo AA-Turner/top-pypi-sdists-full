@@ -76,6 +76,7 @@ from plato.chronos.models import (
     SessionResponse,
     SessionStatusResponse,
     SessionTrajectory,
+    Status,
     Status1,
     TrajectoryMetrics,
     UpdateNotesRequest,
@@ -107,7 +108,7 @@ def _emit_child_session_span(session_id: str, package: str) -> None:
         pass  # OTel not available, skip silently
 
 
-_TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
+_TERMINAL_STATUSES = {Status.completed, Status.failed, Status.cancelled}
 
 
 def _normalize_tag(tag: str) -> str:

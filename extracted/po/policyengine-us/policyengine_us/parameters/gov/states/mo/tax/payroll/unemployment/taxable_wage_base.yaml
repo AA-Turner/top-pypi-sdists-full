@@ -7,5 +7,9 @@ metadata:
   unit: currency-USD
   label: Missouri unemployment taxable wage base
   reference:
+    - title: Missouri Revised Statutes Section 288.036
+      href: https://revisor.mo.gov/main/OneSection.aspx?section=288.036
+    - title: Missouri unemployment tax rates
+      href: https://labor.mo.gov/des/employers/tax-rates
     - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
       href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=35

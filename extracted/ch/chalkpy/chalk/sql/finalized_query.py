@@ -492,8 +492,7 @@ class FinalizedChalkQuery:
             raise ValueError("Expected exactly one row; got 0 rows")
 
     @overload
-    def _postprocess_table(self, i: int, pa_table: pa.RecordBatch) -> pa.RecordBatch:
-        ...
+    def _postprocess_table(self, i: int, pa_table: pa.RecordBatch) -> pa.RecordBatch: ...
 
     @overload
     def _postprocess_table(self, i: int, pa_table: pa.Table) -> pa.Table:  # pyright: ignore[reportOverlappingOverload]

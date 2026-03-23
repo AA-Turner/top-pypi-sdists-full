@@ -247,9 +247,11 @@ class OnlineQueryConverter:
             environment_id=meta_proto.environment_id,
             environment_name=meta_proto.environment_name,
             query_id=meta_proto.query_id,
-            query_timestamp=meta_proto.query_timestamp.ToDatetime(tzinfo=dt.timezone.utc)
-            if meta_proto.HasField("query_timestamp")
-            else None,
+            query_timestamp=(
+                meta_proto.query_timestamp.ToDatetime(tzinfo=dt.timezone.utc)
+                if meta_proto.HasField("query_timestamp")
+                else None
+            ),
             query_hash=meta_proto.query_hash,
             explain_output=get_field_or(meta_proto.explain_output, "plan_string"),
         )
@@ -398,14 +400,16 @@ class OnlineQueryConverter:
             pkey=proto_value_to_python(proto.pkey),
             error=ChalkErrorConverter.chalk_error_decode(proto.error) if proto.HasField("error") else None,
             ts=proto.ts.ToDatetime(tzinfo=dt.timezone.utc) if proto.HasField("ts") else None,
-            meta=FeatureResolutionMeta(
-                chosen_resolver_fqn=proto.meta.chosen_resolver_fqn,
-                cache_hit=proto.meta.cache_hit,
-                primitive_type=proto.meta.primitive_type,
-                version=proto.meta.version,
-            )
-            if proto.HasField("meta")
-            else None,
+            meta=(
+                FeatureResolutionMeta(
+                    chosen_resolver_fqn=proto.meta.chosen_resolver_fqn,
+                    cache_hit=proto.meta.cache_hit,
+                    primitive_type=proto.meta.primitive_type,
+                    version=proto.meta.version,
+                )
+                if proto.HasField("meta")
+                else None
+            ),
         )
 
     @staticmethod
@@ -557,9 +561,11 @@ class OnlineQueryConverter:
 
         return OnlineQueryResponse(
             data=res,
-            meta=OnlineQueryConverter._query_meta_decode(response_proto.response_meta)
-            if response_proto.HasField("response_meta")
-            else None,
+            meta=(
+                OnlineQueryConverter._query_meta_decode(response_proto.response_meta)
+                if response_proto.HasField("response_meta")
+                else None
+            ),
             errors=[ChalkErrorConverter.chalk_error_decode(e) for e in response_proto.errors],
         )
 

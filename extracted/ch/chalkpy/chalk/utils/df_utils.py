@@ -673,7 +673,8 @@ def estimate_row_size_bytes(
     float16_size: int = 2,
 ) -> float:
     """Estimate the average size of a row, given a schema. This is only slightly better than hardcoding logic based on row count, since it takes into account the width of the table.
-    However, if the estimates for string, bytes, or list sizes are off, then this estimate could be way off. It assumes no nulls"""
+    However, if the estimates for string, bytes, or list sizes are off, then this estimate could be way off. It assumes no nulls
+    """
     # Adding 0.125 to most fields to account for the nil bit
     if pa.types.is_null(dtype):
         return 0.125  # just the nil bit

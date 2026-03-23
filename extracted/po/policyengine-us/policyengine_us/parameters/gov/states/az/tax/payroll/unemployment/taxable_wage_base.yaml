@@ -7,5 +7,7 @@ metadata:
   unit: currency-USD
   label: Arizona unemployment taxable wage base
   reference:
+    - title: Arizona Revised Statutes Section 23-622
+      href: https://www.azleg.gov/ars/23/00622.htm
     - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
       href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=12

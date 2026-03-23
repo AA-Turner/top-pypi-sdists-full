@@ -101,6 +101,27 @@ def test_provided_instance(some_value: int = Provide[Container.service.provided.
 
 
 @inject
+def test_provided_instance_call_with_args(
+        some_value: int = Provide[Container.service_with_callable.provided.method_with_args.call(1, 2)]
+):
+    return some_value
+
+
+@inject
+def test_provided_instance_call_with_kwargs(
+        some_value: dict = Provide[Container.service_with_callable.provided.method_with_kwargs.call(a=1, b=2)]
+):
+    return some_value
+
+
+@inject
+def test_provided_instance_call_with_args_and_kwargs(
+        some_value: dict = Provide[Container.service_with_callable.provided.foo.process.call(1, 2, key="value")]
+):
+    return some_value
+
+
+@inject
 def test_subcontainer_provider(some_value: int = Provide[Container.sub.int_object]):
     return some_value
 

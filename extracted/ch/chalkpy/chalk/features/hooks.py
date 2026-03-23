@@ -82,8 +82,7 @@ class Hook:
 
 
 @overload
-def before_all(fn: HookFn, /) -> Hook:
-    ...
+def before_all(fn: HookFn, /) -> Hook: ...
 
 
 @overload
@@ -94,8 +93,7 @@ def before_all(
     venv: Optional[str] = None,
     resource_hint: Optional["ResourceHint"] = None,
     resource_group: Optional[str] = None,
-) -> Hook:
-    ...
+) -> Hook: ...
 
 
 @overload
@@ -106,8 +104,7 @@ def before_all(
     venv: Optional[str] = None,
     resource_hint: Optional["ResourceHint"] = None,
     resource_group: Optional[str] = None,
-) -> Callable[[HookFn], Hook]:
-    ...
+) -> Callable[[HookFn], Hook]: ...
 
 
 def before_all(
@@ -135,8 +132,7 @@ def before_all(
 
 
 @overload
-def after_all(fn: HookFn, /) -> Hook:
-    ...
+def after_all(fn: HookFn, /) -> Hook: ...
 
 
 @overload
@@ -147,8 +143,7 @@ def after_all(
     venv: Optional[str] = None,
     resource_hint: Optional["ResourceHint"] = None,
     resource_group: Optional[str] = None,
-) -> Hook:
-    ...
+) -> Hook: ...
 
 
 @overload
@@ -159,8 +154,7 @@ def after_all(
     venv: Optional[str] = None,
     resource_hint: Optional["ResourceHint"] = None,
     resource_group: Optional[str] = None,
-) -> Callable[[HookFn], Hook]:
-    ...
+) -> Callable[[HookFn], Hook]: ...
 
 
 def after_all(

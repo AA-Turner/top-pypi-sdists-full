@@ -27,34 +27,94 @@ pub(crate) fn extract_document_metadata(
             key = replaced_key.as_deref().unwrap_or(key);
         }
 
-        match key {
+        // Normalize to lowercase for case-insensitive matching (per HTML spec,
+        // meta name attributes are compared ASCII case-insensitively).
+        let lower_key = key.to_ascii_lowercase();
+
+        match lower_key.as_str() {
             "title" => doc.title = Some(value),
             "description" => doc.description = Some(value),
-            "author" => doc.author = Some(value),
+            "author" | "creator" | "publisher" => {
+                if doc.author.is_none() {
+                    doc.author = Some(value);
+                }
+            }
             "canonical" => doc.canonical_url = Some(value),
             "base" | "base-href" => doc.base_href = Some(value),
-            key if key.starts_with("og-") => {
-                let og_key = if key.as_bytes().contains(&b'-') {
-                    key.trim_start_matches("og-").replace('-', "_")
-                } else {
-                    key.trim_start_matches("og-").to_string()
-                };
+            k if k.starts_with("og-") => {
+                let og_key = k.trim_start_matches("og-").replace('-', "_");
                 doc.open_graph.insert(og_key, value);
             }
-            key if key.starts_with("twitter-") => {
-                let tw_key = if key.as_bytes().contains(&b'-') {
-                    key.trim_start_matches("twitter-").replace('-', "_")
-                } else {
-                    key.trim_start_matches("twitter-").to_string()
-                };
+            k if k.starts_with("twitter-") => {
+                let tw_key = k.trim_start_matches("twitter-").replace('-', "_");
                 doc.twitter_card.insert(tw_key, value);
             }
-            "keywords" => {
-                doc.keywords = value
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect();
+            // Dublin Core: DC.* and DCTERMS.* prefixes (dot becomes part of key after meta- strip).
+            // Map DC/DCTERMS fields to dedicated struct fields where applicable.
+            k if k.starts_with("dc.") || k.starts_with("dc-") => {
+                let dc_field = k.trim_start_matches("dc.").trim_start_matches("dc-");
+                match dc_field {
+                    "title" => {
+                        if doc.title.is_none() {
+                            doc.title = Some(value);
+                        }
+                    }
+                    "description" => {
+                        if doc.description.is_none() {
+                            doc.description = Some(value);
+                        }
+                    }
+                    "creator" | "contributor" | "publisher" => {
+                        if doc.author.is_none() {
+                            doc.author = Some(value);
+                        }
+                    }
+                    "subject" | "keywords" => {
+                        if doc.keywords.is_empty() {
+                            doc.keywords = split_keywords(&value);
+                        }
+                    }
+                    _ => {
+                        let meta_key = format!("dc_{}", dc_field.replace('-', "_"));
+                        doc.meta_tags.insert(meta_key, value);
+                    }
+                }
+            }
+            k if k.starts_with("dcterms.") || k.starts_with("dcterms-") => {
+                let dc_field = k.trim_start_matches("dcterms.").trim_start_matches("dcterms-");
+                match dc_field {
+                    "title" | "alternative" => {
+                        if doc.title.is_none() {
+                            doc.title = Some(value);
+                        }
+                    }
+                    "description" | "abstract" => {
+                        if doc.description.is_none() {
+                            doc.description = Some(value);
+                        }
+                    }
+                    "creator" | "contributor" | "publisher" => {
+                        if doc.author.is_none() {
+                            doc.author = Some(value);
+                        }
+                    }
+                    "subject" | "keywords" => {
+                        if doc.keywords.is_empty() {
+                            doc.keywords = split_keywords(&value);
+                        }
+                    }
+                    _ => {
+                        let meta_key = format!("dcterms_{}", dc_field.replace('-', "_"));
+                        doc.meta_tags.insert(meta_key, value);
+                    }
+                }
+            }
+            // All keyword-bearing meta tag variants
+            "keywords" | "news_keywords" | "citation_keywords" | "subject" | "topic" | "category"
+            | "classification" => {
+                if doc.keywords.is_empty() {
+                    doc.keywords = split_keywords(&value);
+                }
             }
             _ => {
                 let meta_key = if key.as_ptr() == raw_key.as_ptr() && key.len() == raw_key.len() {
@@ -80,6 +140,15 @@ pub(crate) fn extract_document_metadata(
     }
 
     doc
+}
+
+/// Split a comma-separated keywords string into a `Vec<String>`.
+fn split_keywords(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 /// Extract structured data blocks into `StructuredData` items.
@@ -210,6 +279,109 @@ mod tests {
 
         assert_eq!(doc.open_graph.get("title"), Some(&"OG Title".to_string()));
         assert_eq!(doc.open_graph.get("description"), Some(&"OG Description".to_string()));
+    }
+
+    #[test]
+    fn test_keywords_case_insensitive() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-Keywords".to_string(), "Rust, HTML, Markdown".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.keywords, vec!["Rust", "HTML", "Markdown"]);
+    }
+
+    #[test]
+    fn test_keywords_dc_subject() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-DC.subject".to_string(), "weather, forecast".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.keywords, vec!["weather", "forecast"]);
+    }
+
+    #[test]
+    fn test_keywords_dc_keywords() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-DC.keywords".to_string(), "climate, data".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.keywords, vec!["climate", "data"]);
+    }
+
+    #[test]
+    fn test_keywords_dcterms_subject() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-DCTERMS.subject".to_string(), "science, research".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.keywords, vec!["science", "research"]);
+    }
+
+    #[test]
+    fn test_keywords_news_keywords() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-news_keywords".to_string(), "breaking, world".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.keywords, vec!["breaking", "world"]);
+    }
+
+    #[test]
+    fn test_keywords_citation_keywords() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-citation_keywords".to_string(), "biology, genetics".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.keywords, vec!["biology", "genetics"]);
+    }
+
+    #[test]
+    fn test_dc_title_and_description_fallback() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-DC.title".to_string(), "DC Title".to_string());
+        head_metadata.insert("meta-DC.description".to_string(), "DC Description".to_string());
+        head_metadata.insert("meta-DC.creator".to_string(), "DC Author".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.title, Some("DC Title".to_string()));
+        assert_eq!(doc.description, Some("DC Description".to_string()));
+        assert_eq!(doc.author, Some("DC Author".to_string()));
+    }
+
+    #[test]
+    fn test_dc_does_not_override_standard_fields() {
+        let mut head_metadata = BTreeMap::new();
+        // Standard fields come first alphabetically in BTreeMap
+        head_metadata.insert("description".to_string(), "Standard Description".to_string());
+        head_metadata.insert("meta-DC.description".to_string(), "DC Description".to_string());
+        head_metadata.insert("title".to_string(), "Standard Title".to_string());
+        head_metadata.insert("meta-DC.title".to_string(), "DC Title".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.title, Some("Standard Title".to_string()));
+        assert_eq!(doc.description, Some("Standard Description".to_string()));
+    }
+
+    #[test]
+    fn test_case_insensitive_title_description_author() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-Title".to_string(), "My Title".to_string());
+        head_metadata.insert("meta-Description".to_string(), "My Desc".to_string());
+        head_metadata.insert("meta-Author".to_string(), "My Author".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.title, Some("My Title".to_string()));
+        assert_eq!(doc.description, Some("My Desc".to_string()));
+        assert_eq!(doc.author, Some("My Author".to_string()));
+    }
+
+    #[test]
+    fn test_dcterms_remaining_go_to_meta_tags() {
+        let mut head_metadata = BTreeMap::new();
+        head_metadata.insert("meta-DCTERMS.license".to_string(), "MIT".to_string());
+
+        let doc = extract_document_metadata(head_metadata, None, None);
+        assert_eq!(doc.meta_tags.get("dcterms_license"), Some(&"MIT".to_string()));
     }
 
     #[test]

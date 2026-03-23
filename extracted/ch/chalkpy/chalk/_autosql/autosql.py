@@ -21,9 +21,11 @@ def _resolve_implicit_col_feature_mappings_str(
 ) -> List[Optional[str]]:
     implicit_mappings = {normalize_string_for_matching(f): f for f in expected_features}
     return [
-        explicit_mappings.get(col)
-        if col in explicit_mappings
-        else implicit_mappings.get(normalize_string_for_matching(col), None)
+        (
+            explicit_mappings.get(col)
+            if col in explicit_mappings
+            else implicit_mappings.get(normalize_string_for_matching(col), None)
+        )
         for col in row_column_names
     ]
 

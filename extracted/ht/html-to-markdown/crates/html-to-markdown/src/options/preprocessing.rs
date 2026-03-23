@@ -180,10 +180,12 @@ mod tests {
 
     #[test]
     fn test_preprocessing_options_serde() {
-        let mut options = PreprocessingOptions::default();
-        options.enabled = true;
-        options.preset = PreprocessingPreset::Aggressive;
-        options.remove_navigation = false;
+        let options = PreprocessingOptions {
+            enabled: true,
+            preset: PreprocessingPreset::Aggressive,
+            remove_navigation: false,
+            ..Default::default()
+        };
 
         // Serialize to JSON
         let json = serde_json::to_string(&options).expect("Failed to serialize");

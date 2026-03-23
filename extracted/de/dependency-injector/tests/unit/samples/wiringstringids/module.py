@@ -4,20 +4,19 @@ from decimal import Decimal
 from typing import Callable
 
 from dependency_injector.wiring import (
-    inject,
     Provide,
     Provider,
-    as_int,
-    as_float,
     as_,
-    required,
+    as_float,
+    as_int,
+    inject,
     invariant,
     provided,
+    required,
 )
 
 from .container import Container
 from .service import Service
-
 
 service: Service = Provide["service"]
 service_provider: Callable[..., Service] = Provider["service"]
@@ -55,22 +54,24 @@ def test_function(service: Service = Provide["service"]):
 
 
 @inject
-def test_function_provider(service_provider: Callable[..., Service] = Provider["service"]):
+def test_function_provider(
+    service_provider: Callable[..., Service] = Provider["service"],
+):
     service = service_provider()
     return service
 
 
 @inject
 def test_config_value(
-        value_int: int = Provide["config.a.b.c", as_int()],
-        value_float: float = Provide["config.a.b.c", as_float()],
-        value_str: str = Provide["config.a.b.c", as_(str)],
-        value_decimal: Decimal = Provide["config.a.b.c", as_(Decimal)],
-        value_required: str = Provide["config.a.b.c", required()],
-        value_required_int: int = Provide["config.a.b.c", required().as_int()],
-        value_required_float: float = Provide["config.a.b.c", required().as_float()],
-        value_required_str: str = Provide["config.a.b.c", required().as_(str)],
-        value_required_decimal: str = Provide["config.a.b.c", required().as_(Decimal)],
+    value_int: int = Provide["config.a.b.c", as_int()],
+    value_float: float = Provide["config.a.b.c", as_float()],
+    value_str: str = Provide["config.a.b.c", as_(str)],
+    value_decimal: Decimal = Provide["config.a.b.c", as_(Decimal)],
+    value_required: str = Provide["config.a.b.c", required()],
+    value_required_int: int = Provide["config.a.b.c", required().as_int()],
+    value_required_float: float = Provide["config.a.b.c", required().as_float()],
+    value_required_str: str = Provide["config.a.b.c", required().as_(str)],
+    value_required_decimal: str = Provide["config.a.b.c", required().as_(Decimal)],
 ):
     return (
         value_int,
@@ -87,25 +88,60 @@ def test_config_value(
 
 @inject
 def test_config_value_required_undefined(
-        value_required: int = Provide["config.a.b.c", required()],
+    value_required: int = Provide["config.a.b.c", required()],
 ):
     return value_required
 
 
 @inject
-def test_provide_provider(service_provider: Callable[..., Service] = Provide["service.provider"]):
+def test_provide_provider(
+    service_provider: Callable[..., Service] = Provide["service.provider"],
+):
     service = service_provider()
     return service
 
 
 @inject
-def test_provider_provider(service_provider: Callable[..., Service] = Provider["service.provider"]):
+def test_provider_provider(
+    service_provider: Callable[..., Service] = Provider["service.provider"],
+):
     service = service_provider()
     return service
 
 
 @inject
-def test_provided_instance(some_value: int = Provide["service", provided().foo["bar"].call()]):
+def test_provided_instance(
+    some_value: int = Provide["service", provided().foo["bar"].call()]
+):
+    return some_value
+
+
+@inject
+def test_provided_instance_call_with_args(
+    some_value: int = Provide[
+        "service_with_callable",
+        provided().method_with_args.call(1, 2),
+    ],
+):
+    return some_value
+
+
+@inject
+def test_provided_instance_call_with_kwargs(
+    some_value: dict = Provide[
+        "service_with_callable",
+        provided().method_with_kwargs.call(a=1, b=2),
+    ],
+):
+    return some_value
+
+
+@inject
+def test_provided_instance_call_with_args_and_kwargs(
+    some_value: dict = Provide[
+        "service_with_callable", provided().foo.process.call(1, 2, key="value")
+    ]
+):
     return some_value
 
 
@@ -115,14 +151,16 @@ def test_subcontainer_provider(some_value: int = Provide["sub.int_object"]):
 
 
 @inject
-def test_config_invariant(some_value: int = Provide["config.option", invariant("config.switch")]):
+def test_config_invariant(
+    some_value: int = Provide["config.option", invariant("config.switch")]
+):
     return some_value
 
 
 @inject
 def test_provide_from_different_containers(
-        service: Service = Provide["service"],
-        some_value: int = Provide["int_object"],
+    service: Service = Provide["service"],
+    some_value: int = Provide["int_object"],
 ):
     return service, some_value
 

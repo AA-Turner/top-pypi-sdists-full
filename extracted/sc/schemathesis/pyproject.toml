@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.12.2"
+version = "4.13.0"
 description = "Property-based testing framework for Open API and GraphQL based apps"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -105,6 +105,8 @@ filterwarnings = [
     # urllib3/http.client response finalizer raises ValueError on Python 3.14t free-threading GC
     "ignore:Exception ignored while finalizing file <urllib3.response.HTTPResponse.*:pytest.PytestUnraisableExceptionWarning",
     "ignore:Exception ignored while finalizing file <http.client.HTTPResponse.*:pytest.PytestUnraisableExceptionWarning",
+    # aiohttp event loop deallocator raises ValueError on Python 3.14t free-threading GC
+    "ignore:Exception ignored while calling deallocator <function BaseEventLoop.__del__.*:pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]

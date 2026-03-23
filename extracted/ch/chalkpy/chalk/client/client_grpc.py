@@ -55,6 +55,7 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     GetCodegenFeaturesFromGraphResponse,
     GetGraphRequest,
     GetGraphResponse,
+    GetOfflineStoreTableRequest,
     PythonVersion,
 )
 from chalk._gen.chalk.server.v1.graph_pb2_grpc import GraphServiceStub
@@ -1209,9 +1210,9 @@ class ChalkGRPCClient:
                     branch_name=branch_name,
                     source_branch_name=source_branch_name,
                     source_deployment_id=source_deployment_id,
-                    current_mainline_deployment=empty_pb2.Empty()
-                    if source_branch_name is None and source_deployment_id is None
-                    else None,
+                    current_mainline_deployment=(
+                        empty_pb2.Empty() if source_branch_name is None and source_deployment_id is None else None
+                    ),
                 )
             )
         )
@@ -1488,6 +1489,54 @@ class ChalkGRPCClient:
             lambda x: x.GetGraph(GetGraphRequest(deployment_id=deployment))
         )
         return resp.graph
+
+    def get_offline_store_table_name(
+        self,
+        feature: Any,
+        include_historical: bool = False,
+    ) -> "str | list[str]":
+        """Get the offline store table name(s) for a feature.
+
+        Parameters
+        ----------
+        feature
+            The feature to look up. Can be a feature class attribute (e.g. ``User.fico_score``)
+            or a string FQN (e.g. ``"user.fico_score"``).
+        include_historical
+            If ``False`` (default), returns the current active table name as a string.
+            If ``True``, returns all historical table names ordered by internal version
+            (oldest to newest).
+
+        Returns
+        -------
+        str | list[str]
+            The table name string, or a list of table name strings if ``include_historical=True``.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> ChalkGRPCClient().get_offline_store_table_name(User.fico_score)
+        >>> ChalkGRPCClient().get_offline_store_table_name("user.fico_score", include_historical=True)
+        """
+        from chalk.features.feature_wrapper import ensure_feature
+
+        if self._environment is None:
+            chalk_logger.error(
+                "No environment set on ChalkGRPCClient. Please specify an environment when initializing the client."
+            )
+            raise ValueError("environment is required to look up offline store table names")
+
+        fqn = feature if isinstance(feature, str) else ensure_feature(feature).root_fqn
+
+        resp = self._stub_refresher.call_graph_stub(
+            lambda x: x.GetOfflineStoreTable(GetOfflineStoreTableRequest(fqn=fqn))
+        )
+
+        table_names = [t.table_name for t in resp.tables]
+
+        if include_historical:
+            return table_names
+        return table_names[-1]
 
     def create_service_token(
         self,

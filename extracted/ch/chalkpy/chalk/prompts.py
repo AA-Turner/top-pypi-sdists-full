@@ -198,9 +198,11 @@ def completion(
         stop=stop,
         presence_penalty=presence_penalty,
         frequency_penalty=frequency_penalty,
-        logit_bias=pa.scalar(list(logit_bias.items()), type=pa.map_(pa.int64(), pa.float64()))
-        if logit_bias is not None
-        else None,
+        logit_bias=(
+            pa.scalar(list(logit_bias.items()), type=pa.map_(pa.int64(), pa.float64()))
+            if logit_bias is not None
+            else None
+        ),
         seed=seed,
         user=user,
         num_retries=num_retries,

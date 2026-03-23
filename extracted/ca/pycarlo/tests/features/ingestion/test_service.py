@@ -394,7 +394,7 @@ class TestSendQueryLogs(TestCase):
 
         result = svc.send_query_logs(
             resource_uuid="res-001",
-            resource_type="snowflake",
+            log_type="snowflake",
             events=[entry],
         )
 
@@ -407,7 +407,7 @@ class TestSendQueryLogs(TestCase):
         body = call_kwargs.kwargs["body"]
         assert body["event_type"] == "QUERY_LOG"
         assert body["resource"]["uuid"] == "res-001"
-        assert body["resource"]["resource_type"] == "snowflake"
+        assert body["resource"]["log_type"] == "snowflake"
         assert len(body["events"]) == 1
         assert body["events"][0]["start_time"] == "2026-03-02T10:00:00Z"
         assert body["events"][0]["query_text"] == "SELECT * FROM orders"
@@ -430,7 +430,7 @@ class TestSendQueryLogs(TestCase):
 
         svc.send_query_logs(
             resource_uuid="res-002",
-            resource_type="bigquery",
+            log_type="bigquery",
             events=events,
         )
 
@@ -444,7 +444,7 @@ class TestSendQueryLogs(TestCase):
         with self.assertRaises(ValueError):
             svc.send_query_logs(
                 resource_uuid="res-003",
-                resource_type="snowflake",
+                log_type="snowflake",
                 events=[],
             )
         client.make_request.assert_not_called()
@@ -460,7 +460,7 @@ class TestSendQueryLogs(TestCase):
         with self.assertRaises(IngestionError) as ctx:
             svc.send_query_logs(
                 resource_uuid="res-004",
-                resource_type="snowflake",
+                log_type="snowflake",
                 events=[
                     QueryLogEntry(
                         start_time=_dt("2026-03-02T10:00:00Z"),
@@ -530,7 +530,7 @@ class TestSendQueryLogsRaw(TestCase):
 
         raw = {
             "event_type": "QUERY_LOG",
-            "resource": {"uuid": "r1", "resource_type": "snowflake"},
+            "resource": {"uuid": "r1", "log_type": "snowflake"},
             "events": [
                 {
                     "start_time": "2026-03-02T10:00:00Z",

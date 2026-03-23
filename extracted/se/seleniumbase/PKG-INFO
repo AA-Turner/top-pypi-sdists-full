@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.47.4
+Version: 4.47.5
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -63,7 +63,7 @@ Requires-Dist: packaging>=26.0
 Requires-Dist: setuptools~=70.2; python_version < "3.10"
 Requires-Dist: setuptools>=82.0.1; python_version >= "3.10"
 Requires-Dist: wheel>=0.46.3
-Requires-Dist: attrs>=25.4.0
+Requires-Dist: attrs>=26.1.0
 Requires-Dist: certifi>=2026.2.25
 Requires-Dist: exceptiongroup>=1.3.1
 Requires-Dist: websockets~=15.0.1; python_version < "3.10"
@@ -71,7 +71,7 @@ Requires-Dist: websockets>=16.0; python_version >= "3.10"
 Requires-Dist: filelock~=3.19.1; python_version < "3.10"
 Requires-Dist: filelock>=3.25.2; python_version >= "3.10"
 Requires-Dist: fasteners>=0.20
-Requires-Dist: mycdp>=1.3.6
+Requires-Dist: mycdp>=1.3.7
 Requires-Dist: pynose>=1.5.5
 Requires-Dist: platformdirs~=4.4.0; python_version < "3.10"
 Requires-Dist: platformdirs>=4.9.4; python_version >= "3.10"
@@ -139,7 +139,7 @@ Requires-Dist: allure-behave>=2.13.5; extra == "allure"
 Provides-Extra: coverage
 Requires-Dist: coverage>=7.10.7; python_version < "3.10" and extra == "coverage"
 Requires-Dist: coverage>=7.13.5; python_version >= "3.10" and extra == "coverage"
-Requires-Dist: pytest-cov>=7.0.0; extra == "coverage"
+Requires-Dist: pytest-cov>=7.1.0; extra == "coverage"
 Provides-Extra: flake8
 Requires-Dist: flake8==7.3.0; extra == "flake8"
 Requires-Dist: mccabe==0.7.0; extra == "flake8"
@@ -209,7 +209,7 @@ Dynamic: summary
 
 <h1>SeleniumBase</h1>
 
-<p align="center"><a href="https://github.com/seleniumbase/SeleniumBase/"><img src="https://seleniumbase.github.io/other/sbase_text_logo3t.png" alt="SeleniumBase" title="SeleniumBase" width="634" /></a></p>
+<p align="center"><a href="https://github.com/seleniumbase/SeleniumBase/"><img src="https://seleniumbase.github.io/cdn/img/nice_logo_8t.png" alt="SeleniumBase" width="424" /></a></p>
 
 <p align="center" class="hero__title"><b>All-in-one Browser Automation Framework:<br />Web Crawling / Testing / Scraping / Stealth</b></p>
 
@@ -252,17 +252,39 @@ Dynamic: summary
 <br />
 </p>
 
-📊 <a href="https://github.com/seleniumbase/SeleniumBase/"><b translate="no">SeleniumBase</b></a> is a complete framework for web automation,  testing, scraping, and stealth. Includes a <a href="https://docs.pytest.org/en/latest/how-to/usage.html">pytest</a> integration for customizing automation from the command-line.
+📊 <a href="https://github.com/seleniumbase/SeleniumBase/"><b translate="no">SeleniumBase</b></a> is a complete framework for browser automation and testing with Python and <a href="https://docs.pytest.org/en/latest/how-to/usage.html">pytest</a>. Includes stealth options and other advanced features.
 
-🐙 Stealth modes: <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/uc_mode.md">UC Mode</a> and <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/ReadMe.md"><b>CDP Mode</b></a> can bypass bot-detection, solve CAPTCHAs, and call methods from the <a href="https://chromedevtools.github.io/devtools-protocol/" translate="no">Chrome Devtools Protocol</a>. Includes <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/playwright/ReadMe.md"><b><span translate="no">Stealthy Playwright Mode</span></b></a>, which makes Playwright stealthy via CDP Mode.
+🐙 Stealth modes: <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/uc_mode.md">UC Mode</a> and <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/ReadMe.md"><b>CDP Mode</b></a> can bypass bot-detection, handle CAPTCHAs, and call methods from the <a href="https://chromedevtools.github.io/devtools-protocol/" translate="no">Chrome Devtools Protocol</a>. CDP Mode includes <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/playwright/ReadMe.md"><b><span translate="no">Stealthy Playwright Mode</span></b></a>, which makes Playwright stealthy.
 
-📚 Example scripts and tests are located in [**SeleniumBase/examples/**](https://github.com/seleniumbase/SeleniumBase/tree/master/examples).
+📚 The [SeleniumBase/examples/](https://github.com/seleniumbase/SeleniumBase/tree/master/examples) folder includes over 100 ready-to-run examples. Examples that start with `test_` or end with `_test.py`/`_tests.py` are specifically designed to run with `pytest`. Other examples run directly with raw `python` (those files generally start with `raw_` to avoid confusion).
 
-🥷 Stealthy example scripts are located in [**SeleniumBase/examples/cdp_mode/**](https://github.com/seleniumbase/SeleniumBase/tree/master/examples/cdp_mode).
+🥷 Stealthy examples are located in [SeleniumBase/examples/cdp_mode/](https://github.com/seleniumbase/SeleniumBase/tree/master/examples/cdp_mode).
 
 --------
 
-<p align="left">📗 This script performs a Google Search using SeleniumBase UC Mode + CDP Mode:<br /><a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/raw_google.py">SeleniumBase/examples/raw_google.py</a> (Results are saved as PDF, HTML, and PNG)</p>
+<p align="left">📓 Here's the stealthy architecture overview:</p>
+
+<img src="https://seleniumbase.github.io/other/sb_stealth.png" width="596" alt="Stealthy architecture overview" />
+
+(For maximum stealth, use <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/ReadMe.md">CDP Mode</a>, which includes <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/playwright/ReadMe.md">Stealthy Playwright Mode</a>)
+
+--------
+
+<p align="left">📗 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_cdp_yc_news.py" target="_blank">This example</a> scrapes Hacker News listings with <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/ReadMe.md#-pure-cdp-mode-sb_cdp">Pure CDP Mode</a>:
+
+```python
+from seleniumbase import sb_cdp
+
+url = "https://news.ycombinator.com/submitted?id=seleniumbase"
+sb = sb_cdp.Chrome(url)
+elements = sb.find_elements("span.titleline > a")
+for element in elements:
+    print("* " + element.text)
+```
+
+--------
+
+<p align="left">📗 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/raw_google.py" target="_blank">This example</a> saves Google Search results with UC + CDP Mode:<br />(Results are saved as PDF, HTML, and PNG files)</p>
 
 ```python
 from seleniumbase import SB
@@ -280,13 +302,9 @@ with SB(uc=True, test=True) as sb:
     print("Logs have been saved to: ./latest_logs/")
 ```
 
-> `python raw_google.py`
-
-<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/raw_google.py"><img src="https://seleniumbase.github.io/cdn/img/google_sb_result.jpg" alt="SeleniumBase on Google" title="SeleniumBase on Google" width="580" /></a>
-
 --------
 
-<p align="left">📗 Here's a script that bypasses Cloudflare's challenge page with UC Mode + CDP Mode: <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_gitlab.py">SeleniumBase/examples/cdp_mode/raw_gitlab.py</a></p>
+<p align="left">📗 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_gitlab.py" target="_blank">This example</a> bypasses Cloudflare's challenge page with UC + CDP Mode:
 
 ```python
 from seleniumbase import SB
@@ -304,9 +322,11 @@ with SB(uc=True, test=True, locale="en") as sb:
     sb.post_message("SeleniumBase wasn't detected", duration=4)
 ```
 
-<img src="https://seleniumbase.github.io/other/cf_sec.jpg" title="SeleniumBase" width="344"> <img src="https://seleniumbase.github.io/other/gitlab_bypass.png" title="SeleniumBase" width="298">
+<img src="https://seleniumbase.github.io/other/cf_sec.jpg" alt="SeleniumBase" width="344"> <img src="https://seleniumbase.github.io/other/gitlab_bypass.png" alt="SeleniumBase" width="298">
 
-<p align="left">📙 There's also SeleniumBase's "Pure CDP Mode", which doesn't use WebDriver or Selenium at all: <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_cdp_gitlab.py">SeleniumBase/examples/cdp_mode/raw_cdp_gitlab.py</a></p>
+----
+
+<p align="left">📗 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_cdp_gitlab.py" target="_blank">This example</a> handles a CAPTCHA page with Pure CDP Mode:
 
 ```python
 from seleniumbase import sb_cdp
@@ -322,7 +342,7 @@ sb.driver.stop()
 
 --------
 
-<p align="left">📗 Here's <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_get_swag.py">SeleniumBase/examples/test_get_swag.py</a>, which tests an e-commerce site:</p>
+<p align="left">📗 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_get_swag.py" target="_blank">This example</a> tests an e-commerce site with <code>pytest</code>:
 
 ```python
 from seleniumbase import BaseCase
@@ -348,19 +368,17 @@ class MyTestClass(BaseCase):
 
 > `pytest test_get_swag.py`
 
-<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_get_swag.py"><img src="https://seleniumbase.github.io/cdn/gif/fast_swag_2.gif" alt="SeleniumBase Test" title="SeleniumBase Test" width="480" /></a>
-
-> (The default browser is `--chrome` if not set.)
+<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_get_swag.py"><img src="https://seleniumbase.github.io/cdn/gif/fast_swag_2.gif" alt="SeleniumBase Test" width="480" /></a>
 
 --------
 
-<p align="left">📗 Here's <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_coffee_cart.py" target="_blank">SeleniumBase/examples/test_coffee_cart.py</a>, which verifies an e-commerce site:</p>
+<p align="left">📗 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_coffee_cart.py" target="_blank">This example</a> tests another e-commerce site with <code>pytest</code>:
 
 ```zsh
 pytest test_coffee_cart.py --demo
 ```
 
-<p align="left"><a href="https://seleniumbase.io/coffee/" target="_blank"><img src="https://seleniumbase.github.io/cdn/gif/coffee_cart.gif" width="480" alt="SeleniumBase Coffee Cart Test" title="SeleniumBase Coffee Cart Test" /></a></p>
+<p align="left"><a href="https://seleniumbase.io/coffee/" target="_blank"><img src="https://seleniumbase.github.io/cdn/gif/coffee_cart.gif" width="480" alt="SeleniumBase Coffee Cart Test" /></a></p>
 
 > <p>(<code translate="no">--demo</code> mode slows down tests and highlights actions)</p>
 
@@ -368,25 +386,17 @@ pytest test_coffee_cart.py --demo
 
 <a id="multiple_examples"></a>
 
-<p align="left">📗 Here's <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_demo_site.py" target="_blank">SeleniumBase/examples/test_demo_site.py</a>, which covers several actions:</p>
+<p align="left">📗 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_demo_site.py" target="_blank">This example</a> covers multiple actions with <code>pytest</code>:
 
 ```zsh
 pytest test_demo_site.py
 ```
 
-<p align="left"><a href="https://seleniumbase.io/demo_page" target="_blank"><img src="https://seleniumbase.github.io/cdn/gif/demo_page_5.gif" width="480" alt="SeleniumBase Example" title="SeleniumBase Example" /></a></p>
+<p align="left"><a href="https://seleniumbase.io/demo_page" target="_blank"><img src="https://seleniumbase.github.io/cdn/gif/demo_page_5.gif" width="480" alt="SeleniumBase Example" /></a></p>
 
 > Easy to type, click, select, toggle, drag & drop, and more.
 
 (For more examples, see the <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/ReadMe.md">SeleniumBase/examples/</a> folder.)
-
---------
-
-<p align="left">📓 Here's a high-level stealthy architecture overview of SeleniumBase:</p>
-
-<img src="https://seleniumbase.github.io/other/sb_stealth.png" width="585" alt="High-Level Stealthy Architecture Overview" title="High-Level Stealthy Architecture Overview" />
-
-(For maximum stealth, use <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/ReadMe.md">CDP Mode</a>, which is used by <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/playwright/ReadMe.md">Stealthy Playwright Mode</a>)
 
 --------
 
@@ -637,7 +647,7 @@ cd examples/
 pytest my_first_test.py
 ```
 
-<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/my_first_test.py"><img src="https://seleniumbase.github.io/cdn/gif/fast_swag_2.gif" alt="SeleniumBase Test" title="SeleniumBase Test" width="480" /></a>
+<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/my_first_test.py"><img src="https://seleniumbase.github.io/cdn/gif/fast_swag_2.gif" alt="SeleniumBase Test" width="480" /></a>
 
 <p align="left"><b>Here's the full code for <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/my_first_test.py">my_first_test.py</a>:</b></p>
 

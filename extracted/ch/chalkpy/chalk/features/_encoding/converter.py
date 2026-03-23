@@ -111,8 +111,7 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
         is_nullable: bool,
         pyarrow_dtype: pa.DataType,
         primitive_default: ellipsis = ...,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def __init__(
@@ -121,8 +120,7 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
         is_nullable: bool,
         pyarrow_dtype: pa.DataType,
         primitive_default: _TPrim,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def __init__(
         self,
@@ -1123,13 +1121,11 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
 
 
 class TEncoder(Protocol[_TPrimCo, _TRichCon]):
-    def __call__(self, value: _TRichCon, /) -> _TPrimCo:
-        ...
+    def __call__(self, value: _TRichCon, /) -> _TPrimCo: ...
 
 
 class TDecoder(Protocol[_TPrimCon, _TRichCo]):
-    def __call__(self, value: _TPrimCon, /) -> _TRichCo:
-        ...
+    def __call__(self, value: _TPrimCon, /) -> _TRichCo: ...
 
 
 def _encode_json(t: JSON) -> str:

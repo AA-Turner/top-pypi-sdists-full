@@ -9,7 +9,7 @@ import cutlass
 import cutlass.cute as cute
 import cutlass.utils.hopper_helpers as sm90_utils_og
 import cutlass.utils.blackwell_helpers as sm100_utils
-from cutlass import Int32, Float32, Boolean, const_expr
+from cutlass import Int32, Float32, const_expr
 from cutlass.cute.runtime import make_ptr
 
 from quack.compile_utils import make_fake_tensor as fake_tensor
@@ -20,7 +20,7 @@ from quack.cute_dsl_utils import (
     get_max_active_clusters,
     torch2cute_dtype_map,
 )
-from quack.varlen_utils import VarlenManager
+from quack.epi_ops import TileStore
 from quack.gemm_sm90 import GemmSm90
 from quack.gemm_sm100 import GemmSm100
 from quack.gemm_default_epi import GemmDefaultEpiMixin
@@ -37,13 +37,13 @@ from quack.gemm_tvm_ffi_utils import (
 )
 from quack.cache_utils import jit_cache
 from quack.layout_utils import permute_gated_Cregs_b16
-import quack.sm90_utils as sm90_utils
-import quack.copy_utils as copy_utils
 from quack.activation import act_fn_map, gate_fn_map
 from quack.rounding import RoundingMode
 
 
 class GemmActMixin(GemmDefaultEpiMixin):
+    _epi_ops = (*GemmDefaultEpiMixin._epi_ops, TileStore("mPostAct"))
+
     @mlir_namedtuple
     class EpilogueArguments(NamedTuple):
         mPostAct: cute.Tensor
@@ -74,126 +74,26 @@ class GemmActMixin(GemmDefaultEpiMixin):
         self.rounding_mode = args.rounding_mode
         self.postact_dtype = args.mPostAct.element_type
         self.postact_layout = cutlass.utils.LayoutEnum.from_tensor(args.mPostAct)
-
         self.cta_tile_shape_postact_mn = self.cta_tile_shape_mnk[:2]
-        epi_tile_postact = self.epi_tile
-        utils_cls = sm100_utils if self.arch == 100 else sm90_utils
-        epi_postact_smem_layout_staged = utils_cls.make_smem_layout_epi(
-            self.postact_dtype, self.postact_layout, epi_tile_postact, self.epi_stage
-        )
-        tma_atom_postact, tma_tensor_postact = self._make_tma_epi_atoms_and_tensors(
-            copy_utils.create_ragged_tensor_for_tma(args.mPostAct, ragged_dim=0, ptr_shift=True)
-            if cute.rank(args.mPostAct) == 2
-            else args.mPostAct,
-            epi_postact_smem_layout_staged,
-            epi_tile_postact,
-            op_type="store",
-        )
-        # Assume all strides are divisible by 32 bits except the last stride
-        new_stride = lambda t: tuple(
-            cute.assume(s, divby=32 // t.element_type.width) if not cute.is_static(s) else s
-            for s in t.stride
-        )
-        mRowVecBroadcast, mColVecBroadcast = [
-            cute.make_tensor(t.iterator, cute.make_layout(t.shape, stride=new_stride(t)))
-            if t is not None
-            else None
-            for t in (args.mRowVecBroadcast, args.mColVecBroadcast)
-        ]
-        return self.EpilogueParams(
-            tma_atom_postact,
-            tma_tensor_postact,
-            epi_postact_smem_layout_staged,
-            epi_tile_postact,
-            args.act_fn,
-            alpha=args.alpha,
-            beta=args.beta,
-            mRowVecBroadcast=mRowVecBroadcast,
-            mColVecBroadcast=mColVecBroadcast,
-            sr_seed=args.sr_seed,
-        )
+        d = self._epi_ops_to_params_dict(args)
+        d["act_fn"] = args.act_fn
+        return self.EpilogueParams(**d)
 
-    def epi_get_tma_atoms(
-        self, params: EpilogueParams, *, loc=None, ip=None
-    ) -> list[cute.CopyAtom]:
-        return [params.tma_atom_postact]
+    # epi_get_tma_atoms, epi_smem_bytes_per_stage, epi_get_smem_struct,
+    # epi_get_smem_tensors are all inherited from ComposableEpiMixin via _epi_ops.
 
-    @staticmethod
-    def epi_smem_bytes_per_stage(
-        args: EpilogueArguments, cta_tile_shape_mnk: Tuple[int, int, int], epi_tile: cute.Tile
-    ) -> int:
-        postact_dtype = args.mPostAct.element_type
-        postact_bytes_per_stage = cute.size(cute.shape(epi_tile)) * (postact_dtype.width // 8)
-        rowvec_colvec_bytes = GemmDefaultEpiMixin.epi_smem_bytes_per_stage(
-            args, cta_tile_shape_mnk, epi_tile
-        )
-        return postact_bytes_per_stage + rowvec_colvec_bytes
-
-    def epi_get_smem_struct(self, params: EpilogueParams):
-        row_vec_smem_size = 0 if params.mRowVecBroadcast is None else self.cta_tile_shape_mnk[1]
-        col_vec_smem_size = 0 if params.mColVecBroadcast is None else self.cta_tile_shape_mnk[0]
-        row_vec_dtype = (
-            params.mRowVecBroadcast.element_type if params.mRowVecBroadcast is not None else Float32
-        )
-        col_vec_dtype = (
-            params.mColVecBroadcast.element_type if params.mColVecBroadcast is not None else Float32
-        )
-
-        @cute.struct
-        class EpiSharedStorage:
-            sRowVec: cute.struct.Align[cute.struct.MemRange[row_vec_dtype, row_vec_smem_size], 16]
-            sColVec: cute.struct.Align[cute.struct.MemRange[col_vec_dtype, col_vec_smem_size], 16]
-            sPostAct: cute.struct.Align[
-                cute.struct.MemRange[
-                    self.postact_dtype, cute.cosize(params.epi_postact_smem_layout_staged)
-                ],
-                self.buffer_align_bytes,
-            ]
-
-        return EpiSharedStorage
-
-    def epi_get_smem_tensors(self, params: EpilogueParams, storage) -> Tuple[cute.Tensor, ...]:
-        sRowVec, sColVec = super().epi_get_smem_tensors(params, storage)
-        sPostAct = storage.epi.sPostAct.get_tensor(
-            params.epi_postact_smem_layout_staged.outer,
-            swizzle=params.epi_postact_smem_layout_staged.inner,
-        )
-        return (sRowVec, sColVec, sPostAct)
-
-    @cute.jit
-    def epilogue(
+    def epi_setup_postact(
         self,
-        params: EpilogueParams,
-        epi_smem_tensors: Tuple[cute.Tensor, ...],
-        epi_pipeline: cutlass.pipeline.PipelineAsync,
-        epi_store_pipeline: cutlass.pipeline.PipelineAsync,
-        epi_read_state: cutlass.pipeline.PipelineState,
-        epi_producer_state: cutlass.pipeline.PipelineState,
-        epi_tile: cute.Tile,
-        load_acc_subtile: Callable,
-        tRS_rD: cute.Tensor,
-        tRS_rC: Optional[cute.Tensor],
-        tiled_copy_t2r: Optional[cute.TiledCopy],  # Only for Sm100
-        tiled_copy_r2s: cute.TiledCopy,
-        tRS_sD: cute.Tensor,
-        tiled_copy_s2r: Optional[cute.TiledCopy],
-        tSR_rC: Optional[cute.Tensor],
-        tSR_sC: Optional[cute.Tensor],
-        copy_D: Optional[Callable],
-        copy_C: Optional[Callable],
-        tile_coord_mnkl: cute.Coord,
-        varlen_manager: VarlenManager,
-        epilogue_barrier: cutlass.pipeline.NamedBarrier,
-        tile_scheduler,
-        tidx: Int32,
-        is_tma_warp: Boolean,
-    ) -> Tuple[cutlass.pipeline.PipelineState, cutlass.pipeline.PipelineState]:
-        has_C = const_expr(tRS_rC is not None)
-        has_D = const_expr(copy_D is not None)
-
-        tma_atom_postact = params.tma_atom_postact
-        mPostAct_mnl = params.mPostAct_mnl
-        sRowVec, sColVec, sPostAct = epi_smem_tensors
+        params,
+        epi_smem_tensors,
+        tiled_copy_r2s,
+        tiled_copy_t2r,
+        tile_coord_mnkl,
+        varlen_manager,
+        tidx,
+    ):
+        """Setup postact TMA copies and partitions before the epilogue loop."""
+        sPostAct = epi_smem_tensors[self._epi_smem_map["mPostAct"]]
         get_smem_store_op = (
             partial(sm100_utils.get_smem_store_op, tiled_tmem_load=tiled_copy_t2r)
             if self.arch == 100
@@ -202,131 +102,18 @@ class GemmActMixin(GemmDefaultEpiMixin):
         copy_atom_postact_r2s = get_smem_store_op(
             self.postact_layout, self.postact_dtype, self.acc_dtype
         )
-        # tiled_copy_C_atom = self.epilog_smem_copy_atom(tiled_mma)
-        # tiled_copy_postact_r2s = cute.make_tiled_copy_S(copy_atom_postact_r2s, tiled_copy_C_atom)
         tiled_copy_postact_r2s = cute.make_tiled_copy_S(copy_atom_postact_r2s, tiled_copy_r2s)
         tRS_sPostAct = tiled_copy_postact_r2s.get_slice(tidx).partition_D(sPostAct)
         batch_idx = tile_coord_mnkl[3]
         copy_postact, _, _ = self.epilog_gmem_copy_and_partition(
-            tma_atom_postact,
-            varlen_manager.offset_batch_epi(mPostAct_mnl, batch_idx),
+            params.tma_atom_postact,
+            varlen_manager.offset_batch_epi(params.mPostAct_mnl, batch_idx),
             self.cta_tile_shape_postact_mn,
             params.epi_tile_postact,
             sPostAct,
             tile_coord_mnkl,
         )
-
-        # We iterate over epi tiles in the N dimension first before the M dimension
-        epi_tile_shape = cute.zipped_divide(
-            cute.make_layout(self.cta_tile_shape_mnk[:2]), epi_tile
-        ).shape[1]
-        epi_tile_layout = cute.make_layout(epi_tile_shape, stride=(epi_tile_shape[1], 1))
-        epi_tile_num = cute.size(epi_tile_shape)
-        num_prev_subtiles = tile_scheduler.num_tiles_executed * epi_tile_num
-
-        epi_tensors = self.epi_begin(
-            params,
-            epi_smem_tensors,
-            epi_tile,
-            tiled_copy_t2r,
-            tiled_copy_r2s,
-            tile_coord_mnkl,
-            varlen_manager,
-            epilogue_barrier,
-            tidx,
-        )
-
-        if const_expr(copy_C is not None):
-            for epi_idx in cutlass.range(min(epi_tile_num, self.epi_c_stage), unroll=1):
-                gmem_coord_C = epi_tile_layout.get_hier_coord(epi_idx)
-                if is_tma_warp:
-                    epi_pipeline.producer_acquire(epi_producer_state)
-                    copy_C(src_idx=gmem_coord_C, producer_state=epi_producer_state)
-                    epi_pipeline.producer_commit(epi_producer_state)
-                epi_producer_state.advance()
-
-        for epi_idx in cutlass.range_constexpr(epi_tile_num):
-            # The global memory coordinate for the current epi tile
-            gmem_coord = epi_tile_layout.get_hier_coord(epi_idx)
-            # Copy from acc to D registers
-            load_acc_subtile(tRS_rD, epi_idx)
-            epi_loop_tensors = self.epi_begin_loop(params, epi_tensors, gmem_coord)
-            if const_expr(has_C):
-                epi_pipeline.consumer_wait(epi_read_state)
-                cute.copy(tiled_copy_s2r, tSR_sC[None, None, None, epi_read_state.index], tSR_rC)
-                # Fence to make sure shared memory read is visible to TMA load
-                cute.arch.fence_view_async_shared()
-                cute.arch.sync_warp()
-                with cute.arch.elect_one():
-                    epi_pipeline.consumer_release(epi_read_state)
-                epi_read_state.advance()
-            if const_expr(copy_C is not None and epi_idx + self.epi_c_stage < epi_tile_num):
-                gmem_coord_C = epi_tile_layout.get_hier_coord(epi_idx + self.epi_c_stage)
-                if is_tma_warp:
-                    epi_pipeline.producer_acquire(epi_producer_state)
-                    copy_C(src_idx=gmem_coord_C, producer_state=epi_producer_state)
-                    epi_pipeline.producer_commit(epi_producer_state)
-                epi_producer_state.advance()
-            tRS_rPostAct = self.epi_visit_subtile(params, epi_loop_tensors, tRS_rD, tRS_rC)
-            # Convert postact from acc_dtype to postact_dtype
-            tRS_rPostAct_out = self.epi_convert_postact(
-                tRS_rPostAct, epi_loop_tensors[2], tidx, tile_coord_mnkl, num_prev_subtiles, epi_idx
-            )
-            if is_tma_warp:
-                epi_store_pipeline.producer_acquire()
-            epilogue_barrier.arrive_and_wait()
-            # Copy from D registers to shared memory
-            epi_buffer = (num_prev_subtiles + epi_idx) % self.epi_stage
-            if const_expr(has_D):
-                if const_expr(
-                    self.rounding_mode == RoundingMode.RS
-                    and self.acc_dtype == cutlass.Float32
-                    and self.d_dtype == cutlass.BFloat16
-                ):
-                    seed = epi_loop_tensors[2] + (
-                        tile_coord_mnkl[0] * 65537
-                        + tile_coord_mnkl[1] * 257
-                        + tile_coord_mnkl[3] * 17
-                        + (num_prev_subtiles + epi_idx) * 7
-                    )
-                    copy_utils.sr_cvt_copy(
-                        tiled_copy_r2s,
-                        tRS_rD,
-                        tRS_sD[None, None, None, epi_buffer],
-                        seed,
-                        tidx,
-                    )
-                else:
-                    copy_utils.cvt_copy(
-                        tiled_copy_r2s, tRS_rD, tRS_sD[None, None, None, epi_buffer]
-                    )
-            cute.copy(
-                tiled_copy_postact_r2s,
-                tiled_copy_postact_r2s.retile(tRS_rPostAct_out),
-                tRS_sPostAct[None, None, None, epi_buffer],
-            )
-            # Fence and barrier to make sure shared memory store is visible to TMA store
-            cute.arch.fence_view_async_shared()
-            epilogue_barrier.arrive_and_wait()
-            # Copy from shared memory to global memory
-            if is_tma_warp:
-                if const_expr(has_D):
-                    copy_D(src_idx=epi_buffer, dst_idx=gmem_coord)
-                copy_postact(src_idx=epi_buffer, dst_idx=gmem_coord)
-                epi_store_pipeline.producer_commit()
-
-        self.epi_end(
-            params,
-            epi_tensors,
-            epi_tile,
-            tiled_copy_t2r,
-            tiled_copy_r2s,
-            tile_coord_mnkl,
-            varlen_manager,
-            tidx,
-        )
-
-        return epi_read_state, epi_producer_state
+        return tiled_copy_postact_r2s, tRS_sPostAct, copy_postact
 
     @cute.jit
     def epi_convert_postact(
@@ -395,80 +182,41 @@ class GemmActSm100(GemmActMixin, GemmSm100):
     pass
 
 
+def _gated_epi_tile_fn(gemm, epi_tile):
+    """Halve the N dimension of the epi_tile for gated postact."""
+    if isinstance(epi_tile[1], cute.Layout):
+        return (epi_tile[0], cute.recast_layout(2, 1, epi_tile[1]))
+    return (epi_tile[0], epi_tile[1] // 2)
+
+
 class GemmGatedMixin(GemmActMixin):
+    _epi_ops = (
+        *GemmDefaultEpiMixin._epi_ops,
+        TileStore("mPostAct", epi_tile_fn=_gated_epi_tile_fn),
+    )
+
     def epi_to_underlying_arguments(
         self, args: GemmActMixin.EpilogueArguments, *, loc=None, ip=None
     ) -> GemmActMixin.EpilogueParams:
-        self.rounding_mode = args.rounding_mode
-        self.postact_dtype = args.mPostAct.element_type
-        self.postact_layout = cutlass.utils.LayoutEnum.from_tensor(args.mPostAct)
-        assert self.postact_dtype.width == 16, "GemmGated only supports 16bit postact for now"
+        assert args.mPostAct.element_type.width == 16, (
+            "GemmGated only supports 16bit postact for now"
+        )
         assert self.d_layout is None or self.d_layout.is_n_major_c()
-        assert self.postact_layout.is_n_major_c()
+        assert cutlass.utils.LayoutEnum.from_tensor(args.mPostAct).is_n_major_c()
         if self.arch == 90:
             assert self.cta_tile_shape_mnk[1] % 32 == 0, (
                 "GemmGatedSm90 requires tileN to be divisible by 32"
             )
-
+        self.rounding_mode = args.rounding_mode
+        self.postact_dtype = args.mPostAct.element_type
+        self.postact_layout = cutlass.utils.LayoutEnum.from_tensor(args.mPostAct)
         self.cta_tile_shape_postact_mn = (
             self.cta_tile_shape_mnk[0],
             self.cta_tile_shape_mnk[1] // 2,
         )
-        if isinstance(self.epi_tile[1], cute.Layout):
-            epi_tile_postact_1 = cute.recast_layout(2, 1, self.epi_tile[1])
-        else:
-            epi_tile_postact_1 = self.epi_tile[1] // 2
-        epi_tile_postact = (self.epi_tile[0], epi_tile_postact_1)
-        utils_cls = sm100_utils if self.arch == 100 else sm90_utils
-        epi_postact_smem_layout_staged = utils_cls.make_smem_layout_epi(
-            self.postact_dtype, self.postact_layout, epi_tile_postact, self.epi_stage
-        )
-        tma_atom_postact, tma_tensor_postact = self._make_tma_epi_atoms_and_tensors(
-            copy_utils.create_ragged_tensor_for_tma(args.mPostAct, ragged_dim=0, ptr_shift=True)
-            if cute.rank(args.mPostAct) == 2
-            else args.mPostAct,
-            epi_postact_smem_layout_staged,
-            epi_tile_postact,
-            op_type="store",
-        )
-        # Assume all strides are divisible by 32 bits except the last stride
-        new_stride = lambda t: tuple(
-            cute.assume(s, divby=32 // t.element_type.width) if not cute.is_static(s) else s
-            for s in t.stride
-        )
-        mRowVecBroadcast, mColVecBroadcast = [
-            cute.make_tensor(t.iterator, cute.make_layout(t.shape, stride=new_stride(t)))
-            if t is not None
-            else None
-            for t in (args.mRowVecBroadcast, args.mColVecBroadcast)
-        ]
-        return self.EpilogueParams(
-            tma_atom_postact,
-            tma_tensor_postact,
-            epi_postact_smem_layout_staged,
-            epi_tile_postact,
-            args.act_fn,
-            alpha=args.alpha,
-            beta=args.beta,
-            mRowVecBroadcast=mRowVecBroadcast,
-            mColVecBroadcast=mColVecBroadcast,
-            sr_seed=args.sr_seed,
-        )
-
-    @staticmethod
-    def epi_smem_bytes_per_stage(
-        args: GemmActMixin.EpilogueArguments,
-        cta_tile_shape_mnk: Tuple[int, int, int],
-        epi_tile: cute.Tile,
-    ) -> int:
-        postact_dtype = args.mPostAct.element_type
-        postact_bytes_per_stage = (cute.size(cute.shape(epi_tile)) // 2) * (
-            postact_dtype.width // 8
-        )
-        rowvec_colvec_bytes = GemmDefaultEpiMixin.epi_smem_bytes_per_stage(
-            args, cta_tile_shape_mnk, epi_tile
-        )
-        return postact_bytes_per_stage + rowvec_colvec_bytes
+        d = self._epi_ops_to_params_dict(args)
+        d["act_fn"] = args.act_fn
+        return self.EpilogueParams(**d)
 
     @cute.jit
     def epi_visit_subtile(

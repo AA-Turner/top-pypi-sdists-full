@@ -61,9 +61,9 @@ def convert_diagnostic(diagnostic: DiagnosticGQL) -> pb.Diagnostic:
         message=diagnostic.message,
         severity=convert_diagnostic_severity(diagnostic.severity) if diagnostic.severity is not None else None,
         code=diagnostic.code,
-        code_description=convert_code_description(diagnostic.codeDescription)
-        if diagnostic.codeDescription is not None
-        else None,
+        code_description=(
+            convert_code_description(diagnostic.codeDescription) if diagnostic.codeDescription is not None else None
+        ),
         related_information=[convert_related_information(r) for r in diagnostic.relatedInformation or []],
     )
 

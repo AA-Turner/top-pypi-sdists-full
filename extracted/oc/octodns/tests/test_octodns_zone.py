@@ -262,21 +262,21 @@ class TestZone(TestCase):
     def test_missing_dot(self):
         with self.assertRaises(InvalidNameError) as ctx:
             Zone('not.allowed', [])
-        self.assertTrue('missing ending dot' in str(ctx.exception))
+        self.assertIn('missing ending dot', str(ctx.exception))
 
     def test_double_dot(self):
         with self.assertRaises(InvalidNameError) as ctx:
             Zone('ending.double.dot..', [])
-        self.assertTrue('double dot not allowed' in str(ctx.exception))
+        self.assertIn('double dot not allowed', str(ctx.exception))
 
         with self.assertRaises(InvalidNameError) as ctx:
             Zone('mid.double..dot.', [])
-        self.assertTrue('double dot not allowed' in str(ctx.exception))
+        self.assertIn('double dot not allowed', str(ctx.exception))
 
     def test_whitespace(self):
         with self.assertRaises(InvalidNameError) as ctx:
             Zone('space not allowed.', [])
-        self.assertTrue('whitespace not allowed' in str(ctx.exception))
+        self.assertIn('whitespace not allowed', str(ctx.exception))
 
     def test_owns(self):
         zone = Zone('unit.tests.', set(['sub']))
@@ -324,8 +324,8 @@ class TestZone(TestCase):
         record.context = 'added context'
         with self.assertRaises(SubzoneRecordException) as ctx:
             zone.add_record(record)
-        self.assertTrue('not of type NS', str(ctx.exception))
-        self.assertTrue(', added context' in str(ctx.exception))
+        self.assertIn('not of type NS', str(ctx.exception))
+        self.assertIn(', added context', str(ctx.exception))
         # Can add it w/lenient
         zone.add_record(record, lenient=True)
         self.assertEqual(set([record]), zone.records)
@@ -339,7 +339,7 @@ class TestZone(TestCase):
         )
         with self.assertRaises(SubzoneRecordException) as ctx:
             zone.add_record(record)
-        self.assertTrue('under a managed sub-zone', str(ctx.exception))
+        self.assertIn('under a managed subzone', str(ctx.exception))
         # Can add it w/lenient
         zone.add_record(record, lenient=True)
         self.assertEqual(set([record]), zone.records)
@@ -353,7 +353,7 @@ class TestZone(TestCase):
         )
         with self.assertRaises(SubzoneRecordException) as ctx:
             zone.add_record(record)
-        self.assertTrue('under a managed sub-zone', str(ctx.exception))
+        self.assertIn('under a managed subzone', str(ctx.exception))
         # Can add it w/lenient
         zone.add_record(record, lenient=True)
         self.assertEqual(set([record]), zone.records)
@@ -421,7 +421,7 @@ class TestZone(TestCase):
         )
         with self.assertRaises(SubzoneRecordException) as ctx:
             zone.add_record(record)
-        self.assertTrue('under a managed sub-zone', str(ctx.exception))
+        self.assertIn('under a managed subzone', str(ctx.exception))
         # Can add it w/lenient
         zone.add_record(record, lenient=True)
         self.assertEqual(set([record]), zone.records)
@@ -448,6 +448,21 @@ class TestZone(TestCase):
                         'digest': '2BB183AF5F22588179A53B0A 98631FAD1A292119',
                     },
                 ],
+            },
+        )
+        zone.add_record(record)
+        self.assertEqual(1, len(zone.records))
+
+        # something that should live in the sub is allowed when lenient is enabled at the record level
+        zone = Zone('unit.tests.', set(['sub', 'barred']))
+        record = Record.new(
+            zone,
+            'ns.sub',
+            {
+                'octodns': {'lenient': True},
+                'ttl': 3600,
+                'type': 'A',
+                'value': ['1.2.3.4'],
             },
         )
         zone.add_record(record)
@@ -500,7 +515,7 @@ class TestZone(TestCase):
         zone.add_record(a)
         with self.assertRaises(InvalidNodeException) as ctx:
             zone.add_record(cname)
-        self.assertTrue(', has some context' in str(ctx.exception))
+        self.assertIn(', has some context', str(ctx.exception))
         self.assertEqual(set([a]), zone.records)
         zone.add_record(cname, lenient=True)
         self.assertEqual(set([a, cname]), zone.records)
@@ -529,7 +544,7 @@ class TestZone(TestCase):
         zone.add_record(a)
         with self.assertRaises(InvalidNodeException) as ctx:
             zone.add_record(cname)
-        self.assertTrue(', has some context' in str(ctx.exception))
+        self.assertIn(', has some context', str(ctx.exception))
         self.assertEqual(set([a]), zone.records)
 
         # add lenient a to cname

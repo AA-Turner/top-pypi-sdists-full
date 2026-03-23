@@ -608,25 +608,12 @@ class Logging(LiteLLMLoggingBaseClass):
         if "litellm_metadata" in kwargs and isinstance(
             kwargs["litellm_metadata"], dict
         ):
-            base_litellm_params["litellm_metadata"] = kwargs["litellm_metadata"].copy()
+            base_litellm_params["litellm_metadata"] = kwargs["litellm_metadata"]
+            if "metadata" not in base_litellm_params:
+                base_litellm_params["metadata"] = kwargs["litellm_metadata"].copy()
 
         if litellm_params:
             base_litellm_params.update(litellm_params)
-
-        # Merge litellm_metadata into metadata AFTER .update(litellm_params) so
-        # the merge isn't silently overwritten. This ensures API key fields
-        # (user_api_key_hash, etc.) are visible to callbacks even when the
-        # request uses "litellm_metadata" (e.g. /v1/messages from Claude Code).
-        if "litellm_metadata" in kwargs and isinstance(
-            kwargs["litellm_metadata"], dict
-        ):
-            if not base_litellm_params.get("metadata"):
-                base_litellm_params["metadata"] = dict(kwargs["litellm_metadata"])
-            else:
-                base_litellm_params["metadata"] = dict(base_litellm_params["metadata"])
-                for key, value in kwargs["litellm_metadata"].items():
-                    if key not in base_litellm_params["metadata"]:
-                        base_litellm_params["metadata"][key] = value
 
         self.update_environment_variables(
             litellm_params=base_litellm_params,
@@ -1699,6 +1686,30 @@ class Logging(LiteLLMLoggingBaseClass):
                 )
         return logging_result
 
+    def _merge_hidden_params_from_response_into_metadata(
+        self, logging_result: Any
+    ) -> None:
+        """
+        Copy response._hidden_params into litellm_params.metadata['hidden_params'].
+
+        Non-streaming success uses _process_hidden_params_and_response_cost (skipped when
+        stream=True). Streaming assembles the full response later; without this merge,
+        OTEL/callbacks that read metadata.hidden_params miss cost-related fields.
+        """
+        if logging_result is None:
+            return
+        hidden_params = getattr(logging_result, "_hidden_params", None)
+        if not hidden_params:
+            return
+        if self.model_call_details.get("litellm_params") is None:
+            return
+        self.model_call_details["litellm_params"].setdefault("metadata", {})
+        if self.model_call_details["litellm_params"]["metadata"] is None:
+            self.model_call_details["litellm_params"]["metadata"] = {}
+        self.model_call_details["litellm_params"]["metadata"][
+            "hidden_params"
+        ] = getattr(logging_result, "_hidden_params", {})
+
     def _process_hidden_params_and_response_cost(
         self,
         logging_result,
@@ -2023,6 +2034,9 @@ class Logging(LiteLLMLoggingBaseClass):
                 self.model_call_details[
                     "response_cost"
                 ] = self._response_cost_calculator(result=complete_streaming_response)
+                self._merge_hidden_params_from_response_into_metadata(
+                    complete_streaming_response
+                )
                 ## STANDARDIZED LOGGING PAYLOAD
                 self.model_call_details[
                     "standard_logging_object"
@@ -2557,6 +2571,10 @@ class Logging(LiteLLMLoggingBaseClass):
                     f"Model={self.model} not found in completion cost map. Setting 'response_cost' to None"
                 )
                 self.model_call_details["response_cost"] = None
+
+            self._merge_hidden_params_from_response_into_metadata(
+                complete_streaming_response
+            )
 
             ## STANDARDIZED LOGGING PAYLOAD
             self.model_call_details[

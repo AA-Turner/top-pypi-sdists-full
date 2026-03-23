@@ -188,6 +188,21 @@ def test_provided_instance(container: Container):
     assert some_value == 10
 
 
+def test_provided_instance_call_with_args():
+    some_value = module.test_provided_instance_call_with_args()
+    assert some_value == 3
+
+
+def test_provided_instance_call_with_kwargs():
+    some_value = module.test_provided_instance_call_with_kwargs()
+    assert some_value == {"a": 1, "b": 2}
+
+
+def test_provided_instance_call_with_args_and_kwargs():
+    some_value = module.test_provided_instance_call_with_args_and_kwargs()
+    assert some_value == {"args": (1, 2), "kwargs": {"key": "value"}}
+
+
 def test_subcontainer():
     some_value = module.test_subcontainer_provider()
     assert some_value == 1

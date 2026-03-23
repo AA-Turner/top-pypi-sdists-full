@@ -12,8 +12,7 @@ if TYPE_CHECKING:
     from chalk.features.feature_field import Feature
 
 
-class ClauseJoinWithAndException(Exception):
-    ...
+class ClauseJoinWithAndException(Exception): ...
 
 
 class Filter:

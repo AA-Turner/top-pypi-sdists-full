@@ -262,8 +262,7 @@ class DataFrame(metaclass=DataFrameMeta):
 
     if TYPE_CHECKING:
 
-        def __class_getitem__(cls, cols: Any) -> Type[DataFrame]:
-            ...
+        def __class_getitem__(cls, cols: Any) -> Type[DataFrame]: ...
 
     def __init__(
         self,
@@ -533,12 +532,10 @@ class DataFrame(metaclass=DataFrameMeta):
     # Filtering / Selecting
     #######################
     @typing.overload
-    def __getitem__(self, item: int) -> Features:
-        ...
+    def __getitem__(self, item: int) -> Features: ...
 
     @typing.overload
-    def __getitem__(self, item: Union[DataFrameGetOptions, Sequence[DataFrameGetOptions]]) -> DataFrame:
-        ...
+    def __getitem__(self, item: Union[DataFrameGetOptions, Sequence[DataFrameGetOptions]]) -> DataFrame: ...
 
     def __getitem__(self, item: Any) -> Union[Features, DataFrame]:
         """Filter the rows of a `DataFrame` or project out columns.
@@ -1332,9 +1329,7 @@ class DataFrame(metaclass=DataFrameMeta):
         cls,
         table_uri: str,
         version: Optional[int] = None,
-        columns: Optional[
-            Dict[str, Union[str, Feature, Any]],
-        ] = None,
+        columns: Optional[Dict[str, Union[str, Feature, Any]],] = None,
         delta_table_options: Optional[Dict[str, Any]] = None,
         pyarrow_options: Optional[Dict[str, Any]] = None,
     ) -> DataFrame:
@@ -1392,16 +1387,14 @@ class DataFrame(metaclass=DataFrameMeta):
     def _parse_columns(
         cls,
         col_mapping: dict[int, Union[str, Feature, FeatureWrapper, Any]],
-    ) -> Tuple[list[int], List[Type[pl.DataType]], List[str]]:
-        ...
+    ) -> Tuple[list[int], List[Type[pl.DataType]], List[str]]: ...
 
     @classmethod
     @overload
     def _parse_columns(
         cls,
         col_mapping: dict[str, Union[str, Feature, FeatureWrapper, Any]],
-    ) -> Tuple[list[str], List[Type[pl.DataType]], List[str]]:
-        ...
+    ) -> Tuple[list[str], List[Type[pl.DataType]], List[str]]: ...
 
     @classmethod
     def _parse_columns(

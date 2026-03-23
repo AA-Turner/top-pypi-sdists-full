@@ -7,5 +7,7 @@ metadata:
   unit: /1
   label: Idaho default unemployment tax rate
   reference:
+    - title: Idaho Code Section 72-1350
+      href: https://legislature.idaho.gov/statutesrules/idstat/Title72/T72CH13/SECT72-1350
     - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
       href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=22

@@ -21,13 +21,11 @@ if TYPE_CHECKING:
 
 class ByteSerializable:
     @abstractmethod
-    def serialize(self) -> bytes:
-        ...
+    def serialize(self) -> bytes: ...
 
     @classmethod
     @abstractmethod
-    def deserialize(cls, body_bytes: bytes) -> Self:
-        ...
+    def deserialize(cls, body_bytes: bytes) -> Self: ...
 
 
 @dataclass_transform()

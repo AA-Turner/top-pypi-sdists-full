@@ -7,5 +7,7 @@ metadata:
   unit: currency-USD
   label: Virginia unemployment taxable wage base
   reference:
+    - title: Virginia Code Section 60.2-229
+      href: https://law.lis.virginia.gov/vacode/title60.2/chapter2/section60.2-229/
     - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
       href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=57

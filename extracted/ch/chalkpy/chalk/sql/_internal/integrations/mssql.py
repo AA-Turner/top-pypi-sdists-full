@@ -225,7 +225,7 @@ class MSSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
         _, _, _ = self.compile_query(finalized_query)
 
         # Use existing connection or create new one
-        with (self.get_engine().connect() if connection is None else contextlib.nullcontext(connection)) as cnx:
+        with self.get_engine().connect() if connection is None else contextlib.nullcontext(connection) as cnx:
             with cnx.begin():
                 # Handle temp tables
                 with contextlib.ExitStack() as exit_stack:

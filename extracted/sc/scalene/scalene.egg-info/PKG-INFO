@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scalene
-Version: 2.1.4
+Version: 2.2.1
 Summary: Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python with AI-powered optimization suggestions
 Author-email: Emery Berger <emery@cs.umass.edu>, Sam Stern <jstern@umass.edu>, Juan Altmayer Pizzorno <juan@altmayer.com>
 Project-URL: Homepage, https://github.com/plasma-umass/scalene

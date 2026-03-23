@@ -2,24 +2,27 @@
 
 from __future__ import absolute_import
 
-import asyncio
 import builtins
-import copy
 import errno
-import functools
-import importlib
-import inspect
-import json
-import os
-import re
 import sys
-import threading
-import warnings
-from asyncio import ensure_future
+from asyncio import Future, ensure_future, gather
 from configparser import ConfigParser as IniConfigParser
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
-from inspect import isasyncgenfunction, isgeneratorfunction
+from copy import deepcopy as copy_deepcopy
+from functools import partial
+from importlib import import_module
+from inspect import (
+    getmodule,
+    isasyncgenfunction,
+    isgeneratorfunction,
+    stack as inspect_stack,
+)
+from json import loads as json_loads
+from os import getenv
+from re import compile as re_compile
+from threading import RLock, local as threading_local
+from warnings import warn
 
 try:
     from inspect import _is_coroutine_mark as _is_coroutine_marker
@@ -40,8 +43,9 @@ try:
 except ImportError:
     yaml = None
 
-has_pydantic_settings = True
+has_pydantic_settings = False
 cdef bint pydantic_v1 = False
+cdef object PydanticSettings = None
 cdef str pydantic_module = "pydantic_settings"
 cdef str pydantic_extra = "pydantic2"
 
@@ -49,27 +53,30 @@ try:
     from pydantic_settings import BaseSettings as PydanticSettings
 except ImportError:
     try:
-        # pydantic-settings requires pydantic v2,
-        # so it is safe to assume that we're dealing with v1:
-        from pydantic import BaseSettings as PydanticSettings
-        pydantic_v1 = True
-        pydantic_module = "pydantic"
-        pydantic_extra = "pydantic"
+        import pydantic
     except ImportError:
-        # if it is present, ofc
-        has_pydantic_settings = False
+        pass
+    else:
+        # Avoid triggering deprecation warning in v2+
+        if pydantic.VERSION.startswith("1."):
+            PydanticSettings = pydantic.BaseSettings
+            pydantic_v1 = True
+            pydantic_module = "pydantic"
+            pydantic_extra = "pydantic"
+            has_pydantic_settings = True
+else:
+    has_pydantic_settings = True
 
 
 from .errors import (
     Error,
-    NoSuchProviderError,
     NonCopyableArgumentError,
+    NoSuchProviderError,
 )
 
 cimport cython
 
-
-config_env_marker_pattern = re.compile(
+config_env_marker_pattern = re_compile(
     r"\${(?P<name>[^}^{:]+)(?P<separator>:?)(?P<default>.*?)}",
 )
 
@@ -81,7 +88,7 @@ cdef str _resolve_config_env_markers(config_content: str, envs_required: bool):
         env_name = match.group("name")
         has_default = match.group("separator") == ":"
 
-        value = os.getenv(env_name)
+        value = getenv(env_name)
         if value is None:
             if not has_default and envs_required:
                 raise ValueError(f"Missing required environment variable \"{env_name}\"")
@@ -128,7 +135,18 @@ cdef int ASYNC_MODE_ENABLED = 1
 cdef int ASYNC_MODE_DISABLED = 2
 
 cdef set __iscoroutine_typecache = set()
-cdef tuple __COROUTINE_TYPES = asyncio.coroutines._COROUTINE_TYPES
+cdef tuple __COROUTINE_TYPES
+
+try:
+    from asyncio.coroutines import _COROUTINE_TYPES
+
+    __COROUTINE_TYPES = _COROUTINE_TYPES
+except ImportError:
+    from collections.abc import Coroutine as ABCCoroutine
+    from types import CoroutineType
+
+    __COROUTINE_TYPES = (CoroutineType, ABCCoroutine)
+
 
 cdef dict pydantic_settings_to_dict(settings, dict kwargs):
     if not has_pydantic_settings:
@@ -206,7 +224,7 @@ cdef class Provider:
 
     __IS_PROVIDER__ = True
 
-    overriding_lock = threading.RLock()
+    overriding_lock = RLock()
     """Overriding reentrant lock.
 
     :type: :py:class:`threading.RLock`
@@ -378,7 +396,7 @@ cdef class Provider:
 
         :rtype: :py:class:`Delegate`
         """
-        warnings.warn(
+        warn(
             "Method \".delegate()\" is deprecated since version 4.0.0. "
             "Use \".provider\" attribute instead.",
             category=DeprecationWarning,
@@ -825,9 +843,9 @@ cdef class Dependency(Provider):
             return result
         elif self._async_mode == ASYNC_MODE_ENABLED:
             if __is_future_or_coroutine(result):
-                future_result = asyncio.Future()
-                result = asyncio.ensure_future(result)
-                result.add_done_callback(functools.partial(self._async_provide, future_result))
+                future_result = Future()
+                result = ensure_future(result)
+                result.add_done_callback(partial(self._async_provide, future_result))
                 return future_result
             else:
                 self._check_instance_type(result)
@@ -836,9 +854,9 @@ cdef class Dependency(Provider):
             if __is_future_or_coroutine(result):
                 self.enable_async_mode()
 
-                future_result = asyncio.Future()
-                result = asyncio.ensure_future(result)
-                result.add_done_callback(functools.partial(self._async_provide, future_result))
+                future_result = Future()
+                result = ensure_future(result)
+                result.add_done_callback(partial(self._async_provide, future_result))
                 return future_result
             else:
                 self.disable_async_mode()
@@ -1443,7 +1461,7 @@ cdef class Coroutine(Callable):
     def set_provides(self, provides):
         """Set provider provides."""
         provides = _resolve_string_import(provides)
-        if provides and not asyncio.iscoroutinefunction(provides):
+        if provides and not iscoroutinefunction(provides):
             raise Error(f"Provider {_class_qualname(self)} expected to get coroutine function, "
                         f"got {provides} instead")
         return super().set_provides(provides)
@@ -1776,7 +1794,7 @@ cdef class ConfigurationOption(Provider):
                 config_content,
                 envs_required if envs_required is not UNDEFINED else self._is_strict_mode_enabled(),
             )
-        config = json.loads(config_content)
+        config = json_loads(config_content)
 
         current_config = self.__call__()
         if not current_config:
@@ -1849,7 +1867,7 @@ cdef class ConfigurationOption(Provider):
 
         :rtype: None
         """
-        value = os.environ.get(name, default)
+        value = getenv(name, default)
 
         if value is UNDEFINED:
             if required is not False \
@@ -2331,7 +2349,7 @@ cdef class Configuration(Object):
                 config_content,
                 envs_required if envs_required is not UNDEFINED else self._is_strict_mode_enabled(),
             )
-        config = json.loads(config_content)
+        config = json_loads(config_content)
 
         current_config = self.__call__()
         if not current_config:
@@ -2398,7 +2416,7 @@ cdef class Configuration(Object):
 
         :rtype: None
         """
-        value = os.environ.get(name, default)
+        value = getenv(name, default)
 
         if value is UNDEFINED:
             if required is not False \
@@ -3011,7 +3029,7 @@ cdef class Singleton(BaseSingleton):
         :rtype: None
         """
         if __is_future_or_coroutine(self._storage):
-            asyncio.ensure_future(self._storage).cancel()
+            ensure_future(self._storage).cancel()
         self._storage = None
         return SingletonResetContext(self)
 
@@ -3021,9 +3039,9 @@ cdef class Singleton(BaseSingleton):
             instance = __factory_call(self._instantiator, args, kwargs)
 
             if __is_future_or_coroutine(instance):
-                future_result = asyncio.Future()
-                instance = asyncio.ensure_future(instance)
-                instance.add_done_callback(functools.partial(self._async_init_instance, future_result))
+                future_result = Future()
+                instance = ensure_future(instance)
+                instance.add_done_callback(partial(self._async_init_instance, future_result))
                 self._storage = future_result
                 return future_result
 
@@ -3057,7 +3075,7 @@ cdef class DelegatedSingleton(Singleton):
 cdef class ThreadSafeSingleton(BaseSingleton):
     """Thread-safe singleton provider."""
 
-    storage_lock = threading.RLock()
+    storage_lock = RLock()
     """Storage reentrant lock.
 
     :type: :py:class:`threading.RLock`
@@ -3080,7 +3098,7 @@ cdef class ThreadSafeSingleton(BaseSingleton):
         """
         with self._storage_lock:
             if __is_future_or_coroutine(self._storage):
-                asyncio.ensure_future(self._storage).cancel()
+                ensure_future(self._storage).cancel()
             self._storage = None
         return SingletonResetContext(self)
 
@@ -3093,9 +3111,9 @@ cdef class ThreadSafeSingleton(BaseSingleton):
                 if self._storage is None:
                     result = __factory_call(self._instantiator, args, kwargs)
                     if __is_future_or_coroutine(result):
-                        future_result = asyncio.Future()
-                        result = asyncio.ensure_future(result)
-                        result.add_done_callback(functools.partial(self._async_init_instance, future_result))
+                        future_result = Future()
+                        result = ensure_future(result)
+                        result.add_done_callback(partial(self._async_init_instance, future_result))
                         result = future_result
                     self._storage = result
                 instance = self._storage
@@ -3149,7 +3167,7 @@ cdef class ThreadLocalSingleton(BaseSingleton):
         :param provides: Provided type.
         :type provides: type
         """
-        self._storage = threading.local()
+        self._storage = threading_local()
         super(ThreadLocalSingleton, self).__init__(provides, *args, **kwargs)
 
     def reset(self):
@@ -3163,7 +3181,7 @@ cdef class ThreadLocalSingleton(BaseSingleton):
             return SingletonResetContext(self)
 
         if __is_future_or_coroutine(instance):
-            asyncio.ensure_future(instance).cancel()
+            ensure_future(instance).cancel()
 
         del self._storage.instance
 
@@ -3179,14 +3197,14 @@ cdef class ThreadLocalSingleton(BaseSingleton):
             instance = __factory_call(self._instantiator, args, kwargs)
 
             if __is_future_or_coroutine(instance):
-                future_result = asyncio.Future()
-                instance = asyncio.ensure_future(instance)
-                instance.add_done_callback(functools.partial(self._async_init_instance, future_result))
+                future_result = Future()
+                instance = ensure_future(instance)
+                instance.add_done_callback(partial(self._async_init_instance, future_result))
                 self._storage.instance = future_result
                 return future_result
 
             self._storage.instance = instance
-        
+
         return instance
 
     def _async_init_instance(self, future_result, result):
@@ -3241,7 +3259,7 @@ cdef class ContextLocalSingleton(BaseSingleton):
             return SingletonResetContext(self)
 
         if __is_future_or_coroutine(instance):
-            asyncio.ensure_future(instance).cancel()
+            ensure_future(instance).cancel()
 
         self._storage.set(self._none)
 
@@ -3257,9 +3275,9 @@ cdef class ContextLocalSingleton(BaseSingleton):
             instance = __factory_call(self._instantiator, args, kwargs)
 
             if __is_future_or_coroutine(instance):
-                future_result = asyncio.Future()
-                instance = asyncio.ensure_future(instance)
-                instance.add_done_callback(functools.partial(self._async_init_instance, future_result))
+                future_result = Future()
+                instance = ensure_future(instance)
+                instance.add_done_callback(partial(self._async_init_instance, future_result))
                 self._storage.set(future_result)
                 return future_result
 
@@ -3613,16 +3631,97 @@ cdef class NullAwaitable:
 cdef NullAwaitable NULL_AWAITABLE = NullAwaitable()
 
 
-cdef class Resource(Provider):
+cdef class ResourceState:
+    def __cinit__(self, obj, error_callback, /):
+        self.resource = None
+        self.shutdowner = None
+        self.is_async = False
+        self.async_done = False
+
+    def __init__(self, obj, error_callback, /):
+        if __is_future_or_coroutine(obj):
+            self.from_coro(obj, error_callback)
+        elif hasattr(obj, "__enter__") and hasattr(obj, "__exit__"):
+            self.from_context_manager(obj, error_callback)
+        elif hasattr(obj, "__aenter__") and hasattr(obj, "__aexit__"):
+            self.from_async_context_manager(obj, error_callback)
+        else:
+            self.resource = obj
+
+    async def async_shutdown(self):
+        if not self.async_done:
+            await self.resource
+
+        shutdowner = self.shutdowner
+        self.shutdowner = None
+
+        if shutdowner is not None:
+            await shutdowner(None, None, None)
+
+    async def from_awaitable(self, awaitable, error_callback, /):
+        try:
+            resource = obj = await awaitable
+        except:
+            error_callback()
+            raise
+
+        if hasattr(obj, "__aenter__") and hasattr(obj, "__aexit__"):
+            resource = await self._from_async_context_manager(obj, error_callback)
+        elif hasattr(obj, "__enter__") and hasattr(obj, "__exit__"):
+            resource = self.from_context_manager(obj, error_callback)
+        else:
+            self.resource = obj
+
+        self.async_done = True
+
+        return resource
+
+    cdef void from_coro(self, coro, error_callback):
+        self.is_async = True
+        self.resource = ensure_future(self.from_awaitable(coro, error_callback))
+
+    async def _from_async_context_manager(self, acm, error_callback, /):
+        try:
+            self.resource = resource = await acm.__aenter__()
+        except:
+            error_callback()
+            raise
+
+        self.shutdowner = acm.__aexit__
+        self.async_done = True
+        return resource
+
+    cdef void from_async_context_manager(self, acm, error_callback):
+        self.is_async = True
+        self.resource = ensure_future(self._from_async_context_manager(acm, error_callback))
+
+    cdef object from_context_manager(self, cm, error_callback):
+        try:
+            self.resource = resource = cm.__enter__()
+        except:
+            error_callback()
+            raise
+
+        self.shutdowner = cm.__exit__
+
+        return resource
+
+
+cdef class BaseResource(Provider):
     """Resource provider provides a component with initialization and shutdown."""
+
+    cdef void set_state(self, ResourceState state):
+        raise NotImplementedError
+
+    cdef ResourceState get_state(self):
+        raise NotImplementedError
+
+    def reset_state(self):
+        self.set_state(None)
 
     def __init__(self, provides=None, *args, **kwargs):
         self._provides = None
         self.set_provides(provides)
-
-        self._initialized = False
-        self._resource = None
-        self._shutdowner = None
 
         self._args = tuple()
         self._args_len = 0
@@ -3640,7 +3739,7 @@ cdef class Resource(Provider):
         if copied is not None:
             return copied
 
-        if self._initialized:
+        if self.get_state() is not None:
             raise Error("Can not copy initialized resource")
 
         copied = _memorized_duplicate(self, memo)
@@ -3763,7 +3862,7 @@ cdef class Resource(Provider):
     @property
     def initialized(self):
         """Check if resource is initialized."""
-        return self._initialized
+        return self.get_state() is not None
 
     def init(self):
         """Initialize resource."""
@@ -3771,20 +3870,16 @@ cdef class Resource(Provider):
 
     def shutdown(self):
         """Shutdown resource."""
-        if not self._initialized:
-            if self._async_mode == ASYNC_MODE_ENABLED:
-                return NULL_AWAITABLE
-            return
 
-        if self._shutdowner:
-            future = self._shutdowner(None, None, None)
+        state = self.get_state()
 
-            if __is_future_or_coroutine(future):
-                return ensure_future(self._shutdown_async(future))
+        if state is not None:
+            self.set_state(None)
 
-        self._resource = None
-        self._initialized = False
-        self._shutdowner = None
+            if state.is_async:
+                return state.async_shutdown()
+            elif state.shutdowner is not None:
+                state.shutdowner(None, None, None)
 
         if self._async_mode == ASYNC_MODE_ENABLED:
             return NULL_AWAITABLE
@@ -3797,45 +3892,11 @@ cdef class Resource(Provider):
         yield from filter(is_provider, self.kwargs.values())
         yield from super().related
 
-    async def _shutdown_async(self, future) -> None:
-        try:
-            await future
-        finally:
-            self._resource = None
-            self._initialized = False
-            self._shutdowner = None
-
-    async def _handle_async_cm(self, obj) -> None:
-        try:
-            self._resource = resource = await obj.__aenter__()
-            self._shutdowner = obj.__aexit__
-            return resource
-        except:
-            self._initialized = False
-            raise
-
-    async def _provide_async(self, future) -> None:
-        try:
-            obj = await future
-
-            if hasattr(obj, '__aenter__') and hasattr(obj, '__aexit__'):
-                self._resource = await obj.__aenter__()
-                self._shutdowner = obj.__aexit__
-            elif hasattr(obj, '__enter__') and hasattr(obj, '__exit__'):
-                self._resource = obj.__enter__()
-                self._shutdowner = obj.__exit__
-            else:
-                self._resource = obj
-                self._shutdowner = None
-
-            return self._resource
-        except:
-            self._initialized = False
-            raise
-
     cpdef object _provide(self, tuple args, dict kwargs):
-        if self._initialized:
-            return self._resource
+        state = self.get_state()
+
+        if state is not None:
+            return state.resource
 
         obj = __call(
             self._provides,
@@ -3848,23 +3909,31 @@ cdef class Resource(Provider):
             self._async_mode,
         )
 
-        if __is_future_or_coroutine(obj):
-            self._initialized = True
-            self._resource = resource = ensure_future(self._provide_async(obj))
-            return resource
-        elif hasattr(obj, '__enter__') and hasattr(obj, '__exit__'):
-            self._resource = obj.__enter__()
-            self._shutdowner = obj.__exit__
-        elif hasattr(obj, '__aenter__') and hasattr(obj, '__aexit__'):
-            self._initialized = True
-            self._resource = resource = ensure_future(self._handle_async_cm(obj))
-            return resource
-        else:
-            self._resource = obj
-            self._shutdowner = None
+        state = ResourceState(obj, self.reset_state)
 
-        self._initialized = True
-        return self._resource
+        self.set_state(state)
+
+        return state.resource
+
+
+cdef class Resource(BaseResource):
+    cdef void set_state(self, ResourceState state):
+        self._state = state
+
+    cdef ResourceState get_state(self):
+        return self._state
+
+
+cdef class ContextLocalResource(BaseResource):
+    def __init__(self, provides=None, *args, **kwargs):
+        self._cvar = ContextVar("_cvar", default=None)
+        super().__init__(provides, *args, **kwargs)
+
+    cdef void set_state(self, ResourceState state):
+        self._cvar.set(state)
+
+    cdef ResourceState get_state(self):
+        return self._cvar.get()
 
 
 cdef class Container(Provider):
@@ -4273,9 +4342,9 @@ cdef class AttributeGetter(Provider):
     cpdef object _provide(self, tuple args, dict kwargs):
         provided = self.provides(*args, **kwargs)
         if __is_future_or_coroutine(provided):
-            future_result = asyncio.Future()
-            provided = asyncio.ensure_future(provided)
-            provided.add_done_callback(functools.partial(self._async_provide, future_result))
+            future_result = Future()
+            provided = ensure_future(provided)
+            provided.add_done_callback(partial(self._async_provide, future_result))
             return future_result
         return getattr(provided, self.name)
 
@@ -4355,9 +4424,9 @@ cdef class ItemGetter(Provider):
     cpdef object _provide(self, tuple args, dict kwargs):
         provided = self.provides(*args, **kwargs)
         if __is_future_or_coroutine(provided):
-            future_result = asyncio.Future()
-            provided = asyncio.ensure_future(provided)
-            provided.add_done_callback(functools.partial(self._async_provide, future_result))
+            future_result = Future()
+            provided = ensure_future(provided)
+            provided.add_done_callback(partial(self._async_provide, future_result))
             return future_result
         return provided[self.name]
 
@@ -4485,9 +4554,9 @@ cdef class MethodCaller(Provider):
     cpdef object _provide(self, tuple args, dict kwargs):
         call = self.provides()
         if __is_future_or_coroutine(call):
-            future_result = asyncio.Future()
-            call = asyncio.ensure_future(call)
-            call.add_done_callback(functools.partial(self._async_provide, future_result, args, kwargs))
+            future_result = Future()
+            call = ensure_future(call)
+            call.add_done_callback(partial(self._async_provide, future_result, args, kwargs))
             return future_result
         return __call(
             call,
@@ -4800,7 +4869,7 @@ cpdef object deepcopy(object instance, dict memo=None):
 
     __add_sys_streams(memo)
 
-    return copy.deepcopy(instance, memo)
+    return copy_deepcopy(instance, memo)
 
 
 cpdef tuple deepcopy_args(
@@ -4817,7 +4886,7 @@ cpdef tuple deepcopy_args(
 
     for i, arg in enumerate(args):
         try:
-            out.append(copy.deepcopy(arg, memo))
+            out.append(copy_deepcopy(arg, memo))
         except Exception as e:
             raise NonCopyableArgumentError(provider, index=i) from e
 
@@ -4838,7 +4907,7 @@ cpdef dict[str, object] deepcopy_kwargs(
 
     for name, arg in kwargs.items():
         try:
-            out[name] = copy.deepcopy(arg, memo)
+            out[name] = copy_deepcopy(arg, memo)
         except Exception as e:
             raise NonCopyableArgumentError(provider, keyword=name) from e
 
@@ -4899,22 +4968,10 @@ def traverse(*providers, types=None):
 
         yield visiting
 
-
-def isawaitable(obj):
-    """Check if object is a coroutine function."""
-    try:
-        return inspect.isawaitable(obj)
-    except AttributeError:
-        return False
-
-
-def iscoroutinefunction(obj):
-    """Check if object is a coroutine function."""
-    try:
-        return inspect.iscoroutinefunction(obj)
-    except AttributeError:
-        return False
-
+if sys.version_info >= (3, 11):
+    from inspect import iscoroutinefunction
+else:
+    from asyncio import iscoroutinefunction
 
 def _resolve_string_import(provides):
     if provides is None:
@@ -4939,14 +4996,14 @@ def _resolve_string_import(provides):
     if module_name.startswith(".") and package_name is None:
         raise ImportError("Attempted relative import with no known parent package")
 
-    module = importlib.import_module(module_name, package=package_name)
+    module = import_module(module_name, package=package_name)
     return getattr(module, member_name)
 
 
 def _resolve_calling_module():
-    stack = inspect.stack()
+    stack = inspect_stack()
     pre_last_frame = stack[0]
-    return inspect.getmodule(pre_last_frame[0])
+    return getmodule(pre_last_frame[0])
 
 
 def _resolve_calling_package_name():

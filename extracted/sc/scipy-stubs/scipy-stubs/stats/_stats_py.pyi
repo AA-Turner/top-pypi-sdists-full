@@ -5,7 +5,6 @@ from typing import Any, Generic, Literal as L, Never, Protocol, Self, TypeAlias,
 from typing_extensions import NamedTuple, TypeVar
 
 import numpy as np
-import numpy.typing as npt
 import numpy_typing_compat as nptc
 import optype as op
 import optype.numpy as onp
@@ -116,9 +115,23 @@ _Real0D: TypeAlias = npc.integer | npc.floating
 
 _ScalarOrND: TypeAlias = _SCT | onp.ArrayND[_SCT]
 _FloatOrND: TypeAlias = _ScalarOrND[npc.floating]
-_RealOrND: TypeAlias = _ScalarOrND[_RealT]
 
-_InterpolationMethod: TypeAlias = L["linear", "lower", "higher", "nearest", "midpoint"]
+_InterpolationMethod: TypeAlias = L[
+    "linear",
+    "lower",
+    "higher",
+    "nearest",
+    "midpoint",
+    # from numpy.percentile:
+    "inverted_cdf",
+    "averaged_inverted_cdf",
+    "closest_observation",
+    "interpolated_inverted_cdf",
+    "hazen",
+    "weibull",
+    "median_unbiased",
+    "normal_unbiased",
+]
 _QuantileInterpolation: TypeAlias = L["fraction", "lower", "higher"]
 _PercentileInterpolation: TypeAlias = L["rank", "weak", "strict", "mean"]
 _TrimTail: TypeAlias = L["left", "right"]
@@ -354,39 +367,817 @@ class LinregressResult(
     @property
     def intercept_stderr(self, /) -> _FloatOrArrayT_co: ...
 
-# TODO(jorenham): improve
+# keep in sync with `hmean` and `pmean`
+@overload  # ?d T@inexact
 def gmean(
-    a: onp.ToFloatND,
-    axis: int | None = 0,
-    dtype: npt.DTypeLike | None = None,
+    a: onp.ArrayND[_InexactT, _JustAnyShape],
+    axis: int = 0,
+    dtype: None = None,
     weights: onp.ToFloatND | None = None,
     *,
     nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # ?d i64|i32
+def gmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32, _JustAnyShape],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # 1d T@inexact
+def gmean(
+    a: onp.Array1D[_InexactT],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # 1d float|i64|i32
+def gmean(
+    a: onp.ToArrayStrict1D[float, npc.integer64 | npc.integer32],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # 1d ~complex
+def gmean(
+    a: list[complex],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.complex128: ...
+@overload  # 2d T@inexact
+def gmean(
+    a: onp.Array2D[_InexactT],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[_InexactT]: ...
+@overload  # 2d float|i64|i32
+def gmean(
+    a: onp.ToArrayStrict2D[float, npc.integer64 | npc.integer32],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d ~complex
+def gmean(
+    a: Sequence[list[complex]],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.complex128]: ...
+@overload  # Nd T@inexact
+def gmean(
+    a: onp.ArrayND[_InexactT],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # Nd T@inexact, keepdims=True
+def gmean(
+    a: onp.ArrayND[_InexactT, _ShapeT],
+    axis: int | None = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[_InexactT, _ShapeT]: ...
+@overload  # Nd T@inexact, axis=None
+def gmean(
+    a: onp.ArrayND[_InexactT],
+    axis: None,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # Nd float
+def gmean(
+    a: onp.SequenceND[Sequence[float]],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64]: ...
+@overload  # Nd float, keepdims=True
+def gmean(
+    a: onp.SequenceND[float],
+    axis: int | None = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64]: ...
+@overload  # Nd ~complex
+def gmean(
+    a: onp.SequenceND[list[complex]],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.complex128]: ...
+@overload  # Nd ~complex, keepdims=True
+def gmean(
+    a: onp.SequenceND[list[complex]] | list[complex],
+    axis: int | None = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.complex128]: ...
+@overload  # Nd ~complex, axis=None
+def gmean(
+    a: onp.SequenceND[list[complex]] | list[complex],
+    axis: None,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.complex128: ...
+@overload  # Nd i64|i32
+def gmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32],
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # Nd i64|i32, keepdims=True
+def gmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32, _ShapeT],
+    axis: int | None = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64, _ShapeT]: ...
+@overload  # Nd float|i64|i32, axis=None
+def gmean(
+    a: onp.ToArrayND[float, npc.integer64 | npc.integer32],
+    axis: None,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # ?d, dtype=<known>
+def gmean(
+    a: onp.ArrayND[npc.number | np.bool_, _JustAnyShape],
+    axis: int = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # 1d, dtype=<known>
+def gmean(
+    a: onp.ToComplexStrict1D,
+    axis: int = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # 2d, dtype=<known>
+def gmean(
+    a: onp.ToComplexStrict2D,
+    axis: int = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[_InexactT]: ...
+@overload  # Nd, dtype=<known>
+def gmean(
+    a: onp.ToComplexND,
+    axis: int = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # Nd, dtype=<known>, keepdims=True
+def gmean(
+    a: onp.ToComplexND,
+    axis: int | None = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[_InexactT]: ...
+@overload  # Nd, dtype=<known>, axis=None
+def gmean(
+    a: onp.ToComplexND,
+    axis: None,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # dtype=? (fallback)
+def gmean(
+    a: onp.ToComplexND,
+    axis: int | None = 0,
+    *,
+    dtype: str | type,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
     keepdims: bool = False,
-) -> _RealOrND: ...
+) -> Any: ...
 
-# TODO(jorenham): improve
+# keep in sync with `gmean` and `pmean`
+@overload  # ?d T@inexact
 def hmean(
-    a: onp.ToFloatND,
-    axis: int | None = 0,
-    dtype: npt.DTypeLike | None = None,
+    a: onp.ArrayND[_InexactT, _JustAnyShape],
+    axis: int = 0,
+    dtype: None = None,
     *,
     weights: onp.ToFloatND | None = None,
     nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # ?d i64|i32
+def hmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32, _JustAnyShape],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # 1d T@inexact
+def hmean(
+    a: onp.Array1D[_InexactT],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloat1D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # 1d float|i64|i32
+def hmean(
+    a: onp.ToArrayStrict1D[float, npc.integer64 | npc.integer32],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloat1D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # 1d ~complex
+def hmean(
+    a: list[complex],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloat1D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.complex128: ...
+@overload  # 2d T@inexact
+def hmean(
+    a: onp.Array2D[_InexactT],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[_InexactT]: ...
+@overload  # 2d float|i64|i32
+def hmean(
+    a: onp.ToArrayStrict2D[float, npc.integer64 | npc.integer32],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d ~complex
+def hmean(
+    a: Sequence[list[complex]],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.complex128]: ...
+@overload  # Nd T@inexact
+def hmean(
+    a: onp.ArrayND[_InexactT],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # Nd T@inexact, keepdims=True
+def hmean(
+    a: onp.ArrayND[_InexactT, _ShapeT],
+    axis: int | None = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[_InexactT, _ShapeT]: ...
+@overload  # Nd T@inexact, axis=None
+def hmean(
+    a: onp.ArrayND[_InexactT],
+    axis: None,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # Nd float
+def hmean(
+    a: onp.SequenceND[Sequence[float]],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64]: ...
+@overload  # Nd float, keepdims=True
+def hmean(
+    a: onp.SequenceND[float],
+    axis: int | None = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64]: ...
+@overload  # Nd ~complex
+def hmean(
+    a: onp.SequenceND[list[complex]],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.complex128]: ...
+@overload  # Nd ~complex, keepdims=True
+def hmean(
+    a: onp.SequenceND[list[complex]] | list[complex],
+    axis: int | None = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.complex128]: ...
+@overload  # Nd ~complex, axis=None
+def hmean(
+    a: onp.SequenceND[list[complex]] | list[complex],
+    axis: None,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.complex128: ...
+@overload  # Nd i64|i32
+def hmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32],
+    axis: int = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # Nd i64|i32, keepdims=True
+def hmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32, _ShapeT],
+    axis: int | None = 0,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64, _ShapeT]: ...
+@overload  # Nd float|i64|i32, axis=None
+def hmean(
+    a: onp.ToArrayND[float, npc.integer64 | npc.integer32],
+    axis: None,
+    dtype: None = None,
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # ?d, dtype=<known>
+def hmean(
+    a: onp.ArrayND[npc.number | np.bool_, _JustAnyShape],
+    axis: int = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # 1d, dtype=<known>
+def hmean(
+    a: onp.ToComplexStrict1D,
+    axis: int = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # 2d, dtype=<known>
+def hmean(
+    a: onp.ToComplexStrict2D,
+    axis: int = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[_InexactT]: ...
+@overload  # Nd, dtype=<known>
+def hmean(
+    a: onp.ToComplexND,
+    axis: int = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # Nd, dtype=<known>, keepdims=True
+def hmean(
+    a: onp.ToComplexND,
+    axis: int | None = 0,
+    *,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[_InexactT]: ...
+@overload  # Nd, dtype=<known>, axis=None
+def hmean(
+    a: onp.ToComplexND,
+    axis: None,
+    dtype: onp.ToDType[_InexactT],
+    *,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # dtype=? (fallback)
+def hmean(
+    a: onp.ToComplexND,
+    axis: int | None = 0,
+    *,
+    dtype: str | type,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
     keepdims: bool = False,
-) -> _RealOrND: ...
+) -> Any: ...
 
-# TODO(jorenham): improve
+# keep in sync with `gmean` and `hmean`
+@overload  # ?d T@inexact
 def pmean(
-    a: onp.ToFloatND,
-    p: float | _Real0D,
+    a: onp.ArrayND[_InexactT, _JustAnyShape],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # ?d i64|i32
+def pmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32, _JustAnyShape],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # 1d T@inexact
+def pmean(
+    a: onp.Array1D[_InexactT],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # 1d float|i64|i32
+def pmean(
+    a: onp.ToArrayStrict1D[float, npc.integer64 | npc.integer32],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # 1d ~complex
+def pmean(
+    a: list[complex],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.complex128: ...
+@overload  # 2d T@inexact
+def pmean(
+    a: onp.Array2D[_InexactT],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[_InexactT]: ...
+@overload  # 2d float|i64|i32
+def pmean(
+    a: onp.ToArrayStrict2D[float, npc.integer64 | npc.integer32],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d ~complex
+def pmean(
+    a: Sequence[list[complex]],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloat1D | onp.ToFloat2D | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.complex128]: ...
+@overload  # Nd T@inexact
+def pmean(
+    a: onp.ArrayND[_InexactT],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # Nd T@inexact, keepdims=True
+def pmean(
+    a: onp.ArrayND[_InexactT, _ShapeT],
+    p: float,
     *,
     axis: int | None = 0,
-    dtype: npt.DTypeLike | None = None,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[_InexactT, _ShapeT]: ...
+@overload  # Nd T@inexact, axis=None
+def pmean(
+    a: onp.ArrayND[_InexactT],
+    p: float,
+    *,
+    axis: None,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # Nd float
+def pmean(
+    a: onp.SequenceND[Sequence[float]],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64]: ...
+@overload  # Nd float, keepdims=True
+def pmean(
+    a: onp.SequenceND[float],
+    p: float,
+    *,
+    axis: int | None = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64]: ...
+@overload  # Nd ~complex
+def pmean(
+    a: onp.SequenceND[list[complex]],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.complex128]: ...
+@overload  # Nd ~complex, keepdims=True
+def pmean(
+    a: onp.SequenceND[list[complex]] | list[complex],
+    p: float,
+    *,
+    axis: int | None = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.complex128]: ...
+@overload  # Nd ~complex, axis=None
+def pmean(
+    a: onp.SequenceND[list[complex]] | list[complex],
+    p: float,
+    *,
+    axis: None,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.complex128: ...
+@overload  # Nd i64|i32
+def pmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # Nd i64|i32, keepdims=True
+def pmean(
+    a: onp.ArrayND[npc.integer64 | npc.integer32, _ShapeT],
+    p: float,
+    *,
+    axis: int | None = 0,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64, _ShapeT]: ...
+@overload  # Nd float|i64|i32, axis=None
+def pmean(
+    a: onp.ToArrayND[float, npc.integer64 | npc.integer32],
+    p: float,
+    *,
+    axis: None,
+    dtype: None = None,
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # ?d, dtype=<known>
+def pmean(
+    a: onp.ArrayND[npc.number | np.bool_, _JustAnyShape],
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # 1d, dtype=<known>
+def pmean(
+    a: onp.ToComplexStrict1D,
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # 2d, dtype=<known>
+def pmean(
+    a: onp.ToComplexStrict2D,
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> onp.Array1D[_InexactT]: ...
+@overload  # Nd, dtype=<known>
+def pmean(
+    a: onp.ToComplexND,
+    p: float,
+    *,
+    axis: int = 0,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT | onp.ArrayND[_InexactT]: ...
+@overload  # Nd, dtype=<known>, keepdims=True
+def pmean(
+    a: onp.ToComplexND,
+    p: float,
+    *,
+    axis: int | None = 0,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> onp.ArrayND[_InexactT]: ...
+@overload  # Nd, dtype=<known>, axis=None
+def pmean(
+    a: onp.ToComplexND,
+    p: float,
+    *,
+    axis: None,
+    dtype: onp.ToDType[_InexactT],
+    weights: onp.ToFloatND | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _InexactT: ...
+@overload  # dtype=? (fallback)
+def pmean(
+    a: onp.ToComplexND,
+    p: float,
+    *,
+    axis: int | None = 0,
+    dtype: str | type,
     weights: onp.ToFloatND | None = None,
     nan_policy: NanPolicy = "propagate",
     keepdims: bool = False,
-) -> _RealOrND: ...
+) -> Any: ...
 
 # NOTE: The two mypy `overload-overlap` errors are false positive
 @overload  # int {0,1}d, keepdims=False (default)
@@ -2223,7 +3014,7 @@ def sem(
     a: onp.ToComplexND, axis: int | None = 0, ddof: int = 1, nan_policy: NanPolicy = "propagate", *, keepdims: bool = False
 ) -> _FloatOrND: ...
 
-# NOTE: keep in sync with `gzscore`
+# NOTE: keep in sync with `gzscore` and `zmap`
 @overload  # +integer, known shape
 def zscore(
     a: nptc.CanArray[_ShapeT, np.dtype[npc.integer | np.bool_]],
@@ -2268,7 +3059,7 @@ def zscore(
     a: onp.ToJustComplexND, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
 ) -> onp.ArrayND[npc.complexfloating]: ...
 
-# NOTE: keep in sync with `zscore`
+# NOTE: keep in sync with `zscore` and `zmap`
 @overload  # +integer, known shape
 def gzscore(
     a: nptc.CanArray[_ShapeT, np.dtype[npc.integer | np.bool_]],
@@ -2314,44 +3105,92 @@ def gzscore(
     a: onp.ToJustComplexND, *, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
 ) -> onp.ArrayND[npc.complexfloating]: ...
 
-# TODO(jorenham): improve like zscore
-@overload
+# keep roughly in sync with `zscore` and `gzscore`
+@overload  # +integer, known shape
+def zmap(  # type: ignore[overload-overlap]
+    scores: nptc.CanArray[_ShapeT, np.dtype[npc.floating64 | npc.integer | np.bool_]],
+    compare: nptc.CanArray[_ShapeT, np.dtype[npc.floating64 | npc.integer | np.bool_]],
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float64, _ShapeT]: ...
+@overload  # known inexact dtype, known shape
 def zmap(
-    scores: _ToFloatStrictND, compare: onp.ToFloatND, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[npc.floating]: ...
-@overload  # (real vector-like, real vector-like) -> floating vector
+    scores: nptc.CanArray[_ShapeT, np.dtype[_InexactT]],
+    compare: nptc.CanArray[_ShapeT, np.dtype[_InexactT]],
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[_InexactT, _ShapeT]: ...
+@overload  # float 1d
 def zmap(
-    scores: onp.ToFloat1D, compare: onp.ToFloat1D, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.Array1D[npc.floating]: ...
-@overload  # (real array-like, real array-like) -> floating array
+    scores: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    compare: onp.ToFloat64Strict1D,
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float64]: ...
+@overload  # float 1d
 def zmap(
+    scores: onp.ToFloat64Strict1D,
+    compare: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float64]: ...
+@overload  # float 2d
+def zmap(
+    scores: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    compare: onp.ToFloat64Strict2D | onp.ToFloat64Strict1D,
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.float64]: ...
+@overload  # float 2d
+def zmap(
+    scores: onp.ToFloat64Strict2D | onp.ToFloat64Strict1D,
+    compare: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.float64]: ...
+@overload  # complex 1d
+def zmap(
+    scores: onp.ToJustComplex128Strict1D,
+    compare: onp.ToComplex128Strict1D,
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.complex128]: ...
+@overload  # complex 1d
+def zmap(
+    scores: onp.ToComplex128Strict1D,
+    compare: onp.ToJustComplex128Strict1D,
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.complex128]: ...
+@overload  # complex 2d
+def zmap(
+    scores: onp.ToJustComplex128Strict2D,
+    compare: onp.ToComplex128Strict2D | onp.ToComplex128Strict1D,
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.complex128]: ...
+@overload  # complex 2d
+def zmap(
+    scores: onp.ToComplex128Strict2D | onp.ToComplex128Strict1D,
+    compare: onp.ToJustComplex128Strict2D,
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.complex128]: ...
+@overload  # floating fallback
+def zmap(  # the weird shape-type is a workaround for a bug in pyright's overlapping overload detection on numpy<2.1
     scores: onp.ToFloatND, compare: onp.ToFloatND, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[npc.floating]: ...
-@overload  # (just complex vector-like, complex vector-like) -> floating vector
-def zmap(
-    scores: onp.ToJustComplex1D,
-    compare: onp.ToComplex1D,
-    axis: int | None = 0,
-    ddof: int = 0,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.Array1D[npc.complexfloating]: ...
-@overload  # (complex vector-like, just complex vector-like) -> floating vector
-def zmap(
-    scores: onp.ToComplex1D,
-    compare: onp.ToJustComplex1D,
-    axis: int | None = 0,
-    ddof: int = 0,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.Array1D[npc.complexfloating]: ...
-@overload  # (just complex array-like, complex array-like) -> floating array
-def zmap(
-    scores: onp.ToJustComplexND,
-    compare: onp.ToComplexND,
-    axis: int | None = 0,
-    ddof: int = 0,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.ArrayND[npc.complexfloating]: ...
-@overload  # (complex array-like, just complex array-like) -> floating array
+) -> onp.ArrayND[npc.floating, tuple[int] | tuple[Any, ...]]: ...
+@overload  # complex fallback
 def zmap(
     scores: onp.ToComplexND,
     compare: onp.ToJustComplexND,
@@ -2359,17 +3198,78 @@ def zmap(
     ddof: int = 0,
     nan_policy: NanPolicy = "propagate",
 ) -> onp.ArrayND[npc.complexfloating]: ...
+@overload  # complex fallback
+def zmap(
+    scores: onp.ToJustComplexND,
+    compare: onp.ToComplexND,
+    axis: int | None = 0,
+    ddof: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[npc.complexfloating]: ...
 
-# TODO(jorenham): improve
+#
+@overload  # T@floating, axis=None (default)
 def iqr(
-    x: onp.ToFloatND,
+    x: onp.ToArrayND[_FloatT, _FloatT],
+    axis: None = None,
+    rng: tuple[float, float] = (25, 75),
+    scale: L["normal"] | onp.ToFloat | onp.ToFloatND = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    interpolation: _InterpolationMethod = "linear",
+    keepdims: L[False] = False,
+) -> _FloatT: ...
+@overload  # T@floating, keepdims=True
+def iqr(
+    x: onp.ToArrayND[_FloatT, _FloatT],
     axis: int | Sequence[int] | None = None,
     rng: tuple[float, float] = (25, 75),
     scale: L["normal"] | onp.ToFloat | onp.ToFloatND = 1.0,
     nan_policy: NanPolicy = "propagate",
     interpolation: _InterpolationMethod = "linear",
-    keepdims: bool = False,
-) -> _FloatOrND: ...
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[_FloatT]: ...
+@overload  # T@floating, axis=<given>
+def iqr(
+    x: onp.ToArrayND[_FloatT, _FloatT],
+    axis: int | Sequence[int],
+    rng: tuple[float, float] = (25, 75),
+    scale: L["normal"] | onp.ToFloat | onp.ToFloatND = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    interpolation: _InterpolationMethod = "linear",
+    keepdims: L[False] = False,
+) -> onp.ArrayND[_FloatT]: ...
+@overload  # +f64, axis=None (default)
+def iqr(
+    x: onp.ToArrayND[float, npc.integer],
+    axis: None = None,
+    rng: tuple[float, float] = (25, 75),
+    scale: L["normal"] | onp.ToFloat | onp.ToFloatND = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    interpolation: _InterpolationMethod = "linear",
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # +f64, keepdims=True
+def iqr(
+    x: onp.ToArrayND[float, npc.integer],
+    axis: int | Sequence[int] | None = None,
+    rng: tuple[float, float] = (25, 75),
+    scale: L["normal"] | onp.ToFloat | onp.ToFloatND = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    interpolation: _InterpolationMethod = "linear",
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64]: ...
+@overload  # +f64, axis=<given>
+def iqr(
+    x: onp.ToArrayND[float, npc.integer],
+    axis: int | Sequence[int],
+    rng: tuple[float, float] = (25, 75),
+    scale: L["normal"] | onp.ToFloat | onp.ToFloatND = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    interpolation: _InterpolationMethod = "linear",
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64]: ...
 
 #
 @overload

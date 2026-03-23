@@ -182,62 +182,51 @@ def _parse_generic_params_recursively(typ: Any) -> str:
 
 
 @overload
-def convert_type_to_gql(t: Filter, path_prefix: Optional[str] = None) -> UpsertFilterGQL:
-    ...
+def convert_type_to_gql(t: Filter, path_prefix: Optional[str] = None) -> UpsertFilterGQL: ...
 
 
 @overload
-def convert_type_to_gql(t: StreamResolver, path_prefix: Optional[str] = None) -> UpsertStreamResolverGQL:
-    ...
+def convert_type_to_gql(t: StreamResolver, path_prefix: Optional[str] = None) -> UpsertStreamResolverGQL: ...
 
 
 @overload
-def convert_type_to_gql(t: SinkResolver, path_prefix: Optional[str] = None) -> UpsertSinkResolverGQL:
-    ...
+def convert_type_to_gql(t: SinkResolver, path_prefix: Optional[str] = None) -> UpsertSinkResolverGQL: ...
 
 
 @overload
 def convert_type_to_gql(
     t: Union[OnlineResolver, OfflineResolver], path_prefix: Optional[str] = None
-) -> UpsertResolverGQL:
-    ...
+) -> UpsertResolverGQL: ...
 
 
 @overload
 def convert_type_to_gql(
     t: Resolver, path_prefix: Optional[str] = None
-) -> UpsertStreamResolverGQL | UpsertSinkResolverGQL | UpsertResolverGQL:
-    ...
+) -> UpsertStreamResolverGQL | UpsertSinkResolverGQL | UpsertResolverGQL: ...
 
 
 @overload
-def convert_type_to_gql(t: StreamResolverParam, path_prefix: Optional[str] = None) -> UpsertStreamResolverParamGQL:
-    ...
+def convert_type_to_gql(t: StreamResolverParam, path_prefix: Optional[str] = None) -> UpsertStreamResolverParamGQL: ...
 
 
 @overload
-def convert_type_to_gql(t: ScheduledQuery, path_prefix: Optional[str] = None) -> UpsertCronQueryGQL:
-    ...
+def convert_type_to_gql(t: ScheduledQuery, path_prefix: Optional[str] = None) -> UpsertCronQueryGQL: ...
 
 
 @overload
-def convert_type_to_gql(t: NamedQuery, path_prefix: Optional[str] = None) -> UpsertNamedQueryGQL:
-    ...
+def convert_type_to_gql(t: NamedQuery, path_prefix: Optional[str] = None) -> UpsertNamedQueryGQL: ...
 
 
 @overload
-def convert_type_to_gql(t: ModelReference, path_prefix: Optional[str] = None) -> UpsertModelReferenceGQL:
-    ...
+def convert_type_to_gql(t: ModelReference, path_prefix: Optional[str] = None) -> UpsertModelReferenceGQL: ...
 
 
 @overload
-def convert_type_to_gql(t: Feature, path_prefix: Optional[str] = None) -> UpsertFeatureGQL:
-    ...
+def convert_type_to_gql(t: Feature, path_prefix: Optional[str] = None) -> UpsertFeatureGQL: ...
 
 
 @overload
-def convert_type_to_gql(t: Type[Features], path_prefix: Optional[str] = None) -> FeatureClassGQL:
-    ...
+def convert_type_to_gql(t: Type[Features], path_prefix: Optional[str] = None) -> FeatureClassGQL: ...
 
 
 def convert_type_to_gql(
@@ -612,13 +601,15 @@ def convert_type_to_gql(
                 primary=t.primary,
                 baseClasses=converted_type.bases,
                 version=None if feature_version is None else feature_version.version,
-                versionInfo=None
-                if feature_version is None
-                else VersionInfoGQL(
-                    version=feature_version.version,
-                    maximum=feature_version.maximum,
-                    default=feature_version.default,
-                    versions=[f.fqn for f in feature_version.reference.values()],
+                versionInfo=(
+                    None
+                    if feature_version is None
+                    else VersionInfoGQL(
+                        version=feature_version.version,
+                        maximum=feature_version.maximum,
+                        default=feature_version.default,
+                        versions=[f.fqn for f in feature_version.reference.values()],
+                    )
                 ),
                 dtype=serialized_dtype,
                 defaultValueJson=default_json,
@@ -642,36 +633,44 @@ def convert_type_to_gql(
                 attributeName=t.attribute_name,
                 explicitNamespace=t.namespace != to_snake_case(t.features_cls.__name__),
             ),
-            windowMaterialization=None
-            if mat is None
-            else UpsertWindowMaterializationGQL(
-                namespace=mat.namespace,
-                groupBy=[
-                    UpsertFeatureReferenceGQL(
-                        underlying=_get_feature_id(f, root_fqn=False),
-                        path=[_get_path_component(p) for p in f.path or []],
-                    )
-                    for f in mat.group_by
-                ],
-                bucketDuration=float(mat.bucket_duration_seconds),
-                aggregation=mat.aggregation,
-                aggregateOn=UpsertFeatureReferenceGQL(
-                    underlying=_get_feature_id(mat.aggregate_on, root_fqn=False),
-                    path=[_get_path_component(p) for p in t.path or []],
+            windowMaterialization=(
+                None
+                if mat is None
+                else UpsertWindowMaterializationGQL(
+                    namespace=mat.namespace,
+                    groupBy=[
+                        UpsertFeatureReferenceGQL(
+                            underlying=_get_feature_id(f, root_fqn=False),
+                            path=[_get_path_component(p) for p in f.path or []],
+                        )
+                        for f in mat.group_by
+                    ],
+                    bucketDuration=float(mat.bucket_duration_seconds),
+                    aggregation=mat.aggregation,
+                    aggregateOn=(
+                        UpsertFeatureReferenceGQL(
+                            underlying=_get_feature_id(mat.aggregate_on, root_fqn=False),
+                            path=[_get_path_component(p) for p in t.path or []],
+                        )
+                        if mat.aggregate_on is not None
+                        else None
+                    ),
+                    dtype=serialize_dtype(mat.pyarrow_dtype),
+                    backfillResolver=mat.backfill_resolver,
+                    backfillLookbackDuration=(
+                        float(mat.backfill_lookback_duration_seconds)
+                        if mat.backfill_lookback_duration_seconds is not None
+                        else None
+                    ),
+                    backfillStartTime=mat.backfill_start_time,
+                    backfillSchedule=mat.backfill_schedule,
+                    continuousResolver=mat.continuous_resolver,
+                    continuousBufferDuration=(
+                        float(mat.continuous_buffer_duration_seconds)
+                        if mat.continuous_buffer_duration_seconds is not None
+                        else None
+                    ),
                 )
-                if mat.aggregate_on is not None
-                else None,
-                dtype=serialize_dtype(mat.pyarrow_dtype),
-                backfillResolver=mat.backfill_resolver,
-                backfillLookbackDuration=float(mat.backfill_lookback_duration_seconds)
-                if mat.backfill_lookback_duration_seconds is not None
-                else None,
-                backfillStartTime=mat.backfill_start_time,
-                backfillSchedule=mat.backfill_schedule,
-                continuousResolver=mat.continuous_resolver,
-                continuousBufferDuration=float(mat.continuous_buffer_duration_seconds)
-                if mat.continuous_buffer_duration_seconds is not None
-                else None,
             ),
             maxStaleness=timedelta_to_duration(t.max_staleness),
             description=t.description,

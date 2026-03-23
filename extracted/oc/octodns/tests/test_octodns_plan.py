@@ -5,6 +5,8 @@
 from io import StringIO
 from json import loads
 from logging import getLogger
+from os.path import join
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 from helpers import SimpleProvider
@@ -135,7 +137,7 @@ class TestPlanJson(TestCase):
         PlanJson('json').run(plans, fh=out)
         data = loads(out.getvalue())
         for key in ('test', 'unit.tests.', 'changes'):
-            self.assertTrue(key in data)
+            self.assertIn(key, data)
             data = data[key]
         self.assertEqual(4, len(data))
 
@@ -152,11 +154,11 @@ class TestPlanMarkdown(TestCase):
         out = StringIO()
         PlanMarkdown('markdown').run(plans, fh=out)
         out = out.getvalue()
-        self.assertTrue('## unit.tests.' in out)
-        self.assertTrue('Create | b | CNAME | 60 | foo.unit.tests.' in out)
-        self.assertTrue('Update | a | A | 300 | 1.1.1.1;' in out)
-        self.assertTrue('NA-US: 6.6.6.6 | test' in out)
-        self.assertTrue('Delete | a | A | 300 | 2.2.2.2;' in out)
+        self.assertIn('## unit.tests.', out)
+        self.assertIn('Create | b | CNAME | 60 | foo.unit.tests.', out)
+        self.assertIn('Update | a | A | 300 | 1.1.1.1;', out)
+        self.assertIn('NA-US: 6.6.6.6 | test', out)
+        self.assertIn('Delete | a | A | 300 | 2.2.2.2;', out)
 
 
 class HelperPlan(Plan):
@@ -233,7 +235,7 @@ class TestPlanSafety(TestCase):
         plan = HelperPlan(existing, None, changes, True)
         with self.assertRaises(TooMuchChange) as ctx:
             plan.raise_if_unsafe()
-        self.assertTrue('Too many updates', str(ctx.exception))
+        self.assertIn('Too many updates', str(ctx.exception))
 
         # If we require more records before applying we're still OK though
         plan = HelperPlan(existing, None, changes, True, min_existing=10)
@@ -276,7 +278,7 @@ class TestPlanSafety(TestCase):
         plan = HelperPlan(existing, None, changes, True)
         with self.assertRaises(TooMuchChange) as ctx:
             plan.raise_if_unsafe()
-        self.assertTrue('Too many updates', str(ctx.exception))
+        self.assertIn('Too many updates', str(ctx.exception))
 
     def test_too_many_provider_deletes(self):
         existing = self.existing.copy()
@@ -312,7 +314,7 @@ class TestPlanSafety(TestCase):
         plan = HelperPlan(existing, None, changes, True)
         with self.assertRaises(TooMuchChange) as ctx:
             plan.raise_if_unsafe()
-        self.assertTrue('Too many deletes', str(ctx.exception))
+        self.assertIn('Too many deletes', str(ctx.exception))
 
         # If we require more records before applying we're still OK though
         plan = HelperPlan(existing, None, changes, True, min_existing=10)
@@ -344,7 +346,7 @@ class TestPlanSafety(TestCase):
         plan = HelperPlan(existing, None, changes, True)
         with self.assertRaises(TooMuchChange) as ctx:
             plan.raise_if_unsafe()
-        self.assertTrue('Too many deletes', str(ctx.exception))
+        self.assertIn('Too many deletes', str(ctx.exception))
 
     def test_root_ns_change(self):
         existing = self.existing.copy()
@@ -394,7 +396,7 @@ class TestPlanSafety(TestCase):
         plan = HelperPlan(existing, None, changes, True)
         with self.assertRaises(RootNsChange) as ctx:
             plan.raise_if_unsafe()
-        self.assertTrue('Root Ns record change', str(ctx.exception))
+        self.assertIn('Root NS record change', str(ctx.exception))
 
     def test_data(self):
         data = plans[0][1].data
@@ -432,3 +434,64 @@ class TestPlanSafety(TestCase):
         self.assertEqual('update', update_data['type'])
         self.assertEqual(update.existing.data, update_data['existing'])
         self.assertEqual(update.new.data, update_data['new'])
+
+
+class TestPlanOutputFilename(TestCase):
+    def test_plan_json_output_filename(self):
+        with TemporaryDirectory() as tmpdir:
+            output_filename = join(tmpdir, 'plan.json')
+            PlanJson('json', output_filename=output_filename).run(plans)
+            with open(output_filename) as fh:
+                data = loads(fh.read())
+            for key in ('test', 'unit.tests.', 'changes'):
+                self.assertIn(key, data)
+                data = data[key]
+            self.assertEqual(4, len(data))
+
+    def test_plan_markdown_output_filename(self):
+        with TemporaryDirectory() as tmpdir:
+            output_filename = join(tmpdir, 'plan.md')
+            PlanMarkdown('markdown', output_filename=output_filename).run(plans)
+            with open(output_filename) as fh:
+                out = fh.read()
+            self.assertIn('## unit.tests.', out)
+            self.assertIn('Create | b | CNAME | 60 | foo.unit.tests.', out)
+
+    def test_plan_html_output_filename(self):
+        with TemporaryDirectory() as tmpdir:
+            output_filename = join(tmpdir, 'plan.html')
+            PlanHtml('html', output_filename=output_filename).run(plans)
+            with open(output_filename) as fh:
+                out = fh.read()
+            self.assertIn(
+                '    <td colspan=6>Summary: Creates=2, Updates=1, Deletes=1, Existing=0, Meta=False</td>',
+                out,
+            )
+
+    def test_plan_json_no_output_filename(self):
+        # Verify default behavior still works (writes to provided fh)
+        out = StringIO()
+        PlanJson('json', output_filename=None).run(plans, fh=out)
+        data = loads(out.getvalue())
+        for key in ('test', 'unit.tests.', 'changes'):
+            self.assertIn(key, data)
+            data = data[key]
+        self.assertEqual(4, len(data))
+
+    def test_plan_markdown_empty_output_filename(self):
+        # Verify empty plans work with output_filename
+        with TemporaryDirectory() as tmpdir:
+            output_filename = join(tmpdir, 'plan.md')
+            PlanMarkdown('markdown', output_filename=output_filename).run([])
+            with open(output_filename) as fh:
+                out = fh.read()
+            self.assertEqual('## No changes were planned\n', out)
+
+    def test_plan_html_empty_output_filename(self):
+        # Verify empty plans work with output_filename
+        with TemporaryDirectory() as tmpdir:
+            output_filename = join(tmpdir, 'plan.html')
+            PlanHtml('html', output_filename=output_filename).run([])
+            with open(output_filename) as fh:
+                out = fh.read()
+            self.assertEqual('<b>No changes were planned</b>', out)

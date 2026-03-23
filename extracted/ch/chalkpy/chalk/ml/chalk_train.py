@@ -14,8 +14,7 @@ class Checkpointer(Protocol):
         additional_files: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         run_name: Optional[str] = None,
-    ) -> RegisterModelArtifactResponse:
-        ...
+    ) -> RegisterModelArtifactResponse: ...
 
 
 class ClientCheckpointer:

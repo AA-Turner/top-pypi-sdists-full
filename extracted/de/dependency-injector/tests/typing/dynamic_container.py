@@ -1,4 +1,5 @@
 from typing import Any, Dict
+from typing_extensions import assert_type
 
 from dependency_injector import containers, providers
 
@@ -22,7 +23,9 @@ container4.set_providers(a=providers.Provider())
 
 # Test 5: to check .dependencies attribute
 container5 = containers.DynamicContainer()
-dependencies: Dict[str, providers.Provider[Any]] = container5.dependencies
+dependencies = container5.dependencies
+assert_type(dependencies, Dict[str, providers.Provider[Any]])
 
 # Test 6: to check base class
+# NOTE: Using assignment to check base class instead of exact type
 container6: containers.Container = containers.DynamicContainer()

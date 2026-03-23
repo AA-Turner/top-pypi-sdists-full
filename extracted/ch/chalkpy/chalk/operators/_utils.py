@@ -31,13 +31,15 @@ class _GetStaticOperatorError(Exception):
             category=ErrorCodeCategory.REQUEST,
             message=message,
             resolver=resolver_fqn,
-            exception=ChalkException.create(
-                kind=type(underlying_exception).__name__,
-                message=str(underlying_exception),
-                stacktrace=get_stacktrace(underlying_exception),
-            )
-            if underlying_exception
-            else None,
+            exception=(
+                ChalkException.create(
+                    kind=type(underlying_exception).__name__,
+                    message=str(underlying_exception),
+                    stacktrace=get_stacktrace(underlying_exception),
+                )
+                if underlying_exception
+                else None
+            ),
         )
 
 
@@ -45,8 +47,7 @@ ProtoT = TypeVar("ProtoT", covariant=True)
 
 
 class _ToProto(Protocol[ProtoT]):
-    def _to_proto(self) -> ProtoT:
-        ...
+    def _to_proto(self) -> ProtoT: ...
 
 
 @dataclasses.dataclass

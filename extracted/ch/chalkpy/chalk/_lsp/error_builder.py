@@ -407,8 +407,7 @@ class FeatureClassErrorBuilder:
         severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
         raise_error: None = ...,
         uri: str | None = ...,
-    ) -> DiagnosticBuilder:
-        ...
+    ) -> DiagnosticBuilder: ...
 
     @overload
     def add_diagnostic(
@@ -422,8 +421,7 @@ class FeatureClassErrorBuilder:
         severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
         raise_error: Type[Exception],
         uri: str | None = ...,
-    ) -> NoReturn:
-        ...
+    ) -> NoReturn: ...
 
     def add_diagnostic(
         self,
@@ -547,8 +545,7 @@ class ResolverErrorBuilder:
         severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
         raise_error: None = ...,
         uri: str | None = ...,
-    ) -> DiagnosticBuilder:
-        ...
+    ) -> DiagnosticBuilder: ...
 
     @overload
     def add_diagnostic(
@@ -562,8 +559,7 @@ class ResolverErrorBuilder:
         severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
         raise_error: Type[Exception] = ...,
         uri: str | None = ...,
-    ) -> NoReturn:
-        ...
+    ) -> NoReturn: ...
 
     def add_diagnostic(
         self,
@@ -973,8 +969,7 @@ class FunctionCallErrorBuilder:
         severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
         raise_error: None = ...,
         uri: str | None = ...,
-    ) -> DiagnosticBuilder:
-        ...
+    ) -> DiagnosticBuilder: ...
 
     @overload
     def add_diagnostic(
@@ -988,8 +983,7 @@ class FunctionCallErrorBuilder:
         severity: DiagnosticSeverityGQL = DiagnosticSeverityGQL.Error,
         raise_error: Type[Exception],
         uri: str | None = ...,
-    ) -> NoReturn:
-        ...
+    ) -> NoReturn: ...
 
     def add_diagnostic(
         self,

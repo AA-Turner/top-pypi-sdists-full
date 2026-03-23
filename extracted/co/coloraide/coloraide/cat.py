@@ -51,7 +51,7 @@ def calc_adaptation_matrices(
     w1: tuple[float, float],
     w2: tuple[float, float],
     m: tuple[tuple[float, ...], ...],
-) -> tuple[Matrix, Matrix]:
+) -> Matrix:
     """
     Get the von Kries based adaptation matrix based on the method and illuminants.
 
@@ -69,10 +69,7 @@ def calc_adaptation_matrices(
     src = alg.matmul_x3(m, util.xy_to_xyz(w1), dims=alg.D2_D1)
     dest = alg.matmul_x3(m, util.xy_to_xyz(w2), dims=alg.D2_D1)
     m2 = alg.diag(alg.divide_x3(dest, src, dims=alg.D1))
-    adapt = alg.matmul_x3(alg.solve(m, m2), m, dims=alg.D2)
-
-    return adapt, alg.inv(adapt)
-
+    return alg.matmul_x3(alg.solve(m, m2), m, dims=alg.D2)
 
 class CAT(Plugin, metaclass=ABCMeta):
     """Chromatic adaptation."""
@@ -115,9 +112,7 @@ class VonKries(CAT):
         if w1 == w2:
             return [*xyz]
 
-        a, b = sorted([w1, w2])
-        m, mi = calc_adaptation_matrices(a, b, self.MATRIX)
-        return alg.matmul_x3(mi if a != w1 else m, xyz, dims=alg.D2_D1)
+        return alg.matmul_x3(calc_adaptation_matrices(w1, w2, self.MATRIX), xyz, dims=alg.D2_D1)
 
 
 class Bradford(VonKries):
@@ -190,7 +185,7 @@ class Sharp(VonKries):
     """
     Sharp CAT.
 
-    https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.14.918&rep=rep1&type=pdf
+    https://acorn.stanford.edu/psych221/projects/2010/JasonSu/Papers/Two%20New%20von%20Kries%20Based%20Chromatic%20Adaptation.pdf
     """
 
     NAME = "sharp"
@@ -207,7 +202,6 @@ class CMCCAT2000(VonKries):
     CMCCAT2000 CAT.
 
     https://hrcak.srce.hr/file/95370
-    https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.14.918&rep=rep1&type=pdf
     """
 
     NAME = 'cmccat2000'

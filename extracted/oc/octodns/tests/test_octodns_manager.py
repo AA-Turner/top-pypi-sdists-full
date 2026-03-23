@@ -51,87 +51,85 @@ class TestManager(TestCase):
     def test_missing_provider_class(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('missing-provider-class.yaml')).sync()
-        self.assertTrue('missing class' in str(ctx.exception))
+        self.assertIn('missing class', str(ctx.exception))
 
     def test_bad_provider_class(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('bad-provider-class.yaml')).sync()
-        self.assertTrue('Unknown provider class' in str(ctx.exception))
+        self.assertIn('Unknown provider class', str(ctx.exception))
 
     def test_bad_provider_class_module(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(
                 get_config_filename('bad-provider-class-module.yaml')
             ).sync()
-        self.assertTrue('Unknown provider class' in str(ctx.exception))
+        self.assertIn('Unknown provider class', str(ctx.exception))
 
     def test_bad_provider_class_no_module(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(
                 get_config_filename('bad-provider-class-no-module.yaml')
             ).sync()
-        self.assertTrue('Unknown provider class' in str(ctx.exception))
+        self.assertIn('Unknown provider class', str(ctx.exception))
 
     def test_missing_provider_config(self):
         # Missing provider config
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('missing-provider-config.yaml')).sync()
-        self.assertTrue('provider config' in str(ctx.exception))
+        self.assertIn('provider config', str(ctx.exception))
 
     def test_missing_env_config(self):
         # details of the EnvironSecrets will be tested in dedicated tests
         with self.assertRaises(EnvironSecretsException) as ctx:
             Manager(get_config_filename('missing-provider-env.yaml')).sync()
-        self.assertTrue('missing env var' in str(ctx.exception))
+        self.assertIn('missing env var', str(ctx.exception))
 
     def test_missing_source(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('provider-problems.yaml')).sync(
                 ['missing.sources.']
             )
-        self.assertTrue('missing sources' in str(ctx.exception))
+        self.assertIn('missing sources', str(ctx.exception))
 
     def test_missing_zone(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('dynamic-config.yaml')).sync(
                 ['missing.zones.']
             )
-        self.assertTrue('Requested zone ' in str(ctx.exception))
+        self.assertIn('Requested zone ', str(ctx.exception))
 
     def test_missing_targets(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('provider-problems.yaml')).sync(
                 ['missing.targets.']
             )
-        self.assertTrue('missing targets' in str(ctx.exception))
+        self.assertIn('missing targets', str(ctx.exception))
 
     def test_unknown_source(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('provider-problems.yaml')).sync(
                 ['unknown.source.']
             )
-        self.assertTrue('unknown source' in str(ctx.exception))
+        self.assertIn('unknown source', str(ctx.exception))
 
     def test_unknown_target(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('provider-problems.yaml')).sync(
                 ['unknown.target.']
             )
-        self.assertTrue('unknown target' in str(ctx.exception))
+        self.assertIn('unknown target', str(ctx.exception))
 
     def test_bad_plan_output_class(self):
         with self.assertRaises(ManagerException) as ctx:
             name = 'bad-plan-output-missing-class.yaml'
             Manager(get_config_filename(name)).sync()
-        self.assertTrue(
-            'plan_output bad is missing class' in str(ctx.exception)
-        )
+        self.assertIn('plan_output bad is missing class', str(ctx.exception))
 
     def test_bad_plan_output_config(self):
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('bad-plan-output-config.yaml')).sync()
-        self.assertTrue(
-            'Incorrect plan_output config for bad' in str(ctx.exception)
+        self.assertIn(
+            'Incorrect plan_output config for bad', str(ctx.exception)
         )
 
     def test_source_only_as_a_target(self):
@@ -139,7 +137,7 @@ class TestManager(TestCase):
             Manager(get_config_filename('provider-problems.yaml')).sync(
                 ['not.targetable.']
             )
-        self.assertTrue('does not support targeting' in str(ctx.exception))
+        self.assertIn('does not support targeting', str(ctx.exception))
 
     def test_always_dry_run(self):
         with TemporaryDirectory() as tmpdir:
@@ -617,6 +615,48 @@ class TestManager(TestCase):
                 )
             self.assertIn('unknown processor', str(ctx.exception))
 
+    def test_dump_processor_lenient_fallback(self):
+        with TemporaryDirectory() as tmpdir:
+            environ['YAML_TMP_DIR'] = tmpdir.dirname
+            manager = Manager(get_config_filename('dump-processors.yaml'))
+
+            class NoLenientProcessor(BaseProcessor):
+                def process_source_zone(self, desired, sources):
+                    return desired
+
+            # Patch _get_processors to return a processor without lenient
+            with patch.object(
+                manager,
+                '_get_processors',
+                return_value=[NoLenientProcessor('test')],
+            ):
+                # Should fall back to calling without lenient
+                manager.dump(
+                    zone='unit.tests.',
+                    output_dir=tmpdir.dirname,
+                    sources=['config'],
+                    lenient=True,
+                )
+
+            class OtherTypeProcessor(BaseProcessor):
+                def process_source_zone(self, desired, sources, lenient=False):
+                    raise TypeError('something else')
+
+            # Non-lenient TypeErrors should propagate
+            with patch.object(
+                manager,
+                '_get_processors',
+                return_value=[OtherTypeProcessor('test')],
+            ):
+                with self.assertRaises(TypeError) as ctx:
+                    manager.dump(
+                        zone='unit.tests.',
+                        output_dir=tmpdir.dirname,
+                        sources=['config'],
+                        lenient=True,
+                    )
+                self.assertEqual('something else', str(ctx.exception))
+
     def test_validate_configs(self):
         Manager(get_config_filename('simple-validate.yaml')).validate_configs()
 
@@ -624,27 +664,27 @@ class TestManager(TestCase):
             Manager(
                 get_config_filename('missing-sources.yaml')
             ).validate_configs()
-        self.assertTrue('missing sources' in str(ctx.exception))
+        self.assertIn('missing sources', str(ctx.exception))
 
         with self.assertRaises(ManagerException) as ctx:
             Manager(
                 get_config_filename('unknown-provider.yaml')
             ).validate_configs()
-        self.assertTrue('unknown source' in str(ctx.exception))
+        self.assertIn('unknown source', str(ctx.exception))
 
         # Alias zone using an invalid source zone.
         with self.assertRaises(ManagerException) as ctx:
             Manager(
                 get_config_filename('unknown-source-zone.yaml')
             ).validate_configs()
-        self.assertTrue('does not exist' in str(ctx.exception))
+        self.assertIn('does not exist', str(ctx.exception))
 
         # Alias zone that points to another alias zone.
         with self.assertRaises(ManagerException) as ctx:
             Manager(
                 get_config_filename('alias-zone-loop.yaml')
             ).validate_configs()
-        self.assertTrue('is an alias zone' in str(ctx.exception))
+        self.assertIn('is an alias zone', str(ctx.exception))
 
         # Valid config file using an alias zone.
         Manager(
@@ -655,20 +695,20 @@ class TestManager(TestCase):
             Manager(
                 get_config_filename('unknown-processor.yaml')
             ).validate_configs()
-        self.assertTrue('unknown processor' in str(ctx.exception))
+        self.assertIn('unknown processor', str(ctx.exception))
 
     def test_get_zone(self):
         Manager(get_config_filename('simple.yaml')).get_zone('unit.tests.')
 
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('simple.yaml')).get_zone('unit.tests')
-        self.assertTrue('missing ending dot' in str(ctx.exception))
+        self.assertIn('missing ending dot', str(ctx.exception))
 
         with self.assertRaises(ManagerException) as ctx:
             Manager(get_config_filename('simple.yaml')).get_zone(
                 'unknown-zone.tests.'
             )
-        self.assertTrue('Unknown zone name' in str(ctx.exception))
+        self.assertIn('Unknown zone name', str(ctx.exception))
 
     def test_populate_lenient_fallback(self):
         with TemporaryDirectory() as tmpdir:
@@ -715,6 +755,129 @@ class TestManager(TestCase):
             with self.assertRaises(TypeError) as ctx:
                 manager._populate_and_plan('unit.tests.', [], [], [OtherType()])
             self.assertEqual('something else', str(ctx.exception))
+
+    def test_processor_lenient_fallback(self):
+        with TemporaryDirectory() as tmpdir:
+            environ['YAML_TMP_DIR'] = tmpdir.dirname
+            environ['YAML_TMP_DIR2'] = tmpdir.dirname
+            manager = Manager(get_config_filename('simple.yaml'))
+
+            class NoLenientProcessor(BaseProcessor):
+                def process_source_zone(self, desired, sources):
+                    return desired
+
+            # This should be ok, we'll fall back to not passing lenient
+            manager._populate_and_plan(
+                'unit.tests.', [NoLenientProcessor('test')], [], []
+            )
+
+            class OtherTypeProcessor(BaseProcessor):
+                def process_source_zone(self, desired, sources, lenient=False):
+                    raise TypeError('something else')
+
+            # This will blow up, we don't fallback for non-lenient TypeErrors
+            with self.assertRaises(TypeError) as ctx:
+                manager._populate_and_plan(
+                    'unit.tests.', [OtherTypeProcessor('test')], [], []
+                )
+            self.assertEqual('something else', str(ctx.exception))
+
+    def test_processor_plan_lenient_fallback(self):
+        with TemporaryDirectory() as tmpdir:
+            environ['YAML_TMP_DIR'] = tmpdir.dirname
+            environ['YAML_TMP_DIR2'] = tmpdir.dirname
+            manager = Manager(get_config_filename('simple.yaml'))
+
+            class NoLenientPlanProcessor(BaseProcessor):
+                def process_plan(self, plan, sources, target):
+                    return plan
+
+            class NoLenientTarget(SimpleProvider):
+                def plan(self, zone, processors=[], lenient=False):
+                    return None
+
+            # This should be ok, we'll fall back to not passing lenient
+            manager._populate_and_plan(
+                'unit.tests.',
+                [NoLenientPlanProcessor('test')],
+                [],
+                [NoLenientTarget()],
+            )
+
+            class OtherTypePlanProcessor(BaseProcessor):
+                def process_plan(self, plan, sources, target, lenient=False):
+                    raise TypeError('something else')
+
+            # This will blow up, we don't fallback for non-lenient TypeErrors
+            with self.assertRaises(TypeError) as ctx:
+                manager._populate_and_plan(
+                    'unit.tests.',
+                    [OtherTypePlanProcessor('test')],
+                    [],
+                    [NoLenientTarget()],
+                )
+            self.assertEqual('something else', str(ctx.exception))
+
+    def test_plan_lenient_fallback(self):
+        with TemporaryDirectory() as tmpdir:
+            environ['YAML_TMP_DIR'] = tmpdir.dirname
+            environ['YAML_TMP_DIR2'] = tmpdir.dirname
+            manager = Manager(get_config_filename('simple.yaml'))
+
+            class NoLenientPlan(SimpleProvider):
+                def plan(self, zone, processors=[]):
+                    pass
+
+            # This should be ok, we'll fall back to not passing lenient
+            manager._populate_and_plan('unit.tests.', [], [], [NoLenientPlan()])
+
+            class OtherTypePlan(SimpleProvider):
+                def plan(self, zone, processors=[], lenient=False):
+                    raise TypeError('something else')
+
+            # This will blow up, we don't fallback for non-lenient TypeErrors
+            with self.assertRaises(TypeError) as ctx:
+                manager._populate_and_plan(
+                    'unit.tests.', [], [], [OtherTypePlan()]
+                )
+            self.assertEqual('something else', str(ctx.exception))
+
+    def test_plan_lenient_and_processors_fallback(self):
+        with TemporaryDirectory() as tmpdir:
+            environ['YAML_TMP_DIR'] = tmpdir.dirname
+            environ['YAML_TMP_DIR2'] = tmpdir.dirname
+            manager = Manager(get_config_filename('simple.yaml'))
+
+            # Provider that raises about lenient first, then processors.
+            # This hits the nested fallback path where the plan method
+            # doesn't support either param but the lenient TypeError
+            # comes first.
+            class NoLenientNoProcessors(SimpleProvider):
+                def plan(self, zone, **kwargs):
+                    if 'lenient' in kwargs:
+                        raise TypeError(
+                            "got an unexpected keyword argument 'lenient'"
+                        )
+                    if 'processors' in kwargs:
+                        raise TypeError(
+                            "got an unexpected keyword argument 'processors'"
+                        )
+
+            # This should be ok, we'll fall back through both
+            manager._populate_and_plan(
+                'unit.tests.', [], [], [NoLenientNoProcessors()]
+            )
+
+            # Provider that accepts neither lenient nor processors via
+            # signature (Python raises about processors first since it's the
+            # first kwarg in the call, hitting the elif branch)
+            class NeitherViaSignature(SimpleProvider):
+                def plan(self, zone):
+                    pass
+
+            manager._populate_and_plan(
+                'unit.tests.', [], [], [NeitherViaSignature()]
+            )
 
     @patch('octodns.manager.Manager._get_named_class')
     def test_sync_passes_file_handle(self, mock):
@@ -1187,7 +1350,7 @@ class TestManager(TestCase):
 
         with self.assertRaises(ManagerException) as ctx:
             manager.sync()
-        self.assertTrue('does not support `list_zones`' in str(ctx.exception))
+        self.assertIn('does not support `list_zones`', str(ctx.exception))
 
     def test_build_kwargs(self):
         manager = Manager(get_config_filename('simple.yaml'))
@@ -1276,6 +1439,24 @@ class TestManager(TestCase):
             ),
         )
 
+        # default values when env var is missing
+        self.assertEqual(
+            {'secret': 'fallback', 'num': 99, 'flt': 1.5},
+            manager._build_kwargs(
+                {
+                    'secret': 'env/OCTODNS_MISSING/fallback',
+                    'num': 'env/OCTODNS_MISSING/99',
+                    'flt': 'env/OCTODNS_MISSING/1.5',
+                }
+            ),
+        )
+
+        # default value ignored when env var exists
+        self.assertEqual(
+            {'secret': 42},
+            manager._build_kwargs({'secret': 'env/OCTODNS_TEST_1/ignored'}),
+        )
+
     def test_config_secret_handlers(self):
         # config doesn't matter here
         manager = Manager(get_config_filename('simple.yaml'))
@@ -1325,14 +1506,14 @@ class TestManager(TestCase):
         manager = Manager(get_config_filename('secrets.yaml'))
 
         # dummy was configured
-        self.assertTrue('dummy' in manager.secret_handlers)
+        self.assertIn('dummy', manager.secret_handlers)
         dummy = manager.secret_handlers['dummy']
         self.assertIsInstance(dummy, DummySecrets)
         # and has the prefix value explicitly stated in the yaml
         self.assertEqual('in_config/hello', dummy.fetch('hello', None))
 
         # requires-env was configured
-        self.assertTrue('requires-env' in manager.secret_handlers)
+        self.assertIn('requires-env', manager.secret_handlers)
         requires_env = manager.secret_handlers['requires-env']
         self.assertIsInstance(requires_env, DummySecrets)
         # and successfully pulled a value from env as its prefix
@@ -1341,7 +1522,7 @@ class TestManager(TestCase):
         )
 
         # requires-dummy was created
-        self.assertTrue('requires-dummy' in manager.secret_handlers)
+        self.assertIn('requires-dummy', manager.secret_handlers)
         requires_dummy = manager.secret_handlers['requires-dummy']
         self.assertIsInstance(requires_dummy, DummySecrets)
         # but failed to fetch a secret from dummy so we just get the configured

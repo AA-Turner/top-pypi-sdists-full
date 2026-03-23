@@ -185,9 +185,7 @@ class Windowed(Generic[TRich], metaclass=_WINDOWED_METACLASS):
             window_materialization=(
                 MaterializationWindowConfig(bucket_duration=timedelta(seconds=window_duration))
                 if self._materialization is True and window_duration is not None
-                else self._materialization
-                if isinstance(self._materialization, dict)
-                else None
+                else self._materialization if isinstance(self._materialization, dict) else None
             ),
         )
 

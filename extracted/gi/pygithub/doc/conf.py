@@ -13,7 +13,9 @@
 # Copyright 2023 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2023 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2023 Liuyang Wan <tsfdye@gmail.com>                                #
+# Copyright 2025 Aidan McNay <acm289@cornell.edu>                              #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2025 Hugo van Kemenade <1324225+hugovk@users.noreply.github.com>   #
 #                                                                              #
 # This file is part of PyGithub.                                               #
 # http://pygithub.readthedocs.io/                                              #
@@ -40,7 +42,7 @@ import glob
 import os
 import re
 import sys
-from typing import Iterable
+from collections.abc import Iterable
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -275,7 +277,7 @@ texinfo_documents = [
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 # texinfo_show_urls = 'footnote'
 
-autodoc_default_flags = ["members"]
+autodoc_default_options = {"members": True}
 autodoc_member_order = "bysource"
 autoclass_content = "both"
 
@@ -368,7 +370,7 @@ for githubObjectClass, module in githubObjectClasses.items():
                     ]:
                         method = None
                 isProperty = False
-            if line.startswith("        :calls: `"):
+            if line.startswith("        :calls: `") and method:
                 for callee in line[16:].split(" or "):
                     verb, url = callee[1:].split(" ")[0:2]
                     if url not in methods:
@@ -376,7 +378,6 @@ for githubObjectClass, module in githubObjectClasses.items():
                     if verb not in methods[url]:
                         methods[url][verb] = set()
                     methods[url][verb].add(":meth:`" + module + "." + githubObjectClass + "." + method + "`")
-                method = None
 
 methods["/markdown/raw"] = dict()
 methods["/markdown/raw"]["POST"] = ["Not implemented, see ``/markdown``"]

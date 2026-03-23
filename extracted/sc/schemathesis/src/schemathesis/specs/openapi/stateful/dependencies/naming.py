@@ -1,9 +1,37 @@
 from __future__ import annotations
 
+from functools import lru_cache
+
 # Generic parameter prefixes that don't identify a specific resource type.
 # When a parameter like "item_id" or "resource_uuid" is detected, the prefix
 # is not meaningful for resource identification, so we fall back to path-based naming.
 GENERIC_PREFIXES = frozenset({"item", "resource", "object", "entity"})
+
+
+@lru_cache(maxsize=512)
+def strip_version_prefix(path: str) -> str:
+    """Remove leading /api and /vN prefix segments from an API path.
+
+    Examples:
+        /v1/users/{id}    -> /users/{id}
+        /api/v2/orders    -> /orders
+        /api/users        -> /users
+        /oauth2/files     -> /oauth2/files  (NOT stripped)
+        /giving/tags      -> /giving/tags   (NOT stripped)
+
+    """
+    if not path:
+        return path
+    segments = path.split("/")
+    # segments[0] is always '' (from leading /)
+    start = 1
+    while start < len(segments):
+        seg = segments[start]
+        if seg == "api" or (len(seg) > 1 and seg[0] == "v" and seg[1:].isdigit()):
+            start += 1
+        else:
+            break
+    return "/" + "/".join(segments[start:])
 
 
 def from_parameter(parameter: str, path: str) -> str | None:
@@ -65,6 +93,7 @@ def from_parameter(parameter: str, path: str) -> str | None:
     return None
 
 
+@lru_cache(maxsize=512)
 def from_path(path: str, parameter_name: str | None = None) -> str | None:
     """Detect resource name from OpenAPI path."""
     segments = [s for s in path.split("/") if s]

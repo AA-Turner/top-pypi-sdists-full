@@ -552,7 +552,12 @@ class DatasetRevision(Protocol):
         resolver: ResolverProtocol,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | None | ellipsis = ...,
-    ) -> Union[pl.DataFrame, pl.LazyFrame, Mapping[str, pl.DataFrame], Mapping[str, pl.LazyFrame],]:
+    ) -> Union[
+        pl.DataFrame,
+        pl.LazyFrame,
+        Mapping[str, pl.DataFrame],
+        Mapping[str, pl.LazyFrame],
+    ]:
         """
         Downloads the resolver replay data for the given resolver in the revision, provided the revision had store_plan_stages
         enabled.
@@ -1335,7 +1340,12 @@ class Dataset(Protocol):
         resolver: ResolverProtocol,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
-    ) -> Union[pl.DataFrame, pl.LazyFrame, Mapping[str, pl.DataFrame], Mapping[str, pl.LazyFrame],]:
+    ) -> Union[
+        pl.DataFrame,
+        pl.LazyFrame,
+        Mapping[str, pl.DataFrame],
+        Mapping[str, pl.LazyFrame],
+    ]:
         """
         Downloads the resolver replay data for the given resolver in the latest revision of the dataset.
 

@@ -7,5 +7,7 @@ metadata:
   unit: currency-USD
   label: Florida unemployment taxable wage base
   reference:
+    - title: Florida Statutes Section 443.1217
+      href: https://www.flsenate.gov/Laws/Statutes/2025/443.1217
     - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
       href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=19

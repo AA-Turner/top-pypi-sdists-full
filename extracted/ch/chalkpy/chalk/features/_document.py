@@ -7,8 +7,7 @@ T = TypeVar("T")
 
 if TYPE_CHECKING:
 
-    class Document:
-        ...
+    class Document: ...
 
 else:
 

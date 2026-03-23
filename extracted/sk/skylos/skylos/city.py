@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 
-
+## called via cli, but imported by city.py for topology generation NOT UNUSED
 def _compute_loc(node) -> int:
     if node is None:
         return 1

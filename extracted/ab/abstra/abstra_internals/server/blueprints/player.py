@@ -71,10 +71,7 @@ def get_player_bp(controller: MainController):
         auth = flask.request.headers.get(USER_AUTH_HEADER_KEY)
         return guard.filtered_workspace(auth).as_dict
 
-    @bp.get("/_pages/<string:path>")
-    @guard.by(PathArgSelector("path"))
-    @player_usage
-    def _get_page(path):
+    def _resolve_page(path):
         form = controller.get_form_by_path(path)
         if form:
             auth = flask.request.headers.get(USER_AUTH_HEADER_KEY)
@@ -98,6 +95,17 @@ def get_player_bp(controller: MainController):
             }
 
         flask.abort(404)
+
+    @bp.get("/_pages-home")
+    @player_usage
+    def _get_home_page():
+        return _resolve_page("")
+
+    @bp.get("/_pages/<string:path>")
+    @guard.by(PathArgSelector("path"))
+    @player_usage
+    def _get_page(path):
+        return _resolve_page(path)
 
     @bp.get("/_version")
     def _get_version():
@@ -252,10 +260,7 @@ def get_player_bp(controller: MainController):
 
         return result
 
-    @bp.route("/_page/<path:path>", methods=["GET", "POST"])
-    @guard.by(PathArgSelector("path"))
-    @player_usage
-    def page_runner(path):
+    def _run_page(path):
         page = controller.get_page_stage_by_path(path)
 
         if not page:
@@ -320,6 +325,17 @@ def get_player_bp(controller: MainController):
             response=msg.body,
             headers=msg.headers,
         )
+
+    @bp.route("/_page-home", methods=["GET", "POST"])
+    @player_usage
+    def page_home_runner():
+        return _run_page("")
+
+    @bp.route("/_page/<path:path>", methods=["GET", "POST"])
+    @guard.by(PathArgSelector("path"))
+    @player_usage
+    def page_runner(path):
+        return _run_page(path)
 
     @bp.get("/_jobs")
     def list_jobs():

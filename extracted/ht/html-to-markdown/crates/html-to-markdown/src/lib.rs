@@ -216,12 +216,12 @@ mod tests {
 
         let (_markdown, metadata) = convert_with_metadata(html, None, config, None).expect("conversion should succeed");
 
-        let internal_links: Vec<_> = metadata
+        let internal_link_count = metadata
             .links
             .iter()
             .filter(|l| l.link_type == LinkType::Internal)
-            .collect();
-        assert_eq!(internal_links.len(), 2);
+            .count();
+        assert_eq!(internal_link_count, 2);
     }
 }
 

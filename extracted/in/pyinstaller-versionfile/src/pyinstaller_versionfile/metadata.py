@@ -1,8 +1,10 @@
 """
 Author: Andreas Finkler
 """
+
 # pylint: disable=too-many-arguments, too-many-positional-arguments
 from __future__ import annotations
+from collections import UserDict
 from typing import Optional, Union, TypedDict, Any
 
 import codecs
@@ -22,8 +24,20 @@ except ImportError:  # pragma: no cover
 from pyinstaller_versionfile import exceptions
 
 
+class KwargsDict(UserDict):
+    """Wrapper class for kwargs to overwrite the setdefault method."""
+
+    def setdefault(self, key: Any, default: Optional[Any] = None) -> Any:
+        """set default value for key if it does not exist or is None."""
+
+        if self.data.get(key, None) is None:
+            self.data[key] = default
+        return self.data[key]
+
+
 class MetadataKwargs(TypedDict, total=False):
     """Helper class to specify type hints for the kwargs used in some of the methods."""
+
     version: Optional[str]
     company_name: Optional[str]
     file_description: Optional[str]
@@ -54,14 +68,14 @@ class MetaData:
 
     def __init__(
         self,
-        version: Optional[str]=None,
-        company_name: Optional[str]=None,
-        file_description: Optional[str]=None,
-        internal_name: Optional[str]=None,
-        legal_copyright: Optional[str]=None,
-        original_filename: Optional[str]=None,
-        product_name: Optional[str]=None,
-        translations: Optional[list[int]]=None,
+        version: Optional[str] = None,
+        company_name: Optional[str] = None,
+        file_description: Optional[str] = None,
+        internal_name: Optional[str] = None,
+        legal_copyright: Optional[str] = None,
+        original_filename: Optional[str] = None,
+        product_name: Optional[str] = None,
+        translations: Optional[list[int]] = None,
     ) -> None:
         self.version = version or "0.0.0.0"
         self.company_name = company_name or self.placeholder_value
@@ -93,18 +107,18 @@ class MetaData:
         ]
         company = ", ".join([field for field in meta_fields if field])
 
-        kwargs.setdefault("version", meta.get("Version", None))
-        kwargs.setdefault("company_name", company)
-        kwargs.setdefault("file_description", meta.get("Summary", None))
-        kwargs.setdefault("internal_name", meta.get("Name", None))
-        kwargs.setdefault("legal_copyright", meta.get("License", None))
-        kwargs.setdefault("original_filename", meta.get("Name", None))
-        kwargs.setdefault("product_name", meta.get("Name", None))
-        kwargs.setdefault(
-            "translations", cls.default_translations
-        )
+        keywords = KwargsDict(kwargs)
 
-        return cls(**kwargs)
+        keywords.setdefault("version", meta.get("Version", None))
+        keywords.setdefault("company_name", company)
+        keywords.setdefault("file_description", meta.get("Summary", None))
+        keywords.setdefault("internal_name", meta.get("Name", None))
+        keywords.setdefault("legal_copyright", meta.get("License", None))
+        keywords.setdefault("original_filename", meta.get("Name", None))
+        keywords.setdefault("product_name", meta.get("Name", None))
+        keywords.setdefault("translations", cls.default_translations)
+
+        return cls(**keywords)
 
     @classmethod
     def from_file(cls, filepath: str, **kwargs: Any) -> MetaData:
@@ -153,9 +167,7 @@ class MetaData:
         # pair of language and charset, the third and fourth form the second pair, and so on.
         # For better readability the metadata file uses a list of dictionaries here, so we have
         # to flatten it first
-        return list(
-            itertools.chain(*[(d["langID"], d["charsetID"]) for d in data])
-        )
+        return list(itertools.chain(*[(d["langID"], d["charsetID"]) for d in data]))
 
     def set_version(self, version_string: str) -> None:
         """

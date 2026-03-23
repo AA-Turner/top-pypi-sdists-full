@@ -358,6 +358,7 @@ class LayoutDetectionConfig:
     preset: str
     confidence_threshold: float | None
     apply_heuristics: bool
+    table_model: str | None
 
     def __init__(
         self,
@@ -365,6 +366,7 @@ class LayoutDetectionConfig:
         preset: str | None = None,
         confidence_threshold: float | None = None,
         apply_heuristics: bool | None = None,
+        table_model: str | None = None,
     ) -> None: ...
 
 class AccelerationConfig:

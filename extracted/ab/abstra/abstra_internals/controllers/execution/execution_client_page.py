@@ -46,7 +46,13 @@ class PageClient(ExecutionClient):
                 self._before_send()
             if not self._streamed:
                 self.conn.send(self.response)
-            close_dto = contract.CloseDTO(exit_status="SUCCESS")
+            if self.response.status >= 500:
+                close_dto = contract.CloseDTO(
+                    exit_status="EXCEPTION",
+                    exception=Exception(self.response.body),
+                )
+            else:
+                close_dto = contract.CloseDTO(exit_status="SUCCESS")
             self._send(contract.ExecutionEndedMessage(close_dto, self.production_mode))
         except AuthorizationRequired as e:
             self.set_response(e.status_code, e.message, {})

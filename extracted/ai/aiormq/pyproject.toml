@@ -1,11 +1,12 @@
 [project]
 name = "aiormq"
-version = "6.9.3"
+version = "9.6.4"
 description = "Pure python AMQP asynchronous client library"
 authors = [{ name = "Dmitry Orlov", email = "me@mosquito.su" }]
 requires-python = ">=3.10,<4"
 readme = "README.rst"
 license = "Apache-2.0"
+license-files = ["COPYING"]
 keywords = [
     "rabbitmq",
     "asyncio",

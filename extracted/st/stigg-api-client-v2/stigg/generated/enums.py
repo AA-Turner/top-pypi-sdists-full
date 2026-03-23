@@ -222,6 +222,7 @@ class CreditGrantStatus(str, Enum):
 
 
 class CreditGrantType(str, Enum):
+    OVERDRAFT = "OVERDRAFT"
     PAID = "PAID"
     PROMOTIONAL = "PROMOTIONAL"
     RECURRING = "RECURRING"

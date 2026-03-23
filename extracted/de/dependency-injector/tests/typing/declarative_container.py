@@ -1,4 +1,5 @@
 from typing import Any, Dict
+from typing_extensions import assert_type
 
 from dependency_injector import containers, providers
 
@@ -8,10 +9,12 @@ class Container1(containers.DeclarativeContainer):
     provider = providers.Factory(int)
 
 
+# NOTE: Using assignment to check base class instead of exact type
 container1 = Container1()
 container1_type: containers.Container = Container1()
 provider1: providers.Provider[int] = container1.provider
-val1: int = container1.provider(3)
+val1 = container1.provider(3)
+assert_type(val1, int)
 
 
 # Test 2: to check @override decorator
@@ -46,7 +49,8 @@ class Container5(containers.DeclarativeContainer):
     provider = providers.Factory(int)
 
 
-dependencies: Dict[str, providers.Provider[Any]] = Container5.dependencies
+dependencies = Container5.dependencies
+assert_type(dependencies, Dict[str, providers.Provider[Any]])
 
 
 # Test 6: to check base class

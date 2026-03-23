@@ -4,7 +4,8 @@ EMPLOYER_PAYROLL_TAX_COMPONENTS = [
     "employer_social_security_tax",
     "employer_medicare_tax",
     "employer_federal_unemployment_tax",
-    "employer_state_unemployment_tax",
+    "employer_state_payroll_tax",
+    "employer_local_payroll_tax",
 ]
 
 
@@ -14,7 +15,7 @@ class employer_payroll_tax(Variable):
     label = "Employer payroll tax"
     documentation = (
         "Employer-side payroll tax liability, including Social Security, "
-        "Medicare, federal unemployment tax, and state unemployment tax."
+        "Medicare, federal unemployment tax, and state and local payroll taxes."
     )
     definition_period = YEAR
     unit = USD

@@ -51,18 +51,21 @@ def resourceclosing_container(request):
 
 def test_package_lookup():
     from samples.wiringstringids.package import test_package_function
+
     service = test_package_function()
     assert isinstance(service, Service)
 
 
 def test_package_subpackage_lookup():
     from samples.wiringstringids.package.subpackage import test_package_function
+
     service = test_package_function()
     assert isinstance(service, Service)
 
 
 def test_package_submodule_lookup():
     from samples.wiringstringids.package.subpackage.submodule import test_function
+
     service = test_function()
     assert isinstance(service, Service)
 
@@ -75,7 +78,13 @@ def test_module_attributes_wiring():
 
 def test_module_attribute_wiring_with_invalid_marker(container: Container):
     from samples.wiringstringids import module_invalid_attr_injection
-    with raises(Exception, match=re.escape("Unknown type of marker {0}".format(module_invalid_attr_injection.service))):
+
+    with raises(
+        Exception,
+        match=re.escape(
+            "Unknown type of marker {0}".format(module_invalid_attr_injection.service)
+        ),
+    ):
         container.wire(modules=[module_invalid_attr_injection])
 
 
@@ -182,7 +191,7 @@ def test_configuration_option():
 
 def test_configuration_option_required_undefined(container: Container):
     container.config.reset_override()
-    with raises(errors.Error, match="Undefined configuration option \"config.a.b.c\""):
+    with raises(errors.Error, match='Undefined configuration option "config.a.b.c"'):
         module.test_config_value_required_undefined()
 
 
@@ -203,6 +212,21 @@ def test_provided_instance(container: Container):
     with container.service.override(TestService()):
         some_value = module.test_provided_instance()
     assert some_value == 10
+
+
+def test_provided_instance_call_with_args():
+    some_value = module.test_provided_instance_call_with_args()
+    assert some_value == 3
+
+
+def test_provided_instance_call_with_kwargs():
+    some_value = module.test_provided_instance_call_with_kwargs()
+    assert some_value == {"a": 1, "b": 2}
+
+
+def test_provided_instance_call_with_args_and_kwargs():
+    some_value = module.test_provided_instance_call_with_args_and_kwargs()
+    assert some_value == {"args": (1, 2), "kwargs": {"key": "value"}}
 
 
 def test_subcontainer():
@@ -260,11 +284,13 @@ def test_unwire_class_method(container: Container):
 def test_unwire_package_function(container: Container):
     container.unwire()
     from samples.wiringstringids.package.subpackage.submodule import test_function
+
     assert isinstance(test_function(), Provide)
 
 
 def test_unwire_package_function_by_reference(container: Container):
     from samples.wiringstringids.package.subpackage import submodule
+
     container.unwire()
     assert isinstance(submodule.test_function(), Provide)
 

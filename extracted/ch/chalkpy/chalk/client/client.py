@@ -1207,6 +1207,36 @@ class ChalkClient:
         """
         ...
 
+    def get_offline_store_table_name(
+        self,
+        feature: Any,
+        include_historical: bool = False,
+    ) -> "str | list[str]":
+        """Get the offline store table name(s) for a feature.
+
+        Parameters
+        ----------
+        feature
+            The feature to look up. Can be a feature class attribute (e.g. ``User.fico_score``)
+            or a string FQN (e.g. ``"user.fico_score"``).
+        include_historical
+            If ``False`` (default), returns the current active table name as a string.
+            If ``True``, returns all historical table names ordered by internal version
+            (oldest to newest).
+
+        Returns
+        -------
+        str | list[str]
+            The table name string, or a list of table name strings if ``include_historical=True``.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().get_offline_store_table_name(User.fico_score)
+        >>> ChalkClient().get_offline_store_table_name("user.fico_score", include_historical=True)
+        """
+        ...
+
     def prompt_evaluation(
         self,
         prompts: list[Prompt | str],
@@ -1978,8 +2008,7 @@ class ChalkClient:
         """
         ...
 
-    def reset_branch(self, branch: BranchIdParam = ..., environment: EnvironmentId | None = None):
-        ...
+    def reset_branch(self, branch: BranchIdParam = ..., environment: EnvironmentId | None = None): ...
 
     def branch_state(
         self,
@@ -2195,8 +2224,7 @@ class ChalkClient:
         """
         ...
 
-    def get_operation_feature_statistics(self, operation_id: uuid.UUID) -> FeatureStatisticsResponse:
-        ...
+    def get_operation_feature_statistics(self, operation_id: uuid.UUID) -> FeatureStatisticsResponse: ...
 
     def get_model(
         self,

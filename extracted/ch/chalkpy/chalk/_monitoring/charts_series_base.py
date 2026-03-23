@@ -357,12 +357,10 @@ class SeriesBase:
         return f"Series(name='{self._name}')"
 
     @overload
-    def __eq__(self, other: "SeriesBase") -> bool:
-        ...
+    def __eq__(self, other: "SeriesBase") -> bool: ...
 
     @overload
-    def __eq__(self, other: Union[float, int]) -> ThresholdFunction:
-        ...
+    def __eq__(self, other: Union[float, int]) -> ThresholdFunction: ...
 
     def __eq__(self, other: Union[float, int, "SeriesBase"]) -> Union[bool, ThresholdFunction]:
         if isinstance(other, (int, float)):

@@ -1,11 +1,11 @@
+"""Create a file listing the contributors of a git repository.
 """
-Create a file listing the contributors of a git repository.
-"""
+
+from __future__ import annotations
 
 import argparse
 import logging
 from pathlib import Path
-from typing import Optional, Union
 
 from contributors_txt.const import DEFAULT_CONTRIBUTOR_PATH
 from contributors_txt.create_content import (
@@ -16,14 +16,14 @@ from contributors_txt.create_content import (
 from contributors_txt.update_content import update_content
 
 
-def main(args: Optional[list[str]] = None) -> None:
+def main(args: list[str] | None = None) -> None:
     parsed_args = parse_args(args)
     create_contributors_txt(
         parsed_args.aliases, parsed_args.output, parsed_args.verbose
     )
 
 
-def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
+def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(__doc__)
     add_default_arguments(parser)
     parser.add_argument(
@@ -58,7 +58,7 @@ def set_logging(verbose: bool) -> None:
 
 
 def create_contributors_txt(
-    aliases_file: Union[Path, str], output: Union[Path, str], verbose: bool = False
+    aliases_file: Path | str, output: Path | str, verbose: bool = False
 ) -> None:
     set_logging(verbose)
     aliases = get_aliases(aliases_file)

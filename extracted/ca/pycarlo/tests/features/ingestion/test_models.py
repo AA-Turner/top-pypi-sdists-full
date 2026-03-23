@@ -234,13 +234,13 @@ class TestBuildQueryLogPayload(TestCase):
         )
         payload = build_query_log_payload(
             resource_uuid="res-123",
-            resource_type="snowflake",
+            log_type="snowflake",
             events=[entry],
         )
         assert payload["event_type"] == "QUERY_LOG"
         assert payload["resource"] == {
             "uuid": "res-123",
-            "resource_type": "snowflake",
+            "log_type": "snowflake",
         }
         assert len(payload["events"]) == 1
         assert payload["events"][0]["start_time"] == "2026-03-02T10:00:00Z"
@@ -257,7 +257,7 @@ class TestBuildQueryLogPayload(TestCase):
         ]
         payload = build_query_log_payload(
             resource_uuid="res-456",
-            resource_type="bigquery",
+            log_type="bigquery",
             events=events,
         )
         assert len(payload["events"]) == 3

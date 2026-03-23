@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: octodns
-Version: 1.15.0
+Version: 1.16.0
 Summary: OctoDNS: DNS as code - Tools for managing DNS across multiple providers
 Home-page: https://github.com/octodns/octodns
 Author: Ross McFarland
@@ -19,7 +19,7 @@ Provides-Extra: dev
 Requires-Dist: pytest>=6.2.5; extra == "dev"
 Requires-Dist: pytest-cov>=3.0.0; extra == "dev"
 Requires-Dist: pytest-network>=0.0.1; extra == "dev"
-Requires-Dist: black<25.0.0,>=24.3.0; extra == "dev"
+Requires-Dist: black<27.0.0,>=26.0.0; extra == "dev"
 Requires-Dist: build>=0.7.0; extra == "dev"
 Requires-Dist: changelet; extra == "dev"
 Requires-Dist: isort>=5.11.5; extra == "dev"

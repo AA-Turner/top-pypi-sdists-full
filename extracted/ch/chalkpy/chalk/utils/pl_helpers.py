@@ -245,13 +245,15 @@ def pl_duration_to_iso_string(expr: pl.Expr) -> pl.Expr:
             (expr.dt.hours().abs() % 24).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
             (expr.dt.minutes().abs() % 60).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
             (expr.dt.seconds().abs() % 60).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
-            (expr.dt.microseconds().abs() % 1_000_000)  # pyright: ignore -- polars backcompat
-            .cast(pl.Utf8)
-            .str.pad_start(6, "0")  # pyright: ignore -- polars backcompat
-            if is_new_polars
-            else (expr.dt.microseconds().abs() % 1_000_000)  # pyright: ignore -- polars backcompat
-            .cast(pl.Utf8)
-            .str.rjust(6, "0"),  # pyright: ignore -- polars backcompat
+            (
+                (expr.dt.microseconds().abs() % 1_000_000)  # pyright: ignore -- polars backcompat
+                .cast(pl.Utf8)
+                .str.pad_start(6, "0")  # pyright: ignore -- polars backcompat
+                if is_new_polars
+                else (expr.dt.microseconds().abs() % 1_000_000)  # pyright: ignore -- polars backcompat
+                .cast(pl.Utf8)
+                .str.rjust(6, "0")
+            ),  # pyright: ignore -- polars backcompat
         )
     except AttributeError:
         return (
@@ -587,13 +589,11 @@ def apply_compat(
 
 
 @overload
-def str_json_decode_compat(expr: "pl.Expr", dtype: "pl.PolarsDataType") -> "pl.Expr":
-    ...
+def str_json_decode_compat(expr: "pl.Expr", dtype: "pl.PolarsDataType") -> "pl.Expr": ...
 
 
 @overload
-def str_json_decode_compat(expr: "pl.Series", dtype: "pl.PolarsDataType") -> "pl.Series":
-    ...
+def str_json_decode_compat(expr: "pl.Series", dtype: "pl.PolarsDataType") -> "pl.Series": ...
 
 
 def str_json_decode_compat(expr: "pl.Expr | pl.Series", dtype: "pl.PolarsDataType") -> "pl.Expr | pl.Series":

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: streamlit-folium
-Version: 0.26.2
+Version: 0.27.0
 Summary: Render Folium objects in Streamlit
 Author: Randy Zwitch
 Author-email: Randy Zwitch <rzwitch@gmail.com>
@@ -8,7 +8,7 @@ Requires-Dist: streamlit>=1.13.0
 Requires-Dist: folium>=0.13,!=0.15.0
 Requires-Dist: jinja2
 Requires-Dist: branca
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # streamlit-folium: geospatial made easy in Streamlit!

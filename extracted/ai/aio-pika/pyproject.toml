@@ -1,11 +1,12 @@
 [project]
 name = "aio-pika"
-version = "9.6.1"
+version = "9.6.2"
 description = "Wrapper around the aiormq for asyncio and humans"
 authors = [{ name = "Dmitry Orlov", email = "me@mosquito.su" }]
 requires-python = ">=3.10,<4"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["COPYING"]
 keywords = [
     "rabbitmq",
     "asyncio",

@@ -115,8 +115,7 @@ class to_async_iterable(Generic[T]):
         iterable: Iterable[T],
         executor: ThreadPoolExecutor | None = None,
         loop: None = None,
-    ):
-        ...
+    ): ...
 
     @overload
     def __init__(
@@ -124,8 +123,7 @@ class to_async_iterable(Generic[T]):
         iterable: Iterable[T],
         executor: ThreadPoolExecutor,
         loop: asyncio.AbstractEventLoop,
-    ):
-        ...
+    ): ...
 
     def __init__(
         self,

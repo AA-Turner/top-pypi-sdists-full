@@ -1,13 +1,22 @@
 """Wiring module."""
 
-import functools
-import importlib
 import importlib.machinery
-import inspect
-import pkgutil
 import sys
 from contextlib import suppress
-from inspect import isbuiltin, isclass
+from functools import wraps
+from importlib import import_module, invalidate_caches as invalidate_import_caches
+from inspect import (
+    Parameter,
+    getmembers,
+    isasyncgenfunction,
+    isbuiltin,
+    isclass,
+    iscoroutinefunction,
+    isfunction,
+    ismethod,
+    signature as inspect_signature,
+)
+from pkgutil import walk_packages
 from types import ModuleType
 from typing import (
     TYPE_CHECKING,
@@ -77,7 +86,9 @@ with suppress(ImportError):
     MARKER_EXTRACTORS.append(extract_marker_from_fastapi)
 
 with suppress(ImportError):  # fast_depends >=3.0.0
-    from fast_depends.dependencies.model import Dependant as FastDependant  # type: ignore[attr-defined]
+    from fast_depends.dependencies.model import (  # type: ignore[attr-defined]
+        Dependant as FastDependant,
+    )
 
     def extract_marker_from_dependant_fast_depends(param: Any) -> Any:
         if isinstance(param, FastDependant):
@@ -87,7 +98,9 @@ with suppress(ImportError):  # fast_depends >=3.0.0
     MARKER_EXTRACTORS.append(extract_marker_from_dependant_fast_depends)
 
 with suppress(ImportError):  # fast_depends <3.0.0
-    from fast_depends.dependencies import Depends as FastDepends  # type: ignore[attr-defined]
+    from fast_depends.dependencies import (  # type: ignore[attr-defined]
+        Depends as FastDepends,
+    )
 
     def extract_marker_from_fast_depends(param: Any) -> Any:
         if isinstance(param, FastDepends):
@@ -472,7 +485,7 @@ def wire(  # noqa: C901
                     warn_unresolved=warn_unresolved,
                     warn_unresolved_stacklevel=1,
                 )
-            elif inspect.isfunction(member):
+            elif isfunction(member):
                 _patch_fn(
                     module,
                     member_name,
@@ -481,7 +494,7 @@ def wire(  # noqa: C901
                     warn_unresolved=warn_unresolved,
                     warn_unresolved_stacklevel=1,
                 )
-            elif inspect.isclass(member):
+            elif isclass(member):
                 cls = member
                 try:
                     cls_members = _get_members_and_annotated(cls)
@@ -534,13 +547,11 @@ def unwire(  # noqa: C901
             modules.extend(_fetch_modules(package))
 
     for module in modules:
-        for name, member in inspect.getmembers(module):
-            if inspect.isfunction(member):
+        for name, member in getmembers(module):
+            if isfunction(member):
                 _unpatch(module, name, member)
-            elif inspect.isclass(member):
-                for method_name, method in inspect.getmembers(
-                    member, inspect.isfunction
-                ):
+            elif isclass(member):
+                for method_name, method in getmembers(member, isfunction):
                     _unpatch(member, method_name, method)
 
         for patched in _patched_registry.get_callables_from_module(module):
@@ -680,7 +691,7 @@ def _unpatch_attribute(patched: PatchedAttribute) -> None:
     setattr(patched.member, patched.name, patched.marker)
 
 
-def _extract_marker(parameter: inspect.Parameter) -> Optional["_Marker"]:
+def _extract_marker(parameter: Parameter) -> Optional["_Marker"]:
     if get_origin(parameter.annotation) is Annotated:
         candidates = get_args(parameter.annotation)[1:]
     else:
@@ -709,7 +720,7 @@ def _fetch_reference_injections(  # noqa: C901
         fn = fn.__init__
 
     try:
-        signature = inspect.signature(fn)
+        signature = inspect_signature(fn)
     except ValueError as exception:
         if "no signature found" in str(exception):
             return {}, {}
@@ -767,7 +778,7 @@ def _bind_injections(
         if injection in patched_callable.reference_closing:
             patched_callable.add_closing(injection, provider)
 
-            for resource in provider.traverse(types=[providers.Resource]):
+            for resource in provider.traverse(types=[providers.BaseResource]):
                 patched_callable.add_closing(str(id(resource)), resource)
 
 
@@ -782,17 +793,17 @@ def _fetch_modules(package):
     modules = [package]
     if not hasattr(package, "__path__") or not hasattr(package, "__name__"):
         return modules
-    for module_info in pkgutil.walk_packages(
+    for module_info in walk_packages(
         path=package.__path__,
         prefix=package.__name__ + ".",
     ):
-        module = importlib.import_module(module_info.name)
+        module = import_module(module_info.name)
         modules.append(module)
     return modules
 
 
 def _is_method(member) -> bool:
-    return inspect.ismethod(member) or inspect.isfunction(member)
+    return ismethod(member) or isfunction(member)
 
 
 def _is_marker(member) -> bool:
@@ -810,9 +821,9 @@ def _get_patched(
         reference_closing=reference_closing,
     )
 
-    if inspect.iscoroutinefunction(fn):
+    if iscoroutinefunction(fn):
         patched = _get_async_patched(fn, patched_object)
-    elif inspect.isasyncgenfunction(fn):
+    elif isasyncgenfunction(fn):
         patched = _get_async_gen_patched(fn, patched_object)
     else:
         patched = _get_sync_patched(fn, patched_object)
@@ -959,8 +970,8 @@ class ProvidedInstance(Modifier):
         self.segments.append((self.TYPE_ITEM, item))
         return self
 
-    def call(self) -> Self:
-        self.segments.append((self.TYPE_CALL, None))
+    def call(self, *args, **kwargs) -> Self:
+        self.segments.append((self.TYPE_CALL, (args, kwargs)))
         return self
 
     def modify(
@@ -975,7 +986,7 @@ class ProvidedInstance(Modifier):
             elif type_ == ProvidedInstance.TYPE_ITEM:
                 provider = provider[value]
             elif type_ == ProvidedInstance.TYPE_CALL:
-                provider = provider.call()
+                provider = provider.call(*value[0], **value[1])
             else:
                 assert_never(type_)
         return provider
@@ -1122,7 +1133,7 @@ class AutoLoader:
 
         sys.path_hooks.insert(0, self._path_hook)
         sys.path_importer_cache.clear()
-        importlib.invalidate_caches()
+        invalidate_import_caches()
 
     def uninstall(self) -> None:
         if not self.installed:
@@ -1130,7 +1141,7 @@ class AutoLoader:
 
         sys.path_hooks.remove(self._path_hook)
         sys.path_importer_cache.clear()
-        importlib.invalidate_caches()
+        invalidate_import_caches()
 
 
 def register_loader_containers(*containers: Container) -> None:
@@ -1168,7 +1179,7 @@ from ._cwiring import DependencyResolver  # noqa: E402
 # Wiring uses the following Python wrapper because there is
 # no possibility to compile a first-type citizen coroutine in Cython.
 def _get_async_patched(fn: F, patched: PatchedCallable) -> F:
-    @functools.wraps(fn)
+    @wraps(fn)
     async def _patched(*args: Any, **raw_kwargs: Any) -> Any:
         resolver = DependencyResolver(raw_kwargs, patched.injections, patched.closing)
 
@@ -1179,7 +1190,7 @@ def _get_async_patched(fn: F, patched: PatchedCallable) -> F:
 
 
 def _get_async_gen_patched(fn: F, patched: PatchedCallable) -> F:
-    @functools.wraps(fn)
+    @wraps(fn)
     async def _patched(*args: Any, **raw_kwargs: Any) -> AsyncIterator[Any]:
         resolver = DependencyResolver(raw_kwargs, patched.injections, patched.closing)
 
@@ -1191,7 +1202,7 @@ def _get_async_gen_patched(fn: F, patched: PatchedCallable) -> F:
 
 
 def _get_sync_patched(fn: F, patched: PatchedCallable) -> F:
-    @functools.wraps(fn)
+    @wraps(fn)
     def _patched(*args: Any, **raw_kwargs: Any) -> Any:
         resolver = DependencyResolver(raw_kwargs, patched.injections, patched.closing)
 
@@ -1201,20 +1212,16 @@ def _get_sync_patched(fn: F, patched: PatchedCallable) -> F:
     return cast(F, _patched)
 
 
-if sys.version_info >= (3, 10):
-
-    def _get_annotations(obj: Any) -> Dict[str, Any]:
-        return inspect.get_annotations(obj)
-
-else:
-
-    def _get_annotations(obj: Any) -> Dict[str, Any]:
+try:
+    from inspect import get_annotations
+except ImportError:
+    def get_annotations(obj: Any) -> Dict[str, Any]:
         return getattr(obj, "__annotations__", {})
 
 
 def _get_members_and_annotated(obj: Any) -> Iterable[Tuple[str, Any]]:
-    members = inspect.getmembers(obj)
-    annotations = _get_annotations(obj)
+    members = getmembers(obj)
+    annotations = get_annotations(obj)
     for annotation_name, annotation in annotations.items():
         if get_origin(annotation) is Annotated:
             args = get_args(annotation)

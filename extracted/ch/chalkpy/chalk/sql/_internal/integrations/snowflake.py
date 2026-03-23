@@ -109,8 +109,7 @@ class ResultHandle(typing.Protocol):
     def estimated_uncompressed_size(self) -> int | None:
         return None
 
-    def to_arrow(self, connection: SnowflakeConnection | None) -> pyarrow.Table:
-        ...
+    def to_arrow(self, connection: SnowflakeConnection | None) -> pyarrow.Table: ...
 
 
 @dataclasses.dataclass(frozen=True)

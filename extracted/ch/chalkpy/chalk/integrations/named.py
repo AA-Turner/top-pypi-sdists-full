@@ -28,15 +28,13 @@ def load_integration_variable(
     name: str,
     integration_name: Optional[str],
     override: Optional[Mapping[str, str]],
-) -> Optional[str]:
-    ...
+) -> Optional[str]: ...
 
 
 @overload
 def load_integration_variable(
     name: str, integration_name: Optional[str], override: Optional[Mapping[str, str]], parser: Callable[[str], T]
-) -> Optional[T]:
-    ...
+) -> Optional[T]: ...
 
 
 def load_integration_variable(

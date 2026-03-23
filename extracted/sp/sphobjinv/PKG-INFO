@@ -1,18 +1,16 @@
 Metadata-Version: 2.4
 Name: sphobjinv
-Version: 2.3.1.3
+Version: 2.4
 Summary: Sphinx objects.inv Inspection/Manipulation Tool
 Author-email: Brian Skinn <brian.skinn@gmail.com>
-License: MIT License
-Project-URL: Homepage, https://github.com/bskinn/sphobjinv
+License-Expression: MIT
 Project-URL: Changelog, https://github.com/bskinn/sphobjinv/blob/main/CHANGELOG.md
 Project-URL: Docs, https://sphobjinv.readthedocs.io/en/stable/
-Project-URL: Thank, https://fosstodon.org/@btskinn
 Project-URL: Donate, https://github.com/sponsors/bskinn
+Project-URL: Homepage, https://github.com/bskinn/sphobjinv
+Project-URL: Thank, https://fosstodon.org/@btskinn
 Keywords: sphinx,sphinx-doc,inventory,manager,inspector
 Platform: any
-Classifier: License :: OSI Approved
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Environment :: Console
 Classifier: Framework :: Sphinx
@@ -21,23 +19,23 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Utilities
 Classifier: Development Status :: 5 - Production/Stable
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: attrs>=19.2
 Requires-Dist: certifi
-Requires-Dist: jsonschema>=3.0
+Requires-Dist: jsonschema>=3.1.1
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: license-file
@@ -86,26 +84,24 @@ For internal cross-references, locate `objects.inv` within `build/html`:
 ```none
 $ sphobjinv suggest doc/build/html/objects.inv as_rst -st 58
 
-------------------------------------------------
+-----------------------------------------------------------------------------------------------------------
 
 Cannot infer intersphinx_mapping from a local objects.inv.
 
-------------------------------------------------
+-----------------------------------------------------------------------------------------------------------
 
 Project: sphobjinv
-Version: 2.3
+Version: 2.4
 
-220 objects in inventory.
+151 objects in inventory.
 
-------------------------------------------------
+-----------------------------------------------------------------------------------------------------------
 
-11 results found at/above current threshold of 58.
-
+10 results found at/above current threshold of 58.
 
   Name                                                Score
 ---------------------------------------------------  -------
 :py:property:`sphobjinv.data.SuperDataObj.as_rst`      60
-:py:class:`sphobjinv.cli.parser.PrsConst`              59
 :py:class:`sphobjinv.data.DataFields`                  59
 :py:class:`sphobjinv.data.DataObjBytes`                59
 :py:class:`sphobjinv.data.DataObjStr`                  59
@@ -128,31 +124,31 @@ cross-reference the `linspace` function from numpy (see
 [here][numpy linspace]):
 
 ```none
-$ sphobjinv suggest https://numpy.org/doc/1.26/reference/index.html linspace -su
+$ sphobjinv suggest https://numpy.org/doc/2.4/reference/index.html linspace -su
 
-Attempting https://numpy.org/doc/1.26/reference/index.html ...
+Attempting https://numpy.org/doc/2.4/reference/index.html ...
   ... no recognized inventory.
-Attempting "https://numpy.org/doc/1.26/reference/index.html/objects.inv" ...
+Attempting "https://numpy.org/doc/2.4/reference/index.html/objects.inv" ...
   ... HTTP error: 404 Not Found.
-Attempting "https://numpy.org/doc/1.26/reference/objects.inv" ...
+Attempting "https://numpy.org/doc/2.4/reference/objects.inv" ...
   ... HTTP error: 404 Not Found.
-Attempting "https://numpy.org/doc/1.26/objects.inv" ...
+Attempting "https://numpy.org/doc/2.4/objects.inv" ...
   ... inventory found.
 
-----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------
 
 The intersphinx_mapping for this docset is LIKELY:
 
-  (https://numpy.org/doc/1.26/, None)
+  (https://numpy.org/doc/2.4/, None)
 
-----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------
 
 Project: NumPy
-Version: 1.26
+Version: 2.4
 
-8152 objects in inventory.
+8456 objects in inventory.
 
-----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------
 
 8 results found at/above current threshold of 75.
 
@@ -198,13 +194,13 @@ inventory creation/modification:
 >>> import sphobjinv as soi
 >>> inv = soi.Inventory('doc/build/html/objects.inv')
 >>> print(inv)
-<Inventory (fname_zlib): sphobjinv v2.3, 220 objects>
+<Inventory (fname_zlib): sphobjinv v2.4, 151 objects>
 >>> inv.project
 'sphobjinv'
 >>> inv.version
-'2.3'
+'2.4'
 >>> inv.objects[0]
-DataObjStr(name='sphobjinv.cli.convert', domain='py', role='module', priority='0', uri='cli/implementation/convert.html#module-$', dispname='-')
+DataObjStr(name='sphobjinv.data', domain='py', role='module', priority='0', uri='api/data.html#module-$', dispname='-')
 
 ```
 
@@ -221,7 +217,7 @@ Available on [PyPI][pypi link target] (`pip install sphobjinv`).
 Source on [GitHub][github repo]. Bug reports and feature requests are welcomed
 at the [Issues][github issue tracker] page there.
 
-Copyright (c) Brian Skinn 2016-2025
+Copyright (c) 2016-2026 Brian Skinn and community contributors
 
 The `sphobjinv` documentation (including docstrings and README) is licensed
 under a [Creative Commons Attribution 4.0 International License][cc-by 4.0]
@@ -231,8 +227,8 @@ under a [Creative Commons Attribution 4.0 International License][cc-by 4.0]
 
 [black badge]: https://img.shields.io/badge/code%20style-black-000000.svg
 [black link target]: https://github.com/psf/black
-[cc-by 4.0]: http://creativecommons.org/licenses/by/4.0/
-[soi docs inv export]: http://sphobjinv.readthedocs.io/en/v2.3.1.2/api_usage.html#exporting-an-inventory
+[cc-by 4.0]: https:/creativecommons.org/licenses/by/4.0/
+[soi docs inv export]: https://sphobjinv.readthedocs.io/en/v2.4/api_usage.html#exporting-an-inventory
 [github issue tracker]: https://github.com/bskinn/sphobjinv/issues
 [github repo]: https://github.com/bskinn/sphobjinv
 [gitter badge]: https://badges.gitter.im/sphobjinv/community.svg
@@ -242,11 +238,11 @@ under a [Creative Commons Attribution 4.0 International License][cc-by 4.0]
 [mit license]: https://opensource.org/licenses/MIT
 [numpy linspace]: https://numpy.org/doc/1.26/reference/generated/numpy.linspace.html
 [pepy badge]: https://pepy.tech/badge/sphobjinv/month
-[pepy link target]: https://pepy.tech/projects/sphobjinv?timeRange=threeMonths&category=version&includeCIDownloads=true&granularity=daily&viewType=chart&versions=2.0.*%2C2.1.*%2C2.2.*%2C2.3.*
+[pepy link target]: https://pepy.tech/projects/sphobjinv?timeRange=threeMonths&category=version&includeCIDownloads=true&granularity=daily&versions=2.3.*%2C2.4*
 [pypi badge]: https://img.shields.io/pypi/v/sphobjinv.svg?logo=pypi]
 [pypi link target]: https://pypi.org/project/sphobjinv
 [python versions badge]: https://img.shields.io/pypi/pyversions/sphobjinv.svg?logo=python
-[readthedocs badge]: https://img.shields.io/readthedocs/sphobjinv/v2.3.1.2.svg
-[readthedocs link target]: http://sphobjinv.readthedocs.io/en/v2.3.1.2/
-[workflow badge]: https://img.shields.io/github/actions/workflow/status/bskinn/sphobjinv/ci_tests.yml?logo=github&branch=main
+[readthedocs badge]: https://img.shields.io/readthedocs/sphobjinv/v2.4.svg
+[readthedocs link target]: https://sphobjinv.readthedocs.io/en/v2.4/
+[workflow badge]: https://img.shields.io/github/actions/workflow/status/bskinn/sphobjinv/all_core_tests.yml?logo=github&branch=main
 [workflow link target]: https://github.com/bskinn/sphobjinv/actions

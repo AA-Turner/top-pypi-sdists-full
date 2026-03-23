@@ -1,5 +1,4 @@
 from typing import Tuple, Optional, Callable
-from functools import partial
 
 from torch import Tensor
 
@@ -7,8 +6,6 @@ import cutlass
 import cutlass.cute as cute
 from cutlass import Int32, Float32, Boolean, const_expr
 from cutlass.cute.runtime import make_ptr
-import cutlass.utils.hopper_helpers as sm90_utils_og
-import cutlass.utils.blackwell_helpers as sm100_utils
 
 from quack.compile_utils import make_fake_tensor as fake_tensor
 from quack.cute_dsl_utils import get_device_capacity, get_max_active_clusters, torch2cute_dtype_map
@@ -67,27 +64,14 @@ class GemmSymmetricMixin(GemmActMixin):
         has_C = const_expr(tRS_rC is not None)
         has_D = const_expr(copy_D is not None)
 
-        tma_atom_postact = params.tma_atom_postact
-        mPostAct_mnl = params.mPostAct_mnl
-        sRowVec, sColVec, sPostAct = epi_smem_tensors
-        get_smem_store_op = (
-            partial(sm100_utils.get_smem_store_op, tiled_tmem_load=tiled_copy_t2r)
-            if self.arch == 100
-            else sm90_utils_og.sm90_get_smem_store_op
-        )
-        copy_atom_postact_r2s = get_smem_store_op(
-            self.postact_layout, self.postact_dtype, self.acc_dtype
-        )
-        tiled_copy_postact_r2s = cute.make_tiled_copy_S(copy_atom_postact_r2s, tiled_copy_r2s)
-        tRS_sPostAct = tiled_copy_postact_r2s.get_slice(tidx).partition_D(sPostAct)
-        batch_idx = tile_coord_mnkl[3]
-        copy_postact, _, _ = self.epilog_gmem_copy_and_partition(
-            tma_atom_postact,
-            varlen_manager.offset_batch_epi(mPostAct_mnl, batch_idx),
-            self.cta_tile_shape_postact_mn,
-            params.epi_tile_postact,
-            sPostAct,
+        tiled_copy_postact_r2s, tRS_sPostAct, copy_postact = self.epi_setup_postact(
+            params,
+            epi_smem_tensors,
+            tiled_copy_r2s,
+            tiled_copy_t2r,
             tile_coord_mnkl,
+            varlen_manager,
+            tidx,
         )
 
         # We iterate over epi tiles in the N dimension first before the M dimension
@@ -143,7 +127,12 @@ class GemmSymmetricMixin(GemmActMixin):
                 epi_producer_state.advance()
             tRS_rPostAct = self.epi_visit_subtile(params, epi_loop_tensors, tRS_rD, tRS_rC)
             tRS_rPostAct_out = self.epi_convert_postact(
-                tRS_rPostAct, epi_loop_tensors[2], tidx, tile_coord_mnkl, num_prev_subtiles, epi_idx
+                tRS_rPostAct,
+                epi_loop_tensors["sr_seed"],
+                tidx,
+                tile_coord_mnkl,
+                num_prev_subtiles,
+                epi_idx,
             )
             if is_tma_warp:
                 epi_store_pipeline.producer_acquire()
@@ -156,7 +145,7 @@ class GemmSymmetricMixin(GemmActMixin):
                     and self.acc_dtype == cutlass.Float32
                     and self.d_dtype == cutlass.BFloat16
                 ):
-                    seed = epi_loop_tensors[2] + (
+                    seed = epi_loop_tensors["sr_seed"] + (
                         tile_coord_mnkl[0] * 65537
                         + tile_coord_mnkl[1] * 257
                         + tile_coord_mnkl[3] * 17

@@ -14,7 +14,7 @@ from jsonschema_rs import ValidationError
 from requests.exceptions import ChunkedEncodingError
 from requests.structures import CaseInsensitiveDict
 
-from schemathesis.checks import CheckContext, run_checks
+from schemathesis.checks import CheckContext
 from schemathesis.config._generation import GenerationConfig
 from schemathesis.core.compat import BaseExceptionGroup
 from schemathesis.core.control import SkipTest
@@ -32,8 +32,8 @@ from schemathesis.core.errors import (
     is_regex_validation_error,
 )
 from schemathesis.core.failures import Failure, FailureGroup
-from schemathesis.core.transport import Response
 from schemathesis.engine import Status, events
+from schemathesis.engine._validate import validate_response
 from schemathesis.engine.context import EngineContext
 from schemathesis.engine.errors import (
     DeadlineExceeded,
@@ -326,12 +326,13 @@ def run_test(
     # to understand if some generated data is always rejected
     phases_config = ctx.config.phases_for(operation=operation)
     fuzzing_config = phases_config.fuzzing
-    # Record responses from ALL phases (examples, coverage, fuzzing) when fuzzing uses extra data sources.
-    # This creates a feedback loop: earlier phases discover valid IDs/tokens, fuzzing reuses them to test
-    # dependent operations. For example, POST /users creates user IDs that GET /users/{id} can reference.
-    extra_data_source = (
-        ctx.extra_data_source if fuzzing_config.enabled and fuzzing_config.extra_data_sources.is_enabled else None
+    # Record responses when the pool is active for this run.
+    # Fuzzing uses extra data sources when explicitly configured; examples phase always uses
+    # the pool when the schema has dependency links.
+    should_record = (fuzzing_config.enabled and fuzzing_config.extra_data_sources.is_enabled) or (
+        phases_config.examples.enabled and ctx.extra_data_source is not None
     )
+    extra_data_source = ctx.extra_data_source if should_record else None
     if extra_data_source is not None:
         for case_id, interaction in recorder.interactions.items():
             response = interaction.response
@@ -477,39 +478,3 @@ def test_func(
         continue_on_failure=continue_on_failure,
         recorder=recorder,
     )
-
-
-def validate_response(
-    *,
-    case: Case,
-    ctx: CheckContext,
-    response: Response,
-    continue_on_failure: bool,
-    recorder: ScenarioRecorder,
-) -> None:
-    failures = set()
-
-    def on_failure(name: str, collected: set[Failure], failure: Failure) -> None:
-        collected.add(failure)
-        failure_data = recorder.find_failure_data(parent_id=case.id, failure=failure)
-        recorder.record_check_failure(
-            name=name,
-            case_id=failure_data.case.id,
-            code_sample=failure_data.case.as_curl_command(headers=failure_data.headers, verify=failure_data.verify),
-            failure=failure,
-        )
-
-    def on_success(name: str, _case: Case) -> None:
-        recorder.record_check_success(name=name, case_id=_case.id)
-
-    failures = run_checks(
-        case=case,
-        response=response,
-        ctx=ctx,
-        checks=ctx._checks,
-        on_failure=on_failure,
-        on_success=on_success,
-    )
-
-    if failures and not continue_on_failure:
-        raise FailureGroup(list(failures)) from None

@@ -1,7 +1,4 @@
-"""Tests for Code City topology generator."""
-
 import json
-import pytest
 from skylos.city import (
     generate_topology,
     format_rich_summary,
@@ -12,7 +9,6 @@ from skylos.city import (
 
 
 def _make_analysis(definitions=None, unused_functions=None, circular_dependencies=None):
-    """Helper to build a minimal analysis result dict."""
     return {
         "definitions": definitions or {},
         "unused_functions": unused_functions or [],
@@ -40,18 +36,15 @@ class TestSquarify:
     def test_two_items(self):
         items = [{"area": 50, "id": "a"}, {"area": 50, "id": "b"}]
         _squarify(items, 0, 0, 100, 100)
-        # Both should have non-zero dimensions
         for it in items:
             assert it["w"] > 0
             assert it["h"] > 0
-        # Total area should be roughly preserved
         total = sum(it["w"] * it["h"] for it in items)
-        assert abs(total - 10000) < 1  # 100x100
+        assert abs(total - 10000) < 1
 
     def test_zero_area_items(self):
         items = [{"area": 0}, {"area": 0}]
         _squarify(items, 0, 0, 100, 100)
-        # Should not crash
         for it in items:
             assert "x" in it
             assert "y" in it
@@ -249,7 +242,6 @@ class TestGenerateTopology:
         assert "h" in building
 
     def test_grade_calculation(self):
-        # High complexity = bad grade
         defs = {}
         for i in range(5):
             defs[f"mod.func{i}"] = {
@@ -366,7 +358,6 @@ class TestTopologyJSON:
             }
         }
         topology = generate_topology(_make_analysis(definitions=defs))
-        # Should not raise
         output = json.dumps(topology, indent=2)
         parsed = json.loads(output)
         assert parsed["grade"] in ("A", "B", "C", "D", "F")

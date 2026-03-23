@@ -10,6 +10,7 @@
 # Copyright 2024 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2024 Min RK <benjaminrk@gmail.com>                                 #
+# Copyright 2025 Aidan McNay <acm289@cornell.edu>                              #
 # Copyright 2025 Christoph Reiter <reiter.christoph@gmail.com>                 #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
 # Copyright 2025 xmo-odoo <xmo@odoo.com>                                       #
@@ -285,9 +286,7 @@ class GithubIntegration:
         """
         Deprecated by get_repo_installation.
 
-        :calls:`GET /repos/{owner}/{repo}/installation <https://docs.github.com/en/rest/reference/apps#get-a-repository-
-        installation-for-the-authenticated-app>`
-        :calls:`GET /repos/{owner}/{repo}/installation <https://docs.github.com/en/rest/reference/apps#get-a-repository-
+        :calls: `GET /repos/{owner}/{repo}/installation <https://docs.github.com/en/rest/reference/apps#get-a-repository-
         installation-for-the-authenticated-app>`
 
         """
@@ -312,7 +311,7 @@ class GithubIntegration:
         """
         :calls: `GET /orgs/{org}/installation <https://docs.github.com/en/rest/apps/apps#get-an-organization-installation-for-the-authenticated-app>`
         """
-        org = urllib.parse.quote(org)
+        org = urllib.parse.quote(org, safe="")
         return self._get_installed_app(url=f"/orgs/{org}/installation")
 
     def get_repo_installation(self, owner: str, repo: str) -> Installation:

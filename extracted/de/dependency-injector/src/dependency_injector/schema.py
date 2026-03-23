@@ -1,7 +1,7 @@
 """Schema module."""
 
 import builtins
-import importlib
+from importlib import import_module
 from typing import Dict, Any, Type, Optional
 
 from . import containers, providers
@@ -243,7 +243,7 @@ def _import_string(string_name: str) -> Optional[object]:
         return None
 
     member = segments[-1]
-    module = importlib.import_module(module_name)
+    module = import_module(module_name)
     return getattr(module, member, None)
 
 

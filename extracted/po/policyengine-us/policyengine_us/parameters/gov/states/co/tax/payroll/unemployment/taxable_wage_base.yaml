@@ -7,5 +7,9 @@ metadata:
   unit: currency-USD
   label: Colorado unemployment taxable wage base
   reference:
+    - title: Colorado Revised Statutes Section 8-70-103
+      href: https://olls.info/crs/crs2025-title-08.pdf#page=555
+    - title: Colorado unemployment insurance premium rates
+      href: https://cdle.colorado.gov/employers/unemployment-insurance-premiums/premium-rates
     - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
       href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=15

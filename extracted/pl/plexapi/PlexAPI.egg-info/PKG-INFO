@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PlexAPI
-Version: 4.18.0
+Version: 4.18.1
 Summary: Python bindings for the Plex API.
 Author-email: Michael Shepanski <michael.shepanski@gmail.com>
 License-Expression: BSD-3-Clause

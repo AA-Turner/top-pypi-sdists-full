@@ -15,12 +15,6 @@ import sys
 
 import pytest
 
-# Skip on Windows where multiprocessing has different behavior
-pytestmark = pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="Multiprocessing spawn tests not applicable on Windows",
-)
-
 
 class TestReplacementSemLockPickling:
     """Test that ReplacementSemLock can be pickled for spawn mode."""
@@ -52,8 +46,11 @@ class TestReplacementSemLockPickling:
         assert len(reduced) == 2
         assert callable(reduced[0])
         assert len(reduced[1]) == 1
-        assert reduced[1][0] == "spawn"
+        # The context method should be "spawn" unless fallback occurred
+        # (on systems where resource tracker fails, it falls back to "fork")
+        assert reduced[1][0] in ("spawn", "fork")
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork not available on Windows")
     def test_semlock_reduce_with_fork_context(self):
         """Test that __reduce__ works with fork context too."""
         from scalene.replacement_sem_lock import ReplacementSemLock
@@ -81,6 +78,7 @@ class TestGetContextReplacement:
         ctx = multiprocessing.get_context("spawn")
         assert ctx._name == "spawn"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork not available on Windows")
     def test_get_context_respects_fork(self):
         """Test that get_context returns fork context when requested."""
         ctx = multiprocessing.get_context("fork")
@@ -91,6 +89,42 @@ class TestGetContextReplacement:
         ctx = multiprocessing.get_context()
         # Should return some valid context
         assert ctx._name in ("fork", "spawn", "forkserver")
+
+
+class TestResourceTrackerFallback:
+    """Test that ReplacementSemLock handles resource tracker failures gracefully."""
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork not available on Windows")
+    def test_brokenpipe_fallback_to_fork(self):
+        """Test that BrokenPipeError during semaphore creation falls back to fork."""
+        from unittest.mock import patch
+
+        from scalene.replacement_sem_lock import ReplacementSemLock
+
+        # Simulate resource tracker failure by patching the parent __init__
+        original_init = ReplacementSemLock.__bases__[0].__init__
+        call_count = [0]
+
+        def failing_init(self, *args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call (spawn) fails
+                raise BrokenPipeError("simulated resource tracker failure")
+            # Second call (fork fallback) succeeds
+            original_init(self, *args, **kwargs)
+
+        import warnings
+
+        ctx = multiprocessing.get_context("spawn")
+        with patch.object(ReplacementSemLock.__bases__[0], "__init__", failing_init):
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                lock = ReplacementSemLock(ctx=ctx)
+                # Should have fallen back to fork
+                assert lock._ctx_method == "fork"
+                # Should have emitted a warning
+                assert len(w) == 1
+                assert "resource tracker failed" in str(w[0].message).lower()
 
 
 class TestSpawnModeIntegration:
@@ -111,6 +145,7 @@ class TestSpawnModeIntegration:
         with lock:
             pass  # Should not deadlock
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork not available on Windows")
     def test_lock_pickle_with_different_contexts(self):
         """Test that locks can be pickled regardless of context type."""
         from scalene.replacement_sem_lock import ReplacementSemLock

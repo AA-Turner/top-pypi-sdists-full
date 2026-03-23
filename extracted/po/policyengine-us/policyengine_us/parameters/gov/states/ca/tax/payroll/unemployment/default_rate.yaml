@@ -7,5 +7,7 @@ metadata:
   unit: /1
   label: California default unemployment tax rate
   reference:
+    - title: California Unemployment Insurance Code Section 982
+      href: https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=UIC&sectionNum=982.
     - title: Tax Measures of State Unemployment Insurance Tax Systems, CY 2024
       href: https://oui.doleta.gov/unemploy/pdf/sigmeasures/sigmeasuitaxsys24.pdf#page=14

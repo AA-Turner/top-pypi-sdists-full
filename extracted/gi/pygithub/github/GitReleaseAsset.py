@@ -22,6 +22,7 @@
 # Copyright 2024 Jirka Borovec <6035284+Borda@users.noreply.github.com>        #
 # Copyright 2025 Alex Olieman <alex@olieman.net>                               #
 # Copyright 2025 Enrico Minack <github@enrico.minack.dev>                      #
+# Copyright 2025 Hugo van Kemenade <1324225+hugovk@users.noreply.github.com>   #
 # Copyright 2025 Neel Malik <41765022+neel-m@users.noreply.github.com>         #
 #                                                                              #
 # This file is part of PyGithub.                                               #
@@ -44,8 +45,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import datetime
-from typing import Any, Iterator
+from typing import Any
 
 import github.NamedUser
 import github.Organization
@@ -195,6 +197,10 @@ class GitReleaseAsset(CompletableGithubObject):
             self._download_count = self._makeIntAttribute(attributes["download_count"])
         if "id" in attributes:  # pragma no branch
             self._id = self._makeIntAttribute(attributes["id"])
+        elif "url" in attributes and attributes["url"]:
+            id = attributes["url"].split("/")[-1]
+            if id.isnumeric():
+                self._id = self._makeIntAttribute(int(id))
         if "label" in attributes:  # pragma no branch
             self._label = self._makeStringAttribute(attributes["label"])
         if "name" in attributes:  # pragma no branch

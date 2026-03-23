@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-roborock
-Version: 4.26.3
+Version: 5.0.0
 Summary: A package to control Roborock vacuums.
 Project-URL: Repository, https://github.com/humbertogontijo/python-roborock
 Project-URL: Documentation, https://python-roborock.readthedocs.io/

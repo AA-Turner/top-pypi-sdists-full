@@ -20,6 +20,7 @@ from typing import (
     Callable,
     Optional,
     TypeAlias,
+    TypeVar,
     Union,
     cast,
     overload,
@@ -51,6 +52,7 @@ from pydoll.exceptions import (
     InvalidScriptWithElement,
     InvalidTabInitialization,
     MissingScreenshotPath,
+    NavigationError,
     NetworkEventsNotEnabled,
     NoDialogPresent,
     NotAnIFrame,
@@ -59,6 +61,7 @@ from pydoll.exceptions import (
     WaitElementTimeout,
     WebSocketConnectionClosed,
 )
+from pydoll.extractor.engine import ExtractionEngine
 from pydoll.interactions import KeyboardAPI, MouseAPI, ScrollAPI
 from pydoll.interactions.iframe import IFrameContext
 from pydoll.protocol.browser.types import DownloadBehavior, DownloadProgressState
@@ -87,6 +90,7 @@ from pydoll.utils.bundle import (
 
 if TYPE_CHECKING:
     from pydoll.browser.chromium.base import Browser
+    from pydoll.extractor.model import ExtractionModel
     from pydoll.protocol.base import EmptyResponse, Response
     from pydoll.protocol.browser.events import (
         DownloadProgressEvent,
@@ -112,6 +116,7 @@ if TYPE_CHECKING:
         CaptureScreenshotResponse,
         GetResourceContentResponse,
         GetResourceTreeResponse,
+        NavigateResponse,
         PrintToPDFResponse,
     )
     from pydoll.protocol.runtime.methods import CallFunctionOnResponse, EvaluateResponse
@@ -121,6 +126,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 IFrame: TypeAlias = 'Tab'
+
+T = TypeVar('T', bound='ExtractionModel')
 
 _CLOUDFLARE_CHALLENGE_DOMAIN = 'challenges.cloudflare.com'
 _CLOUDFLARE_IFRAME_SELECTOR = f'iframe[src*="{_CLOUDFLARE_CHALLENGE_DOMAIN}"]'
@@ -174,6 +181,7 @@ class Tab(FindElementsMixin):
         self._scroll: Optional[ScrollAPI] = None
         self._keyboard: Optional[KeyboardAPI] = None
         self._mouse: MouseAPI = MouseAPI(self)
+        self._extraction_engine: Optional[ExtractionEngine] = None
         logger.debug(
             (
                 f'Tab initialized: target_id={self._target_id}, '
@@ -252,6 +260,60 @@ class Tab(FindElementsMixin):
             MouseAPI: An instance of the MouseAPI class for mouse operations.
         """
         return self._mouse
+
+    @property
+    def _extractor(self) -> ExtractionEngine:
+        """Lazy-initialized extraction engine."""
+        if self._extraction_engine is None:
+            self._extraction_engine = ExtractionEngine(self)
+        return self._extraction_engine
+
+    async def extract(
+        self,
+        model: type[T],
+        *,
+        scope: Optional[str] = None,
+        timeout: int = 0,
+    ) -> T:
+        """Extract structured data from the page into a typed model.
+
+        Args:
+            model: ExtractionModel subclass defining the extraction schema.
+            scope: Optional CSS/XPath selector to limit extraction region.
+            timeout: Seconds to wait for elements (0 = no wait).
+
+        Returns:
+            Populated model instance with extracted data.
+
+        Raises:
+            FieldExtractionFailed: If a required field cannot be extracted.
+            InvalidExtractionModel: If model definition is invalid.
+        """
+        return await self._extractor.extract(model, scope=scope, timeout=timeout)
+
+    async def extract_all(
+        self,
+        model: type[T],
+        *,
+        scope: str,
+        timeout: int = 0,
+        limit: Optional[int] = None,
+    ) -> list[T]:
+        """Extract multiple items from repeated containers on the page.
+
+        Each element matching the scope selector generates one model instance.
+        Fields are resolved relative to each scope container.
+
+        Args:
+            model: ExtractionModel subclass defining the extraction schema.
+            scope: CSS/XPath selector for the repeated container (required).
+            timeout: Seconds to wait for elements (0 = no wait).
+            limit: Maximum number of items to extract (None = all).
+
+        Returns:
+            List of populated model instances.
+        """
+        return await self._extractor.extract_all(model, scope=scope, timeout=timeout, limit=limit)
 
     @property
     def intercept_file_chooser_dialog_enabled(self) -> bool:
@@ -892,22 +954,20 @@ class Tab(FindElementsMixin):
         """
         Navigate to URL and wait for loading to complete.
 
-        Refreshes if URL matches current page.
-
         Args:
             url: Target URL to navigate to.
             timeout: Maximum seconds to wait for page load (default 300).
 
         Raises:
+            NavigationError: If the navigation fails (e.g., DNS error).
             PageLoadTimeout: If page doesn't finish loading within timeout.
         """
         logger.info(f'Navigating to URL: {url} (timeout={timeout}s)')
-        if await self._refresh_if_url_not_changed(url):
-            logger.debug('URL matches current page; refreshing instead')
-            return
-
         async with self._wait_page_load(timeout=timeout):
-            await self._execute_command(PageCommands.navigate(url))
+            response: NavigateResponse = await self._execute_command(PageCommands.navigate(url))
+            error_text = response['result'].get('errorText')
+            if error_text:
+                raise NavigationError(url, error_text)
         logger.info(f'Navigation complete: {url}')
 
     async def refresh(
@@ -1820,14 +1880,6 @@ class Tab(FindElementsMixin):
             unique_context_id=unique_context_id,
             serialization_options=serialization_options,
         )
-
-    async def _refresh_if_url_not_changed(self, url: str) -> bool:
-        """Refresh page if URL hasn't changed."""
-        current_url = await self.current_url
-        if current_url == url:
-            await self.refresh()
-            return True
-        return False
 
     @staticmethod
     def _validate_argument_error(response: EvaluateResponse) -> None:

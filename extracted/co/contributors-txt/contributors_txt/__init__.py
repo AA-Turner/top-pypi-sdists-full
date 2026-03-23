@@ -1,5 +1,4 @@
-"""
-Create a file listing the contributors of a git repository.
+"""Create a file listing the contributors of a git repository.
 """
 
 __all__ = ["create_contributors_txt"]

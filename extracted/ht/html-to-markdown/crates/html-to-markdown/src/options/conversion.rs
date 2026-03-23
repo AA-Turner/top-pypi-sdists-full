@@ -420,12 +420,14 @@ mod tests {
 
     #[test]
     fn test_conversion_options_serde() {
-        let mut options = ConversionOptions::default();
-        options.heading_style = HeadingStyle::AtxClosed;
-        options.list_indent_width = 4;
-        options.bullets = "*".to_string();
-        options.escape_asterisks = true;
-        options.whitespace_mode = WhitespaceMode::Strict;
+        let options = ConversionOptions {
+            heading_style: HeadingStyle::AtxClosed,
+            list_indent_width: 4,
+            bullets: "*".to_string(),
+            escape_asterisks: true,
+            whitespace_mode: WhitespaceMode::Strict,
+            ..Default::default()
+        };
 
         // Serialize to JSON
         let json = serde_json::to_string(&options).expect("Failed to serialize");

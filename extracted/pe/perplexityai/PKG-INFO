@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: perplexityai
-Version: 0.30.2
+Version: 0.30.4
 Summary: The official Python library for the perplexity API
 Project-URL: Homepage, https://github.com/perplexityai/perplexity-py
 Project-URL: Repository, https://github.com/perplexityai/perplexity-py
@@ -27,7 +27,7 @@ Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
@@ -249,7 +249,7 @@ stream_chunk = client.chat.completions.create(
     model="model",
     web_search_options={},
 )
-print(stream_chunk.web_search_options)
+print(stream_chunk.choices)
 ```
 
 ## Handling errors
@@ -336,6 +336,7 @@ By default requests time out after 15 minutes. You can configure this with a `ti
 which accepts a float or an [`httpx.Timeout`](https://www.python-httpx.org/advanced/timeouts/#fine-tuning-the-configuration) object:
 
 ```python
+import httpx
 from perplexity import Perplexity
 
 # Configure the default for all requests:

@@ -253,7 +253,7 @@ def build_lineage_payload(
 
 def build_query_log_payload(
     resource_uuid: str,
-    resource_type: str,
+    log_type: str,
     events: list[QueryLogEntry],
 ) -> dict:
     """Build the full JSON payload for ``POST /ingest/v1/querylogs``."""
@@ -261,7 +261,7 @@ def build_query_log_payload(
         "event_type": "QUERY_LOG",
         "resource": {
             "uuid": resource_uuid,
-            "resource_type": resource_type,
+            "log_type": log_type,
         },
         "events": [e.to_dict() for e in events],
     }

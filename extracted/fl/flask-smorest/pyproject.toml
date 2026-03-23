@@ -1,6 +1,6 @@
 [project]
 name = "flask-smorest"
-version = "0.46.2"
+version = "0.47.0"
 description = "Flask/Marshmallow-based REST API framework"
 readme = "README.rst"
 license = { file = "LICENSE" }
@@ -16,13 +16,12 @@ classifiers = [
   "Framework :: Flask",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
   "werkzeug>=3.0.1,<4",
   "flask>=3.0.2,<4",
@@ -40,21 +39,21 @@ Tidelift = "https://tidelift.com/subscription/pkg/pypi-marshmallow?utm_source=py
 
 [project.optional-dependencies]
 docs = [
-  "sphinx==8.2.3",
-  "sphinx-issues==5.0.1",
+  "sphinx==9.1.0",
+  "sphinx-issues==6.0.0",
   "alabaster==1.0.0",
 ]
 tests = [
   "packaging>=24.2",
-  "pytest==8.4.2",
+  "pytest==9.0.2",
   "pytest-cov==7.0.0",
-  "coverage==7.10.6",
-  "werkzeug==3.1.3",
-  "flask[async]==3.1.2",
+  "coverage==7.13.5",
+  "werkzeug==3.1.6",
+  "flask[async]==3.1.3",
   "marshmallow",
-  "webargs==8.7.0",
-  "apispec==6.8.3",
-  "PyYAML==6.0.2",
+  "webargs==8.7.1",
+  "apispec==6.10.0",
+  "PyYAML==6.0.3",
 ]
 dev = [
   "flask-smorest[tests]",

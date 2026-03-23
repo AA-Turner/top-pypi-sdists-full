@@ -196,15 +196,16 @@ class IngestionService:
     def send_query_logs(
         self,
         resource_uuid: str,
-        resource_type: str,
+        log_type: str,
         events: list[QueryLogEntry],
     ) -> dict | None:
         """
         Send query log events to Monte Carlo.
 
         :param resource_uuid: UUID of the Monte Carlo resource (warehouse/lake).
-        :param resource_type: Resource type identifier, e.g. ``"snowflake"``,
-            ``"bigquery"`` (lowercase).
+        :param log_type: The log/connection type, e.g. ``"snowflake"``,
+            ``"bigquery"`` (lowercase). This is the customer-facing name for the
+            internal connection/warehouse type used by the Monte Carlo pipeline.
         :param events: One or more :class:`QueryLogEntry` objects describing
             the queries to ingest.
         :return: The JSON response from the API, or ``None`` if the response
@@ -216,7 +217,7 @@ class IngestionService:
 
         payload = build_query_log_payload(
             resource_uuid=resource_uuid,
-            resource_type=resource_type,
+            log_type=log_type,
             events=events,
         )
         return self._post_query_logs(payload)
