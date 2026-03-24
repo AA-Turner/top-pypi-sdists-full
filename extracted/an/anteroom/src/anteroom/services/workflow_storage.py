@@ -183,6 +183,27 @@ def get_workflow_run(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | 
     return _deserialize_run(dict(row))
 
 
+def resolve_workflow_run_id(db: ThreadSafeConnection, run_ref: str, *, max_matches: int = 5) -> str:
+    """Resolve an exact run ID or a unique prefix to a full workflow run ID."""
+    row = db.execute_fetchone("SELECT id FROM workflow_runs WHERE id = ?", (run_ref,))
+    if row:
+        return str(row["id"])
+
+    rows = db.execute_fetchall(
+        "SELECT id FROM workflow_runs WHERE id LIKE ? ORDER BY created_at DESC LIMIT ?",
+        (f"{run_ref}%", max_matches + 1),
+    )
+    if not rows:
+        raise ValueError(f"Run not found: {run_ref}")
+    if len(rows) == 1:
+        return str(rows[0]["id"])
+
+    samples = ", ".join(str(r["id"])[:12] for r in rows[:max_matches])
+    if len(rows) > max_matches:
+        samples += ", ..."
+    raise ValueError(f"Ambiguous run ID prefix: {run_ref} ({samples})")
+
+
 def _deserialize_run(d: dict[str, Any]) -> dict[str, Any]:
     raw_inputs = d.pop("inputs_json", None)
     d["inputs"] = json.loads(raw_inputs) if raw_inputs else None
@@ -299,6 +320,25 @@ def claim_pending_runs(
         (worker_id, now_iso),
     )
     return [_deserialize_run(dict(r)) for r in rows]
+
+
+def claim_workflow_run(
+    db: ThreadSafeConnection,
+    run_id: str,
+    worker_id: str,
+) -> dict[str, Any] | None:
+    """Atomically claim a specific pending run for a worker."""
+    now_iso = _now()
+    cursor = db.execute(
+        "UPDATE workflow_runs SET status = 'claimed', claimed_by = ?, claimed_at = ?"
+        " WHERE id = ? AND status = 'pending' AND claimed_by IS NULL",
+        (worker_id, now_iso, run_id),
+    )
+    db.commit()
+    if cursor.rowcount == 0:
+        return None
+    row = db.execute_fetchone("SELECT * FROM workflow_runs WHERE id = ?", (run_id,))
+    return _deserialize_run(dict(row)) if row else None
 
 
 def reset_stale_claims(
@@ -607,6 +647,58 @@ def list_workflow_events(db: ThreadSafeConnection, run_id: str) -> list[dict[str
         "SELECT * FROM workflow_events WHERE run_id = ? ORDER BY id",
         (run_id,),
     )
+    results = []
+    for r in rows:
+        d = dict(r)
+        raw = d.pop("payload_json", None)
+        d["payload"] = json.loads(raw) if raw else None
+        results.append(d)
+    return results
+
+
+def get_run_replay_events(
+    db: ThreadSafeConnection,
+    run_id: str,
+) -> list[dict[str, Any]]:
+    """Return transcript + lifecycle events merged for replay, ordered by id."""
+    rows = db.execute_fetchall(
+        "SELECT id, run_id, step_id, event_type, payload_json, created_at "
+        "FROM workflow_events "
+        "WHERE run_id = ? AND ("
+        "  event_type LIKE 'transcript_%' "
+        "  OR event_type IN ('step_started', 'step_finished', 'step_failed')"
+        ") ORDER BY id",
+        (run_id,),
+    )
+    results = []
+    for r in rows:
+        d = dict(r)
+        raw = d.pop("payload_json", None)
+        d["payload"] = json.loads(raw) if raw else None
+        results.append(d)
+    return results
+
+
+def list_transcript_events(
+    db: ThreadSafeConnection,
+    run_id: str,
+    step_id: str | None = None,
+    *,
+    since_id: int = 0,
+) -> list[dict[str, Any]]:
+    """Return transcript events for a run, optionally filtered by step and since_id."""
+    if step_id:
+        rows = db.execute_fetchall(
+            "SELECT * FROM workflow_events "
+            "WHERE run_id = ? AND step_id = ? AND event_type LIKE 'transcript_%' AND id > ? "
+            "ORDER BY id",
+            (run_id, step_id, since_id),
+        )
+    else:
+        rows = db.execute_fetchall(
+            "SELECT * FROM workflow_events WHERE run_id = ? AND event_type LIKE 'transcript_%' AND id > ? ORDER BY id",
+            (run_id, since_id),
+        )
     results = []
     for r in rows:
         d = dict(r)

@@ -56,10 +56,10 @@ def html_to_rst(html: str):
     import pypandoc
 
     doc = pypandoc.convert_text(html, "rst", format="html")
-    doc = doc.replace("\_", "_")  # noqa: W605
-    doc = doc.replace("\|", "|")  # noqa: W605
-    doc = doc.replace("\ ", " ")  # noqa: W605
-    doc = doc.replace("\\", "\\\\")  # noqa: W605
+    doc = doc.replace(r"\_", "_")
+    doc = doc.replace(r"\|", "|")
+    doc = doc.replace(r"\ ", " ")
+    doc = doc.replace("\\", "\\\\")
     rst = doc.strip()
     return rst
 
@@ -452,7 +452,7 @@ def generate_service_api(output, service: ServiceModel, doc=True):
             for param_name, shape in param_shapes.items():
                 # FIXME: this doesn't work properly
                 rst = html_to_rst(shape.documentation)
-                rst = rst.strip().split(".")[0] + "."
+                rst = rst.strip().replace("\n", " ").split(".")[0] + "."
                 output.write(f":param {param_name}: {rst}\n")
 
             # return value

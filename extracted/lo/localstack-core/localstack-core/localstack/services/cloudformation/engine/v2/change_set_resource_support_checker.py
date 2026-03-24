@@ -1,4 +1,5 @@
 from localstack.aws.api.cloudformation import ChangeSetType
+from localstack.services.cloudformation.cfn_utils import get_service_name
 from localstack.services.cloudformation.engine.v2.change_set_model import NodeResource
 from localstack.services.cloudformation.engine.v2.change_set_model_visitor import (
     ChangeSetModelVisitor,
@@ -21,47 +22,10 @@ from localstack.utils.catalog.common import (
 from localstack.utils.catalog.plugins import get_aws_catalog
 
 
-# TODO handle all available resource types
-def _get_service_name(resource_type: str) -> str | None:
-    parts = resource_type.split("::")
-    if len(parts) == 1:
-        return None
-
-    match parts:
-        case _ if "Cognito::IdentityPool" in resource_type:
-            return "cognito-identity"
-        case [*_, "Cognito", "UserPool"]:
-            return "cognito-idp"
-        case [*_, "Cognito", _]:
-            return "cognito-idp"
-        case [*_, "Elasticsearch", _]:
-            return "es"
-        case [*_, "OpenSearchService", _]:
-            return "opensearch"
-        case [*_, "KinesisFirehose", _]:
-            return "firehose"
-        case [*_, "ResourceGroups", _]:
-            return "resource-groups"
-        case [*_, "CertificateManager", _]:
-            return "acm"
-        case _ if "ElasticLoadBalancing::" in resource_type:
-            return "elb"
-        case _ if "ElasticLoadBalancingV2::" in resource_type:
-            return "elbv2"
-        case _ if "ApplicationAutoScaling::" in resource_type:
-            return "application-autoscaling"
-        case _ if "MSK::" in resource_type:
-            return "kafka"
-        case _ if "Timestream::" in resource_type:
-            return "timestream-write"
-        case [_, service, *_]:
-            return service.lower()
-
-
 def _build_resource_failure_message(
     resource_type: str, status: AwsServicesSupportStatus | CfnResourceSupportStatus
 ) -> str:
-    service_name = _get_service_name(resource_type) or "malformed"
+    service_name = get_service_name(resource_type) or "malformed"
     template = "Sorry, the {resource} resource in the {service} service is not supported."
     match status:
         case CloudFormationResourcesSupportAtRuntime.NOT_IMPLEMENTED:
@@ -114,8 +78,20 @@ class ChangeSetResourceSupportChecker(ChangeSetModelVisitor):
     def _resource_support_status(
         self, resource_type: str
     ) -> AwsServicesSupportStatus | CfnResourceSupportStatus:
-        service_name = _get_service_name(resource_type)
-        return self.catalog.get_cloudformation_resource_status(resource_type, service_name, True)
+        service_name = get_service_name(resource_type)
+        # plugin_manager.is_loaded() raises ValueError for unknown resource types,
+        # which also means this resource isn't supported in the community edition at all and requires AWS pro service
+        resource_is_only_in_pro = False
+        try:
+            from localstack.services.cloudformation.resource_provider import plugin_manager
+
+            plugin_manager.is_loaded(resource_type)
+        except ValueError:
+            resource_is_only_in_pro = True
+
+        return self.catalog.get_cloudformation_resource_status(
+            resource_type, service_name, resource_is_only_in_pro
+        )
 
     @property
     def failure_messages(self) -> list[str]:

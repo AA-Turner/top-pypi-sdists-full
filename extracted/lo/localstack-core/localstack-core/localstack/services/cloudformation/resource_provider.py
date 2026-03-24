@@ -16,10 +16,11 @@ import botocore
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 from botocore.model import OperationModel
-from plux import Plugin, PluginManager
+from plux import Plugin, PluginDisabled, PluginManager
 
 from localstack import config
 from localstack.aws.connect import InternalClientFactory, ServiceLevelClientFactory
+from localstack.services.cloudformation.cfn_utils import get_service_name
 from localstack.services.cloudformation.deployment_utils import (
     check_not_found_exception,
     convert_data_types,
@@ -30,6 +31,7 @@ from localstack.services.cloudformation.deployment_utils import (
 from localstack.services.cloudformation.engine.quirks import PHYSICAL_RESOURCE_ID_SPECIAL_CASES
 from localstack.services.cloudformation.provider_utils import convert_request_kwargs
 from localstack.services.cloudformation.service_models import KEY_RESOURCE_STATE
+from localstack.services.plugins import SERVICE_PLUGINS
 
 PRO_RESOURCE_PROVIDERS = False
 try:
@@ -284,40 +286,6 @@ def invoke_function(
         raise e
 
     return result
-
-
-def get_service_name(resource):
-    res_type = resource["Type"]
-    parts = res_type.split("::")
-    if len(parts) == 1:
-        return None
-    if "Cognito::IdentityPool" in res_type:
-        return "cognito-identity"
-    if res_type.endswith("Cognito::UserPool"):
-        return "cognito-idp"
-    if parts[-2] == "Cognito":
-        return "cognito-idp"
-    if parts[-2] == "Elasticsearch":
-        return "es"
-    if parts[-2] == "OpenSearchService":
-        return "opensearch"
-    if parts[-2] == "KinesisFirehose":
-        return "firehose"
-    if parts[-2] == "ResourceGroups":
-        return "resource-groups"
-    if parts[-2] == "CertificateManager":
-        return "acm"
-    if "ElasticLoadBalancing::" in res_type:
-        return "elb"
-    if "ElasticLoadBalancingV2::" in res_type:
-        return "elbv2"
-    if "ApplicationAutoScaling::" in res_type:
-        return "application-autoscaling"
-    if "MSK::" in res_type:
-        return "kafka"
-    if "Timestream::" in res_type:
-        return "timestream-write"
-    return parts[1].lower()
 
 
 def resolve_resource_parameters(
@@ -578,10 +546,22 @@ class ResourceProviderExecutor:
         if PRO_RESOURCE_PROVIDERS:
             try:
                 plugin = pro_plugin_manager.load(resource_type)
+                service_name = get_service_name(resource_type)
+                provider_name = SERVICE_PLUGINS.get_active_provider(service_name)
+                plugin_name = f"{service_name}:{provider_name}"
+                # Try to load service plugin to deduce if service is available under user license
+                SERVICE_PLUGINS.plugin_manager.load(plugin_name)
                 return plugin.factory()
             except ValueError:
                 # could not find a plugin for that name
                 pass
+            except PluginDisabled as e:
+                LOG.warning(
+                    "Sorry, the %s service (for the %s resource) is not included within your LocalStack license, but is available in an upgraded license.",
+                    e.name,
+                    resource_type,
+                    exc_info=LOG.isEnabledFor(logging.DEBUG) and config.CFN_VERBOSE_ERRORS,
+                )
             except Exception:
                 LOG.warning(
                     "Failed to load PRO resource type %s as a ResourceProvider.",

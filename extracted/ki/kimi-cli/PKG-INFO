@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: kimi-cli
-Version: 1.24.0
+Version: 1.25.0
 Summary: Kimi Code CLI is your next CLI agent.
 Requires-Dist: agent-client-protocol==0.8.0
 Requires-Dist: aiofiles>=24.0,<26.0

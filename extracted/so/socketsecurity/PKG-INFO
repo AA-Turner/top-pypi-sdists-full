@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: socketsecurity
-Version: 2.2.78
+Version: 2.2.79
 Summary: Socket Security CLI for CI/CD
 Project-URL: Homepage, https://socket.dev
 Author-email: Douglas Coburn <douglas@socket.dev>
@@ -32,7 +32,7 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: bs4>=0.0.2
 Requires-Dist: gitpython
 Requires-Dist: markdown>=3.10

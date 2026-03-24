@@ -61,6 +61,21 @@ def make_employer_total_simulation(
     employer_total_taxable_earnings_for_state_unemployment_tax: float = 9_000,
     employer_ny_mctmt_zone_1_quarterly_payroll_expense: float = 0,
     employer_ny_mctmt_zone_2_quarterly_payroll_expense: float = 0,
+    employer_total_co_denver_occupational_privilege_tax_employee_months: int = 0,
+    employer_total_co_denver_occupational_privilege_tax_owner_months: int = 0,
+    employer_total_co_glendale_occupational_privilege_tax_employee_months: int = 0,
+    employer_total_co_glendale_occupational_privilege_tax_owner_months: int = 0,
+    employer_total_co_greenwood_village_occupational_privilege_tax_employee_months: int = 0,
+    employer_total_co_greenwood_village_occupational_privilege_tax_owner_months: int = 0,
+    employer_total_co_sheridan_occupational_privilege_tax_employee_months: int = 0,
+    employer_total_mo_st_louis_payroll_expense: float = 0,
+    employer_total_or_trimet_taxable_wages: float = 0,
+    employer_total_or_lane_transit_district_taxable_wages: float = 0,
+    employer_total_wa_seattle_social_housing_excess_compensation: float = 0,
+    employer_total_wa_seattle_payroll_expense_prior_year_total: float = 0,
+    employer_total_wa_seattle_payroll_expense_current_year_total: float = 0,
+    employer_total_wa_seattle_payroll_expense_lower_band_taxable_payroll: float = 0,
+    employer_total_wa_seattle_payroll_expense_upper_band_taxable_payroll: float = 0,
 ) -> Simulation:
     return Simulation(
         tax_benefit_system=SYSTEM,
@@ -89,6 +104,51 @@ def make_employer_total_simulation(
                     },
                     "employer_ny_mctmt_zone_2_quarterly_payroll_expense": {
                         PERIOD: employer_ny_mctmt_zone_2_quarterly_payroll_expense
+                    },
+                    "employer_total_co_denver_occupational_privilege_tax_employee_months": {
+                        PERIOD: employer_total_co_denver_occupational_privilege_tax_employee_months
+                    },
+                    "employer_total_co_denver_occupational_privilege_tax_owner_months": {
+                        PERIOD: employer_total_co_denver_occupational_privilege_tax_owner_months
+                    },
+                    "employer_total_co_glendale_occupational_privilege_tax_employee_months": {
+                        PERIOD: employer_total_co_glendale_occupational_privilege_tax_employee_months
+                    },
+                    "employer_total_co_glendale_occupational_privilege_tax_owner_months": {
+                        PERIOD: employer_total_co_glendale_occupational_privilege_tax_owner_months
+                    },
+                    "employer_total_co_greenwood_village_occupational_privilege_tax_employee_months": {
+                        PERIOD: employer_total_co_greenwood_village_occupational_privilege_tax_employee_months
+                    },
+                    "employer_total_co_greenwood_village_occupational_privilege_tax_owner_months": {
+                        PERIOD: employer_total_co_greenwood_village_occupational_privilege_tax_owner_months
+                    },
+                    "employer_total_co_sheridan_occupational_privilege_tax_employee_months": {
+                        PERIOD: employer_total_co_sheridan_occupational_privilege_tax_employee_months
+                    },
+                    "employer_total_mo_st_louis_payroll_expense": {
+                        PERIOD: employer_total_mo_st_louis_payroll_expense
+                    },
+                    "employer_total_or_trimet_taxable_wages": {
+                        PERIOD: employer_total_or_trimet_taxable_wages
+                    },
+                    "employer_total_or_lane_transit_district_taxable_wages": {
+                        PERIOD: employer_total_or_lane_transit_district_taxable_wages
+                    },
+                    "employer_total_wa_seattle_social_housing_excess_compensation": {
+                        PERIOD: employer_total_wa_seattle_social_housing_excess_compensation
+                    },
+                    "employer_total_wa_seattle_payroll_expense_prior_year_total": {
+                        PERIOD: employer_total_wa_seattle_payroll_expense_prior_year_total
+                    },
+                    "employer_total_wa_seattle_payroll_expense_current_year_total": {
+                        PERIOD: employer_total_wa_seattle_payroll_expense_current_year_total
+                    },
+                    "employer_total_wa_seattle_payroll_expense_lower_band_taxable_payroll": {
+                        PERIOD: employer_total_wa_seattle_payroll_expense_lower_band_taxable_payroll
+                    },
+                    "employer_total_wa_seattle_payroll_expense_upper_band_taxable_payroll": {
+                        PERIOD: employer_total_wa_seattle_payroll_expense_upper_band_taxable_payroll
                     },
                 }
             },
@@ -566,6 +626,142 @@ def test_ny_mctmt_total_employer_tax(
     assert calculate(sim, "employer_total_local_payroll_tax") == pytest.approx(
         expected, abs=0.01
     )
+
+
+def test_colorado_total_business_occupational_privilege_taxes():
+    sim = make_employer_total_simulation(
+        "CO",
+        employer_total_co_denver_occupational_privilege_tax_employee_months=12,
+        employer_total_co_denver_occupational_privilege_tax_owner_months=6,
+        employer_total_co_glendale_occupational_privilege_tax_employee_months=12,
+        employer_total_co_glendale_occupational_privilege_tax_owner_months=12,
+        employer_total_co_greenwood_village_occupational_privilege_tax_employee_months=12,
+        employer_total_co_greenwood_village_occupational_privilege_tax_owner_months=6,
+        employer_total_co_sheridan_occupational_privilege_tax_employee_months=12,
+    )
+
+    assert calculate(
+        sim, "co_denver_total_business_occupational_privilege_tax"
+    ) == pytest.approx(72)
+    assert calculate(
+        sim, "co_glendale_total_business_occupational_privilege_tax"
+    ) == pytest.approx(120)
+    assert calculate(
+        sim, "co_greenwood_village_total_business_occupational_privilege_tax"
+    ) == pytest.approx(36)
+    assert calculate(
+        sim, "co_sheridan_total_business_occupational_privilege_tax"
+    ) == pytest.approx(36)
+    assert calculate(sim, "employer_total_local_payroll_tax") == pytest.approx(264)
+
+
+def test_oregon_total_local_payroll_taxes():
+    sim = make_employer_total_simulation(
+        "OR",
+        employer_total_or_trimet_taxable_wages=1_000_000,
+        employer_total_or_lane_transit_district_taxable_wages=1_000_000,
+    )
+
+    assert calculate(sim, "or_trimet_total_payroll_tax") == pytest.approx(8_237)
+    assert calculate(
+        sim, "or_lane_transit_district_total_payroll_tax"
+    ) == pytest.approx(8_000)
+    assert calculate(sim, "employer_total_local_payroll_tax") == pytest.approx(16_237)
+
+
+@pytest.mark.parametrize(
+    (
+        "prior_year_total",
+        "current_year_total",
+        "lower_band_taxable_payroll",
+        "upper_band_taxable_payroll",
+        "expected",
+    ),
+    [
+        pytest.param(
+            9_000_000,
+            20_000_000,
+            1_000_000,
+            500_000,
+            0,
+            id="below-subject-threshold",
+        ),
+        pytest.param(
+            10_000_000,
+            20_000_000,
+            1_000_000,
+            500_000,
+            16_515,
+            id="lower-schedule",
+        ),
+        pytest.param(
+            10_000_000,
+            200_000_000,
+            1_000_000,
+            500_000,
+            17_580,
+            id="middle-schedule",
+        ),
+        pytest.param(
+            10_000_000,
+            2_000_000_000,
+            1_000_000,
+            500_000,
+            27_705,
+            id="top-schedule",
+        ),
+    ],
+)
+def test_seattle_total_payroll_expense_tax(
+    prior_year_total: float,
+    current_year_total: float,
+    lower_band_taxable_payroll: float,
+    upper_band_taxable_payroll: float,
+    expected: float,
+):
+    sim = make_employer_total_simulation(
+        "WA",
+        employer_total_wa_seattle_payroll_expense_prior_year_total=prior_year_total,
+        employer_total_wa_seattle_payroll_expense_current_year_total=current_year_total,
+        employer_total_wa_seattle_payroll_expense_lower_band_taxable_payroll=lower_band_taxable_payroll,
+        employer_total_wa_seattle_payroll_expense_upper_band_taxable_payroll=upper_band_taxable_payroll,
+    )
+
+    assert calculate(sim, "wa_seattle_total_payroll_expense_tax") == pytest.approx(
+        expected
+    )
+    assert calculate(sim, "employer_total_local_payroll_tax") == pytest.approx(expected)
+
+
+def test_st_louis_total_payroll_expense_tax():
+    sim = make_employer_total_simulation(
+        "MO", employer_total_mo_st_louis_payroll_expense=1_000_000
+    )
+
+    assert calculate(sim, "mo_st_louis_total_payroll_expense_tax") == pytest.approx(
+        5_000
+    )
+    assert calculate(sim, "employer_total_local_payroll_tax") == pytest.approx(5_000)
+    assert calculate(sim, "employer_total_payroll_tax") == pytest.approx(12_906.2)
+    assert calculate(sim, "employer_total_cost_of_employment") == pytest.approx(
+        112_906.2
+    )
+
+
+def test_seattle_total_social_housing_tax():
+    sim = make_employer_total_simulation(
+        "WA",
+        employer_total_wa_seattle_payroll_expense_prior_year_total=10_000_000,
+        employer_total_wa_seattle_payroll_expense_current_year_total=20_000_000,
+        employer_total_wa_seattle_payroll_expense_lower_band_taxable_payroll=1_000_000,
+        employer_total_wa_seattle_payroll_expense_upper_band_taxable_payroll=500_000,
+        employer_total_wa_seattle_social_housing_excess_compensation=500_000,
+    )
+
+    assert calculate(sim, "wa_seattle_total_social_housing_tax") == pytest.approx(
+        25_000
+    )
+    assert calculate(sim, "employer_total_local_payroll_tax") == pytest.approx(41_515)
 
 
 def test_employer_total_payroll_tax_aggregates_employer_inputs():

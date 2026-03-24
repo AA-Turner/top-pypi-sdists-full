@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'b94dad74fec6c4f84793ced25eb21ed3f13a01d5'
+_SKYPILOT_COMMIT_SHA = '84a86be96212ffd1bc7e510da4e11e324154fba6'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '0.11.2'
+__version__ = '0.12.0'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -116,6 +116,8 @@ from sky.client.sdk import storage_ls
 from sky.client.sdk import stream_and_get
 from sky.client.sdk import tail_logs
 from sky.dag import Dag
+from sky.dag import DagExecution
+from sky.data import FileMountType
 from sky.data import Storage
 from sky.data import StorageMode
 from sky.data import StoreType
@@ -153,8 +155,11 @@ Vsphere = clouds.Vsphere
 Fluidstack = clouds.Fluidstack
 Nebius = clouds.Nebius
 Hyperbolic = clouds.Hyperbolic
+Mithril = clouds.Mithril
 Shadeform = clouds.Shadeform
 Seeweb = clouds.Seeweb
+Yotta = clouds.Yotta
+Verda = clouds.Verda
 
 __all__ = [
     '__version__',
@@ -178,13 +183,16 @@ __all__ = [
     'Fluidstack',
     'Nebius',
     'Hyperbolic',
+    'Mithril',
     'Shadeform',
     'Seeweb',
+    'Yotta',
     'Optimizer',
     'OptimizeTarget',
     'backends',
     'list_accelerators',
     '__root_dir__',
+    'FileMountType',
     'Storage',
     'StorageMode',
     'StoreType',
@@ -194,6 +202,7 @@ __all__ = [
     'StatusRefreshMode',
     # APIs
     'Dag',
+    'DagExecution',
     'Task',
     'Resources',
     # core APIs

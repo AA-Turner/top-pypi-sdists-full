@@ -23,7 +23,6 @@ from ...kb import (
     get_candidates_batch,
 )
 from ...tokens import Doc, Span
-from ...util import registry
 from ...vocab import Vocab
 from ..extract_spans import extract_spans
 
@@ -122,7 +121,7 @@ def create_candidates() -> Callable[[KnowledgeBase, Span], Iterable[Candidate]]:
     return get_candidates
 
 
-def create_candidates_batch() -> (
-    Callable[[KnowledgeBase, Iterable[Span]], Iterable[Iterable[Candidate]]]
-):
+def create_candidates_batch() -> Callable[
+    [KnowledgeBase, Iterable[Span]], Iterable[Iterable[Candidate]]
+]:
     return get_candidates_batch

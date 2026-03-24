@@ -310,8 +310,10 @@ class Ec2Client(Boto3Client):
         """Return the id of the current official image, for the provided os-architecture combination."""
         owner = filters.owner if filters and filters.owner else "amazon"
         tags = filters.tags if filters and filters.tags else []
+        name_prefix = filters.name_prefix if filters and filters.name_prefix else ""
+        name = name_prefix + "{0}*".format(self._get_official_image_name_prefix(os, architecture))
 
-        filters = [{"Name": "name", "Values": ["{0}*".format(self._get_official_image_name_prefix(os, architecture))]}]
+        filters = [{"Name": "name", "Values": [name]}]
         filters.extend([{"Name": f"tag:{tag.key}", "Values": [tag.value]} for tag in tags])
         images = self._describe_images_with_pagination(Owners=[owner], Filters=filters, IncludeDeprecated=True)
         if not images:
@@ -568,7 +570,9 @@ class Ec2Client(Boto3Client):
                 raise Exception(f"No subnet found with ID {subnet_id}")
             vpc_id = subnets[0].get("VpcId")
 
-            route_tables = self.describe_route_tables(filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+            route_tables = self.describe_route_tables(
+                filters=[{"Name": "vpc-id", "Values": [vpc_id]}, {"Name": "association.main", "Values": ["true"]}]
+            )
             if not route_tables:
                 raise Exception("No route tables found. The subnet or VPC configuration may be incorrect.")
 
@@ -679,3 +683,28 @@ class Ec2Client(Boto3Client):
                 reservation_type = reservation.reservation_type()
 
         return instance_type, reservation_type
+
+    @AWSExceptionHandler.handle_client_exception
+    @Cache.cached
+    def describe_launch_template_version(self, launch_template_id: str, version: str):
+        """
+        Describe a launch template version and return its data.
+
+        Args:
+            launch_template_id: The launch template ID (e.g., 'lt-0abc123def456')
+            version: The version number or '$Default'/'$Latest'
+
+        Returns:
+            dict: The LaunchTemplateData from the specified version
+        """
+        response = self._client.describe_launch_template_versions(
+            LaunchTemplateId=launch_template_id,
+            Versions=[version],
+        )
+        versions = response.get("LaunchTemplateVersions", [])
+        if versions:
+            return versions[0].get("LaunchTemplateData", {})
+        raise AWSClientError(
+            function_name="describe_launch_template_versions",
+            message=f"Launch template {launch_template_id} version {version} not found",
+        )

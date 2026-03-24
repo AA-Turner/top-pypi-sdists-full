@@ -368,10 +368,9 @@ def is_auth_token_configured() -> bool:
     return False
 
 
-# whether pro should be activated or not. this is set to true by default if using the pro image. if set to
-# true, localstack will fail to start if the key activation did not work. if set to false, then we will make
-# an attempt to start localstack community.
-ACTIVATE_PRO = localstack_config.is_env_not_false("ACTIVATE_PRO")
+# pro plugins should always run. If license activation failed this will be set to false to avoid loading
+# pro plugins after that.
+ACTIVATE_PRO = True
 
 # a comma-separated list of cloud pods to be automatically loaded at startup
 AUTO_LOAD_POD = os.environ.get("AUTO_LOAD_POD", "")
@@ -393,14 +392,6 @@ ENABLE_POD_RESOURCES = is_env_true("ENABLE_POD_RESOURCES")
 # If the toke in the CLI environment and the one in the runtime differ, users might have visibility of a different
 #   set of Cloud Pods.
 CLI_INJECT_POD_IDENTITY = localstack_config.is_env_not_false("CLI_INJECT_POD_IDENTITY")
-
-if is_env_true("LOCALSTACK_CLI"):
-    # when we're in the CLI, we only want to activate pro code if an API key is set. this is because we are
-    # always loading localstack/pro/core/config.py in the CLI, and we would otherwise always have ACTIVATE_PRO=1
-    # when running `localstack start`.
-    ACTIVATE_PRO = ACTIVATE_PRO and is_auth_token_configured()
-    # we also need to update the environment so `ACTIVATE_PRO` is disabled in the container
-    os.environ["LOCALSTACK_ACTIVATE_PRO"] = "1" if ACTIVATE_PRO else "0"
 
 # backend service ports
 DEFAULT_PORT_LOCAL_DAEMON = 4600
@@ -471,8 +462,8 @@ APPINSPECTOR_ENABLE = is_env_true("APPINSPECTOR_ENABLE")
 
 # update variable names that need to be passed as arguments to Docker
 localstack_config.CONFIG_ENV_VARS += [
-    "ACTIVATE_PRO",
     "APPSYNC_JS_LIBS_VERSION",
+    "ACKNOWLEDGE_ACCOUNT_REQUIREMENT",
     "APIGW_ENABLE_NEXT_GEN_WEBSOCKETS",
     "APIGW_ENABLE_NEXT_GEN_WEBSOCKETS_INVOCATION",
     "AUTO_LOAD_POD",

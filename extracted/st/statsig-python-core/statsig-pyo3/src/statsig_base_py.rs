@@ -13,11 +13,11 @@ use crate::{
     statsig_user_py::StatsigUserPy,
 };
 use parking_lot::Mutex;
-use pyo3::types::PyTuple;
-use pyo3::{prelude::*, types::PyDict};
+use pyo3::{call::PyCallArgs, prelude::*, types::PyDict};
 use pyo3_stub_gen::derive::*;
 use serde_json::Value;
-use statsig_rust::statsig_types::DynamicConfig;
+use statsig_rust::evaluation::evaluation_details::EvaluationDetails;
+use statsig_rust::statsig_types::{DynamicConfig, FeatureGate};
 use statsig_rust::{
     log_e, ClientInitResponseOptions, DynamicConfigEvaluationOptions, ExperimentEvaluationOptions,
     FeatureGateEvaluationOptions, HashAlgorithm, LayerEvaluationOptions, ObservabilityClient,
@@ -50,7 +50,7 @@ impl StatsigBasePy {
         }
     }
 
-    pub fn initialize(&self, py: Python) -> PyResult<PyObject> {
+    pub fn initialize(&self, py: Python) -> PyResult<Py<PyAny>> {
         let (completion_event, event_clone) = get_completion_event(py)?;
 
         let inst = self.inner.clone();
@@ -77,7 +77,7 @@ impl StatsigBasePy {
         Ok(completion_event)
     }
 
-    pub fn initialize_with_details(&self, py: Python) -> PyResult<PyObject> {
+    pub fn initialize_with_details(&self, py: Python) -> PyResult<Py<PyAny>> {
         let (future, future_clone) = create_python_future(py)?;
 
         let inst = self.inner.clone();
@@ -129,7 +129,7 @@ impl StatsigBasePy {
         self.inner.is_initialized()
     }
 
-    pub fn flush_events(&self, py: Python) -> PyResult<PyObject> {
+    pub fn flush_events(&self, py: Python) -> PyResult<Py<PyAny>> {
         let (completion_event, event_clone) = get_completion_event(py)?;
 
         let inst = self.inner.clone();
@@ -154,7 +154,7 @@ impl StatsigBasePy {
         Ok(completion_event)
     }
 
-    pub fn shutdown(&self, py: Python) -> PyResult<PyObject> {
+    pub fn shutdown(&self, py: Python) -> PyResult<Py<PyAny>> {
         let (completion_event, event_clone) = get_completion_event(py)?;
 
         let inst = self.inner.clone();
@@ -250,6 +250,23 @@ impl StatsigBasePy {
             name,
             options.map_or(FeatureGateEvaluationOptions::default(), |o| o.into()),
         )
+    }
+
+    #[pyo3(name="_INTERNAL_get_feature_gate_as_dict", signature = (user, name, options=None))]
+    pub fn _internal_get_feature_gate_as_dict(
+        &self,
+        user: &StatsigUserPy,
+        name: &str,
+        options: Option<FeatureGateEvaluationOptionsPy>,
+        py: Python,
+    ) -> PyResult<Py<PyDict>> {
+        let gate = self.inner.get_feature_gate_with_options(
+            &user.inner,
+            name,
+            options.map_or(FeatureGateEvaluationOptions::default(), |o| o.into()),
+        );
+
+        feature_gate_to_py_dict(py, &gate)
     }
 
     #[pyo3(signature = (user, name))]
@@ -554,20 +571,20 @@ impl StatsigBasePy {
     }
 }
 
-fn get_completion_event(py: Python) -> PyResult<(PyObject, PyObject)> {
+fn get_completion_event(py: Python) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
     let threading = PyModule::import(py, "threading")?;
     let event = threading.call_method0("Event")?;
-    let event_clone: PyObject = event.clone().into();
+    let event_clone: Py<PyAny> = event.clone().unbind();
 
-    Ok((event.into(), event_clone))
+    Ok((event.unbind(), event_clone))
 }
 
-fn create_python_future(py: Python) -> PyResult<(PyObject, PyObject)> {
+fn create_python_future(py: Python) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
     let concurrent = PyModule::import(py, "concurrent.futures")?;
     let future = concurrent.getattr("Future")?.call0()?;
-    let future_clone: PyObject = future.clone().into();
+    let future_clone: Py<PyAny> = future.clone().unbind();
 
-    Ok((future.into(), future_clone))
+    Ok((future.unbind(), future_clone))
 }
 
 fn convert_to_number(value: Option<&Bound<PyAny>>) -> Option<f64> {
@@ -582,20 +599,37 @@ fn convert_to_string(value: Option<&Bound<PyAny>>) -> Option<String> {
     value.extract::<String>().ok()
 }
 
+fn feature_gate_to_py_dict(py: Python, gate: &FeatureGate) -> PyResult<Py<PyDict>> {
+    let raw = PyDict::new(py);
+    raw.set_item("name", &gate.name)?;
+    raw.set_item("value", gate.value)?;
+    raw.set_item("ruleID", &gate.rule_id)?;
+    raw.set_item("idType", &gate.id_type)?;
+    raw.set_item("details", evaluation_details_to_py_dict(py, &gate.details)?)?;
+
+    Ok(raw.unbind())
+}
+
 fn dynamic_config_to_py_dict(py: Python, config: &DynamicConfig) -> PyResult<Py<PyDict>> {
     let raw = PyDict::new(py);
     raw.set_item("name", &config.name)?;
     raw.set_item("value", map_to_py_dict_direct(py, &config.value)?)?;
     raw.set_item("ruleID", &config.rule_id)?;
     raw.set_item("idType", &config.id_type)?;
+    raw.set_item(
+        "details",
+        evaluation_details_to_py_dict(py, &config.details)?,
+    )?;
 
-    let details = PyDict::new(py);
-    details.set_item("reason", &config.details.reason)?;
-    details.set_item("lcut", config.details.lcut)?;
-    details.set_item("received_at", config.details.received_at)?;
-    details.set_item("version", config.details.version)?;
+    Ok(raw.unbind())
+}
 
-    raw.set_item("details", details)?;
+fn evaluation_details_to_py_dict(py: Python, details: &EvaluationDetails) -> PyResult<Py<PyDict>> {
+    let raw = PyDict::new(py);
+    raw.set_item("reason", &details.reason)?;
+    raw.set_item("lcut", details.lcut)?;
+    raw.set_item("received_at", details.received_at)?;
+    raw.set_item("version", details.version)?;
 
     Ok(raw.unbind())
 }
@@ -623,17 +657,17 @@ fn extract_user_persisted_values(
     }
 }
 
-fn call_completion_event(event: &PyObject, py: Python) {
-    if let Err(e) = event.call_method0(py, "set") {
+fn call_completion_event(event: &Py<PyAny>, py: Python) {
+    if let Err(e) = event.as_ref().call_method0(py, "set") {
         log_e!(TAG, "Failed to set event: {}", e);
     }
 }
 
-fn call_completion_future<'py, A>(future: &PyObject, py: Python<'py>, args: A)
+fn call_completion_future<'py, A>(future: &Py<PyAny>, py: Python<'py>, args: A)
 where
-    A: IntoPyObject<'py, Target = PyTuple>,
+    A: PyCallArgs<'py>,
 {
-    if let Err(e) = future.call_method1(py, "set_result", args) {
+    if let Err(e) = future.as_ref().call_method1(py, "set_result", args) {
         log_e!(TAG, "Failed to set future result: {}", e);
     }
 }

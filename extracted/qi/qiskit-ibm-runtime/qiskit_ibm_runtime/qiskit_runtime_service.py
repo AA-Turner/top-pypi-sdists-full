@@ -12,6 +12,8 @@
 
 """Qiskit runtime service."""
 
+from __future__ import annotations
+
 import logging
 import warnings
 from datetime import datetime
@@ -526,12 +528,12 @@ class QiskitRuntimeService:
         min_num_qubits: int | None = None,
         instance: str | None = None,
         dynamic_circuits: bool | None = None,
-        filters: Callable[["ibm_backend.IBMBackend"], bool] | None = None,
+        filters: Callable[[ibm_backend.IBMBackend], bool] | None = None,
         *,
         use_fractional_gates: bool | None = False,
         calibration_id: str | None = None,
         **kwargs: Any,
-    ) -> list["ibm_backend.IBMBackend"]:
+    ) -> list[ibm_backend.IBMBackend]:
         """Return all backends accessible via this account, subject to optional filtering.
 
         Args:
@@ -861,7 +863,7 @@ class QiskitRuntimeService:
             private_endpoint=private_endpoint,
             region=region,
             plans_preference=plans_preference,
-            tags=tags,  # type: ignore[arg-type]
+            tags=tags,
         )
 
     @staticmethod
@@ -918,7 +920,7 @@ class QiskitRuntimeService:
             calibration_id: The calibration id used for instantiating the backend.
 
         Returns:
-            Backend: A backend matching the filtering.
+            A backend matching the filtering.
 
         Raises:
             QiskitBackendNotFoundError: if no backend could be found.
@@ -1078,8 +1080,8 @@ class QiskitRuntimeService:
         limit: int | None = 10,
         skip: int = 0,
         backend_name: str | None = None,
-        pending: bool = None,
-        program_id: str = None,
+        pending: bool | None = None,
+        program_id: str | None = None,
         instance: str | None = None,
         job_tags: list[str] | None = None,
         session_id: str | None = None,
@@ -1262,7 +1264,7 @@ class QiskitRuntimeService:
         self,
         min_num_qubits: int | None = None,
         instance: str | None = None,
-        filters: Callable[["ibm_backend.IBMBackend"], bool] | None = None,
+        filters: Callable[[ibm_backend.IBMBackend], bool] | None = None,
         **kwargs: Any,
     ) -> ibm_backend.IBMBackend:
         """Return the least busy available backend.

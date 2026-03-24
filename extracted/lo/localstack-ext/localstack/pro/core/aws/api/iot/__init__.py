@@ -7445,8 +7445,7 @@ class IotApi:
         :param thing_group_arn: The ARN of the group to which you are adding a thing.
         :param thing_name: The name of the thing to add to a group.
         :param thing_arn: The ARN of the thing to add to a group.
-        :param override_dynamic_groups: Override dynamic thing groups with static thing groups when 10-group
-        limit is reached.
+        :param override_dynamic_groups: Override dynamic thing groups with static thing groups when 10-group limit is reached.
         :returns: AddThingToThingGroupResponse
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -7474,10 +7473,8 @@ class IotApi:
 
         :param package_name: The name of the new software package.
         :param version_name: The name of the new package version.
-        :param sbom: A specific software bill of matrerials associated with a software
-        package version.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param sbom: A specific software bill of matrerials associated with a software package version.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: AssociateSbomWithPackageVersionResponse
         :raises ThrottlingException:
         :raises ConflictException:
@@ -7515,8 +7512,7 @@ class IotApi:
 
         :param targets: A list of thing group ARNs that define the targets of the job.
         :param job_id: The unique identifier you assigned to this job when it was created.
-        :param comment: An optional comment string describing why the job was associated with
-        the targets.
+        :param comment: An optional comment string describing why the job was associated with the targets.
         :param namespace_id: The namespace used to indicate that a job is a customer-managed job.
         :returns: AssociateTargetsWithJobResponse
         :raises InvalidRequestException:
@@ -7539,8 +7535,7 @@ class IotApi:
         action.
 
         :param policy_name: The name of the policy to attach.
-        :param target: The
-        `identity <https://docs.
+        :param target: The `identity <https://docs.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -7566,8 +7561,7 @@ class IotApi:
         action.
 
         :param policy_name: The policy name.
-        :param principal: The principal, which can be a certificate ARN (as returned from the
-        CreateCertificate operation) or an Amazon Cognito ID.
+        :param principal: The principal, which can be a certificate ARN (as returned from the CreateCertificate operation) or an Amazon Cognito ID.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -7595,8 +7589,7 @@ class IotApi:
         action.
 
         :param security_profile_name: The security profile that is attached.
-        :param security_profile_target_arn: The ARN of the target (thing group) to which the security profile is
-        attached.
+        :param security_profile_target_arn: The ARN of the target (thing group) to which the security profile is attached.
         :returns: AttachSecurityProfileResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -7625,10 +7618,8 @@ class IotApi:
         action.
 
         :param thing_name: The name of the thing.
-        :param principal: The principal, which can be a certificate ARN (as returned from the
-        CreateCertificate operation) or an Amazon Cognito ID.
-        :param thing_principal_type: The type of the relation you want to specify when you attach a principal
-        to a thing.
+        :param principal: The principal, which can be a certificate ARN (as returned from the CreateCertificate operation) or an Amazon Cognito ID.
+        :param thing_principal_type: The type of the relation you want to specify when you attach a principal to a thing.
         :returns: AttachThingPrincipalResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -7749,9 +7740,7 @@ class IotApi:
         :param job_id: The unique identifier you assigned to this job when it was created.
         :param reason_code: (Optional)A reason code string that explains why the job was canceled.
         :param comment: An optional comment string describing why the job was canceled.
-        :param force: (Optional) If ``true`` job executions with status "IN_PROGRESS" and
-        "QUEUED" are canceled, otherwise only job executions with status
-        "QUEUED" are canceled.
+        :param force: (Optional) If ``true`` job executions with status "IN_PROGRESS" and "QUEUED" are canceled, otherwise only job executions with status "QUEUED" are canceled.
         :returns: CancelJobResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -7780,12 +7769,9 @@ class IotApi:
 
         :param job_id: The ID of the job to be canceled.
         :param thing_name: The name of the thing whose execution of the job will be canceled.
-        :param force: (Optional) If ``true`` the job execution will be canceled if it has
-        status IN_PROGRESS or QUEUED, otherwise the job execution will be
-        canceled only if it has status QUEUED.
+        :param force: (Optional) If ``true`` the job execution will be canceled if it has status IN_PROGRESS or QUEUED, otherwise the job execution will be canceled only if it has status QUEUED.
         :param expected_version: (Optional) The expected current version of the job execution.
-        :param status_details: A collection of name/value pairs that describe the status of the job
-        execution.
+        :param status_details: A collection of name/value pairs that describe the status of the job execution.
         :raises InvalidRequestException:
         :raises InvalidStateTransitionException:
         :raises ResourceNotFoundException:
@@ -7829,8 +7815,7 @@ class IotApi:
         `ConfirmTopicRuleDestination <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param confirmation_token: The token used to confirm ownership or access to the topic rule
-        confirmation URL.
+        :param confirmation_token: The token used to confirm ownership or access to the topic rule confirmation URL.
         :returns: ConfirmTopicRuleDestinationResponse
         :raises InternalException:
         :raises InvalidRequestException:
@@ -7895,16 +7880,12 @@ class IotApi:
 
         :param authorizer_name: The authorizer name.
         :param authorizer_function_arn: The ARN of the authorizer's Lambda function.
-        :param token_key_name: The name of the token key used to extract the token from the HTTP
-        headers.
-        :param token_signing_public_keys: The public keys used to verify the digital signature returned by your
-        custom authentication service.
+        :param token_key_name: The name of the token key used to extract the token from the HTTP headers.
+        :param token_signing_public_keys: The public keys used to verify the digital signature returned by your custom authentication service.
         :param status: The status of the create authorizer request.
         :param tags: Metadata which can be used to manage the custom authorizer.
-        :param signing_disabled: Specifies whether IoT validates the token signature in an authorization
-        request.
-        :param enable_caching_for_http: When ``true``, the result from the authorizer’s Lambda function is
-        cached for clients that use persistent HTTP connections.
+        :param signing_disabled: Specifies whether IoT validates the token signature in an authorization request.
+        :param enable_caching_for_http: When ``true``, the result from the authorizer’s Lambda function is cached for clients that use persistent HTTP connections.
         :returns: CreateAuthorizerResponse
         :raises ResourceAlreadyExistsException:
         :raises InvalidRequestException:
@@ -8043,11 +8024,8 @@ class IotApi:
 
         :param certificate_provider_name: The name of the certificate provider.
         :param lambda_function_arn: The ARN of the Lambda function that defines the authentication logic.
-        :param account_default_for_operations: A list of the operations that the certificate provider will use to
-        generate certificates.
-        :param client_token: A string that you can optionally pass in the
-        ``CreateCertificateProvider`` request to make sure the request is
-        idempotent.
+        :param account_default_for_operations: A list of the operations that the certificate provider will use to generate certificates.
+        :param client_token: A string that you can optionally pass in the ``CreateCertificateProvider`` request to make sure the request is idempotent.
         :param tags: Metadata which can be used to manage the certificate provider.
         :returns: CreateCertificateProviderResponse
         :raises LimitExceededException:
@@ -8085,12 +8063,9 @@ class IotApi:
         :param description: A short text decription of the command.
         :param payload: The payload object for the static command.
         :param payload_template: The payload template for the dynamic command.
-        :param preprocessor: Configuration that determines how ``payloadTemplate`` is processed to
-        generate command execution payload.
-        :param mandatory_parameters: A list of parameters that are used by ``StartCommandExecution`` API for
-        execution payload generation.
-        :param role_arn: The IAM role that you must provide when using the ``AWS-IoT-FleetWise``
-        namespace.
+        :param preprocessor: Configuration that determines how ``payloadTemplate`` is processed to generate command execution payload.
+        :param mandatory_parameters: A list of parameters that are used by ``StartCommandExecution`` API for execution payload generation.
+        :param role_arn: The IAM role that you must provide when using the ``AWS-IoT-FleetWise`` namespace.
         :param tags: Name-value pairs that are used as metadata to manage a command.
         :returns: CreateCommandResponse
         :raises ValidationException:
@@ -8187,10 +8162,8 @@ class IotApi:
 
         :param domain_configuration_name: The name of the domain configuration.
         :param domain_name: The name of the domain.
-        :param server_certificate_arns: The ARNs of the certificates that IoT passes to the device during the
-        TLS handshake.
-        :param validation_certificate_arn: The certificate used to validate the server certificate and prove domain
-        name ownership.
+        :param server_certificate_arns: The ARNs of the certificates that IoT passes to the device during the TLS handshake.
+        :param validation_certificate_arn: The certificate used to validate the server certificate and prove domain name ownership.
         :param authorizer_config: An object that specifies the authorization service for a domain.
         :param service_type: The type of service delivered by the endpoint.
         :param tags: Metadata which can be used to manage the domain configuration.
@@ -8198,8 +8171,7 @@ class IotApi:
         :param server_certificate_config: The server certificate configuration.
         :param authentication_type: An enumerated string that speciﬁes the authentication type.
         :param application_protocol: An enumerated string that speciﬁes the application-layer protocol.
-        :param client_certificate_config: An object that speciﬁes the client certificate conﬁguration for a
-        domain.
+        :param client_certificate_config: An object that speciﬁes the client certificate conﬁguration for a domain.
         :returns: CreateDomainConfigurationResponse
         :raises LimitExceededException:
         :raises CertificateValidationException:
@@ -8329,24 +8301,17 @@ class IotApi:
         :param document: The job document.
         :param description: A short text description of the job.
         :param presigned_url_config: Configuration information for pre-signed S3 URLs.
-        :param target_selection: Specifies whether the job will continue to run (CONTINUOUS), or will be
-        complete after all those things specified as targets have completed the
-        job (SNAPSHOT).
+        :param target_selection: Specifies whether the job will continue to run (CONTINUOUS), or will be complete after all those things specified as targets have completed the job (SNAPSHOT).
         :param job_executions_rollout_config: Allows you to create a staged rollout of the job.
         :param abort_config: Allows you to create the criteria to abort a job.
-        :param timeout_config: Specifies the amount of time each device has to finish its execution of
-        the job.
+        :param timeout_config: Specifies the amount of time each device has to finish its execution of the job.
         :param tags: Metadata which can be used to manage the job.
         :param namespace_id: The namespace used to indicate that a job is a customer-managed job.
         :param job_template_arn: The ARN of the job template used to create the job.
         :param job_executions_retry_config: Allows you to create the criteria to retry a job.
-        :param document_parameters: Parameters of an Amazon Web Services managed template that you can
-        specify to create the job document.
-        :param scheduling_config: The configuration that allows you to schedule a job for a future date
-        and time in addition to specifying the end behavior for each job
-        execution.
-        :param destination_package_versions: The package version Amazon Resource Names (ARNs) that are installed on
-        the device when the job successfully completes.
+        :param document_parameters: Parameters of an Amazon Web Services managed template that you can specify to create the job document.
+        :param scheduling_config: The configuration that allows you to schedule a job for a future date and time in addition to specifying the end behavior for each job execution.
+        :param destination_package_versions: The package version Amazon Resource Names (ARNs) that are installed on the device when the job successfully completes.
         :returns: CreateJobResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -8390,14 +8355,11 @@ class IotApi:
         :param presigned_url_config: Configuration for pre-signed S3 URLs.
         :param job_executions_rollout_config: Allows you to create a staged rollout of a job.
         :param abort_config: The criteria that determine when and how a job abort takes place.
-        :param timeout_config: Specifies the amount of time each device has to finish its execution of
-        the job.
+        :param timeout_config: Specifies the amount of time each device has to finish its execution of the job.
         :param tags: Metadata that can be used to manage the job template.
         :param job_executions_retry_config: Allows you to create the criteria to retry a job.
-        :param maintenance_windows: Allows you to configure an optional maintenance window for the rollout
-        of a job document to all devices in the target group for a job.
-        :param destination_package_versions: The package version Amazon Resource Names (ARNs) that are installed on
-        the device when the job successfully completes.
+        :param maintenance_windows: Allows you to configure an optional maintenance window for the rollout of a job document to all devices in the target group for a job.
+        :param destination_package_versions: The package version Amazon Resource Names (ARNs) that are installed on the device when the job successfully completes.
         :returns: CreateJobTemplateResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -8496,19 +8458,14 @@ class IotApi:
         :param ota_update_id: The ID of the OTA update to be created.
         :param targets: The devices targeted to receive OTA updates.
         :param files: The files to be streamed by the OTA update.
-        :param role_arn: The IAM role that grants Amazon Web Services IoT Core access to the
-        Amazon S3, IoT jobs and Amazon Web Services Code Signing resources to
-        create an OTA update job.
+        :param role_arn: The IAM role that grants Amazon Web Services IoT Core access to the Amazon S3, IoT jobs and Amazon Web Services Code Signing resources to create an OTA update job.
         :param description: The description of the OTA update.
         :param protocols: The protocol used to transfer the OTA update image.
-        :param target_selection: Specifies whether the update will continue to run (CONTINUOUS), or will
-        be complete after all the things specified as targets have completed the
-        update (SNAPSHOT).
+        :param target_selection: Specifies whether the update will continue to run (CONTINUOUS), or will be complete after all the things specified as targets have completed the update (SNAPSHOT).
         :param aws_job_executions_rollout_config: Configuration for the rollout of OTA updates.
         :param aws_job_presigned_url_config: Configuration information for pre-signed URLs.
         :param aws_job_abort_config: The criteria that determine when and how a job abort takes place.
-        :param aws_job_timeout_config: Specifies the amount of time each device has to finish its execution of
-        the job.
+        :param aws_job_timeout_config: Specifies the amount of time each device has to finish its execution of the job.
         :param additional_parameters: A list of additional OTA update parameters, which are name-value pairs.
         :param tags: Metadata which can be used to manage updates.
         :returns: CreateOTAUpdateResponse
@@ -8544,8 +8501,7 @@ class IotApi:
         :param package_name: The name of the new software package.
         :param description: A summary of the package being created.
         :param tags: Metadata that can be used to manage the package.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: CreatePackageResponse
         :raises ThrottlingException:
         :raises ConflictException:
@@ -8581,14 +8537,10 @@ class IotApi:
         :param version_name: The name of the new package version.
         :param description: A summary of the package version being created.
         :param attributes: Metadata that can be used to define a package version’s configuration.
-        :param artifact: The various build components created during the build process such as
-        libraries and configuration files that make up a software package
-        version.
-        :param recipe: The inline job document associated with a software package version used
-        for a quick job deployment.
+        :param artifact: The various build components created during the build process such as libraries and configuration files that make up a software package version.
+        :param recipe: The inline job document associated with a software package version used for a quick job deployment.
         :param tags: Metadata that can be used to manage the package version.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: CreatePackageVersionResponse
         :raises ThrottlingException:
         :raises ConflictException:
@@ -8804,13 +8756,11 @@ class IotApi:
         `CreateScheduledAudit <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param frequency: How often the scheduled audit takes place, either ``DAILY``, ``WEEKLY``,
-        ``BIWEEKLY`` or ``MONTHLY``.
+        :param frequency: How often the scheduled audit takes place, either ``DAILY``, ``WEEKLY``, ``BIWEEKLY`` or ``MONTHLY``.
         :param target_check_names: Which checks are performed during the scheduled audit.
         :param scheduled_audit_name: The name you want to give to the scheduled audit.
         :param day_of_month: The day of the month on which the scheduled audit takes place.
-        :param day_of_week: The day of the week on which the scheduled audit takes place, either
-        ``SUN``, ``MON``, ``TUE``, ``WED``, ``THU``, ``FRI``, or ``SAT``.
+        :param day_of_week: The day of the week on which the scheduled audit takes place, either ``SUN``, ``MON``, ``TUE``, ``WED``, ``THU``, ``FRI``, or ``SAT``.
         :param tags: Metadata that can be used to manage the scheduled audit.
         :returns: CreateScheduledAuditResponse
         :raises InvalidRequestException:
@@ -8843,11 +8793,9 @@ class IotApi:
 
         :param security_profile_name: The name you are giving to the security profile.
         :param security_profile_description: A description of the security profile.
-        :param behaviors: Specifies the behaviors that, when violated by a device (thing), cause
-        an alert.
+        :param behaviors: Specifies the behaviors that, when violated by a device (thing), cause an alert.
         :param alert_targets: Specifies the destinations to which alerts are sent.
-        :param additional_metrics_to_retain: *Please use CreateSecurityProfileRequest$additionalMetricsToRetainV2
-        instead.
+        :param additional_metrics_to_retain: *Please use CreateSecurityProfileRequest$additionalMetricsToRetainV2 instead.
         :param additional_metrics_to_retain_v2: A list of metrics whose data is retained (stored).
         :param tags: Metadata that can be used to manage the security profile.
         :param metrics_export_config: Specifies the MQTT topic and role ARN required for metric export.
@@ -8881,8 +8829,7 @@ class IotApi:
 
         :param stream_id: The stream ID.
         :param files: The files to stream.
-        :param role_arn: An IAM role that allows the IoT service principal to access your S3
-        files.
+        :param role_arn: An IAM role that allows the IoT service principal to access your S3 files.
         :param description: A description of the stream.
         :param tags: Metadata which can be used to manage streams.
         :returns: CreateStreamResponse
@@ -8922,8 +8869,7 @@ class IotApi:
 
         :param thing_name: The name of the thing to create.
         :param thing_type_name: The name of the thing type associated with the new thing.
-        :param attribute_payload: The attribute payload, which consists of up to three name/value pairs in
-        a JSON document.
+        :param attribute_payload: The attribute payload, which consists of up to three name/value pairs in a JSON document.
         :param billing_group_name: The name of the billing group the thing will be added to.
         :returns: CreateThingResponse
         :raises InvalidRequestException:
@@ -9192,8 +9138,7 @@ class IotApi:
         action.
 
         :param certificate_id: The ID of the certificate.
-        :param force_delete: Forces the deletion of a certificate if it is inactive and is not
-        attached to an IoT thing.
+        :param force_delete: Forces the deletion of a certificate if it is inactive and is not attached to an IoT thing.
         :raises CertificateStateException:
         :raises DeleteConflictException:
         :raises InvalidRequestException:
@@ -9259,10 +9204,8 @@ class IotApi:
         Only command executions that enter a terminal state can be deleted from
         your account.
 
-        :param execution_id: The unique identifier of the command execution that you want to delete
-        from your account.
-        :param target_arn: The Amazon Resource Number (ARN) of the target device for which you want
-        to delete command executions.
+        :param execution_id: The unique identifier of the command execution that you want to delete from your account.
+        :param target_arn: The Amazon Resource Number (ARN) of the target device for which you want to delete command executions.
         :returns: DeleteCommandExecutionResponse
         :raises ConflictException:
         :raises ValidationException:
@@ -9438,12 +9381,10 @@ class IotApi:
         `DeleteJobExecution <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param job_id: The ID of the job whose execution on a particular device will be
-        deleted.
+        :param job_id: The ID of the job whose execution on a particular device will be deleted.
         :param thing_name: The name of the thing whose job execution will be deleted.
         :param execution_number: The ID of the job execution to be deleted.
-        :param force: (Optional) When true, you can delete a job execution which is
-        "IN_PROGRESS".
+        :param force: (Optional) When true, you can delete a job execution which is "IN_PROGRESS".
         :param namespace_id: The namespace used to indicate that a job is a customer-managed job.
         :raises InvalidRequestException:
         :raises InvalidStateTransitionException:
@@ -9502,10 +9443,8 @@ class IotApi:
         action.
 
         :param ota_update_id: The ID of the OTA update to delete.
-        :param delete_stream: When true, the stream created by the OTAUpdate process is deleted when
-        the OTA update is deleted.
-        :param force_delete_aws_job: When true, deletes the IoT job created by the OTAUpdate process even if
-        it is "IN_PROGRESS".
+        :param delete_stream: When true, the stream created by the OTAUpdate process is deleted when the OTA update is deleted.
+        :param force_delete_aws_job: When true, deletes the IoT job created by the OTAUpdate process even if it is "IN_PROGRESS".
         :returns: DeleteOTAUpdateResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -9535,8 +9474,7 @@ class IotApi:
         action.
 
         :param package_name: The name of the target software package.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: DeletePackageResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -9561,8 +9499,7 @@ class IotApi:
 
         :param package_name: The name of the associated software package.
         :param version_name: The name of the target package version.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: DeletePackageVersionResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -10367,8 +10304,7 @@ class IotApi:
         action.
 
         :param job_id: The unique identifier you assigned to this job when it was created.
-        :param before_substitution: Provides a view of the job document before and after the substitution
-        parameters have been resolved with their exact values.
+        :param before_substitution: Provides a view of the job document before and after the substitution parameters have been resolved with their exact values.
         :returns: DescribeJobResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -10394,8 +10330,7 @@ class IotApi:
 
         :param job_id: The unique identifier you assigned to this job when it was created.
         :param thing_name: The name of the thing on which the job execution is running.
-        :param execution_number: A string (consisting of the digits "0" through "9" which is used to
-        specify a particular job execution on a particular device.
+        :param execution_number: A string (consisting of the digits "0" through "9" which is used to specify a particular job execution on a particular device.
         :returns: DescribeJobExecutionResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -10754,8 +10689,7 @@ class IotApi:
         action.
 
         :param thing_name: The name of the thing.
-        :param principal: If the principal is a certificate, this value must be ARN of the
-        certificate.
+        :param principal: If the principal is a certificate, this value must be ARN of the certificate.
         :returns: DetachThingPrincipalResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -10801,8 +10735,7 @@ class IotApi:
 
         :param package_name: The name of the new software package.
         :param version_name: The name of the new package version.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: DisassociateSbomFromPackageVersionResponse
         :raises ThrottlingException:
         :raises ConflictException:
@@ -10876,8 +10809,7 @@ class IotApi:
 
         :param query_string: The search query string.
         :param aggregation_field: The aggregation field.
-        :param buckets_aggregation_type: The basic control of the response shape and the bucket aggregation type
-        to perform.
+        :param buckets_aggregation_type: The basic control of the response shape and the bucket aggregation type to perform.
         :param index_name: The name of the index to search.
         :param query_version: The version of the query.
         :returns: GetBucketsAggregationResponse
@@ -10932,8 +10864,7 @@ class IotApi:
     ) -> GetCommandResponse:
         """Gets information about the specified command.
 
-        :param command_id: The unique identifier of the command for which you want to retrieve
-        information.
+        :param command_id: The unique identifier of the command for which you want to retrieve information.
         :returns: GetCommandResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -10955,10 +10886,8 @@ class IotApi:
         device.
 
         :param execution_id: The unique identifier for the command execution.
-        :param target_arn: The Amazon Resource Number (ARN) of the device on which the command
-        execution is being performed.
-        :param include_result: Can be used to specify whether to include the result of the command
-        execution in the ``GetCommandExecution`` API response.
+        :param target_arn: The Amazon Resource Number (ARN) of the device on which the command execution is being performed.
+        :param include_result: Can be used to specify whether to include the result of the command execution in the ``GetCommandExecution`` API response.
         :returns: GetCommandExecutionResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -11032,8 +10961,7 @@ class IotApi:
         action.
 
         :param job_id: The unique identifier you assigned to this job when it was created.
-        :param before_substitution: Provides a view of the job document before and after the substitution
-        parameters have been resolved with their exact values.
+        :param before_substitution: Provides a view of the job document before and after the substitution parameters have been resolved with their exact values.
         :returns: GetJobDocumentResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -11359,8 +11287,7 @@ class IotApi:
         `GetV2LoggingOptions <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param verbose: The flag is used to get all the event types and their respective
-        configuration that event-based logging supports.
+        :param verbose: The flag is used to get all the event types and their respective configuration that event-based logging supports.
         :returns: GetV2LoggingOptionsResponse
         :raises InternalException:
         :raises NotConfiguredException:
@@ -11389,8 +11316,7 @@ class IotApi:
         action.
 
         :param thing_name: The name of the thing whose active violations are listed.
-        :param security_profile_name: The name of the Device Defender security profile for which violations
-        are listed.
+        :param security_profile_name: The name of the Device Defender security profile for which violations are listed.
         :param behavior_criteria_type: The criteria for a behavior.
         :param list_suppressed_alerts: A list of all suppressed alerts.
         :param verification_state: The verification state of the violation (detect alarm).
@@ -11464,8 +11390,7 @@ class IotApi:
         :param next_token: The token for the next set of results.
         :param start_time: A filter to limit results to those found after the specified time.
         :param end_time: A filter to limit results to those found before the specified time.
-        :param list_suppressed_findings: Boolean flag indicating whether only the suppressed findings or the
-        unsuppressed findings should be listed.
+        :param list_suppressed_findings: Boolean flag indicating whether only the suppressed findings or the unsuppressed findings should be listed.
         :returns: ListAuditFindingsResponse
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -11490,10 +11415,8 @@ class IotApi:
         `ListAuditMitigationActionsExecutions <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param task_id: Specify this filter to limit results to actions for a specific audit
-        mitigation actions task.
-        :param finding_id: Specify this filter to limit results to those that were applied to a
-        specific audit finding.
+        :param task_id: Specify this filter to limit results to actions for a specific audit mitigation actions task.
+        :param finding_id: Specify this filter to limit results to those that were applied to a specific audit finding.
         :param action_status: Specify this filter to limit results to those with a specific status.
         :param max_results: The maximum number of results to return at one time.
         :param next_token: The token for the next set of results.
@@ -11524,16 +11447,11 @@ class IotApi:
         `ListAuditMitigationActionsTasks <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param start_time: Specify this filter to limit results to tasks that began on or after a
-        specific date and time.
-        :param end_time: Specify this filter to limit results to tasks that were completed or
-        canceled on or before a specific date and time.
-        :param audit_task_id: Specify this filter to limit results to tasks that were applied to
-        results for a specific audit.
-        :param finding_id: Specify this filter to limit results to tasks that were applied to a
-        specific audit finding.
-        :param task_status: Specify this filter to limit results to tasks that are in a specific
-        state.
+        :param start_time: Specify this filter to limit results to tasks that began on or after a specific date and time.
+        :param end_time: Specify this filter to limit results to tasks that were completed or canceled on or before a specific date and time.
+        :param audit_task_id: Specify this filter to limit results to tasks that were applied to results for a specific audit.
+        :param finding_id: Specify this filter to limit results to tasks that were applied to a specific audit finding.
+        :param task_status: Specify this filter to limit results to tasks that are in a specific state.
         :param max_results: The maximum number of results to return at one time.
         :param next_token: The token for the next set of results.
         :returns: ListAuditMitigationActionsTasksResponse
@@ -11562,8 +11480,7 @@ class IotApi:
 
         :param check_name: An audit check name.
         :param resource_identifier: Information that identifies the noncompliant resource.
-        :param ascending_order: Determines whether suppressions are listed in ascending order by
-        expiration date or not.
+        :param ascending_order: Determines whether suppressions are listed in ascending order by expiration date or not.
         :param next_token: The token for the next set of results.
         :param max_results: The maximum number of results to return at one time.
         :returns: ListAuditSuppressionsResponse
@@ -11594,11 +11511,8 @@ class IotApi:
 
         :param start_time: The beginning of the time period.
         :param end_time: The end of the time period.
-        :param task_type: A filter to limit the output to the specified type of audit: can be one
-        of "ON_DEMAND_AUDIT_TASK" or "SCHEDULED__AUDIT_TASK".
-        :param task_status: A filter to limit the output to audits with the specified completion
-        status: can be one of "IN_PROGRESS", "COMPLETED", "FAILED", or
-        "CANCELED".
+        :param task_type: A filter to limit the output to the specified type of audit: can be one of "ON_DEMAND_AUDIT_TASK" or "SCHEDULED__AUDIT_TASK".
+        :param task_status: A filter to limit the output to audits with the specified completion status: can be one of "IN_PROGRESS", "COMPLETED", "FAILED", or "CANCELED".
         :param next_token: The token for the next set of results.
         :param max_results: The maximum number of results to return at one time.
         :returns: ListAuditTasksResponse
@@ -11652,9 +11566,7 @@ class IotApi:
         `ListBillingGroups <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return per request.
         :param name_prefix_filter: Limit the results to billing groups whose names have the given prefix.
         :returns: ListBillingGroupsResponse
@@ -11713,10 +11625,8 @@ class IotApi:
         `ListCertificateProviders <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param next_token: The token for the next set of results, or ``null`` if there are no more
-        results.
-        :param ascending_order: Returns the list of certificate providers in ascending alphabetical
-        order.
+        :param next_token: The token for the next set of results, or ``null`` if there are no more results.
+        :param ascending_order: Returns the list of certificate providers in ascending alphabetical order.
         :returns: ListCertificateProvidersResponse
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -11817,18 +11727,12 @@ class IotApi:
         (CLI) <https://docs.aws.amazon.com/iot/latest/developerguide/iot-remote-command-execution-start-monitor.html#iot-remote-command-execution-list-cli>`__.
 
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise ``null`` to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise ``null`` to receive the first set of results.
         :param namespace: The namespace of the command.
-        :param status: List all command executions for the device that have a particular
-        status.
-        :param sort_order: Specify whether to list the command executions that were created in the
-        ascending or descending order.
-        :param started_time_filter: List all command executions that started any time before or after the
-        date and time that you specify.
-        :param completed_time_filter: List all command executions that completed any time before or after the
-        date and time that you specify.
+        :param status: List all command executions for the device that have a particular status.
+        :param sort_order: Specify whether to list the command executions that were created in the ascending or descending order.
+        :param started_time_filter: List all command executions that started any time before or after the date and time that you specify.
+        :param completed_time_filter: List all command executions that completed any time before or after the date and time that you specify.
         :param target_arn: The Amazon Resource Number (ARN) of the target device.
         :param command_arn: The Amazon Resource Number (ARN) of the command.
         :returns: ListCommandExecutionsResponse
@@ -11853,14 +11757,10 @@ class IotApi:
         """List all commands in your account.
 
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise ``null`` to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise ``null`` to receive the first set of results.
         :param namespace: The namespace of the command.
-        :param command_parameter_name: A filter that can be used to display the list of commands that have a
-        specific command parameter name.
-        :param sort_order: Specify whether to list the commands that you have created in the
-        ascending or descending order.
+        :param command_parameter_name: A filter that can be used to display the list of commands that have a specific command parameter name.
+        :param sort_order: Specify whether to list the commands that you have created in the ascending or descending order.
         :returns: ListCommandsResponse
         :raises ValidationException:
         :raises ThrottlingException:
@@ -11915,8 +11815,7 @@ class IotApi:
         :param violation_id: The unique identifier of the violation.
         :param thing_name: The name of the thing whose mitigation actions are listed.
         :param start_time: A filter to limit results to those found after the specified time.
-        :param end_time: The end of the time period for which ML Detect mitigation actions
-        executions are returned.
+        :param end_time: The end of the time period for which ML Detect mitigation actions executions are returned.
         :param max_results: The maximum number of results to return at one time.
         :param next_token: The token for the next set of results.
         :returns: ListDetectMitigationActionsExecutionsResponse
@@ -11943,8 +11842,7 @@ class IotApi:
         action.
 
         :param start_time: A filter to limit results to those found after the specified time.
-        :param end_time: The end of the time period for which ML Detect mitigation actions tasks
-        are returned.
+        :param end_time: The end of the time period for which ML Detect mitigation actions tasks are returned.
         :param max_results: The maximum number of results to return at one time.
         :param next_token: The token for the next set of results.
         :returns: ListDetectMitigationActionsTasksResponse
@@ -12020,9 +11918,7 @@ class IotApi:
         `ListFleetMetrics <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise ``null`` to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise ``null`` to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListFleetMetricsResponse
         :raises InvalidRequestException:
@@ -12047,8 +11943,7 @@ class IotApi:
         `ListIndices <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param next_token: The token used to get the next set of results, or ``null`` if there are
-        no additional results.
+        :param next_token: The token used to get the next set of results, or ``null`` if there are no additional results.
         :param max_results: The maximum number of results to return at one time.
         :returns: ListIndicesResponse
         :raises InvalidRequestException:
@@ -12106,8 +12001,7 @@ class IotApi:
         action.
 
         :param thing_name: The thing name.
-        :param status: An optional filter that lets you search for jobs that have the specified
-        status.
+        :param status: An optional filter that lets you search for jobs that have the specified status.
         :param namespace_id: The namespace used to indicate that a job is a customer-managed job.
         :param max_results: The maximum number of results to be returned per request.
         :param next_token: The token to retrieve the next set of results.
@@ -12162,11 +12056,8 @@ class IotApi:
         `ListJobs <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param status: An optional filter that lets you search for jobs that have the specified
-        status.
-        :param target_selection: Specifies whether the job will continue to run (CONTINUOUS), or will be
-        complete after all those things specified as targets have completed the
-        job (SNAPSHOT).
+        :param status: An optional filter that lets you search for jobs that have the specified status.
+        :param target_selection: Specifies whether the job will continue to run (CONTINUOUS), or will be complete after all those things specified as targets have completed the job (SNAPSHOT).
         :param max_results: The maximum number of results to return per request.
         :param next_token: The token to retrieve the next set of results.
         :param thing_group_name: A filter that limits the returned jobs to those for the specified group.
@@ -12220,8 +12111,7 @@ class IotApi:
         metric, cloud-side metric, or custom metric) by the given thing during
         the specified time period.
 
-        :param thing_name: The name of the thing for which security profile metric values are
-        returned.
+        :param thing_name: The name of the thing for which security profile metric values are returned.
         :param metric_name: The name of the security profile metric for which values are returned.
         :param start_time: The start of the time period for which metric values are returned.
         :param end_time: The end of the time period for which metric values are returned.
@@ -12253,8 +12143,7 @@ class IotApi:
         `ListMitigationActions <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param action_type: Specify a value to limit the result to mitigation actions with a
-        specific action type.
+        :param action_type: Specify a value to limit the result to mitigation actions with a specific action type.
         :param max_results: The maximum number of results to return at one time.
         :param next_token: The token for the next set of results.
         :returns: ListMitigationActionsResponse
@@ -12505,9 +12394,7 @@ class IotApi:
         action.
 
         :param principal: The principal.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListPrincipalThingsResponse
         :raises InvalidRequestException:
@@ -12537,9 +12424,7 @@ class IotApi:
         action.
 
         :param principal: The principal.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :param thing_principal_type: The type of the relation you want to filter in the response.
         :returns: ListPrincipalThingsV2Response
@@ -12642,8 +12527,7 @@ class IotApi:
         ListRelatedResourcesForAuditFinding, to list the certificates.
 
         :param finding_id: The finding Id.
-        :param next_token: A token that can be used to retrieve the next set of results, or
-        ``null`` if there are no additional results.
+        :param next_token: A token that can be used to retrieve the next set of results, or ``null`` if there are no additional results.
         :param max_results: The maximum number of results to return at one time.
         :returns: ListRelatedResourcesForAuditFindingResponse
         :raises ResourceNotFoundException:
@@ -12702,8 +12586,7 @@ class IotApi:
         :param version_name: The name of the new package version.
         :param validation_result: The end result of the.
         :param max_results: The maximum number of results to return at one time.
-        :param next_token: A token that can be used to retrieve the next set of results, or null if
-        there are no additional results.
+        :param next_token: A token that can be used to retrieve the next set of results, or null if there are no additional results.
         :returns: ListSbomValidationResultsResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -12756,8 +12639,7 @@ class IotApi:
 
         :param next_token: The token for the next set of results.
         :param max_results: The maximum number of results to return at one time.
-        :param dimension_name: A filter to limit results to the security profiles that use the defined
-        dimension.
+        :param dimension_name: A filter to limit results to the security profiles that use the defined dimension.
         :param metric_name: The name of the custom metric.
         :returns: ListSecurityProfilesResponse
         :raises InvalidRequestException:
@@ -12784,8 +12666,7 @@ class IotApi:
         `ListSecurityProfilesForTarget <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param security_profile_target_arn: The ARN of the target (thing group) whose attached security profiles you
-        want to get.
+        :param security_profile_target_arn: The ARN of the target (thing group) whose attached security profiles you want to get.
         :param next_token: The token for the next set of results.
         :param max_results: The maximum number of results to return at one time.
         :param recursive: If true, return child groups too.
@@ -12839,9 +12720,7 @@ class IotApi:
         action.
 
         :param resource_arn: The ARN of the resource.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :returns: ListTagsForResourceResponse
         :raises InvalidRequestException:
         :raises InternalFailureException:
@@ -12923,14 +12802,10 @@ class IotApi:
         `ListThingGroups <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return at one time.
-        :param parent_group: A filter that limits the results to those with the specified parent
-        group.
-        :param name_prefix_filter: A filter that limits the results to those with the specified name
-        prefix.
+        :param parent_group: A filter that limits the results to those with the specified parent group.
+        :param name_prefix_filter: A filter that limits the results to those with the specified name prefix.
         :param recursive: If true, return child groups as well.
         :returns: ListThingGroupsResponse
         :raises InvalidRequestException:
@@ -12956,9 +12831,7 @@ class IotApi:
         action.
 
         :param thing_name: The thing name.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return at one time.
         :returns: ListThingGroupsForThingResponse
         :raises InvalidRequestException:
@@ -12986,9 +12859,7 @@ class IotApi:
         action.
 
         :param thing_name: The name of the thing.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListThingPrincipalsResponse
         :raises InvalidRequestException:
@@ -13018,9 +12889,7 @@ class IotApi:
         action.
 
         :param thing_name: The name of the thing.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :param thing_principal_type: The type of the relation you want to filter in the response.
         :returns: ListThingPrincipalsV2Response
@@ -13047,9 +12916,7 @@ class IotApi:
 
         :param task_id: The id of the task.
         :param report_type: The type of task report.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return per request.
         :returns: ListThingRegistrationTaskReportsResponse
         :raises InvalidRequestException:
@@ -13074,9 +12941,7 @@ class IotApi:
         `ListThingRegistrationTasks <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return at one time.
         :param status: The status of the bulk thing provisioning task.
         :returns: ListThingRegistrationTasksResponse
@@ -13102,9 +12967,7 @@ class IotApi:
         `ListThingTypes <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :param thing_type_name: The name of the thing type.
         :returns: ListThingTypesResponse
@@ -13145,15 +13008,12 @@ class IotApi:
         pagination token was provided in request and no pagination token and no
         results were returned.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :param attribute_name: The attribute name used to search for things.
         :param attribute_value: The attribute value used to search for things.
         :param thing_type_name: The name of the thing type used to search for things.
-        :param use_prefix_attribute_value: When ``true``, the action returns the thing resources with attribute
-        values that start with the ``attributeValue`` provided.
+        :param use_prefix_attribute_value: When ``true``, the action returns the thing resources with attribute values that start with the ``attributeValue`` provided.
         :returns: ListThingsResponse
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -13179,9 +13039,7 @@ class IotApi:
         action.
 
         :param billing_group_name: The name of the billing group.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return per request.
         :returns: ListThingsInBillingGroupResponse
         :raises InvalidRequestException:
@@ -13208,11 +13066,8 @@ class IotApi:
         action.
 
         :param thing_group_name: The thing group name.
-        :param recursive: When true, list things in this thing group and in all child groups as
-        well.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param recursive: When true, list things in this thing group and in all child groups as well.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return at one time.
         :returns: ListThingsInThingGroupResponse
         :raises InvalidRequestException:
@@ -13238,9 +13093,7 @@ class IotApi:
         action.
 
         :param max_results: The maximum number of results to return at one time.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :returns: ListTopicRuleDestinationsResponse
         :raises InternalException:
         :raises InvalidRequestException:
@@ -13267,9 +13120,7 @@ class IotApi:
 
         :param topic: The topic.
         :param max_results: The maximum number of results to return.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param rule_disabled: Specifies whether the rule is disabled.
         :returns: ListTopicRulesResponse
         :raises InternalException:
@@ -13295,9 +13146,7 @@ class IotApi:
         action.
 
         :param target_type: The type of resource for which you are configuring logging.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return at one time.
         :returns: ListV2LoggingLevelsResponse
         :raises InternalException:
@@ -13334,8 +13183,7 @@ class IotApi:
         :param start_time: The start time for the alerts to be listed.
         :param end_time: The end time for the alerts to be listed.
         :param thing_name: A filter to limit results to those alerts caused by the specified thing.
-        :param security_profile_name: A filter to limit results to those alerts generated by the specified
-        security profile.
+        :param security_profile_name: A filter to limit results to those alerts generated by the specified security profile.
         :param behavior_criteria_type: The criteria for a behavior.
         :param list_suppressed_alerts: A list of all suppressed alerts.
         :param verification_state: The verification state of the violation (detect alarm).
@@ -13362,8 +13210,7 @@ class IotApi:
 
         :param violation_id: The violation ID.
         :param verification_state: The verification state of the violation.
-        :param verification_state_description: The description of the verification state of the violation (detect
-        alarm).
+        :param verification_state_description: The description of the verification state of the violation (detect alarm).
         :returns: PutVerificationStateOnViolationResponse
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -13396,12 +13243,10 @@ class IotApi:
         :param ca_certificate: The CA certificate.
         :param verification_certificate: The private key verification certificate.
         :param set_as_active: A boolean value that specifies if the CA certificate is set to active.
-        :param allow_auto_registration: Allows this CA certificate to be used for auto registration of device
-        certificates.
+        :param allow_auto_registration: Allows this CA certificate to be used for auto registration of device certificates.
         :param registration_config: Information about the registration configuration.
         :param tags: Metadata which can be used to manage the CA certificate.
-        :param certificate_mode: Describes the certificate mode in which the Certificate Authority (CA)
-        will be registered.
+        :param certificate_mode: Describes the certificate mode in which the Certificate Authority (CA) will be registered.
         :returns: RegisterCACertificateResponse
         :raises ResourceNotFoundException:
         :raises ResourceAlreadyExistsException:
@@ -13658,8 +13503,7 @@ class IotApi:
 
         :param query_string: The search query string.
         :param index_name: The search index name.
-        :param next_token: The token used to get the next set of results, or ``null`` if there are
-        no additional results.
+        :param next_token: The token used to get the next set of results, or ``null`` if there are no additional results.
         :param max_results: The maximum number of results to return per page at one time.
         :param query_version: The query version.
         :returns: SearchIndexResponse
@@ -13809,8 +13653,7 @@ class IotApi:
         action.
 
         :param task_id: A unique identifier for the task.
-        :param target: Specifies the audit findings to which the mitigation actions are
-        applied.
+        :param target: Specifies the audit findings to which the mitigation actions are applied.
         :param audit_check_to_actions_mapping: For an audit check, specifies which mitigation actions to apply.
         :param client_request_token: Each audit mitigation task must have a unique client request token.
         :returns: StartAuditMitigationActionsTaskResponse
@@ -13842,8 +13685,7 @@ class IotApi:
         action.
 
         :param task_id: The unique identifier of the task.
-        :param target: Specifies the ML Detect findings to which the mitigation actions are
-        applied.
+        :param target: Specifies the ML Detect findings to which the mitigation actions are applied.
         :param actions: The actions to be performed when a device has unexpected behavior.
         :param client_request_token: Each mitigation action task must have a unique client request token.
         :param violation_event_occurrence_range: Specifies the time period of which violation events occurred between.
@@ -13971,10 +13813,8 @@ class IotApi:
         :param principal: The principal.
         :param cognito_identity_pool_id: The Cognito identity pool ID.
         :param client_id: The MQTT client ID.
-        :param policy_names_to_add: When testing custom authorization, the policies specified here are
-        treated as if they are attached to the principal being authorized.
-        :param policy_names_to_skip: When testing custom authorization, the policies specified here are
-        treated as if they are not attached to the principal being authorized.
+        :param policy_names_to_add: When testing custom authorization, the policies specified here are treated as if they are attached to the principal being authorized.
+        :param policy_names_to_skip: When testing custom authorization, the policies specified here are treated as if they are not attached to the principal being authorized.
         :returns: TestAuthorizationResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -14008,8 +13848,7 @@ class IotApi:
 
         :param authorizer_name: The custom authorizer name.
         :param token: The token returned by your custom authentication service.
-        :param token_signature: The signature made with the token and your custom authentication
-        service's private key.
+        :param token_signature: The signature made with the token and your custom authentication service's private key.
         :param http_context: Specifies a test HTTP authorization request.
         :param mqtt_context: Specifies a test MQTT authorization request.
         :param tls_context: Specifies a test TLS authorization request.
@@ -14127,9 +13966,7 @@ class IotApi:
         `UpdateAccountAuditConfiguration <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param role_arn: The Amazon Resource Name (ARN) of the role that grants permission to IoT
-        to access information about your devices, policies, certificates, and
-        other items as required when performing an audit.
+        :param role_arn: The Amazon Resource Name (ARN) of the role that grants permission to IoT to access information about your devices, policies, certificates, and other items as required when performing an audit.
         :param audit_notification_target_configurations: Information about the targets to which audit notifications are sent.
         :param audit_check_configurations: Specifies which audit checks are enabled and disabled for this account.
         :returns: UpdateAccountAuditConfigurationResponse
@@ -14154,8 +13991,7 @@ class IotApi:
 
         :param check_name: An audit check name.
         :param resource_identifier: Information that identifies the noncompliant resource.
-        :param expiration_date: The expiration date (epoch timestamp in seconds) that you want the
-        suppression to adhere to.
+        :param expiration_date: The expiration date (epoch timestamp in seconds) that you want the suppression to adhere to.
         :param suppress_indefinitely: Indicates whether a suppression should exist indefinitely or not.
         :param description: The description of the audit suppression.
         :returns: UpdateAuditSuppressionResponse
@@ -14189,8 +14025,7 @@ class IotApi:
         :param token_key_name: The key used to extract the token from the HTTP headers.
         :param token_signing_public_keys: The public keys used to verify the token signature.
         :param status: The status of the update authorizer request.
-        :param enable_caching_for_http: When ``true``, the result from the authorizer’s Lambda function is
-        cached for the time specified in ``refreshAfterInSeconds``.
+        :param enable_caching_for_http: When ``true``, the result from the authorizer’s Lambda function is cached for the time specified in ``refreshAfterInSeconds``.
         :returns: UpdateAuthorizerResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -14313,8 +14148,7 @@ class IotApi:
 
         :param certificate_provider_name: The name of the certificate provider.
         :param lambda_function_arn: The Lambda function ARN that's associated with the certificate provider.
-        :param account_default_for_operations: A list of the operations that the certificate provider will use to
-        generate certificates.
+        :param account_default_for_operations: A list of the operations that the certificate provider will use to generate certificates.
         :returns: UpdateCertificateProviderResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -14365,8 +14199,7 @@ class IotApi:
         action.
 
         :param metric_name: The name of the custom metric.
-        :param display_name: Field represents a friendly name in the console for the custom metric,
-        it doesn't have to be unique.
+        :param display_name: Field represents a friendly name in the console for the custom metric, it doesn't have to be unique.
         :returns: UpdateCustomMetricResponse
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -14430,8 +14263,7 @@ class IotApi:
         :param server_certificate_config: The server certificate configuration.
         :param authentication_type: An enumerated string that speciﬁes the authentication type.
         :param application_protocol: An enumerated string that speciﬁes the application-layer protocol.
-        :param client_certificate_config: An object that speciﬁes the client certificate conﬁguration for a
-        domain.
+        :param client_certificate_config: An object that speciﬁes the client certificate conﬁguration for a domain.
         :returns: UpdateDomainConfigurationResponse
         :raises ResourceNotFoundException:
         :raises CertificateValidationException:
@@ -14501,8 +14333,7 @@ class IotApi:
 
         :param encryption_type: The type of the KMS key.
         :param kms_key_arn: The ARN of the customer managedKMS key.
-        :param kms_access_role_arn: The Amazon Resource Name (ARN) of the IAM role assumed by Amazon Web
-        Services IoT Core to call KMS on behalf of the customer.
+        :param kms_access_role_arn: The Amazon Resource Name (ARN) of the IAM role assumed by Amazon Web Services IoT Core to call KMS on behalf of the customer.
         :returns: UpdateEncryptionConfigurationResponse
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -14628,8 +14459,7 @@ class IotApi:
         :param presigned_url_config: Configuration information for pre-signed S3 URLs.
         :param job_executions_rollout_config: Allows you to create a staged rollout of the job.
         :param abort_config: Allows you to create criteria to abort a job.
-        :param timeout_config: Specifies the amount of time each device has to finish its execution of
-        the job.
+        :param timeout_config: Specifies the amount of time each device has to finish its execution of the job.
         :param namespace_id: The namespace used to indicate that a job is a customer-managed job.
         :param job_executions_retry_config: Allows you to create the criteria to retry a job.
         :raises InvalidRequestException:
@@ -14687,10 +14517,8 @@ class IotApi:
         :param package_name: The name of the target software package.
         :param description: The package description.
         :param default_version_name: The name of the default package version.
-        :param unset_default_version: Indicates whether you want to remove the named default package version
-        from the software package.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param unset_default_version: Indicates whether you want to remove the named default package version from the software package.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: UpdatePackageResponse
         :raises ThrottlingException:
         :raises ConflictException:
@@ -14717,8 +14545,7 @@ class IotApi:
         actions.
 
         :param version_update_by_jobs_config: Configuration to manage job's package version reporting.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: UpdatePackageConfigurationResponse
         :raises ThrottlingException:
         :raises ConflictException:
@@ -14755,10 +14582,8 @@ class IotApi:
         :param attributes: Metadata that can be used to define a package version’s configuration.
         :param artifact: The various components that make up a software package version.
         :param action: The status that the package version should be assigned.
-        :param recipe: The inline job document associated with a software package version used
-        for a quick job deployment.
-        :param client_token: A unique case-sensitive identifier that you can provide to ensure the
-        idempotency of the request.
+        :param recipe: The inline job document associated with a software package version used for a quick job deployment.
+        :param client_token: A unique case-sensitive identifier that you can provide to ensure the idempotency of the request.
         :returns: UpdatePackageVersionResponse
         :raises ThrottlingException:
         :raises ConflictException:
@@ -14858,8 +14683,7 @@ class IotApi:
         action.
 
         :param scheduled_audit_name: The name of the scheduled audit.
-        :param frequency: How often the scheduled audit takes place, either ``DAILY``, ``WEEKLY``,
-        ``BIWEEKLY``, or ``MONTHLY``.
+        :param frequency: How often the scheduled audit takes place, either ``DAILY``, ``WEEKLY``, ``BIWEEKLY``, or ``MONTHLY``.
         :param day_of_month: The day of the month on which the scheduled audit takes place.
         :param day_of_week: The day of the week on which the scheduled audit takes place.
         :param target_check_names: Which checks are performed during the scheduled audit.
@@ -14897,16 +14721,13 @@ class IotApi:
 
         :param security_profile_name: The name of the security profile you want to update.
         :param security_profile_description: A description of the security profile.
-        :param behaviors: Specifies the behaviors that, when violated by a device (thing), cause
-        an alert.
+        :param behaviors: Specifies the behaviors that, when violated by a device (thing), cause an alert.
         :param alert_targets: Where the alerts are sent.
-        :param additional_metrics_to_retain: *Please use UpdateSecurityProfileRequest$additionalMetricsToRetainV2
-        instead.
+        :param additional_metrics_to_retain: *Please use UpdateSecurityProfileRequest$additionalMetricsToRetainV2 instead.
         :param additional_metrics_to_retain_v2: A list of metrics whose data is retained (stored).
         :param delete_behaviors: If true, delete all ``behaviors`` defined for this security profile.
         :param delete_alert_targets: If true, delete all ``alertTargets`` defined for this security profile.
-        :param delete_additional_metrics_to_retain: If true, delete all ``additionalMetricsToRetain`` defined for this
-        security profile.
+        :param delete_additional_metrics_to_retain: If true, delete all ``additionalMetricsToRetain`` defined for this security profile.
         :param expected_version: The expected version of the security profile.
         :param metrics_export_config: Specifies the MQTT topic and role ARN required for metric export.
         :param delete_metrics_export_config: Set the value as true to delete metrics export related configurations.
@@ -14939,8 +14760,7 @@ class IotApi:
         :param stream_id: The stream ID.
         :param description: The description of the stream.
         :param files: The files associated with the stream.
-        :param role_arn: An IAM role that allows the IoT service principal assumes to access your
-        S3 files.
+        :param role_arn: An IAM role that allows the IoT service principal assumes to access your S3 files.
         :returns: UpdateStreamResponse
         :raises InvalidRequestException:
         :raises LimitExceededException:
@@ -15031,8 +14851,7 @@ class IotApi:
         :param thing_name: The thing whose group memberships will be updated.
         :param thing_groups_to_add: The groups to which the thing will be added.
         :param thing_groups_to_remove: The groups from which the thing will be removed.
-        :param override_dynamic_groups: Override dynamic thing groups with static thing groups when 10-group
-        limit is reached.
+        :param override_dynamic_groups: Override dynamic thing groups with static thing groups when 10-group limit is reached.
         :returns: UpdateThingGroupsForThingResponse
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -15052,9 +14871,7 @@ class IotApi:
         """Updates a thing type.
 
         :param thing_type_name: The name of a thing type.
-        :param thing_type_properties: The ThingTypeProperties contains information about the thing type
-        including: a thing type description, and a list of searchable thing
-        attribute names.
+        :param thing_type_properties: The ThingTypeProperties contains information about the thing type including: a thing type description, and a list of searchable thing attribute names.
         :returns: UpdateThingTypeResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -15097,8 +14914,7 @@ class IotApi:
         `ValidateSecurityProfileBehaviors <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        :param behaviors: Specifies the behaviors that, when violated by a device (thing), cause
-        an alert.
+        :param behaviors: Specifies the behaviors that, when violated by a device (thing), cause an alert.
         :returns: ValidateSecurityProfileBehaviorsResponse
         :raises InvalidRequestException:
         :raises ThrottlingException:

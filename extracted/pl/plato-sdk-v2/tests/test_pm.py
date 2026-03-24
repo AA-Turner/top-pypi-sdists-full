@@ -357,15 +357,44 @@ class TestLaunchEnvWorld:
     @patch("plato.cli.pm._attach_session_to_experiment")
     @patch("plato.cli.pm._launch_on_chronos")
     @patch("plato.cli.pm._fetch_experiment_config")
-    def test_resume_sets_artifact_id_and_feedback(self, mock_fetch, mock_launch, mock_attach):
+    def test_resume_uses_base_template_with_resume_from(self, mock_fetch, mock_launch, mock_attach):
         import copy
 
-        mock_fetch.return_value = (copy.deepcopy(MOCK_ENV_RESUME_CONFIG), "ver-mock-1")
+        mock_fetch.return_value = (copy.deepcopy(MOCK_ENV_BASE_CONFIG), "ver-mock-1")
         mock_launch.return_value = "session-resume-001"
 
         result = asyncio.run(
             _launch_env_world(
                 action="resume",
+                simulator_name="aureus",
+                artifact_id="",
+                feedback="",
+                api_key="key",
+                current_config={"source_code_url": "https://github.com/example/aureus"},
+                action_inputs={"resume_from": "prev-session-id"},
+            )
+        )
+
+        assert result == "session-resume-001"
+        mock_fetch.assert_called_once_with("env", "base", "key")
+        called_template = mock_launch.call_args.args[0]
+        cfg = called_template["world"]["config"]
+        assert cfg["sim_name"] == "aureus"
+        assert cfg["github_url"] == "https://github.com/example/aureus"
+        assert cfg["state"]["resume_from"] == "prev-session-id"
+
+    @patch("plato.cli.pm._attach_session_to_experiment")
+    @patch("plato.cli.pm._launch_on_chronos")
+    @patch("plato.cli.pm._fetch_experiment_config")
+    def test_fix_sets_artifact_id_and_feedback(self, mock_fetch, mock_launch, mock_attach):
+        import copy
+
+        mock_fetch.return_value = (copy.deepcopy(MOCK_ENV_RESUME_CONFIG), "ver-mock-1")
+        mock_launch.return_value = "session-fix-001"
+
+        result = asyncio.run(
+            _launch_env_world(
+                action="fix",
                 simulator_name="aureus",
                 artifact_id="",
                 feedback="Please fix the login page",
@@ -375,7 +404,7 @@ class TestLaunchEnvWorld:
             )
         )
 
-        assert result == "session-resume-001"
+        assert result == "session-fix-001"
         called_template = mock_launch.call_args.args[0]
         cfg = called_template["world"]["config"]
         assert cfg["sim_name"] == "aureus"
@@ -386,7 +415,7 @@ class TestLaunchEnvWorld:
     @patch("plato.cli.pm._attach_session_to_experiment")
     @patch("plato.cli.pm._launch_on_chronos")
     @patch("plato.cli.pm._fetch_experiment_config")
-    def test_resume_fetches_env_resume_experiment(self, mock_fetch, mock_launch, mock_attach):
+    def test_fix_fetches_env_fix_experiment(self, mock_fetch, mock_launch, mock_attach):
         import copy
 
         mock_fetch.return_value = (copy.deepcopy(MOCK_ENV_RESUME_CONFIG), "ver-mock-1")
@@ -394,7 +423,7 @@ class TestLaunchEnvWorld:
 
         asyncio.run(
             _launch_env_world(
-                action="resume",
+                action="fix",
                 simulator_name="aureus",
                 artifact_id="",
                 feedback="",
@@ -404,19 +433,19 @@ class TestLaunchEnvWorld:
             )
         )
 
-        mock_fetch.assert_called_once_with("env", "resume", "key")
+        mock_fetch.assert_called_once_with("env", "fix", "key")
 
     @patch("plato.cli.pm._attach_session_to_experiment")
     @patch("plato.cli.pm._launch_on_chronos")
     @patch("plato.cli.pm._fetch_experiment_config")
-    def test_resume_returns_none_when_no_base_artifact_id(self, mock_fetch, mock_launch, mock_attach):
+    def test_fix_returns_none_when_no_base_artifact_id(self, mock_fetch, mock_launch, mock_attach):
         import copy
 
         mock_fetch.return_value = (copy.deepcopy(MOCK_ENV_RESUME_CONFIG), "ver-mock-1")
 
         result = asyncio.run(
             _launch_env_world(
-                action="resume",
+                action="fix",
                 simulator_name="aureus",
                 artifact_id="",
                 feedback="fix it",
@@ -492,12 +521,35 @@ class TestLaunchEnvWorld:
     def test_resume_attaches_session_to_experiment(self, mock_fetch, mock_launch, mock_attach):
         import copy
 
-        mock_fetch.return_value = (copy.deepcopy(MOCK_ENV_RESUME_CONFIG), "ver-env-resume-1")
+        mock_fetch.return_value = (copy.deepcopy(MOCK_ENV_BASE_CONFIG), "ver-env-resume-1")
         mock_launch.return_value = "sess-resume-001"
 
         asyncio.run(
             _launch_env_world(
                 action="resume",
+                simulator_name="aureus",
+                artifact_id="",
+                feedback="",
+                api_key="key",
+                current_config={"source_code_url": "https://github.com/example/aureus"},
+                action_inputs={"resume_from": "prev-session-id"},
+            )
+        )
+
+        mock_attach.assert_called_once_with("ver-env-resume-1", "sess-resume-001", "key")
+
+    @patch("plato.cli.pm._attach_session_to_experiment")
+    @patch("plato.cli.pm._launch_on_chronos")
+    @patch("plato.cli.pm._fetch_experiment_config")
+    def test_fix_attaches_session_to_experiment(self, mock_fetch, mock_launch, mock_attach):
+        import copy
+
+        mock_fetch.return_value = (copy.deepcopy(MOCK_ENV_RESUME_CONFIG), "ver-env-fix-1")
+        mock_launch.return_value = "sess-fix-001"
+
+        asyncio.run(
+            _launch_env_world(
+                action="fix",
                 simulator_name="aureus",
                 artifact_id="",
                 feedback="fix it",
@@ -507,7 +559,7 @@ class TestLaunchEnvWorld:
             )
         )
 
-        mock_attach.assert_called_once_with("ver-env-resume-1", "sess-resume-001", "key")
+        mock_attach.assert_called_once_with("ver-env-fix-1", "sess-fix-001", "key")
 
 
 # ===========================================================================

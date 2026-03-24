@@ -15,8 +15,6 @@ Converters from BackendConfiguration and BackendProperties
 model (BackendV1) to Target model (BackendV2).
 """
 
-from __future__ import annotations
-
 import logging
 import warnings
 from typing import Any
@@ -52,7 +50,7 @@ are supported by a given backend, one can inspect ``backend.supported_operations
 
 def convert_to_target(  # type: ignore[no-untyped-def]
     configuration: BackendConfiguration,
-    properties: BackendProperties = None,
+    properties: BackendProperties | None = None,
     *,
     include_control_flow: bool = True,
     include_fractional_gates: bool = True,
@@ -108,7 +106,9 @@ def convert_to_target(  # type: ignore[no-untyped-def]
 
     # Create instruction property placeholder from backend configuration
     basis_gates = set(getattr(configuration, "basis_gates", []))
-    supported_instructions = set(getattr(configuration, "supported_instructions", []))
+    supported_instructions = set(
+        getattr(configuration, "supported_instructions", ["measure", "reset", "delay"])
+    )
     gate_configs = {gate.name: gate for gate in configuration.gates}
 
     # Instructions that are not defined in Qiskit, such as `measure_2`, are placed in

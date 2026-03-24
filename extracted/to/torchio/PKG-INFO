@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: torchio
-Version: 0.22.1
+Version: 0.23.1
 Summary: Tools for medical image processing with PyTorch
 Keywords: medical,image processing,pytorch,augmentation,mri
 Author: TorchIO contributors
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Image Processing
@@ -35,7 +36,13 @@ Requires-Dist: simpleitk>=1.3,!=2.0.*,!=2.1.1.1
 Requires-Dist: torch>=1.9
 Requires-Dist: tqdm>=4.40
 Requires-Dist: typer>=0.1
+Requires-Dist: torchio[csv] ; extra == 'all'
+Requires-Dist: torchio[monai] ; extra == 'all'
+Requires-Dist: torchio[plot] ; extra == 'all'
+Requires-Dist: torchio[sklearn] ; extra == 'all'
+Requires-Dist: torchio[video] ; extra == 'all'
 Requires-Dist: pandas>=1 ; extra == 'csv'
+Requires-Dist: monai>=1.4 ; extra == 'monai'
 Requires-Dist: colorcet ; extra == 'plot'
 Requires-Dist: matplotlib>=3.4 ; extra == 'plot'
 Requires-Dist: scikit-learn>=1.6.1 ; extra == 'sklearn'
@@ -48,7 +55,9 @@ Project-URL: Source, https://github.com/TorchIO-project/torchio
 Project-URL: Issue tracker, https://github.com/TorchIO-project/torchio/issues
 Project-URL: Documentation, https://docs.torchio.org
 Project-URL: Release notes, https://github.com/TorchIO-project/torchio/releases
+Provides-Extra: all
 Provides-Extra: csv
+Provides-Extra: monai
 Provides-Extra: plot
 Provides-Extra: sklearn
 Provides-Extra: video

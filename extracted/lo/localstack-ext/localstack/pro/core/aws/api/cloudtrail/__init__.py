@@ -2624,8 +2624,7 @@ class CloudtrailApi:
         Region in which the trail or event data store was created (also known as
         its home Region).
 
-        :param resource_id: Specifies the ARN of the trail, event data store, dashboard, or channel
-        to which one or more tags will be added.
+        :param resource_id: Specifies the ARN of the trail, event data store, dashboard, or channel to which one or more tags will be added.
         :param tags_list: Contains a list of tags, up to a limit of 50.
         :returns: AddTagsResponse
         :raises ResourceNotFoundException:
@@ -2664,8 +2663,7 @@ class CloudtrailApi:
         yet finished.
 
         :param query_id: The ID of the query that you want to cancel.
-        :param event_data_store: The ARN (or the ID suffix of the ARN) of an event data store on which
-        the specified query is running.
+        :param event_data_store: The ARN (or the ID suffix of the ARN) of an event data store on which the specified query is running.
         :param event_data_store_owner_account_id: The account ID of the event data store owner.
         :returns: CancelQueryResponse
         :raises EventDataStoreARNInvalidException:
@@ -2697,8 +2695,7 @@ class CloudtrailApi:
 
         :param name: The name of the channel.
         :param source: The name of the partner or external event source.
-        :param destinations: One or more event data stores to which events arriving through a channel
-        will be logged.
+        :param destinations: One or more event data stores to which events arriving through a channel will be logged.
         :param tags: A list of tags.
         :returns: CreateChannelResponse
         :raises ChannelMaxLimitExceededException:
@@ -2797,23 +2794,15 @@ class CloudtrailApi:
         """Creates a new event data store.
 
         :param name: The name of the event data store.
-        :param advanced_event_selectors: The advanced event selectors to use to select the events for the data
-        store.
-        :param multi_region_enabled: Specifies whether the event data store includes events from all Regions,
-        or only from the Region in which the event data store is created.
-        :param organization_enabled: Specifies whether an event data store collects events logged for an
-        organization in Organizations.
+        :param advanced_event_selectors: The advanced event selectors to use to select the events for the data store.
+        :param multi_region_enabled: Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.
+        :param organization_enabled: Specifies whether an event data store collects events logged for an organization in Organizations.
         :param retention_period: The retention period of the event data store, in days.
-        :param termination_protection_enabled: Specifies whether termination protection is enabled for the event data
-        store.
+        :param termination_protection_enabled: Specifies whether termination protection is enabled for the event data store.
         :param tags_list: A list of tags.
-        :param kms_key_id: Specifies the KMS key ID to use to encrypt the events delivered by
-        CloudTrail.
-        :param start_ingestion: Specifies whether the event data store should start ingesting live
-        events.
-        :param billing_mode: The billing mode for the event data store determines the cost for
-        ingesting events and the default and maximum retention period for the
-        event data store.
+        :param kms_key_id: Specifies the KMS key ID to use to encrypt the events delivered by CloudTrail.
+        :param start_ingestion: Specifies whether the event data store should start ingesting live events.
+        :param billing_mode: The billing mode for the event data store determines the cost for ingesting events and the default and maximum retention period for the event data store.
         :returns: CreateEventDataStoreResponse
         :raises EventDataStoreAlreadyExistsException:
         :raises EventDataStoreMaxLimitExceededException:
@@ -2859,27 +2848,16 @@ class CloudtrailApi:
         an Amazon S3 bucket.
 
         :param name: Specifies the name of the trail.
-        :param s3_bucket_name: Specifies the name of the Amazon S3 bucket designated for publishing log
-        files.
-        :param s3_key_prefix: Specifies the Amazon S3 key prefix that comes after the name of the
-        bucket you have designated for log file delivery.
-        :param sns_topic_name: Specifies the name or ARN of the Amazon SNS topic defined for
-        notification of log file delivery.
-        :param include_global_service_events: Specifies whether the trail is publishing events from global services
-        such as IAM to the log files.
-        :param is_multi_region_trail: Specifies whether the trail is created in the current Region or in all
-        Regions.
+        :param s3_bucket_name: Specifies the name of the Amazon S3 bucket designated for publishing log files.
+        :param s3_key_prefix: Specifies the Amazon S3 key prefix that comes after the name of the bucket you have designated for log file delivery.
+        :param sns_topic_name: Specifies the name or ARN of the Amazon SNS topic defined for notification of log file delivery.
+        :param include_global_service_events: Specifies whether the trail is publishing events from global services such as IAM to the log files.
+        :param is_multi_region_trail: Specifies whether the trail is created in the current Region or in all Regions.
         :param enable_log_file_validation: Specifies whether log file integrity validation is enabled.
-        :param cloud_watch_logs_log_group_arn: Specifies a log group name using an Amazon Resource Name (ARN), a unique
-        identifier that represents the log group to which CloudTrail logs will
-        be delivered.
-        :param cloud_watch_logs_role_arn: Specifies the role for the CloudWatch Logs endpoint to assume to write
-        to a user's log group.
-        :param kms_key_id: Specifies the KMS key ID to use to encrypt the logs and digest files
-        delivered by CloudTrail.
-        :param is_organization_trail: Specifies whether the trail is created for all accounts in an
-        organization in Organizations, or only for the current Amazon Web
-        Services account.
+        :param cloud_watch_logs_log_group_arn: Specifies a log group name using an Amazon Resource Name (ARN), a unique identifier that represents the log group to which CloudTrail logs will be delivered.
+        :param cloud_watch_logs_role_arn: Specifies the role for the CloudWatch Logs endpoint to assume to write to a user's log group.
+        :param kms_key_id: Specifies the KMS key ID to use to encrypt the logs and digest files delivered by CloudTrail.
+        :param is_organization_trail: Specifies whether the trail is created for all accounts in an organization in Organizations, or only for the current Amazon Web Services account.
         :param tags_list: A list of tags.
         :returns: CreateTrailResponse
         :raises MaximumNumberOfTrailsExceededException:
@@ -2993,8 +2971,7 @@ class CloudtrailApi:
         """Deletes the resource-based policy attached to the CloudTrail event data
         store, dashboard, or channel.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the CloudTrail event data store,
-        dashboard, or channel you're deleting the resource-based policy from.
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudTrail event data store, dashboard, or channel you're deleting the resource-based policy from.
         :returns: DeleteResourcePolicyResponse
         :raises ResourceARNNotValidException:
         :raises ResourceNotFoundException:
@@ -3088,8 +3065,7 @@ class CloudtrailApi:
         to view the query results of a dashboard query for the specified
         ``RefreshId``.
 
-        :param event_data_store: The ARN (or the ID suffix of the ARN) of an event data store on which
-        the specified query was run.
+        :param event_data_store: The ARN (or the ID suffix of the ARN) of an event data store on which the specified query was run.
         :param query_id: The query ID.
         :param query_alias: The alias that identifies a query template.
         :param refresh_id: The ID of the dashboard refresh.
@@ -3117,8 +3093,7 @@ class CloudtrailApi:
         """Retrieves settings for one or more trails associated with the current
         Region for your account.
 
-        :param trail_name_list: Specifies a list of trail names, trail ARNs, or both, of the trails to
-        describe.
+        :param trail_name_list: Specifies a list of trail names, trail ARNs, or both, of the trails to describe.
         :param include_shadow_trails: Specifies whether to include shadow trails in the response.
         :returns: DescribeTrailsResponse
         :raises UnsupportedOperationException:
@@ -3141,8 +3116,7 @@ class CloudtrailApi:
         No CloudTrail Lake data is deleted when you disable federation and you
         can continue to run queries in CloudTrail Lake.
 
-        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store for which you
-        want to disable Lake query federation.
+        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store for which you want to disable Lake query federation.
         :returns: DisableFederationResponse
         :raises EventDataStoreARNInvalidException:
         :raises EventDataStoreNotFoundException:
@@ -3191,8 +3165,7 @@ class CloudtrailApi:
         data
         store <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`__.
 
-        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store for which you
-        want to enable Lake query federation.
+        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store for which you want to enable Lake query federation.
         :param federation_role_arn: The ARN of the federation role to use for the event data store.
         :returns: EnableFederationResponse
         :raises EventDataStoreARNInvalidException:
@@ -3242,8 +3215,7 @@ class CloudtrailApi:
         This feature uses generative AI large language models (LLMs); we
         recommend double-checking the LLM response.
 
-        :param event_data_stores: The ARN (or ID suffix of the ARN) of the event data store that you want
-        to query.
+        :param event_data_stores: The ARN (or ID suffix of the ARN) of the event data store that you want to query.
         :param prompt: The prompt that you want to use to generate the query.
         :returns: GenerateQueryResponse
         :raises EventDataStoreARNInvalidException:
@@ -3298,10 +3270,8 @@ class CloudtrailApi:
         configuration, the context key selectors configured for the event data
         store, and any aggregation settings configured for the trail.
 
-        :param trail_name: The name of the trail for which you want to retrieve event configuration
-        settings.
-        :param event_data_store: The Amazon Resource Name (ARN) or ID suffix of the ARN of the event data
-        store for which you want to retrieve event configuration settings.
+        :param trail_name: The name of the trail for which you want to retrieve event configuration settings.
+        :param event_data_store: The Amazon Resource Name (ARN) or ID suffix of the ARN of the event data store for which you want to retrieve event configuration settings.
         :returns: GetEventConfigurationResponse
         :raises TrailNotFoundException:
         :raises InvalidTrailNameException:
@@ -3325,8 +3295,7 @@ class CloudtrailApi:
         """Returns information about an event data store specified as either an ARN
         or the ID portion of the ARN.
 
-        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store about which
-        you want information.
+        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store about which you want information.
         :returns: GetEventDataStoreResponse
         :raises EventDataStoreARNInvalidException:
         :raises EventDataStoreNotFoundException:
@@ -3420,8 +3389,7 @@ class CloudtrailApi:
         in the *CloudTrail User Guide*.
 
         :param trail_name: Specifies the name of the trail or trail ARN.
-        :param event_data_store: Specifies the ARN (or ID suffix of the ARN) of the event data store for
-        which you want to get Insights selectors.
+        :param event_data_store: Specifies the ARN (or ID suffix of the ARN) of the event data store for which you want to get Insights selectors.
         :returns: GetInsightSelectorsResponse
         :raises InvalidParameterException:
         :raises InvalidParameterCombinationException:
@@ -3451,8 +3419,7 @@ class CloudtrailApi:
         value returned by the ``StartQuery`` operation.
 
         :param query_id: The ID of the query for which you want to get results.
-        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store against which
-        the query was run.
+        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store against which the query was run.
         :param next_token: A token you can use to get the next page of query results.
         :param max_query_results: The maximum number of query results to display on a single page.
         :param event_data_store_owner_account_id: The account ID of the event data store owner.
@@ -3478,8 +3445,7 @@ class CloudtrailApi:
         """Retrieves the JSON text of the resource-based policy document attached
         to the CloudTrail event data store, dashboard, or channel.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the CloudTrail event data store,
-        dashboard, or channel attached to the resource-based policy.
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudTrail event data store, dashboard, or channel attached to the resource-based policy.
         :returns: GetResourcePolicyResponse
         :raises ResourceARNNotValidException:
         :raises ResourceNotFoundException:
@@ -3494,8 +3460,7 @@ class CloudtrailApi:
     def get_trail(self, context: RequestContext, name: String, **kwargs) -> GetTrailResponse:
         """Returns settings information for a specified trail.
 
-        :param name: The name or the Amazon Resource Name (ARN) of the trail for which you
-        want to retrieve settings information.
+        :param name: The name or the Amazon Resource Name (ARN) of the trail for which you want to retrieve settings information.
         :returns: GetTrailResponse
         :raises CloudTrailARNInvalidException:
         :raises TrailNotFoundException:
@@ -3515,8 +3480,7 @@ class CloudtrailApi:
         returns trail status from a single Region. To return trail status from
         all Regions, you must call the operation on each Region.
 
-        :param name: Specifies the name or the CloudTrail ARN of the trail for which you are
-        requesting status.
+        :param name: Specifies the name or the CloudTrail ARN of the trail for which you are requesting status.
         :returns: GetTrailStatusResponse
         :raises CloudTrailARNInvalidException:
         :raises TrailNotFoundException:
@@ -3537,8 +3501,7 @@ class CloudtrailApi:
         """Lists the channels in the current account, and their source names.
 
         :param max_results: The maximum number of CloudTrail channels to display on a single page.
-        :param next_token: The token to use to get the next page of results after a previous API
-        call.
+        :param next_token: The token to use to get the next page of results after a previous API call.
         :returns: ListChannelsResponse
         :raises InvalidNextTokenException:
         :raises OperationNotPermittedException:
@@ -3665,17 +3628,13 @@ class CloudtrailApi:
         account, per Region. If this limit is exceeded, a throttling error
         occurs.
 
-        :param insight_source: The Amazon Resource Name(ARN) of the trail for which you want to
-        retrieve Insights events.
+        :param insight_source: The Amazon Resource Name(ARN) of the trail for which you want to retrieve Insights events.
         :param data_type: Specifies the category of events returned.
         :param dimensions: Contains a map of dimensions.
-        :param start_time: Specifies that only events that occur after or at the specified time are
-        returned.
-        :param end_time: Specifies that only events that occur before or at the specified time
-        are returned.
+        :param start_time: Specifies that only events that occur after or at the specified time are returned.
+        :param end_time: Specifies that only events that occur before or at the specified time are returned.
         :param max_results: The number of events to return.
-        :param next_token: The token to use to get the next page of results after a previous API
-        call.
+        :param next_token: The token to use to get the next page of results after a previous API call.
         :returns: ListInsightsDataResponse
         :raises InvalidParameterException:
         :raises OperationNotPermittedException:
@@ -3735,16 +3694,11 @@ class CloudtrailApi:
            operation, you must have permissions to perform the
            ``cloudtrail:LookupEvents`` action.
 
-        :param event_source: The Amazon Web Services service to which the request was made, such as
-        ``iam.
-        :param event_name: The name of the event, typically the Amazon Web Services API on which
-        unusual levels of activity were recorded.
-        :param insight_type: The type of CloudTrail Insights event, which is either
-        ``ApiCallRateInsight`` or ``ApiErrorRateInsight``.
-        :param trail_name: The Amazon Resource Name(ARN) or name of the trail for which you want to
-        retrieve Insights metrics data.
-        :param error_code: Conditionally required if the ``InsightType`` parameter is set to
-        ``ApiErrorRateInsight``.
+        :param event_source: The Amazon Web Services service to which the request was made, such as ``iam.
+        :param event_name: The name of the event, typically the Amazon Web Services API on which unusual levels of activity were recorded.
+        :param insight_type: The type of CloudTrail Insights event, which is either ``ApiCallRateInsight`` or ``ApiErrorRateInsight``.
+        :param trail_name: The Amazon Resource Name(ARN) or name of the trail for which you want to retrieve Insights metrics data.
+        :param error_code: Conditionally required if the ``InsightType`` parameter is set to ``ApiErrorRateInsight``.
         :param start_time: Specifies, in UTC, the start time for time-series data.
         :param end_time: Specifies, in UTC, the end time for time-series data.
         :param period: Granularity of data to retrieve, in seconds.
@@ -3778,10 +3732,8 @@ class CloudtrailApi:
         validate a digest file from a specific Region, you must look in the same
         Region for its corresponding public key.
 
-        :param start_time: Optionally specifies, in UTC, the start of the time range to look up
-        public keys for CloudTrail digest files.
-        :param end_time: Optionally specifies, in UTC, the end of the time range to look up
-        public keys for CloudTrail digest files.
+        :param start_time: Optionally specifies, in UTC, the start of the time range to look up public keys for CloudTrail digest files.
+        :param end_time: Optionally specifies, in UTC, the end of the time range to look up public keys for CloudTrail digest files.
         :param next_token: Reserved for future use.
         :returns: ListPublicKeysResponse
         :raises InvalidTimeRangeException:
@@ -3811,14 +3763,11 @@ class CloudtrailApi:
         ``QUEUED``, ``RUNNING``, ``FINISHED``, ``FAILED``, ``TIMED_OUT``, or
         ``CANCELLED``.
 
-        :param event_data_store: The ARN (or the ID suffix of the ARN) of an event data store on which
-        queries were run.
+        :param event_data_store: The ARN (or the ID suffix of the ARN) of an event data store on which queries were run.
         :param next_token: A token you can use to get the next page of results.
         :param max_results: The maximum number of queries to show on a page.
-        :param start_time: Use with ``EndTime`` to bound a ``ListQueries`` request, and limit its
-        results to only those queries run within a specified time period.
-        :param end_time: Use with ``StartTime`` to bound a ``ListQueries`` request, and limit its
-        results to only those queries run within a specified time period.
+        :param start_time: Use with ``EndTime`` to bound a ``ListQueries`` request, and limit its results to only those queries run within a specified time period.
+        :param end_time: Use with ``StartTime`` to bound a ``ListQueries`` request, and limit its results to only those queries run within a specified time period.
         :param query_status: The status of queries that you want to return in results.
         :returns: ListQueriesResponse
         :raises EventDataStoreARNInvalidException:
@@ -3846,8 +3795,7 @@ class CloudtrailApi:
         """Lists the tags for the specified trails, event data stores, dashboards,
         or channels in the current Region.
 
-        :param resource_id_list: Specifies a list of trail, event data store, dashboard, or channel ARNs
-        whose tags will be listed.
+        :param resource_id_list: Specifies a list of trail, event data store, dashboard, or channel ARNs whose tags will be listed.
         :param next_token: Reserved for future use.
         :returns: ListTagsResponse
         :raises ResourceNotFoundException:
@@ -3871,8 +3819,7 @@ class CloudtrailApi:
     ) -> ListTrailsResponse:
         """Lists trails that are in the current account.
 
-        :param next_token: The token to use to get the next page of results after a previous API
-        call.
+        :param next_token: The token to use to get the next page of results after a previous API call.
         :returns: ListTrailsResponse
         :raises UnsupportedOperationException:
         :raises OperationNotPermittedException:
@@ -3937,14 +3884,11 @@ class CloudtrailApi:
         per Region. If this limit is exceeded, a throttling error occurs.
 
         :param lookup_attributes: Contains a list of lookup attributes.
-        :param start_time: Specifies that only events that occur after or at the specified time are
-        returned.
-        :param end_time: Specifies that only events that occur before or at the specified time
-        are returned.
+        :param start_time: Specifies that only events that occur after or at the specified time are returned.
+        :param end_time: Specifies that only events that occur before or at the specified time are returned.
         :param event_category: Specifies the event category.
         :param max_results: The number of events to return.
-        :param next_token: The token to use to get the next page of results after a previous API
-        call.
+        :param next_token: The token to use to get the next page of results after a previous API call.
         :returns: LookupEventsResponse
         :raises InvalidLookupAttributesException:
         :raises InvalidTimeRangeException:
@@ -3972,16 +3916,11 @@ class CloudtrailApi:
         adding or modifying context key selectors for event data store, and
         configuring aggregation settings for the trail.
 
-        :param trail_name: The name of the trail for which you want to update event configuration
-        settings.
-        :param event_data_store: The Amazon Resource Name (ARN) or ID suffix of the ARN of the event data
-        store for which event configuration settings are updated.
-        :param max_event_size: The maximum allowed size for events to be stored in the specified event
-        data store.
-        :param context_key_selectors: A list of context key selectors that will be included to provide
-        enriched event data.
-        :param aggregation_configurations: The list of aggregation configurations that you want to configure for
-        the trail.
+        :param trail_name: The name of the trail for which you want to update event configuration settings.
+        :param event_data_store: The Amazon Resource Name (ARN) or ID suffix of the ARN of the event data store for which event configuration settings are updated.
+        :param max_event_size: The maximum allowed size for events to be stored in the specified event data store.
+        :param context_key_selectors: A list of context key selectors that will be included to provide enriched event data.
+        :param aggregation_configurations: The list of aggregation configurations that you want to configure for the trail.
         :returns: PutEventConfigurationResponse
         :raises TrailNotFoundException:
         :raises InvalidTrailNameException:
@@ -4158,14 +4097,10 @@ class CloudtrailApi:
         Insights <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-insights-events-with-cloudtrail.html>`__
         in the *CloudTrail User Guide*.
 
-        :param insight_selectors: Contains the Insights types you want to log on a specific category of
-        events on a trail or event data store.
-        :param trail_name: The name of the CloudTrail trail for which you want to change or add
-        Insights selectors.
-        :param event_data_store: The ARN (or ID suffix of the ARN) of the source event data store for
-        which you want to change or add Insights selectors.
-        :param insights_destination: The ARN (or ID suffix of the ARN) of the destination event data store
-        that logs Insights events.
+        :param insight_selectors: Contains the Insights types you want to log on a specific category of events on a trail or event data store.
+        :param trail_name: The name of the CloudTrail trail for which you want to change or add Insights selectors.
+        :param event_data_store: The ARN (or ID suffix of the ARN) of the source event data store for which you want to change or add Insights selectors.
+        :param insights_destination: The ARN (or ID suffix of the ARN) of the destination event data store that logs Insights events.
         :returns: PutInsightSelectorsResponse
         :raises InvalidParameterException:
         :raises InvalidParameterCombinationException:
@@ -4200,10 +4135,8 @@ class CloudtrailApi:
         examples <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/security_iam_resource-based-policy-examples.html>`__
         in the *CloudTrail User Guide*.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the CloudTrail event data store,
-        dashboard, or channel attached to the resource-based policy.
-        :param resource_policy: A JSON-formatted string for an Amazon Web Services resource-based
-        policy.
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudTrail event data store, dashboard, or channel attached to the resource-based policy.
+        :param resource_policy: A JSON-formatted string for an Amazon Web Services resource-based policy.
         :returns: PutResourcePolicyResponse
         :raises ResourceARNNotValidException:
         :raises ResourcePolicyNotValidException:
@@ -4222,8 +4155,7 @@ class CloudtrailApi:
         """Registers an organization’s member account as the CloudTrail `delegated
         administrator <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-delegated-administrator.html>`__.
 
-        :param member_account_id: An organization member account ID that you want to designate as a
-        delegated administrator.
+        :param member_account_id: An organization member account ID that you want to designate as a delegated administrator.
         :returns: RegisterOrganizationDelegatedAdminResponse
         :raises AccountRegisteredException:
         :raises AccountNotFoundException:
@@ -4249,8 +4181,7 @@ class CloudtrailApi:
         """Removes the specified tags from a trail, event data store, dashboard, or
         channel.
 
-        :param resource_id: Specifies the ARN of the trail, event data store, dashboard, or channel
-        from which tags should be removed.
+        :param resource_id: Specifies the ARN of the trail, event data store, dashboard, or channel from which tags should be removed.
         :param tags_list: Specifies a list of tags to be removed.
         :returns: RemoveTagsResponse
         :raises ResourceNotFoundException:
@@ -4281,8 +4212,7 @@ class CloudtrailApi:
         Restoring an event data store can take several minutes, depending on the
         size of the event data store.
 
-        :param event_data_store: The ARN (or the ID suffix of the ARN) of the event data store that you
-        want to restore.
+        :param event_data_store: The ARN (or the ID suffix of the ARN) of the event data store that you want to restore.
         :returns: RestoreEventDataStoreResponse
         :raises EventDataStoreARNInvalidException:
         :raises EventDataStoreNotFoundException:
@@ -4343,10 +4273,7 @@ class CloudtrailApi:
         in the *CloudTrail User Guide*.
 
         :param dashboard_id: The name or ARN of the dashboard.
-        :param query_parameter_values: The query parameter values for the dashboard
-
-        For custom dashboards, the following query parameters are valid:
-        ``$StartTime$``, ``$EndTime$``, and ``$Period$``.
+        :param query_parameter_values: The query parameter values for the dashboard  For custom dashboards, the following query parameters are valid: ``$StartTime$``, ``$EndTime$``, and ``$Period$``.
         :returns: StartDashboardRefreshResponse
         :raises ResourceNotFoundException:
         :raises EventDataStoreNotFoundException:
@@ -4366,8 +4293,7 @@ class CloudtrailApi:
         ``eventCategory`` must be ``Management``, ``Data``, ``NetworkActivity``,
         or ``ConfigurationItem``.
 
-        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store for which you
-        want to start ingestion.
+        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store for which you want to start ingestion.
         :returns: StartEventDataStoreIngestionResponse
         :raises EventDataStoreARNInvalidException:
         :raises EventDataStoreNotFoundException:
@@ -4420,12 +4346,8 @@ class CloudtrailApi:
 
         :param destinations: The ARN of the destination event data store.
         :param import_source: The source S3 bucket for the import.
-        :param start_event_time: Use with ``EndEventTime`` to bound a ``StartImport`` request, and limit
-        imported trail events to only those events logged within a specified
-        time period.
-        :param end_event_time: Use with ``StartEventTime`` to bound a ``StartImport`` request, and
-        limit imported trail events to only those events logged within a
-        specified time period.
+        :param start_event_time: Use with ``EndEventTime`` to bound a ``StartImport`` request, and limit imported trail events to only those events logged within a specified time period.
+        :param end_event_time: Use with ``StartEventTime`` to bound a ``StartImport`` request, and limit imported trail events to only those events logged within a specified time period.
         :param import_id: The ID of the import.
         :returns: StartImportResponse
         :raises AccountHasOngoingImportException:
@@ -4455,8 +4377,7 @@ class CloudtrailApi:
         This operation cannot be called on the shadow trails (replicated trails
         in other Regions) of a trail that is enabled in all Regions.
 
-        :param name: Specifies the name or the CloudTrail ARN of the trail for which
-        CloudTrail logs Amazon Web Services API calls.
+        :param name: Specifies the name or the CloudTrail ARN of the trail for which CloudTrail logs Amazon Web Services API calls.
         :returns: StartLoggingResponse
         :raises CloudTrailARNInvalidException:
         :raises ConflictException:
@@ -4527,8 +4448,7 @@ class CloudtrailApi:
         be ``Management``, ``Data``, ``NetworkActivity``, or
         ``ConfigurationItem``.
 
-        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store for which you
-        want to stop ingestion.
+        :param event_data_store: The ARN (or ID suffix of the ARN) of the event data store for which you want to stop ingestion.
         :returns: StopEventDataStoreIngestionResponse
         :raises EventDataStoreARNInvalidException:
         :raises EventDataStoreNotFoundException:
@@ -4568,8 +4488,7 @@ class CloudtrailApi:
         occur. This operation cannot be called on the shadow trails (replicated
         trails in other Regions) of a trail enabled in all Regions.
 
-        :param name: Specifies the name or the CloudTrail ARN of the trail for which
-        CloudTrail will stop logging Amazon Web Services API calls.
+        :param name: Specifies the name or the CloudTrail ARN of the trail for which CloudTrail will stop logging Amazon Web Services API calls.
         :returns: StopLoggingResponse
         :raises TrailNotFoundException:
         :raises InvalidTrailNameException:
@@ -4597,8 +4516,7 @@ class CloudtrailApi:
         """Updates a channel specified by a required channel ARN or UUID.
 
         :param channel: The ARN or ID (the ARN suffix) of the channel that you want to update.
-        :param destinations: The ARNs of event data stores that you want to log events arriving
-        through the channel.
+        :param destinations: The ARNs of event data stores that you want to log events arriving through the channel.
         :param name: Changes the name of the channel.
         :returns: UpdateChannelResponse
         :raises ChannelARNInvalidException:
@@ -4694,22 +4612,15 @@ class CloudtrailApi:
         events, ``AdvancedEventSelectors`` includes events of that type in your
         event data store.
 
-        :param event_data_store: The ARN (or the ID suffix of the ARN) of the event data store that you
-        want to update.
+        :param event_data_store: The ARN (or the ID suffix of the ARN) of the event data store that you want to update.
         :param name: The event data store name.
-        :param advanced_event_selectors: The advanced event selectors used to select events for the event data
-        store.
-        :param multi_region_enabled: Specifies whether an event data store collects events from all Regions,
-        or only from the Region in which it was created.
-        :param organization_enabled: Specifies whether an event data store collects events logged for an
-        organization in Organizations.
+        :param advanced_event_selectors: The advanced event selectors used to select events for the event data store.
+        :param multi_region_enabled: Specifies whether an event data store collects events from all Regions, or only from the Region in which it was created.
+        :param organization_enabled: Specifies whether an event data store collects events logged for an organization in Organizations.
         :param retention_period: The retention period of the event data store, in days.
-        :param termination_protection_enabled: Indicates that termination protection is enabled and the event data
-        store cannot be automatically deleted.
-        :param kms_key_id: Specifies the KMS key ID to use to encrypt the events delivered by
-        CloudTrail.
-        :param billing_mode: You can't change the billing mode from ``EXTENDABLE_RETENTION_PRICING``
-        to ``FIXED_RETENTION_PRICING``.
+        :param termination_protection_enabled: Indicates that termination protection is enabled and the event data store cannot be automatically deleted.
+        :param kms_key_id: Specifies the KMS key ID to use to encrypt the events delivered by CloudTrail.
+        :param billing_mode: You can't change the billing mode from ``EXTENDABLE_RETENTION_PRICING`` to ``FIXED_RETENTION_PRICING``.
         :returns: UpdateEventDataStoreResponse
         :raises EventDataStoreAlreadyExistsException:
         :raises EventDataStoreARNInvalidException:
@@ -4762,27 +4673,16 @@ class CloudtrailApi:
         created; otherwise, an ``InvalidHomeRegionException`` is thrown.
 
         :param name: Specifies the name of the trail or trail ARN.
-        :param s3_bucket_name: Specifies the name of the Amazon S3 bucket designated for publishing log
-        files.
-        :param s3_key_prefix: Specifies the Amazon S3 key prefix that comes after the name of the
-        bucket you have designated for log file delivery.
-        :param sns_topic_name: Specifies the name or ARN of the Amazon SNS topic defined for
-        notification of log file delivery.
-        :param include_global_service_events: Specifies whether the trail is publishing events from global services
-        such as IAM to the log files.
-        :param is_multi_region_trail: Specifies whether the trail applies only to the current Region or to all
-        Regions.
+        :param s3_bucket_name: Specifies the name of the Amazon S3 bucket designated for publishing log files.
+        :param s3_key_prefix: Specifies the Amazon S3 key prefix that comes after the name of the bucket you have designated for log file delivery.
+        :param sns_topic_name: Specifies the name or ARN of the Amazon SNS topic defined for notification of log file delivery.
+        :param include_global_service_events: Specifies whether the trail is publishing events from global services such as IAM to the log files.
+        :param is_multi_region_trail: Specifies whether the trail applies only to the current Region or to all Regions.
         :param enable_log_file_validation: Specifies whether log file validation is enabled.
-        :param cloud_watch_logs_log_group_arn: Specifies a log group name using an Amazon Resource Name (ARN), a unique
-        identifier that represents the log group to which CloudTrail logs are
-        delivered.
-        :param cloud_watch_logs_role_arn: Specifies the role for the CloudWatch Logs endpoint to assume to write
-        to a user's log group.
-        :param kms_key_id: Specifies the KMS key ID to use to encrypt the logs and digest files
-        delivered by CloudTrail.
-        :param is_organization_trail: Specifies whether the trail is applied to all accounts in an
-        organization in Organizations, or only for the current Amazon Web
-        Services account.
+        :param cloud_watch_logs_log_group_arn: Specifies a log group name using an Amazon Resource Name (ARN), a unique identifier that represents the log group to which CloudTrail logs are delivered.
+        :param cloud_watch_logs_role_arn: Specifies the role for the CloudWatch Logs endpoint to assume to write to a user's log group.
+        :param kms_key_id: Specifies the KMS key ID to use to encrypt the logs and digest files delivered by CloudTrail.
+        :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in Organizations, or only for the current Amazon Web Services account.
         :returns: UpdateTrailResponse
         :raises S3BucketDoesNotExistException:
         :raises InsufficientS3BucketPolicyException:

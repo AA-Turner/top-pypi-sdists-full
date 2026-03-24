@@ -855,3 +855,76 @@ class TriggerMapping(_message.Message):
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___TriggerMapping: _TypeAlias = TriggerMapping  # noqa: Y015
+
+@_typing.final
+class CallLoopbackRequest(_message.Message):
+    """CallLoopback - proxy an HTTP request through the executor's ASGI loopback transport"""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    METHOD_FIELD_NUMBER: _builtins.int
+    PATH_FIELD_NUMBER: _builtins.int
+    BODY_FIELD_NUMBER: _builtins.int
+    HEADERS_FIELD_NUMBER: _builtins.int
+    method: _builtins.str
+    """HTTP method (e.g. "POST", "GET")"""
+    path: _builtins.str
+    """Relative URL path (e.g. "/webhook")"""
+    body: _builtins.bytes
+    """Request body"""
+    @_builtins.property
+    def headers(self) -> _containers.RepeatedCompositeFieldContainer[Global___HttpHeader]:
+        """HTTP headers (supports duplicate keys)"""
+
+    def __init__(
+        self,
+        *,
+        method: _builtins.str = ...,
+        path: _builtins.str = ...,
+        body: _builtins.bytes = ...,
+        headers: _abc.Iterable[Global___HttpHeader] | None = ...,
+    ) -> None: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["body", b"body", "headers", b"headers", "method", b"method", "path", b"path"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___CallLoopbackRequest: _TypeAlias = CallLoopbackRequest  # noqa: Y015
+
+@_typing.final
+class CallLoopbackResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    STATUS_CODE_FIELD_NUMBER: _builtins.int
+    BODY_FIELD_NUMBER: _builtins.int
+    status_code: _builtins.int
+    """HTTP response status code"""
+    body: _builtins.bytes
+    """Response body"""
+    def __init__(
+        self,
+        *,
+        status_code: _builtins.int = ...,
+        body: _builtins.bytes = ...,
+    ) -> None: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["body", b"body", "status_code", b"status_code"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___CallLoopbackResponse: _TypeAlias = CallLoopbackResponse  # noqa: Y015
+
+@_typing.final
+class HttpHeader(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    KEY_FIELD_NUMBER: _builtins.int
+    VALUE_FIELD_NUMBER: _builtins.int
+    key: _builtins.str
+    value: _builtins.str
+    def __init__(
+        self,
+        *,
+        key: _builtins.str = ...,
+        value: _builtins.str = ...,
+    ) -> None: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___HttpHeader: _TypeAlias = HttpHeader  # noqa: Y015

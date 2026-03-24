@@ -25,7 +25,7 @@ class AnimateableProperty:
     count: typing.Any
     """ The count of floats for a property."""
 
-    def read(self, position: float) -> None:
+    def read(self, position: float) -> npt.NDArray:
         """Reads the properties value at the given position.
 
         :param position: The position in the animation in frames.
@@ -433,7 +433,7 @@ class Sound:
     """ The sample specification of the sound as a tuple with rate and channel count."""
 
     @classmethod
-    def buffer(cls, data, rate: float) -> typing_extensions.Self:
+    def buffer(cls, data: npt.NDArray, rate: float) -> typing_extensions.Self:
         """Creates a sound from a data buffer.
 
         :param data: The data as two dimensional numpy array.
@@ -572,7 +572,7 @@ class Sound:
         :return: The created `Sound` object.
         """
 
-    def data(self) -> None:
+    def data(self) -> npt.NDArray:
         """Retrieves the data of the sound as numpy array.
 
         :return: A two dimensional numpy float array.

@@ -17,21 +17,23 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 
 from google.cloud.dataplex_v1 import gapic_version as package_version
-from google.cloud.dataplex_v1.types import analyze, resources, service, tasks
+from google.cloud.dataplex_v1.types import resources, service, tasks
 
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
@@ -87,8 +89,6 @@ class DataplexServiceTransport(abc.ABC):
                 be used for service account credentials.
         """
 
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
-
         # Save the scopes.
         self._scopes = scopes
         if not hasattr(self, "_ignore_credentials"):
@@ -103,11 +103,16 @@ class DataplexServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -390,54 +395,6 @@ class DataplexServiceTransport(abc.ABC):
                 default_timeout=60.0,
                 client_info=client_info,
             ),
-            self.create_environment: gapic_v1.method.wrap_method(
-                self.create_environment,
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.update_environment: gapic_v1.method.wrap_method(
-                self.update_environment,
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.delete_environment: gapic_v1.method.wrap_method(
-                self.delete_environment,
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.list_environments: gapic_v1.method.wrap_method(
-                self.list_environments,
-                default_retry=retries.Retry(
-                    initial=1.0,
-                    maximum=10.0,
-                    multiplier=1.3,
-                    predicate=retries.if_exception_type(
-                        core_exceptions.ServiceUnavailable,
-                    ),
-                    deadline=60.0,
-                ),
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.get_environment: gapic_v1.method.wrap_method(
-                self.get_environment,
-                default_retry=retries.Retry(
-                    initial=1.0,
-                    maximum=10.0,
-                    multiplier=1.3,
-                    predicate=retries.if_exception_type(
-                        core_exceptions.ServiceUnavailable,
-                    ),
-                    deadline=60.0,
-                ),
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.list_sessions: gapic_v1.method.wrap_method(
-                self.list_sessions,
-                default_timeout=None,
-                client_info=client_info,
-            ),
             self.get_location: gapic_v1.method.wrap_method(
                 self.get_location,
                 default_timeout=None,
@@ -445,6 +402,21 @@ class DataplexServiceTransport(abc.ABC):
             ),
             self.list_locations: gapic_v1.method.wrap_method(
                 self.list_locations,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_iam_policy: gapic_v1.method.wrap_method(
+                self.get_iam_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.set_iam_policy: gapic_v1.method.wrap_method(
+                self.set_iam_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.test_iam_permissions: gapic_v1.method.wrap_method(
+                self.test_iam_permissions,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -718,63 +690,6 @@ class DataplexServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
-    def create_environment(
-        self,
-    ) -> Callable[
-        [service.CreateEnvironmentRequest],
-        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def update_environment(
-        self,
-    ) -> Callable[
-        [service.UpdateEnvironmentRequest],
-        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def delete_environment(
-        self,
-    ) -> Callable[
-        [service.DeleteEnvironmentRequest],
-        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def list_environments(
-        self,
-    ) -> Callable[
-        [service.ListEnvironmentsRequest],
-        Union[
-            service.ListEnvironmentsResponse,
-            Awaitable[service.ListEnvironmentsResponse],
-        ],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def get_environment(
-        self,
-    ) -> Callable[
-        [service.GetEnvironmentRequest],
-        Union[analyze.Environment, Awaitable[analyze.Environment]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def list_sessions(
-        self,
-    ) -> Callable[
-        [service.ListSessionsRequest],
-        Union[service.ListSessionsResponse, Awaitable[service.ListSessionsResponse]],
-    ]:
-        raise NotImplementedError()
-
-    @property
     def list_operations(
         self,
     ) -> Callable[
@@ -798,13 +713,49 @@ class DataplexServiceTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def set_iam_policy(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.SetIamPolicyRequest],
+        Union[policy_pb2.Policy, Awaitable[policy_pb2.Policy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_iam_policy(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.GetIamPolicyRequest],
+        Union[policy_pb2.Policy, Awaitable[policy_pb2.Policy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.TestIamPermissionsRequest],
+        Union[
+            iam_policy_pb2.TestIamPermissionsResponse,
+            Awaitable[iam_policy_pb2.TestIamPermissionsResponse],
+        ],
+    ]:
         raise NotImplementedError()
 
     @property

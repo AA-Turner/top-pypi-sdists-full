@@ -30,6 +30,21 @@ def test_integer_validation(value, err):
     _check_errors(s, value, [ErrorItem(message=err, instance_path='')])
 
 
+def test_integer_validation__inclusive_boundary():
+    """Min and Max are inclusive by default."""
+    s = Serializer(Annotated[int, Min(10), Max(100)])
+    assert s.load(10) == 10
+    assert s.load(100) == 100
+
+
+def test_integer_validation__not_inclusive():
+    s = Serializer(Annotated[int, Min(10, inclusive=False), Max(100, inclusive=False)])
+    _check_errors(s, 10, [ErrorItem(message='10 is less than the minimum of 10', instance_path='')])
+    _check_errors(s, 100, [ErrorItem(message='100 is greater than the maximum of 100', instance_path='')])
+    assert s.load(11) == 11
+    assert s.load(99) == 99
+
+
 def test_integer_validation__invalid_type():
     s = Serializer(int)
     _check_errors(s, '1', [ErrorItem(message='"1" is not of type "integer"', instance_path='')])
@@ -51,6 +66,13 @@ def test_integer__custom_encoder():
 def test_string_validation(value, err):
     s = Serializer(Annotated[str, MinLength(6), MaxLength(8)])
     _check_errors(s, value, [ErrorItem(message=err, instance_path='')])
+
+
+def test_string_validation__inclusive_boundary():
+    """MinLength and MaxLength are inclusive."""
+    s = Serializer(Annotated[str, MinLength(6), MaxLength(8)])
+    assert s.load('abcdef') == 'abcdef'
+    assert s.load('abcdefgh') == 'abcdefgh'
 
 
 def test_string_validation__invalid_type():
@@ -76,6 +98,23 @@ def test_float_validation(value, err):
     assert e.value.errors == [ErrorItem(message=err, instance_path='')]
 
 
+def test_float_validation__inclusive_boundary():
+    """Min and Max are inclusive by default for floats."""
+    s = Serializer(Annotated[float, Min(10.0), Max(100.0)])
+    assert s.load(10.0) == 10.0
+    assert s.load(100.0) == 100.0
+
+
+def test_float_validation__not_inclusive():
+    s = Serializer(Annotated[float, Min(10.0, inclusive=False), Max(100.0, inclusive=False)])
+    with pytest.raises(SchemaValidationError):
+        s.load(10.0)
+    with pytest.raises(SchemaValidationError):
+        s.load(100.0)
+    assert s.load(10.1) == 10.1
+    assert s.load(99.9) == 99.9
+
+
 def test_float_validation__invalid_type():
     s = Serializer(float)
     with pytest.raises(SchemaValidationError) as e:
@@ -98,6 +137,13 @@ def test_decimal_validation(value, err):
         s.load(value)
 
     assert e.value.errors == [ErrorItem(message=err, instance_path='')]
+
+
+def test_decimal_validation__inclusive_boundary():
+    """Min and Max are inclusive by default for Decimal."""
+    s = Serializer(Annotated[Decimal, Min(10), Max(100)])
+    assert s.load('10') == Decimal('10')
+    assert s.load('100') == Decimal('100')
 
 
 def test_decimal_validation__invalid_type():

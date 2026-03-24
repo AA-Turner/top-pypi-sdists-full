@@ -155,6 +155,16 @@ pub struct ChunkingConfig {
     /// Enable `chunking-tiktoken` or `chunking-tokenizers` features for token-based sizing.
     #[serde(default)]
     pub sizing: ChunkSizing,
+
+    /// When `true` and `chunker_type` is `Markdown`, prepend the heading hierarchy
+    /// path (e.g. `"# Title > ## Section\n\n"`) to each chunk's content string.
+    ///
+    /// This is useful for RAG pipelines where each chunk needs self-contained
+    /// context about its position in the document structure.
+    ///
+    /// Default: `false`
+    #[serde(default)]
+    pub prepend_heading_context: bool,
 }
 
 impl ChunkingConfig {
@@ -170,6 +180,7 @@ impl ChunkingConfig {
             embedding: None,
             preset: None,
             sizing: ChunkSizing::default(),
+            prepend_heading_context: false,
         }
     }
 
@@ -182,6 +193,12 @@ impl ChunkingConfig {
     /// Set the sizing strategy.
     pub fn with_sizing(mut self, sizing: ChunkSizing) -> Self {
         self.sizing = sizing;
+        self
+    }
+
+    /// Enable or disable prepending heading context to chunk content.
+    pub fn with_prepend_heading_context(mut self, prepend: bool) -> Self {
+        self.prepend_heading_context = prepend;
         self
     }
 
@@ -234,6 +251,7 @@ impl ChunkingConfig {
             chunker_type: self.chunker_type,
             preset: self.preset.clone(),
             sizing: self.sizing.clone(),
+            prepend_heading_context: self.prepend_heading_context,
         }
     }
 
@@ -257,6 +275,7 @@ impl Default for ChunkingConfig {
             embedding: None,
             preset: None,
             sizing: ChunkSizing::default(),
+            prepend_heading_context: false,
         }
     }
 }

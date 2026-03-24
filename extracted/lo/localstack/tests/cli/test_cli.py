@@ -60,8 +60,8 @@ def backup_and_remove_image(monkeypatch, container_client: ContainerClient):
     up" - i.e. tag it with another tag, and restore it afterwards.
     """
 
-    source_image_name = f"{constants.DOCKER_IMAGE_NAME}:latest"
-    tagged_image_name = f"{constants.DOCKER_IMAGE_NAME}:backup"
+    source_image_name = f"{constants.DOCKER_IMAGE_NAME_PRO}:latest"
+    tagged_image_name = f"{constants.DOCKER_IMAGE_NAME_PRO}:backup"
     container_client.tag_image(source_image_name, tagged_image_name)
     container_client.remove_image(source_image_name, force=True)
     monkeypatch.setenv("IMAGE_NAME", source_image_name)
@@ -74,7 +74,7 @@ def backup_and_remove_image(monkeypatch, container_client: ContainerClient):
 @pytest.fixture
 def create_container(container_client: ContainerClient):
     """Creates (but does not start) a docker container with the name 'localstack-main'"""
-    container_client.create_container(image_name="localstack/localstack", name="localstack-main")
+    container_client.create_container(image_name="localstack/localstack-pro", name="localstack-main")
     yield
     container_client.remove_container("localstack-main", force=True)
 
@@ -106,7 +106,7 @@ class TestCliContainerLifecycle:
 
     @pytest.mark.usefixtures("backup_and_remove_image")
     def test_pulling_image_message(self, runner, container_client: ContainerClient):
-        image_name_and_tag = f"{constants.DOCKER_IMAGE_NAME}:latest"
+        image_name_and_tag = f"{constants.DOCKER_IMAGE_NAME_PRO}:latest"
         with pytest.raises(NoSuchImage):
             container_client.inspect_image(image_name_and_tag, pull=False)
 
@@ -245,34 +245,11 @@ class TestCliContainerLifecycle:
         output = container_client.exec_in_container(config.MAIN_CONTAINER_NAME, ["ps", "-fu", user])
         assert "localstack-supervisor" in to_str(output[0])
 
-    @pytest.mark.skip(reason="Test assumes localstack module name, not localstack_cli")
-    def test_start_cli_within_container(self, runner, container_client, tmp_path):
-        output = container_client.run_container(
-            # CAVEAT: Updates to the Docker image are not immediately reflected when using the latest image from
-            # DockerHub in the CI. Re-build the Docker image locally through
-            # `IMAGE_NAME="localstack/localstack" ./bin/docker-helper.sh build` for local testing.
-            "localstack/localstack",
-            remove=True,
-            entrypoint="",
-            command=["bin/localstack", "start", "-d"],
-            volumes=[
-                ("/var/run/docker.sock", "/var/run/docker.sock"),
-                (MODULE_MAIN_PATH, "/opt/code/localstack/localstack"),
-            ],
-            env_vars={"LOCALSTACK_VOLUME_DIR": f"{tmp_path}/ls-volume"},
-        )
-        stdout = to_str(output[0])
-        assert "starting LocalStack" in stdout
-        assert "detaching" in stdout
-
-        # assert that container is running
-        runner.invoke(cli, ["wait", "-t", "60"])
-
     def test_install_cli_in_container(self, container_client):
         """Test that the standalone CLI can be installed alongside the runtime in a container."""
         # Mount the CLI source code and install it, then run a simple command
         output = container_client.run_container(
-            "localstack/localstack",
+            "localstack/localstack-pro",
             remove=True,
             entrypoint="",
             command=[

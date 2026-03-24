@@ -89,7 +89,7 @@ Answer:"""
 
 class DROPExtractor(HuggingFaceBenchmarkExtractor):
     """Extract contrastive pairs from DROP benchmark."""
-    evaluator_name = "exact_match"
+    evaluator_name = "generation"
 
     def __init__(self, context_max_length: int | None = None):
         super().__init__()

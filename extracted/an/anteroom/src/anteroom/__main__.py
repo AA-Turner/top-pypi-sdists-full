@@ -2588,11 +2588,22 @@ def main() -> None:
     workflow_run_parser.add_argument("--issue", type=int, help="Issue number (for issue_delivery)")
     workflow_run_parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
     workflow_run_parser.add_argument(
+        "--detach",
+        action="store_true",
+        help="Create the run, print its ID, and continue execution in the background",
+    )
+    workflow_run_parser.add_argument(
         "--param",
         action="append",
         default=[],
         metavar="KEY=VALUE",
         help="Override a workflow param (repeatable, e.g. --param lint_command='eslint src/')",
+    )
+    workflow_run_parser.add_argument(
+        "--no-transcript",
+        action="store_true",
+        default=False,
+        help="Suppress live transcript output during execution (timeline-only)",
     )
     workflow_status_parser = workflow_subparsers.add_parser("status", help="Show run status")
     workflow_status_parser.add_argument("run_id", help="Run identifier")
@@ -2602,6 +2613,12 @@ def main() -> None:
     workflow_list_parser.add_argument("--limit", type=int, default=20, help="Max results")
     workflow_history_parser = workflow_subparsers.add_parser("history", help="Show run step history")
     workflow_history_parser.add_argument("run_id", help="Run identifier")
+    workflow_history_parser.add_argument(
+        "--transcript", action="store_true", default=False, help="Include transcript events"
+    )
+    workflow_transcript_parser = workflow_subparsers.add_parser("transcript", help="Show transcript events for a run")
+    workflow_transcript_parser.add_argument("run_id", help="Run identifier")
+    workflow_transcript_parser.add_argument("step_id", nargs="?", default=None, help="Optional step ID filter")
     workflow_resume_parser = workflow_subparsers.add_parser("resume", help="Resume a paused workflow run")
     workflow_resume_parser.add_argument("run_id", help="Run identifier")
     workflow_resume_parser.add_argument("--from-step", help="Override resume point (step ID)")
@@ -2611,6 +2628,12 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Force resume even if definition has changed (drift override)",
+    )
+    workflow_resume_parser.add_argument(
+        "--no-transcript",
+        action="store_true",
+        default=False,
+        help="Suppress live transcript output during execution (timeline-only)",
     )
     workflow_repair_parser = workflow_subparsers.add_parser("repair", help="Repair a field on a paused workflow run")
     workflow_repair_parser.add_argument("run_id", help="Run identifier")
@@ -2628,8 +2651,12 @@ def main() -> None:
     workflow_respond_parser = workflow_subparsers.add_parser("respond", help="Respond to a human decision")
     workflow_respond_parser.add_argument("run_id", help="Run identifier")
     workflow_respond_parser.add_argument("--option", help="Option ID to select")
+    workflow_replay_parser = workflow_subparsers.add_parser("replay", help="Full conversation replay of a workflow run")
+    workflow_replay_parser.add_argument("run_id", help="Workflow run ID")
     workflow_watch_parser = workflow_subparsers.add_parser("watch", help="Watch a workflow run in real-time")
     workflow_watch_parser.add_argument("run_id", help="Run identifier")
+    workflow_diagnose_parser = workflow_subparsers.add_parser("diagnose", help="Explain why a run stopped")
+    workflow_diagnose_parser.add_argument("run_id", help="Run identifier")
     workflow_triggers_parser = workflow_subparsers.add_parser("triggers", help="Manage workflow triggers")
     triggers_subparsers = workflow_triggers_parser.add_subparsers(dest="trigger_action")
     triggers_subparsers.add_parser("list", help="List workflow schedules")
@@ -2646,6 +2673,9 @@ def main() -> None:
     workflow_simulate_parser = workflow_subparsers.add_parser("simulate", help="Simulate a workflow with stub runners")
     workflow_simulate_parser.add_argument("workflow_path", help="Workflow ID or YAML path")
     workflow_simulate_parser.add_argument("--stubs", help="Path to stub results YAML")
+    workflow_exec_pending_parser = workflow_subparsers.add_parser("_execute_pending", help=argparse.SUPPRESS)
+    workflow_exec_pending_parser.add_argument("run_id", help=argparse.SUPPRESS)
+    workflow_exec_pending_parser.add_argument("--definition", required=True, help=argparse.SUPPRESS)
 
     # `aroom start` subcommand
     start_parser = subparsers.add_parser("start", help="Start the web UI server in the background")

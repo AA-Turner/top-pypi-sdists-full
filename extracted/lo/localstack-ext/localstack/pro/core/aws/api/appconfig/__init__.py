@@ -963,13 +963,11 @@ class AppconfigApi:
         :param name: A name for the configuration profile.
         :param location_uri: A URI to locate the configuration.
         :param description: A description of the configuration profile.
-        :param retrieval_role_arn: The ARN of an IAM role with permission to access the configuration at
-        the specified ``LocationUri``.
+        :param retrieval_role_arn: The ARN of an IAM role with permission to access the configuration at the specified ``LocationUri``.
         :param validators: A list of methods for validating the configuration.
         :param tags: Metadata to assign to the configuration profile.
         :param type: The type of configurations contained in the profile.
-        :param kms_key_identifier: The identifier for an Key Management Service key to encrypt new
-        configuration data versions in the AppConfig hosted configuration store.
+        :param kms_key_identifier: The identifier for an Key Management Service key to encrypt new configuration data versions in the AppConfig hosted configuration store.
         :returns: ConfigurationProfile
         :raises BadRequestException:
         :raises ResourceNotFoundException:
@@ -1000,12 +998,9 @@ class AppconfigApi:
 
         :param name: A name for the deployment strategy.
         :param deployment_duration_in_minutes: Total amount of time for a deployment to last.
-        :param growth_factor: The percentage of targets to receive a deployed configuration during
-        each interval.
+        :param growth_factor: The percentage of targets to receive a deployed configuration during each interval.
         :param description: A description of the deployment strategy.
-        :param final_bake_time_in_minutes: Specifies the amount of time AppConfig monitors for Amazon CloudWatch
-        alarms after the configuration has been deployed to 100% of its targets,
-        before considering the deployment to be complete.
+        :param final_bake_time_in_minutes: Specifies the amount of time AppConfig monitors for Amazon CloudWatch alarms after the configuration has been deployed to 100% of its targets, before considering the deployment to be complete.
         :param growth_type: The algorithm used to define how percentage grows over time.
         :param replicate_to: Save the deployment strategy to a Systems Manager (SSM) document.
         :param tags: Metadata to assign to the deployment strategy.
@@ -1163,10 +1158,8 @@ class AppconfigApi:
         :param content: The configuration data, as bytes.
         :param content_type: A standard MIME type describing the format of the configuration content.
         :param description: A description of the configuration.
-        :param latest_version_number: An optional locking token used to prevent race conditions from
-        overwriting configuration updates when creating a new version.
-        :param version_label: An optional, user-defined label for the AppConfig hosted configuration
-        version.
+        :param latest_version_number: An optional locking token used to prevent race conditions from overwriting configuration updates when creating a new version.
+        :param version_label: An optional, user-defined label for the AppConfig hosted configuration version.
         :returns: HostedConfigurationVersion
         :raises BadRequestException:
         :raises ServiceQuotaExceededException:
@@ -1203,8 +1196,7 @@ class AppconfigApi:
         configuration profiles, enable `deletion
         protection <https://docs.aws.amazon.com/appconfig/latest/userguide/deletion-protection.html>`__.
 
-        :param application_id: The application ID that includes the configuration profile you want to
-        delete.
+        :param application_id: The application ID that includes the configuration profile you want to delete.
         :param configuration_profile_id: The ID of the configuration profile you want to delete.
         :param deletion_protection_check: A parameter to configure deletion protection.
         :raises ResourceNotFoundException:
@@ -1243,8 +1235,7 @@ class AppconfigApi:
         protection <https://docs.aws.amazon.com/appconfig/latest/userguide/deletion-protection.html>`__.
 
         :param environment_id: The ID of the environment that you want to delete.
-        :param application_id: The application ID that includes the environment that you want to
-        delete.
+        :param application_id: The application ID that includes the environment that you want to delete.
         :param deletion_protection_check: A parameter to configure deletion protection.
         :raises ResourceNotFoundException:
         :raises ConflictException:
@@ -1264,8 +1255,7 @@ class AppconfigApi:
         """Deletes an AppConfig extension. You must delete all associations to an
         extension before you delete the extension.
 
-        :param extension_identifier: The name, ID, or Amazon Resource Name (ARN) of the extension you want to
-        delete.
+        :param extension_identifier: The name, ID, or Amazon Resource Name (ARN) of the extension you want to delete.
         :param version_number: A specific version of an extension to delete.
         :raises ResourceNotFoundException:
         :raises InternalServerException:
@@ -1359,10 +1349,8 @@ class AppconfigApi:
         :param application: The application to get.
         :param environment: The environment to get.
         :param configuration: The configuration to get.
-        :param client_id: The clientId parameter in the following command is a unique,
-        user-specified ID to identify the client for the configuration.
-        :param client_configuration_version: The configuration version returned in the most recent GetConfiguration
-        response.
+        :param client_id: The clientId parameter in the following command is a unique, user-specified ID to identify the client for the configuration.
+        :param client_configuration_version: The configuration version returned in the most recent GetConfiguration response.
         :returns: Configuration
         :raises ResourceNotFoundException:
         :raises InternalServerException:
@@ -1376,8 +1364,7 @@ class AppconfigApi:
     ) -> ConfigurationProfile:
         """Retrieves information about a configuration profile.
 
-        :param application_id: The ID of the application that includes the configuration profile you
-        want to get.
+        :param application_id: The ID of the application that includes the configuration profile you want to get.
         :param configuration_profile_id: The ID of the configuration profile that you want to get.
         :returns: ConfigurationProfile
         :raises ResourceNotFoundException:
@@ -1529,8 +1516,7 @@ class AppconfigApi:
         :param application_id: The application ID.
         :param max_results: The maximum number of items to return for this call.
         :param next_token: A token to start the list.
-        :param type: A filter based on the type of configurations that the configuration
-        profile contains.
+        :param type: A filter based on the type of configurations that the configuration profile contains.
         :returns: ConfigurationProfiles
         :raises ResourceNotFoundException:
         :raises InternalServerException:
@@ -1572,8 +1558,7 @@ class AppconfigApi:
         :param application_id: The application ID.
         :param environment_id: The environment ID.
         :param max_results: The maximum number of items that may be returned for this call.
-        :param next_token: The token returned by a prior call to this operation indicating the next
-        set of results to be returned.
+        :param next_token: The token returned by a prior call to this operation indicating the next set of results to be returned.
         :returns: Deployments
         :raises ResourceNotFoundException:
         :raises InternalServerException:
@@ -1670,8 +1655,7 @@ class AppconfigApi:
         :param configuration_profile_id: The configuration profile ID.
         :param max_results: The maximum number of items to return for this call.
         :param next_token: A token to start the list.
-        :param version_label: An optional filter that can be used to specify the version label of an
-        AppConfig hosted configuration version.
+        :param version_label: An optional filter that can be used to specify the version label of an AppConfig hosted configuration version.
         :returns: HostedConfigurationVersions
         :raises BadRequestException:
         :raises ResourceNotFoundException:
@@ -1718,8 +1702,7 @@ class AppconfigApi:
         :param description: A description of the deployment.
         :param tags: Metadata to assign to the deployment.
         :param kms_key_identifier: The KMS key identifier (key ID, key alias, or key ARN).
-        :param dynamic_extension_parameters: A map of dynamic extension parameter names to values to pass to
-        associated extensions with ``PRE_START_DEPLOYMENT`` actions.
+        :param dynamic_extension_parameters: A map of dynamic extension parameter names to values to pass to associated extensions with ``PRE_START_DEPLOYMENT`` actions.
         :returns: Deployment
         :raises BadRequestException:
         :raises ResourceNotFoundException:
@@ -1748,8 +1731,7 @@ class AppconfigApi:
         :param application_id: The application ID.
         :param environment_id: The environment ID.
         :param deployment_number: The sequence number of the deployment.
-        :param allow_revert: A Boolean that enables AppConfig to rollback a ``COMPLETED`` deployment
-        to the previous configuration version.
+        :param allow_revert: A Boolean that enables AppConfig to rollback a ``COMPLETED`` deployment to the previous configuration version.
         :returns: Deployment
         :raises ResourceNotFoundException:
         :raises InternalServerException:
@@ -1844,11 +1826,9 @@ class AppconfigApi:
         :param configuration_profile_id: The ID of the configuration profile.
         :param name: The name of the configuration profile.
         :param description: A description of the configuration profile.
-        :param retrieval_role_arn: The ARN of an IAM role with permission to access the configuration at
-        the specified ``LocationUri``.
+        :param retrieval_role_arn: The ARN of an IAM role with permission to access the configuration at the specified ``LocationUri``.
         :param validators: A list of methods for validating the configuration.
-        :param kms_key_identifier: The identifier for a Key Management Service key to encrypt new
-        configuration data versions in the AppConfig hosted configuration store.
+        :param kms_key_identifier: The identifier for a Key Management Service key to encrypt new configuration data versions in the AppConfig hosted configuration store.
         :returns: ConfigurationProfile
         :raises BadRequestException:
         :raises ResourceNotFoundException:
@@ -1873,11 +1853,8 @@ class AppconfigApi:
         :param deployment_strategy_id: The deployment strategy ID.
         :param description: A description of the deployment strategy.
         :param deployment_duration_in_minutes: Total amount of time for a deployment to last.
-        :param final_bake_time_in_minutes: The amount of time that AppConfig monitors for alarms before considering
-        the deployment to be complete and no longer eligible for automatic
-        rollback.
-        :param growth_factor: The percentage of targets to receive a deployed configuration during
-        each interval.
+        :param final_bake_time_in_minutes: The amount of time that AppConfig monitors for alarms before considering the deployment to be complete and no longer eligible for automatic rollback.
+        :param growth_factor: The percentage of targets to receive a deployed configuration during each interval.
         :param growth_type: The algorithm used to define how percentage grows over time.
         :returns: DeploymentStrategy
         :raises BadRequestException:

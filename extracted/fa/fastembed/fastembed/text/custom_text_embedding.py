@@ -1,5 +1,4 @@
-from typing import Optional, Sequence, Any, Iterable
-
+from typing import Sequence, Any, Iterable
 from dataclasses import dataclass
 
 import numpy as np
@@ -11,7 +10,7 @@ from fastembed.common.model_description import (
     DenseModelDescription,
 )
 from fastembed.common.onnx_model import OnnxOutputContext
-from fastembed.common.types import NumpyArray
+from fastembed.common.types import NumpyArray, Device
 from fastembed.common.utils import normalize, mean_pooling
 from fastembed.text.onnx_embedding import OnnxTextEmbedding
 
@@ -29,14 +28,14 @@ class CustomTextEmbedding(OnnxTextEmbedding):
     def __init__(
         self,
         model_name: str,
-        cache_dir: Optional[str] = None,
-        threads: Optional[int] = None,
-        providers: Optional[Sequence[OnnxProvider]] = None,
-        cuda: bool = False,
-        device_ids: Optional[list[int]] = None,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        providers: Sequence[OnnxProvider] | None = None,
+        cuda: bool | Device = Device.AUTO,
+        device_ids: list[int] | None = None,
         lazy_load: bool = False,
-        device_id: Optional[int] = None,
-        specific_model_path: Optional[str] = None,
+        device_id: int | None = None,
+        specific_model_path: str | None = None,
         **kwargs: Any,
     ):
         super().__init__(
@@ -64,7 +63,7 @@ class CustomTextEmbedding(OnnxTextEmbedding):
         return self._normalize(self._pool(output.model_output, output.attention_mask))
 
     def _pool(
-        self, embeddings: NumpyArray, attention_mask: Optional[NDArray[np.int64]] = None
+        self, embeddings: NumpyArray, attention_mask: NDArray[np.int64] | None = None
     ) -> NumpyArray:
         if self._pooling == PoolingType.CLS:
             return embeddings[:, 0]

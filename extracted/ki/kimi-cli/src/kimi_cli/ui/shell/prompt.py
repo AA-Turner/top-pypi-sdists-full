@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import re
 import shlex
+import subprocess
 import time
 from collections import deque
 from collections.abc import Awaitable, Callable, Iterable, Sequence
@@ -36,12 +38,13 @@ from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
+    DynamicContainer,
     Float,
     FloatContainer,
     HSplit,
     Window,
 )
-from prompt_toolkit.layout.controls import UIContent, UIControl
+from prompt_toolkit.layout.controls import BufferControl, UIContent, UIControl
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.patch_stdout import patch_stdout
@@ -268,6 +271,60 @@ def _extract_float_container(container: object) -> FloatContainer | None:
         if isinstance(container.alternative_content, FloatContainer):
             return container.alternative_content
     return None
+
+
+def _find_default_buffer_container(
+    layout_container: object,
+    target_buffer: Buffer,
+) -> ConditionalContainer | None:
+    seen: set[int] = set()
+
+    def _walk(node: object) -> ConditionalContainer | None:
+        if id(node) in seen:
+            return None
+        seen.add(id(node))
+
+        if isinstance(node, ConditionalContainer):
+            content = getattr(node, "content", None)
+            if isinstance(content, Window):
+                control = content.content
+                if isinstance(control, BufferControl) and control.buffer is target_buffer:
+                    return node
+
+        if isinstance(node, DynamicContainer):
+            with contextlib.suppress(Exception):
+                found = _walk(node.get_container())
+                if found is not None:
+                    return found
+
+        for attr in ("children", "content", "floats", "container"):
+            if not hasattr(node, attr):
+                continue
+            value = getattr(node, attr)
+            if attr == "children" and isinstance(value, Sequence):
+                for child in value:  # pyright: ignore[reportUnknownVariableType]
+                    found = _walk(child)  # pyright: ignore[reportUnknownArgumentType]
+                    if found is not None:
+                        return found
+            elif attr == "floats" and isinstance(value, Sequence):
+                for float_ in value:  # pyright: ignore[reportUnknownVariableType]
+                    content = getattr(float_, "content", None)  # pyright: ignore[reportUnknownArgumentType]
+                    if content is None:
+                        continue
+                    found = _walk(content)
+                    if found is not None:
+                        return found
+            elif (
+                attr in {"content", "container"}
+                and value is not None
+                and type(value).__module__.startswith("prompt_toolkit")
+            ):
+                found = _walk(value)
+                if found is not None:
+                    return found
+        return None
+
+    return _walk(layout_container)
 
 
 class SlashCommandMenuControl(UIControl):
@@ -856,6 +913,12 @@ class PromptMode(Enum):
         return self.value
 
 
+class PromptUIState(Enum):
+    NORMAL_INPUT = "normal_input"
+    MODAL_HIDDEN_INPUT = "modal_hidden_input"
+    MODAL_TEXT_INPUT = "modal_text_input"
+
+
 class UserInput(BaseModel):
     mode: PromptMode
     command: str
@@ -875,6 +938,198 @@ class UserInput(BaseModel):
 _IDLE_REFRESH_INTERVAL = 1.0
 _RUNNING_REFRESH_INTERVAL = 0.1
 
+_GIT_BRANCH_TTL = 5.0
+_GIT_STATUS_TTL = 15.0
+_TIP_ROTATE_INTERVAL = 30.0
+_MAX_CWD_COLS = 30
+_MAX_BRANCH_COLS = 22
+
+
+@dataclass
+class _GitBranchState:
+    timestamp: float = 0.0
+    branch: str | None = None
+    proc: subprocess.Popen[str] | None = None
+
+
+@dataclass
+class _GitStatusState:
+    timestamp: float = 0.0
+    dirty: bool = False
+    ahead: int = 0
+    behind: int = 0
+    proc: subprocess.Popen[str] | None = None
+
+
+_git_branch_state = _GitBranchState()
+_git_status_state = _GitStatusState()
+
+_GIT_STATUS_AB_RE = re.compile(r"\[(?:ahead (\d+))?(?:, )?(?:behind (\d+))?\]")
+
+
+def _get_git_branch() -> str | None:
+    """Return the current git branch name via a non-blocking cached subprocess."""
+    state = _git_branch_state
+    now = time.monotonic()
+
+    # Collect result if a previously launched process has finished
+    if state.proc is not None:
+        returncode = state.proc.poll()
+        if returncode is not None:
+            try:
+                stdout, _ = state.proc.communicate()
+                new_branch = stdout.strip() or None
+                # Branch changed — discard any in-flight status subprocess so it cannot
+                # write stale results for the old branch, then force an immediate refresh.
+                if new_branch != state.branch:
+                    if _git_status_state.proc is not None:
+                        with contextlib.suppress(Exception):
+                            _git_status_state.proc.terminate()
+                        _git_status_state.proc = None
+                    _git_status_state.timestamp = 0.0
+                state.branch = new_branch
+            except Exception:
+                state.branch = None
+            state.proc = None
+
+    # Launch a new process when the TTL has expired and nothing is running
+    if state.timestamp + _GIT_BRANCH_TTL <= now and state.proc is None:
+        state.timestamp = now
+        try:
+            state.proc = subprocess.Popen(
+                ["git", "branch", "--show-current"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+        except Exception:
+            state.branch = None
+
+    return state.branch
+
+
+def _get_git_status() -> tuple[bool, int, int]:
+    """Return (dirty, ahead, behind) via a non-blocking cached subprocess.
+
+    Runs ``git status --porcelain -b`` (includes untracked files so newly created
+    files show as dirty).  TTL is longer than the branch check because file-tree
+    scanning is expensive.
+    """
+    state = _git_status_state
+    now = time.monotonic()
+
+    if state.proc is not None:
+        returncode = state.proc.poll()
+        if returncode is not None:
+            try:
+                stdout, _ = state.proc.communicate()
+                dirty = False
+                ahead = 0
+                behind = 0
+                for line in stdout.splitlines():
+                    if line.startswith("## "):
+                        m = _GIT_STATUS_AB_RE.search(line)
+                        if m:
+                            ahead = int(m.group(1) or 0)
+                            behind = int(m.group(2) or 0)
+                    elif line.strip():
+                        dirty = True
+                state.dirty = dirty
+                state.ahead = ahead
+                state.behind = behind
+            except Exception:
+                pass
+            state.proc = None
+        elif now - state.timestamp > _GIT_STATUS_TTL:
+            # Subprocess is stuck (e.g. OS pipe buffer full from many untracked files).
+            # Terminate it so the toolbar is not permanently frozen; retry after next TTL.
+            with contextlib.suppress(Exception):
+                state.proc.terminate()
+            state.proc = None
+            state.timestamp = now  # delay next spawn by one full TTL
+
+    if state.timestamp + _GIT_STATUS_TTL <= now and state.proc is None:
+        state.timestamp = now
+        with contextlib.suppress(Exception):
+            state.proc = subprocess.Popen(
+                ["git", "status", "--porcelain", "-b"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+
+    return state.dirty, state.ahead, state.behind
+
+
+def _format_git_badge(branch: str, dirty: bool, ahead: int, behind: int) -> str:
+    """Format branch name with an optional status badge: ``main [± ↑3↓1]``."""
+    parts: list[str] = []
+    if dirty:
+        parts.append("±")
+    sync = ""
+    if ahead:
+        sync += f"↑{ahead}"
+    if behind:
+        sync += f"↓{behind}"
+    if sync:
+        parts.append(sync)
+    if not parts:
+        return branch
+    return f"{branch} [{' '.join(parts)}]"
+
+
+def _shorten_cwd(path: str) -> str:
+    """Replace the home directory prefix in *path* with ``~``."""
+    home = str(Path.home())
+    if path == home:
+        return "~"
+    if path.startswith(home + os.sep):
+        return "~" + path[len(home) :]
+    return path
+
+
+def _display_width(text: str) -> int:
+    """Return the terminal column width of *text*, handling wide Unicode characters."""
+    return sum(get_cwidth(c) for c in text)
+
+
+def _truncate_left(text: str, max_cols: int) -> str:
+    """Truncate *text* from the left, prepending '…' if it exceeds *max_cols*."""
+    if max_cols <= 0:
+        return ""
+    if _display_width(text) <= max_cols:
+        return text
+    ellipsis = "…"
+    budget = max_cols - _display_width(ellipsis)
+    chars: list[str] = []
+    width = 0
+    for ch in reversed(text):
+        w = get_cwidth(ch)
+        if width + w > budget:
+            break
+        chars.append(ch)
+        width += w
+    return ellipsis + "".join(reversed(chars))
+
+
+def _truncate_right(text: str, max_cols: int) -> str:
+    """Truncate *text* from the right, appending '…' if it exceeds *max_cols*."""
+    if max_cols <= 0:
+        return ""
+    if _display_width(text) <= max_cols:
+        return text
+    ellipsis = "…"
+    budget = max_cols - _display_width(ellipsis)
+    chars: list[str] = []
+    width = 0
+    for ch in text:
+        w = get_cwidth(ch)
+        if width + w > budget:
+            break
+        chars.append(ch)
+        width += w
+    return "".join(chars) + ellipsis
+
 
 @dataclass(slots=True)
 class _ToastEntry:
@@ -885,9 +1140,17 @@ class _ToastEntry:
 
 
 class RunningPromptDelegate(Protocol):
+    modal_priority: int
+
     def render_running_prompt_body(self, columns: int) -> AnyFormattedText: ...
 
     def running_prompt_placeholder(self) -> AnyFormattedText | None: ...
+
+    def running_prompt_allows_text_input(self) -> bool: ...
+
+    def running_prompt_hides_input_buffer(self) -> bool: ...
+
+    def running_prompt_accepts_submission(self) -> bool: ...
 
     def should_handle_running_prompt_key(self, key: str) -> bool: ...
 
@@ -955,6 +1218,7 @@ class CustomPromptSession:
         status_provider: Callable[[], StatusSnapshot],
         status_block_provider: Callable[[int], AnyFormattedText | None] | None = None,
         fast_refresh_provider: Callable[[], bool] | None = None,
+        background_task_count_provider: Callable[[], int] | None = None,
         model_capabilities: set[ModelCapability],
         model_name: str | None,
         thinking: bool,
@@ -970,6 +1234,7 @@ class CustomPromptSession:
         self._status_provider = status_provider
         self._status_block_provider = status_block_provider
         self._fast_refresh_provider = fast_refresh_provider
+        self._background_task_count_provider = background_task_count_provider
         self._editor_command_provider = editor_command_provider
         self._plan_mode_toggle_callback = plan_mode_toggle_callback
         self._model_capabilities = model_capabilities
@@ -981,9 +1246,14 @@ class CustomPromptSession:
         # Keep the old attribute for test compatibility and for any external imports.
         self._attachment_cache = self._placeholder_manager.attachment_cache
         self._tip_rotation_index: int = 0
+        self._last_tip_rotate_time: float = time.monotonic()
         self._last_submission_was_running = False
         self._running_prompt_previous_mode: PromptMode | None = None
         self._running_prompt_delegate: RunningPromptDelegate | None = None
+        self._modal_delegates: list[RunningPromptDelegate] = []
+        self._prompt_buffer_container: ConditionalContainer | None = None
+        self._last_ui_state: PromptUIState = PromptUIState.NORMAL_INPUT
+        self._suspended_buffer_document: Document | None = None
         clipboard_available = is_clipboard_available()
         self._tips = _build_toolbar_tips(clipboard_available)
 
@@ -1023,7 +1293,7 @@ class CustomPromptSession:
 
         @_kb.add("c-x", eager=True)
         def _(event: KeyPressEvent) -> None:
-            if self._running_prompt_delegate is not None:
+            if self._active_prompt_delegate() is not None:
                 return
             self._mode = self._mode.toggle()
             # Apply mode-specific settings
@@ -1034,7 +1304,7 @@ class CustomPromptSession:
         @_kb.add("s-tab", eager=True)
         def _(event: KeyPressEvent) -> None:
             """Toggle plan mode with Shift+Tab."""
-            if self._running_prompt_delegate is not None:
+            if self._active_prompt_delegate() is not None:
                 return
             if self._plan_mode_toggle_callback is not None:
 
@@ -1124,6 +1394,22 @@ class CustomPromptSession:
         )
         def _(event: KeyPressEvent) -> None:
             self._handle_running_prompt_key("c-e", event)
+
+        @_kb.add(
+            "c-c",
+            eager=True,
+            filter=Condition(lambda: self._should_handle_running_prompt_key("c-c")),
+        )
+        def _(event: KeyPressEvent) -> None:
+            self._handle_running_prompt_key("c-c", event)
+
+        @_kb.add(
+            "c-d",
+            eager=True,
+            filter=Condition(lambda: self._should_handle_running_prompt_key("c-d")),
+        )
+        def _(event: KeyPressEvent) -> None:
+            self._handle_running_prompt_key("c-d", event)
 
         @_kb.add(
             "escape",
@@ -1227,7 +1513,14 @@ class CustomPromptSession:
                 }
             ),
         )
+        self._session.default_buffer.read_only = Condition(
+            lambda: (
+                (delegate := self._active_prompt_delegate()) is not None
+                and not delegate.running_prompt_allows_text_input()
+            )
+        )
         self._install_slash_completion_menu()
+        self._install_prompt_buffer_visibility()
         self._apply_mode()
 
         # Allow completion to be triggered when the text is changed,
@@ -1285,6 +1578,18 @@ class CustomPromptSession:
             filter=~Condition(self._should_show_slash_completion_menu),
         )
 
+    def _install_prompt_buffer_visibility(self) -> None:
+        buffer_container = _find_default_buffer_container(
+            self._session.layout.container,
+            self._session.default_buffer,
+        )
+        if buffer_container is None:
+            return
+        buffer_container.filter = buffer_container.filter & Condition(
+            self._should_render_input_buffer
+        )
+        self._prompt_buffer_container = buffer_container
+
     def _should_show_slash_completion_menu(self) -> bool:
         document = self._session.default_buffer.document
         return SlashCommandCompleter.should_complete(document)
@@ -1306,11 +1611,14 @@ class CustomPromptSession:
         app = get_app_or_none()
         columns = app.output.get_size().columns if app is not None else 80
         fragments: FormattedText = FormattedText()
-        body = self._render_status_block(columns)
+        body = self._render_agent_prompt_body(columns)
         if body:
             fragments.extend(body)
             if not body[-1][1].endswith("\n"):
                 fragments.append(("", "\n"))
+        if self._active_modal_delegate() is not None:
+            return fragments
+        if body:
             fragments.append(("", "\n"))
             fragments.append(("class:running-prompt-separator", "─" * max(0, columns)))
             fragments.append(("", "\n"))
@@ -1365,21 +1673,72 @@ class CustomPromptSession:
         if app is not None:
             app.erase_when_done = self._mode == PromptMode.AGENT
 
+    def _active_modal_delegate(self) -> RunningPromptDelegate | None:
+        modal_delegates = getattr(self, "_modal_delegates", [])
+        if not modal_delegates:
+            return None
+        _, delegate = max(
+            enumerate(modal_delegates),
+            key=lambda item: (item[1].modal_priority, item[0]),
+        )
+        return delegate
+
+    def _active_prompt_delegate(self) -> RunningPromptDelegate | None:
+        if delegate := self._active_modal_delegate():
+            return delegate
+        return getattr(self, "_running_prompt_delegate", None)
+
+    def _active_ui_state(self) -> PromptUIState:
+        delegate = self._active_modal_delegate()
+        if delegate is None:
+            return PromptUIState.NORMAL_INPUT
+        if delegate.running_prompt_hides_input_buffer():
+            return PromptUIState.MODAL_HIDDEN_INPUT
+        if delegate.running_prompt_allows_text_input():
+            return PromptUIState.MODAL_TEXT_INPUT
+        return PromptUIState.NORMAL_INPUT
+
+    def _should_render_input_buffer(self) -> bool:
+        return self._active_ui_state() != PromptUIState.MODAL_HIDDEN_INPUT
+
     def _should_handle_running_prompt_key(self, key: str) -> bool:
-        running_prompt = getattr(self, "_running_prompt_delegate", None)
-        return running_prompt is not None and running_prompt.should_handle_running_prompt_key(key)
+        delegate = self._active_prompt_delegate()
+        return delegate is not None and delegate.should_handle_running_prompt_key(key)
 
     def _handle_running_prompt_key(self, key: str, event: KeyPressEvent) -> None:
-        running_prompt = self._running_prompt_delegate
-        if running_prompt is None:
+        delegate = self._active_prompt_delegate()
+        if delegate is None:
             return
-        running_prompt.handle_running_prompt_key(key, event)
+        delegate.handle_running_prompt_key(key, event)
         event.app.invalidate()
 
     def invalidate(self) -> None:
+        self._sync_prompt_ui_state()
         app = get_app_or_none()
         if app is not None:
             app.invalidate()
+
+    def _sync_prompt_ui_state(self) -> None:
+        new_state = self._active_ui_state()
+        old_state = getattr(self, "_last_ui_state", PromptUIState.NORMAL_INPUT)
+        buffer = self._session.default_buffer
+
+        if (
+            old_state != PromptUIState.MODAL_HIDDEN_INPUT
+            and new_state == PromptUIState.MODAL_HIDDEN_INPUT
+        ):
+            if self._suspended_buffer_document is None and buffer.text:
+                self._suspended_buffer_document = buffer.document
+                buffer.set_document(Document(), bypass_readonly=True)
+        elif (
+            old_state == PromptUIState.MODAL_HIDDEN_INPUT
+            and new_state != PromptUIState.MODAL_HIDDEN_INPUT
+        ):
+            if self._suspended_buffer_document is not None and not buffer.text:
+                buffer.set_document(self._suspended_buffer_document, bypass_readonly=True)
+            self._suspended_buffer_document = None
+
+        self._last_ui_state = new_state
 
     def _render_agent_prompt_message(self) -> FormattedText:
         app = get_app_or_none()
@@ -1390,6 +1749,8 @@ class CustomPromptSession:
             fragments.extend(body)
             if not body[-1][1].endswith("\n"):
                 fragments.append(("", "\n"))
+        if self._active_modal_delegate() is not None:
+            return fragments
         fragments.append(("", "\n"))
         fragments.append(("class:running-prompt-separator", "─" * max(0, columns)))
         fragments.append(("", "\n"))
@@ -1397,10 +1758,10 @@ class CustomPromptSession:
         return fragments
 
     def _render_agent_prompt_body(self, columns: int) -> FormattedText:
-        running_prompt = self._running_prompt_delegate
-        if running_prompt is None:
+        delegate = self._active_prompt_delegate()
+        if delegate is None:
             return self._render_status_block(columns)
-        return to_formatted_text(running_prompt.render_running_prompt_body(columns))
+        return to_formatted_text(delegate.render_running_prompt_body(columns))
 
     def _render_status_block(self, columns: int) -> FormattedText:
         status_block_provider = getattr(self, "_status_block_provider", None)
@@ -1438,7 +1799,7 @@ class CustomPromptSession:
 
                     interval = (
                         _RUNNING_REFRESH_INTERVAL
-                        if self._running_prompt_delegate is not None
+                        if self._active_prompt_delegate() is not None
                         or (
                             self._fast_refresh_provider is not None
                             and self._fast_refresh_provider()
@@ -1554,16 +1915,41 @@ class CustomPromptSession:
         self._apply_mode()
         self.invalidate()
 
+    def attach_modal(self, delegate: RunningPromptDelegate) -> None:
+        modal_delegates: list[RunningPromptDelegate] | None = getattr(
+            self, "_modal_delegates", None
+        )
+        if modal_delegates is None:
+            modal_delegates = []
+            self._modal_delegates = modal_delegates
+        if delegate in modal_delegates:
+            return
+        modal_delegates.append(delegate)
+        self.invalidate()
+
+    def detach_modal(self, delegate: RunningPromptDelegate) -> None:
+        modal_delegates = getattr(self, "_modal_delegates", None)
+        if not modal_delegates or delegate not in modal_delegates:
+            return
+        modal_delegates.remove(delegate)
+        self.invalidate()
+
+    def running_prompt_accepts_submission(self) -> bool:
+        delegate = self._active_prompt_delegate()
+        if delegate is None:
+            return False
+        return delegate.running_prompt_accepts_submission()
+
     async def _prompt_once(self, *, append_history: bool | None) -> UserInput:
         placeholder = None
-        if self._running_prompt_delegate is not None:
-            placeholder = self._running_prompt_delegate.running_prompt_placeholder()
+        if (delegate := self._active_prompt_delegate()) is not None:
+            placeholder = delegate.running_prompt_placeholder()
         with patch_stdout(raw=True):
             command = str(await self._session.prompt_async(placeholder=placeholder)).strip()
             command = command.replace("\x00", "")  # just in case null bytes are somehow inserted
             # Sanitize UTF-16 surrogates that may come from Windows clipboard
             command = sanitize_surrogates(command)
-        was_running = self._running_prompt_delegate is not None
+        was_running = self.running_prompt_accepts_submission()
         self._last_submission_was_running = was_running
         if append_history is None:
             append_history = not was_running
@@ -1614,58 +2000,121 @@ class CustomPromptSession:
         fragments.append(("fg:#4d4d4d", "─" * columns))
         fragments.append(("", "\n"))
 
-        mode = str(self._mode).lower()
-        if self._mode == PromptMode.AGENT:
-            mode_details: list[str] = []
-            if self._model_name:
-                mode_details.append(self._model_name)
-            if self._thinking:
-                mode_details.append("thinking")
-            if mode_details:
-                mode += f" ({', '.join(mode_details)})"
+        remaining = columns
+
+        # Time-based tip rotation (every 30 s, independent of user submissions)
+        now = time.monotonic()
+        if now - self._last_tip_rotate_time >= _TIP_ROTATE_INTERVAL:
+            self._tip_rotation_index += 1
+            self._last_tip_rotate_time = now
+
+        # Status flags: yolo / plan
         status = self._status_provider()
         if status.yolo_enabled:
-            fragments.extend([("bold fg:#ffff00", "yolo"), ("", " " * 2)])
-            columns -= len("yolo") + 2
+            fragments.extend([("bold fg:#ffff00", "yolo"), ("", "  ")])
+            remaining -= 6  # "yolo" = 4, "  " = 2
         if status.plan_mode:
-            fragments.extend([("bold fg:#00aaff", "plan"), ("", " " * 2)])
-            columns -= len("plan") + 2
-        fragments.extend([("", f"{mode}"), ("", " " * 2)])
-        columns -= len(mode) + 2
-        right_text = self._render_right_span(status)
+            fragments.extend([("bold fg:#00aaff", "plan"), ("", "  ")])
+            remaining -= 6
 
-        current_toast_left = _current_toast("left")
-        if current_toast_left is not None:
-            fragments.extend([("", current_toast_left.message), ("", " " * 2)])
-            columns -= len(current_toast_left.message) + 2
+        # Mode indicator (agent / shell) + model name + thinking indicator.
+        # Degrade gracefully on narrow terminals:
+        #   full: "agent (model-name ○)"  → mid: "agent ○"  → bare: "agent"
+        mode = str(self._mode)
+        if self._mode == PromptMode.AGENT and self._model_name:
+            thinking_dot = "●" if self._thinking else "○"
+            mode_full = f"{mode} ({self._model_name} {thinking_dot})"
+            mode_mid = f"{mode} {thinking_dot}"
+            if _display_width(mode_full) <= remaining - 2:
+                mode = mode_full
+            elif _display_width(mode_mid) <= remaining - 2:
+                mode = mode_mid
+            # else: keep bare mode name — model_name and dot are both dropped
+        fragments.extend([("", mode), ("", "  ")])
+        remaining -= _display_width(mode) + 2
+
+        # CWD (truncated from left) + git branch with status badge
+        # Degrade gracefully on narrow terminals: full → cwd-only → truncated cwd → skip
+        cwd = _truncate_left(_shorten_cwd(str(KaosPath.cwd())), _MAX_CWD_COLS)
+        branch = _get_git_branch()
+        if branch:
+            dirty, ahead, behind = _get_git_status()
+            branch = _truncate_right(branch, _MAX_BRANCH_COLS)
+            badge = _format_git_badge(branch, dirty, ahead, behind)
+            cwd_text = f"{cwd}  {badge}"
         else:
-            # Reserve space for right_text, two trailing spaces after tips, and
-            # at least one space of padding before right_text.
-            available = columns - len(right_text) - 3
-            full_text = _TIP_SEPARATOR.join(self._tips)
-            if len(full_text) <= available:
-                tip_text: str | None = full_text
-            else:
-                n = len(self._tips)
-                offset = self._tip_rotation_index % n
-                rotated = self._tips[offset:] + self._tips[:offset]
-                selected: list[str] = []
-                total_len = 0
-                for tip in rotated:
-                    needed = len(tip) + (len(_TIP_SEPARATOR) if selected else 0)
-                    if total_len + needed <= available:
-                        selected.append(tip)
-                        total_len += needed
-                tip_text = _TIP_SEPARATOR.join(selected) if selected else None
-            if tip_text:
-                fragments.extend([("", tip_text), ("", " " * 2)])
-                columns -= len(tip_text) + 2
+            cwd_text = cwd
+        cwd_w = _display_width(cwd_text)
+        if cwd_w > remaining - 2:
+            cwd_text = cwd  # drop badge
+            cwd_w = _display_width(cwd_text)
+        if cwd_w > remaining - 2:
+            cwd_text = _truncate_right(cwd, max(0, remaining - 2))
+            cwd_w = _display_width(cwd_text)
+        if cwd_text and remaining >= cwd_w + 2:
+            fragments.extend([("fg:#666666", cwd_text), ("", "  ")])
+            remaining -= cwd_w + 2
 
-        padding = max(1, columns - len(right_text))
-        fragments.append(("", " " * padding))
+        # Active background bash task count
+        bg_count = (
+            self._background_task_count_provider() if self._background_task_count_provider else 0
+        )
+        if bg_count > 0:
+            bg_text = f"⚙ bash: {bg_count}"
+            bg_width = _display_width(bg_text)
+            if remaining >= bg_width + 2:
+                fragments.extend([("fg:#888888", bg_text), ("", "  ")])
+                remaining -= bg_width + 2
+
+        # Tips fill remaining space on line 1
+        tip_text = self._get_two_rotating_tips()
+        if tip_text and _display_width(tip_text) > remaining:
+            tip_text = self._get_one_rotating_tip()
+        if tip_text and _display_width(tip_text) <= remaining:
+            fragments.append(("fg:#555555", tip_text))
+
+        # ── line 2: toast (left) + context (right) — always rendered ──────
+        fragments.append(("", "\n"))
+
+        right_text = self._render_right_span(status)
+        right_width = _display_width(right_text)
+
+        left_toast = _current_toast("left")
+        if left_toast is not None:
+            max_left = max(0, columns - right_width - 2)
+            if max_left > 0:
+                left_text = left_toast.message
+                if _display_width(left_text) > max_left:
+                    left_text = _truncate_right(left_text, max_left)
+                left_width = _display_width(left_text)
+                fragments.append(("", left_text))
+            else:
+                left_width = 0
+        else:
+            left_width = 0
+
+        fragments.append(("", " " * max(0, columns - left_width - right_width)))
         fragments.append(("", right_text))
 
         return FormattedText(fragments)
+
+    def _get_two_rotating_tips(self) -> str | None:
+        """Return a string with exactly 2 tips from the rotation, or fewer if not enough."""
+        n = len(self._tips)
+        if n == 0:
+            return None
+        if n == 1:
+            return self._tips[0]
+        offset = self._tip_rotation_index % n
+        tip1 = self._tips[offset]
+        tip2 = self._tips[(offset + 1) % n]
+        return f"{tip1}{_TIP_SEPARATOR}{tip2}"
+
+    def _get_one_rotating_tip(self) -> str | None:
+        """Return the single leading tip for the current rotation."""
+        if not self._tips:
+            return None
+        return self._tips[self._tip_rotation_index % len(self._tips)]
 
     @staticmethod
     def _render_right_span(status: StatusSnapshot) -> str:

@@ -1,9 +1,11 @@
 import random
 import string
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from typing import Any
 
 from moto.utilities import id_generator as moto_id_generator
-from moto.utilities.id_generator import MotoIdManager, ResourceIdentifier, moto_id
+from moto.utilities.id_generator import IdSourceContext, MotoIdManager
 from moto.utilities.id_generator import ResourceIdentifier as MotoResourceIdentifier
 
 from localstack.utils.strings import long_uid, short_uid
@@ -12,13 +14,18 @@ ExistingIds = list[str] | None
 Tags = dict[str, str] | None
 
 
+ResourceIdentifier = MotoResourceIdentifier
+
+
 class LocalstackIdManager(MotoIdManager):
     def set_custom_id_by_unique_identifier(self, unique_identifier: str, custom_id: str):
         with self._lock:
             self._custom_ids[unique_identifier] = custom_id
 
     @contextmanager
-    def custom_id(self, resource_identifier: ResourceIdentifier, custom_id: str) -> None:
+    def custom_id(
+        self, resource_identifier: ResourceIdentifier, custom_id: str
+    ) -> Generator[None, None, None]:
         try:
             yield self.set_custom_id(resource_identifier, custom_id)
         finally:
@@ -27,9 +34,46 @@ class LocalstackIdManager(MotoIdManager):
 
 localstack_id_manager = LocalstackIdManager()
 moto_id_generator.moto_id_manager = localstack_id_manager
-localstack_id = moto_id
 
-ResourceIdentifier = MotoResourceIdentifier
+
+def localstack_id(fn: Callable[..., str]) -> Callable[..., str]:
+    """
+    Decorator for helping in creation of static ids.
+
+    The decorated function should accept the following parameters
+
+    :param resource_identifier
+    :param existing_ids
+        If provided, we will omit returning a custom id if it is already on the list
+    :param tags
+        If provided will look for a tag named `_custom_id_`. This will take precedence over registered custom ids
+    """
+
+    def _wrapper(
+        resource_identifier: ResourceIdentifier,
+        existing_ids: ExistingIds = None,
+        tags: Tags = None,
+        **kwargs: dict[str, Any],
+    ) -> str:
+        if resource_identifier and (
+            found_id := localstack_id_manager.find_id_from_sources(
+                IdSourceContext(
+                    resource_identifier=resource_identifier,
+                    existing_ids=existing_ids,
+                    tags=tags,
+                )
+            )
+        ):
+            return found_id
+
+        return fn(
+            resource_identifier,
+            existing_ids=existing_ids,
+            tags=tags,
+            **kwargs,
+        )
+
+    return _wrapper
 
 
 @localstack_id

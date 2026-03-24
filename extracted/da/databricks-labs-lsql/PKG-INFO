@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-labs-lsql
-Version: 0.16.0
+Version: 0.17.0
 Summary: Lightweight stateless SQL execution for Databricks with minimal dependencies
 Project-URL: Documentation, https://github.com/databrickslabs/lsql#readme
 Project-URL: Issues, https://github.com/databrickslabs/lsql/issues
@@ -14,12 +14,14 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.10
+Requires-Python: <3.15,>=3.10
 Requires-Dist: databricks-labs-blueprint[yaml]>=0.4.2
 Requires-Dist: databricks-sdk<1.0.0,>=0.38.0
-Requires-Dist: sqlglot>=22.3.1
+Requires-Dist: sqlglot<26.30.0,>=22.3.1
 Description-Content-Type: text/markdown
 
 Databricks Labs LSQL

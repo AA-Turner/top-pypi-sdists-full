@@ -247,5 +247,3 @@ def textract():from localstack.pro.core.services.textract.provider import Textra
 def verifiedpermissions():from localstack.pro.core.services.verifiedpermissions.provider import VerifiedpermissionsProvider as A;return Service.for_provider(A())
 @pro_aws_provider(api='wafv2')
 def wafv2():from localstack.pro.core.services.wafv2.provider import Wafv2Provider as A;from localstack.services.moto import MotoFallbackDispatcher as B;C=A();return Service.for_provider(C,dispatch_table_factory=B)
-@pro_aws_provider(name='mock',api='eks')
-def eks_mock():from localstack.pro.core.services.eks.provider import EksMockProvider as A;B=A();return Service.for_provider(B)

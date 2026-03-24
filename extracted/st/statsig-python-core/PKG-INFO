@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: statsig_python_core
-Version: 0.16.5
+Version: 0.17.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -11,12 +11,12 @@ Home-Page: https://statsig.com/
 Author: Statsig, Daniel Loomb <daniel@statsig.com>
 Author-email: Statsig, Daniel Loomb <daniel@statsig.com>
 License: ISC
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: homepage, https://statsig.com
-Project-URL: documentation, https://docs.statsig.com/server-core/python-core
-Project-URL: repository, https://github.com/statsig-io/statsig-server-core/tree/main/statsig-pyo3
 Project-URL: changelog, https://github.com/statsig-io/statsig-server-core/releases
+Project-URL: documentation, https://docs.statsig.com/server-core/python-core
+Project-URL: homepage, https://statsig.com
+Project-URL: repository, https://github.com/statsig-io/statsig-server-core/tree/main/statsig-pyo3
 
 <h1 align="center">
 	<a href="https://statsig.com/?ref=gh_server_core">

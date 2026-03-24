@@ -1109,9 +1109,7 @@ class ServicediscoveryApi:
         in the *Cloud Map Developer Guide*.
 
         :param name: The name that you want to assign to this namespace.
-        :param creator_request_id: A unique string that identifies the request and that allows failed
-        ``CreateHttpNamespace`` requests to be retried without the risk of
-        running the operation twice.
+        :param creator_request_id: A unique string that identifies the request and that allows failed ``CreateHttpNamespace`` requests to be retried without the risk of running the operation twice.
         :param description: A description for the namespace.
         :param tags: The tags to add to the namespace.
         :returns: CreateHttpNamespaceResponse
@@ -1149,9 +1147,7 @@ class ServicediscoveryApi:
 
         :param name: The name that you want to assign to this namespace.
         :param vpc: The ID of the Amazon VPC that you want to associate the namespace with.
-        :param creator_request_id: A unique string that identifies the request and that allows failed
-        ``CreatePrivateDnsNamespace`` requests to be retried without the risk of
-        running the operation twice.
+        :param creator_request_id: A unique string that identifies the request and that allows failed ``CreatePrivateDnsNamespace`` requests to be retried without the risk of running the operation twice.
         :param description: A description for the namespace.
         :param tags: The tags to add to the namespace.
         :param properties: Properties for the private DNS namespace.
@@ -1191,9 +1187,7 @@ class ServicediscoveryApi:
         Amazon Web Services GovCloud (US) Regions.
 
         :param name: The name that you want to assign to this namespace.
-        :param creator_request_id: A unique string that identifies the request and that allows failed
-        ``CreatePublicDnsNamespace`` requests to be retried without the risk of
-        running the operation twice.
+        :param creator_request_id: A unique string that identifies the request and that allows failed ``CreatePublicDnsNamespace`` requests to be retried without the risk of running the operation twice.
         :param description: A description for the namespace.
         :param tags: The tags to add to the namespace.
         :param properties: Properties for the public DNS namespace.
@@ -1239,20 +1233,14 @@ class ServicediscoveryApi:
         in the *Cloud Map Developer Guide*.
 
         :param name: The name that you want to assign to the service.
-        :param namespace_id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
-        use to create the service.
-        :param creator_request_id: A unique string that identifies the request and that allows failed
-        ``CreateService`` requests to be retried without the risk of running the
-        operation twice.
+        :param namespace_id: The ID or Amazon Resource Name (ARN) of the namespace that you want to use to create the service.
+        :param creator_request_id: A unique string that identifies the request and that allows failed ``CreateService`` requests to be retried without the risk of running the operation twice.
         :param description: A description for the service.
-        :param dns_config: A complex type that contains information about the Amazon Route 53
-        records that you want Cloud Map to create when you register an instance.
+        :param dns_config: A complex type that contains information about the Amazon Route 53 records that you want Cloud Map to create when you register an instance.
         :param health_check_config: *Public DNS and HTTP namespaces only.
-        :param health_check_custom_config: A complex type that contains information about an optional custom health
-        check.
+        :param health_check_custom_config: A complex type that contains information about an optional custom health check.
         :param tags: The tags to add to the service.
-        :param type: If present, specifies that the service instances are only discoverable
-        using the ``DiscoverInstances`` API operation.
+        :param type: If present, specifies that the service instances are only discoverable using the ``DiscoverInstances`` API operation.
         :returns: CreateServiceResponse
         :raises InvalidInput:
         :raises ResourceLimitExceeded:
@@ -1269,8 +1257,7 @@ class ServicediscoveryApi:
         """Deletes a namespace from the current account. If the namespace still
         contains one or more services, the request fails.
 
-        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
-        delete.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to delete.
         :returns: DeleteNamespaceResponse
         :raises InvalidInput:
         :raises NamespaceNotFound:
@@ -1285,8 +1272,7 @@ class ServicediscoveryApi:
         the service still contains one or more registered instances, the request
         fails.
 
-        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to
-        delete.
+        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to delete.
         :returns: DeleteServiceResponse
         :raises InvalidInput:
         :raises ServiceNotFound:
@@ -1304,8 +1290,7 @@ class ServicediscoveryApi:
     ) -> DeleteServiceAttributesResponse:
         """Deletes specific attributes associated with a service.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service from which the
-        attributes will be deleted.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service from which the attributes will be deleted.
         :param attributes: A list of keys corresponding to each attribute that you want to delete.
         :returns: DeleteServiceAttributesResponse
         :raises InvalidInput:
@@ -1320,10 +1305,8 @@ class ServicediscoveryApi:
         """Deletes the Amazon Route 53 DNS records and health check, if any, that
         Cloud Map created for the specified instance.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is
-        associated with.
-        :param instance_id: The value that you specified for ``Id`` in the
-        `RegisterInstance <https://docs.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is associated with.
+        :param instance_id: The value that you specified for ``Id`` in the `RegisterInstance <https://docs.
         :returns: DeregisterInstanceResponse
         :raises DuplicateRequest:
         :raises InvalidInput:
@@ -1354,17 +1337,12 @@ class ServicediscoveryApi:
         discover instances.
 
         :param namespace_name: The ``HttpName`` name of the namespace.
-        :param service_name: The name of the service that you specified when you registered the
-        instance.
-        :param max_results: The maximum number of instances that you want Cloud Map to return in the
-        response to a ``DiscoverInstances`` request.
-        :param query_parameters: Filters to scope the results based on custom attributes for the instance
-        (for example, ``{version=v1, az=1a}``).
+        :param service_name: The name of the service that you specified when you registered the instance.
+        :param max_results: The maximum number of instances that you want Cloud Map to return in the response to a ``DiscoverInstances`` request.
+        :param query_parameters: Filters to scope the results based on custom attributes for the instance (for example, ``{version=v1, az=1a}``).
         :param optional_parameters: Opportunistic filters to scope the results based on custom attributes.
         :param health_status: The health status of the instances that you want to discover.
-        :param owner_account: The ID of the Amazon Web Services account that owns the namespace
-        associated with the instance, as specified in the namespace
-        ``ResourceOwner`` field.
+        :param owner_account: The ID of the Amazon Web Services account that owns the namespace associated with the instance, as specified in the namespace ``ResourceOwner`` field.
         :returns: DiscoverInstancesResponse
         :raises ServiceNotFound:
         :raises NamespaceNotFound:
@@ -1385,11 +1363,8 @@ class ServicediscoveryApi:
         """Discovers the increasing revision associated with an instance.
 
         :param namespace_name: The ``HttpName`` name of the namespace.
-        :param service_name: The name of the service that you specified when you registered the
-        instance.
-        :param owner_account: The ID of the Amazon Web Services account that owns the namespace
-        associated with the instance, as specified in the namespace
-        ``ResourceOwner`` field.
+        :param service_name: The name of the service that you specified when you registered the instance.
+        :param owner_account: The ID of the Amazon Web Services account that owns the namespace associated with the instance, as specified in the namespace ``ResourceOwner`` field.
         :returns: DiscoverInstancesRevisionResponse
         :raises ServiceNotFound:
         :raises NamespaceNotFound:
@@ -1404,8 +1379,7 @@ class ServicediscoveryApi:
     ) -> GetInstanceResponse:
         """Gets information about a specified instance.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is
-        associated with.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is associated with.
         :param instance_id: The ID of the instance that you want to get information about.
         :returns: GetInstanceResponse
         :raises InstanceNotFound:
@@ -1431,12 +1405,9 @@ class ServicediscoveryApi:
         There's a brief delay between when you register an instance and when the
         health status for the instance is available.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is
-        associated with.
-        :param instances: An array that contains the IDs of all the instances that you want to get
-        the health status for.
-        :param max_results: The maximum number of instances that you want Cloud Map to return in the
-        response to a ``GetInstancesHealthStatus`` request.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that the instance is associated with.
+        :param instances: An array that contains the IDs of all the instances that you want to get the health status for.
+        :param max_results: The maximum number of instances that you want Cloud Map to return in the response to a ``GetInstancesHealthStatus`` request.
         :param next_token: For the first ``GetInstancesHealthStatus`` request, omit this value.
         :returns: GetInstancesHealthStatusResponse
         :raises InstanceNotFound:
@@ -1449,8 +1420,7 @@ class ServicediscoveryApi:
     def get_namespace(self, context: RequestContext, id: Arn, **kwargs) -> GetNamespaceResponse:
         """Gets information about a namespace.
 
-        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
-        get information about.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to get information about.
         :returns: GetNamespaceResponse
         :raises InvalidInput:
         :raises NamespaceNotFound:
@@ -1472,9 +1442,7 @@ class ServicediscoveryApi:
         `ListOperations <https://docs.aws.amazon.com/cloud-map/latest/api/API_ListOperations.html>`__.
 
         :param operation_id: The ID of the operation that you want to get more information about.
-        :param owner_account: The ID of the Amazon Web Services account that owns the namespace
-        associated with the operation, as specified in the namespace
-        ``ResourceOwner`` field.
+        :param owner_account: The ID of the Amazon Web Services account that owns the namespace associated with the operation, as specified in the namespace ``ResourceOwner`` field.
         :returns: GetOperationResponse
         :raises InvalidInput:
         :raises OperationNotFound:
@@ -1485,8 +1453,7 @@ class ServicediscoveryApi:
     def get_service(self, context: RequestContext, id: Arn, **kwargs) -> GetServiceResponse:
         """Gets the settings for a specified service.
 
-        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to get
-        settings for.
+        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to get settings for.
         :returns: GetServiceResponse
         :raises InvalidInput:
         :raises ServiceNotFound:
@@ -1499,8 +1466,7 @@ class ServicediscoveryApi:
     ) -> GetServiceAttributesResponse:
         """Returns the attributes associated with a specified service.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to get
-        attributes for.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to get attributes for.
         :returns: GetServiceAttributesResponse
         :raises InvalidInput:
         :raises ServiceNotFound:
@@ -1519,11 +1485,9 @@ class ServicediscoveryApi:
         """Lists summary information about the instances that you registered by
         using a specified service.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to
-        list instances for.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to list instances for.
         :param next_token: For the first ``ListInstances`` request, omit this value.
-        :param max_results: The maximum number of instances that you want Cloud Map to return in the
-        response to a ``ListInstances`` request.
+        :param max_results: The maximum number of instances that you want Cloud Map to return in the response to a ``ListInstances`` request.
         :returns: ListInstancesResponse
         :raises ServiceNotFound:
         :raises InvalidInput:
@@ -1544,10 +1508,8 @@ class ServicediscoveryApi:
         Web Services account.
 
         :param next_token: For the first ``ListNamespaces`` request, omit this value.
-        :param max_results: The maximum number of namespaces that you want Cloud Map to return in
-        the response to a ``ListNamespaces`` request.
-        :param filters: A complex type that contains specifications for the namespaces that you
-        want to list.
+        :param max_results: The maximum number of namespaces that you want Cloud Map to return in the response to a ``ListNamespaces`` request.
+        :param filters: A complex type that contains specifications for the namespaces that you want to list.
         :returns: ListNamespacesResponse
         :raises InvalidInput:
         """
@@ -1565,11 +1527,8 @@ class ServicediscoveryApi:
         """Lists operations that match the criteria that you specify.
 
         :param next_token: For the first ``ListOperations`` request, omit this value.
-        :param max_results: The maximum number of items that you want Cloud Map to return in the
-        response to a ``ListOperations`` request.
-        :param filters: A complex type that contains specifications for the operations that you
-        want to list, for example, operations that you started between a
-        specified start date and end date.
+        :param max_results: The maximum number of items that you want Cloud Map to return in the response to a ``ListOperations`` request.
+        :param filters: A complex type that contains specifications for the operations that you want to list, for example, operations that you started between a specified start date and end date.
         :returns: ListOperationsResponse
         :raises InvalidInput:
         """
@@ -1588,10 +1547,8 @@ class ServicediscoveryApi:
         one or more namespaces.
 
         :param next_token: For the first ``ListServices`` request, omit this value.
-        :param max_results: The maximum number of services that you want Cloud Map to return in the
-        response to a ``ListServices`` request.
-        :param filters: A complex type that contains specifications for the namespaces that you
-        want to list services for.
+        :param max_results: The maximum number of services that you want Cloud Map to return in the response to a ``ListServices`` request.
+        :param filters: A complex type that contains specifications for the namespaces that you want to list services for.
         :returns: ListServicesResponse
         :raises InvalidInput:
         """
@@ -1603,8 +1560,7 @@ class ServicediscoveryApi:
     ) -> ListTagsForResourceResponse:
         """Lists tags for the specified resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to retrieve
-        tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to retrieve tags for.
         :returns: ListTagsForResourceResponse
         :raises ResourceNotFoundException:
         :raises InvalidInput:
@@ -1657,17 +1613,10 @@ class ServicediscoveryApi:
         quotas <https://docs.aws.amazon.com/cloud-map/latest/dg/cloud-map-limits.html>`__
         in the *Cloud Map Developer Guide*.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to use
-        for settings for the instance.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to use for settings for the instance.
         :param instance_id: An identifier that you want to associate with the instance.
-        :param attributes: A string map that contains the following information for the service
-        that you specify in ``ServiceId``:
-
-        -  The attributes that apply to the records that are defined in the
-           service.
-        :param creator_request_id: A unique string that identifies the request and that allows failed
-        ``RegisterInstance`` requests to be retried without the risk of
-        executing the operation twice.
+        :param attributes: A string map that contains the following information for the service that you specify in ``ServiceId``:  -  The attributes that apply to the records that are defined in the    service.
+        :param creator_request_id: A unique string that identifies the request and that allows failed ``RegisterInstance`` requests to be retried without the risk of executing the operation twice.
         :returns: RegisterInstanceResponse
         :raises DuplicateRequest:
         :raises InvalidInput:
@@ -1683,8 +1632,7 @@ class ServicediscoveryApi:
     ) -> TagResourceResponse:
         """Adds one or more tags to the specified resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to retrieve
-        tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to retrieve tags for.
         :param tags: The tags to add to the specified resource.
         :returns: TagResourceResponse
         :raises ResourceNotFoundException:
@@ -1703,8 +1651,7 @@ class ServicediscoveryApi:
     ) -> UntagResourceResponse:
         """Removes one or more tags from the specified resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to retrieve
-        tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to retrieve tags for.
         :param tag_keys: The tag keys to remove from the specified resource.
         :returns: UntagResourceResponse
         :raises ResourceNotFoundException:
@@ -1723,12 +1670,9 @@ class ServicediscoveryApi:
     ) -> UpdateHttpNamespaceResponse:
         """Updates an HTTP namespace.
 
-        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
-        update.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to update.
         :param namespace: Updated properties for the the HTTP namespace.
-        :param updater_request_id: A unique string that identifies the request and that allows failed
-        ``UpdateHttpNamespace`` requests to be retried without the risk of
-        running the operation twice.
+        :param updater_request_id: A unique string that identifies the request and that allows failed ``UpdateHttpNamespace`` requests to be retried without the risk of running the operation twice.
         :returns: UpdateHttpNamespaceResponse
         :raises InvalidInput:
         :raises NamespaceNotFound:
@@ -1758,9 +1702,7 @@ class ServicediscoveryApi:
         For more information, see
         `HealthCheckCustomConfig <https://docs.aws.amazon.com/cloud-map/latest/api/API_HealthCheckCustomConfig.html>`__.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service that includes the
-        configuration for the custom health check that you want to change the
-        status for.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that includes the configuration for the custom health check that you want to change the status for.
         :param instance_id: The ID of the instance that you want to change the health status for.
         :param status: The new status of the instance, ``HEALTHY`` or ``UNHEALTHY``.
         :raises InstanceNotFound:
@@ -1781,12 +1723,9 @@ class ServicediscoveryApi:
     ) -> UpdatePrivateDnsNamespaceResponse:
         """Updates a private DNS namespace.
 
-        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to
-        update.
+        :param id: The ID or Amazon Resource Name (ARN) of the namespace that you want to update.
         :param namespace: Updated properties for the private DNS namespace.
-        :param updater_request_id: A unique string that identifies the request and that allows failed
-        ``UpdatePrivateDnsNamespace`` requests to be retried without the risk of
-        running the operation twice.
+        :param updater_request_id: A unique string that identifies the request and that allows failed ``UpdatePrivateDnsNamespace`` requests to be retried without the risk of running the operation twice.
         :returns: UpdatePrivateDnsNamespaceResponse
         :raises InvalidInput:
         :raises NamespaceNotFound:
@@ -1808,9 +1747,7 @@ class ServicediscoveryApi:
 
         :param id: The ID or Amazon Resource Name (ARN) of the namespace being updated.
         :param namespace: Updated properties for the public DNS namespace.
-        :param updater_request_id: A unique string that identifies the request and that allows failed
-        ``UpdatePublicDnsNamespace`` requests to be retried without the risk of
-        running the operation twice.
+        :param updater_request_id: A unique string that identifies the request and that allows failed ``UpdatePublicDnsNamespace`` requests to be retried without the risk of running the operation twice.
         :returns: UpdatePublicDnsNamespaceResponse
         :raises InvalidInput:
         :raises NamespaceNotFound:
@@ -1855,8 +1792,7 @@ class ServicediscoveryApi:
         corresponding settings in all the records and health checks that were
         created by using the specified service.
 
-        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to
-        update.
+        :param id: The ID or Amazon Resource Name (ARN) of the service that you want to update.
         :param service: A complex type that contains the new settings for the service.
         :returns: UpdateServiceResponse
         :raises DuplicateRequest:
@@ -1872,8 +1808,7 @@ class ServicediscoveryApi:
         """Submits a request to update a specified service to add service-level
         attributes.
 
-        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to
-        update.
+        :param service_id: The ID or Amazon Resource Name (ARN) of the service that you want to update.
         :param attributes: A string map that contains attribute key-value pairs.
         :returns: UpdateServiceAttributesResponse
         :raises InvalidInput:

@@ -5,7 +5,7 @@ schemaVersion: 1.0
 constants:
   - ChefVersion:
       type: string
-      value: 18.7.10
+      value: 18.8.54
   - FailExitCode:
       type: string
       value: 1
@@ -219,7 +219,12 @@ phases:
               
               # Download cookbook
               mkdir -p /etc/chef && sudo chown -R root:root /etc/chef
-              curl --retry 3 -L -o /etc/chef/aws-parallelcluster-cookbook.tgz "$COOKBOOK_URL"
+              delays=(1 2 4 8 16 32 64 128 256)
+              for i in {0..8}; do
+                curl -L -o /etc/chef/aws-parallelcluster-cookbook.tgz "$COOKBOOK_URL" && break
+                echo "Curl attempt $((i+1)) failed, retrying in ${!delays[$i]}s..."
+                sleep ${!delays[$i]}
+              done
               
               cd /etc/chef && tar -xzf /etc/chef/aws-parallelcluster-cookbook.tgz --strip-components 1 && rm -f aws-parallelcluster-cookbook.tgz
 

@@ -553,8 +553,7 @@ class RdsDataApi:
         :param database: The name of the database.
         :param schema: The name of the database schema.
         :param parameter_sets: The parameter set for the batch operation.
-        :param transaction_id: The identifier of a transaction that was started by using the
-        ``BeginTransaction`` operation.
+        :param transaction_id: The identifier of a transaction that was started by using the ``BeginTransaction`` operation.
         :returns: BatchExecuteStatementResponse
         :raises SecretsErrorException:
         :raises HttpEndpointNotEnabledException:
@@ -673,8 +672,7 @@ class RdsDataApi:
         operation.
 
         :param db_cluster_or_instance_arn: The ARN of the Aurora Serverless DB cluster.
-        :param aws_secret_store_arn: The Amazon Resource Name (ARN) of the secret that enables access to the
-        DB cluster.
+        :param aws_secret_store_arn: The Amazon Resource Name (ARN) of the secret that enables access to the DB cluster.
         :param sql_statements: One or more SQL statements to run on the DB cluster.
         :param database: The name of the database.
         :param schema: The name of the database schema.
@@ -719,14 +717,11 @@ class RdsDataApi:
         :param database: The name of the database.
         :param schema: The name of the database schema.
         :param parameters: The parameters for the SQL statement.
-        :param transaction_id: The identifier of a transaction that was started by using the
-        ``BeginTransaction`` operation.
+        :param transaction_id: The identifier of a transaction that was started by using the ``BeginTransaction`` operation.
         :param include_result_metadata: A value that indicates whether to include metadata in the results.
-        :param continue_after_timeout: A value that indicates whether to continue running the statement after
-        the call times out.
+        :param continue_after_timeout: A value that indicates whether to continue running the statement after the call times out.
         :param result_set_options: Options that control how the result set is returned.
-        :param format_records_as: A value that indicates whether to format the result set as a single JSON
-        string.
+        :param format_records_as: A value that indicates whether to format the result set as a single JSON string.
         :returns: ExecuteStatementResponse
         :raises SecretsErrorException:
         :raises HttpEndpointNotEnabledException:

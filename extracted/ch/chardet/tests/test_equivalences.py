@@ -128,7 +128,9 @@ def test_superset_equivalences_for_renamed_encodings() -> None:
 
 
 def test_iso2022_jp_branches_bidirectional() -> None:
-    # All three branches should be interchangeable
+    # All three branches should be interchangeable — base ISO-2022-JP is an
+    # alias of iso2022_jp_2 in our registry, so the SUPERSETS entries make
+    # all variants interchangeable via the shared base.
     assert is_correct("iso2022-jp-2", "iso2022-jp-2004")
     assert is_correct("iso2022-jp-2004", "iso2022-jp-ext")
     assert is_correct("iso2022-jp-ext", "iso2022-jp-2")
@@ -204,7 +206,7 @@ def test_language_equivalent_unknown_language():
 
 def test_compat_names_maps_codec_to_display() -> None:
     """_COMPAT_NAMES maps codec names to 5.x/6.x display names."""
-    from chardet.equivalences import _COMPAT_NAMES
+    from chardet.equivalences import _COMPAT_NAMES  # noqa: PLC0415
 
     # 5.x compat entries
     assert _COMPAT_NAMES["big5hkscs"] == "Big5"

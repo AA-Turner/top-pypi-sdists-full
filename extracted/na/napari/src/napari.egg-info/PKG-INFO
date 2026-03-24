@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: napari
-Version: 0.6.6
+Version: 0.7.0
 Summary: n-dimensional array viewer in Python
 Author-email: napari team <napari-steering-council@googlegroups.com>
 License-Expression: BSD-3-Clause
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
@@ -34,7 +35,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: appdirs>=1.4.4
-Requires-Dist: app-model<0.5.0,>=0.4.0
+Requires-Dist: app-model<0.6.0,>=0.5.0
 Requires-Dist: cachey>=0.2.1
 Requires-Dist: certifi>=2018.1.18
 Requires-Dist: dask[array]>=2021.10.0
@@ -43,45 +44,44 @@ Requires-Dist: jsonschema>=3.2.0
 Requires-Dist: lazy_loader>=0.3
 Requires-Dist: magicgui>=0.7.0
 Requires-Dist: napari-console>=0.1.4
-Requires-Dist: napari-plugin-engine>=0.1.9
+Requires-Dist: napari-plugin-engine>=0.2.1
 Requires-Dist: napari-svg>=0.1.8
-Requires-Dist: npe2>=0.7.9
+Requires-Dist: npe2>=0.8.1
 Requires-Dist: numpy>=1.24.2
-Requires-Dist: numpydoc>=1.0.0
 Requires-Dist: pandas>=1.3.3
-Requires-Dist: Pillow>=9.0
+Requires-Dist: Pillow>=10.0
 Requires-Dist: pint>=0.17
 Requires-Dist: psutil>=5.9.0
 Requires-Dist: psygnal>=0.14.2
-Requires-Dist: pydantic>=2.2.0
-Requires-Dist: pygments>=2.6.0
-Requires-Dist: PyOpenGL>=3.1.5
+Requires-Dist: pydantic>=2.8.0
+Requires-Dist: pygments>=2.13.0
+Requires-Dist: pydantic-extra-types
+Requires-Dist: pydantic-settings
+Requires-Dist: PyOpenGL>=3.1.10
 Requires-Dist: pywin32; platform_system == "Windows"
 Requires-Dist: PyYAML>=6.0
-Requires-Dist: qtpy>=2.3.1
+Requires-Dist: qtpy>=2.4.0
 Requires-Dist: scikit-image[data]>=0.19.1
-Requires-Dist: scipy>=1.10.1
-Requires-Dist: superqt>=0.7.4
+Requires-Dist: scipy>=1.14.0
+Requires-Dist: superqt>=0.7.8
 Requires-Dist: tifffile>=2022.7.28
 Requires-Dist: toolz>=0.11.0
 Requires-Dist: tqdm>=4.56.0
 Requires-Dist: typing_extensions>=4.12
-Requires-Dist: vispy<0.16,>=0.15.2
+Requires-Dist: vispy<0.17,>=0.16.1
 Requires-Dist: wrapt>=1.13.3
-Provides-Extra: pyside2
-Requires-Dist: PySide2>=5.15.1; (python_version < "3.11" and platform_machine != "arm64") and extra == "pyside2"
 Provides-Extra: pyside6
 Requires-Dist: PySide6>6.7; extra == "pyside6"
 Provides-Extra: pyqt6
 Requires-Dist: PyQt6>6.5; extra == "pyqt6"
 Requires-Dist: PyQt6!=6.6.1; platform_system == "Darwin" and extra == "pyqt6"
 Provides-Extra: pyside
-Requires-Dist: napari[pyside2]; extra == "pyside"
+Requires-Dist: napari[pyside6]; extra == "pyside"
 Provides-Extra: pyqt5
 Requires-Dist: PyQt5>=5.15.8; extra == "pyqt5"
 Requires-Dist: pyqt5-qt5<=5.15.2; sys_platform == "Windows" and extra == "pyqt5"
 Provides-Extra: pyqt
-Requires-Dist: napari[pyqt5]; extra == "pyqt"
+Requires-Dist: napari[pyqt6]; extra == "pyqt"
 Provides-Extra: qt
 Requires-Dist: napari[pyqt]; extra == "qt"
 Provides-Extra: all
@@ -89,12 +89,14 @@ Requires-Dist: napari[optional,pyqt]; extra == "all"
 Provides-Extra: optional-base
 Requires-Dist: zarr>=2.12.0; extra == "optional-base"
 Requires-Dist: aiohttp; extra == "optional-base"
-Requires-Dist: napari-plugin-manager<0.2.0,>=0.1.3; extra == "optional-base"
+Requires-Dist: napari-metadata>=0.1.0; extra == "optional-base"
+Requires-Dist: napari-plugin-manager<0.2.0,>=0.1.10; extra == "optional-base"
 Provides-Extra: optional-numba
-Requires-Dist: numba>=0.57.1; extra == "optional-numba"
+Requires-Dist: numba<=0.62.1,>=0.57.1; (platform_system == "Darwin" and platform_machine == "x86_64") and extra == "optional-numba"
+Requires-Dist: numba>=0.57.1; (platform_system != "Darwin" or platform_machine != "x86_64") and extra == "optional-numba"
 Provides-Extra: optional
 Requires-Dist: napari[bermuda,optional-base,optional-numba]; extra == "optional"
-Requires-Dist: triangle; extra == "optional"
+Requires-Dist: triangle; python_version <= "3.13" and extra == "optional"
 Provides-Extra: bermuda
 Requires-Dist: bermuda>=0.1.5; extra == "bermuda"
 Provides-Extra: partsegcore
@@ -102,15 +104,14 @@ Requires-Dist: PartSegCore-compiled-backend>=0.15.11; extra == "partsegcore"
 Provides-Extra: all-optional
 Requires-Dist: napari[optional,partsegcore]; extra == "all-optional"
 Provides-Extra: testing
-Requires-Dist: napari[gallery]; extra == "testing"
 Requires-Dist: babel>=2.9.0; extra == "testing"
+Requires-Dist: docstring_parser>=0.15; extra == "testing"
 Requires-Dist: fsspec>=2023.10.0; extra == "testing"
 Requires-Dist: hypothesis>=6.8.0; extra == "testing"
 Requires-Dist: lxml[html_clean]>5; extra == "testing"
 Requires-Dist: matplotlib>=3.6.1; extra == "testing"
 Requires-Dist: pooch>=1.6.0; extra == "testing"
 Requires-Dist: coverage>7; extra == "testing"
-Requires-Dist: docstring_parser>=0.15; extra == "testing"
 Requires-Dist: pretend>=1.0.9; extra == "testing"
 Requires-Dist: pyautogui>=0.9.54; extra == "testing"
 Requires-Dist: pytest-qt>=4.4.0; python_version > "3.10" and extra == "testing"
@@ -135,22 +136,30 @@ Requires-Dist: matplotlib; extra == "gallery"
 Requires-Dist: pooch; extra == "gallery"
 Requires-Dist: nilearn; extra == "gallery"
 Requires-Dist: xarray; extra == "gallery"
-Requires-Dist: h5netcdf; extra == "gallery"
+Requires-Dist: h5netcdf[h5py]; extra == "gallery"
+Requires-Dist: tifffile[codecs]; extra == "gallery"
 Requires-Dist: meshio; extra == "gallery"
+Requires-Dist: trackastra>=0.4.2; extra == "gallery"
+Requires-Dist: gdown; extra == "gallery"
 Provides-Extra: docs
 Requires-Dist: napari[gallery]; extra == "docs"
+Requires-Dist: napari-meshio; extra == "docs"
+Requires-Dist: napari-skimage; extra == "docs"
+Requires-Dist: ndevio; extra == "docs"
+Requires-Dist: numpydoc>=1.0.0; extra == "docs"
 Requires-Dist: sphinx<8; extra == "docs"
 Requires-Dist: sphinx-autobuild; extra == "docs"
 Requires-Dist: sphinx-tabs; extra == "docs"
 Requires-Dist: sphinx-tags; extra == "docs"
 Requires-Dist: sphinx-design; extra == "docs"
-Requires-Dist: sphinx-external-toc; extra == "docs"
+Requires-Dist: sphinx-external-toc<1.1.0; extra == "docs"
 Requires-Dist: sphinx-favicon>=1.0; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx-gallery; extra == "docs"
 Requires-Dist: sphinx_autodoc_typehints==1.12.0; extra == "docs"
 Requires-Dist: sphinxcontrib-mermaid>=1.0.0; extra == "docs"
 Requires-Dist: sphinxext-opengraph[social-cards]; extra == "docs"
+Requires-Dist: sphinxext-rediraffe; extra == "docs"
 Requires-Dist: myst-nb; extra == "docs"
 Requires-Dist: napari-sphinx-theme>=1.0.0; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
@@ -162,6 +171,7 @@ Requires-Dist: triangle; extra == "docs"
 Requires-Dist: bermuda>=0.1.4; extra == "docs"
 Requires-Dist: pytest; extra == "docs"
 Requires-Dist: linkify-it-py; extra == "docs"
+Requires-Dist: numba!=0.62.0,!=0.62.1; extra == "docs"
 Provides-Extra: release
 Requires-Dist: PyGithub>=1.46; extra == "release"
 Requires-Dist: twine>=3.1.1; extra == "release"
@@ -232,7 +242,7 @@ conda activate napari-env
 python -m pip install "napari[all]"
 ```
 
-If you prefer conda over pip, you can replace the last line with: `conda install -c conda-forge napari pyqt`
+If you prefer conda over pip, you can replace the last line with: `conda install -c conda-forge napari pyqt6`
 
 See here for the full [installation guide](https://napari.org/stable/tutorials/fundamentals/installation.html).
 
@@ -284,7 +294,7 @@ You can see details of [the project roadmap here](https://napari.org/stable/road
 
 ## contributing
 
-Contributions are encouraged! Please read our [contributing guide](https://napari.org/dev/developers/contributing/index.html) to get started. Given that we're in an early stage, you may want to reach out on our [GitHub Issues](https://github.com/napari/napari/issues) before jumping in. 
+Contributions are encouraged! See [CONTRIBUTING.md](https://github.com/napari/napari/blob/main/CONTRIBUTING.md) for resources to get started.
 
 If you want to contribute to or edit our documentation, please go to [napari/docs](https://github.com/napari/docs).
 

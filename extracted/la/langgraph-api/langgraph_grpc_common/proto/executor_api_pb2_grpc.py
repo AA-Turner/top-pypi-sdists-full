@@ -56,6 +56,11 @@ class LangGraphExecutorStub(object):
                 request_serializer=executor__api__pb2.StateUpdateRequest.SerializeToString,
                 response_deserializer=engine__common__pb2.TaskResult.FromString,
                 _registered_method=True)
+        self.CallLoopback = channel.unary_unary(
+                '/executor.LangGraphExecutor/CallLoopback',
+                request_serializer=executor__api__pb2.CallLoopbackRequest.SerializeToString,
+                response_deserializer=executor__api__pb2.CallLoopbackResponse.FromString,
+                _registered_method=True)
 
 
 class LangGraphExecutorServicer(object):
@@ -90,6 +95,13 @@ class LangGraphExecutorServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CallLoopback(self, request, context):
+        """Call a relative URL via the executor's loopback ASGI transport
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_LangGraphExecutorServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -112,6 +124,11 @@ def add_LangGraphExecutorServicer_to_server(servicer, server):
                     servicer.StateUpdate,
                     request_deserializer=executor__api__pb2.StateUpdateRequest.FromString,
                     response_serializer=engine__common__pb2.TaskResult.SerializeToString,
+            ),
+            'CallLoopback': grpc.unary_unary_rpc_method_handler(
+                    servicer.CallLoopback,
+                    request_deserializer=executor__api__pb2.CallLoopbackRequest.FromString,
+                    response_serializer=executor__api__pb2.CallLoopbackResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -223,6 +240,33 @@ class LangGraphExecutor(object):
             '/executor.LangGraphExecutor/StateUpdate',
             executor__api__pb2.StateUpdateRequest.SerializeToString,
             engine__common__pb2.TaskResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CallLoopback(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/executor.LangGraphExecutor/CallLoopback',
+            executor__api__pb2.CallLoopbackRequest.SerializeToString,
+            executor__api__pb2.CallLoopbackResponse.FromString,
             options,
             channel_credentials,
             insecure,

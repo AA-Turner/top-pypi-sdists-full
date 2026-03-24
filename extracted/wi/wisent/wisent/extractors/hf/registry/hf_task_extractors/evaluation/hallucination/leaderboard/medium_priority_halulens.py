@@ -42,7 +42,7 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
     """
 
     # Evaluator that should be used for this benchmark
-    evaluator_name = "generation"
+    evaluator_name = "halulens"
 
     # Question templates for generating factual questions
     QUESTION_TEMPLATES = [
@@ -64,13 +64,9 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
     def __init__(self, context_max_length: int | None = None):
         """Initialize HalluLens extractor with dynamic generation."""
         super().__init__()
-        from wisent.core.utils.config_tools.constants import (
-            DEFAULT_RANDOM_SEED, EXTRACTOR_CONTEXT_MAX_LENGTH,
-        )
+        from wisent.core.utils.config_tools.constants import DEFAULT_RANDOM_SEED, EXTRACTOR_CONTEXT_MAX_LENGTH
         self._rng = random.Random(DEFAULT_RANDOM_SEED)
-        if context_max_length is None:
-            context_max_length = EXTRACTOR_CONTEXT_MAX_LENGTH
-        self._context_max_length = context_max_length
+        self._context_max_length = context_max_length if context_max_length is not None else EXTRACTOR_CONTEXT_MAX_LENGTH
 
     def extract_contrastive_pairs(
         self,

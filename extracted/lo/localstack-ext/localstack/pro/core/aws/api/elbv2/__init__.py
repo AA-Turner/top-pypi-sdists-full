@@ -2207,11 +2207,9 @@ class Elbv2Api:
         :param default_actions: The actions for the default rule.
         :param protocol: The protocol for connections from clients to the load balancer.
         :param port: The port on which the load balancer is listening.
-        :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which
-        protocols and ciphers are supported.
+        :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported.
         :param certificates: [HTTPS and TLS listeners] The default certificate for the listener.
-        :param alpn_policy: [TLS listeners] The name of the Application-Layer Protocol Negotiation
-        (ALPN) policy.
+        :param alpn_policy: [TLS listeners] The name of the Application-Layer Protocol Negotiation (ALPN) policy.
         :param tags: The tags to assign to the listener.
         :param mutual_authentication: [HTTPS listeners] The mutual authentication configuration information.
         :returns: CreateListenerOutput
@@ -2263,18 +2261,14 @@ class Elbv2Api:
         :param name: The name of the load balancer.
         :param subnets: The IDs of the subnets.
         :param subnet_mappings: The IDs of the subnets.
-        :param security_groups: [Application Load Balancers and Network Load Balancers] The IDs of the
-        security groups for the load balancer.
+        :param security_groups: [Application Load Balancers and Network Load Balancers] The IDs of the security groups for the load balancer.
         :param scheme: The nodes of an Internet-facing load balancer have public IP addresses.
         :param tags: The tags to assign to the load balancer.
         :param type: The type of load balancer.
         :param ip_address_type: The IP address type.
-        :param customer_owned_ipv4_pool: [Application Load Balancers on Outposts] The ID of the customer-owned
-        address pool (CoIP pool).
-        :param enable_prefix_for_ipv6_source_nat: [Network Load Balancers with UDP listeners] Indicates whether to use an
-        IPv6 prefix from each subnet for source NAT.
-        :param ipam_pools: [Application Load Balancers] The IPAM pools to use with the load
-        balancer.
+        :param customer_owned_ipv4_pool: [Application Load Balancers on Outposts] The ID of the customer-owned address pool (CoIP pool).
+        :param enable_prefix_for_ipv6_source_nat: [Network Load Balancers with UDP listeners] Indicates whether to use an IPv6 prefix from each subnet for source NAT.
+        :param ipam_pools: [Application Load Balancers] The IPAM pools to use with the load balancer.
         :returns: CreateLoadBalancerOutput
         :raises DuplicateLoadBalancerNameException:
         :raises TooManyLoadBalancersException:
@@ -2387,29 +2381,19 @@ class Elbv2Api:
         :param protocol_version: [HTTP/HTTPS protocol] The protocol version.
         :param port: The port on which the targets receive traffic.
         :param vpc_id: The identifier of the virtual private cloud (VPC).
-        :param health_check_protocol: The protocol the load balancer uses when performing health checks on
-        targets.
-        :param health_check_port: The port the load balancer uses when performing health checks on
-        targets.
+        :param health_check_protocol: The protocol the load balancer uses when performing health checks on targets.
+        :param health_check_port: The port the load balancer uses when performing health checks on targets.
         :param health_check_enabled: Indicates whether health checks are enabled.
-        :param health_check_path: [HTTP/HTTPS health checks] The destination for health checks on the
-        targets.
-        :param health_check_interval_seconds: The approximate amount of time, in seconds, between health checks of an
-        individual target.
-        :param health_check_timeout_seconds: The amount of time, in seconds, during which no response from a target
-        means a failed health check.
-        :param healthy_threshold_count: The number of consecutive health check successes required before
-        considering a target healthy.
-        :param unhealthy_threshold_count: The number of consecutive health check failures required before
-        considering a target unhealthy.
-        :param matcher: [HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking
-        for a successful response from a target.
-        :param target_type: The type of target that you must specify when registering targets with
-        this target group.
+        :param health_check_path: [HTTP/HTTPS health checks] The destination for health checks on the targets.
+        :param health_check_interval_seconds: The approximate amount of time, in seconds, between health checks of an individual target.
+        :param health_check_timeout_seconds: The amount of time, in seconds, during which no response from a target means a failed health check.
+        :param healthy_threshold_count: The number of consecutive health check successes required before considering a target healthy.
+        :param unhealthy_threshold_count: The number of consecutive health check failures required before considering a target unhealthy.
+        :param matcher: [HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target.
+        :param target_type: The type of target that you must specify when registering targets with this target group.
         :param tags: The tags to assign to the target group.
         :param ip_address_type: The IP address type.
-        :param target_control_port: The port on which the target control agent and application load balancer
-        exchange management traffic for the target optimizer feature.
+        :param target_control_port: The port on which the target control agent and application load balancer exchange management traffic for the target optimizer feature.
         :returns: CreateTargetGroupOutput
         :raises DuplicateTargetGroupNameException:
         :raises TooManyTargetGroupsException:
@@ -3085,12 +3069,10 @@ class Elbv2Api:
         :param listener_arn: The Amazon Resource Name (ARN) of the listener.
         :param port: The port for connections from clients to the load balancer.
         :param protocol: The protocol for connections from clients to the load balancer.
-        :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which
-        protocols and ciphers are supported.
+        :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported.
         :param certificates: [HTTPS and TLS listeners] The default certificate for the listener.
         :param default_actions: The actions for the default rule.
-        :param alpn_policy: [TLS listeners] The name of the Application-Layer Protocol Negotiation
-        (ALPN) policy.
+        :param alpn_policy: [TLS listeners] The name of the Application-Layer Protocol Negotiation (ALPN) policy.
         :param mutual_authentication: [HTTPS listeners] The mutual authentication configuration information.
         :returns: ModifyListenerOutput
         :raises DuplicateListenerException:
@@ -3214,23 +3196,15 @@ class Elbv2Api:
         targets in the specified target group.
 
         :param target_group_arn: The Amazon Resource Name (ARN) of the target group.
-        :param health_check_protocol: The protocol the load balancer uses when performing health checks on
-        targets.
-        :param health_check_port: The port the load balancer uses when performing health checks on
-        targets.
-        :param health_check_path: [HTTP/HTTPS health checks] The destination for health checks on the
-        targets.
+        :param health_check_protocol: The protocol the load balancer uses when performing health checks on targets.
+        :param health_check_port: The port the load balancer uses when performing health checks on targets.
+        :param health_check_path: [HTTP/HTTPS health checks] The destination for health checks on the targets.
         :param health_check_enabled: Indicates whether health checks are enabled.
-        :param health_check_interval_seconds: The approximate amount of time, in seconds, between health checks of an
-        individual target.
-        :param health_check_timeout_seconds: [HTTP/HTTPS health checks] The amount of time, in seconds, during which
-        no response means a failed health check.
-        :param healthy_threshold_count: The number of consecutive health checks successes required before
-        considering an unhealthy target healthy.
-        :param unhealthy_threshold_count: The number of consecutive health check failures required before
-        considering the target unhealthy.
-        :param matcher: [HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking
-        for a successful response from a target.
+        :param health_check_interval_seconds: The approximate amount of time, in seconds, between health checks of an individual target.
+        :param health_check_timeout_seconds: [HTTP/HTTPS health checks] The amount of time, in seconds, during which no response means a failed health check.
+        :param healthy_threshold_count: The number of consecutive health checks successes required before considering an unhealthy target healthy.
+        :param unhealthy_threshold_count: The number of consecutive health check failures required before considering the target unhealthy.
+        :param matcher: [HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target.
         :returns: ModifyTargetGroupOutput
         :raises TargetGroupNotFoundException:
         :raises InvalidConfigurationRequestException:
@@ -3435,8 +3409,7 @@ class Elbv2Api:
 
         :param load_balancer_arn: The Amazon Resource Name (ARN) of the load balancer.
         :param security_groups: The IDs of the security groups.
-        :param enforce_security_group_inbound_rules_on_private_link_traffic: Indicates whether to evaluate inbound security group rules for traffic
-        sent to a Network Load Balancer through Amazon Web Services PrivateLink.
+        :param enforce_security_group_inbound_rules_on_private_link_traffic: Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through Amazon Web Services PrivateLink.
         :returns: SetSecurityGroupsOutput
         :raises LoadBalancerNotFoundException:
         :raises InvalidConfigurationRequestException:
@@ -3464,8 +3437,7 @@ class Elbv2Api:
         :param subnets: The IDs of the public subnets.
         :param subnet_mappings: The IDs of the public subnets.
         :param ip_address_type: The IP address type.
-        :param enable_prefix_for_ipv6_source_nat: [Network Load Balancers with UDP listeners] Indicates whether to use an
-        IPv6 prefix from each subnet for source NAT.
+        :param enable_prefix_for_ipv6_source_nat: [Network Load Balancers with UDP listeners] Indicates whether to use an IPv6 prefix from each subnet for source NAT.
         :returns: SetSubnetsOutput
         :raises LoadBalancerNotFoundException:
         :raises InvalidConfigurationRequestException:

@@ -97,10 +97,11 @@ post:
     # -----------------------------------------------------------------
     # Read path: context assembly
     # -----------------------------------------------------------------
-    "get-context": """\
+    "get": """\
 match: all
 rules:
   - id: similar
+    when: "!has(params.prompt) || params.prompt == ''"
     do: find
     with:
       similar_to: "{params.item_id}"
@@ -321,18 +322,24 @@ rules:
   - when: "'_ocr_pages' in item.tags && item.has_uri"
     id: extracted
     do: ocr
+    with:
+      item_id: "{params.item_id}"
 """,
         "analyze": """\
 rules:
   - when: "!item.is_system_note && (item.content_length > 500 || item.has_uri) && !(has(item.tags._source) && item.tags._source == 'link') && !(has(item.tags._source) && item.tags._source == 'auto-vivify')"
     id: analyzed
     do: analyze
+    with:
+      item_id: "{params.item_id}"
 """,
         "tag": """\
 rules:
   - when: "!item.is_system_note && item.has_content && !(has(item.tags._source) && item.tags._source == 'link')"
     id: tagged
     do: auto_tag
+    with:
+      item_id: "{params.item_id}"
 """,
         "links": """\
 rules:
@@ -340,6 +347,7 @@ rules:
     id: linked
     do: extract_links
     with:
+      item_id: "{params.item_id}"
       tag: references
       create_targets: "true"
 """,
@@ -348,6 +356,8 @@ rules:
   - when: "item.has_uri && !item.is_system_note && !(has(item.tags._source) && item.tags._source == 'link')"
     id: resolve_stubs
     do: resolve_stubs
+    with:
+      item_id: "{params.item_id}"
 """,
         "duplicates": """\
 rules:
@@ -355,7 +365,29 @@ rules:
     id: resolve-duplicates
     do: resolve_duplicates
     with:
+      item_id: "{params.item_id}"
       tag: duplicates
+""",
+    },
+    "get": {
+        "openclaw": """\
+order: before:similar
+rules:
+  - id: search
+    when: "has(params.prompt) && params.prompt != ''"
+    do: find
+    with:
+      query: "{params.prompt}"
+      bias: { "now": 0 }
+      limit: 7
+  - id: intentions
+    do: get
+    with:
+      id: "now"
+  - id: session
+    do: get
+    with:
+      id: "{params.item_id}"
 """,
     },
 }

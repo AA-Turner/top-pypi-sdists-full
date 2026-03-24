@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 40.6.0", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools >= 65.0.2", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
@@ -48,9 +48,9 @@ zip-safe = false
 
 [tool.setuptools_scm]
 root = "."
-write_to = "qiskit_ibm_runtime/VERSION.txt"
+version_file = "qiskit_ibm_runtime/VERSION.txt"
 version_scheme = "release-branch-semver"
-fallback_version = "0.45.0"
+fallback_version = "0.46.1"
 
 [tool.mypy]
 python_version = "3.10"
@@ -80,14 +80,16 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
+future-annotations = true
 select = [
     # Rules in alphabetic order
-    "C4",    # flake8-comprehensions
-    "E",     # pycodestyle
-    "F",     # pyflake
-    "G",     # flake8-logging-format
-    "T10",   # flake8-debugger
-    "UP",    # pyupgrade
+    "C4",     # flake8-comprehensions
+    "E",      # pycodestyle
+    "F",      # pyflake
+    "G",      # flake8-logging-format
+    "T10",    # flake8-debugger
+    "UP",     # pyupgrade
+    "RUF013", # implicit-optional
 ]
 ignore = [
     "E501",  # line-too-long: black handles line length
@@ -132,15 +134,18 @@ keywords = ["qiskit", "sdk", "quantum", "api", "runtime", "ibm"]
 requires-python=">=3.10"
 
 dependencies = [
-    "requests>=2.19,!=2.32.2",
+    "requests>=2.32.4",
     "requests-ntlm>=1.1.0",
-    "numpy>=1.13",
-    "urllib3>=1.21.1",
-    "python-dateutil>=2.8.0",
-    "ibm-platform-services>=0.22.6",
-    "pydantic>=2.5.0",
-    "qiskit>=2.0.0",
-    "packaging"
+    "numpy>=1.26",
+    "urllib3>=2.4.0",
+    "python-dateutil>=2.9.0",
+    "ibm-platform-services>=0.55.3",
+    "ibm-quantum-schemas>=0.5.20260320",
+    "pydantic>=2.7.0",
+    "qiskit>=2.2.0",
+    "packaging",
+    "pybase64>=1.4",
+    "samplomatic>=0.13.0"
 ]
 
 [project.entry-points."qiskit.transpiler.translation"]
@@ -178,11 +183,12 @@ common = [
 
 documentation = [
     "nbsphinx",
-    "Sphinx>=6",
+    "Sphinx>=8,<9",
     "sphinx-automodapi",
     "sphinx-autodoc-typehints<=1.19.2",
     "jupyter-sphinx",
     "sphinxcontrib-katex==0.9.9",
+    "autodoc_pydantic==2.2.0",
     "packaging",
 ]
 

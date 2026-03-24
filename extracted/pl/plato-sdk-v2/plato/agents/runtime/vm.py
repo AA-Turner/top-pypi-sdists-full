@@ -96,6 +96,7 @@ class PlatoVMRuntime(Runtime):
         self.workspaces: list[Transport] = workspaces or []
         self._agent_envs: dict[str, Environment] = {}
         self._prepare_lock = asyncio.Lock()
+        self.last_execution_span_id: str = ""  # hex span ID of latest agent.execution.output span
         # Process-wide lock guard for VM prepare lifecycle. This prevents
         # concurrent VM bring-up storms across different AgentRunner instances.
         # It is initialized lazily per event loop via _get_global_prepare_lock().
@@ -379,6 +380,11 @@ class PlatoVMRuntime(Runtime):
 
         tracer = trace.get_tracer(__name__)
         with tracer.start_as_current_span("agent.execution.output") as span:
+            # Capture span ID so callers can link to this span in the trajectory viewer
+            span_ctx = span.get_span_context()
+            if span_ctx.is_valid:
+                self.last_execution_span_id = format(span_ctx.span_id, "016x")
+
             if ctx.display_name:
                 span.set_attribute("atif.agent.name", ctx.display_name)
                 span.set_attribute("plato.agent.display_name", ctx.display_name)

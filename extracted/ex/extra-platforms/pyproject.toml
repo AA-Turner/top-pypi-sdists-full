@@ -5,10 +5,11 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "11.0.2"
+version = "11.0.3"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
+  "Agent detection",
   "Alacritty",
   "Almquist Shell",
   "Alpine Linux",
@@ -33,6 +34,7 @@ keywords = [
   "C shell",
   "CachyOS",
   "CentOS",
+  "CI detection",
   "Circle CI",
   "Cirrus CI",
   "Claude Code",
@@ -41,10 +43,12 @@ keywords = [
   "CodeBuild",
   "Command Prompt",
   "Contour",
+  "CPU architecture",
   "Cursor",
   "Cygwin",
   "Dash",
   "Debian",
+  "Distro detection",
   "DragonFly BSD",
   "Exherbo Linux",
   "Fedora",
@@ -61,6 +65,7 @@ keywords = [
   "GNU/Hurd",
   "Guix System",
   "Haiku",
+  "Hardware detection",
   "Heroku CI",
   "Hyper",
   "IBM AIX",
@@ -76,6 +81,7 @@ keywords = [
   "Konsole",
   "Korn shell",
   "KVM for IBM z Systems",
+  "Linux distribution",
   "Linux Mint",
   "LoongArch (64-bit)",
   "macOS",
@@ -96,6 +102,7 @@ keywords = [
   "OpenWrt",
   "Oracle Linux",
   "OS detection",
+  "OS info",
   "Parallels",
   "Pidora",
   "Platform detection",
@@ -104,6 +111,8 @@ keywords = [
   "PowerPC 64-bit (little-endian)",
   "PowerShell",
   "Pytest",
+  "Pytest fixtures",
+  "Pytest plugin",
   "Raspbian",
   "RedHat Enterprise Linux",
   "Rio",
@@ -111,15 +120,18 @@ keywords = [
   "RISC-V (64-bit)",
   "Rocky Linux",
   "Scientific Linux",
+  "Shell detection",
   "Slackware",
   "Solaris",
   "SPARC (32-bit)",
   "SPARC (64-bit)",
   "SunOS",
   "SUSE Linux Enterprise Server",
+  "System information",
   "Tabby",
   "tcsh",
   "TeamCity",
+  "Terminal detection",
   "Tilix",
   "tmux",
   "Travis CI",
@@ -141,6 +153,7 @@ keywords = [
   "Zellij",
   "Zsh",
 ]
+license = "Apache-2.0"
 license-files = [ "license" ]
 authors = [ { name = "Kevin Deldycke", email = "kevin@deldycke.com" } ]
 # Python versions and their status: https://devguide.python.org/versions/
@@ -156,7 +169,6 @@ classifiers = [
   "Environment :: Win32 (MS Windows)",
   "Framework :: Pytest",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   # This is a copy of the full "Operating System" hierarchy as we aim to be able to detect all platforms.
   "Operating System :: Android",
   "Operating System :: BeOS",
@@ -245,7 +257,7 @@ extra-platforms = "extra_platforms.__main__:main"
 [project.urls]
 "Changelog" = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 "Documentation" = "https://kdeldycke.github.io/extra-platforms"
-"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.2"
+"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.3"
 "Funding" = "https://github.com/sponsors/kdeldycke"
 "Homepage" = "https://github.com/kdeldycke/extra-platforms"
 "Issues" = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -303,9 +315,6 @@ build-backend.module-root = ""
 # When merged into pyproject.toml via `gha-utils bundled init ruff`,
 # the [tool.ruff] prefix is added automatically.
 [tool.ruff]
-# Enable formatting of Python code blocks in Markdown files.
-# https://docs.astral.sh/ruff/formatter/#markdown-code-formatting
-extend-include = [ "*.{markdown,mdown,mkdn,mdwn,mkd,md,mdtxt,mdtext,mdx}" ]
 preview = true
 fix = true
 unsafe-fixes = true
@@ -323,9 +332,13 @@ lint.ignore = [ "D400", "ERA001" ]
 # Allow rules to add `from __future__ import annotations` in cases where
 # this would simplify a fix or enable a new diagnostic.
 # https://docs.astral.sh/ruff/settings/#lint_future-annotations
+lint.isort.combine-as-imports = true
 lint.future-annotations = true
 
 [tool.typos]
+default.extend-identifiers = { Github = "GitHub", IOS = "iOS", Javascript = "JavaScript", MacOS = "macOS", PyPi = "PyPI", Typescript = "TypeScript" }
+# Skip content between <!-- typos:off --> and <!-- typos:on --> markers.
+default.extend-ignore-re = [ "(?s)<!-- typos:off -->.*?<!-- typos:on -->" ]
 default.extend-ignore-identifiers-re = [
   # error: `Tru` should be `Thru`, `True`
   #     ╭▸ ./extra_platforms/group_data.py:345:8
@@ -355,17 +368,14 @@ default.extend-ignore-identifiers-re = [
 
 [tool.pytest]
 # https://docs.pytest.org/en/latest/customize.html#pyproject-toml
-ini_options.addopts = [
+addopts = [
   "--durations=10",
+  "--cov",
   "--cov-report=term",
-  "--cov-report=xml",
-  # Codecov.io's test analytics requires a JUnit XML file:
-  # https://docs.codecov.com/docs/test-analytics#1-output-a-junit-xml-file-in-your-ci
-  "--junitxml=junit.xml",
-  "--override-ini=junit_family=legacy",
+  "--numprocesses=auto",
 ]
-# Make sure tests that are expected to fail do not resurect and start working all of a sudden.
-ini_options.xfail_strict = true
+# Make sure tests that are expected to fail do not resurrect and start working all of a sudden.
+xfail_strict = true
 
 [tool.coverage]
 # https://coverage.readthedocs.io/en/latest/config.html
@@ -374,8 +384,9 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "11.0.2"
+current_version = "11.0.3"
 allow_dirty = true
+ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [
@@ -408,8 +419,8 @@ replace = "releases/tag/v{new_version}"
 [[tool.bumpversion.files]]
 # Update the version in Markdown changelog.
 filename = "./changelog.md"
-search = "## [{current_version} (unreleased)]("
-replace = "## [{new_version} (unreleased)]("
+search = "## [`{current_version}` (unreleased)]("
+replace = "## [`{new_version}` (unreleased)]("
 
 [[tool.bumpversion.files]]
 # Update the version in the citation file.
@@ -434,6 +445,7 @@ pretty = true
 
 [tool.repomatic]
 # We don't want repomatic's skills in this repository. And no need for custom label or zizmor configuration either.
-init-exclude = [ "skills", "labels", "zizmor" ]
+init.exclude = [ "labels", "zizmor" ]
 # Building the package with Nuitka is overkill.
-nuitka = false
+nuitka.enabled = false
+workflow.sync-exclude = [ "debug.yaml" ]

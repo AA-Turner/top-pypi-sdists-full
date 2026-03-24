@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import numpy
-from ..lattice import Lattice
-# noinspection PyProtectedMember
-from ..lattice.elements import Element, Collective, _array
-from ..constants import clight, qe
+
 from .wake_object import Wake, WakeComponent
+from ..constants import clight
+from ..lattice import Lattice, Element, Collective
+# noinspection PyProtectedMember
+from ..lattice.elements.conversions import _array
 
 
 # noinspection PyPep8Naming
@@ -21,7 +24,9 @@ class WakeElement(Collective, Element):
                         _wakeQX=lambda v: _array(v),
                         _wakeQY=lambda v: _array(v),
                         _wakeZ=lambda v: _array(v),
-                        _wakeT=lambda v: _array(v))
+                        _wakeT=lambda v: _array(v),
+                        _wakeCX=lambda v: _array(v),
+                        _wakeCY=lambda v: _array(v))
 
     def __init__(self, family_name: str, ring: Lattice, wake: Wake, **kwargs):
         """
@@ -65,6 +70,10 @@ class WakeElement(Collective, Element):
             self._wakeQX = wake.QX
         if wake.QY is not None:
             self._wakeQY = wake.QY
+        if wake.CX is not None:
+            self._wakeCX = wake.CX
+        if wake.CY is not None:
+            self._wakeCY = wake.CY
 
     def rebuild_wake(self, wake):
         self._build(wake)
@@ -109,6 +118,16 @@ class WakeElement(Collective, Element):
         """Quadrupole Y component"""
         return getattr(self, '_wakeQY', None)
 
+    @property
+    def WakeCX(self):
+        """Constant Dipole X component"""
+        return getattr(self, '_wakeCX', None)
+
+    @property
+    def WakeCY(self):
+        """Constant Dipole Y component"""
+        return getattr(self, '_wakeCY', None)
+        
     @property
     def Nslice(self):
         """Number of slices per bunch"""

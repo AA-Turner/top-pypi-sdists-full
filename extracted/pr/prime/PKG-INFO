@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime
-Version: 0.5.49
+Version: 0.5.51
 Summary: Prime Intellect CLI + SDK
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime-cli
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime-cli#readme
@@ -23,6 +23,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.14,>=3.10
 Requires-Dist: build>=1.0.0
 Requires-Dist: cryptography>=41.0.0
+Requires-Dist: gitignore-parser>=0.1.13
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: prime-evals>=0.1.3
 Requires-Dist: prime-sandboxes>=0.1.0
@@ -188,10 +189,11 @@ Isolated environments for running code remotely:
 # Create a sandbox
 prime sandbox create python:3.11
 
-# Create a GPU sandbox
-prime sandbox create --gpu-count 1 --gpu-type H100_80GB
+# Create a VM sandbox with GPUs
+prime sandbox create user-1/vm-image:latest --vm --gpu-count 1 --gpu-type H100_80GB
 
-# Note: DOCKER_IMAGE is not supported for GPU sandboxes
+# Create a CPU-only VM sandbox
+prime sandbox create user-1/vm-image:latest --vm
 
 # List sandboxes
 prime sandbox list

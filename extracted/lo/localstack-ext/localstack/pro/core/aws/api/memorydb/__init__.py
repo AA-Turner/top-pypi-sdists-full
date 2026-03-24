@@ -1798,29 +1798,22 @@ class MemorydbApi:
         :param num_replicas_per_shard: The number of replicas to apply to each shard.
         :param subnet_group_name: The name of the subnet group to be used for the cluster.
         :param security_group_ids: A list of security group names to associate with this cluster.
-        :param maintenance_window: Specifies the weekly time range during which maintenance on the cluster
-        is performed.
+        :param maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed.
         :param port: The port number on which each of the nodes accepts connections.
-        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service
-        (SNS) topic to which notifications are sent.
+        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sent.
         :param tls_enabled: A flag to enable in-transit encryption on the cluster.
         :param kms_key_id: The ID of the KMS key used to encrypt the cluster.
-        :param snapshot_arns: A list of Amazon Resource Names (ARN) that uniquely identify the RDB
-        snapshot files stored in Amazon S3.
+        :param snapshot_arns: A list of Amazon Resource Names (ARN) that uniquely identify the RDB snapshot files stored in Amazon S3.
         :param snapshot_name: The name of a snapshot from which to restore data into the new cluster.
-        :param snapshot_retention_limit: The number of days for which MemoryDB retains automatic snapshots before
-        deleting them.
+        :param snapshot_retention_limit: The number of days for which MemoryDB retains automatic snapshots before deleting them.
         :param tags: A list of tags to be added to this resource.
-        :param snapshot_window: The daily time range (in UTC) during which MemoryDB begins taking a
-        daily snapshot of your shard.
+        :param snapshot_window: The daily time range (in UTC) during which MemoryDB begins taking a daily snapshot of your shard.
         :param engine: The name of the engine to be used for the cluster.
         :param engine_version: The version number of the Redis OSS engine to be used for the cluster.
-        :param auto_minor_version_upgrade: When set to true, the cluster will automatically receive minor engine
-        version upgrades after launch.
+        :param auto_minor_version_upgrade: When set to true, the cluster will automatically receive minor engine version upgrades after launch.
         :param data_tiering: Enables data tiering.
         :param network_type: Specifies the IP address type for the cluster.
-        :param ip_discovery: The mechanism for discovering IP addresses for the cluster discovery
-        protocol.
+        :param ip_discovery: The mechanism for discovering IP addresses for the cluster discovery protocol.
         :returns: CreateClusterResponse
         :raises ClusterAlreadyExistsFault:
         :raises SubnetGroupNotFoundFault:
@@ -1865,8 +1858,7 @@ class MemorydbApi:
         :param description: A description for the multi-Region cluster.
         :param engine: The name of the engine to be used for the multi-Region cluster.
         :param engine_version: The version of the engine to be used for the multi-Region cluster.
-        :param multi_region_parameter_group_name: The name of the multi-Region parameter group to be associated with the
-        cluster.
+        :param multi_region_parameter_group_name: The name of the multi-Region parameter group to be associated with the cluster.
         :param num_shards: The number of shards for the multi-Region cluster.
         :param tls_enabled: Whether to enable TLS encryption for the multi-Region cluster.
         :param tags: A list of tags to be applied to the multi-Region cluster.
@@ -1897,8 +1889,7 @@ class MemorydbApi:
         groups <https://docs.aws.amazon.com/MemoryDB/latest/devguide/parametergroups.html>`__.
 
         :param parameter_group_name: The name of the parameter group.
-        :param family: The name of the parameter group family that the parameter group can be
-        used with.
+        :param family: The name of the parameter group family that the parameter group can be used with.
         :param description: An optional description of the parameter group.
         :param tags: A list of tags to be added to this resource.
         :returns: CreateParameterGroupResponse
@@ -1989,8 +1980,7 @@ class MemorydbApi:
         (ACLs) <https://docs.aws.amazon.com/MemoryDB/latest/devguide/clusters.acls.html>`__.
 
         :param user_name: The name of the user.
-        :param authentication_mode: Denotes the user's authentication properties, such as whether it
-        requires a password to authenticate.
+        :param authentication_mode: Denotes the user's authentication properties, such as whether it requires a password to authenticate.
         :param access_string: Access permissions string used for this user.
         :param tags: A list of tags to be added to this resource.
         :returns: CreateUserResponse
@@ -2140,8 +2130,7 @@ class MemorydbApi:
 
         :param acl_name: The name of the ACL.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
         :returns: DescribeACLsResponse
         :raises ACLNotFoundFault:
         :raises InvalidParameterCombinationException:
@@ -2164,10 +2153,8 @@ class MemorydbApi:
 
         :param cluster_name: The name of the cluster.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
-        :param show_shard_details: An optional flag that can be included in the request to retrieve
-        information about the individual shard(s).
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
+        :param show_shard_details: An optional flag that can be included in the request to retrieve information about the individual shard(s).
         :returns: DescribeClustersResponse
         :raises ClusterNotFoundFault:
         :raises ServiceLinkedRoleNotFoundFault:
@@ -2194,10 +2181,8 @@ class MemorydbApi:
         :param engine_version: The Redis OSS engine version.
         :param parameter_group_family: The name of a specific parameter group family to return details for.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
-        :param default_only: If true, specifies that only the default version of the specified engine
-        or engine and major version combination is to be returned.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
+        :param default_only: If true, specifies that only the default version of the specified engine or engine and major version combination is to be returned.
         :returns: DescribeEngineVersionsResponse
         :raises ServiceLinkedRoleNotFoundFault:
         :raises InvalidParameterValueException:
@@ -2226,14 +2211,11 @@ class MemorydbApi:
 
         :param source_name: The identifier of the event source for which events are returned.
         :param source_type: The event source to retrieve events for.
-        :param start_time: The beginning of the time interval to retrieve events for, specified in
-        ISO 8601 format.
-        :param end_time: The end of the time interval for which to retrieve events, specified in
-        ISO 8601 format.
+        :param start_time: The beginning of the time interval to retrieve events for, specified in ISO 8601 format.
+        :param end_time: The end of the time interval for which to retrieve events, specified in ISO 8601 format.
         :param duration: The number of minutes worth of events to retrieve.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
         :returns: DescribeEventsResponse
         :raises ServiceLinkedRoleNotFoundFault:
         :raises InvalidParameterValueException:
@@ -2327,8 +2309,7 @@ class MemorydbApi:
 
         :param parameter_group_name: The name of a specific parameter group to return details for.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
         :returns: DescribeParameterGroupsResponse
         :raises ParameterGroupNotFoundFault:
         :raises ServiceLinkedRoleNotFoundFault:
@@ -2350,8 +2331,7 @@ class MemorydbApi:
 
         :param parameter_group_name: he name of a specific parameter group to return details for.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
         :returns: DescribeParametersResponse
         :raises ParameterGroupNotFoundFault:
         :raises ServiceLinkedRoleNotFoundFault:
@@ -2436,8 +2416,7 @@ class MemorydbApi:
         :param cluster_names: The list of cluster names to identify service updates to apply.
         :param status: The status(es) of the service updates to filter on.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
         :returns: DescribeServiceUpdatesResponse
         :raises InvalidParameterValueException:
         :raises InvalidParameterCombinationException:
@@ -2463,13 +2442,10 @@ class MemorydbApi:
 
         :param cluster_name: A user-supplied cluster identifier.
         :param snapshot_name: A user-supplied name of the snapshot.
-        :param source: If set to system, the output shows snapshots that were automatically
-        created by MemoryDB.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
+        :param source: If set to system, the output shows snapshots that were automatically created by MemoryDB.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
         :param max_results: The maximum number of records to include in the response.
-        :param show_detail: A Boolean value which if true, the shard configuration is included in
-        the snapshot description.
+        :param show_detail: A Boolean value which if true, the shard configuration is included in the snapshot description.
         :returns: DescribeSnapshotsResponse
         :raises SnapshotNotFoundFault:
         :raises ServiceLinkedRoleNotFoundFault:
@@ -2492,8 +2468,7 @@ class MemorydbApi:
 
         :param subnet_group_name: The name of the subnet group to return details for.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
         :returns: DescribeSubnetGroupsResponse
         :raises SubnetGroupNotFoundFault:
         :raises ServiceLinkedRoleNotFoundFault:
@@ -2515,8 +2490,7 @@ class MemorydbApi:
         :param user_name: The name of the user.
         :param filters: Filter to determine the list of users to return.
         :param max_results: The maximum number of records to include in the response.
-        :param next_token: An optional argument to pass in case the total number of records exceeds
-        the value of MaxResults.
+        :param next_token: An optional argument to pass in case the total number of records exceeds the value of MaxResults.
         :returns: DescribeUsersResponse
         :raises UserNotFoundFault:
         :raises InvalidParameterCombinationException:
@@ -2595,8 +2569,7 @@ class MemorydbApi:
         clusters. For more information, see `Tagging your MemoryDB
         resources <https://docs.aws.amazon.com/MemoryDB/latest/devguide/Tagging-Resources.html>`__.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want the
-        list of tags.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want the list of tags.
         :returns: ListTagsResponse
         :raises ClusterNotFoundFault:
         :raises InvalidClusterStateFault:
@@ -2655,8 +2628,7 @@ class MemorydbApi:
         AllParameters and ParameterGroupName parameters.
 
         :param parameter_group_name: The name of the parameter group to reset.
-        :param all_parameters: If true, all parameters in the parameter group are reset to their
-        default values.
+        :param all_parameters: If true, all parameters in the parameter group are reset to their default values.
         :param parameter_names: An array of parameter names to reset to their default values.
         :returns: ResetParameterGroupResponse
         :raises InvalidParameterGroupStateFault:
@@ -2691,8 +2663,7 @@ class MemorydbApi:
         more information, see `Using Cost Allocation
         Tags <https://docs.aws.amazon.com/MemoryDB/latest/devguide/tagging.html>`__.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which the tags are to
-        be added.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which the tags are to be added.
         :param tags: A list of tags to be added to this resource.
         :returns: TagResourceResponse
         :raises ClusterNotFoundFault:
@@ -2735,8 +2706,7 @@ class MemorydbApi:
         more information, see `Using Cost Allocation
         Tags <https://docs.aws.amazon.com/MemoryDB/latest/devguide/tagging.html>`__.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which the tags are to
-        be removed.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which the tags are to be removed.
         :param tag_keys: The list of keys of the tags that are to be removed.
         :returns: UntagResourceResponse
         :raises ClusterNotFoundFault:
@@ -2809,23 +2779,19 @@ class MemorydbApi:
         :param cluster_name: The name of the cluster to update.
         :param description: The description of the cluster to update.
         :param security_group_ids: The SecurityGroupIds to update.
-        :param maintenance_window: Specifies the weekly time range during which maintenance on the cluster
-        is performed.
+        :param maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed.
         :param sns_topic_arn: The SNS topic ARN to update.
         :param sns_topic_status: The status of the Amazon SNS notification topic.
         :param parameter_group_name: The name of the parameter group to update.
-        :param snapshot_window: The daily time range (in UTC) during which MemoryDB begins taking a
-        daily snapshot of your cluster.
-        :param snapshot_retention_limit: The number of days for which MemoryDB retains automatic cluster
-        snapshots before deleting them.
+        :param snapshot_window: The daily time range (in UTC) during which MemoryDB begins taking a daily snapshot of your cluster.
+        :param snapshot_retention_limit: The number of days for which MemoryDB retains automatic cluster snapshots before deleting them.
         :param node_type: A valid node type that you want to scale this cluster up or down to.
         :param engine: The name of the engine to be used for the cluster.
         :param engine_version: The upgraded version of the engine to be run on the nodes.
         :param replica_configuration: The number of replicas that will reside in each shard.
         :param shard_configuration: The number of shards in the cluster.
         :param acl_name: The Access Control List that is associated with the cluster.
-        :param ip_discovery: The mechanism for discovering IP addresses for the cluster discovery
-        protocol.
+        :param ip_discovery: The mechanism for discovering IP addresses for the cluster discovery protocol.
         :returns: UpdateClusterResponse
         :raises ClusterNotFoundFault:
         :raises InvalidClusterStateFault:
@@ -2937,8 +2903,7 @@ class MemorydbApi:
         """Changes user password(s) and/or access string.
 
         :param user_name: The name of the user.
-        :param authentication_mode: Denotes the user's authentication properties, such as whether it
-        requires a password to authenticate.
+        :param authentication_mode: Denotes the user's authentication properties, such as whether it requires a password to authenticate.
         :param access_string: Access permissions string used for this user.
         :returns: UpdateUserResponse
         :raises UserNotFoundFault:

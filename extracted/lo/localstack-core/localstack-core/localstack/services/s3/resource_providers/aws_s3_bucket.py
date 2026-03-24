@@ -1,9 +1,5 @@
 # LocalStack Resource Provider Scaffolding v2
-from __future__ import annotations
-
 import re
-from pathlib import Path
-from typing import TypedDict
 
 from botocore.exceptions import ClientError
 
@@ -12,8 +8,11 @@ from localstack.config import S3_STATIC_WEBSITE_HOSTNAME, S3_VIRTUAL_HOSTNAME
 from localstack.services.cloudformation.resource_provider import (
     OperationStatus,
     ProgressEvent,
-    ResourceProvider,
     ResourceRequest,
+)
+from localstack.services.s3.resource_providers.generated.aws_s3_bucket_base import (
+    S3BucketProperties,
+    S3BucketProviderBase,
 )
 from localstack.services.s3.utils import normalize_bucket_name
 from localstack.utils.aws import arns
@@ -21,366 +20,7 @@ from localstack.utils.testutil import delete_all_s3_objects
 from localstack.utils.urls import localstack_host
 
 
-class S3BucketProperties(TypedDict):
-    AccelerateConfiguration: AccelerateConfiguration | None
-    AccessControl: str | None
-    AnalyticsConfigurations: list[AnalyticsConfiguration] | None
-    Arn: str | None
-    BucketEncryption: BucketEncryption | None
-    BucketName: str | None
-    CorsConfiguration: CorsConfiguration | None
-    DomainName: str | None
-    DualStackDomainName: str | None
-    IntelligentTieringConfigurations: list[IntelligentTieringConfiguration] | None
-    InventoryConfigurations: list[InventoryConfiguration] | None
-    LifecycleConfiguration: LifecycleConfiguration | None
-    LoggingConfiguration: LoggingConfiguration | None
-    MetricsConfigurations: list[MetricsConfiguration] | None
-    NotificationConfiguration: NotificationConfiguration | None
-    ObjectLockConfiguration: ObjectLockConfiguration | None
-    ObjectLockEnabled: bool | None
-    OwnershipControls: OwnershipControls | None
-    PublicAccessBlockConfiguration: PublicAccessBlockConfiguration | None
-    RegionalDomainName: str | None
-    ReplicationConfiguration: ReplicationConfiguration | None
-    Tags: list[Tag] | None
-    VersioningConfiguration: VersioningConfiguration | None
-    WebsiteConfiguration: WebsiteConfiguration | None
-    WebsiteURL: str | None
-
-
-class AccelerateConfiguration(TypedDict):
-    AccelerationStatus: str | None
-
-
-class TagFilter(TypedDict):
-    Key: str | None
-    Value: str | None
-
-
-class Destination(TypedDict):
-    BucketArn: str | None
-    Format: str | None
-    BucketAccountId: str | None
-    Prefix: str | None
-
-
-class DataExport(TypedDict):
-    Destination: Destination | None
-    OutputSchemaVersion: str | None
-
-
-class StorageClassAnalysis(TypedDict):
-    DataExport: DataExport | None
-
-
-class AnalyticsConfiguration(TypedDict):
-    Id: str | None
-    StorageClassAnalysis: StorageClassAnalysis | None
-    Prefix: str | None
-    TagFilters: list[TagFilter] | None
-
-
-class ServerSideEncryptionByDefault(TypedDict):
-    SSEAlgorithm: str | None
-    KMSMasterKeyID: str | None
-
-
-class ServerSideEncryptionRule(TypedDict):
-    BucketKeyEnabled: bool | None
-    ServerSideEncryptionByDefault: ServerSideEncryptionByDefault | None
-
-
-class BucketEncryption(TypedDict):
-    ServerSideEncryptionConfiguration: list[ServerSideEncryptionRule] | None
-
-
-class CorsRule(TypedDict):
-    AllowedMethods: list[str] | None
-    AllowedOrigins: list[str] | None
-    AllowedHeaders: list[str] | None
-    ExposedHeaders: list[str] | None
-    Id: str | None
-    MaxAge: int | None
-
-
-class CorsConfiguration(TypedDict):
-    CorsRules: list[CorsRule] | None
-
-
-class Tiering(TypedDict):
-    AccessTier: str | None
-    Days: int | None
-
-
-class IntelligentTieringConfiguration(TypedDict):
-    Id: str | None
-    Status: str | None
-    Tierings: list[Tiering] | None
-    Prefix: str | None
-    TagFilters: list[TagFilter] | None
-
-
-class InventoryConfiguration(TypedDict):
-    Destination: Destination | None
-    Enabled: bool | None
-    Id: str | None
-    IncludedObjectVersions: str | None
-    ScheduleFrequency: str | None
-    OptionalFields: list[str] | None
-    Prefix: str | None
-
-
-class AbortIncompleteMultipartUpload(TypedDict):
-    DaysAfterInitiation: int | None
-
-
-class NoncurrentVersionExpiration(TypedDict):
-    NoncurrentDays: int | None
-    NewerNoncurrentVersions: int | None
-
-
-class NoncurrentVersionTransition(TypedDict):
-    StorageClass: str | None
-    TransitionInDays: int | None
-    NewerNoncurrentVersions: int | None
-
-
-class Transition(TypedDict):
-    StorageClass: str | None
-    TransitionDate: str | None
-    TransitionInDays: int | None
-
-
-class Rule(TypedDict):
-    Status: str | None
-    AbortIncompleteMultipartUpload: AbortIncompleteMultipartUpload | None
-    ExpirationDate: str | None
-    ExpirationInDays: int | None
-    ExpiredObjectDeleteMarker: bool | None
-    Id: str | None
-    NoncurrentVersionExpiration: NoncurrentVersionExpiration | None
-    NoncurrentVersionExpirationInDays: int | None
-    NoncurrentVersionTransition: NoncurrentVersionTransition | None
-    NoncurrentVersionTransitions: list[NoncurrentVersionTransition] | None
-    ObjectSizeGreaterThan: str | None
-    ObjectSizeLessThan: str | None
-    Prefix: str | None
-    TagFilters: list[TagFilter] | None
-    Transition: Transition | None
-    Transitions: list[Transition] | None
-
-
-class LifecycleConfiguration(TypedDict):
-    Rules: list[Rule] | None
-
-
-class LoggingConfiguration(TypedDict):
-    DestinationBucketName: str | None
-    LogFilePrefix: str | None
-
-
-class MetricsConfiguration(TypedDict):
-    Id: str | None
-    AccessPointArn: str | None
-    Prefix: str | None
-    TagFilters: list[TagFilter] | None
-
-
-class EventBridgeConfiguration(TypedDict):
-    EventBridgeEnabled: bool | None
-
-
-class FilterRule(TypedDict):
-    Name: str | None
-    Value: str | None
-
-
-class S3KeyFilter(TypedDict):
-    Rules: list[FilterRule] | None
-
-
-class NotificationFilter(TypedDict):
-    S3Key: S3KeyFilter | None
-
-
-class LambdaConfiguration(TypedDict):
-    Event: str | None
-    Function: str | None
-    Filter: NotificationFilter | None
-
-
-class QueueConfiguration(TypedDict):
-    Event: str | None
-    Queue: str | None
-    Filter: NotificationFilter | None
-
-
-class TopicConfiguration(TypedDict):
-    Event: str | None
-    Topic: str | None
-    Filter: NotificationFilter | None
-
-
-class NotificationConfiguration(TypedDict):
-    EventBridgeConfiguration: EventBridgeConfiguration | None
-    LambdaConfigurations: list[LambdaConfiguration] | None
-    QueueConfigurations: list[QueueConfiguration] | None
-    TopicConfigurations: list[TopicConfiguration] | None
-
-
-class DefaultRetention(TypedDict):
-    Days: int | None
-    Mode: str | None
-    Years: int | None
-
-
-class ObjectLockRule(TypedDict):
-    DefaultRetention: DefaultRetention | None
-
-
-class ObjectLockConfiguration(TypedDict):
-    ObjectLockEnabled: str | None
-    Rule: ObjectLockRule | None
-
-
-class OwnershipControlsRule(TypedDict):
-    ObjectOwnership: str | None
-
-
-class OwnershipControls(TypedDict):
-    Rules: list[OwnershipControlsRule] | None
-
-
-class PublicAccessBlockConfiguration(TypedDict):
-    BlockPublicAcls: bool | None
-    BlockPublicPolicy: bool | None
-    IgnorePublicAcls: bool | None
-    RestrictPublicBuckets: bool | None
-
-
-class DeleteMarkerReplication(TypedDict):
-    Status: str | None
-
-
-class AccessControlTranslation(TypedDict):
-    Owner: str | None
-
-
-class EncryptionConfiguration(TypedDict):
-    ReplicaKmsKeyID: str | None
-
-
-class ReplicationTimeValue(TypedDict):
-    Minutes: int | None
-
-
-class Metrics(TypedDict):
-    Status: str | None
-    EventThreshold: ReplicationTimeValue | None
-
-
-class ReplicationTime(TypedDict):
-    Status: str | None
-    Time: ReplicationTimeValue | None
-
-
-class ReplicationDestination(TypedDict):
-    Bucket: str | None
-    AccessControlTranslation: AccessControlTranslation | None
-    Account: str | None
-    EncryptionConfiguration: EncryptionConfiguration | None
-    Metrics: Metrics | None
-    ReplicationTime: ReplicationTime | None
-    StorageClass: str | None
-
-
-class ReplicationRuleAndOperator(TypedDict):
-    Prefix: str | None
-    TagFilters: list[TagFilter] | None
-
-
-class ReplicationRuleFilter(TypedDict):
-    And: ReplicationRuleAndOperator | None
-    Prefix: str | None
-    TagFilter: TagFilter | None
-
-
-class ReplicaModifications(TypedDict):
-    Status: str | None
-
-
-class SseKmsEncryptedObjects(TypedDict):
-    Status: str | None
-
-
-class SourceSelectionCriteria(TypedDict):
-    ReplicaModifications: ReplicaModifications | None
-    SseKmsEncryptedObjects: SseKmsEncryptedObjects | None
-
-
-class ReplicationRule(TypedDict):
-    Destination: ReplicationDestination | None
-    Status: str | None
-    DeleteMarkerReplication: DeleteMarkerReplication | None
-    Filter: ReplicationRuleFilter | None
-    Id: str | None
-    Prefix: str | None
-    Priority: int | None
-    SourceSelectionCriteria: SourceSelectionCriteria | None
-
-
-class ReplicationConfiguration(TypedDict):
-    Role: str | None
-    Rules: list[ReplicationRule] | None
-
-
-class Tag(TypedDict):
-    Key: str | None
-    Value: str | None
-
-
-class VersioningConfiguration(TypedDict):
-    Status: str | None
-
-
-class RedirectRule(TypedDict):
-    HostName: str | None
-    HttpRedirectCode: str | None
-    Protocol: str | None
-    ReplaceKeyPrefixWith: str | None
-    ReplaceKeyWith: str | None
-
-
-class RoutingRuleCondition(TypedDict):
-    HttpErrorCodeReturnedEquals: str | None
-    KeyPrefixEquals: str | None
-
-
-class RoutingRule(TypedDict):
-    RedirectRule: RedirectRule | None
-    RoutingRuleCondition: RoutingRuleCondition | None
-
-
-class RedirectAllRequestsTo(TypedDict):
-    HostName: str | None
-    Protocol: str | None
-
-
-class WebsiteConfiguration(TypedDict):
-    ErrorDocument: str | None
-    IndexDocument: str | None
-    RedirectAllRequestsTo: RedirectAllRequestsTo | None
-    RoutingRules: list[RoutingRule] | None
-
-
-REPEATED_INVOCATION = "repeated_invocation"
-
-
-class S3BucketProvider(ResourceProvider[S3BucketProperties]):
-    TYPE = "AWS::S3::Bucket"  # Autogenerated. Don't change
-    SCHEMA = util.get_schema_path(Path(__file__))  # Autogenerated. Don't change
-
+class S3BucketProvider(S3BucketProviderBase):
     def create(
         self,
         request: ResourceRequest[S3BucketProperties],
@@ -392,20 +32,29 @@ class S3BucketProvider(ResourceProvider[S3BucketProperties]):
           - /properties/BucketName
 
 
+
         Create-only properties:
           - /properties/BucketName
-          - /properties/ObjectLockEnabled
 
         Read-only properties:
           - /properties/Arn
           - /properties/DomainName
           - /properties/DualStackDomainName
           - /properties/RegionalDomainName
+          - /properties/MetadataTableConfiguration/S3TablesDestination/TableNamespace
+          - /properties/MetadataTableConfiguration/S3TablesDestination/TableArn
+          - /properties/MetadataConfiguration/Destination
+          - /properties/MetadataConfiguration/JournalTableConfiguration/TableName
+          - /properties/MetadataConfiguration/JournalTableConfiguration/TableArn
+          - /properties/MetadataConfiguration/InventoryTableConfiguration/TableName
+          - /properties/MetadataConfiguration/InventoryTableConfiguration/TableArn
           - /properties/WebsiteURL
 
         IAM permissions required:
           - s3:CreateBucket
           - s3:PutBucketTagging
+          - s3:TagResource
+          - s3:PutBucketAbac
           - s3:PutAnalyticsConfiguration
           - s3:PutEncryptionConfiguration
           - s3:PutBucketCORS
@@ -428,11 +77,25 @@ class S3BucketProvider(ResourceProvider[S3BucketProperties]):
           - s3:PutBucketVersioning
           - s3:PutObjectLockConfiguration
           - s3:PutBucketOwnershipControls
-          - s3:PutBucketIntelligentTieringConfiguration
-
+          - s3:PutIntelligentTieringConfiguration
+          - s3:GetBucketMetadataTableConfiguration
+          - s3:CreateBucketMetadataTableConfiguration
+          - s3tables:CreateNamespace
+          - s3tables:CreateTable
+          - s3tables:CreateTableBucket
+          - s3tables:GetTable
+          - s3tables:PutTableBucketPolicy
+          - s3tables:PutTableEncryption
+          - s3tables:PutTablePolicy
+          - s3tables:GetTableMetadataLocation
+          - s3tables:UpdateTableMetadataLocation
         """
         model = request.desired_state
         s3_client = request.aws_client_factory.s3
+
+        # TODO: support BucketNamePrefix and BucketNamespace
+        # see https://aws.amazon.com/blogs/aws/introducing-account-regional-namespaces-for-amazon-s3-general-purpose-buckets/
+        # seems like it is not yet in the generated schema on the 16/03/2026
 
         if not model.get("BucketName"):
             model["BucketName"] = util.generate_default_name(
@@ -650,8 +313,11 @@ class S3BucketProvider(ResourceProvider[S3BucketProperties]):
           - s3:GetBucketPublicAccessBlock
           - s3:GetBucketObjectLockConfiguration
           - s3:GetBucketTagging
+          - s3:ListTagsForResource
+          - s3:GetBucketAbac
           - s3:GetBucketOwnershipControls
           - s3:GetIntelligentTieringConfiguration
+          - s3:GetBucketMetadataTableConfiguration
           - s3:ListBucket
         """
         raise NotImplementedError
@@ -665,6 +331,7 @@ class S3BucketProvider(ResourceProvider[S3BucketProperties]):
 
         IAM permissions required:
           - s3:DeleteBucket
+          - s3:ListBucket
         """
         model = request.desired_state
         s3_client = request.aws_client_factory.s3
@@ -694,6 +361,9 @@ class S3BucketProvider(ResourceProvider[S3BucketProperties]):
         IAM permissions required:
           - s3:PutBucketAcl
           - s3:PutBucketTagging
+          - s3:TagResource
+          - s3:UntagResource
+          - s3:PutBucketAbac
           - s3:PutAnalyticsConfiguration
           - s3:PutEncryptionConfiguration
           - s3:PutBucketCORS
@@ -704,14 +374,29 @@ class S3BucketProvider(ResourceProvider[S3BucketProperties]):
           - s3:PutBucketReplication
           - s3:PutBucketWebsite
           - s3:PutAccelerateConfiguration
+          - s3:GetBucketMetadataTableConfiguration
+          - s3:DeleteBucketMetadataTableConfiguration
+          - s3:CreateBucketMetadataTableConfiguration
+          - s3:UpdateBucketMetadataJournalTableConfiguration
+          - s3:UpdateBucketMetadataInventoryTableConfiguration
+          - s3tables:CreateNamespace
+          - s3tables:CreateTable
+          - s3tables:CreateTableBucket
+          - s3tables:GetTable
+          - s3tables:PutTableBucketPolicy
+          - s3tables:PutTableEncryption
+          - s3tables:PutTablePolicy
+          - s3tables:GetTableMetadataLocation
+          - s3tables:UpdateTableMetadataLocation
           - s3:PutBucketPublicAccessBlock
           - s3:PutReplicationConfiguration
           - s3:PutBucketOwnershipControls
-          - s3:PutBucketIntelligentTieringConfiguration
+          - s3:PutIntelligentTieringConfiguration
           - s3:DeleteBucketWebsite
           - s3:PutBucketLogging
           - s3:PutBucketVersioning
           - s3:PutObjectLockConfiguration
+          - s3:PutBucketObjectLockConfiguration
           - s3:DeleteBucketAnalyticsConfiguration
           - s3:DeleteBucketCors
           - s3:DeleteBucketMetricsConfiguration
@@ -719,6 +404,7 @@ class S3BucketProvider(ResourceProvider[S3BucketProperties]):
           - s3:DeleteBucketLifecycle
           - s3:DeleteBucketReplication
           - iam:PassRole
+          - s3:ListBucket
         """
         raise NotImplementedError
 
@@ -726,6 +412,11 @@ class S3BucketProvider(ResourceProvider[S3BucketProperties]):
         self,
         request: ResourceRequest[S3BucketProperties],
     ) -> ProgressEvent[S3BucketProperties]:
+        """
+        List available resources of this type
+        IAM permissions required:
+          - s3:ListAllMyBuckets
+        """
         buckets = request.aws_client_factory.s3.list_buckets()
         final_buckets = []
         for bucket in buckets["Buckets"]:

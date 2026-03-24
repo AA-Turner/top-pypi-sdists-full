@@ -59,7 +59,7 @@ class FaithBenchExtractor(HuggingFaceBenchmarkExtractor):
     """
 
     # Evaluator that should be used for this benchmark
-    evaluator_name = "generation"
+    evaluator_name = "faithbench"
 
     def __init__(self, http_timeout: int, include_benign: bool = False):
         """

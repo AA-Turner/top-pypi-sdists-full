@@ -580,6 +580,12 @@ class CreatePermissionVersionResponse(TypedDict, total=False):
     clientToken: String | None
 
 
+class ResourceShareConfiguration(TypedDict, total=False):
+    """The configuration of the resource share"""
+
+    retainSharingOnAccountLeaveOrganization: Boolean | None
+
+
 PermissionArnList = list[String]
 
 
@@ -592,6 +598,7 @@ class CreateResourceShareRequest(ServiceRequest):
     clientToken: String | None
     permissionArns: PermissionArnList | None
     sources: SourceArnOrAccountList | None
+    resourceShareConfiguration: ResourceShareConfiguration | None
 
 
 class ResourceShare(TypedDict, total=False):
@@ -607,6 +614,7 @@ class ResourceShare(TypedDict, total=False):
     creationTime: DateTime | None
     lastUpdatedTime: DateTime | None
     featureSet: ResourceShareFeatureSet | None
+    resourceShareConfiguration: ResourceShareConfiguration | None
 
 
 class CreateResourceShareResponse(TypedDict, total=False):
@@ -1076,10 +1084,8 @@ class RamApi:
         included in the resource share are available to interact with in the
         relevant Amazon Web Services Management Consoles and tools.
 
-        :param resource_share_invitation_arn: The `Amazon Resource Name
-        (ARN) <https://docs.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param resource_share_invitation_arn: The `Amazon Resource Name (ARN) <https://docs.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: AcceptResourceShareInvitationResponse
         :raises MalformedArnException:
         :raises OperationNotPermittedException:
@@ -1111,16 +1117,11 @@ class RamApi:
         added principals immediately receive access to the resources shared in
         this resource share.
 
-        :param resource_share_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param resource_arns: Specifies a list of `Amazon Resource Names
-        (ARNs) <https://docs.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param resource_arns: Specifies a list of `Amazon Resource Names (ARNs) <https://docs.
         :param principals: Specifies a list of principals to whom you want to the resource share.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
-        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or
-        organization paths) that limit when service principals can access
-        resources in this resource share.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or organization paths) that limit when service principals can access resources in this resource share.
         :returns: AssociateResourceShareResponse
         :raises IdempotentParameterMismatchException:
         :raises UnknownResourceException:
@@ -1155,16 +1156,11 @@ class RamApi:
         only if there are currently no resources of that resource type currently
         in the resource share.
 
-        :param resource_share_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param replace: Specifies whether the specified permission should replace the existing
-        permission associated with the resource share.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
-        :param permission_version: Specifies the version of the RAM permission to associate with the
-        resource share.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param replace: Specifies whether the specified permission should replace the existing permission associated with the resource share.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param permission_version: Specifies the version of the RAM permission to associate with the resource share.
         :returns: AssociateResourceSharePermissionResponse
         :raises MalformedArnException:
         :raises UnknownResourceException:
@@ -1192,16 +1188,10 @@ class RamApi:
         Services Region in which you call the operation.
 
         :param name: Specifies the name of the customer managed permission.
-        :param resource_type: Specifies the name of the resource type that this customer managed
-        permission applies to.
-        :param policy_template: A string in JSON format string that contains the following elements of a
-        resource-based policy:
-
-        -  **Effect**: must be set to ``ALLOW``.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
-        :param tags: Specifies a list of one or more tag key and value pairs to attach to the
-        permission.
+        :param resource_type: Specifies the name of the resource type that this customer managed permission applies to.
+        :param policy_template: A string in JSON format string that contains the following elements of a resource-based policy:  -  **Effect**: must be set to ``ALLOW``.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param tags: Specifies a list of one or more tag key and value pairs to attach to the permission.
         :returns: CreatePermissionResponse
         :raises InvalidParameterException:
         :raises InvalidPolicyException:
@@ -1236,14 +1226,9 @@ class RamApi:
         5 versions, then you must delete one of the existing versions before you
         can create a new one.
 
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param policy_template: A string in JSON format string that contains the following elements of a
-        resource-based policy:
-
-        -  **Effect**: must be set to ``ALLOW``.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param policy_template: A string in JSON format string that contains the following elements of a resource-based policy:  -  **Effect**: must be set to ``ALLOW``.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: CreatePermissionVersionResponse
         :raises InvalidParameterException:
         :raises InvalidPolicyException:
@@ -1270,6 +1255,7 @@ class RamApi:
         client_token: String | None = None,
         permission_arns: PermissionArnList | None = None,
         sources: SourceArnOrAccountList | None = None,
+        resource_share_configuration: ResourceShareConfiguration | None = None,
         **kwargs,
     ) -> CreateResourceShareResponse:
         """Creates a resource share. You can provide a list of the `Amazon Resource
@@ -1286,20 +1272,14 @@ class RamApi:
         the account that created it.
 
         :param name: Specifies the name of the resource share.
-        :param resource_arns: Specifies a list of one or more ARNs of the resources to associate with
-        the resource share.
-        :param principals: Specifies a list of one or more principals to associate with the
-        resource share.
+        :param resource_arns: Specifies a list of one or more ARNs of the resources to associate with the resource share.
+        :param principals: Specifies a list of one or more principals to associate with the resource share.
         :param tags: Specifies one or more tags to attach to the resource share itself.
-        :param allow_external_principals: Specifies whether principals outside your organization in Organizations
-        can be associated with a resource share.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
-        :param permission_arns: Specifies the `Amazon Resource Names
-        (ARNs) <https://docs.
-        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or
-        organization paths) that limit when service principals can access
-        resources in this resource share.
+        :param allow_external_principals: Specifies whether principals outside your organization in Organizations can be associated with a resource share.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param permission_arns: Specifies the `Amazon Resource Names (ARNs) <https://docs.
+        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or organization paths) that limit when service principals can access resources in this resource share.
+        :param resource_share_configuration: Specifies the configuration of this resource share.
         :returns: CreateResourceShareResponse
         :raises IdempotentParameterMismatchException:
         :raises InvalidStateTransitionException:
@@ -1331,10 +1311,8 @@ class RamApi:
         share. The operation deletes all versions associated with the customer
         managed permission.
 
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: DeletePermissionResponse
         :raises MalformedArnException:
         :raises ServerInternalException:
@@ -1362,11 +1340,9 @@ class RamApi:
         If a customer managed permission has the maximum of 5 versions, then you
         must delete at least one version before you can create another.
 
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :param permission_version: Specifies the version number to delete.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: DeletePermissionVersionResponse
         :raises MalformedArnException:
         :raises InvalidParameterException:
@@ -1393,10 +1369,8 @@ class RamApi:
         resource share; it only stops the sharing of those resources through
         this resource share.
 
-        :param resource_share_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: DeleteResourceShareResponse
         :raises OperationNotPermittedException:
         :raises IdempotentParameterMismatchException:
@@ -1425,16 +1399,11 @@ class RamApi:
         """Removes the specified principals, resources, or source constraints from
         participating in the specified resource share.
 
-        :param resource_share_arn: Specifies `Amazon Resource Name
-        (ARN) <https://docs.
-        :param resource_arns: Specifies a list of `Amazon Resource Names
-        (ARNs) <https://docs.
-        :param principals: Specifies a list of one or more principals that no longer are to have
-        access to the resources in this resource share.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
-        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or
-        organization paths) to remove from the resource share.
+        :param resource_share_arn: Specifies `Amazon Resource Name (ARN) <https://docs.
+        :param resource_arns: Specifies a list of `Amazon Resource Names (ARNs) <https://docs.
+        :param principals: Specifies a list of one or more principals that no longer are to have access to the resources in this resource share.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or organization paths) to remove from the resource share.
         :returns: DisassociateResourceShareResponse
         :raises IdempotentParameterMismatchException:
         :raises ResourceShareLimitExceededException:
@@ -1464,12 +1433,9 @@ class RamApi:
         resource share only if there are currently no resources of the relevant
         resource type currently attached to the resource share.
 
-        :param resource_share_arn: The `Amazon Resource Name
-        (ARN) <https://docs.
-        :param permission_arn: The `Amazon Resource Name
-        (ARN) <https://docs.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param resource_share_arn: The `Amazon Resource Name (ARN) <https://docs.
+        :param permission_arn: The `Amazon Resource Name (ARN) <https://docs.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: DisassociateResourceSharePermissionResponse
         :raises MalformedArnException:
         :raises UnknownResourceException:
@@ -1518,8 +1484,7 @@ class RamApi:
     ) -> GetPermissionResponse:
         """Retrieves the contents of a managed permission in JSON format.
 
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :param permission_version: Specifies the version number of the RAM permission to retrieve.
         :returns: GetPermissionResponse
         :raises InvalidParameterException:
@@ -1550,12 +1515,10 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param resource_arns: Specifies the `Amazon Resource Names
-        (ARNs) <https://docs.
+        :param resource_arns: Specifies the `Amazon Resource Names (ARNs) <https://docs.
         :param principal: Specifies the principal.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
         :returns: GetResourcePoliciesResponse
         :raises MalformedArnException:
         :raises InvalidNextTokenException:
@@ -1588,19 +1551,13 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param association_type: Specifies whether you want to retrieve the associations that involve a
-        specified resource or principal.
-        :param resource_share_arns: Specifies a list of `Amazon Resource Names
-        (ARNs) <https://docs.
-        :param resource_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param principal: Specifies the ID of the principal whose resource shares you want to
-        retrieve.
-        :param association_status: Specifies that you want to retrieve only associations that have this
-        status.
+        :param association_type: Specifies whether you want to retrieve the associations that involve a specified resource or principal.
+        :param resource_share_arns: Specifies a list of `Amazon Resource Names (ARNs) <https://docs.
+        :param resource_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param principal: Specifies the ID of the principal whose resource shares you want to retrieve.
+        :param association_status: Specifies that you want to retrieve only associations that have this status.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
         :returns: GetResourceShareAssociationsResponse
         :raises UnknownResourceException:
         :raises MalformedArnException:
@@ -1631,14 +1588,10 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param resource_share_invitation_arns: Specifies the `Amazon Resource Names
-        (ARNs) <https://docs.
-        :param resource_share_arns: Specifies that you want details about invitations only for the resource
-        shares described by this list of `Amazon Resource Names
-        (ARNs) <https://docs.
+        :param resource_share_invitation_arns: Specifies the `Amazon Resource Names (ARNs) <https://docs.
+        :param resource_share_arns: Specifies that you want details about invitations only for the resource shares described by this list of `Amazon Resource Names (ARNs) <https://docs.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
         :returns: GetResourceShareInvitationsResponse
         :raises ResourceShareInvitationArnNotFoundException:
         :raises InvalidMaxResultsException:
@@ -1675,30 +1628,15 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param resource_owner: Specifies that you want to retrieve details of only those resource
-        shares that match the following:
-
-        -  **``SELF``** – resource shares that your account shares with other
-           accounts
-
-        -  **``OTHER-ACCOUNTS``** – resource shares that other accounts share
-           with your account.
-        :param resource_share_arns: Specifies the `Amazon Resource Names
-        (ARNs) <https://docs.
-        :param resource_share_status: Specifies that you want to retrieve details of only those resource
-        shares that have this status.
-        :param name: Specifies the name of an individual resource share that you want to
-        retrieve details about.
-        :param tag_filters: Specifies that you want to retrieve details of only those resource
-        shares that match the specified tag keys and values.
+        :param resource_owner: Specifies that you want to retrieve details of only those resource shares that match the following:  -  **``SELF``** – resource shares that your account shares with other    accounts  -  **``OTHER-ACCOUNTS``** – resource shares that other accounts share    with your account.
+        :param resource_share_arns: Specifies the `Amazon Resource Names (ARNs) <https://docs.
+        :param resource_share_status: Specifies that you want to retrieve details of only those resource shares that have this status.
+        :param name: Specifies the name of an individual resource share that you want to retrieve details about.
+        :param tag_filters: Specifies that you want to retrieve details of only those resource shares that match the specified tag keys and values.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
-        :param permission_arn: Specifies that you want to retrieve details of only those resource
-        shares that use the managed permission with this `Amazon Resource Name
-        (ARN) <https://docs.
-        :param permission_version: Specifies that you want to retrieve details for only those resource
-        shares that use the specified version of the managed permission.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
+        :param permission_arn: Specifies that you want to retrieve details of only those resource shares that use the managed permission with this `Amazon Resource Name (ARN) <https://docs.
+        :param permission_version: Specifies that you want to retrieve details for only those resource shares that use the specified version of the managed permission.
         :returns: GetResourceSharesResponse
         :raises UnknownResourceException:
         :raises MalformedArnException:
@@ -1729,13 +1667,10 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param resource_share_invitation_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param resource_share_invitation_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
-        :param resource_region_scope: Specifies that you want the results to include only resources that have
-        the specified scope.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
+        :param resource_region_scope: Specifies that you want the results to include only resources that have the specified scope.
         :returns: ListPendingInvitationResourcesResponse
         :raises MalformedArnException:
         :raises InvalidNextTokenException:
@@ -1774,22 +1709,14 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param permission_version: Specifies that you want to list only those associations with resource
-        shares that use this version of the managed permission.
-        :param association_status: Specifies that you want to list only those associations with resource
-        shares that match this status.
-        :param resource_type: Specifies that you want to list only those associations with resource
-        shares that include at least one resource of this resource type.
-        :param feature_set: Specifies that you want to list only those associations with resource
-        shares that have a ``featureSet`` with this value.
-        :param default_version: When ``true``, specifies that you want to list only those associations
-        with resource shares that use the default version of the specified
-        managed permission.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param permission_version: Specifies that you want to list only those associations with resource shares that use this version of the managed permission.
+        :param association_status: Specifies that you want to list only those associations with resource shares that match this status.
+        :param resource_type: Specifies that you want to list only those associations with resource shares that include at least one resource of this resource type.
+        :param feature_set: Specifies that you want to list only those associations with resource shares that have a ``featureSet`` with this value.
+        :param default_version: When ``true``, specifies that you want to list only those associations with resource shares that use the default version of the specified managed permission.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
         :returns: ListPermissionAssociationsResponse
         :raises InvalidParameterException:
         :raises MalformedArnException:
@@ -1816,11 +1743,9 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
         :returns: ListPermissionVersionsResponse
         :raises MalformedArnException:
         :raises UnknownResourceException:
@@ -1851,14 +1776,10 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param resource_type: Specifies that you want to list only those permissions that apply to the
-        specified resource type.
+        :param resource_type: Specifies that you want to list only those permissions that apply to the specified resource type.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
-        :param permission_type: Specifies that you want to list only permissions of this type:
-
-        -  ``AWS`` – returns only Amazon Web Services managed permissions.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
+        :param permission_type: Specifies that you want to list only permissions of this type:  -  ``AWS`` – returns only Amazon Web Services managed permissions.
         :returns: ListPermissionsResponse
         :raises InvalidParameterException:
         :raises InvalidNextTokenException:
@@ -1890,28 +1811,13 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param resource_owner: Specifies that you want to list information for only resource shares
-        that match the following:
-
-        -  **``SELF``** – principals that your account is sharing resources with
-
-        -  **``OTHER-ACCOUNTS``** – principals that are sharing resources with
-           your account.
-        :param resource_arn: Specifies that you want to list principal information for the resource
-        share with the specified `Amazon Resource Name
-        (ARN) <https://docs.
-        :param principals: Specifies that you want to list information for only the listed
-        principals.
-        :param resource_type: Specifies that you want to list information for only principals
-        associated with resource shares that include the specified resource
-        type.
-        :param resource_share_arns: Specifies that you want to list information for only principals
-        associated with the resource shares specified by a list the `Amazon
-        Resource Names
-        (ARNs) <https://docs.
+        :param resource_owner: Specifies that you want to list information for only resource shares that match the following:  -  **``SELF``** – principals that your account is sharing resources with  -  **``OTHER-ACCOUNTS``** – principals that are sharing resources with    your account.
+        :param resource_arn: Specifies that you want to list principal information for the resource share with the specified `Amazon Resource Name (ARN) <https://docs.
+        :param principals: Specifies that you want to list information for only the listed principals.
+        :param resource_type: Specifies that you want to list information for only principals associated with resource shares that include the specified resource type.
+        :param resource_share_arns: Specifies that you want to list information for only principals associated with the resource shares specified by a list the `Amazon Resource Names (ARNs) <https://docs.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
         :returns: ListPrincipalsResponse
         :raises MalformedArnException:
         :raises UnknownResourceException:
@@ -1942,11 +1848,9 @@ class RamApi:
         when there are no more results to display.
 
         :param work_ids: A list of IDs.
-        :param status: Specifies that you want to see only the details about requests with a
-        status that matches this value.
+        :param status: Specifies that you want to see only the details about requests with a status that matches this value.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
         :returns: ListReplacePermissionAssociationsWorkResponse
         :raises ServerInternalException:
         :raises ServiceUnavailableException:
@@ -1972,11 +1876,9 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param resource_share_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
         :returns: ListResourceSharePermissionsResponse
         :raises InvalidParameterException:
         :raises MalformedArnException:
@@ -2000,10 +1902,8 @@ class RamApi:
         """Lists the resource types that can be shared by RAM.
 
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
-        :param resource_region_scope: Specifies that you want the results to include only resources that have
-        the specified scope.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
+        :param resource_region_scope: Specifies that you want the results to include only resources that have the specified scope.
         :returns: ListResourceTypesResponse
         :raises InvalidNextTokenException:
         :raises InvalidParameterException:
@@ -2035,28 +1935,14 @@ class RamApi:
         available. The ``NextToken`` response parameter value is ``null`` *only*
         when there are no more results to display.
 
-        :param resource_owner: Specifies that you want to list only the resource shares that match the
-        following:
-
-        -  **``SELF``** – resources that your account shares with other accounts
-
-        -  **``OTHER-ACCOUNTS``** – resources that other accounts share with
-           your account.
-        :param principal: Specifies that you want to list only the resource shares that are
-        associated with the specified principal.
-        :param resource_type: Specifies that you want to list only the resource shares that include
-        resources of the specified resource type.
-        :param resource_arns: Specifies that you want to list only the resource shares that include
-        resources with the specified `Amazon Resource Names
-        (ARNs) <https://docs.
-        :param resource_share_arns: Specifies that you want to list only resources in the resource shares
-        identified by the specified `Amazon Resource Names
-        (ARNs) <https://docs.
+        :param resource_owner: Specifies that you want to list only the resource shares that match the following:  -  **``SELF``** – resources that your account shares with other accounts  -  **``OTHER-ACCOUNTS``** – resources that other accounts share with    your account.
+        :param principal: Specifies that you want to list only the resource shares that are associated with the specified principal.
+        :param resource_type: Specifies that you want to list only the resource shares that include resources of the specified resource type.
+        :param resource_arns: Specifies that you want to list only the resource shares that include resources with the specified `Amazon Resource Names (ARNs) <https://docs.
+        :param resource_share_arns: Specifies that you want to list only resources in the resource shares identified by the specified `Amazon Resource Names (ARNs) <https://docs.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included on each
-        page of the response.
-        :param resource_region_scope: Specifies that you want the results to include only resources that have
-        the specified scope.
+        :param max_results: Specifies the total number of results that you want included on each page of the response.
+        :param resource_region_scope: Specifies that you want the results to include only resources that have the specified scope.
         :returns: ListResourcesResponse
         :raises InvalidResourceTypeException:
         :raises UnknownResourceException:
@@ -2090,10 +1976,8 @@ class RamApi:
         pagination to ensure that the operation returns quickly and
         successfully.
 
-        :param resource_share_arns: The Amazon Resource Names (ARNs) of the resource shares for which you
-        want to retrieve source associations.
-        :param source_id: The identifier of the source for which you want to retrieve
-        associations.
+        :param resource_share_arns: The Amazon Resource Names (ARNs) of the resource shares for which you want to retrieve source associations.
+        :param source_id: The identifier of the source for which you want to retrieve associations.
         :param source_type: The type of source for which you want to retrieve associations.
         :param association_status: The status of the source associations that you want to retrieve.
         :param next_token: The pagination token that indicates the next set of results to retrieve.
@@ -2149,11 +2033,9 @@ class RamApi:
            ``CREATED_FROM_POLICY`` managed permission has no other associations
            to A resource share, then RAM automatically deletes it.
 
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :param name: Specifies a name for the promoted customer managed permission.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: PromotePermissionCreatedFromPolicyResponse
         :raises MalformedArnException:
         :raises InvalidPolicyException:
@@ -2189,8 +2071,7 @@ class RamApi:
         permission that exactly matches the existing ``CREATED_FROM_POLICY``
         permission, then this operation fails.
 
-        :param resource_share_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :returns: PromoteResourceShareCreatedFromPolicyResponse
         :raises MalformedArnException:
         :raises ResourceShareLimitExceededException:
@@ -2216,10 +2097,8 @@ class RamApi:
         """Rejects an invitation to a resource share from another Amazon Web
         Services account.
 
-        :param resource_share_invitation_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param resource_share_invitation_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: RejectResourceShareInvitationResponse
         :raises MalformedArnException:
         :raises OperationNotPermittedException:
@@ -2262,16 +2141,10 @@ class RamApi:
         To successfully perform this operation, you must have permission to
         update the resource-based policy on all affected resource types.
 
-        :param from_permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param to_permission_arn: Specifies the ARN of the managed permission that you want to associate
-        with resource shares in place of the one specified by
-        ``fromPerssionArn`` and ``fromPermissionVersion``.
-        :param from_permission_version: Specifies that you want to updated the permissions for only those
-        resource shares that use the specified version of the managed
-        permission.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param from_permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param to_permission_arn: Specifies the ARN of the managed permission that you want to associate with resource shares in place of the one specified by ``fromPerssionArn`` and ``fromPermissionVersion``.
+        :param from_permission_version: Specifies that you want to updated the permissions for only those resource shares that use the specified version of the managed permission.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: ReplacePermissionAssociationsResponse
         :raises MalformedArnException:
         :raises InvalidParameterException:
@@ -2299,12 +2172,9 @@ class RamApi:
         use their original permission version, but you can use
         ReplacePermissionAssociations to update them.
 
-        :param permission_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param permission_version: Specifies the version number that you want to designate as the default
-        for customer managed permission.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param permission_version: Specifies the version number that you want to designate as the default for customer managed permission.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: SetDefaultPermissionVersionResponse
         :raises InvalidParameterException:
         :raises MalformedArnException:
@@ -2334,10 +2204,8 @@ class RamApi:
         managed permission.
 
         :param tags: A list of one or more tag key and value pairs.
-        :param resource_share_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param resource_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param resource_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :returns: TagResourceResponse
         :raises InvalidParameterException:
         :raises MalformedArnException:
@@ -2363,10 +2231,8 @@ class RamApi:
         resource share or managed permission.
 
         :param tag_keys: Specifies a list of one or more tag keys that you want to remove.
-        :param resource_share_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param resource_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param resource_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
         :returns: UntagResourceResponse
         :raises UnknownResourceException:
         :raises InvalidParameterException:
@@ -2388,14 +2254,10 @@ class RamApi:
     ) -> UpdateResourceShareResponse:
         """Modifies some of the properties of the specified resource share.
 
-        :param resource_share_arn: Specifies the `Amazon Resource Name
-        (ARN) <https://docs.
-        :param name: If specified, the new name that you want to attach to the resource
-        share.
-        :param allow_external_principals: Specifies whether principals outside your organization in Organizations
-        can be associated with a resource share.
-        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the request.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.
+        :param name: If specified, the new name that you want to attach to the resource share.
+        :param allow_external_principals: Specifies whether principals outside your organization in Organizations can be associated with a resource share.
+        :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: UpdateResourceShareResponse
         :raises IdempotentParameterMismatchException:
         :raises MissingRequiredParameterException:

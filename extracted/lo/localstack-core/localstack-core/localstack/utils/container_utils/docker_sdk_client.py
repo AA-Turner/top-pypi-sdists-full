@@ -59,7 +59,7 @@ class SdkDockerClient(ContainerClient):
 
     docker_client: DockerClient | None
 
-    def __init__(self):
+    def __init__(self) -> None:
         try:
             self.docker_client = self._create_client()
             logging.getLogger("urllib3").setLevel(logging.INFO)
@@ -750,6 +750,8 @@ class SdkDockerClient(ContainerClient):
         cpu_shares: int | None = None,
         mem_limit: int | str | None = None,
         auth_config: dict[str, str] | None = None,
+        cgroupns: str | None = None,
+        hostname: str | None = None,
     ) -> str:
         LOG.debug("Creating container with attributes: %s", locals())
         extra_hosts = None
@@ -818,6 +820,10 @@ class SdkDockerClient(ContainerClient):
                 kwargs["cpu_shares"] = cpu_shares
             if mem_limit:
                 kwargs["mem_limit"] = mem_limit
+            if cgroupns:
+                kwargs["cgroupns"] = cgroupns
+            if hostname:
+                kwargs["hostname"] = hostname
             mounts = None
             if volumes:
                 mounts = Util.convert_mount_list_to_dict(volumes)
@@ -888,6 +894,8 @@ class SdkDockerClient(ContainerClient):
         cpu_shares: int | None = None,
         mem_limit: int | str | None = None,
         auth_config: dict[str, str] | None = None,
+        cgroupns: str | None = None,
+        hostname: str | None = None,
     ) -> tuple[bytes, bytes]:
         LOG.debug("Running container with image: %s", image_name)
         container = None
@@ -922,6 +930,8 @@ class SdkDockerClient(ContainerClient):
                 cpu_shares=cpu_shares,
                 mem_limit=mem_limit,
                 auth_config=auth_config,
+                cgroupns=cgroupns,
+                hostname=hostname,
             )
             result = self.start_container(
                 container_name_or_id=container,

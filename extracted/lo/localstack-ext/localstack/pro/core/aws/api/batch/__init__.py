@@ -375,6 +375,12 @@ class UpdatePolicy(TypedDict, total=False):
     jobExecutionTimeoutMinutes: JobExecutionTimeoutMinutes | None
 
 
+class ComputeScalingPolicy(TypedDict, total=False):
+    """An object that represents a scaling policy for a compute environment."""
+
+    minScaleDownDelayMinutes: Integer | None
+
+
 class Ec2Configuration(TypedDict, total=False):
     """Provides information used to select Amazon Machine Images (AMIs) for
     instances in the compute environment. If ``Ec2Configuration`` isn't
@@ -468,6 +474,7 @@ class ComputeResource(TypedDict, total=False):
     spotIamFleetRole: String | None
     launchTemplate: LaunchTemplateSpecification | None
     ec2Configuration: Ec2ConfigurationList | None
+    scalingPolicy: ComputeScalingPolicy | None
 
 
 TagrisTagsMap = dict[TagKey, TagValue]
@@ -536,6 +543,7 @@ class ComputeResourceUpdate(TypedDict, total=False):
     updateToLatestImageVersion: Boolean | None
     type: CRType | None
     imageId: String | None
+    scalingPolicy: ComputeScalingPolicy | None
 
 
 class ConsumableResourceRequirement(TypedDict, total=False):
@@ -2431,8 +2439,7 @@ class BatchApi:
         canceled. These jobs must be terminated with the TerminateJob operation.
 
         :param job_id: The Batch job ID of the job to cancel.
-        :param reason: A message to attach to the job that explains the reason for canceling
-        it.
+        :param reason: A message to attach to the job that explains the reason for canceling it.
         :returns: CancelJobResponse
         :raises ClientException:
         :raises ServerException:
@@ -2486,12 +2493,9 @@ class BatchApi:
         :param state: The state of the compute environment.
         :param unmanagedv_cpus: The maximum number of vCPUs for an unmanaged compute environment.
         :param compute_resources: Details about the compute resources managed by the compute environment.
-        :param service_role: The full Amazon Resource Name (ARN) of the IAM role that allows Batch to
-        make calls to other Amazon Web Services services on your behalf.
-        :param tags: The tags that you apply to the compute environment to help you
-        categorize and organize your resources.
-        :param eks_configuration: The details for the Amazon EKS cluster that supports the compute
-        environment.
+        :param service_role: The full Amazon Resource Name (ARN) of the IAM role that allows Batch to make calls to other Amazon Web Services services on your behalf.
+        :param tags: The tags that you apply to the compute environment to help you categorize and organize your resources.
+        :param eks_configuration: The details for the Amazon EKS cluster that supports the compute environment.
         :param context: Reserved.
         :returns: CreateComputeEnvironmentResponse
         :raises ClientException:
@@ -2513,10 +2517,8 @@ class BatchApi:
 
         :param consumable_resource_name: The name of the consumable resource.
         :param total_quantity: The total amount of the consumable resource that is available.
-        :param resource_type: Indicates whether the resource is available to be re-used after a job
-        completes.
-        :param tags: The tags that you apply to the consumable resource to help you
-        categorize and organize your resources.
+        :param resource_type: Indicates whether the resource is available to be re-used after a job completes.
+        :param tags: The tags that you apply to the consumable resource to help you categorize and organize your resources.
         :returns: CreateConsumableResourceResponse
         :raises ClientException:
         :raises ServerException:
@@ -2552,15 +2554,11 @@ class BatchApi:
         :param priority: The priority of the job queue.
         :param state: The state of the job queue.
         :param scheduling_policy_arn: The Amazon Resource Name (ARN) of the fair-share scheduling policy.
-        :param compute_environment_order: The set of compute environments mapped to a job queue and their order
-        relative to each other.
-        :param service_environment_order: A list of service environments that this job queue can use to allocate
-        jobs.
+        :param compute_environment_order: The set of compute environments mapped to a job queue and their order relative to each other.
+        :param service_environment_order: A list of service environments that this job queue can use to allocate jobs.
         :param job_queue_type: The type of job queue.
-        :param tags: The tags that you apply to the job queue to help you categorize and
-        organize your resources.
-        :param job_state_time_limit_actions: The set of actions that Batch performs on jobs that remain at the head
-        of the job queue in the specified state longer than specified times.
+        :param tags: The tags that you apply to the job queue to help you categorize and organize your resources.
+        :param job_state_time_limit_actions: The set of actions that Batch performs on jobs that remain at the head of the job queue in the specified state longer than specified times.
         :returns: CreateJobQueueResponse
         :raises ClientException:
         :raises ServerException:
@@ -2580,8 +2578,7 @@ class BatchApi:
 
         :param name: The name of the fair-share scheduling policy.
         :param fairshare_policy: The fair-share scheduling policy details.
-        :param tags: The tags that you apply to the scheduling policy to help you categorize
-        and organize your resources.
+        :param tags: The tags that you apply to the scheduling policy to help you categorize and organize your resources.
         :returns: CreateSchedulingPolicyResponse
         :raises ClientException:
         :raises ServerException:
@@ -2607,8 +2604,7 @@ class BatchApi:
         :param service_environment_type: The type of service environment.
         :param capacity_limits: The capacity limits for the service environment.
         :param state: The state of the service environment.
-        :param tags: The tags that you apply to the service environment to help you
-        categorize and organize your resources.
+        :param tags: The tags that you apply to the service environment to help you categorize and organize your resources.
         :returns: CreateServiceEnvironmentResponse
         :raises ClientException:
         :raises ServerException:
@@ -2629,8 +2625,7 @@ class BatchApi:
         the compute environment. If this isn't done, the compute environment
         enters an invalid state.
 
-        :param compute_environment: The name or Amazon Resource Name (ARN) of the compute environment to
-        delete.
+        :param compute_environment: The name or Amazon Resource Name (ARN) of the compute environment to delete.
         :returns: DeleteComputeEnvironmentResponse
         :raises ClientException:
         :raises ServerException:
@@ -2662,8 +2657,7 @@ class BatchApi:
         It's not necessary to disassociate compute environments from a queue
         before submitting a ``DeleteJobQueue`` request.
 
-        :param job_queue: The short name or full Amazon Resource Name (ARN) of the queue to
-        delete.
+        :param job_queue: The short name or full Amazon Resource Name (ARN) of the queue to delete.
         :returns: DeleteJobQueueResponse
         :raises ClientException:
         :raises ServerException:
@@ -2708,8 +2702,7 @@ class BatchApi:
         """Deregisters an Batch job definition. Job definitions are permanently
         deleted after 180 days.
 
-        :param job_definition: The name and revision (``name:revision``) or full Amazon Resource Name
-        (ARN) of the job definition to deregister.
+        :param job_definition: The name and revision (``name:revision``) or full Amazon Resource Name (ARN) of the job definition to deregister.
         :returns: DeregisterJobDefinitionResponse
         :raises ClientException:
         :raises ServerException:
@@ -2732,13 +2725,9 @@ class BatchApi:
         ``ecsClusterArn`` that you launch your Amazon ECS container instances
         into.
 
-        :param compute_environments: A list of up to 100 compute environment names or full Amazon Resource
-        Name (ARN) entries.
-        :param max_results: The maximum number of cluster results returned by
-        ``DescribeComputeEnvironments`` in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeComputeEnvironments`` request where ``maxResults`` was used
-        and the results exceeded the value of that parameter.
+        :param compute_environments: A list of up to 100 compute environment names or full Amazon Resource Name (ARN) entries.
+        :param max_results: The maximum number of cluster results returned by ``DescribeComputeEnvironments`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeComputeEnvironments`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: DescribeComputeEnvironmentsResponse
         :raises ClientException:
         :raises ServerException:
@@ -2751,8 +2740,7 @@ class BatchApi:
     ) -> DescribeConsumableResourceResponse:
         """Returns a description of the specified consumable resource.
 
-        :param consumable_resource: The name or ARN of the consumable resource whose description will be
-        returned.
+        :param consumable_resource: The name or ARN of the consumable resource whose description will be returned.
         :returns: DescribeConsumableResourceResponse
         :raises ClientException:
         :raises ServerException:
@@ -2774,13 +2762,10 @@ class BatchApi:
         as ``ACTIVE``) to only return job definitions that match that status.
 
         :param job_definitions: A list of up to 100 job definitions.
-        :param max_results: The maximum number of results returned by ``DescribeJobDefinitions`` in
-        paginated output.
+        :param max_results: The maximum number of results returned by ``DescribeJobDefinitions`` in paginated output.
         :param job_definition_name: The name of the job definition to describe.
         :param status: The status used to filter job definitions.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeJobDefinitions`` request where ``maxResults`` was used and the
-        results exceeded the value of that parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeJobDefinitions`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: DescribeJobDefinitionsResponse
         :raises ClientException:
         :raises ServerException:
@@ -2798,13 +2783,9 @@ class BatchApi:
     ) -> DescribeJobQueuesResponse:
         """Describes one or more of your job queues.
 
-        :param job_queues: A list of up to 100 queue names or full queue Amazon Resource Name (ARN)
-        entries.
-        :param max_results: The maximum number of results returned by ``DescribeJobQueues`` in
-        paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeJobQueues`` request where ``maxResults`` was used and the
-        results exceeded the value of that parameter.
+        :param job_queues: A list of up to 100 queue names or full queue Amazon Resource Name (ARN) entries.
+        :param max_results: The maximum number of results returned by ``DescribeJobQueues`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeJobQueues`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: DescribeJobQueuesResponse
         :raises ClientException:
         :raises ServerException:
@@ -2830,8 +2811,7 @@ class BatchApi:
     ) -> DescribeSchedulingPoliciesResponse:
         """Describes one or more of your scheduling policies.
 
-        :param arns: A list of up to 100 scheduling policy Amazon Resource Name (ARN)
-        entries.
+        :param arns: A list of up to 100 scheduling policy Amazon Resource Name (ARN) entries.
         :returns: DescribeSchedulingPoliciesResponse
         :raises ClientException:
         :raises ServerException:
@@ -2850,11 +2830,8 @@ class BatchApi:
         """Describes one or more of your service environments.
 
         :param service_environments: An array of service environment names or ARN entries.
-        :param max_results: The maximum number of results returned by
-        ``DescribeServiceEnvironments`` in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeServiceEnvironments`` request where ``maxResults`` was used
-        and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of results returned by ``DescribeServiceEnvironments`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeServiceEnvironments`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: DescribeServiceEnvironmentsResponse
         :raises ClientException:
         :raises ServerException:
@@ -2901,11 +2878,8 @@ class BatchApi:
         """Returns a list of Batch consumable resources.
 
         :param filters: The filters to apply to the consumable resource list query.
-        :param max_results: The maximum number of results returned by ``ListConsumableResources`` in
-        paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListConsumableResources`` request where ``maxResults`` was used and
-        the results exceeded the value of that parameter.
+        :param max_results: The maximum number of results returned by ``ListConsumableResources`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListConsumableResources`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListConsumableResourcesResponse
         :raises ClientException:
         :raises ServerException:
@@ -2935,16 +2909,12 @@ class BatchApi:
 
         -  An array job ID to return a list of the children for that job
 
-        :param job_queue: The name or full Amazon Resource Name (ARN) of the job queue used to
-        list jobs.
+        :param job_queue: The name or full Amazon Resource Name (ARN) of the job queue used to list jobs.
         :param array_job_id: The job ID for an array job.
         :param multi_node_job_id: The job ID for a multi-node parallel job.
         :param job_status: The job status used to filter jobs in the specified queue.
-        :param max_results: The maximum number of results returned by ``ListJobs`` in a paginated
-        output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListJobs``
-        request where ``maxResults`` was used and the results exceeded the value
-        of that parameter.
+        :param max_results: The maximum number of results returned by ``ListJobs`` in a paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListJobs`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :param filters: The filter to apply to the query.
         :returns: ListJobsResponse
         :raises ClientException:
@@ -2967,11 +2937,8 @@ class BatchApi:
 
         :param consumable_resource: The name or ARN of the consumable resource.
         :param filters: The filters to apply to the job list query.
-        :param max_results: The maximum number of results returned by
-        ``ListJobsByConsumableResource`` in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListJobsByConsumableResource`` request where ``maxResults`` was used
-        and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of results returned by ``ListJobsByConsumableResource`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListJobsByConsumableResource`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListJobsByConsumableResourceResponse
         :raises ClientException:
         :raises ServerException:
@@ -2988,11 +2955,8 @@ class BatchApi:
     ) -> ListSchedulingPoliciesResponse:
         """Returns a list of Batch scheduling policies.
 
-        :param max_results: The maximum number of results that's returned by
-        ``ListSchedulingPolicies`` in paginated output.
-        :param next_token: The ``nextToken`` value that's returned from a previous paginated
-        ``ListSchedulingPolicies`` request where ``maxResults`` was used and the
-        results exceeded the value of that parameter.
+        :param max_results: The maximum number of results that's returned by ``ListSchedulingPolicies`` in paginated output.
+        :param next_token: The ``nextToken`` value that's returned from a previous paginated ``ListSchedulingPolicies`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListSchedulingPoliciesResponse
         :raises ClientException:
         :raises ServerException:
@@ -3014,11 +2978,8 @@ class BatchApi:
 
         :param job_queue: The name or ARN of the job queue with which to list service jobs.
         :param job_status: The job status used to filter service jobs in the specified queue.
-        :param max_results: The maximum number of results returned by ``ListServiceJobs`` in
-        paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListServiceJobs`` request where ``maxResults`` was used and the
-        results exceeded the value of that parameter.
+        :param max_results: The maximum number of results returned by ``ListServiceJobs`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListServiceJobs`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :param filters: The filter to apply to the query.
         :returns: ListServiceJobsResponse
         :raises ClientException:
@@ -3035,8 +2996,7 @@ class BatchApi:
         scheduling policies. ARNs for child jobs of array and multi-node
         parallel (MNP) jobs aren't supported.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource that tags
-        are listed for.
+        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource that tags are listed for.
         :returns: ListTagsForResourceResponse
         :raises ClientException:
         :raises ServerException:
@@ -3051,22 +3011,14 @@ class BatchApi:
 
         :param job_definition_name: The name of the job definition to register.
         :param type: The type of job definition.
-        :param parameters: Default parameter substitution placeholders to set in the job
-        definition.
-        :param scheduling_priority: The scheduling priority for jobs that are submitted with this job
-        definition.
-        :param container_properties: An object with properties specific to Amazon ECS-based single-node
-        container-based jobs.
+        :param parameters: Default parameter substitution placeholders to set in the job definition.
+        :param scheduling_priority: The scheduling priority for jobs that are submitted with this job definition.
+        :param container_properties: An object with properties specific to Amazon ECS-based single-node container-based jobs.
         :param node_properties: An object with properties specific to multi-node parallel jobs.
-        :param retry_strategy: The retry strategy to use for failed jobs that are submitted with this
-        job definition.
-        :param propagate_tags: Specifies whether to propagate the tags from the job or job definition
-        to the corresponding Amazon ECS task.
-        :param timeout: The timeout configuration for jobs that are submitted with this job
-        definition, after which Batch terminates your jobs if they have not
-        finished.
-        :param tags: The tags that you apply to the job definition to help you categorize and
-        organize your resources.
+        :param retry_strategy: The retry strategy to use for failed jobs that are submitted with this job definition.
+        :param propagate_tags: Specifies whether to propagate the tags from the job or job definition to the corresponding Amazon ECS task.
+        :param timeout: The timeout configuration for jobs that are submitted with this job definition, after which Batch terminates your jobs if they have not finished.
+        :param tags: The tags that you apply to the job definition to help you categorize and organize your resources.
         :param platform_capabilities: The platform capabilities required by the job definition.
         :param eks_properties: An object with properties that are specific to Amazon EKS-based jobs.
         :param ecs_properties: An object with properties that are specific to Amazon ECS-based jobs.
@@ -3121,28 +3073,17 @@ class BatchApi:
         :param job_definition: The job definition used by this job.
         :param share_identifier: The share identifier for the job.
         :param scheduling_priority_override: The scheduling priority for the job.
-        :param array_properties: The array properties for the submitted job, such as the size of the
-        array.
+        :param array_properties: The array properties for the submitted job, such as the size of the array.
         :param depends_on: A list of dependencies for the job.
-        :param parameters: Additional parameters passed to the job that replace parameter
-        substitution placeholders that are set in the job definition.
-        :param container_overrides: An object with properties that override the defaults for the job
-        definition that specify the name of a container in the specified job
-        definition and the overrides it should receive.
-        :param node_overrides: A list of node overrides in JSON format that specify the node range to
-        target and the container overrides for that node range.
+        :param parameters: Additional parameters passed to the job that replace parameter substitution placeholders that are set in the job definition.
+        :param container_overrides: An object with properties that override the defaults for the job definition that specify the name of a container in the specified job definition and the overrides it should receive.
+        :param node_overrides: A list of node overrides in JSON format that specify the node range to target and the container overrides for that node range.
         :param retry_strategy: The retry strategy to use for failed jobs from this SubmitJob operation.
-        :param propagate_tags: Specifies whether to propagate the tags from the job or job definition
-        to the corresponding Amazon ECS task.
+        :param propagate_tags: Specifies whether to propagate the tags from the job or job definition to the corresponding Amazon ECS task.
         :param timeout: The timeout configuration for this SubmitJob operation.
-        :param tags: The tags that you apply to the job request to help you categorize and
-        organize your resources.
-        :param eks_properties_override: An object, with properties that override defaults for the job
-        definition, can only be specified for jobs that are run on Amazon EKS
-        resources.
-        :param ecs_properties_override: An object, with properties that override defaults for the job
-        definition, can only be specified for jobs that are run on Amazon ECS
-        resources.
+        :param tags: The tags that you apply to the job request to help you categorize and organize your resources.
+        :param eks_properties_override: An object, with properties that override defaults for the job definition, can only be specified for jobs that are run on Amazon EKS resources.
+        :param ecs_properties_override: An object, with properties that override defaults for the job definition, can only be specified for jobs that are run on Amazon ECS resources.
         :param consumable_resource_properties_override: An object that contains overrides for the consumable resources of a job.
         :returns: SubmitJobResponse
         :raises ClientException:
@@ -3172,11 +3113,9 @@ class BatchApi:
 
         :param job_name: The name of the service job.
         :param job_queue: The job queue into which the service job is submitted.
-        :param service_request_payload: The request, in JSON, for the service that the SubmitServiceJob
-        operation is queueing.
+        :param service_request_payload: The request, in JSON, for the service that the SubmitServiceJob operation is queueing.
         :param service_job_type: The type of service job.
-        :param retry_strategy: The retry strategy to use for failed service jobs that are submitted
-        with this service job request.
+        :param retry_strategy: The retry strategy to use for failed service jobs that are submitted with this service job request.
         :param scheduling_priority: The scheduling priority of the service job.
         :param share_identifier: The share identifier for the service job.
         :param timeout_config: The timeout configuration for the service job.
@@ -3201,8 +3140,7 @@ class BatchApi:
         array and multi-node parallel (MNP) jobs aren't supported.
 
         :param resource_arn: The Amazon Resource Name (ARN) of the resource that tags are added to.
-        :param tags: The tags that you apply to the resource to help you categorize and
-        organize your resources.
+        :param tags: The tags that you apply to the resource to help you categorize and organize your resources.
         :returns: TagResourceResponse
         :raises ClientException:
         :raises ServerException:
@@ -3219,8 +3157,7 @@ class BatchApi:
         cancelled.
 
         :param job_id: The Batch job ID of the job to terminate.
-        :param reason: A message to attach to the job that explains the reason for canceling
-        it.
+        :param reason: A message to attach to the job that explains the reason for canceling it.
         :returns: TerminateJobResponse
         :raises ClientException:
         :raises ServerException:
@@ -3234,8 +3171,7 @@ class BatchApi:
         """Terminates a service job in a job queue.
 
         :param job_id: The service job ID of the service job to terminate.
-        :param reason: A message to attach to the service job that explains the reason for
-        canceling it.
+        :param reason: A message to attach to the service job that explains the reason for canceling it.
         :returns: TerminateServiceJobResponse
         :raises ClientException:
         :raises ServerException:
@@ -3248,8 +3184,7 @@ class BatchApi:
     ) -> UntagResourceResponse:
         """Deletes specified tags from an Batch resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource from which to delete
-        tags.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource from which to delete tags.
         :param tag_keys: The keys of the tags to be removed.
         :returns: UntagResourceResponse
         :raises ClientException:
@@ -3263,16 +3198,12 @@ class BatchApi:
     ) -> UpdateComputeEnvironmentResponse:
         """Updates an Batch compute environment.
 
-        :param compute_environment: The name or full Amazon Resource Name (ARN) of the compute environment
-        to update.
+        :param compute_environment: The name or full Amazon Resource Name (ARN) of the compute environment to update.
         :param state: The state of the compute environment.
-        :param unmanagedv_cpus: The maximum number of vCPUs expected to be used for an unmanaged compute
-        environment.
+        :param unmanagedv_cpus: The maximum number of vCPUs expected to be used for an unmanaged compute environment.
         :param compute_resources: Details of the compute resources managed by the compute environment.
-        :param service_role: The full Amazon Resource Name (ARN) of the IAM role that allows Batch to
-        make calls to other Amazon Web Services services on your behalf.
-        :param update_policy: Specifies the updated infrastructure update policy for the compute
-        environment.
+        :param service_role: The full Amazon Resource Name (ARN) of the IAM role that allows Batch to make calls to other Amazon Web Services services on your behalf.
+        :param update_policy: Specifies the updated infrastructure update policy for the compute environment.
         :param context: Reserved.
         :returns: UpdateComputeEnvironmentResponse
         :raises ClientException:
@@ -3295,9 +3226,7 @@ class BatchApi:
         :param consumable_resource: The name or ARN of the consumable resource to be updated.
         :param operation: Indicates how the quantity of the consumable resource will be updated.
         :param quantity: The change in the total quantity of the consumable resource.
-        :param client_token: If this parameter is specified and two update requests with identical
-        payloads and ``clientToken`` s are received, these requests are
-        considered the same request.
+        :param client_token: If this parameter is specified and two update requests with identical payloads and ``clientToken`` s are received, these requests are considered the same request.
         :returns: UpdateConsumableResourceResponse
         :raises ClientException:
         :raises ServerException:
@@ -3323,11 +3252,9 @@ class BatchApi:
         :param state: Describes the queue's ability to accept new jobs.
         :param scheduling_policy_arn: Amazon Resource Name (ARN) of the fair-share scheduling policy.
         :param priority: The priority of the job queue.
-        :param compute_environment_order: Details the set of compute environments mapped to a job queue and their
-        order relative to each other.
+        :param compute_environment_order: Details the set of compute environments mapped to a job queue and their order relative to each other.
         :param service_environment_order: The order of the service environment associated with the job queue.
-        :param job_state_time_limit_actions: The set of actions that Batch perform on jobs that remain at the head of
-        the job queue in the specified state longer than specified times.
+        :param job_state_time_limit_actions: The set of actions that Batch perform on jobs that remain at the head of the job queue in the specified state longer than specified times.
         :returns: UpdateJobQueueResponse
         :raises ClientException:
         :raises ServerException:

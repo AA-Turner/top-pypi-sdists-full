@@ -336,10 +336,8 @@ class AccountApi:
         update the primary email address (also known as the root user email
         address) for the specified account.
 
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
-        :param otp: The OTP code sent to the ``PrimaryEmail`` specified on the
-        ``StartPrimaryEmailUpdate`` API call.
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
+        :param otp: The OTP code sent to the ``PrimaryEmail`` specified on the ``StartPrimaryEmailUpdate`` API call.
         :param primary_email: The new primary email address for use with the specified account.
         :returns: AcceptPrimaryEmailUpdateResponse
         :raises ResourceNotFoundException:
@@ -374,8 +372,7 @@ class AccountApi:
         Management <https://docs.aws.amazon.com/accounts/latest/reference/using-orgs-trusted-access.html>`__.
 
         :param alternate_contact_type: Specifies which of the alternate contacts to delete.
-        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :raises ResourceNotFoundException:
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -397,10 +394,8 @@ class AccountApi:
         The act of disabling a Region will remove all IAM access to any
         resources that reside in that Region.
 
-        :param region_name: Specifies the Region-code for a given Region name (for example,
-        ``af-south-1``).
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param region_name: Specifies the Region-code for a given Region name (for example, ``af-south-1``).
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises ConflictException:
@@ -419,10 +414,8 @@ class AccountApi:
     ) -> None:
         """Enables (opts-in) a particular Region for an account.
 
-        :param region_name: Specifies the Region-code for a given Region name (for example,
-        ``af-south-1``).
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param region_name: Specifies the Region-code for a given Region name (for example, ``af-south-1``).
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises ConflictException:
@@ -440,8 +433,7 @@ class AccountApi:
         an IAM user or role must have the ``account:GetAccountInformation`` IAM
         permission.
 
-        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :returns: GetAccountInformationResponse
         :raises AccessDeniedException:
         :raises ValidationException:
@@ -473,8 +465,7 @@ class AccountApi:
         Management <https://docs.aws.amazon.com/accounts/latest/reference/using-orgs-trusted-access.html>`__.
 
         :param alternate_contact_type: Specifies which alternate contact you want to retrieve.
-        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :returns: GetAlternateContactResponse
         :raises ResourceNotFoundException:
         :raises ValidationException:
@@ -495,8 +486,7 @@ class AccountApi:
         see `Update the primary contact for your Amazon Web Services
         account <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-primary.html>`__.
 
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :returns: GetContactInformationResponse
         :raises ResourceNotFoundException:
         :raises ValidationException:
@@ -515,8 +505,7 @@ class AccountApi:
         state. To use this API, an IAM user or role must have the
         ``account:GetGovCloudAccountInformation`` IAM permission.
 
-        :param standard_account_id: Specifies the 12 digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param standard_account_id: Specifies the 12 digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :returns: GetGovCloudAccountInformationResponse
         :raises ResourceNotFoundException:
         :raises ResourceUnavailableException:
@@ -533,8 +522,7 @@ class AccountApi:
     ) -> GetPrimaryEmailResponse:
         """Retrieves the primary email address for the specified account.
 
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :returns: GetPrimaryEmailResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -554,10 +542,8 @@ class AccountApi:
     ) -> GetRegionOptStatusResponse:
         """Retrieves the opt-in status of a particular Region.
 
-        :param region_name: Specifies the Region-code for a given Region name (for example,
-        ``af-south-1``).
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param region_name: Specifies the Region-code for a given Region name (for example, ``af-south-1``).
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :returns: GetRegionOptStatusResponse
         :raises AccessDeniedException:
         :raises ValidationException:
@@ -580,13 +566,10 @@ class AccountApi:
         statuses. Optionally, this list can be filtered by the
         ``region-opt-status-contains`` parameter.
 
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :param max_results: The total number of items to return in the command’s output.
         :param next_token: A token used to specify where to start paginating.
-        :param region_opt_status_contains: A list of Region statuses (Enabling, Enabled, Disabling, Disabled,
-        Enabled_by_default) to use to filter the list of Regions for a given
-        account.
+        :param region_opt_status_contains: A list of Region statuses (Enabling, Enabled, Disabling, Disabled, Enabled_by_default) to use to filter the list of Regions for a given account.
         :returns: ListRegionsResponse
         :raises AccessDeniedException:
         :raises ValidationException:
@@ -607,8 +590,7 @@ class AccountApi:
         principals must have the ``account:PutAccountName`` IAM permission.
 
         :param account_name: The name of the account.
-        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises TooManyRequestsException:
@@ -647,8 +629,7 @@ class AccountApi:
         :param name: Specifies a name for the alternate contact.
         :param phone_number: Specifies a phone number for the alternate contact.
         :param title: Specifies a title for the alternate contact.
-        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :raises ValidationException:
         :raises AccessDeniedException:
         :raises TooManyRequestsException:
@@ -671,10 +652,8 @@ class AccountApi:
         see `Update the primary contact for your Amazon Web Services
         account <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-primary.html>`__.
 
-        :param contact_information: Contains the details of the primary contact information associated with
-        an Amazon Web Services account.
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
+        :param contact_information: Contains the details of the primary contact information associated with an Amazon Web Services account.
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
         :raises ValidationException:
         :raises AccessDeniedException:
         :raises TooManyRequestsException:
@@ -693,10 +672,8 @@ class AccountApi:
         """Starts the process to update the primary email address for the specified
         account.
 
-        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
-        account that you want to access or modify with this operation.
-        :param primary_email: The new primary email address (also known as the root user email
-        address) to use in the specified account.
+        :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services account that you want to access or modify with this operation.
+        :param primary_email: The new primary email address (also known as the root user email address) to use in the specified account.
         :returns: StartPrimaryEmailUpdateResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:

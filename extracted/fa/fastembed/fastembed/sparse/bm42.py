@@ -1,7 +1,7 @@
 import math
 import string
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence, Type, Union
+from typing import Any, Iterable, Sequence, Type
 
 import mmh3
 import numpy as np
@@ -9,6 +9,7 @@ from py_rust_stemmers import SnowballStemmer
 
 from fastembed.common import OnnxProvider
 from fastembed.common.onnx_model import OnnxOutputContext
+from fastembed.common.types import Device
 from fastembed.common.utils import define_cache_dir
 from fastembed.sparse.sparse_embedding_base import (
     SparseEmbedding,
@@ -65,15 +66,15 @@ class Bm42(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
     def __init__(
         self,
         model_name: str,
-        cache_dir: Optional[str] = None,
-        threads: Optional[int] = None,
-        providers: Optional[Sequence[OnnxProvider]] = None,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        providers: Sequence[OnnxProvider] | None = None,
         alpha: float = 0.5,
-        cuda: bool = False,
-        device_ids: Optional[list[int]] = None,
+        cuda: bool | Device = Device.AUTO,
+        device_ids: list[int] | None = None,
         lazy_load: bool = False,
-        device_id: Optional[int] = None,
-        specific_model_path: Optional[str] = None,
+        device_id: int | None = None,
+        specific_model_path: str | None = None,
         **kwargs: Any,
     ):
         """
@@ -87,10 +88,11 @@ class Bm42(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
             alpha (float, optional): Parameter, that defines the importance of the token weight in the document
                 versus the importance of the token frequency in the corpus. Defaults to 0.5, based on empirical testing.
                 It is recommended to only change this parameter based on training data for a specific dataset.
-            cuda (bool, optional): Whether to use cuda for inference. Mutually exclusive with `providers`
-                Defaults to False.
+            cuda (Union[bool, Device], optional): Whether to use cuda for inference. Mutually exclusive with `providers`
+                Defaults to Device.AUTO.
             device_ids (Optional[list[int]], optional): The list of device ids to use for data parallel processing in
-                workers. Should be used with `cuda=True`, mutually exclusive with `providers`. Defaults to None.
+                workers. Should be used with `cuda` equals to `True`, `Device.AUTO` or `Device.CUDA`, mutually exclusive
+                with `providers`. Defaults to None.
             lazy_load (bool, optional): Whether to load the model during class initialization or on demand.
                 Should be set to True when using multiple-gpu and parallel encoding. Defaults to False.
             device_id (Optional[int], optional): The device id to use for loading the model in the worker process.
@@ -110,7 +112,7 @@ class Bm42(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
         self.cuda = cuda
 
         # This device_id will be used if we need to load model in current process
-        self.device_id: Optional[int] = None
+        self.device_id: int | None = None
         if device_id is not None:
             self.device_id = device_id
         elif self.device_ids is not None:
@@ -282,9 +284,9 @@ class Bm42(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
 
     def embed(
         self,
-        documents: Union[str, Iterable[str]],
+        documents: str | Iterable[str],
         batch_size: int = 256,
-        parallel: Optional[int] = None,
+        parallel: int | None = None,
         **kwargs: Any,
     ) -> Iterable[SparseEmbedding]:
         """
@@ -325,9 +327,7 @@ class Bm42(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
             result[token_id] = 1.0
         return result
 
-    def query_embed(
-        self, query: Union[str, Iterable[str]], **kwargs: Any
-    ) -> Iterable[SparseEmbedding]:
+    def query_embed(self, query: str | Iterable[str], **kwargs: Any) -> Iterable[SparseEmbedding]:
         """
         To emulate BM25 behaviour, we don't need to use smart weights in the query, and
         it's enough to just hash the tokens and assign a weight of 1.0 to them.
@@ -353,7 +353,7 @@ class Bm42(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
         return Bm42TextEmbeddingWorker
 
     def token_count(
-        self, texts: Union[str, Iterable[str]], batch_size: int = 1024, **kwargs: Any
+        self, texts: str | Iterable[str], batch_size: int = 1024, **kwargs: Any
     ) -> int:
         if not hasattr(self, "model") or self.model is None:
             self.load_onnx_model()  # loads the tokenizer as well

@@ -52,11 +52,22 @@ function _fail {
 }
 
 function _get_current_version() {
-    # check if setuptools_scm is installed, if not prompt to install. python3 is expected to be present
-    if ! python3 -m pip -qqq show setuptools_scm > /dev/null ; then
-      _fail "ERROR: setuptools_scm is not installed. Run 'pip install --upgrade setuptools setuptools_scm'"
+    # Try hatch-vcs first, then fall back to setuptools_scm
+    # This allows projects to use either versioning backend
+
+    # Check for hatch with hatch-vcs
+    if python3 -m pip -qqq show hatch > /dev/null 2>&1 && python3 -m hatch version &> /dev/null; then
+        python3 -m hatch version
+        return 0
     fi
-    python3 -m setuptools_scm
+
+    # Fall back to setuptools_scm
+    if python3 -m pip -qqq show setuptools_scm > /dev/null 2>&1; then
+        python3 -m setuptools_scm
+        return 0
+    fi
+
+    _fail "ERROR: No version backend found. Install either 'hatch' with 'hatch-vcs' plugin, or 'setuptools_scm'. Run 'pip install hatch hatch-vcs' or 'pip install setuptools setuptools_scm'"
 }
 
 function _is_release_commit() {
@@ -114,6 +125,10 @@ function _set_version_defaults() {
     if [ -z "$MAJOR_VERSION" ]; then MAJOR_VERSION=$(echo ${IMAGE_TAG} | cut -d '.' -f1); fi
     if [ -z "$MINOR_VERSION" ]; then MINOR_VERSION=$(echo ${IMAGE_TAG} | cut -d '.' -f2); fi
     if [ -z "$PATCH_VERSION" ]; then PATCH_VERSION=$(echo ${IMAGE_TAG} | cut -d '.' -f3); fi
+    # for calver (major >= 2026), also compute zero-padded minor version to represent months (01-12)
+    if [[ $MAJOR_VERSION -ge 2026 ]]; then
+        PADDED_MINOR_VERSION=$(printf "%02d" $((10#$MINOR_VERSION)))
+    fi
 }
 
 
@@ -129,7 +144,7 @@ function cmd-build() {
     _set_version_defaults
 
     if [ ! -f "pyproject.toml" ]; then
-      echo "No pyproject.toml found, setuptools_scm will not be able to retrieve configuration."
+      echo "No pyproject.toml found, version backend (hatch-vcs or setuptools_scm) may not be able to retrieve configuration."
     fi
     if [ -z "$DOCKERFILE" ]; then DOCKERFILE=Dockerfile; fi
     # by default we load the result to the docker daemon
@@ -221,6 +236,14 @@ function cmd-push() {
       docker push $TARGET_IMAGE_NAME:$MAJOR_VERSION-$PLATFORM
       docker push $TARGET_IMAGE_NAME:$MAJOR_VERSION.$MINOR_VERSION-$PLATFORM
       docker push $TARGET_IMAGE_NAME:$MAJOR_VERSION.$MINOR_VERSION.$PATCH_VERSION-$PLATFORM
+
+      # for calver (major >= 2026), also push zero-padded minor version tags (month: 01-12)
+      if [[ -n "$PADDED_MINOR_VERSION" && "$PADDED_MINOR_VERSION" != "$MINOR_VERSION" ]]; then
+        docker tag $TARGET_IMAGE_NAME:$DEFAULT_TAG-$PLATFORM $TARGET_IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION-$PLATFORM
+        docker tag $TARGET_IMAGE_NAME:$DEFAULT_TAG-$PLATFORM $TARGET_IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION.$PATCH_VERSION-$PLATFORM
+        docker push $TARGET_IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION-$PLATFORM
+        docker push $TARGET_IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION.$PATCH_VERSION-$PLATFORM
+      fi
     }
 
     if _is_release_commit; then
@@ -285,6 +308,18 @@ function cmd-push-manifests() {
       docker manifest push $IMAGE_NAME:$MAJOR_VERSION
       docker manifest push $IMAGE_NAME:$MAJOR_VERSION.$MINOR_VERSION
       docker manifest push $IMAGE_NAME:$MAJOR_VERSION.$MINOR_VERSION.$PATCH_VERSION
+
+      # for calver (major >= 2026), also push zero-padded minor version manifests (month: 01-12)
+      if [[ -n "$PADDED_MINOR_VERSION" && "$PADDED_MINOR_VERSION" != "$MINOR_VERSION" ]]; then
+        docker manifest create $IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION \
+          --amend $IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION-amd64 \
+          --amend $IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION-arm64
+        docker manifest create $IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION.$PATCH_VERSION \
+          --amend $IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION.$PATCH_VERSION-amd64 \
+          --amend $IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION.$PATCH_VERSION-arm64
+        docker manifest push $IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION
+        docker manifest push $IMAGE_NAME:$MAJOR_VERSION.$PADDED_MINOR_VERSION.$PATCH_VERSION
+      fi
     }
 
     if _is_release_commit; then

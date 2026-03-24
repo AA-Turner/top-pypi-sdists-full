@@ -12,6 +12,8 @@
 
 """Utility functions for scheduling passes."""
 
+from __future__ import annotations
+
 import warnings
 from typing import TypeAlias
 from collections.abc import Callable, Generator
@@ -151,7 +153,7 @@ class DynamicCircuitInstructionDurations(InstructionDurations):
     def __init__(
         self,
         instruction_durations: InstructionDurationsType | None = None,
-        dt: float = None,
+        dt: float | None = None,
         enable_patching: bool = True,
     ):
         """Dynamic circuit instruction durations."""
@@ -170,24 +172,24 @@ class DynamicCircuitInstructionDurations(InstructionDurations):
         super().__init__(instruction_durations=instruction_durations, dt=dt)
 
     @classmethod
-    def from_backend(cls, backend: Backend) -> "DynamicCircuitInstructionDurations":
+    def from_backend(cls, backend: Backend) -> DynamicCircuitInstructionDurations:
         """Construct a :class:`DynamicInstructionDurations` object from the backend.
         Args:
             backend: backend from which durations (gate lengths) and dt are extracted.
         Returns:
-            DynamicInstructionDurations: The InstructionDurations constructed from backend.
+            The InstructionDurations constructed from backend.
         """
 
         # Get durations from target if BackendV2
         return cls.from_target(backend.target)
 
     @classmethod
-    def from_target(cls, target: Target) -> "DynamicCircuitInstructionDurations":
+    def from_target(cls, target: Target) -> DynamicCircuitInstructionDurations:
         """Construct a :class:`DynamicInstructionDurations` object from the target.
         Args:
             target: target from which durations (gate lengths) and dt are extracted.
         Returns:
-            DynamicInstructionDurations: The InstructionDurations constructed from backend.
+            The InstructionDurations constructed from backend.
         """
 
         instruction_durations_dict = target.durations().duration_by_name_qubits
@@ -201,8 +203,8 @@ class DynamicCircuitInstructionDurations(InstructionDurations):
         return cls(instruction_durations, dt=dt)
 
     def update(
-        self, inst_durations: InstructionDurationsType | None, dt: float = None
-    ) -> "DynamicCircuitInstructionDurations":
+        self, inst_durations: InstructionDurationsType | None, dt: float | None = None
+    ) -> DynamicCircuitInstructionDurations:
         """Update self with inst_durations (inst_durations overwrite self). Overrides the default
         durations for certain hardcoded instructions.
 
@@ -211,7 +213,7 @@ class DynamicCircuitInstructionDurations(InstructionDurations):
             dt: Sampling duration in seconds of the target backend.
 
         Returns:
-            InstructionDurations: The updated InstructionDurations.
+            The updated InstructionDurations.
 
         Raises:
             TranspilerError: If the format of instruction_durations is invalid.

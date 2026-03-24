@@ -898,8 +898,7 @@ class GlacierApi:
         Upload <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-abort-upload.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param upload_id: The upload ID of the multipart upload to delete.
         :raises ResourceNotFoundException:
@@ -962,8 +961,7 @@ class GlacierApi:
         Glacier
         Resources <https://docs.aws.amazon.com/amazonglacier/latest/dev/tagging.html>`__.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param tags: The tags to add to the vault.
         :raises InvalidParameterValueException:
@@ -1036,8 +1034,7 @@ class GlacierApi:
         Upload <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-complete-upload.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param upload_id: The upload ID of the multipart upload.
         :param archive_size: The total size, in bytes, of the entire archive.
@@ -1080,8 +1077,7 @@ class GlacierApi:
 
         :param account_id: The ``AccountId`` value is the AWS account ID.
         :param vault_name: The name of the vault.
-        :param lock_id: The ``lockId`` value is the lock ID obtained from a InitiateVaultLock
-        request.
+        :param lock_id: The ``lockId`` value is the lock ID obtained from a InitiateVaultLock request.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -1172,8 +1168,7 @@ class GlacierApi:
         Archive <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-archive-delete.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param archive_id: The ID of the archive to delete.
         :raises ResourceNotFoundException:
@@ -1217,8 +1212,7 @@ class GlacierApi:
         Vault <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-delete.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -1244,8 +1238,7 @@ class GlacierApi:
         Vault Access
         Policies <https://docs.aws.amazon.com/amazonglacier/latest/dev/vault-access-policy.html>`__.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -1279,8 +1272,7 @@ class GlacierApi:
         Configuration <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-notifications-delete.html>`__
         in the Amazon Glacier Developer Guide.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -1325,8 +1317,7 @@ class GlacierApi:
         Job <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-describe-job-get.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param job_id: The ID of the job to describe.
         :returns: GlacierJobDescription
@@ -1368,8 +1359,7 @@ class GlacierApi:
         Vault <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-get.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :returns: DescribeVaultOutput
         :raises ResourceNotFoundException:
@@ -1459,8 +1449,7 @@ class GlacierApi:
         and `Get Job
         Output <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-job-output-get.html>`__
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param job_id: The job ID whose data is downloaded.
         :param range: The range of bytes to retrieve from the output.
@@ -1486,8 +1475,7 @@ class GlacierApi:
         policies, see `Amazon Glacier Access Control with Vault Access
         Policies <https://docs.aws.amazon.com/amazonglacier/latest/dev/vault-access-policy.html>`__.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :returns: GetVaultAccessPolicyOutput
         :raises ResourceNotFoundException:
@@ -1528,8 +1516,7 @@ class GlacierApi:
         policies, `Amazon Glacier Access Control with Vault Lock
         Policies <https://docs.aws.amazon.com/amazonglacier/latest/dev/vault-lock-policy.html>`__.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :returns: GetVaultLockOutput
         :raises ResourceNotFoundException:
@@ -1568,8 +1555,7 @@ class GlacierApi:
         Configuration <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-notifications-get.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :returns: GetVaultNotificationsOutput
         :raises ResourceNotFoundException:
@@ -1595,8 +1581,7 @@ class GlacierApi:
         underlying REST API `Initiate a
         Job <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-initiate-job-post.html>`__.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param job_parameters: Provides options for specifying job information.
         :returns: InitiateJobOutput
@@ -1660,8 +1645,7 @@ class GlacierApi:
         Upload <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-initiate-upload.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param archive_description: The archive description that you are uploading in parts.
         :param part_size: The size of each part except the last, in bytes.
@@ -1720,8 +1704,7 @@ class GlacierApi:
 
         :param account_id: The ``AccountId`` value is the AWS account ID.
         :param vault_name: The name of the vault.
-        :param policy: The vault lock policy as a JSON string, which uses "\\" as an escape
-        character.
+        :param policy: The vault lock policy as a JSON string, which uses "\\" as an escape character.
         :returns: InitiateVaultLockOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -1783,8 +1766,7 @@ class GlacierApi:
         for the underlying REST API `List
         Jobs <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-jobs-get.html>`__.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param limit: The maximum number of jobs to be returned.
         :param marker: An opaque string used for pagination.
@@ -1845,8 +1827,7 @@ class GlacierApi:
         Uploads <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-list-uploads.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param marker: An opaque string used for pagination.
         :param limit: Specifies the maximum number of uploads returned in the response body.
@@ -1900,8 +1881,7 @@ class GlacierApi:
         Parts <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-list-parts.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param upload_id: The upload ID of the multipart upload.
         :param marker: An opaque string used for pagination.
@@ -1940,8 +1920,7 @@ class GlacierApi:
         tags, see `Tagging Amazon Glacier
         Resources <https://docs.aws.amazon.com/amazonglacier/latest/dev/tagging.html>`__.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :returns: ListTagsForVaultOutput
         :raises InvalidParameterValueException:
@@ -2030,8 +2009,7 @@ class GlacierApi:
         This operation is idempotent. The operation will be successful, even if
         there are no tags attached to the vault.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param tag_keys: A list of tag keys.
         :raises InvalidParameterValueException:
@@ -2087,8 +2065,7 @@ class GlacierApi:
         `Amazon Glacier Access Control with Vault Access
         Policies <https://docs.aws.amazon.com/amazonglacier/latest/dev/vault-access-policy.html>`__.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param policy: The vault access policy as a JSON string.
         :raises ResourceNotFoundException:
@@ -2147,8 +2124,7 @@ class GlacierApi:
         Configuration <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-notifications-put.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param vault_notification_config: Provides options for specifying notification configuration.
         :raises ResourceNotFoundException:
@@ -2215,8 +2191,7 @@ class GlacierApi:
         in the *Amazon Glacier Developer Guide*.
 
         :param vault_name: The name of the vault.
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param archive_description: The optional description of the archive you are uploading.
         :param checksum: The SHA256 tree hash of the data being uploaded.
         :param body: The data to upload.
@@ -2293,13 +2268,11 @@ class GlacierApi:
         Part <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-upload-part.html>`__
         in the *Amazon Glacier Developer Guide*.
 
-        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
-        the vault.
+        :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns the vault.
         :param vault_name: The name of the vault.
         :param upload_id: The upload ID of the multipart upload.
         :param checksum: The SHA256 tree hash of the data being uploaded.
-        :param range: Identifies the range of bytes in the assembled archive that will be
-        uploaded in this part.
+        :param range: Identifies the range of bytes in the assembled archive that will be uploaded in this part.
         :param body: The data to upload.
         :returns: UploadMultipartPartOutput
         :raises ResourceNotFoundException:

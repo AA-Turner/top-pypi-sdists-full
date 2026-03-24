@@ -32,6 +32,7 @@ from sky import serve
 from sky import sky_logging
 from sky import skypilot_config
 from sky.adaptors import common as adaptors_common
+from sky.adaptors import kubernetes as kubernetes_adaptor
 from sky.server import common
 from sky.skylet import autostop_lib
 from sky.skylet import constants
@@ -85,6 +86,10 @@ def request_body_env_vars() -> dict:
     env_vars[constants.USER_ENV_VAR] = common_utils.get_local_user_name()
     env_vars[
         usage_constants.USAGE_RUN_ID_ENV_VAR] = usage_lib.messages.usage.run_id
+    # Send client user hash for basic auth at API server case, so the server
+    # can include it in its own usage report.
+    if common.basic_auth_enabled and common.client_user_hash is not None:
+        env_vars[constants.CLIENT_USER_HASH_ENV_VAR] = common.client_user_hash
     if not common.is_api_server_local():
         # Used in job controller, for local API server, keep the
         # SKYPILOT_CONFIG env var to use the config for the managed job.
@@ -98,6 +103,10 @@ def request_body_env_vars() -> dict:
     # Any new environment variables that are server-specific should
     # use SKYPILOT_SERVER_ENV_VAR_PREFIX.
     env_vars.pop(constants.ENV_VAR_DB_CONNECTION_URI, None)
+    # Remove the in-cluster context name - this is only meaningful for the
+    # local Kubernetes environment and should not be forwarded to the server,
+    # which has its own cluster context configuration.
+    env_vars.pop(kubernetes_adaptor.IN_CLUSTER_CONTEXT_NAME_ENV_VAR, None)
     return env_vars
 
 
@@ -146,6 +155,8 @@ class RequestBody(BasePayload):
     using_remote_api_server: bool = False
     override_skypilot_config: Optional[Dict[str, Any]] = {}
     override_skypilot_config_path: Optional[str] = None
+    # Blob ID for uploaded file mounts
+    file_mounts_blob_id: Optional[str] = None
 
     def __init__(self, **data):
         data['env_vars'] = data.get('env_vars', request_body_env_vars())
@@ -178,6 +189,7 @@ class RequestBody(BasePayload):
         kwargs.pop('using_remote_api_server')
         kwargs.pop('override_skypilot_config')
         kwargs.pop('override_skypilot_config_path')
+        kwargs.pop('file_mounts_blob_id')
         return kwargs
 
     @property
@@ -196,6 +208,19 @@ class EnabledCloudsBody(RequestBody):
     """The request body for the enabled clouds endpoint."""
     workspace: Optional[str] = None
     expand: bool = False
+
+
+class EnabledCloudsBatchBody(RequestBody):
+    """The request body for the batch enabled clouds endpoint."""
+    workspaces: List[str]
+    expand: bool = False
+
+
+class KubernetesLabelGpusBody(RequestBody):
+    """The request body for the GPU labeling endpoint."""
+    context: Optional[str] = None
+    cleanup_only: bool = False
+    wait_for_completion: bool = True
 
 
 class DagRequestBody(RequestBody):
@@ -272,9 +297,11 @@ class LaunchBody(RequestBody):
     def to_kwargs(self) -> Dict[str, Any]:
 
         kwargs = super().to_kwargs()
-        dag = common.process_mounts_in_task_on_api_server(self.task,
-                                                          self.env_vars,
-                                                          workdir_only=False)
+        dag = common.process_mounts_in_task_on_api_server(
+            self.task,
+            self.env_vars,
+            workdir_only=False,
+            file_mounts_blob_id=self.file_mounts_blob_id)
 
         backend_cls = registry.BACKEND_REGISTRY.from_str(self.backend)
         backend = backend_cls() if backend_cls is not None else None
@@ -301,9 +328,11 @@ class ExecBody(RequestBody):
     def to_kwargs(self) -> Dict[str, Any]:
 
         kwargs = super().to_kwargs()
-        dag = common.process_mounts_in_task_on_api_server(self.task,
-                                                          self.env_vars,
-                                                          workdir_only=True)
+        dag = common.process_mounts_in_task_on_api_server(
+            self.task,
+            self.env_vars,
+            workdir_only=True,
+            file_mounts_blob_id=self.file_mounts_blob_id)
         backend_cls = registry.BACKEND_REGISTRY.from_str(self.backend)
         backend = backend_cls() if backend_cls is not None else None
         kwargs['task'] = dag
@@ -314,6 +343,8 @@ class ExecBody(RequestBody):
 class StopOrDownBody(RequestBody):
     cluster_name: str
     purge: bool = False
+    graceful: bool = False
+    graceful_timeout: Optional[int] = None
 
 
 class StatusBody(RequestBody):
@@ -537,7 +568,10 @@ class JobsLaunchBody(RequestBody):
     def to_kwargs(self) -> Dict[str, Any]:
         kwargs = super().to_kwargs()
         kwargs['task'] = common.process_mounts_in_task_on_api_server(
-            self.task, self.env_vars, workdir_only=False)
+            self.task,
+            self.env_vars,
+            workdir_only=False,
+            file_mounts_blob_id=self.file_mounts_blob_id)
         return kwargs
 
 
@@ -577,6 +611,8 @@ class JobsCancelBody(RequestBody):
     all: bool = False
     all_users: bool = False
     pool: Optional[str] = None
+    graceful: bool = False
+    graceful_timeout: Optional[int] = None
 
 
 class JobsLogsBody(RequestBody):
@@ -604,6 +640,7 @@ class RequestStatusBody(pydantic.BaseModel):
     all_status: bool = False
     limit: Optional[int] = None
     fields: Optional[List[str]] = None
+    cluster_name: Optional[str] = None
 
 
 class ServeUpBody(RequestBody):
@@ -613,9 +650,11 @@ class ServeUpBody(RequestBody):
 
     def to_kwargs(self) -> Dict[str, Any]:
         kwargs = super().to_kwargs()
-        dag = common.process_mounts_in_task_on_api_server(self.task,
-                                                          self.env_vars,
-                                                          workdir_only=False)
+        dag = common.process_mounts_in_task_on_api_server(
+            self.task,
+            self.env_vars,
+            workdir_only=False,
+            file_mounts_blob_id=self.file_mounts_blob_id)
         assert len(
             dag.tasks) == 1, ('Must only specify one task in the DAG for '
                               'a service.', dag)
@@ -631,9 +670,11 @@ class ServeUpdateBody(RequestBody):
 
     def to_kwargs(self) -> Dict[str, Any]:
         kwargs = super().to_kwargs()
-        dag = common.process_mounts_in_task_on_api_server(self.task,
-                                                          self.env_vars,
-                                                          workdir_only=False)
+        dag = common.process_mounts_in_task_on_api_server(
+            self.task,
+            self.env_vars,
+            workdir_only=False,
+            file_mounts_blob_id=self.file_mounts_blob_id)
         assert len(
             dag.tasks) == 1, ('Must only specify one task in the DAG for '
                               'a service.', dag)
@@ -769,7 +810,10 @@ class JobsPoolApplyBody(RequestBody):
         kwargs = super().to_kwargs()
         if self.task is not None:
             dag = common.process_mounts_in_task_on_api_server(
-                self.task, self.env_vars, workdir_only=False)
+                self.task,
+                self.env_vars,
+                workdir_only=False,
+                file_mounts_blob_id=self.file_mounts_blob_id)
             assert len(
                 dag.tasks) == 1, ('Must only specify one task in the DAG for '
                                   'a pool.', dag)
@@ -874,6 +918,7 @@ class RequestPayload(BasePayload):
     status_msg: Optional[str] = None
     should_retry: bool = False
     finished_at: Optional[float] = None
+    file_mounts_blob_id: Optional[str] = None
 
 
 class SlurmGpuAvailabilityRequestBody(RequestBody):
@@ -898,3 +943,90 @@ class GetJobEventsBody(RequestBody):
     job_id: int
     task_id: Optional[int] = None
     limit: Optional[int] = 10  # Default to 10 most recent task events
+
+
+# =============================================================================
+# YAML Hub payloads
+# =============================================================================
+
+
+class RecipeListBody(RequestBody):
+    """The request body for listing recipes."""
+    pinned_only: bool = False
+    my_recipes_only: bool = False
+    recipe_type: Optional[
+        str] = None  # See RecipeType: 'cluster', 'job', 'pool', 'volume'
+
+    def to_kwargs(self) -> Dict[str, Any]:
+        kwargs = super().to_kwargs()
+        # Inject user_id from env_vars for filtering by user
+        # Fallback to 'local' for unauthenticated local servers
+        kwargs['user_id'] = self.env_vars.get(constants.USER_ID_ENV_VAR,
+                                              'local')
+        return kwargs
+
+
+class RecipeGetBody(RequestBody):
+    """The request body for getting a single recipe."""
+    recipe_name: str
+
+
+class RecipeCreateBody(RequestBody):
+    """The request body for creating a new recipe."""
+    name: str
+    content: str
+    recipe_type: str  # See RecipeType: 'cluster', 'job', 'pool', 'volume'
+    description: Optional[str] = None
+    owner_name: Optional[str] = None  # Override user_name for unauthenticated
+
+    def to_kwargs(self) -> Dict[str, Any]:
+        kwargs = super().to_kwargs()
+        # Inject user_id and user_name from env_vars
+        # Fallback to 'local' for unauthenticated local servers
+        kwargs['user_id'] = self.env_vars.get(constants.USER_ID_ENV_VAR,
+                                              'local')
+        # Use owner_name if provided (for unauthenticated users), else use env
+        # var.
+        if self.owner_name:
+            kwargs['user_name'] = self.owner_name
+        else:
+            kwargs['user_name'] = self.env_vars.get(constants.USER_ENV_VAR,
+                                                    'local')
+        # Remove owner_name from kwargs - it's only used to set user_name above
+        kwargs.pop('owner_name', None)
+        return kwargs
+
+
+class RecipeUpdateBody(RequestBody):
+    """The request body for updating an existing recipe."""
+    recipe_name: str
+    description: Optional[str] = None
+    content: Optional[str] = None
+
+    def to_kwargs(self) -> Dict[str, Any]:
+        kwargs = super().to_kwargs()
+        # Inject user_id and user_name from env_vars
+        # Fallback to 'local' for unauthenticated local servers
+        kwargs['user_id'] = self.env_vars.get(constants.USER_ID_ENV_VAR,
+                                              'local')
+        kwargs['user_name'] = self.env_vars.get(constants.USER_ENV_VAR, 'local')
+        return kwargs
+
+
+class RecipeDeleteBody(RequestBody):
+    """The request body for deleting a recipe."""
+    recipe_name: str
+
+    def to_kwargs(self) -> Dict[str, Any]:
+        kwargs = super().to_kwargs()
+        # Inject user_id from env_vars for ownership check
+        # Fallback to 'local' for unauthenticated local servers
+        kwargs['user_id'] = self.env_vars.get(constants.USER_ID_ENV_VAR,
+                                              'local')
+        return kwargs
+
+
+class RecipePinBody(RequestBody):
+    """The request body for toggling pin status."""
+    recipe_name: str
+    pinned: bool

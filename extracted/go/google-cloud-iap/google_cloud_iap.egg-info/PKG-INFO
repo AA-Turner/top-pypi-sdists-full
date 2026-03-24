@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-iap
-Version: 1.19.0
+Version: 1.20.0
 Summary: Google Cloud Iap API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-iap
 Author: Google LLC

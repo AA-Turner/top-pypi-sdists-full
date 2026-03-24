@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "torchio"
-version = "0.22.1"
+version = "0.23.1"
 description = "Tools for medical image processing with PyTorch"
 license = "Apache-2.0"
 readme = "README.md"
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Image Processing",
@@ -52,6 +53,14 @@ csv = ["pandas>=1"]
 plot = ["colorcet", "matplotlib>=3.4"]
 video = ["ffmpeg-python>=0.2.0"]
 sklearn = ["scikit-learn>=1.6.1"]
+monai = ["monai>=1.4"]
+all = [
+    "torchio[csv]",
+    "torchio[monai]",
+    "torchio[plot]",
+    "torchio[sklearn]",
+    "torchio[video]",
+]
 
 [project.scripts]
 tiohd = "torchio.cli.print_info:app"
@@ -97,6 +106,7 @@ types = [
 test = [
     "coverage",
     "matplotlib",
+    "monai>=1.4",
     "parameterized",
     "pillow",
     "pytest>=9",
@@ -105,7 +115,7 @@ test = [
 ]
 
 [tool.bumpversion]
-current_version = "0.22.1"
+current_version = "0.23.1"
 commit = true
 tag = true
 

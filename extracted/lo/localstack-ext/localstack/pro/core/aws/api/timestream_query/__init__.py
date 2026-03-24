@@ -897,16 +897,12 @@ class TimestreamQueryApi:
         :param query_string: The query string to run.
         :param schedule_configuration: The schedule configuration for the query.
         :param notification_configuration: Notification configuration for the scheduled query.
-        :param scheduled_query_execution_role_arn: The ARN for the IAM role that Timestream will assume when running the
-        scheduled query.
+        :param scheduled_query_execution_role_arn: The ARN for the IAM role that Timestream will assume when running the scheduled query.
         :param error_report_configuration: Configuration for error reporting.
         :param target_configuration: Configuration used for writing the result of a query.
-        :param client_token: Using a ClientToken makes the call to CreateScheduledQuery idempotent,
-        in other words, making the same request repeatedly will produce the same
-        result.
+        :param client_token: Using a ClientToken makes the call to CreateScheduledQuery idempotent, in other words, making the same request repeatedly will produce the same result.
         :param tags: A list of key-value pairs to label the scheduled query.
-        :param kms_key_id: The Amazon KMS key used to encrypt the scheduled query resource,
-        at-rest.
+        :param kms_key_id: The Amazon KMS key used to encrypt the scheduled query resource, at-rest.
         :returns: CreateScheduledQueryResponse
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -1087,11 +1083,8 @@ class TimestreamQueryApi:
         parameters to be stored by Timestream for later running. Timestream only
         supports using this operation with ``ValidateOnly`` set to ``true``.
 
-        :param query_string: The Timestream query string that you want to use as a prepared
-        statement.
-        :param validate_only: By setting this value to ``true``, Timestream will only validate that
-        the query string is a valid Timestream query, and not store the prepared
-        query for later use.
+        :param query_string: The Timestream query string that you want to use as a prepared statement.
+        :param validate_only: By setting this value to ``true``, Timestream will only validate that the query string is a valid Timestream query, and not store the prepared query for later use.
         :returns: PrepareQueryResponse
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1150,8 +1143,7 @@ class TimestreamQueryApi:
            with an ``Invalid pagination token`` error.
 
         :param query_string: The query to be run by Timestream.
-        :param client_token: Unique, case-sensitive string of up to 64 ASCII characters specified
-        when a ``Query`` request is made.
+        :param client_token: Unique, case-sensitive string of up to 64 ASCII characters specified when a ``Query`` request is made.
         :param next_token: A pagination token used to return a set of results.
         :param max_rows: The total number of rows to be returned in the ``Query`` output.
         :param query_insights: Encapsulates settings for enabling ``QueryInsights``.
@@ -1222,12 +1214,9 @@ class TimestreamQueryApi:
         After you've transitioned your account to use TCUs for query pricing,
         you can't transition to using bytes scanned for query pricing.
 
-        :param max_query_tcu: The maximum number of compute units the service will use at any point in
-        time to serve your queries.
+        :param max_query_tcu: The maximum number of compute units the service will use at any point in time to serve your queries.
         :param query_pricing_model: The pricing model for queries in an account.
-        :param query_compute: Modifies the query compute settings configured in your account,
-        including the query pricing model and provisioned Timestream Compute
-        Units (TCUs) in your account.
+        :param query_compute: Modifies the query compute settings configured in your account, including the query pricing model and provisioned Timestream Compute Units (TCUs) in your account.
         :returns: UpdateAccountSettingsResponse
         :raises AccessDeniedException:
         :raises InternalServerException:

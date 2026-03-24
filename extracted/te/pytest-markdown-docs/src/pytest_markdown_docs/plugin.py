@@ -52,6 +52,14 @@ def get_docstring_start_line(obj) -> typing.Optional[int]:
     return None  # Docstring not found in source
 
 
+def _get_asyncio_runner(fixture_request):
+    """Try to fetch pytest-asyncio's event loop runner for shared-loop execution."""
+    try:
+        return fixture_request.getfixturevalue("_function_scoped_runner")
+    except Exception:
+        return None
+
+
 class MarkdownInlinePythonItem(pytest.Item):
     def __init__(
         self,
@@ -109,8 +117,17 @@ class MarkdownInlinePythonItem(pytest.Item):
             try:
                 # this ensures that pytest's stdout/stderr capture works during the test:
                 capman = self.config.pluginmanager.getplugin("capturemanager")
+                asyncio_runner = _get_asyncio_runner(self.fixture_request)
                 with capman.global_and_fixture_disabled():
-                    self.runner.runtest(self.test_definition, all_globals)
+                    try:
+                        self.runner.runtest(
+                            self.test_definition,
+                            all_globals,
+                            asyncio_runner=asyncio_runner,
+                        )
+                    except TypeError:
+                        # Custom runner doesn't accept asyncio_runner kwarg
+                        self.runner.runtest(self.test_definition, all_globals)
 
                 # Success - test passed
                 if attempt > 0:
@@ -282,8 +299,33 @@ def extract_options_from_mdx_comment(comment: str) -> typing.Set[str]:
     return set(option.strip() for option in comment.split(" ") if option)
 
 
+def _preprocess_async_fixtures_if_available(collector: pytest.Collector) -> None:
+    """
+    If pytest-asyncio is installed, trigger its async fixture preprocessing.
+
+    pytest-asyncio preprocesses async fixtures during collection, but only for
+    pytest.Module and pytest.Class collectors. We need to trigger this manually
+    for our markdown collectors so that async fixtures work correctly.
+    """
+    try:
+        from pytest_asyncio.plugin import (  # type: ignore
+            _preprocess_async_fixtures,
+            _HOLDER,
+        )
+
+        _preprocess_async_fixtures(collector, _HOLDER)
+    except ImportError:
+        # pytest-asyncio is not installed, or using a newer version that
+        # doesn't require these imports
+        pass
+
+
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
+        # Trigger pytest-asyncio's async fixture preprocessing if available
+        # (needed for pytest-asyncio 0.23.x; 1.x uses pytest_fixture_setup hook instead)
+        _preprocess_async_fixtures_if_available(self)
+
         if pytest.version_tuple >= (8, 1, 0):
             # consider_namespace_packages is a required keyword argument in pytest 8.1.0
             module = import_path(
@@ -361,6 +403,10 @@ class MarkdownDocstringCodeModule(pytest.Module):
 
 class MarkdownTextFile(pytest.File):
     def collect(self):
+        # Trigger pytest-asyncio's async fixture preprocessing if available
+        # (needed for pytest-asyncio 0.23.x; 1.x uses pytest_fixture_setup hook instead)
+        _preprocess_async_fixtures_if_available(self)
+
         markdown_content = self.path.read_text("utf8")
         fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
 

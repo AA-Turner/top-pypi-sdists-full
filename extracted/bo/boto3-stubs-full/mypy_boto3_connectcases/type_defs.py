@@ -69,6 +69,7 @@ __all__ = (
     "CaseRuleSummaryTypeDef",
     "CaseSummaryTypeDef",
     "CommentContentTypeDef",
+    "CommentUpdateContentTypeDef",
     "CompoundConditionOutputTypeDef",
     "CompoundConditionTypeDef",
     "ConnectCaseContentTypeDef",
@@ -97,6 +98,7 @@ __all__ = (
     "CustomFilterPaginatorTypeDef",
     "CustomFilterTypeDef",
     "CustomInputContentTypeDef",
+    "CustomUpdateContentTypeDef",
     "DeleteCaseRequestTypeDef",
     "DeleteCaseRuleRequestTypeDef",
     "DeleteDomainRequestTypeDef",
@@ -183,6 +185,7 @@ __all__ = (
     "RelatedItemInputContentTypeDef",
     "RelatedItemTypeFilterPaginatorTypeDef",
     "RelatedItemTypeFilterTypeDef",
+    "RelatedItemUpdateContentTypeDef",
     "RequiredCaseRuleOutputTypeDef",
     "RequiredCaseRuleTypeDef",
     "RequiredFieldTypeDef",
@@ -222,6 +225,8 @@ __all__ = (
     "UpdateCaseRuleRequestTypeDef",
     "UpdateFieldRequestTypeDef",
     "UpdateLayoutRequestTypeDef",
+    "UpdateRelatedItemRequestTypeDef",
+    "UpdateRelatedItemResponseTypeDef",
     "UpdateTemplateRequestTypeDef",
     "UserUnionTypeDef",
 )
@@ -332,6 +337,11 @@ class CaseSummaryTypeDef(TypedDict):
 
 
 class CommentContentTypeDef(TypedDict):
+    body: str
+    contentType: Literal["Text/Plain"]
+
+
+class CommentUpdateContentTypeDef(TypedDict):
     body: str
     contentType: Literal["Text/Plain"]
 
@@ -1130,6 +1140,20 @@ SearchRelatedItemsResponseItemTypeDef = TypedDict(
         "performedBy": NotRequired[UserUnionTypeDef],
     },
 )
+UpdateRelatedItemResponseTypeDef = TypedDict(
+    "UpdateRelatedItemResponseTypeDef",
+    {
+        "relatedItemId": str,
+        "relatedItemArn": str,
+        "type": RelatedItemTypeType,
+        "content": RelatedItemContentTypeDef,
+        "associationTime": datetime,
+        "tags": dict[str, str],
+        "lastUpdatedUser": UserUnionTypeDef,
+        "createdBy": UserUnionTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class CreateCaseRequestTypeDef(TypedDict):
@@ -1142,6 +1166,10 @@ class CreateCaseRequestTypeDef(TypedDict):
 
 
 class CustomInputContentTypeDef(TypedDict):
+    fields: Sequence[FieldValueUnionExtraTypeDef]
+
+
+class CustomUpdateContentTypeDef(TypedDict):
     fields: Sequence[FieldValueUnionExtraTypeDef]
 
 
@@ -1208,6 +1236,11 @@ class RelatedItemInputContentTypeDef(TypedDict):
     sla: NotRequired[SlaInputContentTypeDef]
     connectCase: NotRequired[ConnectCaseInputContentTypeDef]
     custom: NotRequired[CustomInputContentTypeDef]
+
+
+class RelatedItemUpdateContentTypeDef(TypedDict):
+    comment: NotRequired[CommentUpdateContentTypeDef]
+    custom: NotRequired[CustomUpdateContentTypeDef]
 
 
 CaseFilterPaginatorTypeDef = TypedDict(
@@ -1295,6 +1328,16 @@ CreateRelatedItemRequestTypeDef = TypedDict(
         "performedBy": NotRequired[UserUnionTypeDef],
     },
 )
+
+
+class UpdateRelatedItemRequestTypeDef(TypedDict):
+    domainId: str
+    caseId: str
+    relatedItemId: str
+    content: RelatedItemUpdateContentTypeDef
+    performedBy: NotRequired[UserUnionTypeDef]
+
+
 SearchCasesRequestPaginateTypeDef = TypedDict(
     "SearchCasesRequestPaginateTypeDef",
     {

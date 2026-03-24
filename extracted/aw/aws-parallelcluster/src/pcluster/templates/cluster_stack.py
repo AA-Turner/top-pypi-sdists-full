@@ -64,6 +64,10 @@ from pcluster.constants import (
     CW_ALARM_PERIOD_DEFAULT,
     CW_LOG_GROUP_NAME_PREFIX,
     CW_LOGS_CFN_PARAM_NAME,
+    CW_METRICS_CLUSTERMGTD_HEARTBEAT,
+    CW_METRICS_DIMENSION_CLUSTER_NAME,
+    CW_METRICS_DIMENSION_INSTANCE_ID,
+    CW_METRICS_NAMESPACE,
     DEFAULT_EPHEMERAL_DIR,
     EFS_PORT,
     FSX_PORTS,
@@ -92,7 +96,6 @@ from pcluster.templates.cdk_builder_utils import (
     get_common_user_data_env,
     get_custom_tags,
     get_default_instance_tags,
-    get_default_volume_tags,
     get_directory_service_dna_json_for_head_node,
     get_lambda_log_group_prefix,
     get_log_group_deletion_policy,
@@ -364,38 +367,90 @@ class ClusterCdkStack:
     def _add_head_node_alarms(self):
         self.head_node_alarms = []
 
+        # Metric-specific configurations (only specify overrides from defaults)
         metrics_for_alarms = {
-            "Health": self._cw_metric_head_node("AWS/EC2", "StatusCheckFailed"),
-            "Cpu": self._cw_metric_head_node("AWS/EC2", "CPUUtilization"),
-            "Mem": self._cw_metric_head_node("CWAgent", "mem_used_percent"),
-            "Disk": self._cw_metric_head_node("CWAgent", "disk_used_percent", extra_dimensions={"path": "/"}),
+            "Health": {
+                "metric": self._cw_metric_head_node("AWS/EC2", "StatusCheckFailed"),
+                "threshold": 0,
+            },
+            "Cpu": {
+                "metric": self._cw_metric_head_node("AWS/EC2", "CPUUtilization"),
+            },
+            "Mem": {
+                "metric": self._cw_metric_head_node("CWAgent", "mem_used_percent"),
+            },
+            "Disk": {
+                "metric": self._cw_metric_head_node("CWAgent", "disk_used_percent", extra_dimensions={"path": "/"}),
+            },
         }
 
-        for metric_key, metric in metrics_for_alarms.items():
+        # These alarms required Cw logging enabled because they are based on CW Metrics Filters.
+        if self._condition_is_slurm() and self.config.is_cw_logging_enabled:
+            # Create metric filter to extract heartbeat metric from clustermgtd event logs
+            clustermgtd_heartbeat_metric_filter = logs.CfnMetricFilter(
+                scope=self.stack,
+                id=f"{CW_METRICS_CLUSTERMGTD_HEARTBEAT}Filter",
+                filter_pattern='{ $.event-type = "clustermgtd-heartbeat" }',
+                log_group_name=self.log_group_name,
+                metric_transformations=[
+                    logs.CfnMetricFilter.MetricTransformationProperty(
+                        metric_namespace=CW_METRICS_NAMESPACE,
+                        metric_name=CW_METRICS_CLUSTERMGTD_HEARTBEAT,
+                        metric_value="1",
+                        unit="Count",
+                        dimensions=[
+                            logs.CfnMetricFilter.DimensionProperty(
+                                key=CW_METRICS_DIMENSION_CLUSTER_NAME, value="$.cluster-name"
+                            ),
+                            logs.CfnMetricFilter.DimensionProperty(
+                                key=CW_METRICS_DIMENSION_INSTANCE_ID, value="$.instance-id"
+                            ),
+                        ],
+                    )
+                ],
+            )
+            clustermgtd_heartbeat_metric_filter.add_depends_on(self.log_group)
+
+            metrics_for_alarms[CW_METRICS_CLUSTERMGTD_HEARTBEAT] = {
+                "metric": self._cw_metric_head_node(
+                    CW_METRICS_NAMESPACE,
+                    CW_METRICS_CLUSTERMGTD_HEARTBEAT,
+                    extra_dimensions={CW_METRICS_DIMENSION_CLUSTER_NAME: self.config.cluster_name},
+                ),
+                "evaluation_periods": 10,
+                "datapoints_to_alarm": 10,
+                "comparison_operator": cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+                "threshold": 1,
+                "treat_missing_data": cloudwatch.TreatMissingData.BREACHING,
+            }
+
+        for metric_key, alarm_config in metrics_for_alarms.items():
             alarm_id = f"HeadNode{metric_key}Alarm"
             alarm_name = f"{self.stack.stack_name}-HeadNode-{metric_key}"
-            threshold = 0 if metric_key == "Health" else CW_ALARM_PERCENT_THRESHOLD_DEFAULT
-            self.head_node_alarms.append(
-                cloudwatch.Alarm(
-                    scope=self.stack,
-                    id=alarm_id,
-                    alarm_name=alarm_name,
-                    metric=metric,
-                    evaluation_periods=CW_ALARM_EVALUATION_PERIODS_DEFAULT,
-                    threshold=threshold,
-                    comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-                    datapoints_to_alarm=CW_ALARM_DATAPOINTS_TO_ALARM_DEFAULT,
-                )
-            )
-
-        self.head_node_alarms.append(
-            cloudwatch.CompositeAlarm(
+            alarm = cloudwatch.Alarm(
                 scope=self.stack,
-                id="HeadNodeAlarm",
-                composite_alarm_name=f"{self.stack.stack_name}-HeadNode",
-                alarm_rule=cloudwatch.AlarmRule.any_of(*self.head_node_alarms),
+                id=alarm_id,
+                alarm_name=alarm_name,
+                metric=alarm_config["metric"],
+                evaluation_periods=alarm_config.get("evaluation_periods", CW_ALARM_EVALUATION_PERIODS_DEFAULT),
+                threshold=alarm_config.get("threshold", CW_ALARM_PERCENT_THRESHOLD_DEFAULT),
+                comparison_operator=alarm_config.get(
+                    "comparison_operator", cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD
+                ),
+                datapoints_to_alarm=alarm_config.get("datapoints_to_alarm", CW_ALARM_DATAPOINTS_TO_ALARM_DEFAULT),
+                treat_missing_data=alarm_config.get("treat_missing_data", cloudwatch.TreatMissingData.MISSING),
             )
+            alarm.node.add_dependency(self.wait_condition)
+            self.head_node_alarms.append(alarm)
+
+        composite_alarm = cloudwatch.CompositeAlarm(
+            scope=self.stack,
+            id="HeadNodeAlarm",
+            composite_alarm_name=f"{self.stack.stack_name}-HeadNode",
+            alarm_rule=cloudwatch.AlarmRule.any_of(*self.head_node_alarms),
         )
+        composite_alarm.node.add_dependency(self.wait_condition)
+        self.head_node_alarms.append(composite_alarm)
 
     def _add_iam_resources(self):
         head_node_iam_resources = HeadNodeIamResources(
@@ -795,8 +850,17 @@ class ClusterCdkStack:
             "Storage": [storage_security_group.ref],
         }
 
+        # Deduplicate SGs to avoid creating identical rules for the same security group.
+        # This prevents EC2 duplicate rule errors which are susceptible to eventual consistency issues.
+        seen_sgs = set()
         for sg_type, sg_refs in target_security_groups.items():
             for sg_ref_id, sg_ref in enumerate(sg_refs):
+                # This conversion is required because sg_ref could either be a string or a CDK token reference.
+                # A CDK token must be converted to a string to make it comparable within the set.
+                sg_key = str(sg_ref)
+                if sg_key in seen_sgs:
+                    continue
+                seen_sgs.add(sg_key)
                 # TODO Scope down ingress rules to allow only traffic on the strictly necessary ports.
                 #      Currently scoped down only on Login nodes to limit blast radius.
                 ingress_protocol = "-1"
@@ -1255,12 +1319,6 @@ class ClusterCdkStack:
                         },
                     )
                 ),
-                tag_specifications=[
-                    ec2.CfnLaunchTemplate.TagSpecificationProperty(
-                        resource_type="volume",
-                        tags=get_default_volume_tags(self._stack_name, "HeadNode") + get_custom_tags(self.config),
-                    ),
-                ],
             ),
         )
 
@@ -1539,6 +1597,7 @@ class ClusterCdkStack:
                 launch_template_id=head_node_launch_template.ref,
                 version=head_node_launch_template.attr_latest_version_number,
             ),
+            propagate_tags_to_volume_on_creation=True,
             tags=get_default_instance_tags(
                 self._stack_name, self.config, head_node, "HeadNode", self.shared_storage_infos
             )

@@ -1,15 +1,11 @@
-import hashlib
 import os
-import shutil
 import sys
 from configparser import InterpolationError
 from contextlib import contextmanager
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Dict,
-    Iterable,
     List,
     Optional,
     Tuple,
@@ -21,22 +17,17 @@ import srsly
 import typer
 from click import NoSuchOption
 from click.shell_completion import split_arg_string
-from thinc.api import Config, ConfigValidationError, require_gpu
+from thinc.api import ConfigValidationError, require_gpu
 from thinc.util import gpu_is_available
 from typer.main import get_command
 from wasabi import Printer, msg
 from weasel import app as project_cli
 
-from .. import about
 from ..compat import Literal
-from ..schemas import validate
 from ..util import (
     ENV_VARS,
-    SimpleFrozenDict,
     import_file,
-    is_compatible_version,
     logger,
-    make_tempdir,
     registry,
     run_command,
 )
@@ -68,7 +59,7 @@ INIT_HELP = """Commands for initializing configs and pipeline packages."""
 Arg = typer.Argument
 Opt = typer.Option
 
-app = typer.Typer(name=NAME, help=HELP)
+app = typer.Typer(name=NAME, help=HELP, rich_markup_mode=None)
 benchmark_cli = typer.Typer(name="benchmark", help=BENCHMARK_HELP, no_args_is_help=True)
 debug_cli = typer.Typer(name="debug", help=DEBUG_HELP, no_args_is_help=True)
 init_cli = typer.Typer(name="init", help=INIT_HELP, no_args_is_help=True)

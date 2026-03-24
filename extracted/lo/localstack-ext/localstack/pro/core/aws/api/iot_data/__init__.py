@@ -261,10 +261,8 @@ class IotDataApi:
         client's network connection and optionally cleans the session state.
 
         :param client_id: The unique identifier of the MQTT client to disconnect.
-        :param clean_session: Specifies whether to remove the client's session state when
-        disconnecting.
-        :param prevent_will_message: Controls if Amazon Web Services IoT Core publishes the client's Last
-        Will and Testament (LWT) message upon disconnection.
+        :param clean_session: Specifies whether to remove the client's session state when disconnecting.
+        :param prevent_will_message: Controls if Amazon Web Services IoT Core publishes the client's Last Will and Testament (LWT) message upon disconnection.
         :raises ForbiddenException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -424,9 +422,7 @@ class IotDataApi:
         Core pricing -
         Messaging <http://aws.amazon.com/iot-core/pricing/#Messaging>`__.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return at one time.
         :returns: ListRetainedMessagesResponse
         :raises InvalidRequestException:
@@ -470,21 +466,14 @@ class IotDataApi:
 
         :param topic: The name of the MQTT topic.
         :param qos: The Quality of Service (QoS) level.
-        :param retain: A Boolean value that determines whether to set the RETAIN flag when the
-        message is published.
+        :param retain: A Boolean value that determines whether to set the RETAIN flag when the message is published.
         :param payload: The message body.
         :param user_properties: A JSON string that contains an array of JSON objects.
-        :param payload_format_indicator: An ``Enum`` string value that indicates whether the payload is formatted
-        as UTF-8.
-        :param content_type: A UTF-8 encoded string that describes the content of the publishing
-        message.
-        :param response_topic: A UTF-8 encoded string that's used as the topic name for a response
-        message.
-        :param correlation_data: The base64-encoded binary data used by the sender of the request message
-        to identify which request the response message is for when it's
-        received.
-        :param message_expiry: A user-defined integer value that represents the message expiry interval
-        in seconds.
+        :param payload_format_indicator: An ``Enum`` string value that indicates whether the payload is formatted as UTF-8.
+        :param content_type: A UTF-8 encoded string that describes the content of the publishing message.
+        :param response_topic: A UTF-8 encoded string that's used as the topic name for a response message.
+        :param correlation_data: The base64-encoded binary data used by the sender of the request message to identify which request the response message is for when it's received.
+        :param message_expiry: A user-defined integer value that represents the message expiry interval in seconds.
         :raises InternalFailureException:
         :raises InvalidRequestException:
         :raises UnauthorizedException:

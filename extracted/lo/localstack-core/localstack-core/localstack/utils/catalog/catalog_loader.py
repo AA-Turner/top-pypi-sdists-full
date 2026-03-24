@@ -51,7 +51,7 @@ class RemoteCatalogLoader:
                 proxies=proxies,
             )
             if response.ok:
-                return RemoteCatalogVersionResponse.model_validate(response.content).version
+                return RemoteCatalogVersionResponse.model_validate(response.json()).version
             self._raise_server_error(response)
         except requests.exceptions.RequestException as e:
             raise AwsCatalogLoaderException(

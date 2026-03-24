@@ -85,7 +85,6 @@ class DefaultRegionRewriterStrategy(RegionRewriterStrategy):
         # We cannot cache the session here, as it is not thread safe. As the entire method is cached, this should not
         # have a significant impact.
         # using s3 as "everywhere available" service, as it usually is supported in all regions
-        # the S3 image also deletes other botocore specifications, so it is the easiest possibility
         return Session().get_available_regions("s3", "aws")
 
 

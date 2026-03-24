@@ -608,40 +608,30 @@ class MwaaApi:
         environment.
 
         :param name: The name of the Amazon MWAA environment.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role for your
-        environment.
-        :param source_bucket_arn: The Amazon Resource Name (ARN) of the Amazon S3 bucket where your DAG
-        code and supporting files are stored.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role for your environment.
+        :param source_bucket_arn: The Amazon Resource Name (ARN) of the Amazon S3 bucket where your DAG code and supporting files are stored.
         :param dag_s3_path: The relative path to the DAGs folder on your Amazon S3 bucket.
-        :param network_configuration: The VPC networking components used to secure and enable network traffic
-        between the Amazon Web Services resources for your environment.
+        :param network_configuration: The VPC networking components used to secure and enable network traffic between the Amazon Web Services resources for your environment.
         :param plugins_s3_path: The relative path to the ``plugins.
         :param plugins_s3_object_version: The version of the plugins.
         :param requirements_s3_path: The relative path to the ``requirements.
         :param requirements_s3_object_version: The version of the ``requirements.
         :param startup_script_s3_path: The relative path to the startup shell script in your Amazon S3 bucket.
         :param startup_script_s3_object_version: The version of the startup shell script in your Amazon S3 bucket.
-        :param airflow_configuration_options: A list of key-value pairs containing the Apache Airflow configuration
-        options you want to attach to your environment.
+        :param airflow_configuration_options: A list of key-value pairs containing the Apache Airflow configuration options you want to attach to your environment.
         :param environment_class: The environment class type.
         :param max_workers: The maximum number of workers that you want to run in your environment.
-        :param kms_key: The Amazon Web Services Key Management Service (KMS) key to encrypt the
-        data in your environment.
+        :param kms_key: The Amazon Web Services Key Management Service (KMS) key to encrypt the data in your environment.
         :param airflow_version: The Apache Airflow version for your environment.
         :param logging_configuration: Defines the Apache Airflow logs to send to CloudWatch Logs.
-        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour
-        standard time to start weekly maintenance updates of your environment in
-        the following format: ``DAY:HH:MM``.
+        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour standard time to start weekly maintenance updates of your environment in the following format: ``DAY:HH:MM``.
         :param tags: The key-value tag pairs you want to associate to your environment.
         :param webserver_access_mode: Defines the access mode for the Apache Airflow *web server*.
         :param min_workers: The minimum number of workers that you want to run in your environment.
         :param schedulers: The number of Apache Airflow schedulers to run in your environment.
-        :param endpoint_management: Defines whether the VPC endpoints configured for the environment are
-        created, and managed, by the customer or by Amazon MWAA.
-        :param min_webservers: The minimum number of web servers that you want to run in your
-        environment.
-        :param max_webservers: The maximum number of web servers that you want to run in your
-        environment.
+        :param endpoint_management: Defines whether the VPC endpoints configured for the environment are created, and managed, by the customer or by Amazon MWAA.
+        :param min_webservers: The minimum number of web servers that you want to run in your environment.
+        :param max_webservers: The maximum number of web servers that you want to run in your environment.
         :returns: CreateEnvironmentOutput
         :raises ValidationException:
         :raises InternalServerException:
@@ -713,10 +703,8 @@ class MwaaApi:
         :param name: The name of the Amazon MWAA environment.
         :param path: The Apache Airflow REST API endpoint path to be called.
         :param method: The HTTP method used for making Airflow REST API calls.
-        :param query_parameters: Query parameters to be included in the Apache Airflow REST API call,
-        provided as a JSON object.
-        :param body: The request body for the Apache Airflow REST API call, provided as a
-        JSON object.
+        :param query_parameters: Query parameters to be included in the Apache Airflow REST API call, provided as a JSON object.
+        :param body: The request body for the Apache Airflow REST API call, provided as a JSON object.
         :returns: InvokeRestApiResponse
         :raises RestApiClientException:
         :raises AccessDeniedException:
@@ -847,37 +835,28 @@ class MwaaApi:
         environment.
 
         :param name: The name of your Amazon MWAA environment.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role in IAM that allows
-        MWAA to access Amazon Web Services resources in your environment.
-        :param airflow_configuration_options: A list of key-value pairs containing the Apache Airflow configuration
-        options you want to attach to your environment.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role in IAM that allows MWAA to access Amazon Web Services resources in your environment.
+        :param airflow_configuration_options: A list of key-value pairs containing the Apache Airflow configuration options you want to attach to your environment.
         :param airflow_version: The Apache Airflow version for your environment.
         :param dag_s3_path: The relative path to the DAGs folder on your Amazon S3 bucket.
         :param environment_class: The environment class type.
         :param logging_configuration: The Apache Airflow log types to send to CloudWatch Logs.
         :param max_workers: The maximum number of workers that you want to run in your environment.
         :param min_workers: The minimum number of workers that you want to run in your environment.
-        :param max_webservers: The maximum number of web servers that you want to run in your
-        environment.
-        :param min_webservers: The minimum number of web servers that you want to run in your
-        environment.
+        :param max_webservers: The maximum number of web servers that you want to run in your environment.
+        :param min_webservers: The minimum number of web servers that you want to run in your environment.
         :param worker_replacement_strategy: The worker replacement strategy to use when updating the environment.
-        :param network_configuration: The VPC networking components used to secure and enable network traffic
-        between the Amazon Web Services resources for your environment.
+        :param network_configuration: The VPC networking components used to secure and enable network traffic between the Amazon Web Services resources for your environment.
         :param plugins_s3_path: The relative path to the ``plugins.
         :param plugins_s3_object_version: The version of the plugins.
         :param requirements_s3_path: The relative path to the ``requirements.
         :param requirements_s3_object_version: The version of the requirements.
-        :param schedulers: The number of Apache Airflow schedulers to run in your Amazon MWAA
-        environment.
-        :param source_bucket_arn: The Amazon Resource Name (ARN) of the Amazon S3 bucket where your DAG
-        code and supporting files are stored.
+        :param schedulers: The number of Apache Airflow schedulers to run in your Amazon MWAA environment.
+        :param source_bucket_arn: The Amazon Resource Name (ARN) of the Amazon S3 bucket where your DAG code and supporting files are stored.
         :param startup_script_s3_path: The relative path to the startup shell script in your Amazon S3 bucket.
         :param startup_script_s3_object_version: The version of the startup shell script in your Amazon S3 bucket.
         :param webserver_access_mode: The Apache Airflow *Web server* access mode.
-        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour
-        standard time to start weekly maintenance updates of your environment in
-        the following format: ``DAY:HH:MM``.
+        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour standard time to start weekly maintenance updates of your environment in the following format: ``DAY:HH:MM``.
         :returns: UpdateEnvironmentOutput
         :raises ResourceNotFoundException:
         :raises ValidationException:

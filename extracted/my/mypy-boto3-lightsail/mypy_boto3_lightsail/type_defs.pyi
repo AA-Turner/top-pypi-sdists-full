@@ -3,7 +3,7 @@ Type annotations for lightsail service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -860,10 +860,6 @@ class InstanceEntryTypeDef(TypedDict):
     availabilityZone: str
     userData: NotRequired[str]
 
-class CreateContactMethodRequestTypeDef(TypedDict):
-    protocol: ContactProtocolType
-    contactEndpoint: str
-
 class InputOriginTypeDef(TypedDict):
     name: NotRequired[str]
     regionName: NotRequired[RegionNameType]
@@ -1539,17 +1535,6 @@ class AlarmTypeDef(TypedDict):
     notificationTriggers: NotRequired[list[AlarmStateType]]
     notificationEnabled: NotRequired[bool]
 
-class ContactMethodTypeDef(TypedDict):
-    contactEndpoint: NotRequired[str]
-    status: NotRequired[ContactMethodStatusType]
-    protocol: NotRequired[ContactProtocolType]
-    name: NotRequired[str]
-    arn: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    location: NotRequired[ResourceLocationTypeDef]
-    resourceType: NotRequired[ResourceTypeType]
-    supportCode: NotRequired[str]
-
 OperationTypeDef = TypedDict(
     "OperationTypeDef",
     {
@@ -1648,6 +1633,18 @@ class BucketCorsConfigOutputTypeDef(TypedDict):
 class BucketCorsConfigTypeDef(TypedDict):
     rules: NotRequired[Sequence[BucketCorsRuleTypeDef]]
 
+class ContactMethodTypeDef(TypedDict):
+    contactEndpoint: NotRequired[str]
+    status: NotRequired[ContactMethodStatusType]
+    protocol: NotRequired[ContactProtocolType]
+    name: NotRequired[str]
+    arn: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    location: NotRequired[ResourceLocationTypeDef]
+    resourceType: NotRequired[ResourceTypeType]
+    supportCode: NotRequired[str]
+    tags: NotRequired[list[TagTypeDef]]
+
 class CreateBucketRequestTypeDef(TypedDict):
     bucketName: str
     bundleId: str
@@ -1658,6 +1655,11 @@ class CreateCertificateRequestTypeDef(TypedDict):
     certificateName: str
     domainName: str
     subjectAlternativeNames: NotRequired[Sequence[str]]
+    tags: NotRequired[Sequence[TagTypeDef]]
+
+class CreateContactMethodRequestTypeDef(TypedDict):
+    protocol: ContactProtocolType
+    contactEndpoint: str
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class CreateDiskSnapshotRequestTypeDef(TypedDict):
@@ -2280,10 +2282,6 @@ class GetAlarmsResultTypeDef(TypedDict):
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetContactMethodsResultTypeDef(TypedDict):
-    contactMethods: list[ContactMethodTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class AllocateStaticIpResultTypeDef(TypedDict):
     operations: list[OperationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2672,6 +2670,10 @@ class BucketTypeDef(TypedDict):
     cors: NotRequired[BucketCorsConfigOutputTypeDef]
 
 BucketCorsConfigUnionTypeDef = Union[BucketCorsConfigTypeDef, BucketCorsConfigOutputTypeDef]
+
+class GetContactMethodsResultTypeDef(TypedDict):
+    contactMethods: list[ContactMethodTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDiskSnapshotResultTypeDef(TypedDict):
     diskSnapshot: DiskSnapshotTypeDef

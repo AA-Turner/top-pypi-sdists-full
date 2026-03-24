@@ -30,6 +30,7 @@ class RawConversationsClient:
         agent_id: str,
         include_conversation_id: typing.Optional[bool] = None,
         branch_id: typing.Optional[str] = None,
+        environment: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ConversationSignedUrlResponseModel]:
         """
@@ -46,6 +47,9 @@ class RawConversationsClient:
         branch_id : typing.Optional[str]
             The ID of the branch to use
 
+        environment : typing.Optional[str]
+            The environment to use for resolving environment variables (e.g. 'production', 'staging'). Defaults to 'production'.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -61,6 +65,7 @@ class RawConversationsClient:
                 "agent_id": agent_id,
                 "include_conversation_id": include_conversation_id,
                 "branch_id": branch_id,
+                "environment": environment,
             },
             request_options=request_options,
         )
@@ -96,6 +101,7 @@ class RawConversationsClient:
         agent_id: str,
         participant_name: typing.Optional[str] = None,
         branch_id: typing.Optional[str] = None,
+        environment: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TokenResponseModel]:
         """
@@ -112,6 +118,9 @@ class RawConversationsClient:
         branch_id : typing.Optional[str]
             The ID of the branch to use
 
+        environment : typing.Optional[str]
+            The environment to use for resolving environment variables (e.g. 'production', 'staging'). Defaults to 'production'.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -127,6 +136,7 @@ class RawConversationsClient:
                 "agent_id": agent_id,
                 "participant_name": participant_name,
                 "branch_id": branch_id,
+                "environment": environment,
             },
             request_options=request_options,
         )
@@ -173,6 +183,8 @@ class RawConversationsClient:
         evaluation_params: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         data_collection_params: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         tool_names: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        tool_names_successful: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        tool_names_errored: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         main_languages: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         page_size: typing.Optional[int] = None,
         summary_mode: typing.Optional[ConversationsListRequestSummaryMode] = None,
@@ -228,6 +240,12 @@ class RawConversationsClient:
         tool_names : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter conversations by tool names used during the call.
 
+        tool_names_successful : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter conversations by tool names that had successful calls.
+
+        tool_names_errored : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter conversations by tool names that had errored calls.
+
         main_languages : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter conversations by detected main language (language code).
 
@@ -271,6 +289,8 @@ class RawConversationsClient:
                 "evaluation_params": evaluation_params,
                 "data_collection_params": data_collection_params,
                 "tool_names": tool_names,
+                "tool_names_successful": tool_names_successful,
+                "tool_names_errored": tool_names_errored,
                 "main_languages": main_languages,
                 "page_size": page_size,
                 "summary_mode": summary_mode,
@@ -419,6 +439,7 @@ class AsyncRawConversationsClient:
         agent_id: str,
         include_conversation_id: typing.Optional[bool] = None,
         branch_id: typing.Optional[str] = None,
+        environment: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ConversationSignedUrlResponseModel]:
         """
@@ -435,6 +456,9 @@ class AsyncRawConversationsClient:
         branch_id : typing.Optional[str]
             The ID of the branch to use
 
+        environment : typing.Optional[str]
+            The environment to use for resolving environment variables (e.g. 'production', 'staging'). Defaults to 'production'.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -450,6 +474,7 @@ class AsyncRawConversationsClient:
                 "agent_id": agent_id,
                 "include_conversation_id": include_conversation_id,
                 "branch_id": branch_id,
+                "environment": environment,
             },
             request_options=request_options,
         )
@@ -485,6 +510,7 @@ class AsyncRawConversationsClient:
         agent_id: str,
         participant_name: typing.Optional[str] = None,
         branch_id: typing.Optional[str] = None,
+        environment: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TokenResponseModel]:
         """
@@ -501,6 +527,9 @@ class AsyncRawConversationsClient:
         branch_id : typing.Optional[str]
             The ID of the branch to use
 
+        environment : typing.Optional[str]
+            The environment to use for resolving environment variables (e.g. 'production', 'staging'). Defaults to 'production'.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -516,6 +545,7 @@ class AsyncRawConversationsClient:
                 "agent_id": agent_id,
                 "participant_name": participant_name,
                 "branch_id": branch_id,
+                "environment": environment,
             },
             request_options=request_options,
         )
@@ -562,6 +592,8 @@ class AsyncRawConversationsClient:
         evaluation_params: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         data_collection_params: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         tool_names: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        tool_names_successful: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        tool_names_errored: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         main_languages: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         page_size: typing.Optional[int] = None,
         summary_mode: typing.Optional[ConversationsListRequestSummaryMode] = None,
@@ -617,6 +649,12 @@ class AsyncRawConversationsClient:
         tool_names : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter conversations by tool names used during the call.
 
+        tool_names_successful : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter conversations by tool names that had successful calls.
+
+        tool_names_errored : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter conversations by tool names that had errored calls.
+
         main_languages : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter conversations by detected main language (language code).
 
@@ -660,6 +698,8 @@ class AsyncRawConversationsClient:
                 "evaluation_params": evaluation_params,
                 "data_collection_params": data_collection_params,
                 "tool_names": tool_names,
+                "tool_names_successful": tool_names_successful,
+                "tool_names_errored": tool_names_errored,
                 "main_languages": main_languages,
                 "page_size": page_size,
                 "summary_mode": summary_mode,

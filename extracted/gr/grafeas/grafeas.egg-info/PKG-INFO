@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grafeas
-Version: 1.20.0
+Version: 1.21.0
 Summary: Grafeas API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/grafeas
 Author: Google LLC

@@ -21,7 +21,11 @@ use std::sync::{Arc, Weak};
 const TAG: &str = stringify!(StatsigOptionsPy);
 
 #[gen_stub_pyclass]
-#[pyclass(name = "SpecAdapterConfig", module = "statsig_python_core")]
+#[pyclass(
+    name = "SpecAdapterConfig",
+    module = "statsig_python_core",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct SpecAdapterConfigPy {
     #[pyo3(get, set)]
@@ -67,7 +71,7 @@ impl From<SpecAdapterConfigPy> for SpecAdapterConfig {
 }
 
 #[gen_stub_pyclass]
-#[pyclass(name = "ProxyConfig", module = "statsig_python_core")]
+#[pyclass(name = "ProxyConfig", module = "statsig_python_core", from_py_object)]
 #[derive(Clone)]
 pub struct ProxyConfigPy {
     #[pyo3(get, set)]
@@ -120,6 +124,8 @@ pub struct StatsigOptionsPy {
     pub disable_all_logging: Option<bool>,
     #[pyo3(get, set)]
     pub disable_network: Option<bool>,
+    #[pyo3(get, set)]
+    pub log_event_connection_reuse: Option<bool>,
     #[pyo3(get, set)]
     pub event_logging_flush_interval_ms: Option<u32>,
     #[pyo3(get, set)]
@@ -187,6 +193,7 @@ impl StatsigOptionsPy {
         log_event_url=None,
         disable_all_logging=None,
         disable_network=None,
+        log_event_connection_reuse=None,
         event_logging_flush_interval_ms=None,
         event_logging_max_queue_size=None,
         event_logging_max_pending_batch_queue_size=None,
@@ -223,6 +230,7 @@ impl StatsigOptionsPy {
         log_event_url: Option<String>,
         disable_all_logging: Option<bool>,
         disable_network: Option<bool>,
+        log_event_connection_reuse: Option<bool>,
         event_logging_flush_interval_ms: Option<u32>,
         event_logging_max_queue_size: Option<u32>,
         event_logging_max_pending_batch_queue_size: Option<u32>,
@@ -257,6 +265,7 @@ impl StatsigOptionsPy {
             init_timeout_ms,
             log_event_url,
             disable_all_logging,
+            log_event_connection_reuse,
             event_logging_flush_interval_ms,
             event_logging_max_queue_size,
             event_logging_max_pending_batch_queue_size,
@@ -367,6 +376,7 @@ fn create_inner_statsig_options(
         wait_for_country_lookup_init: opts.wait_for_user_agent_init,
         global_custom_fields,
         disable_network: opts.disable_network,
+        log_event_connection_reuse: opts.log_event_connection_reuse,
         disable_country_lookup: opts.disable_country_lookup,
         persistent_storage: opts.persistent_storage.as_ref().map(|s| {
             Arc::new(StatsigPersistentStorageOverrideAdapter::new(

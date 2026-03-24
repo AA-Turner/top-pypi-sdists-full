@@ -3,6 +3,9 @@ pub mod structured;
 pub mod text;
 pub mod transform;
 
+#[cfg(feature = "hwp")]
+pub mod hwp;
+
 #[cfg(any(feature = "ocr", feature = "ocr-wasm"))]
 pub mod image;
 

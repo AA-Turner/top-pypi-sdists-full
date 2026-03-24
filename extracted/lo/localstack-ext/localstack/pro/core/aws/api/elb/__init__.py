@@ -1106,8 +1106,7 @@ class ElbApi:
 
         :param load_balancer_name: The name of the load balancer.
         :param policy_name: The name of the policy being created.
-        :param cookie_expiration_period: The time period, in seconds, after which the cookie should be considered
-        stale.
+        :param cookie_expiration_period: The time period, in seconds, after which the cookie should be considered stale.
         :returns: CreateLBCookieStickinessPolicyOutput
         :raises AccessPointNotFoundException:
         :raises DuplicatePolicyNameException:
@@ -1148,8 +1147,7 @@ class ElbApi:
 
         :param load_balancer_name: The name of the load balancer.
         :param listeners: The listeners.
-        :param availability_zones: One or more Availability Zones from the same region as the load
-        balancer.
+        :param availability_zones: One or more Availability Zones from the same region as the load balancer.
         :param subnets: The IDs of the subnets in your VPC to attach to the load balancer.
         :param security_groups: The IDs of the security groups to assign to the load balancer.
         :param scheme: The type of a load balancer.
@@ -1431,8 +1429,7 @@ class ElbApi:
 
         :param load_balancer_names: The names of the load balancers.
         :param marker: The marker for the next set of results.
-        :param page_size: The maximum number of results to return with this call (a number from 1
-        to 400).
+        :param page_size: The maximum number of results to return with this call (a number from 1 to 400).
         :returns: DescribeAccessPointsOutput
         :raises AccessPointNotFoundException:
         :raises DependencyThrottleException:

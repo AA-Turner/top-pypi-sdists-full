@@ -15,7 +15,10 @@
 Utility class to represent an embedding of a set of qubits in a two-dimensional plane.
 """
 
+from __future__ import annotations
+
 from collections.abc import Iterable, Sequence
+from itertools import product
 
 from qiskit.providers.backend import BackendV2
 from qiskit.transpiler import CouplingMap
@@ -46,7 +49,7 @@ class Embedding:
         )
 
     @classmethod
-    def from_backend(cls, backend: BackendV2) -> "Embedding":
+    def from_backend(cls, backend: BackendV2) -> Embedding:
         r"""Generates an :class:`~.Embedding` object from a backend.
 
         Args:
@@ -110,6 +113,21 @@ def _heavy_hex_coords(
         coordinates = sorted(coordinates, key=lambda p: (p[1], p[0]))
 
     return coordinates
+
+
+def _square_lattice_coords(num_rows: int, num_cols: int) -> list[tuple[int, int]]:
+    """Generate square lattice coordinates.
+
+    Indexing starts at the top left, and is row major.
+
+    Args:
+        num_rows: The number of rows in the lattice.
+        num_cols: The number of columns in the lattice.
+
+    Returns:
+        A list of qubit coordinates, where list position corresponds with qubit index.
+    """
+    return list(product(range(num_rows), range(num_cols)))
 
 
 def _get_qubits_coordinates(num_qubits: int) -> list[tuple[int, int]]:
@@ -182,10 +200,25 @@ def _get_qubits_coordinates(num_qubits: int) -> list[tuple[int, int]]:
         rows = [range(10), [0, 4, 8]] + r + [range(11), [0, 4, 8]] + r + [range(1, 11)]
         return _heavy_hex_coords(rows, True)
 
+    if num_qubits == 120:
+        return _square_lattice_coords(12, 10)
+
     if num_qubits == 127:
         r1 = [range(15), [2, 6, 10, 14]]
         r2 = [range(15), [0, 4, 8, 12]]
         rows = [range(14), [0, 4, 8, 12]] + r1 + r2 + r1 + r2 + r1 + [range(1, 15)]
+        return _heavy_hex_coords(rows, True)
+
+    if num_qubits == 133:
+        r1 = [range(15), [0, 4, 8, 12]]
+        r2 = [range(15), [2, 6, 10, 14]]
+        rows = (r1 + r2) * 3 + r1
+        return _heavy_hex_coords(rows, True)
+
+    if num_qubits == 156:
+        r1 = [range(16), [3, 7, 11, 15]]
+        r2 = [range(16), [1, 5, 9, 13]]
+        rows = (r1 + r2) * 3 + r1 + [range(16)]
         return _heavy_hex_coords(rows, True)
 
     raise ValueError(f"Coordinates for {num_qubits}-qubit CPU are unknown.")

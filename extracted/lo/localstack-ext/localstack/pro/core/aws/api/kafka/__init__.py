@@ -1942,11 +1942,9 @@ class KafkaApi:
         :param kafka_version: The version of Apache Kafka.
         :param number_of_broker_nodes: The number of broker nodes in the cluster.
         :param cluster_name: The name of the cluster.
-        :param rebalancing: Specifies if intelligent rebalancing should be turned on for the new MSK
-        Provisioned cluster with Express brokers.
+        :param rebalancing: Specifies if intelligent rebalancing should be turned on for the new MSK Provisioned cluster with Express brokers.
         :param client_authentication: Includes all client authentication related information.
-        :param configuration_info: Represents the configuration that you want MSK to use for the brokers in
-        a cluster.
+        :param configuration_info: Represents the configuration that you want MSK to use for the brokers in a cluster.
         :param encryption_info: Includes all encryption-related information.
         :param enhanced_monitoring: Specifies the level of monitoring for the MSK cluster.
         :param open_monitoring: The settings for open monitoring.
@@ -2006,8 +2004,7 @@ class KafkaApi:
         :param server_properties: Contents of the server.
         :param name: The name of the configuration.
         :param description: The description of the configuration.
-        :param kafka_versions: The versions of Apache Kafka with which you can use this MSK
-        configuration.
+        :param kafka_versions: The versions of Apache Kafka with which you can use this MSK configuration.
         :returns: CreateConfigurationResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -2033,11 +2030,9 @@ class KafkaApi:
     ) -> CreateReplicatorResponse:
         """Creates the replicator.
 
-        :param service_execution_role_arn: The ARN of the IAM role used by the replicator to access resources in
-        the customer's account (e.
+        :param service_execution_role_arn: The ARN of the IAM role used by the replicator to access resources in the customer's account (e.
         :param replicator_name: The name of the replicator.
-        :param replication_info_list: A list of replication configurations, where each configuration targets a
-        given source cluster to target cluster replication flow.
+        :param replication_info_list: A list of replication configurations, where each configuration targets a given source cluster to target cluster replication flow.
         :param kafka_clusters: Kafka Clusters to use in setting up sources / targets for replication.
         :param description: A summary description of the replicator.
         :param tags: List of tags to attach to created Replicator.
@@ -2164,8 +2159,7 @@ class KafkaApi:
     ) -> DeleteConfigurationResponse:
         """Deletes an MSK Configuration.
 
-        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK
-        configuration.
+        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK configuration.
         :returns: DeleteConfigurationResponse
         :raises NotFoundException:
         :raises BadRequestException:
@@ -2227,8 +2221,7 @@ class KafkaApi:
     ) -> DeleteVpcConnectionResponse:
         """Deletes a MSK VPC connection.
 
-        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK VPC
-        connection.
+        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK VPC connection.
         :returns: DeleteVpcConnectionResponse
         :raises NotFoundException:
         :raises BadRequestException:
@@ -2277,8 +2270,7 @@ class KafkaApi:
     ) -> DescribeClusterOperationResponse:
         """Returns a description of the cluster operation specified by the ARN.
 
-        :param cluster_operation_arn: The Amazon Resource Name (ARN) that uniquely identifies the MSK cluster
-        operation.
+        :param cluster_operation_arn: The Amazon Resource Name (ARN) that uniquely identifies the MSK cluster operation.
         :returns: DescribeClusterOperationResponse
         :raises NotFoundException:
         :raises BadRequestException:
@@ -2312,8 +2304,7 @@ class KafkaApi:
     ) -> DescribeConfigurationResponse:
         """Returns a description of this MSK configuration.
 
-        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK
-        configuration and all of its revisions.
+        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK configuration and all of its revisions.
         :returns: DescribeConfigurationResponse
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -2331,8 +2322,7 @@ class KafkaApi:
         """Returns a description of this revision of the configuration.
 
         :param revision: A string that uniquely identifies a revision of an MSK configuration.
-        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK
-        configuration and all of its revisions.
+        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK configuration and all of its revisions.
         :returns: DescribeConfigurationRevisionResponse
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -2409,8 +2399,7 @@ class KafkaApi:
     ) -> DescribeVpcConnectionResponse:
         """Returns a description of this MSK VPC connection.
 
-        :param arn: The Amazon Resource Name (ARN) that uniquely identifies a MSK VPC
-        connection.
+        :param arn: The Amazon Resource Name (ARN) that uniquely identifies a MSK VPC connection.
         :returns: DescribeVpcConnectionResponse
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -2605,8 +2594,7 @@ class KafkaApi:
     ) -> ListConfigurationRevisionsResponse:
         """Returns a list of all the MSK configurations in this Region.
 
-        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK
-        configuration and all of its revisions.
+        :param arn: The Amazon Resource Name (ARN) that uniquely identifies an MSK configuration and all of its revisions.
         :param max_results: The maximum number of results to return in the response.
         :param next_token: The paginated results marker.
         :returns: ListConfigurationRevisionsResponse
@@ -2694,8 +2682,7 @@ class KafkaApi:
         """Lists the replicators.
 
         :param max_results: The maximum number of results to return in the response.
-        :param next_token: If the response of ListReplicators is truncated, it returns a NextToken
-        in the response.
+        :param next_token: If the response of ListReplicators is truncated, it returns a NextToken in the response.
         :param replicator_name_filter: Returns replicators starting with given name.
         :returns: ListReplicatorsResponse
         :raises BadRequestException:
@@ -2740,8 +2727,7 @@ class KafkaApi:
     ) -> ListTagsForResourceResponse:
         """Returns a list of the tags associated with the specified resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that uniquely identifies the resource
-        that's associated with the tags.
+        :param resource_arn: The Amazon Resource Name (ARN) that uniquely identifies the resource that's associated with the tags.
         :returns: ListTagsForResourceResponse
         :raises NotFoundException:
         :raises BadRequestException:
@@ -2882,8 +2868,7 @@ class KafkaApi:
     ) -> None:
         """Adds tags to the specified MSK resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that uniquely identifies the resource
-        that's associated with the tags.
+        :param resource_arn: The Amazon Resource Name (ARN) that uniquely identifies the resource that's associated with the tags.
         :param tags: The key-value pair for the resource tag.
         :raises NotFoundException:
         :raises BadRequestException:
@@ -2899,8 +2884,7 @@ class KafkaApi:
         query.
 
         :param tag_keys: Tag keys must be unique for a given cluster.
-        :param resource_arn: The Amazon Resource Name (ARN) that uniquely identifies the resource
-        that's associated with the tags.
+        :param resource_arn: The Amazon Resource Name (ARN) that uniquely identifies the resource that's associated with the tags.
         :raises NotFoundException:
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -2920,8 +2904,7 @@ class KafkaApi:
 
         :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
         :param current_version: The version of cluster to update from.
-        :param target_number_of_broker_nodes: The number of broker nodes that you want the cluster to have after this
-        operation completes successfully.
+        :param target_number_of_broker_nodes: The number of broker nodes that you want the cluster to have after this operation completes successfully.
         :returns: UpdateBrokerCountResponse
         :raises ServiceUnavailableException:
         :raises BadRequestException:
@@ -2944,8 +2927,7 @@ class KafkaApi:
 
         :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
         :param current_version: The cluster version that you want to change.
-        :param target_instance_type: The Amazon MSK broker type that you want all of the brokers in this
-        cluster to be.
+        :param target_instance_type: The Amazon MSK broker type that you want all of the brokers in this cluster to be.
         :returns: UpdateBrokerTypeResponse
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -2969,8 +2951,7 @@ class KafkaApi:
         """Updates the EBS storage associated with MSK brokers.
 
         :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
-        :param target_broker_ebs_volume_info: Describes the target volume size and the ID of the broker to apply the
-        update to.
+        :param target_broker_ebs_volume_info: Describes the target volume size and the ID of the broker to apply the update to.
         :param current_version: The version of cluster to update from.
         :returns: UpdateBrokerStorageResponse
         :raises ServiceUnavailableException:
@@ -3043,8 +3024,7 @@ class KafkaApi:
 
         :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
         :param current_version: The version of the cluster that needs to be updated.
-        :param configuration_info: Represents the configuration that you want MSK to use for the brokers in
-        a cluster.
+        :param configuration_info: Represents the configuration that you want MSK to use for the brokers in a cluster.
         :returns: UpdateClusterConfigurationResponse
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -3070,8 +3050,7 @@ class KafkaApi:
         :param cluster_arn: The Amazon Resource Name (ARN) of the cluster to be updated.
         :param target_kafka_version: Target Kafka version.
         :param current_version: Current cluster version.
-        :param configuration_info: The custom configuration that should be applied on the new version of
-        cluster.
+        :param configuration_info: The custom configuration that should be applied on the new version of cluster.
         :returns: UpdateClusterKafkaVersionResponse
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -3101,8 +3080,7 @@ class KafkaApi:
 
         :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
         :param current_version: The version of the MSK cluster to update.
-        :param enhanced_monitoring: Specifies which Apache Kafka metrics Amazon MSK gathers and sends to
-        Amazon CloudWatch for this cluster.
+        :param enhanced_monitoring: Specifies which Apache Kafka metrics Amazon MSK gathers and sends to Amazon CloudWatch for this cluster.
         :param open_monitoring: The settings for open monitoring.
         :param logging_info: .
         :returns: UpdateMonitoringResponse
@@ -3128,8 +3106,7 @@ class KafkaApi:
 
         :param cluster_arn: The Amazon Resource Name (ARN) of the cluster.
         :param current_version: The current version of the cluster.
-        :param rebalancing: Specifies if intelligent rebalancing should be turned on for your
-        cluster.
+        :param rebalancing: Specifies if intelligent rebalancing should be turned on for your cluster.
         :returns: UpdateRebalancingResponse
         :raises BadRequestException:
         :raises UnauthorizedException:

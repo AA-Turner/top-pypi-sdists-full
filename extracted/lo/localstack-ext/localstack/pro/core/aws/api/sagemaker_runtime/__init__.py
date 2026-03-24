@@ -252,28 +252,17 @@ class SagemakerRuntimeApi:
         the account ID from the authentication token that is supplied by the
         caller.
 
-        :param endpoint_name: The name of the endpoint that you specified when you created the
-        endpoint using the
-        `CreateEndpoint <https://docs.
-        :param body: Provides input data, in the format specified in the ``ContentType``
-        request header.
+        :param endpoint_name: The name of the endpoint that you specified when you created the endpoint using the `CreateEndpoint <https://docs.
+        :param body: Provides input data, in the format specified in the ``ContentType`` request header.
         :param content_type: The MIME type of the input data in the request body.
-        :param accept: The desired MIME type of the inference response from the model
-        container.
-        :param custom_attributes: Provides additional information about a request for an inference
-        submitted to a model hosted at an Amazon SageMaker AI endpoint.
+        :param accept: The desired MIME type of the inference response from the model container.
+        :param custom_attributes: Provides additional information about a request for an inference submitted to a model hosted at an Amazon SageMaker AI endpoint.
         :param target_model: The model to request for inference when invoking a multi-model endpoint.
-        :param target_variant: Specify the production variant to send the inference request to when
-        invoking an endpoint that is running two or more variants.
-        :param target_container_hostname: If the endpoint hosts multiple containers and is configured to use
-        direct invocation, this parameter specifies the host name of the
-        container to invoke.
-        :param inference_id: If you provide a value, it is added to the captured data when you enable
-        data capture on the endpoint.
-        :param enable_explanations: An optional JMESPath expression used to override the
-        ``EnableExplanations`` parameter of the ``ClarifyExplainerConfig`` API.
-        :param inference_component_name: If the endpoint hosts one or more inference components, this parameter
-        specifies the name of inference component to invoke.
+        :param target_variant: Specify the production variant to send the inference request to when invoking an endpoint that is running two or more variants.
+        :param target_container_hostname: If the endpoint hosts multiple containers and is configured to use direct invocation, this parameter specifies the host name of the container to invoke.
+        :param inference_id: If you provide a value, it is added to the captured data when you enable data capture on the endpoint.
+        :param enable_explanations: An optional JMESPath expression used to override the ``EnableExplanations`` parameter of the ``ClarifyExplainerConfig`` API.
+        :param inference_component_name: If the endpoint hosts one or more inference components, this parameter specifies the name of inference component to invoke.
         :param session_id: Creates a stateful session or identifies an existing one.
         :returns: InvokeEndpointOutput
         :raises InternalFailure:
@@ -323,23 +312,16 @@ class SagemakerRuntimeApi:
         4) <https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html>`__
         in the *Amazon S3 API Reference*.
 
-        :param endpoint_name: The name of the endpoint that you specified when you created the
-        endpoint using the
-        `CreateEndpoint <https://docs.
+        :param endpoint_name: The name of the endpoint that you specified when you created the endpoint using the `CreateEndpoint <https://docs.
         :param input_location: The Amazon S3 URI where the inference request payload is stored.
         :param content_type: The MIME type of the input data in the request body.
-        :param accept: The desired MIME type of the inference response from the model
-        container.
-        :param custom_attributes: Provides additional information about a request for an inference
-        submitted to a model hosted at an Amazon SageMaker AI endpoint.
+        :param accept: The desired MIME type of the inference response from the model container.
+        :param custom_attributes: Provides additional information about a request for an inference submitted to a model hosted at an Amazon SageMaker AI endpoint.
         :param inference_id: The identifier for the inference request.
-        :param s3_output_path_extension: The path extension that is appended to the Amazon S3 output path where
-        the inference response payload is stored.
+        :param s3_output_path_extension: The path extension that is appended to the Amazon S3 output path where the inference response payload is stored.
         :param filename: The filename for the inference response payload stored in Amazon S3.
-        :param request_ttl_seconds: Maximum age in seconds a request can be in the queue before it is marked
-        as expired.
-        :param invocation_timeout_seconds: Maximum amount of time in seconds a request can be processed before it
-        is marked as expired.
+        :param request_ttl_seconds: Maximum age in seconds a request can be in the queue before it is marked as expired.
+        :param invocation_timeout_seconds: Maximum amount of time in seconds a request can be processed before it is marked as expired.
         :returns: InvokeEndpointAsyncOutput
         :raises InternalFailure:
         :raises ServiceUnavailable:
@@ -399,25 +381,15 @@ class SagemakerRuntimeApi:
         4) <https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html>`__
         in the *Amazon S3 API Reference*.
 
-        :param endpoint_name: The name of the endpoint that you specified when you created the
-        endpoint using the
-        `CreateEndpoint <https://docs.
-        :param body: Provides input data, in the format specified in the ``ContentType``
-        request header.
+        :param endpoint_name: The name of the endpoint that you specified when you created the endpoint using the `CreateEndpoint <https://docs.
+        :param body: Provides input data, in the format specified in the ``ContentType`` request header.
         :param content_type: The MIME type of the input data in the request body.
-        :param accept: The desired MIME type of the inference response from the model
-        container.
-        :param custom_attributes: Provides additional information about a request for an inference
-        submitted to a model hosted at an Amazon SageMaker AI endpoint.
-        :param target_variant: Specify the production variant to send the inference request to when
-        invoking an endpoint that is running two or more variants.
-        :param target_container_hostname: If the endpoint hosts multiple containers and is configured to use
-        direct invocation, this parameter specifies the host name of the
-        container to invoke.
+        :param accept: The desired MIME type of the inference response from the model container.
+        :param custom_attributes: Provides additional information about a request for an inference submitted to a model hosted at an Amazon SageMaker AI endpoint.
+        :param target_variant: Specify the production variant to send the inference request to when invoking an endpoint that is running two or more variants.
+        :param target_container_hostname: If the endpoint hosts multiple containers and is configured to use direct invocation, this parameter specifies the host name of the container to invoke.
         :param inference_id: An identifier that you assign to your request.
-        :param inference_component_name: If the endpoint hosts one or more inference components, this parameter
-        specifies the name of inference component to invoke for a streaming
-        response.
+        :param inference_component_name: If the endpoint hosts one or more inference components, this parameter specifies the name of inference component to invoke for a streaming response.
         :param session_id: The ID of a stateful session to handle your request.
         :returns: InvokeEndpointWithResponseStreamOutput
         :raises InternalFailure:

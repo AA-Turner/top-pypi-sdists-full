@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: stagehand
-Version: 3.6.0
+Version: 3.7.0
 Summary: The official Python library for the stagehand API
 Project-URL: Homepage, https://github.com/browserbase/stagehand-python
 Project-URL: Repository, https://github.com/browserbase/stagehand-python
@@ -27,7 +27,7 @@ Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
@@ -146,6 +146,8 @@ Examples and dependencies:
 - `examples/playwright_page_example.py`: Playwright + Playwright browsers
 - `examples/byob_example.py`: Playwright + Playwright browsers
 - `examples/pydoll_tab_example.py`: `pydoll-python` (Python 3.10+)
+
+Multiregion support: see `examples/local_server_multiregion_browser_example.py`.
 
 Run any example:
 

@@ -13,13 +13,17 @@ AutomatedReasoningCheckTranslationConfidence = float
 AutomatedReasoningConfidenceFilterThreshold = float
 AutomatedReasoningLogicStatementContent = str
 AutomatedReasoningNaturalLanguageStatementContent = str
+AutomatedReasoningPolicyAccuracyScore = float
 AutomatedReasoningPolicyAnnotationFeedbackNaturalLanguage = str
 AutomatedReasoningPolicyAnnotationIngestContent = str
 AutomatedReasoningPolicyAnnotationRuleNaturalLanguage = str
 AutomatedReasoningPolicyArn = str
 AutomatedReasoningPolicyBuildDocumentDescription = str
 AutomatedReasoningPolicyBuildDocumentName = str
+AutomatedReasoningPolicyBuildResultAssetId = str
+AutomatedReasoningPolicyBuildResultAssetName = str
 AutomatedReasoningPolicyBuildWorkflowId = str
+AutomatedReasoningPolicyCoverageScore = float
 AutomatedReasoningPolicyDefinitionRuleAlternateExpression = str
 AutomatedReasoningPolicyDefinitionRuleExpression = str
 AutomatedReasoningPolicyDefinitionRuleId = str
@@ -30,12 +34,18 @@ AutomatedReasoningPolicyDefinitionTypeValueName = str
 AutomatedReasoningPolicyDefinitionVariableDescription = str
 AutomatedReasoningPolicyDefinitionVariableName = str
 AutomatedReasoningPolicyDescription = str
+AutomatedReasoningPolicyDocumentId = str
+AutomatedReasoningPolicyDocumentSha256 = str
 AutomatedReasoningPolicyFormatVersion = str
 AutomatedReasoningPolicyHash = str
 AutomatedReasoningPolicyId = str
+AutomatedReasoningPolicyJustificationText = str
+AutomatedReasoningPolicyLineText = str
 AutomatedReasoningPolicyName = str
 AutomatedReasoningPolicyScenarioAlternateExpression = str
 AutomatedReasoningPolicyScenarioExpression = str
+AutomatedReasoningPolicyStatementId = str
+AutomatedReasoningPolicyStatementText = str
 AutomatedReasoningPolicyTestCaseId = str
 AutomatedReasoningPolicyTestGuardContent = str
 AutomatedReasoningPolicyTestQueryContent = str
@@ -71,6 +81,7 @@ EvaluationPrecomputedInferenceSourceIdentifier = str
 EvaluationPrecomputedRagSourceIdentifier = str
 EvaluationRatingMethod = str
 EvaluatorModelIdentifier = str
+ExcludedModelId = str
 FieldForRerankingFieldNameString = str
 FilterKey = str
 Float = float
@@ -111,6 +122,7 @@ Identifier = str
 ImportedModelArn = str
 ImportedModelIdentifier = str
 ImportedModelName = str
+IncludedModelId = str
 InferenceProfileArn = str
 InferenceProfileDescription = str
 InferenceProfileId = str
@@ -257,6 +269,9 @@ class AutomatedReasoningPolicyBuildResultAssetType(StrEnum):
     POLICY_DEFINITION = "POLICY_DEFINITION"
     GENERATED_TEST_CASES = "GENERATED_TEST_CASES"
     POLICY_SCENARIOS = "POLICY_SCENARIOS"
+    FIDELITY_REPORT = "FIDELITY_REPORT"
+    ASSET_MANIFEST = "ASSET_MANIFEST"
+    SOURCE_DOCUMENT = "SOURCE_DOCUMENT"
 
 
 class AutomatedReasoningPolicyBuildWorkflowStatus(StrEnum):
@@ -274,6 +289,7 @@ class AutomatedReasoningPolicyBuildWorkflowType(StrEnum):
     INGEST_CONTENT = "INGEST_CONTENT"
     REFINE_POLICY = "REFINE_POLICY"
     IMPORT_POLICY = "IMPORT_POLICY"
+    GENERATE_FIDELITY_REPORT = "GENERATE_FIDELITY_REPORT"
 
 
 class AutomatedReasoningPolicyTestRunResult(StrEnum):
@@ -543,6 +559,11 @@ class ModelInvocationJobStatus(StrEnum):
     Scheduled = "Scheduled"
 
 
+class ModelInvocationType(StrEnum):
+    InvokeModel = "InvokeModel"
+    Converse = "Converse"
+
+
 class ModelModality(StrEnum):
     TEXT = "TEXT"
     IMAGE = "IMAGE"
@@ -735,12 +756,24 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
+ExcludedModelsList = list[ExcludedModelId]
+IncludedModelsList = list[IncludedModelId]
+
+
+class ModelEnforcement(TypedDict, total=False):
+    """Model-specific information for the enforced guardrail configuration."""
+
+    includedModels: IncludedModelsList
+    excludedModels: ExcludedModelsList
+
+
 class AccountEnforcedGuardrailInferenceInputConfiguration(TypedDict, total=False):
     """Account-level enforced guardrail input configuration."""
 
     guardrailIdentifier: GuardrailIdentifier
     guardrailVersion: GuardrailNumericalVersion
     inputTags: InputTags
+    modelEnforcement: ModelEnforcement | None
 
 
 Timestamp = datetime
@@ -759,6 +792,7 @@ class AccountEnforcedGuardrailOutputConfiguration(TypedDict, total=False):
     updatedAt: Timestamp | None
     updatedBy: String | None
     owner: ConfigurationOwner | None
+    modelEnforcement: ModelEnforcement | None
 
 
 AccountEnforcedGuardrailsOutputConfiguration = list[AccountEnforcedGuardrailOutputConfiguration]
@@ -1192,6 +1226,41 @@ class AutomatedReasoningPolicyAddVariableMutation(TypedDict, total=False):
     variable: AutomatedReasoningPolicyDefinitionVariable
 
 
+class AutomatedReasoningPolicyAnnotatedLine(TypedDict, total=False):
+    """Represents a single line of text from a source document, annotated with
+    its line number for precise referencing.
+    """
+
+    lineNumber: Integer | None
+    lineText: AutomatedReasoningPolicyLineText | None
+
+
+class AutomatedReasoningPolicyAnnotatedContent(TypedDict, total=False):
+    """Represents a content element within an annotated chunk. This union type
+    allows for different types of content elements to be included in
+    document chunks, such as individual lines of text with their line
+    numbers.
+    """
+
+    line: AutomatedReasoningPolicyAnnotatedLine | None
+
+
+AutomatedReasoningPolicyAnnotatedContentList = list[AutomatedReasoningPolicyAnnotatedContent]
+
+
+class AutomatedReasoningPolicyAnnotatedChunk(TypedDict, total=False):
+    """Represents a portion of a source document with line number annotations.
+    Chunks help organize document content for easier navigation and
+    reference.
+    """
+
+    pageNumber: Integer | None
+    content: AutomatedReasoningPolicyAnnotatedContentList
+
+
+AutomatedReasoningPolicyAnnotatedChunkList = list[AutomatedReasoningPolicyAnnotatedChunk]
+
+
 class AutomatedReasoningPolicyIngestContentAnnotation(TypedDict, total=False):
     """An annotation for processing and incorporating new content into an
     Automated Reasoning policy.
@@ -1325,6 +1394,29 @@ class AutomatedReasoningPolicyAnnotation(TypedDict, total=False):
 
 
 AutomatedReasoningPolicyAnnotationList = list[AutomatedReasoningPolicyAnnotation]
+AutomatedReasoningPolicyLineNumberList = list[Integer]
+
+
+class AutomatedReasoningPolicyStatementLocation(TypedDict, total=False):
+    """Describes the location of a statement within a source document using
+    line numbers.
+    """
+
+    lines: AutomatedReasoningPolicyLineNumberList
+
+
+class AutomatedReasoningPolicyAtomicStatement(TypedDict, total=False):
+    """Represents a single, indivisible statement extracted from a source
+    document. Atomic statements are the fundamental units used to ground
+    policy rules and variables to their source material.
+    """
+
+    id: AutomatedReasoningPolicyStatementId
+    text: AutomatedReasoningPolicyStatementText
+    location: AutomatedReasoningPolicyStatementLocation
+
+
+AutomatedReasoningPolicyAtomicStatementList = list[AutomatedReasoningPolicyAtomicStatement]
 AutomatedReasoningPolicyBuildDocumentBlob = bytes
 
 
@@ -1462,6 +1554,123 @@ class AutomatedReasoningPolicyBuildLog(TypedDict, total=False):
     entries: AutomatedReasoningPolicyBuildLogEntryList
 
 
+class AutomatedReasoningPolicyBuildResultAssetManifestEntry(TypedDict, total=False):
+    """Represents a single entry in the asset manifest, describing one artifact
+    produced by the build workflow.
+    """
+
+    assetType: AutomatedReasoningPolicyBuildResultAssetType
+    assetName: AutomatedReasoningPolicyBuildResultAssetName | None
+    assetId: AutomatedReasoningPolicyBuildResultAssetId | None
+
+
+AutomatedReasoningPolicyBuildResultAssetManifestList = list[
+    AutomatedReasoningPolicyBuildResultAssetManifestEntry
+]
+
+
+class AutomatedReasoningPolicyBuildResultAssetManifest(TypedDict, total=False):
+    """A catalog of all artifacts produced by a build workflow, providing a
+    comprehensive list of available assets including their types and
+    identifiers.
+    """
+
+    entries: AutomatedReasoningPolicyBuildResultAssetManifestList
+
+
+class AutomatedReasoningPolicyReportSourceDocument(TypedDict, total=False):
+    """Represents a source document that was analyzed during fidelity report
+    generation, including the document's metadata and its content broken
+    down into atomic statements.
+    """
+
+    documentName: AutomatedReasoningPolicyBuildDocumentName
+    documentHash: AutomatedReasoningPolicyDocumentSha256
+    documentId: AutomatedReasoningPolicyDocumentId
+    atomicStatements: AutomatedReasoningPolicyAtomicStatementList
+    documentContent: AutomatedReasoningPolicyAnnotatedChunkList
+
+
+AutomatedReasoningPolicyReportSourceDocumentList = list[
+    AutomatedReasoningPolicyReportSourceDocument
+]
+AutomatedReasoningPolicyJustificationList = list[AutomatedReasoningPolicyJustificationText]
+
+
+class AutomatedReasoningPolicyStatementReference(TypedDict, total=False):
+    """References a specific atomic statement within a source document, used to
+    link policy elements back to their source material.
+    """
+
+    documentId: AutomatedReasoningPolicyDocumentId
+    statementId: AutomatedReasoningPolicyStatementId
+
+
+AutomatedReasoningPolicyStatementReferenceList = list[AutomatedReasoningPolicyStatementReference]
+
+
+class AutomatedReasoningPolicyVariableReport(TypedDict, total=False):
+    """Provides detailed fidelity analysis for a specific policy variable,
+    including which source document statements support it and how accurate
+    the variable definition is.
+    """
+
+    policyVariable: AutomatedReasoningPolicyDefinitionVariableName
+    groundingStatements: AutomatedReasoningPolicyStatementReferenceList | None
+    groundingJustifications: AutomatedReasoningPolicyJustificationList | None
+    accuracyScore: AutomatedReasoningPolicyAccuracyScore | None
+    accuracyJustification: AutomatedReasoningPolicyJustificationText | None
+
+
+AutomatedReasoningPolicyVariableReportMap = dict[
+    AutomatedReasoningPolicyDefinitionVariableName, AutomatedReasoningPolicyVariableReport
+]
+
+
+class AutomatedReasoningPolicyRuleReport(TypedDict, total=False):
+    """Provides detailed fidelity analysis for a specific policy rule,
+    including which source document statements support it and how accurate
+    the rule is.
+    """
+
+    rule: AutomatedReasoningPolicyDefinitionRuleId
+    groundingStatements: AutomatedReasoningPolicyStatementReferenceList | None
+    groundingJustifications: AutomatedReasoningPolicyJustificationList | None
+    accuracyScore: AutomatedReasoningPolicyAccuracyScore | None
+    accuracyJustification: AutomatedReasoningPolicyJustificationText | None
+
+
+AutomatedReasoningPolicyRuleReportMap = dict[
+    AutomatedReasoningPolicyDefinitionRuleId, AutomatedReasoningPolicyRuleReport
+]
+
+
+class AutomatedReasoningPolicyFidelityReport(TypedDict, total=False):
+    """A comprehensive analysis report that measures how accurately a generated
+    policy represents the source documents. The report includes coverage and
+    accuracy scores, detailed grounding information linking policy elements
+    to source statements, and annotated document content.
+    """
+
+    coverageScore: AutomatedReasoningPolicyCoverageScore
+    accuracyScore: AutomatedReasoningPolicyAccuracyScore
+    ruleReports: AutomatedReasoningPolicyRuleReportMap
+    variableReports: AutomatedReasoningPolicyVariableReportMap
+    documentSources: AutomatedReasoningPolicyReportSourceDocumentList
+
+
+class AutomatedReasoningPolicySourceDocument(TypedDict, total=False):
+    """Represents a source document that was processed during a build workflow.
+    Contains the document content, metadata, and a hash for verification.
+    """
+
+    document: AutomatedReasoningPolicyBuildDocumentBlob
+    documentContentType: AutomatedReasoningPolicyBuildDocumentContentType
+    documentName: AutomatedReasoningPolicyBuildDocumentName
+    documentDescription: AutomatedReasoningPolicyBuildDocumentDescription | None
+    documentHash: AutomatedReasoningPolicyDocumentSha256
+
+
 class AutomatedReasoningPolicyScenario(TypedDict, total=False):
     """Represents a test scenario used to validate an Automated Reasoning
     policy, including the test conditions and expected outcomes.
@@ -1585,6 +1794,9 @@ class AutomatedReasoningPolicyBuildResultAssets(TypedDict, total=False):
     buildLog: AutomatedReasoningPolicyBuildLog | None
     generatedTestCases: AutomatedReasoningPolicyGeneratedTestCases | None
     policyScenarios: AutomatedReasoningPolicyScenarios | None
+    assetManifest: AutomatedReasoningPolicyBuildResultAssetManifest | None
+    document: AutomatedReasoningPolicySourceDocument | None
+    fidelityReport: AutomatedReasoningPolicyFidelityReport | None
 
 
 class AutomatedReasoningPolicyBuildWorkflowDocument(TypedDict, total=False):
@@ -1611,6 +1823,20 @@ class AutomatedReasoningPolicyBuildWorkflowRepairContent(TypedDict, total=False)
     annotations: AutomatedReasoningPolicyAnnotationList
 
 
+AutomatedReasoningPolicyGenerateFidelityReportDocumentList = list[
+    AutomatedReasoningPolicyBuildWorkflowDocument
+]
+
+
+class AutomatedReasoningPolicyGenerateFidelityReportContent(TypedDict, total=False):
+    """Configuration for generating a fidelity report, which can either analyze
+    new documents or update an existing fidelity report with a new policy
+    definition.
+    """
+
+    documents: AutomatedReasoningPolicyGenerateFidelityReportDocumentList | None
+
+
 class AutomatedReasoningPolicyWorkflowTypeContent(TypedDict, total=False):
     """Defines the content and configuration for different types of policy
     build workflows.
@@ -1618,6 +1844,7 @@ class AutomatedReasoningPolicyWorkflowTypeContent(TypedDict, total=False):
 
     documents: AutomatedReasoningPolicyBuildWorkflowDocumentList | None
     policyRepairAssets: AutomatedReasoningPolicyBuildWorkflowRepairContent | None
+    generateFidelityReportContent: AutomatedReasoningPolicyGenerateFidelityReportContent | None
 
 
 class AutomatedReasoningPolicyBuildWorkflowSource(TypedDict, total=False):
@@ -2842,6 +3069,7 @@ class CreateModelInvocationJobRequest(ServiceRequest):
     vpcConfig: VpcConfig | None
     timeoutDurationInHours: ModelInvocationJobTimeoutDurationInHours | None
     tags: TagList | None
+    modelInvocationType: ModelInvocationType | None
 
 
 class CreateModelInvocationJobResponse(TypedDict, total=False):
@@ -3172,6 +3400,10 @@ class FoundationModelLifecycle(TypedDict, total=False):
     """Details about whether a model version is available or deprecated."""
 
     status: FoundationModelLifecycleStatus
+    startOfLifeTime: Timestamp | None
+    endOfLifeTime: Timestamp | None
+    legacyTime: Timestamp | None
+    publicExtendedAccessTime: Timestamp | None
 
 
 InferenceTypeList = list[InferenceType]
@@ -3247,6 +3479,7 @@ class GetAutomatedReasoningPolicyBuildWorkflowResultAssetsRequest(ServiceRequest
     policyArn: AutomatedReasoningPolicyArn
     buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
     assetType: AutomatedReasoningPolicyBuildResultAssetType
+    assetId: AutomatedReasoningPolicyBuildResultAssetId | None
 
 
 class GetAutomatedReasoningPolicyBuildWorkflowResultAssetsResponse(TypedDict, total=False):
@@ -3786,6 +4019,7 @@ class GetModelInvocationJobResponse(TypedDict, total=False):
     vpcConfig: VpcConfig | None
     timeoutDurationInHours: ModelInvocationJobTimeoutDurationInHours | None
     jobExpirationTime: Timestamp | None
+    modelInvocationType: ModelInvocationType | None
 
 
 class GetModelInvocationLoggingConfigurationRequest(ServiceRequest):
@@ -4282,6 +4516,7 @@ class ModelInvocationJobSummary(TypedDict, total=False):
     vpcConfig: VpcConfig | None
     timeoutDurationInHours: ModelInvocationJobTimeoutDurationInHours | None
     jobExpirationTime: Timestamp | None
+    modelInvocationType: ModelInvocationType | None
 
 
 ModelInvocationJobSummaries = list[ModelInvocationJobSummary]
@@ -4583,8 +4818,7 @@ class BedrockApi:
         ``STOPPED``. You can request up to 25 model evaluation jobs be deleted
         in a single request.
 
-        :param job_identifiers: A list of one or more evaluation job Amazon Resource Names (ARNs) you
-        want to delete.
+        :param job_identifiers: A list of one or more evaluation job Amazon Resource Names (ARNs) you want to delete.
         :returns: BatchDeleteEvaluationJobResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -4607,8 +4841,7 @@ class BedrockApi:
         the policy generation process and prevents further processing of the
         source documents.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
-        build workflow you want to cancel.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose build workflow you want to cancel.
         :param build_workflow_id: The unique identifier of the build workflow to cancel.
         :returns: CancelAutomatedReasoningPolicyBuildWorkflowResponse
         :raises ResourceNotFoundException:
@@ -4643,13 +4876,9 @@ class BedrockApi:
 
         :param name: A unique name for the Automated Reasoning policy.
         :param description: A description of the Automated Reasoning policy.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
-        completes no more than once.
-        :param policy_definition: The policy definition that contains the formal logic rules, variables,
-        and custom variable types used to validate foundation model responses in
-        your application.
-        :param kms_key_id: The identifier of the KMS key to use for encrypting the automated
-        reasoning policy and its associated artifacts.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation completes no more than once.
+        :param policy_definition: The policy definition that contains the formal logic rules, variables, and custom variable types used to validate foundation model responses in your application.
+        :param kms_key_id: The identifier of the KMS key to use for encrypting the automated reasoning policy and its associated artifacts.
         :param tags: A list of tags to associate with the Automated Reasoning policy.
         :returns: CreateAutomatedReasoningPolicyResponse
         :raises ResourceNotFoundException:
@@ -4680,13 +4909,11 @@ class BedrockApi:
         outcomes. Use tests to verify policy behavior before deploying to
         production.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
-        which to create the test.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for which to create the test.
         :param guard_content: The output content that's validated by the Automated Reasoning policy.
         :param expected_aggregated_findings_result: The expected result of the Automated Reasoning check.
         :param query_content: The input query or prompt that generated the content.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
-        completes no more than one time.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation completes no more than one time.
         :param confidence_threshold: The minimum confidence level for logic validation.
         :returns: CreateAutomatedReasoningPolicyTestCaseResponse
         :raises ResourceNotFoundException:
@@ -4713,12 +4940,9 @@ class BedrockApi:
         allows you to iterate on your policy rules while maintaining previous
         versions for rollback or comparison purposes.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
-        which to create a version.
-        :param last_updated_definition_hash: The hash of the current policy definition used as a concurrency token to
-        ensure the policy hasn't been modified since you last retrieved it.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
-        completes no more than one time.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for which to create a version.
+        :param last_updated_definition_hash: The hash of the current policy definition used as a concurrency token to ensure the policy hasn't been modified since you last retrieved it.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation completes no more than one time.
         :param tags: A list of tags to associate with the policy version.
         :returns: CreateAutomatedReasoningPolicyVersionResponse
         :raises ResourceNotFoundException:
@@ -4773,13 +4997,10 @@ class BedrockApi:
 
         :param model_name: A unique name for the custom model.
         :param model_source_config: The data source for the model.
-        :param model_kms_key_arn: The Amazon Resource Name (ARN) of the customer managed KMS key to
-        encrypt the custom model.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM service role that Amazon
-        Bedrock assumes to perform tasks on your behalf.
+        :param model_kms_key_arn: The Amazon Resource Name (ARN) of the customer managed KMS key to encrypt the custom model.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM service role that Amazon Bedrock assumes to perform tasks on your behalf.
         :param model_tags: A list of key-value pairs to associate with the custom model resource.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than one time.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than one time.
         :returns: CreateCustomModelResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -4822,13 +5043,10 @@ class BedrockApi:
         -  `DeleteCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteCustomModelDeployment.html>`__
 
         :param model_deployment_name: The name for the custom model deployment.
-        :param model_arn: The Amazon Resource Name (ARN) of the custom model to deploy for
-        on-demand inference.
-        :param description: A description for the custom model deployment to help you identify its
-        purpose.
+        :param model_arn: The Amazon Resource Name (ARN) of the custom model to deploy for on-demand inference.
+        :param description: A description for the custom model deployment to help you identify its purpose.
         :param tags: Tags to assign to the custom model deployment.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
-        completes no more than one time.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation completes no more than one time.
         :returns: CreateCustomModelDeploymentResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -4859,22 +5077,15 @@ class BedrockApi:
         """Creates an evaluation job.
 
         :param job_name: A name for the evaluation job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM service role that Amazon
-        Bedrock can assume to perform tasks on your behalf.
-        :param evaluation_config: Contains the configuration details of either an automated or human-based
-        evaluation job.
-        :param inference_config: Contains the configuration details of the inference model for the
-        evaluation job.
-        :param output_data_config: Contains the configuration details of the Amazon S3 bucket for storing
-        the results of the evaluation job.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM service role that Amazon Bedrock can assume to perform tasks on your behalf.
+        :param evaluation_config: Contains the configuration details of either an automated or human-based evaluation job.
+        :param inference_config: Contains the configuration details of the inference model for the evaluation job.
+        :param output_data_config: Contains the configuration details of the Amazon S3 bucket for storing the results of the evaluation job.
         :param job_description: A description of the evaluation job.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than one time.
-        :param customer_encryption_key_id: Specify your customer managed encryption key Amazon Resource Name (ARN)
-        that will be used to encrypt your evaluation job.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than one time.
+        :param customer_encryption_key_id: Specify your customer managed encryption key Amazon Resource Name (ARN) that will be used to encrypt your evaluation job.
         :param job_tags: Tags to attach to the model evaluation job.
-        :param application_type: Specifies whether the evaluation job is for evaluating a model or
-        evaluating a knowledge base (retrieval and response generation).
+        :param application_type: Specifies whether the evaluation job is for evaluating a model or evaluating a knowledge base (retrieval and response generation).
         :returns: CreateEvaluationJobResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -4963,16 +5174,12 @@ class BedrockApi:
         :param content_policy_config: The content filter policies to configure for the guardrail.
         :param word_policy_config: The word policy you configure for the guardrail.
         :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
-        :param contextual_grounding_policy_config: The contextual grounding policy configuration used to create a
-        guardrail.
-        :param automated_reasoning_policy_config: Optional configuration for integrating Automated Reasoning policies with
-        the new guardrail.
-        :param cross_region_config: The system-defined guardrail profile that you're using with your
-        guardrail.
+        :param contextual_grounding_policy_config: The contextual grounding policy configuration used to create a guardrail.
+        :param automated_reasoning_policy_config: Optional configuration for integrating Automated Reasoning policies with the new guardrail.
+        :param cross_region_config: The system-defined guardrail profile that you're using with your guardrail.
         :param kms_key_id: The ARN of the KMS key that you use to encrypt the guardrail.
         :param tags: The tags that you want to attach to the guardrail.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than once.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than once.
         :returns: CreateGuardrailResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5000,8 +5207,7 @@ class BedrockApi:
 
         :param guardrail_identifier: The unique identifier of the guardrail.
         :param description: A description of the guardrail version.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than once.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than once.
         :returns: CreateGuardrailVersionResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5036,11 +5242,9 @@ class BedrockApi:
         in the Amazon Bedrock User Guide.
 
         :param inference_profile_name: A name for the inference profile.
-        :param model_source: The foundation model or system-defined inference profile that the
-        inference profile will track metrics and costs for.
+        :param model_source: The foundation model or system-defined inference profile that the inference profile will track metrics and costs for.
         :param description: A description for the inference profile.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than one time.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than one time.
         :param tags: An array of objects, each of which contains a tag and its value.
         :returns: CreateInferenceProfileResponse
         :raises ResourceNotFoundException:
@@ -5069,17 +5273,12 @@ class BedrockApi:
         """Creates an endpoint for a model from Amazon Bedrock Marketplace. The
         endpoint is hosted by Amazon SageMaker.
 
-        :param model_source_identifier: The ARN of the model from Amazon Bedrock Marketplace that you want to
-        deploy to the endpoint.
-        :param endpoint_config: The configuration for the endpoint, including the number and type of
-        instances to use.
+        :param model_source_identifier: The ARN of the model from Amazon Bedrock Marketplace that you want to deploy to the endpoint.
+        :param endpoint_config: The configuration for the endpoint, including the number and type of instances to use.
         :param endpoint_name: The name of the endpoint.
-        :param accept_eula: Indicates whether you accept the end-user license agreement (EULA) for
-        the model.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
-        :param tags: An array of key-value pairs to apply to the underlying Amazon SageMaker
-        endpoint.
+        :param accept_eula: Indicates whether you accept the end-user license agreement (EULA) for the model.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param tags: An array of key-value pairs to apply to the underlying Amazon SageMaker endpoint.
         :returns: CreateMarketplaceModelEndpointResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5112,8 +5311,7 @@ class BedrockApi:
         :param target_model_name: A name for the copied model.
         :param model_kms_key_id: The ARN of the KMS key that you use to encrypt the model copy.
         :param target_model_tags: Tags to associate with the target model.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than one time.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than one time.
         :returns: CreateModelCopyJobResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5166,21 +5364,18 @@ class BedrockApi:
 
         :param job_name: A name for the fine-tuning job.
         :param custom_model_name: A name for the resulting custom model.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM service role that Amazon
-        Bedrock can assume to perform tasks on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM service role that Amazon Bedrock can assume to perform tasks on your behalf.
         :param base_model_identifier: Name of the base model.
         :param training_data_config: Information about the training dataset.
         :param output_data_config: S3 location for the output data.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than one time.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than one time.
         :param customization_type: The customization type.
         :param custom_model_kms_key_id: The custom model is encrypted at rest using this key.
         :param job_tags: Tags to attach to the job.
         :param custom_model_tags: Tags to attach to the resulting custom model.
         :param validation_data_config: Information about the validation dataset.
         :param hyper_parameters: Parameters related to tuning the model.
-        :param vpc_config: The configuration of the Virtual Private Cloud (VPC) that contains the
-        resources that you're using for this job.
+        :param vpc_config: The configuration of the Virtual Private Cloud (VPC) that contains the resources that you're using for this job.
         :param customization_config: The customization configuration for the model customization job.
         :returns: CreateModelCustomizationJobResponse
         :raises ResourceNotFoundException:
@@ -5220,10 +5415,8 @@ class BedrockApi:
         :param model_data_source: The data source for the imported model.
         :param job_tags: Tags to attach to this import job.
         :param imported_model_tags: Tags to attach to the imported model.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than one time.
-        :param vpc_config: VPC configuration parameters for the private Virtual Private Cloud (VPC)
-        that contains the resources you are using for the import job.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than one time.
+        :param vpc_config: VPC configuration parameters for the private Virtual Private Cloud (VPC) that contains the resources you are using for the import job.
         :param imported_model_kms_key_id: The imported model is encrypted at rest using this key.
         :returns: CreateModelImportJobResponse
         :raises ResourceNotFoundException:
@@ -5250,6 +5443,7 @@ class BedrockApi:
         vpc_config: VpcConfig | None = None,
         timeout_duration_in_hours: ModelInvocationJobTimeoutDurationInHours | None = None,
         tags: TagList | None = None,
+        model_invocation_type: ModelInvocationType | None = None,
         **kwargs,
     ) -> CreateModelInvocationJobResponse:
         """Creates a batch inference job to invoke a model on multiple prompts.
@@ -5263,19 +5457,15 @@ class BedrockApi:
         details about the job.
 
         :param job_name: A name to give the batch inference job.
-        :param role_arn: The Amazon Resource Name (ARN) of the service role with permissions to
-        carry out and manage batch inference.
-        :param model_id: The unique identifier of the foundation model to use for the batch
-        inference job.
+        :param role_arn: The Amazon Resource Name (ARN) of the service role with permissions to carry out and manage batch inference.
+        :param model_id: The unique identifier of the foundation model to use for the batch inference job.
         :param input_data_config: Details about the location of the input to the batch inference job.
         :param output_data_config: Details about the location of the output of the batch inference job.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than one time.
-        :param vpc_config: The configuration of the Virtual Private Cloud (VPC) for the data in the
-        batch inference job.
-        :param timeout_duration_in_hours: The number of hours after which to force the batch inference job to time
-        out.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than one time.
+        :param vpc_config: The configuration of the Virtual Private Cloud (VPC) for the data in the batch inference job.
+        :param timeout_duration_in_hours: The number of hours after which to force the batch inference job to time out.
         :param tags: Any tags to associate with the batch inference job.
+        :param model_invocation_type: The invocation endpoint for ModelInvocationJob.
         :returns: CreateModelInvocationJobResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5304,15 +5494,11 @@ class BedrockApi:
         multiple foundation models based on the routing criteria.
 
         :param prompt_router_name: The name of the prompt router.
-        :param models: A list of foundation models that the prompt router can route requests
-        to.
-        :param routing_criteria: The criteria, which is the response quality difference, used to
-        determine how incoming requests are routed to different models.
+        :param models: A list of foundation models that the prompt router can route requests to.
+        :param routing_criteria: The criteria, which is the response quality difference, used to determine how incoming requests are routed to different models.
         :param fallback_model: The default model to use when the routing criteria is not met.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure
-        idempotency of your requests.
-        :param description: An optional description of the prompt router to help identify its
-        purpose.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure idempotency of your requests.
+        :param description: An optional description of the prompt router to help identify its purpose.
         :param tags: An array of key-value pairs to apply to this resource as tags.
         :returns: CreatePromptRouterResponse
         :raises ResourceNotFoundException:
@@ -5348,10 +5534,8 @@ class BedrockApi:
 
         :param model_units: Number of model units to allocate.
         :param provisioned_model_name: The name for this Provisioned Throughput.
-        :param model_id: The Amazon Resource Name (ARN) or name of the model to associate with
-        this Provisioned Throughput.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
-        completes no more than one time.
+        :param model_id: The Amazon Resource Name (ARN) or name of the model to associate with this Provisioned Throughput.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request completes no more than one time.
         :param commitment_duration: The commitment duration requested for the Provisioned Throughput.
         :param tags: Tags to associate with this Provisioned Throughput.
         :returns: CreateProvisionedModelThroughputResponse
@@ -5377,10 +5561,8 @@ class BedrockApi:
         is idempotent. If you delete a policy more than once, each call
         succeeds. Deleting a policy removes it permanently and cannot be undone.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
-        delete.
-        :param force: Specifies whether to force delete the automated reasoning policy even if
-        it has active resources.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to delete.
+        :param force: Specifies whether to force delete the automated reasoning policy even if it has active resources.
         :returns: DeleteAutomatedReasoningPolicyResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5405,8 +5587,7 @@ class BedrockApi:
         artifacts. This permanently removes the workflow history and any
         generated assets.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
-        build workflow you want to delete.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose build workflow you want to delete.
         :param build_workflow_id: The unique identifier of the build workflow to delete.
         :param last_updated_at: The timestamp when the build workflow was last updated.
         :returns: DeleteAutomatedReasoningPolicyBuildWorkflowResponse
@@ -5432,8 +5613,7 @@ class BedrockApi:
         """Deletes an Automated Reasoning policy test. This operation is
         idempotent; if you delete a test more than once, each call succeeds.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that
-        contains the test.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that contains the test.
         :param test_case_id: The unique identifier of the test to delete.
         :param last_updated_at: The timestamp when the test was last updated.
         :returns: DeleteAutomatedReasoningPolicyTestCaseResponse
@@ -5488,8 +5668,7 @@ class BedrockApi:
 
         -  `ListCustomModelDeployments <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListCustomModelDeployments.html>`__
 
-        :param custom_model_deployment_identifier: The Amazon Resource Name (ARN) or name of the custom model deployment to
-        delete.
+        :param custom_model_deployment_identifier: The Amazon Resource Name (ARN) or name of the custom model deployment to delete.
         :returns: DeleteCustomModelDeploymentResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5559,6 +5738,7 @@ class BedrockApi:
         :raises ValidationException:
         :raises ConflictException:
         :raises InternalServerException:
+        :raises ResourceInUseException:
         :raises ThrottlingException:
         """
         raise NotImplementedError
@@ -5597,8 +5777,7 @@ class BedrockApi:
         Bedrock <https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html>`__.
         in the Amazon Bedrock User Guide.
 
-        :param inference_profile_identifier: The Amazon Resource Name (ARN) or ID of the application inference
-        profile to delete.
+        :param inference_profile_identifier: The Amazon Resource Name (ARN) or ID of the application inference profile to delete.
         :returns: DeleteInferenceProfileResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5703,8 +5882,7 @@ class BedrockApi:
         Returns the complete policy definition including rules, variables, and
         custom variable types in a structured format.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
-        export.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to export.
         :returns: ExportAutomatedReasoningPolicyVersionResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5722,8 +5900,7 @@ class BedrockApi:
         Returns information including the policy definition, metadata, and
         timestamps.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
-        retrieve.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to retrieve.
         :returns: GetAutomatedReasoningPolicyResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5745,10 +5922,8 @@ class BedrockApi:
         build workflow. Annotations contain corrections to the rules, variables
         and types to be applied to the policy.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
-        annotations you want to retrieve.
-        :param build_workflow_id: The unique identifier of the build workflow whose annotations you want
-        to retrieve.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose annotations you want to retrieve.
+        :param build_workflow_id: The unique identifier of the build workflow whose annotations you want to retrieve.
         :returns: GetAutomatedReasoningPolicyAnnotationsResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5769,8 +5944,7 @@ class BedrockApi:
         """Retrieves detailed information about an Automated Reasoning policy build
         workflow, including its status, configuration, and metadata.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
-        build workflow you want to retrieve.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose build workflow you want to retrieve.
         :param build_workflow_id: The unique identifier of the build workflow to retrieve.
         :returns: GetAutomatedReasoningPolicyBuildWorkflowResponse
         :raises ResourceNotFoundException:
@@ -5788,17 +5962,17 @@ class BedrockApi:
         policy_arn: AutomatedReasoningPolicyArn,
         build_workflow_id: AutomatedReasoningPolicyBuildWorkflowId,
         asset_type: AutomatedReasoningPolicyBuildResultAssetType,
+        asset_id: AutomatedReasoningPolicyBuildResultAssetId | None = None,
         **kwargs,
     ) -> GetAutomatedReasoningPolicyBuildWorkflowResultAssetsResponse:
         """Retrieves the resulting assets from a completed Automated Reasoning
         policy build workflow, including build logs, quality reports, and
         generated policy artifacts.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
-        build workflow assets you want to retrieve.
-        :param build_workflow_id: The unique identifier of the build workflow whose result assets you want
-        to retrieve.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose build workflow assets you want to retrieve.
+        :param build_workflow_id: The unique identifier of the build workflow whose result assets you want to retrieve.
         :param asset_type: The type of asset to retrieve (e.
+        :param asset_id: The unique identifier of the specific asset to retrieve when multiple assets of the same type exist.
         :returns: GetAutomatedReasoningPolicyBuildWorkflowResultAssetsResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5820,10 +5994,8 @@ class BedrockApi:
         policy. This is used during the interactive policy refinement process to
         test policy behavior.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
-        which you want to get the next test scenario.
-        :param build_workflow_id: The unique identifier of the build workflow associated with the test
-        scenarios.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for which you want to get the next test scenario.
+        :param build_workflow_id: The unique identifier of the build workflow associated with the test scenarios.
         :returns: GetAutomatedReasoningPolicyNextScenarioResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5843,8 +6015,7 @@ class BedrockApi:
     ) -> GetAutomatedReasoningPolicyTestCaseResponse:
         """Retrieves details about a specific Automated Reasoning policy test.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that
-        contains the test.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that contains the test.
         :param test_case_id: The unique identifier of the test to retrieve.
         :returns: GetAutomatedReasoningPolicyTestCaseResponse
         :raises ResourceNotFoundException:
@@ -5919,8 +6090,7 @@ class BedrockApi:
 
         -  `DeleteCustomModelDeployment <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteCustomModelDeployment.html>`__
 
-        :param custom_model_deployment_identifier: The Amazon Resource Name (ARN) or name of the custom model deployment to
-        retrieve information about.
+        :param custom_model_deployment_identifier: The Amazon Resource Name (ARN) or name of the custom model deployment to retrieve information about.
         :returns: GetCustomModelDeploymentResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -5936,8 +6106,7 @@ class BedrockApi:
     ) -> GetEvaluationJobResponse:
         """Gets information about an evaluation job, such as the status of the job.
 
-        :param job_identifier: The Amazon Resource Name (ARN) of the evaluation job you want get
-        information on.
+        :param job_identifier: The Amazon Resource Name (ARN) of the evaluation job you want get information on.
         :returns: GetEvaluationJobResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -6047,8 +6216,7 @@ class BedrockApi:
         """Retrieves details about a specific endpoint for a model from Amazon
         Bedrock Marketplace.
 
-        :param endpoint_arn: The Amazon Resource Name (ARN) of the endpoint you want to get
-        information about.
+        :param endpoint_arn: The Amazon Resource Name (ARN) of the endpoint you want to get information about.
         :returns: GetMarketplaceModelEndpointResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -6212,10 +6380,8 @@ class BedrockApi:
         filtering by policy ARN. This helps you manage and discover existing
         policies.
 
-        :param policy_arn: Optional filter to list only the policy versions with the specified
-        Amazon Resource Name (ARN).
-        :param next_token: The pagination token from a previous request to retrieve the next page
-        of results.
+        :param policy_arn: Optional filter to list only the policy versions with the specified Amazon Resource Name (ARN).
+        :param next_token: The pagination token from a previous request to retrieve the next page of results.
         :param max_results: The maximum number of policies to return in a single call.
         :returns: ListAutomatedReasoningPoliciesResponse
         :raises ResourceNotFoundException:
@@ -6238,10 +6404,8 @@ class BedrockApi:
         """Lists all build workflows for an Automated Reasoning policy, showing the
         history of policy creation and modification attempts.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
-        build workflows you want to list.
-        :param next_token: A pagination token from a previous request to continue listing build
-        workflows from where the previous request left off.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose build workflows you want to list.
+        :param next_token: A pagination token from a previous request to continue listing build workflows from where the previous request left off.
         :param max_results: The maximum number of build workflows to return in a single response.
         :returns: ListAutomatedReasoningPolicyBuildWorkflowsResponse
         :raises ResourceNotFoundException:
@@ -6265,10 +6429,8 @@ class BedrockApi:
         pagination to ensure that the operation returns quickly and
         successfully.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
-        which to list tests.
-        :param next_token: The pagination token from a previous request to retrieve the next page
-        of results.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for which to list tests.
+        :param next_token: The pagination token from a previous request to retrieve the next page of results.
         :param max_results: The maximum number of tests to return in a single call.
         :returns: ListAutomatedReasoningPolicyTestCasesResponse
         :raises ResourceNotFoundException:
@@ -6292,12 +6454,9 @@ class BedrockApi:
         """Lists test results for an Automated Reasoning policy, showing how the
         policy performed against various test scenarios and validation checks.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
-        test results you want to list.
-        :param build_workflow_id: The unique identifier of the build workflow whose test results you want
-        to list.
-        :param next_token: A pagination token from a previous request to continue listing test
-        results from where the previous request left off.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose test results you want to list.
+        :param build_workflow_id: The unique identifier of the build workflow whose test results you want to list.
+        :param next_token: A pagination token from a previous request to continue listing test results from where the previous request left off.
         :param max_results: The maximum number of test results to return in a single response.
         :returns: ListAutomatedReasoningPolicyTestResultsResponse
         :raises ResourceNotFoundException:
@@ -6348,8 +6507,7 @@ class BedrockApi:
         :param sort_by: The field to sort the results by.
         :param sort_order: The sort order for the results.
         :param status_equals: Filters deployments by status.
-        :param model_arn_equals: Filters deployments by the Amazon Resource Name (ARN) of the associated
-        custom model.
+        :param model_arn_equals: Filters deployments by the Amazon Resource Name (ARN) of the associated custom model.
         :returns: ListCustomModelDeploymentsResponse
         :raises AccessDeniedException:
         :raises ValidationException:
@@ -6386,18 +6544,13 @@ class BedrockApi:
         :param creation_time_before: Return custom models created before the specified time.
         :param creation_time_after: Return custom models created after the specified time.
         :param name_contains: Return custom models only if the job name contains these characters.
-        :param base_model_arn_equals: Return custom models only if the base model Amazon Resource Name (ARN)
-        matches this parameter.
-        :param foundation_model_arn_equals: Return custom models only if the foundation model Amazon Resource Name
-        (ARN) matches this parameter.
+        :param base_model_arn_equals: Return custom models only if the base model Amazon Resource Name (ARN) matches this parameter.
+        :param foundation_model_arn_equals: Return custom models only if the foundation model Amazon Resource Name (ARN) matches this parameter.
         :param max_results: The maximum number of results to return in the response.
-        :param next_token: If the total number of results is greater than the ``maxResults`` value
-        provided in the request, enter the token returned in the ``nextToken``
-        field in the response in this field to return the next batch of results.
+        :param next_token: If the total number of results is greater than the ``maxResults`` value provided in the request, enter the token returned in the ``nextToken`` field in the response in this field to return the next batch of results.
         :param sort_by: The field to sort by in the returned list of models.
         :param sort_order: The sort order of the results.
-        :param is_owned: Return custom models depending on if the current account owns them
-        (``true``) or if they were shared with the current account (``false``).
+        :param is_owned: Return custom models depending on if the current account owns them (``true``) or if they were shared with the current account (``false``).
         :param model_status: The status of them model to filter results by.
         :returns: ListCustomModelsResponse
         :raises AccessDeniedException:
@@ -6443,17 +6596,12 @@ class BedrockApi:
         :param creation_time_after: A filter to only list evaluation jobs created after a specified time.
         :param creation_time_before: A filter to only list evaluation jobs created before a specified time.
         :param status_equals: A filter to only list evaluation jobs that are of a certain status.
-        :param application_type_equals: A filter to only list evaluation jobs that are either model evaluations
-        or knowledge base evaluations.
-        :param name_contains: A filter to only list evaluation jobs that contain a specified string in
-        the job name.
+        :param application_type_equals: A filter to only list evaluation jobs that are either model evaluations or knowledge base evaluations.
+        :param name_contains: A filter to only list evaluation jobs that contain a specified string in the job name.
         :param max_results: The maximum number of results to return.
-        :param next_token: Continuation token from the previous response, for Amazon Bedrock to
-        list the next set of results.
-        :param sort_by: Specifies a creation time to sort the list of evaluation jobs by when
-        they were created.
-        :param sort_order: Specifies whether to sort the list of evaluation jobs by either
-        ascending or descending order.
+        :param next_token: Continuation token from the previous response, for Amazon Bedrock to list the next set of results.
+        :param sort_by: Specifies a creation time to sort the list of evaluation jobs by when they were created.
+        :param sort_order: Specifies whether to sort the list of evaluation jobs by either ascending or descending order.
         :returns: ListEvaluationJobsResponse
         :raises AccessDeniedException:
         :raises ValidationException:
@@ -6533,9 +6681,7 @@ class BedrockApi:
 
         :param guardrail_identifier: The unique identifier of the guardrail.
         :param max_results: The maximum number of results to return in the response.
-        :param next_token: If there are more results than were returned in the response, the
-        response returns a ``nextToken`` that you can send in another
-        ``ListGuardrails`` request to see the next batch of results.
+        :param next_token: If there are more results than were returned in the response, the response returns a ``nextToken`` that you can send in another ``ListGuardrails`` request to see the next batch of results.
         :returns: ListGuardrailsResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -6569,9 +6715,7 @@ class BedrockApi:
         :param creation_time_after: Return imported models that were created after the specified time.
         :param name_contains: Return imported models only if the model name contains these characters.
         :param max_results: The maximum number of results to return in the response.
-        :param next_token: If the total number of results is greater than the ``maxResults`` value
-        provided in the request, enter the token returned in the ``nextToken``
-        field in the response in this field to return the next batch of results.
+        :param next_token: If the total number of results is greater than the ``maxResults`` value provided in the request, enter the token returned in the ``nextToken`` field in the response in this field to return the next batch of results.
         :param sort_by: The field to sort by in the returned list of imported models.
         :param sort_order: Specifies whetehr to sort the results in ascending or descending order.
         :returns: ListImportedModelsResponse
@@ -6598,9 +6742,7 @@ class BedrockApi:
         in the Amazon Bedrock User Guide.
 
         :param max_results: The maximum number of results to return in the response.
-        :param next_token: If the total number of results is greater than the ``maxResults`` value
-        provided in the request, enter the token returned in the ``nextToken``
-        field in the response in this field to return the next batch of results.
+        :param next_token: If the total number of results is greater than the ``maxResults`` value provided in the request, enter the token returned in the ``nextToken`` field in the response in this field to return the next batch of results.
         :param type_equals: Filters for inference profiles that match the type you specify.
         :returns: ListInferenceProfilesResponse
         :raises AccessDeniedException:
@@ -6624,8 +6766,7 @@ class BedrockApi:
 
         :param max_results: The maximum number of results to return in a single call.
         :param next_token: The token for the next set of results.
-        :param model_source_equals: If specified, only endpoints for the given model source identifier are
-        returned.
+        :param model_source_equals: If specified, only endpoints for the given model source identifier are returned.
         :returns: ListMarketplaceModelEndpointsResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -6660,18 +6801,12 @@ class BedrockApi:
 
         :param creation_time_after: Filters for model copy jobs created after the specified time.
         :param creation_time_before: Filters for model copy jobs created before the specified time.
-        :param status_equals: Filters for model copy jobs whose status matches the value that you
-        specify.
-        :param source_account_equals: Filters for model copy jobs in which the account that the source model
-        belongs to is equal to the value that you specify.
-        :param source_model_arn_equals: Filters for model copy jobs in which the Amazon Resource Name (ARN) of
-        the source model to is equal to the value that you specify.
-        :param target_model_name_contains: Filters for model copy jobs in which the name of the copied model
-        contains the string that you specify.
+        :param status_equals: Filters for model copy jobs whose status matches the value that you specify.
+        :param source_account_equals: Filters for model copy jobs in which the account that the source model belongs to is equal to the value that you specify.
+        :param source_model_arn_equals: Filters for model copy jobs in which the Amazon Resource Name (ARN) of the source model to is equal to the value that you specify.
+        :param target_model_name_contains: Filters for model copy jobs in which the name of the copied model contains the string that you specify.
         :param max_results: The maximum number of results to return in the response.
-        :param next_token: If the total number of results is greater than the ``maxResults`` value
-        provided in the request, enter the token returned in the ``nextToken``
-        field in the response in this field to return the next batch of results.
+        :param next_token: If the total number of results is greater than the ``maxResults`` value provided in the request, enter the token returned in the ``nextToken`` field in the response in this field to return the next batch of results.
         :param sort_by: The field to sort by in the returned list of model copy jobs.
         :param sort_order: Specifies whether to sort the results in ascending or descending order.
         :returns: ListModelCopyJobsResponse
@@ -6708,12 +6843,9 @@ class BedrockApi:
         :param creation_time_after: Return customization jobs created after the specified time.
         :param creation_time_before: Return customization jobs created before the specified time.
         :param status_equals: Return customization jobs with the specified status.
-        :param name_contains: Return customization jobs only if the job name contains these
-        characters.
+        :param name_contains: Return customization jobs only if the job name contains these characters.
         :param max_results: The maximum number of results to return in the response.
-        :param next_token: If the total number of results is greater than the ``maxResults`` value
-        provided in the request, enter the token returned in the ``nextToken``
-        field in the response in this field to return the next batch of results.
+        :param next_token: If the total number of results is greater than the ``maxResults`` value provided in the request, enter the token returned in the ``nextToken`` field in the response in this field to return the next batch of results.
         :param sort_by: The field to sort by in the returned list of jobs.
         :param sort_order: The sort order of the results.
         :returns: ListModelCustomizationJobsResponse
@@ -6750,9 +6882,7 @@ class BedrockApi:
         :param status_equals: Return imported jobs with the specified status.
         :param name_contains: Return imported jobs only if the job name contains these characters.
         :param max_results: The maximum number of results to return in the response.
-        :param next_token: If the total number of results is greater than the ``maxResults`` value
-        provided in the request, enter the token returned in the ``nextToken``
-        field in the response in this field to return the next batch of results.
+        :param next_token: If the total number of results is greater than the ``maxResults`` value provided in the request, enter the token returned in the ``nextToken`` field in the response in this field to return the next batch of results.
         :param sort_by: The field to sort by in the returned list of imported jobs.
         :param sort_order: Specifies whether to sort the results in ascending or descending order.
         :returns: ListModelImportJobsResponse
@@ -6781,18 +6911,12 @@ class BedrockApi:
         `View details about a batch inference
         job <https://docs.aws.amazon.com/bedrock/latest/userguide/batch-inference-view.html>`__.
 
-        :param submit_time_after: Specify a time to filter for batch inference jobs that were submitted
-        after the time you specify.
-        :param submit_time_before: Specify a time to filter for batch inference jobs that were submitted
-        before the time you specify.
-        :param status_equals: Specify a status to filter for batch inference jobs whose statuses match
-        the string you specify.
-        :param name_contains: Specify a string to filter for batch inference jobs whose names contain
-        the string.
+        :param submit_time_after: Specify a time to filter for batch inference jobs that were submitted after the time you specify.
+        :param submit_time_before: Specify a time to filter for batch inference jobs that were submitted before the time you specify.
+        :param status_equals: Specify a status to filter for batch inference jobs whose statuses match the string you specify.
+        :param name_contains: Specify a string to filter for batch inference jobs whose names contain the string.
         :param max_results: The maximum number of results to return.
-        :param next_token: If there were more results than the value you specified in the
-        ``maxResults`` field in a previous ``ListModelInvocationJobs`` request,
-        the response would have returned a ``nextToken`` value.
+        :param next_token: If there were more results than the value you specified in the ``maxResults`` field in a previous ``ListModelInvocationJobs`` request, the response would have returned a ``nextToken`` value.
         :param sort_by: An attribute by which to sort the results.
         :param sort_order: Specifies whether to sort the results by ascending or descending order.
         :returns: ListModelInvocationJobsResponse
@@ -6810,8 +6934,7 @@ class BedrockApi:
         """Retrieves a list of prompt routers.
 
         :param max_results: The maximum number of prompt routers to return in one page of results.
-        :param next_token: Specify the pagination token from a previous request to retrieve the
-        next page of results.
+        :param next_token: Specify the pagination token from a previous request to retrieve the next page of results.
         :param type: The type of the prompt routers, such as whether it's default or custom.
         :returns: ListPromptRoutersResponse
         :raises AccessDeniedException:
@@ -6842,19 +6965,13 @@ class BedrockApi:
         in the `Amazon Bedrock User
         Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-service.html>`__.
 
-        :param creation_time_after: A filter that returns Provisioned Throughputs created after the
-        specified time.
-        :param creation_time_before: A filter that returns Provisioned Throughputs created before the
-        specified time.
-        :param status_equals: A filter that returns Provisioned Throughputs if their statuses matches
-        the value that you specify.
-        :param model_arn_equals: A filter that returns Provisioned Throughputs whose model Amazon
-        Resource Name (ARN) is equal to the value that you specify.
-        :param name_contains: A filter that returns Provisioned Throughputs if their name contains the
-        expression that you specify.
+        :param creation_time_after: A filter that returns Provisioned Throughputs created after the specified time.
+        :param creation_time_before: A filter that returns Provisioned Throughputs created before the specified time.
+        :param status_equals: A filter that returns Provisioned Throughputs if their statuses matches the value that you specify.
+        :param model_arn_equals: A filter that returns Provisioned Throughputs whose model Amazon Resource Name (ARN) is equal to the value that you specify.
+        :param name_contains: A filter that returns Provisioned Throughputs if their name contains the expression that you specify.
         :param max_results: THe maximum number of results to return in the response.
-        :param next_token: If there are more results than the number you specified in the
-        ``maxResults`` field, the response returns a ``nextToken`` value.
+        :param next_token: If there are more results than the number you specified in the ``maxResults`` field, the response returns a ``nextToken`` value.
         :param sort_by: The field by which to sort the returned list of Provisioned Throughputs.
         :param sort_order: The sort order of the results.
         :returns: ListProvisionedModelThroughputsResponse
@@ -6949,10 +7066,8 @@ class BedrockApi:
         """Registers an existing Amazon SageMaker endpoint with Amazon Bedrock
         Marketplace, allowing it to be used with Amazon Bedrock APIs.
 
-        :param endpoint_identifier: The ARN of the Amazon SageMaker endpoint you want to register with
-        Amazon Bedrock Marketplace.
-        :param model_source_identifier: The ARN of the model from Amazon Bedrock Marketplace that is deployed on
-        the endpoint.
+        :param endpoint_identifier: The ARN of the Amazon SageMaker endpoint you want to register with Amazon Bedrock Marketplace.
+        :param model_source_identifier: The ARN of the model from Amazon Bedrock Marketplace that is deployed on the endpoint.
         :returns: RegisterMarketplaceModelEndpointResponse
         :raises ResourceNotFoundException:
         :raises ServiceUnavailableException:
@@ -6977,13 +7092,10 @@ class BedrockApi:
         initiates the process of analyzing source documents and generating
         policy rules, variables, and types.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for
-        which to start the build workflow.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy for which to start the build workflow.
         :param build_workflow_type: The type of build workflow to start (e.
-        :param source_content: The source content for the build workflow, such as documents to analyze
-        or repair instructions for existing policies.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
-        completes no more than once.
+        :param source_content: The source content for the build workflow, such as documents to analyze or repair instructions for existing policies.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation completes no more than once.
         :returns: StartAutomatedReasoningPolicyBuildWorkflowResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -7010,12 +7122,10 @@ class BedrockApi:
         The workflow executes the specified tests against the policy and
         generates validation results.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
-        test.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to test.
         :param build_workflow_id: The build workflow identifier.
         :param test_case_ids: The list of test identifiers to run.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
-        completes no more than one time.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation completes no more than one time.
         :returns: StartAutomatedReasoningPolicyTestWorkflowResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -7143,10 +7253,8 @@ class BedrockApi:
         variables, or configuration. This creates a new version of the policy
         while preserving the previous version.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
-        update.
-        :param policy_definition: The updated policy definition containing the formal logic rules,
-        variables, and types.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to update.
+        :param policy_definition: The updated policy definition containing the formal logic rules, variables, and types.
         :param name: The updated name for the Automated Reasoning policy.
         :param description: The updated description for the Automated Reasoning policy.
         :returns: UpdateAutomatedReasoningPolicyResponse
@@ -7174,12 +7282,9 @@ class BedrockApi:
         workflow. This allows you to modify extracted rules, variables, and
         types before finalizing the policy.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose
-        annotations you want to update.
-        :param build_workflow_id: The unique identifier of the build workflow whose annotations you want
-        to update.
-        :param annotations: The updated annotations containing modified rules, variables, and types
-        for the policy.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy whose annotations you want to update.
+        :param build_workflow_id: The unique identifier of the build workflow whose annotations you want to update.
+        :param annotations: The updated annotations containing modified rules, variables, and types for the policy.
         :param last_updated_annotation_set_hash: The hash value of the annotation set that you're updating.
         :returns: UpdateAutomatedReasoningPolicyAnnotationsResponse
         :raises ResourceNotFoundException:
@@ -7208,16 +7313,14 @@ class BedrockApi:
         """Updates an existing Automated Reasoning policy test. You can modify the
         content, query, expected result, and confidence threshold.
 
-        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that
-        contains the test.
+        :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy that contains the test.
         :param test_case_id: The unique identifier of the test to update.
         :param guard_content: The updated content to be validated by the Automated Reasoning policy.
         :param last_updated_at: The timestamp when the test was last updated.
         :param expected_aggregated_findings_result: The updated expected result of the Automated Reasoning check.
         :param query_content: The updated input query or prompt that generated the content.
         :param confidence_threshold: The updated minimum confidence level for logic validation.
-        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
-        completes no more than one time.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the operation completes no more than one time.
         :returns: UpdateAutomatedReasoningPolicyTestCaseResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -7241,8 +7344,7 @@ class BedrockApi:
         you to deploy updated models without creating new deployment endpoints.
 
         :param model_arn: ARN of the new custom model to deploy.
-        :param custom_model_deployment_identifier: Identifier of the custom model deployment to update with the new custom
-        model.
+        :param custom_model_deployment_identifier: Identifier of the custom model deployment to update with the new custom model.
         :returns: UpdateCustomModelDeploymentResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -7321,12 +7423,9 @@ class BedrockApi:
         :param content_policy_config: The content policy to configure for the guardrail.
         :param word_policy_config: The word policy to configure for the guardrail.
         :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
-        :param contextual_grounding_policy_config: The contextual grounding policy configuration used to update a
-        guardrail.
-        :param automated_reasoning_policy_config: Updated configuration for Automated Reasoning policies associated with
-        the guardrail.
-        :param cross_region_config: The system-defined guardrail profile that you're using with your
-        guardrail.
+        :param contextual_grounding_policy_config: The contextual grounding policy configuration used to update a guardrail.
+        :param automated_reasoning_policy_config: Updated configuration for Automated Reasoning policies associated with the guardrail.
+        :param cross_region_config: The system-defined guardrail profile that you're using with your guardrail.
         :param kms_key_id: The ARN of the KMS key with which to encrypt the guardrail.
         :returns: UpdateGuardrailResponse
         :raises ResourceNotFoundException:
@@ -7352,10 +7451,8 @@ class BedrockApi:
         Amazon Bedrock Marketplace.
 
         :param endpoint_arn: The Amazon Resource Name (ARN) of the endpoint you want to update.
-        :param endpoint_config: The new configuration for the endpoint, including the number and type of
-        instances to use.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param endpoint_config: The new configuration for the endpoint, including the number and type of instances to use.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: UpdateMarketplaceModelEndpointResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
@@ -7382,11 +7479,9 @@ class BedrockApi:
         in the `Amazon Bedrock User
         Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-service.html>`__.
 
-        :param provisioned_model_id: The Amazon Resource Name (ARN) or name of the Provisioned Throughput to
-        update.
+        :param provisioned_model_id: The Amazon Resource Name (ARN) or name of the Provisioned Throughput to update.
         :param desired_provisioned_model_name: The new name for this Provisioned Throughput.
-        :param desired_model_id: The Amazon Resource Name (ARN) of the new model to associate with this
-        Provisioned Throughput.
+        :param desired_model_id: The Amazon Resource Name (ARN) of the new model to associate with this Provisioned Throughput.
         :returns: UpdateProvisionedModelThroughputResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:

@@ -1,0 +1,108 @@
+name: Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  windows_x86_msvc:
+    name: Test on Windows with MSVC (x64)
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: ilammy/msvc-dev-cmd@v1
+    - name: Compile library
+      run: |
+            cl /LD /O2 crc.c cpu.c
+            move crc.dll test/crc.dll
+    - name: Run test
+      run: python test/test.py
+
+  windows_x86_gcc:
+    name: Test on Windows with MinGW (x64)
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: Compile library
+      run: |
+            gcc -c -fPIC -O3 crc.c cpu.c
+            gcc -shared crc.o cpu.o -o test/crc.dll
+    - name: Run test
+      run: python test/test.py
+
+  mac_x86:
+    name: Test on MacOS (x64)
+    runs-on: macos-15-intel
+    steps:
+    - uses: actions/checkout@v5
+    - name: Compile library
+      run: |
+            gcc -c -fPIC -O3 crc.c cpu.c
+            gcc -dynamiclib crc.o cpu.o -o test/crc.dylib
+    - name: Run test
+      run: python test/test.py
+
+  ubuntu_x86:
+    name: Test on Ubuntu (x64)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: Compile library
+      run: |
+            gcc -c -fPIC -O3 crc.c cpu.c
+            gcc -shared crc.o cpu.o -o test/crc.so
+    - name: Run test
+      run: python test/test.py
+
+  windows_arm:
+    name: Test on Windows with MSVC (ARM64)
+    runs-on: windows-11-arm
+    steps:
+    - uses: actions/checkout@v5
+    - uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: arm64
+    - name: Compile library
+      run: |
+            cl /LD /O2 crc.c cpu.c
+            move crc.dll test/crc.dll
+    - name: Run test
+      run: python test/test.py
+
+  mac_arm:
+    name: Test on MacOS (ARM64)
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: Compile library
+      run: |
+            gcc -c -fPIC -O3 crc.c cpu.c
+            gcc -dynamiclib crc.o cpu.o -o test/crc.dylib
+    - name: Run test
+      run: python test/test.py
+
+  ubuntu_arm:
+    name: Test on Ubuntu (ARM64)
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - uses: actions/checkout@v5
+    - name: Compile library
+      run: |
+            gcc -c -fPIC -O3 crc.c cpu.c
+            gcc -shared crc.o cpu.o -o test/crc.so
+    - name: Run test
+      run: python test/test.py
+
+  no_simd:
+    name: Test without SIMD
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: Compile library
+      run: |
+            gcc -c -DDISABLE_SIMD -fPIC -O3 crc.c cpu.c
+            gcc -shared crc.o cpu.o -o test/crc.so
+    - name: Run test
+      run: python test/test.py --no_simd

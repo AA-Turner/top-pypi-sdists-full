@@ -110,7 +110,7 @@ def generate_capacity_table(results: list[dict]) -> tuple[list[str], bool]:
     workload_sections = []
     has_missing_data = False
 
-    sizes = ["1-node", "3-node", "5-node", "7-node", "10-node", "15-node", "20-node"]
+    sizes = ["1-node", "7-node", "20-node"]
 
     for workload in sorted(by_workload.keys()):
         clusters_data = by_workload[workload]

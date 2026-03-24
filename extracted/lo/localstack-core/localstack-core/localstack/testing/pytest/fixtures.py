@@ -26,6 +26,7 @@ from localstack import config
 from localstack.aws.api.cloudformation import CreateChangeSetInput, Parameter
 from localstack.aws.api.ec2 import CreateSecurityGroupRequest, CreateVpcEndpointRequest, VpcEndpoint
 from localstack.aws.connect import ServiceLevelClientFactory
+from localstack.constants import LOCALHOST_HOSTNAME
 from localstack.services.stores import (
     AccountRegionBundle,
     BaseStore,
@@ -54,6 +55,7 @@ from localstack.utils.json import CustomEncoder, json_safe
 from localstack.utils.net import wait_for_port_open
 from localstack.utils.strings import short_uid, to_str
 from localstack.utils.sync import ShortCircuitWaitException, poll_condition, retry, wait_until
+from localstack.utils.urls import localstack_host
 
 LOG = logging.getLogger(__name__)
 
@@ -1529,6 +1531,12 @@ def create_echo_http_server(aws_client, create_lambda_function):
             Principal="*",
             FunctionUrlAuthType="NONE",
         )
+        aws_client.lambda_.add_permission(
+            FunctionName=func_name,
+            StatementId="invokePermission",
+            Action="lambda:InvokeFunction",
+            Principal="*",
+        )
         return url_response["FunctionUrl"]
 
     yield _create_echo_http_server
@@ -1589,6 +1597,12 @@ def create_policy(aws_client):
 
     for policy_arn, iam_client in policy_arns:
         try:
+            versions = iam_client.list_policy_versions(PolicyArn=policy_arn)
+            for version in versions.get("Versions", []):
+                if not version["IsDefaultVersion"]:
+                    iam_client.delete_policy_version(
+                        PolicyArn=policy_arn, VersionId=version["VersionId"]
+                    )
             iam_client.delete_policy(PolicyArn=policy_arn)
         except Exception:
             LOG.debug("Could not delete policy '%s' during test cleanup", policy_arn)
@@ -1639,7 +1653,12 @@ def create_user(aws_client):
                     attached_policy["PolicyArn"],
                     username,
                 )
-        access_keys = aws_client.iam.list_access_keys(UserName=username)["AccessKeyMetadata"]
+        # TODO remove this try catch again with access keys implemented
+        try:
+            access_keys = aws_client.iam.list_access_keys(UserName=username)["AccessKeyMetadata"]
+        except ClientError:
+            LOG.debug("Error listing access keys")
+            access_keys = []
         for access_key in access_keys:
             try:
                 aws_client.iam.delete_access_key(
@@ -1724,10 +1743,144 @@ def create_role(aws_client):
                     role_policy,
                     role_name,
                 )
+        instance_profiles = iam_client.list_instance_profiles_for_role(RoleName=role_name)[
+            "InstanceProfiles"
+        ]
+        for instance_profile in instance_profiles:
+            try:
+                iam_client.remove_role_from_instance_profile(
+                    InstanceProfileName=instance_profile["InstanceProfileName"], RoleName=role_name
+                )
+            except Exception:
+                LOG.debug(
+                    "Could not delete instance profile '%s' from '%s' during cleanup",
+                    instance_profile["InstanceProfileName"],
+                    role_name,
+                )
         try:
             iam_client.delete_role(RoleName=role_name)
         except Exception:
             LOG.debug("Could not delete role '%s' during cleanup", role_name)
+
+
+@pytest.fixture
+def create_instance_profile(aws_client):
+    profile_names = []
+
+    def _create_instance_profile(**kwargs):
+        if not kwargs.get("InstanceProfileName"):
+            kwargs["InstanceProfileName"] = f"instance-profile-{short_uid()}"
+        result = aws_client.iam.create_instance_profile(**kwargs)
+        profile_names.append(result["InstanceProfile"]["InstanceProfileName"])
+        return result
+
+    yield _create_instance_profile
+
+    for profile_name in profile_names:
+        # Remove any attached roles before deleting
+        try:
+            profile = aws_client.iam.get_instance_profile(InstanceProfileName=profile_name)
+            for role in profile["InstanceProfile"].get("Roles", []):
+                try:
+                    aws_client.iam.remove_role_from_instance_profile(
+                        InstanceProfileName=profile_name, RoleName=role["RoleName"]
+                    )
+                except Exception:
+                    LOG.debug(
+                        "Could not remove role '%s' from instance profile '%s' during cleanup",
+                        role["RoleName"],
+                        profile_name,
+                    )
+        except ClientError as e:
+            LOG.debug(
+                "Cannot get instance profile: %s. Instance profile %s probably already deleted...",
+                e,
+                profile_name,
+            )
+            continue
+        try:
+            aws_client.iam.delete_instance_profile(InstanceProfileName=profile_name)
+        except Exception:
+            LOG.debug("Could not delete instance profile '%s' during cleanup", profile_name)
+
+
+@pytest.fixture
+def create_group(aws_client):
+    group_names = []
+
+    def _create_group(**kwargs):
+        if "GroupName" not in kwargs:
+            kwargs["GroupName"] = f"group-{short_uid()}"
+        response = aws_client.iam.create_group(**kwargs)
+        group_names.append(response["Group"]["GroupName"])
+        return response
+
+    yield _create_group
+
+    for group_name in group_names:
+        # remove attached users
+        group_users = [
+            group_user["UserName"]
+            for group_user in aws_client.iam.get_group(GroupName=group_name)["Users"]
+        ]
+        for group_user in group_users:
+            try:
+                aws_client.iam.remove_user_from_group(GroupName=group_name, UserName=group_user)
+            except Exception:
+                LOG.debug(
+                    "Could not remove group user '%s' from '%s' during cleanup",
+                    group_user,
+                    group_name,
+                )
+
+        # remove inline policies
+        inline_policies = aws_client.iam.list_group_policies(GroupName=group_name)["PolicyNames"]
+        for inline_policy in inline_policies:
+            try:
+                aws_client.iam.delete_group_policy(GroupName=group_name, PolicyName=inline_policy)
+            except Exception:
+                LOG.debug(
+                    "Could not delete group policy '%s' from '%s' during cleanup",
+                    inline_policy,
+                    group_name,
+                )
+
+        # remove attached policies
+        attached_policies = aws_client.iam.list_attached_group_policies(GroupName=group_name)[
+            "AttachedPolicies"
+        ]
+        for attached_policy in attached_policies:
+            try:
+                aws_client.iam.detach_group_policy(
+                    GroupName=group_name, PolicyArn=attached_policy["PolicyArn"]
+                )
+            except Exception:
+                LOG.debug(
+                    "Error detaching policy '%s' from group '%s'",
+                    attached_policy["PolicyArn"],
+                    group_name,
+                )
+        # remove group
+        try:
+            aws_client.iam.delete_group(GroupName=group_name)
+        except Exception:
+            LOG.debug("Error deleting group '%s' during test cleanup", group_name)
+
+
+@pytest.fixture
+def client_factory_for_user(aws_client_factory, aws_client, region_name):
+    default_region = region_name
+
+    def _create_factory(user_name, region_name: str | None = None):
+        keys = aws_client.iam.create_access_key(UserName=user_name)["AccessKey"]
+        wait_for_user(keys, region_name or default_region)
+        return aws_client_factory(
+            aws_access_key_id=keys["AccessKeyId"],
+            aws_secret_access_key=keys["SecretAccessKey"],
+            region_name=region_name,
+        )
+
+    return _create_factory
 
 
 @pytest.fixture
@@ -2858,3 +3011,42 @@ def logs_log_stream(logs_log_group, aws_client):
 
     for stream_name in log_stream_names:
         aws_client.logs.delete_log_stream(logStreamName=stream_name, logGroupName=logs_log_group)
+
+
+@pytest.fixture()
+def disable_requests_ssl_verification():
+    # modified into a fixture from https://stackoverflow.com/a/15445989
+    # Only disable SSL verification if we use a non default hostname
+    if localstack_host().host == LOCALHOST_HOSTNAME:
+        yield
+        return
+
+    import requests
+
+    old_merge_environment_settings = requests.Session.merge_environment_settings
+
+    opened_adapters = set()
+
+    def merge_environment_settings(self, url, proxies, stream, verify, cert):
+        # Verification happens only once per connection so we need to close
+        # all the opened adapters once we're done. Otherwise, the effects of
+        # verify=False persist beyond the end of this context manager.
+        opened_adapters.add(self.get_adapter(url))
+
+        settings = old_merge_environment_settings(self, url, proxies, stream, verify, cert)
+        settings["verify"] = False
+
+        return settings
+
+    requests.Session.merge_environment_settings = merge_environment_settings
+
+    try:
+        yield
+    finally:
+        requests.Session.merge_environment_settings = old_merge_environment_settings
+
+        for adapter in opened_adapters:
+            try:
+                adapter.close()
+            except Exception:
+                pass

@@ -133,44 +133,44 @@ def remove_dispatch_entry(cls: type):
         pass
 
 
-def dumps(obj: Any) -> bytes:
+def dumps(obj: Any, **kwargs) -> bytes:
     """
     Pickle an object into bytes using a ``Encoder``.
 
     :param obj: the object to pickle
     :return: the pickled object
     """
-    return get_default_encoder().encodes(obj)
+    return get_default_encoder().encodes(obj, **kwargs)
 
 
-def dump(obj: Any, file: BinaryIO):
+def dump(obj: Any, file: BinaryIO, **kwargs):
     """
     Pickle an object into a buffer using a ``Encoder``.
 
     :param obj: the object to pickle
     :param file: the IO buffer
     """
-    return get_default_encoder().encode(obj, file)
+    return get_default_encoder().encode(obj, file, **kwargs)
 
 
-def loads(data: bytes) -> Any:
+def loads(data: bytes, **kwargs) -> Any:
     """
     Unpickle am object from bytes using a ``Decoder``.
 
     :param data: the pickled object
     :return: the unpickled object
     """
-    return get_default_decoder().decodes(data)
+    return get_default_decoder().decodes(data, **kwargs)
 
 
-def load(file: BinaryIO) -> Any:
+def load(file: BinaryIO, **kwargs) -> Any:
     """
     Unpickle am object from a buffer using a ``Decoder``.
 
     :param file: the buffer containing the pickled object
     :return: the unpickled object
     """
-    return get_default_decoder().decode(file)
+    return get_default_decoder().decode(file, **kwargs)
 
 
 class _SuperclassMatchingTypeDict(MetaCatchingDict):

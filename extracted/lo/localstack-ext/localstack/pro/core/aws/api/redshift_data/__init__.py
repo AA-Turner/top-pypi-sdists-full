@@ -519,15 +519,12 @@ class RedshiftDataApi:
         :param secret_arn: The name or ARN of the secret that enables access to the database.
         :param db_user: The database user name.
         :param database: The name of the database.
-        :param with_event: A value that indicates whether to send an event to the Amazon
-        EventBridge event bus after the SQL statements run.
+        :param with_event: A value that indicates whether to send an event to the Amazon EventBridge event bus after the SQL statements run.
         :param statement_name: The name of the SQL statements.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
-        :param client_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param result_format: The data format of the result of the SQL statement.
-        :param session_keep_alive_seconds: The number of seconds to keep the session alive after the query
-        finishes.
+        :param session_keep_alive_seconds: The number of seconds to keep the session alive after the query finishes.
         :param session_id: The session identifier of the query.
         :returns: BatchExecuteStatementOutput
         :raises ValidationException:
@@ -645,8 +642,7 @@ class RedshiftDataApi:
         :param connected_database: A database name.
         :param schema: The schema that contains the table.
         :param table: The table name.
-        :param next_token: A value that indicates the starting point for the next set of response
-        records in a subsequent request.
+        :param next_token: A value that indicates the starting point for the next set of response records in a subsequent request.
         :param max_results: The maximum number of tables to return in the response.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: DescribeTableResponse
@@ -722,16 +718,13 @@ class RedshiftDataApi:
         :param secret_arn: The name or ARN of the secret that enables access to the database.
         :param db_user: The database user name.
         :param database: The name of the database.
-        :param with_event: A value that indicates whether to send an event to the Amazon
-        EventBridge event bus after the SQL statement runs.
+        :param with_event: A value that indicates whether to send an event to the Amazon EventBridge event bus after the SQL statement runs.
         :param statement_name: The name of the SQL statement.
         :param parameters: The parameters for the SQL statement.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
-        :param client_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param result_format: The data format of the result of the SQL statement.
-        :param session_keep_alive_seconds: The number of seconds to keep the session alive after the query
-        finishes.
+        :param session_keep_alive_seconds: The number of seconds to keep the session alive after the query finishes.
         :param session_id: The session identifier of the query.
         :returns: ExecuteStatementOutput
         :raises ValidationException:
@@ -759,8 +752,7 @@ class RedshiftDataApi:
         in the *Amazon Redshift Management Guide*.
 
         :param id: The identifier of the SQL statement whose results are to be fetched.
-        :param next_token: A value that indicates the starting point for the next set of response
-        records in a subsequent request.
+        :param next_token: A value that indicates the starting point for the next set of response records in a subsequent request.
         :returns: GetStatementResultResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -783,8 +775,7 @@ class RedshiftDataApi:
         in the *Amazon Redshift Management Guide*.
 
         :param id: The identifier of the SQL statement whose results are to be fetched.
-        :param next_token: A value that indicates the starting point for the next set of response
-        records in a subsequent request.
+        :param next_token: A value that indicates the starting point for the next set of response records in a subsequent request.
         :returns: GetStatementResultV2Response
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -848,8 +839,7 @@ class RedshiftDataApi:
         :param cluster_identifier: The cluster identifier.
         :param secret_arn: The name or ARN of the secret that enables access to the database.
         :param db_user: The database user name.
-        :param next_token: A value that indicates the starting point for the next set of response
-        records in a subsequent request.
+        :param next_token: A value that indicates the starting point for the next set of response records in a subsequent request.
         :param max_results: The maximum number of databases to return in the response.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: ListDatabasesResponse
@@ -921,8 +911,7 @@ class RedshiftDataApi:
         :param db_user: The database user name.
         :param connected_database: A database name.
         :param schema_pattern: A pattern to filter results by schema name.
-        :param next_token: A value that indicates the starting point for the next set of response
-        records in a subsequent request.
+        :param next_token: A value that indicates the starting point for the next set of response records in a subsequent request.
         :param max_results: The maximum number of schemas to return in the response.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: ListSchemasResponse
@@ -963,15 +952,12 @@ class RedshiftDataApi:
         API <https://docs.aws.amazon.com/redshift/latest/mgmt/data-api.html>`__
         in the *Amazon Redshift Management Guide*.
 
-        :param next_token: A value that indicates the starting point for the next set of response
-        records in a subsequent request.
+        :param next_token: A value that indicates the starting point for the next set of response records in a subsequent request.
         :param max_results: The maximum number of SQL statements to return in the response.
-        :param statement_name: The name of the SQL statement specified as input to
-        ``BatchExecuteStatement`` or ``ExecuteStatement`` to identify the query.
+        :param statement_name: The name of the SQL statement specified as input to ``BatchExecuteStatement`` or ``ExecuteStatement`` to identify the query.
         :param status: The status of the SQL statement to list.
         :param role_level: A value that filters which statements to return in the response.
-        :param database: The name of the database when listing statements run against a
-        ``ClusterIdentifier`` or ``WorkgroupName``.
+        :param database: The name of the database when listing statements run against a ``ClusterIdentifier`` or ``WorkgroupName``.
         :param cluster_identifier: The cluster identifier.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: ListStatementsResponse
@@ -1045,8 +1031,7 @@ class RedshiftDataApi:
         :param connected_database: A database name.
         :param schema_pattern: A pattern to filter results by schema name.
         :param table_pattern: A pattern to filter results by table name.
-        :param next_token: A value that indicates the starting point for the next set of response
-        records in a subsequent request.
+        :param next_token: A value that indicates the starting point for the next set of response records in a subsequent request.
         :param max_results: The maximum number of tables to return in the response.
         :param workgroup_name: The serverless workgroup name or Amazon Resource Name (ARN).
         :returns: ListTablesResponse

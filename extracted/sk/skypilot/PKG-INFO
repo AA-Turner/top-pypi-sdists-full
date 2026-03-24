@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot
-Version: 0.11.2
+Version: 0.12.0
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -318,6 +318,20 @@ Requires-Dist: anyio; extra == "vsphere"
 Requires-Dist: grpcio>=1.63.0; extra == "vsphere"
 Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "vsphere"
 Requires-Dist: aiosqlite; extra == "vsphere"
+Provides-Extra: vastdata
+Requires-Dist: awscli>=1.27.10; extra == "vastdata"
+Requires-Dist: botocore>=1.29.10; extra == "vastdata"
+Requires-Dist: boto3>=1.26.1; extra == "vastdata"
+Requires-Dist: colorama<0.4.7; extra == "vastdata"
+Requires-Dist: casbin; extra == "vastdata"
+Requires-Dist: sqlalchemy_adapter; extra == "vastdata"
+Requires-Dist: passlib; extra == "vastdata"
+Requires-Dist: pyjwt; extra == "vastdata"
+Requires-Dist: aiohttp; extra == "vastdata"
+Requires-Dist: anyio; extra == "vastdata"
+Requires-Dist: grpcio>=1.63.0; extra == "vastdata"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "vastdata"
+Requires-Dist: aiosqlite; extra == "vastdata"
 Provides-Extra: nebius
 Requires-Dist: nebius>=0.3.12; extra == "nebius"
 Requires-Dist: grpcio>=1.63.0; extra == "nebius"
@@ -356,6 +370,16 @@ Requires-Dist: anyio; extra == "seeweb"
 Requires-Dist: grpcio>=1.63.0; extra == "seeweb"
 Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "seeweb"
 Requires-Dist: aiosqlite; extra == "seeweb"
+Provides-Extra: mithril
+Requires-Dist: casbin; extra == "mithril"
+Requires-Dist: sqlalchemy_adapter; extra == "mithril"
+Requires-Dist: passlib; extra == "mithril"
+Requires-Dist: pyjwt; extra == "mithril"
+Requires-Dist: aiohttp; extra == "mithril"
+Requires-Dist: anyio; extra == "mithril"
+Requires-Dist: grpcio>=1.63.0; extra == "mithril"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "mithril"
+Requires-Dist: aiosqlite; extra == "mithril"
 Provides-Extra: shadeform
 Requires-Dist: casbin; extra == "shadeform"
 Requires-Dist: sqlalchemy_adapter; extra == "shadeform"
@@ -377,53 +401,73 @@ Requires-Dist: anyio; extra == "slurm"
 Requires-Dist: grpcio>=1.63.0; extra == "slurm"
 Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "slurm"
 Requires-Dist: aiosqlite; extra == "slurm"
+Provides-Extra: yotta
+Requires-Dist: casbin; extra == "yotta"
+Requires-Dist: sqlalchemy_adapter; extra == "yotta"
+Requires-Dist: passlib; extra == "yotta"
+Requires-Dist: pyjwt; extra == "yotta"
+Requires-Dist: aiohttp; extra == "yotta"
+Requires-Dist: anyio; extra == "yotta"
+Requires-Dist: grpcio>=1.63.0; extra == "yotta"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "yotta"
+Requires-Dist: aiosqlite; extra == "yotta"
+Provides-Extra: verda
+Requires-Dist: casbin; extra == "verda"
+Requires-Dist: sqlalchemy_adapter; extra == "verda"
+Requires-Dist: passlib; extra == "verda"
+Requires-Dist: pyjwt; extra == "verda"
+Requires-Dist: aiohttp; extra == "verda"
+Requires-Dist: anyio; extra == "verda"
+Requires-Dist: grpcio>=1.63.0; extra == "verda"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "verda"
+Requires-Dist: aiosqlite; extra == "verda"
 Provides-Extra: all
-Requires-Dist: anyio; extra == "all"
-Requires-Dist: aiohttp; extra == "all"
-Requires-Dist: azure-storage-blob>=12.23.1; extra == "all"
-Requires-Dist: pydo>=0.3.0; extra == "all"
-Requires-Dist: azure-core>=1.31.0; extra == "all"
-Requires-Dist: awscli>=1.27.10; extra == "all"
-Requires-Dist: google-api-python-client>=2.69.0; extra == "all"
-Requires-Dist: vastai-sdk>=0.1.12; extra == "all"
-Requires-Dist: pycares<5; extra == "all"
-Requires-Dist: msgraph-sdk; extra == "all"
-Requires-Dist: docker; extra == "all"
-Requires-Dist: boto3>=1.26.1; extra == "all"
+Requires-Dist: ibm-cloud-sdk-core; extra == "all"
+Requires-Dist: msrestazure; extra == "all"
 Requires-Dist: oci; extra == "all"
 Requires-Dist: pyopenssl<24.3.0,>=23.2.0; extra == "all"
-Requires-Dist: nebius>=0.3.12; extra == "all"
-Requires-Dist: passlib; extra == "all"
-Requires-Dist: sqlalchemy_adapter; extra == "all"
-Requires-Dist: ibm-vpc; extra == "all"
-Requires-Dist: python-dateutil; extra == "all"
-Requires-Dist: azure-common; extra == "all"
 Requires-Dist: botocore>=1.29.10; extra == "all"
-Requires-Dist: grpcio>=1.63.0; extra == "all"
-Requires-Dist: azure-core>=1.24.0; extra == "all"
-Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
-Requires-Dist: ibm-cloud-sdk-core; extra == "all"
-Requires-Dist: runpod>=1.6.1; extra == "all"
-Requires-Dist: ray[default]>=2.6.1; extra == "all"
-Requires-Dist: colorama<0.4.7; extra == "all"
-Requires-Dist: pyjwt; extra == "all"
-Requires-Dist: ibm-platform-services>=0.48.0; extra == "all"
-Requires-Dist: ecsapi==0.4.0; extra == "all"
-Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "all"
-Requires-Dist: ibm-cos-sdk; extra == "all"
-Requires-Dist: msrestazure; extra == "all"
-Requires-Dist: azure-cli>=2.65.0; extra == "all"
-Requires-Dist: pyvmomi==8.0.1.0.2; extra == "all"
-Requires-Dist: casbin; extra == "all"
-Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
-Requires-Dist: azure-identity>=1.19.0; extra == "all"
-Requires-Dist: websockets; extra == "all"
-Requires-Dist: python-hostlist; extra == "all"
-Requires-Dist: aiosqlite; extra == "all"
-Requires-Dist: cudo-compute>=0.1.10; extra == "all"
 Requires-Dist: google-cloud-storage; extra == "all"
+Requires-Dist: python-dateutil; extra == "all"
+Requires-Dist: anyio; extra == "all"
+Requires-Dist: azure-common; extra == "all"
+Requires-Dist: colorama<0.4.7; extra == "all"
+Requires-Dist: ibm-platform-services>=0.48.0; extra == "all"
+Requires-Dist: passlib; extra == "all"
+Requires-Dist: runpod>=1.6.1; extra == "all"
+Requires-Dist: nebius>=0.3.12; extra == "all"
+Requires-Dist: docker; extra == "all"
+Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
+Requires-Dist: azure-core>=1.31.0; extra == "all"
+Requires-Dist: pycares<5; extra == "all"
+Requires-Dist: python-hostlist; extra == "all"
+Requires-Dist: google-api-python-client>=2.69.0; extra == "all"
+Requires-Dist: pydo>=0.3.0; extra == "all"
+Requires-Dist: ibm-vpc; extra == "all"
+Requires-Dist: pyvmomi==8.0.1.0.2; extra == "all"
+Requires-Dist: aiosqlite; extra == "all"
+Requires-Dist: azure-cli>=2.65.0; extra == "all"
 Requires-Dist: azure-mgmt-network>=27.0.0; extra == "all"
+Requires-Dist: boto3>=1.26.1; extra == "all"
+Requires-Dist: aiohttp; extra == "all"
+Requires-Dist: cudo-compute>=0.1.10; extra == "all"
+Requires-Dist: websockets; extra == "all"
+Requires-Dist: grpcio>=1.63.0; extra == "all"
 Requires-Dist: tomli; extra == "all"
+Requires-Dist: msgraph-sdk; extra == "all"
+Requires-Dist: ray[default]>=2.6.1; extra == "all"
+Requires-Dist: sqlalchemy_adapter; extra == "all"
+Requires-Dist: azure-identity>=1.19.0; extra == "all"
+Requires-Dist: casbin; extra == "all"
+Requires-Dist: azure-core>=1.24.0; extra == "all"
+Requires-Dist: awscli>=1.27.10; extra == "all"
+Requires-Dist: ecsapi==0.4.0; extra == "all"
+Requires-Dist: pyjwt; extra == "all"
+Requires-Dist: vastai-sdk>=0.1.12; extra == "all"
+Requires-Dist: ibm-cos-sdk; extra == "all"
+Requires-Dist: azure-storage-blob>=12.23.1; extra == "all"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
+Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "all"
 Provides-Extra: remote
 Requires-Dist: grpcio>=1.63.0; extra == "remote"
 Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "remote"
@@ -532,12 +576,17 @@ SkyPilot supports your existing GPU, TPU, and CPU workloads, with no code change
 Install with pip:
 ```bash
 # Choose your clouds:
-pip install -U "skypilot[kubernetes,aws,gcp,azure,oci,nebius,lambda,runpod,fluidstack,paperspace,cudo,ibm,scp,seeweb,shadeform]"
+pip install -U "skypilot[kubernetes,aws,gcp,azure,oci,nebius,lambda,runpod,fluidstack,paperspace,cudo,ibm,scp,seeweb,shadeform,verda]"
 ```
 To get the latest features and fixes, use the nightly build or [install from source](https://docs.skypilot.co/en/latest/getting-started/installation.html):
 ```bash
 # Choose your clouds:
-pip install "skypilot-nightly[kubernetes,aws,gcp,azure,oci,nebius,lambda,runpod,fluidstack,paperspace,cudo,ibm,scp,seeweb,shadeform]"
+pip install "skypilot-nightly[kubernetes,aws,gcp,azure,oci,nebius,lambda,runpod,fluidstack,paperspace,cudo,ibm,scp,seeweb,shadeform,verda]"
+```
+
+To use SkyPilot directly with your agent (Claude Code, Codex, etc.), install the [SkyPilot Skill](https://docs.skypilot.co/en/latest/getting-started/skill.html). Tell your agent:
+```
+Fetch and follow https://github.com/skypilot-org/skypilot/blob/HEAD/agent/INSTALL.md to install the skypilot skill
 ```
 
 <p align="center">
@@ -545,7 +594,7 @@ pip install "skypilot-nightly[kubernetes,aws,gcp,azure,oci,nebius,lambda,runpod,
 </p>
 
 Current supported infra: Kubernetes, Slurm, AWS, GCP, Azure, OCI, CoreWeave, Nebius, Lambda Cloud, RunPod, Fluidstack,
-Cudo, Digital Ocean, Paperspace, Cloudflare, Samsung, IBM, Vast.ai, VMware vSphere, Seeweb, Prime Intellect, Shadeform.
+Cudo, Digital Ocean, Paperspace, Cloudflare, Samsung, IBM, Vast.ai, VMware vSphere, Seeweb, Prime Intellect, Shadeform, Verda Cloud, VastData, Crusoe.
 <p align="center">
   <img alt="SkyPilot" src="https://raw.githubusercontent.com/skypilot-org/skypilot/master/docs/source/images/cloud-logos-light.png" width=85%>
 </p>
@@ -616,7 +665,7 @@ Latest featured examples:
 
 | Task | Examples |
 |----------|----------|
-| Training | [Verl](https://docs.skypilot.co/en/latest/examples/training/verl.html), [Finetune Llama 4](https://docs.skypilot.co/en/latest/examples/training/llama-4-finetuning.html), [TorchTitan](https://docs.skypilot.co/en/latest/examples/training/torchtitan.html), [PyTorch](https://docs.skypilot.co/en/latest/getting-started/tutorial.html), [DeepSpeed](https://docs.skypilot.co/en/latest/examples/training/deepspeed.html), [NeMo](https://docs.skypilot.co/en/latest/examples/training/nemo.html), [Ray](https://docs.skypilot.co/en/latest/examples/training/ray.html), [Unsloth](https://docs.skypilot.co/en/latest/examples/training/unsloth.html), [Jax/TPU](https://docs.skypilot.co/en/latest/examples/training/tpu.html) |
+| Training | [Verl](https://docs.skypilot.co/en/latest/examples/training/verl.html), [Finetune Llama 4](https://docs.skypilot.co/en/latest/examples/training/llama-4-finetuning.html), [TorchTitan](https://docs.skypilot.co/en/latest/examples/training/torchtitan.html), [PyTorch](https://docs.skypilot.co/en/latest/getting-started/tutorial.html), [DeepSpeed](https://docs.skypilot.co/en/latest/examples/training/deepspeed.html), [NeMo](https://docs.skypilot.co/en/latest/examples/training/nemo.html), [Ray](https://docs.skypilot.co/en/latest/examples/training/ray.html), [Unsloth](https://docs.skypilot.co/en/latest/examples/training/unsloth.html), [Jax/TPU](https://docs.skypilot.co/en/latest/examples/training/tpu.html), [OpenRLHF](https://docs.skypilot.co/en/latest/examples/training/openrlhf.html) |
 | Serving | [vLLM](https://docs.skypilot.co/en/latest/examples/serving/vllm.html), [SGLang](https://docs.skypilot.co/en/latest/examples/serving/sglang.html), [Ollama](https://docs.skypilot.co/en/latest/examples/serving/ollama.html) |
 | Models | [DeepSeek-R1](https://docs.skypilot.co/en/latest/examples/models/deepseek-r1.html), [Llama 4](https://docs.skypilot.co/en/latest/examples/models/llama-4.html), [Llama 3](https://docs.skypilot.co/en/latest/examples/models/llama-3.html), [CodeLlama](https://docs.skypilot.co/en/latest/examples/models/codellama.html), [Qwen](https://docs.skypilot.co/en/latest/examples/models/qwen.html), [Kimi-K2](https://docs.skypilot.co/en/latest/examples/models/kimi-k2.html), [Kimi-K2-Thinking](https://docs.skypilot.co/en/latest/examples/models/kimi-k2-thinking.html), [Mixtral](https://docs.skypilot.co/en/latest/examples/models/mixtral.html) |
 | AI apps | [RAG](https://docs.skypilot.co/en/latest/examples/applications/rag.html), [vector databases](https://docs.skypilot.co/en/latest/examples/applications/vector_database.html) (ChromaDB, CLIP) |

@@ -29,7 +29,7 @@ from temporalio.common import (
     VersioningBehavior,
     WorkerDeploymentVersion,
 )
-from temporalio.converter import _ServerPayloadErrorLimits
+from temporalio.converter._payload_limits import _ServerPayloadErrorLimits
 
 from ._activity import SharedStateManager, _ActivityWorker
 from ._interceptor import Interceptor
@@ -157,9 +157,6 @@ class Worker:
                 may be async functions or non-async functions.
             nexus_service_handlers: Instances of Nexus service handler classes
                 decorated with :py:func:`@nexusrpc.handler.service_handler<nexusrpc.handler.service_handler>`.
-
-                .. warning::
-                    This parameter is experimental and unstable.
             workflows: Workflow classes decorated with
                 :py:func:`@workflow.defn<temporalio.workflow.defn>`.
             activity_executor: Concurrent executor to use for non-async
@@ -182,9 +179,6 @@ class Worker:
             nexus_task_executor: Executor to use for non-async
                 Nexus operations. This is required if any operation start methods
                 are non-``async def``.
-
-                .. warning::
-                    This parameter is experimental and unstable.
             workflow_runner: Runner for workflows.
             unsandboxed_workflow_runner: Runner for workflows that opt-out of
                 sandboxing.
@@ -409,6 +403,16 @@ class Worker:
         ):
             raise ValueError(
                 "deployment_config cannot be used with build_id or use_worker_versioning"
+            )
+        _deployment_config = config.get("deployment_config")
+        if (
+            _deployment_config is not None
+            and not _deployment_config.use_worker_versioning
+            and _deployment_config.default_versioning_behavior
+            != VersioningBehavior.UNSPECIFIED
+        ):
+            raise ValueError(
+                "default_versioning_behavior must be UNSPECIFIED when use_worker_versioning is False"
             )
 
         # Prepend applicable client interceptors to the given ones
@@ -677,6 +681,14 @@ class Worker:
         assert bridge_client._bridge_client
         self._bridge_worker.replace_client(bridge_client._bridge_client)
         self._config["client"] = value
+
+        # Update the activity worker's client reference if activities are configured
+        if self._activity_worker:
+            self._activity_worker._client = value
+
+        # Update the nexus worker's client reference if nexus services are configured
+        if self._nexus_worker:
+            self._nexus_worker._client = value
 
     @property
     def is_running(self) -> bool:

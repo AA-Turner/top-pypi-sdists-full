@@ -289,7 +289,10 @@ def _get_cluster_config_template(cloud):
         clouds.Fluidstack: 'fluidstack-ray.yml.j2',
         clouds.Nebius: 'nebius-ray.yml.j2',
         clouds.Hyperbolic: 'hyperbolic-ray.yml.j2',
-        clouds.Seeweb: 'seeweb-ray.yml.j2'
+        clouds.Seeweb: 'seeweb-ray.yml.j2',
+        clouds.Yotta: 'yotta-ray.yml.j2',
+        clouds.Mithril: 'mithril-ray.yml.j2',
+        clouds.Verda: 'verda-ray.yml.j2',
     }
     return cloud_to_template[type(cloud)]
 
@@ -6018,7 +6021,8 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
                 action_message = 'Mounting'
             else:
                 assert storage_obj.mode == storage_lib.StorageMode.MOUNT_CACHED
-                mount_cmd = store.mount_cached_command(dst)
+                mount_cmd = store.mount_cached_command(
+                    dst, config=storage_obj.resolve_mount_cached_config())
                 action_message = 'Mounting cached mode'
             src_print = (storage_obj.source
                          if storage_obj.source else storage_obj.name)
@@ -6152,7 +6156,8 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
                 'cloud': str(handle.launched_resources.cloud),
                 'region': handle.launched_resources.region,
                 'zone': handle.launched_resources.zone,
-            })
+            }),
+            constants.USER_ENV_VAR: common_utils.get_current_user_name(),
         }
 
     def _get_task_env_vars(self, task: task_lib.Task, job_id: int,

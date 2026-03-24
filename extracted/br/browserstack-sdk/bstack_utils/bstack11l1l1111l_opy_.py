@@ -1,0 +1,22 @@
+# coding: UTF-8
+import sys
+bstack1ll1l1l_opy_ = sys.version_info [0] == 2
+bstack1lll11_opy_ = 2048
+bstack11l111l_opy_ = 7
+def bstack1ll1lll_opy_ (bstack11l11_opy_):
+    global bstack11l1ll1_opy_
+    bstack11l1111_opy_ = ord (bstack11l11_opy_ [-1])
+    bstack1l111l1_opy_ = bstack11l11_opy_ [:-1]
+    bstack111_opy_ = bstack11l1111_opy_ % len (bstack1l111l1_opy_)
+    bstack11111l1_opy_ = bstack1l111l1_opy_ [:bstack111_opy_] + bstack1l111l1_opy_ [bstack111_opy_:]
+    if bstack1ll1l1l_opy_:
+        bstack11llll_opy_ = unicode () .join ([unichr (ord (char) - bstack1lll11_opy_ - (bstack1l111_opy_ + bstack11l1111_opy_) % bstack11l111l_opy_) for bstack1l111_opy_, char in enumerate (bstack11111l1_opy_)])
+    else:
+        bstack11llll_opy_ = str () .join ([chr (ord (char) - bstack1lll11_opy_ - (bstack1l111_opy_ + bstack11l1111_opy_) % bstack11l111l_opy_) for bstack1l111_opy_, char in enumerate (bstack11111l1_opy_)])
+    return eval (bstack11llll_opy_)
+from bstack_utils.constants import bstack111ll11111l_opy_
+def bstack11l1l1111_opy_(bstack111ll1111l1_opy_):
+    from browserstack_sdk.sdk_cli.cli import cli
+    from bstack_utils.helper import bstack1l11llll1l_opy_
+    host = bstack1l11llll1l_opy_(cli.config, [bstack1ll1lll_opy_ (u"ࠥࡥࡵ࡯ࡳࠣᮅ"), bstack1ll1lll_opy_ (u"ࠦࡦࡻࡴࡰ࡯ࡤࡸࡪࠨᮆ"), bstack1ll1lll_opy_ (u"ࠧࡧࡰࡪࠤᮇ")], bstack111ll11111l_opy_)
+    return bstack1ll1lll_opy_ (u"࠭ࡻࡾ࠱ࡾࢁࠬᮈ").format(host, bstack111ll1111l1_opy_)

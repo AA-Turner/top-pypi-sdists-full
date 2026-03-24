@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binary-refinery
-Version: 0.10.5
+Version: 0.10.7
 Summary: A toolkit to transform and refine (mostly) binary data.
 Home-page: https://github.com/binref/refinery/
 Author: Jesko Huettenhain
@@ -25,111 +25,89 @@ Requires-Dist: pure-magic-rs
 Requires-Dist: setuptools
 Requires-Dist: toml
 Requires-Dist: wheel
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
+Requires-Dist: numpy
 Requires-Dist: pyperclip
-Provides-Extra: all
-Requires-Dist: Pygments; extra == "all"
-Requires-Dist: python-idb<=0.8.0; extra == "all"
-Requires-Dist: python-registry; extra == "all"
-Requires-Dist: pyxlsb2; extra == "all"
-Requires-Dist: capstone; extra == "all"
-Requires-Dist: smda<2.0; extra == "all"
-Requires-Dist: pyzstd; extra == "all"
-Requires-Dist: decompyle3; extra == "all"
-Requires-Dist: Pillow; extra == "all"
-Requires-Dist: jsbeautifier; extra == "all"
-Requires-Dist: uncompyle6>=3.9.3; extra == "all"
-Requires-Dist: pyppmd; extra == "all"
-Requires-Dist: pefile; extra == "all"
-Requires-Dist: javaobj-py3>=0.4.0.1; extra == "all"
-Requires-Dist: python-evtx; extra == "all"
-Requires-Dist: pymupdf; extra == "all"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "all"
-Requires-Dist: xdis; extra == "all"
-Requires-Dist: brotli; extra == "all"
-Requires-Dist: icicle-emu>=0.0.11; extra == "all"
-Requires-Dist: orjson; extra == "all"
-Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "all"
-Requires-Dist: chardet; extra == "all"
-Requires-Dist: numpy; extra == "all"
-Requires-Dist: openpyxl; extra == "all"
-Requires-Dist: pyonenote; extra == "all"
-Requires-Dist: colorama; extra == "all"
-Requires-Dist: xlrd2; extra == "all"
-Requires-Dist: pikepdf<=9.5; extra == "all"
-Requires-Dist: minidump==0.0.24; extra == "all"
-Provides-Extra: speed
-Requires-Dist: numpy; extra == "speed"
-Requires-Dist: orjson; extra == "speed"
+Requires-Dist: pyperclip
+Requires-Dist: pyperclip
+Requires-Dist: colorama
 Provides-Extra: default
-Requires-Dist: pymupdf; extra == "default"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "default"
-Requires-Dist: orjson; extra == "default"
-Requires-Dist: chardet; extra == "default"
-Requires-Dist: numpy; extra == "default"
 Requires-Dist: capstone; extra == "default"
-Requires-Dist: colorama; extra == "default"
+Requires-Dist: orjson; extra == "default"
+Requires-Dist: numpy; extra == "default"
 Requires-Dist: pikepdf<=9.5; extra == "default"
-Requires-Dist: minidump==0.0.24; extra == "default"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "default"
+Requires-Dist: chardet; extra == "default"
+Requires-Dist: pymupdf; extra == "default"
 Requires-Dist: pefile; extra == "default"
+Requires-Dist: colorama; extra == "default"
+Requires-Dist: Pillow; extra == "default"
 Provides-Extra: extended
-Requires-Dist: Pygments; extra == "extended"
-Requires-Dist: pyxlsb2; extra == "extended"
-Requires-Dist: capstone; extra == "extended"
-Requires-Dist: pyzstd; extra == "extended"
-Requires-Dist: Pillow; extra == "extended"
-Requires-Dist: jsbeautifier; extra == "extended"
-Requires-Dist: uncompyle6>=3.9.3; extra == "extended"
-Requires-Dist: pyppmd; extra == "extended"
-Requires-Dist: pefile; extra == "extended"
-Requires-Dist: pymupdf; extra == "extended"
-Requires-Dist: xdis; extra == "extended"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "extended"
-Requires-Dist: icicle-emu>=0.0.11; extra == "extended"
+Requires-Dist: pyonenote; extra == "extended"
 Requires-Dist: orjson; extra == "extended"
-Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "extended"
-Requires-Dist: chardet; extra == "extended"
+Requires-Dist: icicle-emu>=0.0.11; extra == "extended"
+Requires-Dist: pyppmd; extra == "extended"
+Requires-Dist: xlrd2; extra == "extended"
+Requires-Dist: jsbeautifier; extra == "extended"
+Requires-Dist: brotli; extra == "extended"
+Requires-Dist: decompyle3; extra == "extended"
+Requires-Dist: pyxlsb2; extra == "extended"
+Requires-Dist: pyzstd; extra == "extended"
+Requires-Dist: xdis; extra == "extended"
+Requires-Dist: python-registry; extra == "extended"
+Requires-Dist: capstone; extra == "extended"
 Requires-Dist: numpy; extra == "extended"
 Requires-Dist: openpyxl; extra == "extended"
-Requires-Dist: pyonenote; extra == "extended"
-Requires-Dist: colorama; extra == "extended"
-Requires-Dist: xlrd2; extra == "extended"
-Requires-Dist: pikepdf<=9.5; extra == "extended"
+Requires-Dist: uncompyle6>=3.9.3; extra == "extended"
 Requires-Dist: minidump==0.0.24; extra == "extended"
-Provides-Extra: arc
-Requires-Dist: xdis; extra == "arc"
-Requires-Dist: uncompyle6>=3.9.3; extra == "arc"
-Requires-Dist: pyppmd; extra == "arc"
-Requires-Dist: decompyle3; extra == "arc"
-Requires-Dist: pyzstd; extra == "arc"
-Provides-Extra: python
-Requires-Dist: xdis; extra == "python"
-Requires-Dist: decompyle3; extra == "python"
-Requires-Dist: uncompyle6>=3.9.3; extra == "python"
-Provides-Extra: formats
-Requires-Dist: pymupdf; extra == "formats"
-Requires-Dist: python-registry; extra == "formats"
-Requires-Dist: pyxlsb2; extra == "formats"
-Requires-Dist: openpyxl; extra == "formats"
-Requires-Dist: pyonenote; extra == "formats"
-Requires-Dist: xlrd2; extra == "formats"
-Requires-Dist: Pillow; extra == "formats"
-Requires-Dist: pikepdf<=9.5; extra == "formats"
-Requires-Dist: minidump==0.0.24; extra == "formats"
-Requires-Dist: javaobj-py3>=0.4.0.1; extra == "formats"
-Requires-Dist: python-evtx; extra == "formats"
-Provides-Extra: a
-Requires-Dist: python-idb<=0.8.0; extra == "a"
-Provides-Extra: l
-Requires-Dist: python-idb<=0.8.0; extra == "l"
-Provides-Extra: office
-Requires-Dist: xlrd2; extra == "office"
-Requires-Dist: openpyxl; extra == "office"
-Requires-Dist: pyonenote; extra == "office"
-Requires-Dist: pyxlsb2; extra == "office"
-Provides-Extra: display
-Requires-Dist: jsbeautifier; extra == "display"
-Requires-Dist: Pygments; extra == "display"
-Requires-Dist: colorama; extra == "display"
+Requires-Dist: pikepdf<=9.5; extra == "extended"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "extended"
+Requires-Dist: chardet; extra == "extended"
+Requires-Dist: pymupdf; extra == "extended"
+Requires-Dist: pefile; extra == "extended"
+Requires-Dist: colorama; extra == "extended"
+Requires-Dist: Pillow; extra == "extended"
+Provides-Extra: all
+Requires-Dist: pyonenote; extra == "all"
+Requires-Dist: orjson; extra == "all"
+Requires-Dist: icicle-emu>=0.0.11; extra == "all"
+Requires-Dist: pyppmd; extra == "all"
+Requires-Dist: xlrd2; extra == "all"
+Requires-Dist: jsbeautifier; extra == "all"
+Requires-Dist: brotli; extra == "all"
+Requires-Dist: javaobj-py3>=0.4.0.1; extra == "all"
+Requires-Dist: decompyle3; extra == "all"
+Requires-Dist: pyxlsb2; extra == "all"
+Requires-Dist: pyzstd; extra == "all"
+Requires-Dist: smda<2.0; extra == "all"
+Requires-Dist: xdis; extra == "all"
+Requires-Dist: python-registry; extra == "all"
+Requires-Dist: python-evtx; extra == "all"
+Requires-Dist: Pygments; extra == "all"
+Requires-Dist: capstone; extra == "all"
+Requires-Dist: numpy; extra == "all"
+Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "all"
+Requires-Dist: openpyxl; extra == "all"
+Requires-Dist: uncompyle6>=3.9.3; extra == "all"
+Requires-Dist: minidump==0.0.24; extra == "all"
+Requires-Dist: pikepdf<=9.5; extra == "all"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "all"
+Requires-Dist: chardet; extra == "all"
+Requires-Dist: python-idb<=0.8.0; extra == "all"
+Requires-Dist: pymupdf; extra == "all"
+Requires-Dist: pefile; extra == "all"
+Requires-Dist: colorama; extra == "all"
+Requires-Dist: Pillow; extra == "all"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -266,15 +244,7 @@ Finally, if you are using [REMnux][remnux-main], you can use their [refinery doc
 
 ## Claude Skill Installation
 
-If you want to teach your local malware analysis [Claude][] to use binary refinery:
-```
-/plugin marketplace add binref/refinery
-/plugin install refinery@binref
-```
-Then invoke your skill as follows:
-```
-/refinery:agent
-```
+If you want to teach your local malware analysis [claude][] to use binary refinery, check out the [Binary Refinery Skill][agent].
 
 ## Shell Support
 
@@ -290,11 +260,11 @@ The following is a summary of how well various shell environments are currently 
 
 If you are using a different shell and have some feedback to share, please [let me know](https://github.com/binref/refinery/discussions)!
 
-## Heavyweight Dependencies
+## Modular Dependencies
 
-There are some units that have rather heavy-weight dependencies.
+There are some very situational units with (sometimes large) external dependencies.
 For example, [stego][] is a unit that requires the image parsing library `Pillow`.
-These libraries are not installed by default to keep the installation time for refinery at a reasonable level for first-time users.
+Some libraries are not installed by default to keep the installation time for refinery at a reasonable level for first-time users.
 The corresponding units will tell you what to do when their dependency is missing:
 ```
 $ emit config.png | stego RG
@@ -310,16 +280,11 @@ More precisely, there are the following extra categories available:
 
 |       Name | Included Dependencies                                             |
 |-----------:|:------------------------------------------------------------------|
-|      `all` | all dependencies for all refinery units                           |
-|      `arc` | all archiving-related dependencies (i.e. 7zip support)            |
 |  `default` | recommended selection of reasonable dependencies, author's choice |
-|  `display` | packages like `colorama`, `Pygments`, and `jsbeautifier`          |
-| `extended` | an extended selection, excluding only the most heavyweight ones   |
-|  `formats` | all dependencies related to parsing of various file formats       |
-|   `office` | subset of `formats`; all office-related parsing dependencies      |
-|   `python` | packages related to Python decompilation                          |
+| `extended` | an extended selection, excluding only the most obscure ones       |
+|      `all` | all dependencies for all refinery units                           |
 
-You can specify any combination of these to the installation to have some control over trading dependencies for capabilities.
+These are listed here in ascending order, i.e. `extended` will install everything that `default` would install.
 
 ## Bleeding Edge
 
@@ -540,7 +505,8 @@ emit "Once upon a time, at the foot of a great mountain ..." ^
 [carve]: https://binref.github.io/#refinery.carve
 [pack]: https://binref.github.io/#refinery.pack
 
-[Claude]: https://code.claude.com/docs/en/overview
+[claude]: https://code.claude.com/docs/en/overview
+[agent]: https://github.com/binref/agent/
 
 [jupyter]: https://jupyter.org/install
 [jupyter-vscode]: https://code.visualstudio.com/docs/datascience/jupyter-notebooks

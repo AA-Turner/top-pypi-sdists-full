@@ -743,7 +743,7 @@ pub struct ChunkingConfig {
 #[pymethods]
 impl ChunkingConfig {
     #[new]
-    #[pyo3(signature = (max_chars=None, max_overlap=None, embedding=None, preset=None, chunker_type=None, sizing_type=None, sizing_model=None, sizing_cache_dir=None))]
+    #[pyo3(signature = (max_chars=None, max_overlap=None, embedding=None, preset=None, chunker_type=None, sizing_type=None, sizing_model=None, sizing_cache_dir=None, prepend_heading_context=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         max_chars: Option<usize>,
@@ -754,6 +754,7 @@ impl ChunkingConfig {
         sizing_type: Option<String>,
         sizing_model: Option<String>,
         sizing_cache_dir: Option<String>,
+        prepend_heading_context: Option<bool>,
     ) -> Self {
         let ct = match chunker_type.as_deref() {
             Some("markdown") => kreuzberg::ChunkerType::Markdown,
@@ -769,6 +770,7 @@ impl ChunkingConfig {
                 embedding: embedding.map(Into::into),
                 preset,
                 sizing,
+                prepend_heading_context: prepend_heading_context.unwrap_or(false),
             },
         }
     }
@@ -829,9 +831,14 @@ impl ChunkingConfig {
         }
     }
 
+    #[getter]
+    fn prepend_heading_context(&self) -> bool {
+        self.inner.prepend_heading_context
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "ChunkingConfig(max_chars={}, max_overlap={}, embedding={}, preset={})",
+            "ChunkingConfig(max_chars={}, max_overlap={}, embedding={}, preset={}, prepend_heading_context={})",
             self.inner.max_characters,
             self.inner.overlap,
             if self.inner.embedding.is_some() { "..." } else { "None" },
@@ -839,7 +846,8 @@ impl ChunkingConfig {
                 .preset
                 .as_ref()
                 .map(|s| format!("'{}'", s))
-                .unwrap_or_else(|| "None".to_string())
+                .unwrap_or_else(|| "None".to_string()),
+            self.inner.prepend_heading_context
         )
     }
 }

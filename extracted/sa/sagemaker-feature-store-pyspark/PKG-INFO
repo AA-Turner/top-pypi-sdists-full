@@ -1,11 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sagemaker_feature_store_pyspark
-Version: 1.1.3
+Version: 1.2.0
 Summary: Amazon SageMaker FeatureStore PySpark Bindings
 Author: Amazon Web Services
-License: Apache License 2.0
-Keywords: ML Amazon AWS AI FeatureStore SageMaker
+License: Apache-2.0
+Keywords: ML,Amazon,AWS,AI,FeatureStore,SageMaker
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+Requires-Dist: setuptools<82
+Provides-Extra: unit
+Requires-Dist: numpy; extra == "unit"
+Requires-Dist: pytest; extra == "unit"
+Requires-Dist: pytest-cov; extra == "unit"
+Requires-Dist: pytest-rerunfailures; extra == "unit"
+Requires-Dist: pytest-xdist; extra == "unit"
+Requires-Dist: coverage; extra == "unit"
+Provides-Extra: integ
+Requires-Dist: boto3; extra == "integ"
+Requires-Dist: numpy; extra == "integ"
+Provides-Extra: lint
+Requires-Dist: flake8>=6.0.0; extra == "lint"
+Provides-Extra: release
+Requires-Dist: twine>=1.12.0; extra == "release"
+Dynamic: requires-python
 
 ## Overview
 

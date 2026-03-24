@@ -39,6 +39,8 @@ SUPPORTED_OSES_FOR_SCHEDULER = {"slurm": SUPPORTED_OSES, "awsbatch": ["alinux2",
 UNSUPPORTED_OSES_FOR_MICRO_NANO = ["ubuntu2204", "ubuntu2404", "rhel8", "rocky8", "rhel9", "rocky9"]
 UNSUPPORTED_OSES_FOR_P6E_GB200 = ["rhel8", "rocky8", "alinux2", "rhel9"]
 SUPPORTED_OSES_FOR_P6E_GB200 = list(set(SUPPORTED_OSES) - set(UNSUPPORTED_OSES_FOR_P6E_GB200))
+UNSUPPORTED_OSES_FOR_P6_B300 = ["alinux2"]
+SUPPORTED_OSES_FOR_P6_B300 = list(set(SUPPORTED_OSES) - set(UNSUPPORTED_OSES_FOR_P6_B300))
 UNSUPPORTED_OSES_FOR_DCV = []
 UNSUPPORTED_OSES_FOR_NON_GPU_DCV = ["rocky9", "rhel9"]
 UNSUPPORTED_ARM_OSES_FOR_DCV = []
@@ -167,8 +169,8 @@ MAX_NEW_STORAGE_COUNT = {"efs": 1, "fsx": 1, "raid": 1}
 MAX_EXISTING_STORAGE_COUNT = {"efs": 20, "fsx": 20, "raid": 0}
 
 COOKBOOK_PACKAGES_VERSIONS = {
-    "parallelcluster": "3.14.2",
-    "cookbook": "aws-parallelcluster-cookbook-3.14.2",
+    "parallelcluster": "3.15.0",
+    "cookbook": "aws-parallelcluster-cookbook-3.15.0",
     "chef": "18.4.12",
     "ami": "dev",
 }
@@ -185,6 +187,12 @@ CW_ALARM_PERCENT_THRESHOLD_DEFAULT = 90
 CW_ALARM_EVALUATION_PERIODS_DEFAULT = 1
 CW_ALARM_DATAPOINTS_TO_ALARM_DEFAULT = 1
 DETAILED_MONITORING_ENABLED_DEFAULT = False
+
+# CloudWatch Metrics
+CW_METRICS_NAMESPACE = "ParallelCluster"
+CW_METRICS_DIMENSION_CLUSTER_NAME = "ClusterName"
+CW_METRICS_DIMENSION_INSTANCE_ID = "InstanceId"
+CW_METRICS_CLUSTERMGTD_HEARTBEAT = "ClustermgtdHeartbeat"
 
 STACK_EVENTS_LOG_STREAM_NAME_FORMAT = "{}-cfn-events"
 
@@ -347,6 +355,9 @@ PCLUSTER_BUILD_IMAGE_CLEANUP_ROLE_REVISION = 2
 PCLUSTER_BUILD_IMAGE_CLEANUP_ROLE_BOOTSTRAP_TAG_KEY = "parallelcluster:build-image-cleanup-role-bootstrapped"
 
 P6E_GB200 = "p6e-gb200"
+P6_B300 = "p6-b300"
+INSTANCE_TYPES_WITH_FIRST_INTERFACE_ENA = [P6E_GB200, P6_B300]
+
 ULTRASERVER_INSTANCE_PREFIX_LIST = [P6E_GB200]
 # Dictionary mapping ultraserver instance prefixes to their allowed capacity block sizes
 ULTRASERVER_CAPACITY_BLOCK_ALLOWED_SIZE_DICT = {
@@ -354,3 +365,28 @@ ULTRASERVER_CAPACITY_BLOCK_ALLOWED_SIZE_DICT = {
 }
 # Capacity Block states that are considered inactive (cannot check health status)
 CAPACITY_BLOCK_INACTIVE_STATES = ["scheduled", "payment-pending", "assessing", "delayed"]
+
+# Older generation instance types
+EXCLUDED_INSTANCE_TYPE_PREFIXES = (
+    "m1",
+    "m2",
+    "m3",
+    "m4",
+    "t1",
+    "t2",
+    "c1",
+    "c3",
+    "c4",
+    "r3",
+    "r4",
+    "x1",
+    "x1e",
+    "d2",
+    "h1",
+    "i2",
+    "i3",
+    "f1",
+    "g3",
+    "p2",
+    "p3",
+)

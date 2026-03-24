@@ -9,9 +9,11 @@ homepage = "https://temporal.io/"
 repository = "https://github.com/temporalio/sdk-core"
 keywords = ["temporal", "workflow"]
 categories = ["development-tools"]
+readme = "README.md"
 
 [features]
 telemetry = ["dep:opentelemetry"]
+core-based-sdk = []
 
 [dependencies]
 anyhow = "1.0"
@@ -42,10 +44,12 @@ rand = "0.9.2"
 
 [dependencies.temporalio-common]
 path = "../common"
+version = "0.1"
 
 [dev-dependencies]
 assert_matches = "1"
 mockall = "0.13"
+prost = "0.14"
 rstest = "0.26"
 
 [lints]

@@ -30,7 +30,7 @@ class ExceptionLogger(ExceptionHandler):
                 moto.core.exceptions.RESTError,
             )
         except (ModuleNotFoundError, AttributeError):
-            # Moto may not be available in stripped-down versions of LocalStack, like LocalStack S3 image.
+            # Moto may not be available in stripped-down versions of LocalStack
             self._skip_exceptions = (ServiceException,)
 
     def __call__(

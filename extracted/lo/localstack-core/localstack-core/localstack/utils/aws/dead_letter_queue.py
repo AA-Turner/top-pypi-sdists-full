@@ -12,32 +12,36 @@ LOG = logging.getLogger(__name__)
 def sns_error_to_dead_letter_queue(
     sns_subscriber: dict,
     message: str,
-    error: str,
+    error_message: str,
     **kwargs,
 ):
     policy = json.loads(sns_subscriber.get("RedrivePolicy") or "{}")
     target_arn = policy.get("deadLetterTargetArn")
     if not target_arn:
-        return
+        return None
     if not_supported := (
         set(kwargs) - {"MessageAttributes", "MessageGroupId", "MessageDeduplicationId"}
     ):
         LOG.warning(
             "Not publishing to the DLQ - invalid arguments passed to the DLQ '%s'", not_supported
         )
-        return
+        return None
     event = {
         "message": message,
         **kwargs,
     }
-    return _send_to_dead_letter_queue(sns_subscriber["SubscriptionArn"], target_arn, event, error)
+    return send_to_dead_letter_queue(
+        sns_subscriber["SubscriptionArn"], target_arn, event, error_message
+    )
 
 
-def _send_to_dead_letter_queue(source_arn: str, dlq_arn: str, event: dict, error, role: str = None):
+def send_to_dead_letter_queue(
+    source_arn: str, dlq_arn: str, event: dict, error_message: str, role: str = None
+):
     if not dlq_arn:
-        return
+        return None
     LOG.info("Sending failed execution %s to dead letter queue %s", source_arn, dlq_arn)
-    messages = _prepare_messages_to_dlq(source_arn, event, error)
+    messages = _prepare_messages_to_dlq(source_arn, event, error_message)
     source_service = arns.extract_service_from_arn(source_arn)
     region = arns.extract_region_from_arn(dlq_arn)
     if role:
@@ -79,15 +83,15 @@ def _send_to_dead_letter_queue(source_arn: str, dlq_arn: str, event: dict, error
     return dlq_arn
 
 
-def _prepare_messages_to_dlq(source_arn: str, event: dict, error) -> list[dict]:
+def _prepare_messages_to_dlq(source_arn: str, event: dict, error_message: str) -> list[dict]:
     messages = []
     custom_attrs = {
         "RequestID": {"DataType": "String", "StringValue": str(uuid.uuid4())},
         "ErrorCode": {"DataType": "String", "StringValue": "200"},
-        "ErrorMessage": {"DataType": "String", "StringValue": str(error)},
+        "ErrorMessage": {"DataType": "String", "StringValue": error_message},
     }
     if ":sqs:" in source_arn:
-        custom_attrs["ErrorMessage"]["StringValue"] = str(error.result)
+        custom_attrs["ErrorMessage"]["StringValue"] = error_message
         for record in event.get("Records", []):
             msg_attrs = message_attributes_to_upper(record.get("messageAttributes"))
             message_attrs = {**msg_attrs, **custom_attrs}
@@ -109,13 +113,7 @@ def _prepare_messages_to_dlq(source_arn: str, event: dict, error) -> list[dict]:
 
     elif ":lambda:" in source_arn:
         custom_attrs["ErrorCode"]["DataType"] = "Number"
-        # not sure about what type of error can come here
-        try:
-            error_message = json.loads(error.result)["errorMessage"]
-            custom_attrs["ErrorMessage"]["StringValue"] = error_message
-        except (ValueError, KeyError):
-            # using old behaviour
-            custom_attrs["ErrorMessage"]["StringValue"] = str(error)
+        custom_attrs["ErrorMessage"]["StringValue"] = error_message
 
         messages.append(
             {

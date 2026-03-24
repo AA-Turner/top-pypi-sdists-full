@@ -1,6 +1,7 @@
 from time import time
 from typing import List, Optional, Tuple
 from urllib.parse import parse_qs, parse_qsl
+from uuid import uuid4
 
 
 def MockSQSLambdaEvent(
@@ -27,7 +28,7 @@ def MockSQSLambdaEvent(
     return {
         "Records": [
             {
-                "messageId": "059f36b4-87a3-44ab-83d2-661975830a7d",
+                "messageId": str(uuid4()),
                 "receiptHandle": "AQEBwJnKyrHigUMZj6rYigCgxlaS3SLy0a",
                 "body": body,
                 "attributes": {
@@ -107,7 +108,7 @@ def MockSQSBatchLambdaEvent(
     for body in bodies:
         records.append(
             {
-                "messageId": "059f36b4-87a3-44ab-83d2-661975830a7e",
+                "messageId": str(uuid4()),
                 "receiptHandle": "AQEBwJnKyrHigUMZj6rYigCgxlaS3SLy0b",
                 "body": body,
                 "attributes": {

@@ -61,11 +61,21 @@ optional-dependencies.test = [
   "virtualenv<21,>=20.34",
 ]
 urls.Changelog = "https://github.com/tox-dev/pipdeptree/releases"
-urls.Documentation = "https://github.com/tox-dev/pipdeptree/blob/main/README.md#pipdeptree"
+urls.Documentation = "https://pipdeptree.readthedocs.io"
 urls.Homepage = "https://github.com/tox-dev/pipdeptree"
 urls.Source = "https://github.com/tox-dev/pipdeptree"
 urls.Tracker = "https://github.com/tox-dev/pipdeptree/issues"
 scripts.pipdeptree = "pipdeptree.__main__:main"
+
+[dependency-groups]
+docs = [
+  "furo>=2024.8.6",
+  "sphinx>=7.4",
+  "sphinx-argparse-cli>=1.18",
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-inline-tabs>=2023.4.21",
+  "sphinxcontrib-mermaid>=2",
+]
 
 [tool.hatch]
 build.hooks.vcs.version-file = "src/pipdeptree/version.py"
@@ -122,6 +132,10 @@ ignore-words-list = "master"
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
 
+[tool.ty]
+environment.python-version = "3.14"
+src.exclude = []
+
 [tool.coverage]
 run.parallel = true
 run.plugins = [
@@ -136,7 +150,3 @@ report.fail_under = 88
 html.show_contexts = true
 html.skip_covered = false
 subtract_omit = "*/__main__.py"
-
-[tool.ty]
-environment.python-version = "3.14"
-src.exclude = []

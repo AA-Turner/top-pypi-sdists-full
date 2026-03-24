@@ -569,6 +569,8 @@ class ContainerConfiguration:
     cpu_shares: int | None = None
     mem_limit: int | str | None = None
     auth_config: dict[str, str] | None = None
+    cgroupns: str | None = None
+    hostname: str | None = None
 
 
 class ContainerConfigurator(Protocol):
@@ -1014,6 +1016,8 @@ class ContainerClient(metaclass=ABCMeta):
             cpu_shares=container_config.cpu_shares,
             mem_limit=container_config.mem_limit,
             auth_config=container_config.auth_config,
+            cgroupns=container_config.cgroupns,
+            hostname=container_config.hostname,
         )
 
     @abstractmethod
@@ -1049,6 +1053,8 @@ class ContainerClient(metaclass=ABCMeta):
         cpu_shares: int | None = None,
         mem_limit: int | str | None = None,
         auth_config: dict[str, str] | None = None,
+        cgroupns: str | None = None,
+        hostname: str | None = None,
     ) -> str:
         """Creates a container with the given image
 
@@ -1089,6 +1095,8 @@ class ContainerClient(metaclass=ABCMeta):
         cpu_shares: int | None = None,
         mem_limit: int | str | None = None,
         auth_config: dict[str, str] | None = None,
+        cgroupns: str | None = None,
+        hostname: str | None = None,
     ) -> tuple[bytes, bytes]:
         """Creates and runs a given docker container
 
@@ -1130,6 +1138,8 @@ class ContainerClient(metaclass=ABCMeta):
             cpu_shares=container_config.cpu_shares,
             mem_limit=container_config.mem_limit,
             auth_config=container_config.auth_config,
+            cgroupns=container_config.cgroupns,
+            hostname=container_config.hostname,
         )
 
     @abstractmethod

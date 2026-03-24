@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -77,6 +77,7 @@ class EffectiveEventThreatDetectionCustomModule(proto.Message):
             DISABLED (2):
                 The module is disabled at the given level.
         """
+
         ENABLEMENT_STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2

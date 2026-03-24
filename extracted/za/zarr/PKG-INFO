@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zarr
-Version: 3.1.5
+Version: 3.1.6
 Summary: An implementation of chunked, compressed, N-dimensional arrays for Python
 Project-URL: issues, https://github.com/zarr-developers/zarr-python/issues
 Project-URL: changelog, https://zarr.readthedocs.io/en/stable/release-notes.html
@@ -28,56 +28,18 @@ Requires-Python: >=3.11
 Requires-Dist: donfig>=0.8
 Requires-Dist: google-crc32c>=1.5
 Requires-Dist: numcodecs>=0.14
-Requires-Dist: numpy>=1.26
+Requires-Dist: numpy>=2.0
 Requires-Dist: packaging>=22.0
-Requires-Dist: typing-extensions>=4.9
+Requires-Dist: typing-extensions>=4.12
 Provides-Extra: cli
 Requires-Dist: typer; extra == 'cli'
-Provides-Extra: docs
-Requires-Dist: astroid<4; extra == 'docs'
-Requires-Dist: griffe-inherited-docstrings; extra == 'docs'
-Requires-Dist: markdown-exec[ansi]; extra == 'docs'
-Requires-Dist: mike>=2.1.3; extra == 'docs'
-Requires-Dist: mkdocs-material[imaging]>=9.6.14; extra == 'docs'
-Requires-Dist: mkdocs-redirects>=1.2.0; extra == 'docs'
-Requires-Dist: mkdocs>=1.6.1; extra == 'docs'
-Requires-Dist: mkdocstrings-python>=1.16.10; extra == 'docs'
-Requires-Dist: mkdocstrings>=0.29.1; extra == 'docs'
-Requires-Dist: numcodecs[msgpack]; extra == 'docs'
-Requires-Dist: pytest; extra == 'docs'
-Requires-Dist: rich; extra == 'docs'
-Requires-Dist: ruff; extra == 'docs'
-Requires-Dist: s3fs>=2023.10.0; extra == 'docs'
-Requires-Dist: towncrier; extra == 'docs'
 Provides-Extra: gpu
 Requires-Dist: cupy-cuda12x; extra == 'gpu'
 Provides-Extra: optional
-Requires-Dist: rich; extra == 'optional'
 Requires-Dist: universal-pathlib; extra == 'optional'
 Provides-Extra: remote
 Requires-Dist: fsspec>=2023.10.0; extra == 'remote'
 Requires-Dist: obstore>=0.5.1; extra == 'remote'
-Provides-Extra: remote-tests
-Requires-Dist: botocore; extra == 'remote-tests'
-Requires-Dist: fsspec>=2023.10.0; extra == 'remote-tests'
-Requires-Dist: moto[s3,server]; extra == 'remote-tests'
-Requires-Dist: obstore>=0.5.1; extra == 'remote-tests'
-Requires-Dist: requests; extra == 'remote-tests'
-Requires-Dist: s3fs>=2023.10.0; extra == 'remote-tests'
-Provides-Extra: test
-Requires-Dist: coverage>=7.10; extra == 'test'
-Requires-Dist: hypothesis; extra == 'test'
-Requires-Dist: mypy; extra == 'test'
-Requires-Dist: numpydoc; extra == 'test'
-Requires-Dist: packaging; extra == 'test'
-Requires-Dist: pytest-accept; extra == 'test'
-Requires-Dist: pytest-asyncio; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest-xdist; extra == 'test'
-Requires-Dist: pytest<8.4; extra == 'test'
-Requires-Dist: rich; extra == 'test'
-Requires-Dist: tomlkit; extra == 'test'
-Requires-Dist: uv; extra == 'test'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -95,6 +57,7 @@ Description-Content-Type: text/markdown
     </a>
   </td>
 </tr>
+<tr>
   <td></td>
   <td>
     <a href="https://anaconda.org/anaconda/zarr/">
@@ -105,9 +68,9 @@ Description-Content-Type: text/markdown
 <tr>
   <td>Package Status</td>
   <td>
-		<a href="https://pypi.org/project/zarr/">
-		<img src="https://img.shields.io/pypi/status/zarr.svg" alt="status" />
-		</a>
+    <a href="https://pypi.org/project/zarr/">
+    <img src="https://img.shields.io/pypi/status/zarr.svg" alt="status" />
+    </a>
   </td>
 </tr>
 <tr>
@@ -129,17 +92,16 @@ Description-Content-Type: text/markdown
 <tr>
   <td>Pre-commit Status</td>
   <td>
-    <a href=""https://github.com/zarr-developers/zarr-python/blob/main/.pre-commit-config.yaml">
+    <a href="https://github.com/zarr-developers/zarr-python/blob/main/.pre-commit-config.yaml">
     <img src="https://results.pre-commit.ci/badge/github/zarr-developers/zarr-python/main.svg" alt="pre-commit status" />
     </a>
   </td>
 </tr>
-
 <tr>
   <td>Coverage</td>
   <td>
     <a href="https://codecov.io/gh/zarr-developers/zarr-python">
-    <img src="https://codecov.io/gh/zarr-developers/zarr-python/branch/main/graph/badge.svg"/ alt="coverage">
+    <img src="https://codecov.io/gh/zarr-developers/zarr-python/branch/main/graph/badge.svg" alt="coverage" />
     </a>
   </td>
 </tr>
@@ -152,27 +114,28 @@ Description-Content-Type: text/markdown
   </td>
 </tr>
 <tr>
-	<td>Developer Chat</td>
-	<td>
-		<a href="https://ossci.zulipchat.com/">
-		<img src="https://img.shields.io/badge/zulip-join_chat-brightgreen.svg" />
-		</a>
-	</td>
+  <td>Developer Chat</td>
+  <td>
+    <a href="https://ossci.zulipchat.com/">
+    <img src="https://img.shields.io/badge/zulip-join_chat-brightgreen.svg" />
+    </a>
+  </td>
 </tr>
 <tr>
-	<td>Funding</td>
-	<td>
-		<a href="https://chanzuckerberg.com/eoss/">
-			<img src="https://img.shields.io/badge/funded%20by-EOSS-FF414B.svg?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjA5OCAyMS4wNzRjLTEuMjM1Ljg2LTIuNjggMS4zOTktNC42ODggMS40MzgtMi40MjYuMDUtNC4yMzgtMS41NTEtNC40MDYtMy45MThhNC40NjUgNC40NjUgMCAwIDEgMS4xODctMy4zOCA0LjQ4IDQuNDggMCAwIDEgMy4yODYtMS40NDQgNC42NzQgNC42NzQgMCAwIDEgMS44OTQuMzc1cy0uMTU2IDEuMzItLjIxIDEuOTE0bDEuOTg3LjAxNS4zNTYtMi45NzYtLjU2My0uMzU2YTYuNTQxIDYuNTQxIDAgMCAwLTMuNDg0LS45NjkgNi41OTMgNi41OTMgMCAwIDAtNC43NSAyLjA4NiA2LjQxNSA2LjQxNSAwIDAgMC0xLjcxNSA0Ljg3NWMuMTEzIDEuNjEuODA5IDMuMDc4IDEuOTUgNC4xNDEgMS4xNTYgMS4wNyAyLjcxNCAxLjY0NSA0LjM5OCAxLjYzMy4wMzkgMCAuMDc4IDAgLjEyNS0uMDA0YTkuOTE4IDkuOTE4IDAgMCAwIDMuNDMzLS43MjNsMS40MzQtMi43ODlzLS4wMjctLjA2Mi0uMjM0LjA3OCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpub256ZXJvO2ZpbGw6I2ZmZjtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Im0yOC44NjMgMjguMjE1LS4yNDIgMi43NDJ2LjAzMWMtLjEwMSAxLjAzNS0uNjUyIDEuOTE0LTEuNDg0IDIuMzUyLS42Ni4zNDctMS4zOC4zNDctMi4wMjgtLjAwOC0uNjc1LS4zNjMtLjk5Mi0uOTE4LTEuMTE3LTEuNjEzLS4xODctMS4xMDIuNDM4LTIuMjU0IDEuMjkzLTIuODMybDEzLjM1Mi04LjY4OGMuMDk3LjczOC4xNTIgMS40ODUuMTUyIDIuMjUgMCA4Ljk5Mi03LjMwOSAxNi4zMDUtMTYuMjkzIDE2LjMwNS04Ljk4OCAwLTE2LjI4OS03LjMxMy0xNi4yODktMTYuMzA1IDAtOC45ODggNy4zMDUtMTYuMyAxNi4yOTMtMTYuM3MxMi40OTYgNC4wOSAxNC45ODQgOS45MUwzOS4xMTQgMTVDMzYuMjYxIDguNjY0IDI5Ljg5MyA0LjIzNCAyMi41IDQuMjM0Yy03LjM5NSAwLTE4LjIxNSA4LjE3Mi0xOC4yMTUgMTguMjE1IDAgMTAuMDQ3IDguMTcyIDE4LjIxMSAxOC4yMTEgMTguMjExIDEwLjA0IDAgMTguMjE1LTguMTcyIDE4LjIxNS0xOC4yMSAwLTEwLjA0LS4xMS0yLjI5NC0uMzEzLTMuMzkxYTE5Ljk5NyAxOS45OTcgMCAwIDAtLjQ1My0xLjgzMmwtMy43OTMgMi4zNy01LjAyIDMuMThjLS4xNzUtLjY2OC0uNTgxLTEuMzQzLTEuNDQtMS43My0xLjAxMi0uNDY1LTIuNjYtLjExLTMuODY4LjU4MiAwIDAgMy4zMDUtNi40MDIgMy44Ni03LjQ1LjAzNS0uMDY2LS4wMTYtLjE0OC0uMDk4LS4xNDhoLTYuMThsLS4yNSAyLjA2N0gyNi41MDhsLTQuNzMgOS4wNjJjLS4wOTQuMTc2LjA5Ny4zNjMuMjc3LjI3NGwyLjUyMy0xLjM0YzEuMjE5LS42MjUgMy4yNS0xLjkxIDQuMjU0LTEuMTY4LjE0NS4xMS4zMzIuMzk4LjM0OC42OTVhLjM1Ny4zNTcgMCAwIDEtLjE0OS4yOTNsLTUuMDQzIDMuNDA2Yy0xLjYzNiAxLjE2OC0yLjI3NyAyLjkxLTIuMTIgNC41NTUuMTI0IDEuMzc1Ljk4NCAyLjU2NiAyLjI1NyAzLjI2MmE0LjE3IDQuMTcgMCAwIDAgMi4xMTMuNTE1IDQuMTY5IDQuMTY5IDAgMCAwIDEuODY0LS41YzEuNDM3LS43NTQgMi4zOTQtMi4yMzQgMi41NjItMy45NDVsLjQwMi00LjYxMy0yLjE5OSAxLjYzM1ptMCAwIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOm5vbnplcm87ZmlsbDojZmZmO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+" alt="CZI's Essential Open Source Software for Science">
-		</a>
-	</td>
+  <td>Funding</td>
+  <td>
+    <a href="https://chanzuckerberg.com/eoss/">
+    <img src="https://img.shields.io/badge/funded%20by-EOSS-FF414B.svg?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjA5OCAyMS4wNzRjLTEuMjM1Ljg2LTIuNjggMS4zOTktNC42ODggMS40MzgtMi40MjYuMDUtNC4yMzgtMS41NTEtNC40MDYtMy45MThhNC40NjUgNC40NjUgMCAwIDEgMS4xODctMy4zOCA0LjQ4IDQuNDggMCAwIDEgMy4yODYtMS40NDQgNC42NzQgNC42NzQgMCAwIDEgMS44OTQuMzc1cy0uMTU2IDEuMzItLjIxIDEuOTE0bDEuOTg3LjAxNS4zNTYtMi45NzYtLjU2My0uMzU2YTYuNTQxIDYuNTQxIDAgMCAwLTMuNDg0LS45NjkgNi41OTMgNi41OTMgMCAwIDAtNC43NSAyLjA4NiA2LjQxNSA2LjQxNSAwIDAgMC0xLjcxNSA0Ljg3NWMuMTEzIDEuNjEuODA5IDMuMDc4IDEuOTUgNC4xNDEgMS4xNTYgMS4wNyAyLjcxNCAxLjY0NSA0LjM5OCAxLjYzMy4wMzkgMCAuMDc4IDAgLjEyNS0uMDA0YTkuOTE4IDkuOTE4IDAgMCAwIDMuNDMzLS43MjNsMS40MzQtMi43ODlzLS4wMjctLjA2Mi0uMjM0LjA3OCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpub256ZXJvO2ZpbGw6I2ZmZjtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Im0yOC44NjMgMjguMjE1LS4yNDIgMi43NDJ2LjAzMWMtLjEwMSAxLjAzNS0uNjUyIDEuOTE0LTEuNDg0IDIuMzUyLS42Ni4zNDctMS4zOC4zNDctMi4wMjgtLjAwOC0uNjc1LS4zNjMtLjk5Mi0uOTE4LTEuMTE3LTEuNjEzLS4xODctMS4xMDIuNDM4LTIuMjU0IDEuMjkzLTIuODMybDEzLjM1Mi04LjY4OGMuMDk3LjczOC4xNTIgMS40ODUuMTUyIDIuMjUgMCA4Ljk5Mi03LjMwOSAxNi4zMDUtMTYuMjkzIDE2LjMwNS04Ljk4OCAwLTE2LjI4OS03LjMxMy0xNi4yODktMTYuMzA1IDAtOC45ODggNy4zMDUtMTYuMyAxNi4yOTMtMTYuM3MxMi40OTYgNC4wOSAxNC45ODQgOS45MUwzOS4xMTQgMTVDMzYuMjYxIDguNjY0IDI5Ljg5MyA0LjIzNCAyMi41IDQuMjM0Yy03LjM5NSAwLTE4LjIxNSA4LjE3Mi0xOC4yMTUgMTguMjE1IDAgMTAuMDQ3IDguMTcyIDE4LjIxMSAxOC4yMTEgMTguMjExIDEwLjA0IDAgMTguMjE1LTguMTcyIDE4LjIxNS0xOC4yMSAwLTEwLjA0LS4xMS0yLjI5NC0uMzEzLTMuMzkxYTE5Ljk5NyAxOS45OTcgMCAwIDAtLjQ1My0xLjgzMmwtMy43OTMgMi4zNy01LjAyIDMuMThjLS4xNzUtLjY2OC0uNTgxLTEuMzQzLTEuNDQtMS43My0xLjAxMi0uNDY1LTIuNjYtLjExLTMuODY4LjU4MiAwIDAgMy4zMDUtNi40MDIgMy44Ni03LjQ1LjAzNS0uMDY2LS4wMTYtLjE0OC0uMDk4LS4xNDhoLTYuMThsLS4yNSAyLjA2N0gyNi41MDhsLTQuNzMgOS4wNjJjLS4wOTQuMTc2LjA5Ny4zNjMuMjc3LjI3NGwyLjUyMy0xLjM0YzEuMjE5LS42MjUgMy4yNS0xLjkxIDQuMjU0LTEuMTY4LjE0NS4xMS4zMzIuMzk4LjM0OC42OTVhLjM1Ny4zNTcgMCAwIDEtLjE0OS4yOTNsLTUuMDQzIDMuNDA2Yy0xLjYzNiAxLjE2OC0yLjI3NyAyLjkxLTIuMTIgNC41NTUuMTI0IDEuMzc1Ljk4NCAyLjU2NiAyLjI1NyAzLjI2MmE0LjE3IDQuMTcgMCAwIDAgMi4xMTMuNTE1IDQuMTY5IDQuMTY5IDAgMCAwIDEuODY0LS41YzEuNDM3LS43NTQgMi4zOTQtMi4yMzQgMi41NjItMy45NDVsLjQwMi00LjYxMy0yLjE5OSAxLjYzM1ptMCAwIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOm5vbnplcm87ZmlsbDojZmZmO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+" alt="CZI's Essential Open Source Software for Science" />
+    </a>
+  </td>
 </tr>
-	<td>Citation</td>
-	<td>
-		<a href="https://doi.org/10.5281/zenodo.3773450">
-			<img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3773450.svg" alt="DOI">
-		</a>
-	</td>
+<tr>
+  <td>Citation</td>
+  <td>
+    <a href="https://doi.org/10.5281/zenodo.3773450">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.3773450.svg" alt="DOI" />
+    </a>
+  </td>
 </tr>
 
 </table>

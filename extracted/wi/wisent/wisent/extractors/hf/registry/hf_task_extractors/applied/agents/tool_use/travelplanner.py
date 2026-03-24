@@ -46,7 +46,7 @@ class TravelPlannerExtractor(HuggingFaceBenchmarkExtractor):
     """
 
     # Evaluator that should be used for this benchmark
-    evaluator_name = "exact_match"
+    evaluator_name = "travelplanner"
 
     def __init__(self, split: Optional[str] = None):
         """

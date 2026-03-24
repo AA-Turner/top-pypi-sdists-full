@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.securitycenter_v1p1beta1 import gapic_version as package_version
 
@@ -44,32 +44,34 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.securitycenter_v1p1beta1.services.security_center import pagers
+from google.cloud.securitycenter_v1p1beta1.types import (
+    finding,
+    notification_config,
+    organization_settings,
+    run_asset_discovery_response,
+    security_marks,
+    securitycenter_service,
+    source,
+)
+from google.cloud.securitycenter_v1p1beta1.types import finding as gcs_finding
 from google.cloud.securitycenter_v1p1beta1.types import (
     notification_config as gcs_notification_config,
 )
 from google.cloud.securitycenter_v1p1beta1.types import (
     organization_settings as gcs_organization_settings,
 )
-from google.cloud.securitycenter_v1p1beta1.types import run_asset_discovery_response
 from google.cloud.securitycenter_v1p1beta1.types import (
     security_marks as gcs_security_marks,
 )
-from google.cloud.securitycenter_v1p1beta1.types import finding
-from google.cloud.securitycenter_v1p1beta1.types import finding as gcs_finding
-from google.cloud.securitycenter_v1p1beta1.types import notification_config
-from google.cloud.securitycenter_v1p1beta1.types import organization_settings
-from google.cloud.securitycenter_v1p1beta1.types import security_marks
-from google.cloud.securitycenter_v1p1beta1.types import securitycenter_service
-from google.cloud.securitycenter_v1p1beta1.types import source
 from google.cloud.securitycenter_v1p1beta1.types import source as gcs_source
 
 from .client import SecurityCenterClient
@@ -160,7 +162,10 @@ class SecurityCenterAsyncClient:
         Returns:
             SecurityCenterAsyncClient: The constructed client.
         """
-        return SecurityCenterClient.from_service_account_info.__func__(SecurityCenterAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            SecurityCenterClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(SecurityCenterAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -176,7 +181,10 @@ class SecurityCenterAsyncClient:
         Returns:
             SecurityCenterAsyncClient: The constructed client.
         """
-        return SecurityCenterClient.from_service_account_file.__func__(SecurityCenterAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            SecurityCenterClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(SecurityCenterAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -881,7 +889,7 @@ class SecurityCenterAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securitycenter_v1p1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_get_iam_policy():
                 # Create a client
@@ -2445,7 +2453,7 @@ class SecurityCenterAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securitycenter_v1p1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_set_iam_policy():
                 # Create a client
@@ -2585,7 +2593,7 @@ class SecurityCenterAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securitycenter_v1p1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_test_iam_permissions():
                 # Create a client

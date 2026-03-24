@@ -237,3 +237,19 @@ def get_delay_schedule_group_name() -> str:
         KeyError: If 'ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP' is not set in the environment.
     """
     return os.environ["ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP"]
+
+
+def get_delay_schedule_dlq_arn() -> str:
+    """
+    Retrieves the EventBridge Scheduler delay DLQ for this stack.
+
+    One SQS DLQ is provisioned per CloudFormation stack. EventBridge Scheduler performs a very large number of retries,
+    so ending up here would most likely be due to permissions or target deletion.
+
+    Returns:
+        str: The value of the 'ASYNC_LAMBDA_DELAY_SCHEDULE_DLQ_ARN' environment variable.
+
+    Raises:
+        KeyError: If 'ASYNC_LAMBDA_DELAY_SCHEDULE_DLQ_ARN' is not set in the environment.
+    """
+    return os.environ["ASYNC_LAMBDA_DELAY_SCHEDULE_DLQ_ARN"]

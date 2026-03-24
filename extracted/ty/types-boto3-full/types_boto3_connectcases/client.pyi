@@ -102,6 +102,8 @@ from .type_defs import (
     UpdateCaseRuleRequestTypeDef,
     UpdateFieldRequestTypeDef,
     UpdateLayoutRequestTypeDef,
+    UpdateRelatedItemRequestTypeDef,
+    UpdateRelatedItemResponseTypeDef,
     UpdateTemplateRequestTypeDef,
 )
 
@@ -545,6 +547,16 @@ class ConnectCasesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/update_layout.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connectcases/client/#update_layout)
+        """
+
+    def update_related_item(
+        self, **kwargs: Unpack[UpdateRelatedItemRequestTypeDef]
+    ) -> UpdateRelatedItemResponseTypeDef:
+        """
+        Updates the content of a related item associated with a case.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/update_related_item.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connectcases/client/#update_related_item)
         """
 
     def update_template(self, **kwargs: Unpack[UpdateTemplateRequestTypeDef]) -> dict[str, Any]:

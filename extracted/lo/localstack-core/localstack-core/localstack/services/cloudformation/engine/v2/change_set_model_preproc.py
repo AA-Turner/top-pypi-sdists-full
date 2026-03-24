@@ -55,7 +55,7 @@ from localstack.services.cloudformation.engine.v2.unsupported_resource import (
     should_ignore_unsupported_resource_type,
 )
 from localstack.services.cloudformation.engine.validations import ValidationError
-from localstack.services.cloudformation.stores import (
+from localstack.services.cloudformation.models import (
     exports_map,
 )
 from localstack.services.cloudformation.v2.entities import ChangeSet

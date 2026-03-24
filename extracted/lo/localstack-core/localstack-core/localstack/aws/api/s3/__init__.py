@@ -202,6 +202,7 @@ MissingHeaderName = str
 KeyLength = str
 Header = str
 additionalMessage = str
+HeaderValue = str
 
 
 class AnalyticsS3ExportFileFormat(StrEnum):
@@ -271,6 +272,11 @@ class BucketLogsPermission(StrEnum):
     FULL_CONTROL = "FULL_CONTROL"
     READ = "READ"
     WRITE = "WRITE"
+
+
+class BucketNamespace(StrEnum):
+    account_regional = "account-regional"
+    global_ = "global"
 
 
 class BucketType(StrEnum):
@@ -1084,6 +1090,28 @@ class AuthorizationHeaderMalformed(ServiceException):
     HostId: HostId | None
 
 
+class InvalidBucketNamespace(ServiceException):
+    code: str = "InvalidBucketNamespace"
+    sender_fault: bool = False
+    status_code: int = 400
+    BucketNamespace: BucketName | None
+
+
+class InvalidNamespaceHeader(ServiceException):
+    code: str = "InvalidNamespaceHeader"
+    sender_fault: bool = False
+    status_code: int = 400
+    Header: Header | None
+    HeaderValue: HeaderValue | None
+
+
+class MissingNamespaceHeader(ServiceException):
+    code: str = "MissingNamespaceHeader"
+    sender_fault: bool = False
+    status_code: int = 400
+    Header: Header | None
+
+
 class AbacStatus(TypedDict, total=False):
     Status: BucketAbacStatus | None
 
@@ -1626,6 +1654,7 @@ class CreateBucketRequest(ServiceRequest):
     GrantWriteACP: GrantWriteACP | None
     ObjectLockEnabledForBucket: ObjectLockEnabledForBucket | None
     ObjectOwnership: ObjectOwnership | None
+    BucketNamespace: BucketNamespace | None
 
 
 class CreateMultipartUploadOutput(TypedDict, total=False):
@@ -3955,6 +3984,7 @@ class S3Api:
         grant_write_acp: GrantWriteACP | None = None,
         object_lock_enabled_for_bucket: ObjectLockEnabledForBucket | None = None,
         object_ownership: ObjectOwnership | None = None,
+        bucket_namespace: BucketNamespace | None = None,
         **kwargs,
     ) -> CreateBucketOutput:
         raise NotImplementedError

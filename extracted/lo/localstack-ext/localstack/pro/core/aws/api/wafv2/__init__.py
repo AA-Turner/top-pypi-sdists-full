@@ -26,6 +26,7 @@ FailureValue = str
 FieldIdentifier = str
 FieldToMatchData = str
 FieldToProtectKeyName = str
+FilterString = str
 ForwardedIPHeaderName = str
 HTTPMethod = str
 HTTPVersion = str
@@ -41,9 +42,13 @@ LockToken = str
 LoginPathString = str
 MetricName = str
 NextMarker = str
+NumberOfTopTrafficBotsPerPath = int
 OutputUrl = str
 PaginationLimit = int
 ParameterExceptionParameter = str
+PathStatisticsLimit = int
+PathString = str
+PercentageValue = float
 PolicyString = str
 PricingPlanFeatureName = str
 ProductDescription = str
@@ -71,6 +76,7 @@ TextTransformationPriority = int
 TimeWindowDay = int
 TokenDomain = str
 URIString = str
+UriPathPrefixString = str
 VendorName = str
 VersionKeyString = str
 
@@ -2557,6 +2563,20 @@ class AssociationConfig(TypedDict, total=False):
     RequestBody: RequestBody | None
 
 
+RequestCount = int
+
+
+class BotStatistics(TypedDict, total=False):
+    """Statistics about a specific bot's traffic to a path, including the bot
+    name, request count, and percentage of traffic.
+    """
+
+    BotName: FilterString
+    RequestCount: RequestCount
+    Percentage: PercentageValue
+
+
+BotStatisticsList = list[BotStatistics]
 CapacityUnit = int
 TimeWindowSecond = int
 
@@ -3111,6 +3131,17 @@ class Filter(TypedDict, total=False):
     Conditions: Conditions
 
 
+class FilterSource(TypedDict, total=False):
+    """Information about the bot filter that was applied to the request. This
+    structure is populated in the response when you filter by bot category,
+    organization, or name.
+    """
+
+    BotCategory: FilterString | None
+    BotOrganization: FilterString | None
+    BotName: FilterString | None
+
+
 Filters = list[Filter]
 
 
@@ -3550,6 +3581,42 @@ class GetSampledRequestsResponse(TypedDict, total=False):
     SampledRequests: SampledHTTPRequests | None
     PopulationSize: PopulationSize | None
     TimeWindow: TimeWindow | None
+
+
+class GetTopPathStatisticsByTrafficRequest(ServiceRequest):
+    WebAclArn: ResourceArn
+    Scope: Scope
+    UriPathPrefix: UriPathPrefixString | None
+    TimeWindow: TimeWindow
+    BotCategory: FilterString | None
+    BotOrganization: FilterString | None
+    BotName: FilterString | None
+    Limit: PathStatisticsLimit
+    NumberOfTopTrafficBotsPerPath: NumberOfTopTrafficBotsPerPath
+    NextMarker: NextMarker | None
+
+
+class PathStatistics(TypedDict, total=False):
+    """Statistics about bot traffic to a specific URI path, including the path,
+    request count, percentage of total traffic, and the top bots accessing
+    that path.
+    """
+
+    Source: FilterSource | None
+    Path: PathString
+    RequestCount: RequestCount
+    Percentage: PercentageValue
+    TopBots: BotStatisticsList | None
+
+
+PathStatisticsList = list[PathStatistics]
+
+
+class GetTopPathStatisticsByTrafficResponse(TypedDict, total=False):
+    PathStatistics: PathStatisticsList
+    TotalRequestCount: RequestCount
+    NextMarker: NextMarker | None
+    TopCategories: PathStatisticsList | None
 
 
 class GetWebACLForResourceRequest(ServiceRequest):
@@ -4048,10 +4115,8 @@ class Wafv2Api:
            rule, the new address might be blocked in one area while still
            allowed in another.
 
-        :param web_acl_arn: The Amazon Resource Name (ARN) of the web ACL that you want to associate
-        with the resource.
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to associate with the web
-        ACL.
+        :param web_acl_arn: The Amazon Resource Name (ARN) of the web ACL that you want to associate with the resource.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to associate with the web ACL.
         :returns: AssociateWebACLResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -4082,10 +4147,8 @@ class Wafv2Api:
         (WCU) <https://docs.aws.amazon.com/waf/latest/developerguide/aws-waf-capacity-units.html>`__
         in the *WAF Developer Guide*.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param rules: An array of Rule that you're configuring to use in a rule group or web
-        ACL.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param rules: An array of Rule that you're configuring to use in a rule group or web ACL.
         :returns: CheckCapacityResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -4116,8 +4179,7 @@ class Wafv2Api:
         You can use a single key for up to 5 domains. After you generate a key,
         you can copy it for use in your JavaScript integration.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param token_domains: The client application domains that you want to use this API key for.
         :returns: CreateAPIKeyResponse
         :raises WAFInternalErrorException:
@@ -4146,12 +4208,9 @@ class Wafv2Api:
         addresses.
 
         :param name: The name of the IP set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param ip_address_version: The version of the IP addresses, either ``IPV4`` or ``IPV6``.
-        :param addresses: Contains an array of strings that specifies zero or more IP addresses or
-        blocks of IP addresses that you want WAF to inspect for in incoming
-        requests.
+        :param addresses: Contains an array of strings that specifies zero or more IP addresses or blocks of IP addresses that you want WAF to inspect for in incoming requests.
         :param description: A description of the IP set that helps with identification.
         :param tags: An array of key:value pairs to associate with the resource.
         :returns: CreateIPSetResponse
@@ -4182,8 +4241,7 @@ class Wafv2Api:
         component for the specified patterns.
 
         :param name: The name of the set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param regular_expression_list: Array of regular expression strings.
         :param description: A description of the set that helps with identification.
         :param tags: An array of key:value pairs to associate with the resource.
@@ -4222,14 +4280,11 @@ class Wafv2Api:
         with confidence in its capacity requirements.
 
         :param name: The name of the rule group.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param capacity: The web ACL capacity units (WCUs) required for this rule group.
-        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample
-        collection.
+        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
         :param description: A description of the rule group that helps with identification.
-        :param rules: The Rule statements used to identify the web requests that you want to
-        manage.
+        :param rules: The Rule statements used to identify the web requests that you want to manage.
         :param tags: An array of key:value pairs to associate with the resource.
         :param custom_response_bodies: A map of custom response keys and content bodies.
         :returns: CreateRuleGroupResponse
@@ -4284,30 +4339,20 @@ class Wafv2Api:
         instance.
 
         :param name: The name of the web ACL.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param default_action: The action to perform if none of the ``Rules`` contained in the
-        ``WebACL`` match.
-        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample
-        collection.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param default_action: The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
+        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
         :param description: A description of the web ACL that helps with identification.
-        :param rules: The Rule statements used to identify the web requests that you want to
-        manage.
-        :param data_protection_config: Specifies data protection to apply to the web request data for the web
-        ACL.
+        :param rules: The Rule statements used to identify the web requests that you want to manage.
+        :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL.
         :param tags: An array of key:value pairs to associate with the resource.
         :param custom_response_bodies: A map of custom response keys and content bodies.
-        :param captcha_config: Specifies how WAF should handle ``CAPTCHA`` evaluations for rules that
-        don't have their own ``CaptchaConfig`` settings.
-        :param challenge_config: Specifies how WAF should handle challenge evaluations for rules that
-        don't have their own ``ChallengeConfig`` settings.
+        :param captcha_config: Specifies how WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings.
+        :param challenge_config: Specifies how WAF should handle challenge evaluations for rules that don't have their own ``ChallengeConfig`` settings.
         :param token_domains: Specifies the domains that WAF should accept in a web request token.
-        :param association_config: Specifies custom configurations for the associations between the web ACL
-        and protected resources.
-        :param on_source_d_do_s_protection_config: Specifies the type of DDoS protection to apply to web request data for a
-        web ACL.
-        :param application_config: Configures the ability for the WAF console to store and retrieve
-        application attributes during the web ACL creation process.
+        :param association_config: Specifies custom configurations for the associations between the web ACL and protected resources.
+        :param on_source_d_do_s_protection_config: Specifies the type of DDoS protection to apply to web request data for a web ACL.
+        :param application_config: Configures the ability for the WAF console to store and retrieve application attributes during the web ACL creation process.
         :returns: CreateWebACLResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -4335,8 +4380,7 @@ class Wafv2Api:
         After you delete a key, it can take up to 24 hours for WAF to disallow
         use of the key in all regions.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param api_key: The encrypted API key that you want to delete.
         :returns: DeleteAPIKeyResponse
         :raises WAFInternalErrorException:
@@ -4385,8 +4429,7 @@ class Wafv2Api:
         """Deletes the specified IPSet.
 
         :param name: The name of the IP set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the set.
         :param lock_token: A token used for optimistic locking.
         :returns: DeleteIPSetResponse
@@ -4412,11 +4455,9 @@ class Wafv2Api:
     ) -> DeleteLoggingConfigurationResponse:
         """Deletes the LoggingConfiguration from the specified web ACL.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the web ACL from which you want to
-        delete the LoggingConfiguration.
+        :param resource_arn: The Amazon Resource Name (ARN) of the web ACL from which you want to delete the LoggingConfiguration.
         :param log_type: Used to distinguish between various logging options.
-        :param log_scope: The owner of the logging configuration, which must be set to
-        ``CUSTOMER`` for the configurations that you manage.
+        :param log_scope: The owner of the logging configuration, which must be set to ``CUSTOMER`` for the configurations that you manage.
         :returns: DeleteLoggingConfigurationResponse
         :raises WAFInternalErrorException:
         :raises WAFNonexistentItemException:
@@ -4434,8 +4475,7 @@ class Wafv2Api:
 
         You must be the owner of the rule group to perform this operation.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the rule group from which you want to
-        delete the policy.
+        :param resource_arn: The Amazon Resource Name (ARN) of the rule group from which you want to delete the policy.
         :returns: DeletePermissionPolicyResponse
         :raises WAFNonexistentItemException:
         :raises WAFInternalErrorException:
@@ -4456,8 +4496,7 @@ class Wafv2Api:
         """Deletes the specified RegexPatternSet.
 
         :param name: The name of the set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the set.
         :param lock_token: A token used for optimistic locking.
         :returns: DeleteRegexPatternSetResponse
@@ -4485,8 +4524,7 @@ class Wafv2Api:
         """Deletes the specified RuleGroup.
 
         :param name: The name of the rule group.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the rule group.
         :param lock_token: A token used for optimistic locking.
         :returns: DeleteRuleGroupResponse
@@ -4539,8 +4577,7 @@ class Wafv2Api:
            -  For all other resources, call DisassociateWebACL.
 
         :param name: The name of the web ACL.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: The unique identifier for the web ACL.
         :param lock_token: A token used for optimistic locking.
         :returns: DeleteWebACLResponse
@@ -4563,8 +4600,7 @@ class Wafv2Api:
         Rules rule groups and Amazon Web Services Marketplace managed rule
         groups.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :returns: DescribeAllManagedProductsResponse
         :raises WAFInvalidOperationException:
         :raises WAFInternalErrorException:
@@ -4580,8 +4616,7 @@ class Wafv2Api:
         specific vendor.
 
         :param vendor_name: The name of the managed rule group vendor.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :returns: DescribeManagedProductsByVendorResponse
         :raises WAFInvalidOperationException:
         :raises WAFInternalErrorException:
@@ -4604,8 +4639,7 @@ class Wafv2Api:
 
         :param vendor_name: The name of the managed rule group vendor.
         :param name: The name of the managed rule group.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param version_name: The version of the rule group.
         :returns: DescribeManagedRuleGroupResponse
         :raises WAFInternalErrorException:
@@ -4637,8 +4671,7 @@ class Wafv2Api:
         DisassociateWebACL <https://docs.aws.amazon.com/waf/latest/developerguide/security_iam_service-with-iam.html#security_iam_action-DisassociateWebACL>`__
         in the *WAF Developer Guide*.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to disassociate from the
-        web ACL.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to disassociate from the web ACL.
         :returns: DisassociateWebACLResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -4690,8 +4723,7 @@ class Wafv2Api:
         integration <https://docs.aws.amazon.com/waf/latest/developerguide/waf-application-integration.html>`__
         in the *WAF Developer Guide*.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param api_key: The encrypted API key.
         :returns: GetDecryptedAPIKeyResponse
         :raises WAFInternalErrorException:
@@ -4709,8 +4741,7 @@ class Wafv2Api:
         """Retrieves the specified IPSet.
 
         :param name: The name of the IP set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the set.
         :returns: GetIPSetResponse
         :raises WAFInternalErrorException:
@@ -4731,11 +4762,9 @@ class Wafv2Api:
     ) -> GetLoggingConfigurationResponse:
         """Returns the LoggingConfiguration for the specified web ACL.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the web ACL for which you want to get
-        the LoggingConfiguration.
+        :param resource_arn: The Amazon Resource Name (ARN) of the web ACL for which you want to get the LoggingConfiguration.
         :param log_type: Used to distinguish between various logging options.
-        :param log_scope: The owner of the logging configuration, which must be set to
-        ``CUSTOMER`` for the configurations that you manage.
+        :param log_scope: The owner of the logging configuration, which must be set to ``CUSTOMER`` for the configurations that you manage.
         :returns: GetLoggingConfigurationResponse
         :raises WAFInternalErrorException:
         :raises WAFNonexistentItemException:
@@ -4760,8 +4789,7 @@ class Wafv2Api:
         ``UpdateManagedRuleSetVersionExpiryDate``.
 
         :param name: The name of the managed rule set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the managed rule set.
         :returns: GetManagedRuleSetResponse
         :raises WAFInternalErrorException:
@@ -4807,8 +4835,7 @@ class Wafv2Api:
 
         You must be the owner of the rule group to perform this operation.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the rule group for which you want to
-        get the policy.
+        :param resource_arn: The Amazon Resource Name (ARN) of the rule group for which you want to get the policy.
         :returns: GetPermissionPolicyResponse
         :raises WAFNonexistentItemException:
         :raises WAFInternalErrorException:
@@ -4848,8 +4875,7 @@ class Wafv2Api:
         monitors web requests and manages keys for this second usage completely
         independent of your first.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param web_acl_name: The name of the web ACL.
         :param web_acl_id: The unique identifier for the web ACL.
         :param rule_name: The name of the rate-based rule to get the keys for.
@@ -4870,8 +4896,7 @@ class Wafv2Api:
         """Retrieves the specified RegexPatternSet.
 
         :param name: The name of the set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the set.
         :returns: GetRegexPatternSetResponse
         :raises WAFInternalErrorException:
@@ -4894,8 +4919,7 @@ class Wafv2Api:
         """Retrieves the specified RuleGroup.
 
         :param name: The name of the rule group.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the rule group.
         :param arn: The Amazon Resource Name (ARN) of the entity.
         :returns: GetRuleGroupResponse
@@ -4930,21 +4954,58 @@ class Wafv2Api:
         range. This new time range indicates the actual period during which WAF
         selected the requests in the sample.
 
-        :param web_acl_arn: The Amazon resource name (ARN) of the ``WebACL`` for which you want a
-        sample of requests.
-        :param rule_metric_name: The metric name assigned to the ``Rule`` or ``RuleGroup`` dimension for
-        which you want a sample of requests.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param time_window: The start date and time and the end date and time of the range for which
-        you want ``GetSampledRequests`` to return a sample of requests.
-        :param max_items: The number of requests that you want WAF to return from among the first
-        5,000 requests that your Amazon Web Services resource received during
-        the time range.
+        :param web_acl_arn: The Amazon resource name (ARN) of the ``WebACL`` for which you want a sample of requests.
+        :param rule_metric_name: The metric name assigned to the ``Rule`` or ``RuleGroup`` dimension for which you want a sample of requests.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param time_window: The start date and time and the end date and time of the range for which you want ``GetSampledRequests`` to return a sample of requests.
+        :param max_items: The number of requests that you want WAF to return from among the first 5,000 requests that your Amazon Web Services resource received during the time range.
         :returns: GetSampledRequestsResponse
         :raises WAFNonexistentItemException:
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
+        """
+        raise NotImplementedError
+
+    @handler("GetTopPathStatisticsByTraffic")
+    def get_top_path_statistics_by_traffic(
+        self,
+        context: RequestContext,
+        web_acl_arn: ResourceArn,
+        scope: Scope,
+        time_window: TimeWindow,
+        limit: PathStatisticsLimit,
+        number_of_top_traffic_bots_per_path: NumberOfTopTrafficBotsPerPath,
+        uri_path_prefix: UriPathPrefixString | None = None,
+        bot_category: FilterString | None = None,
+        bot_organization: FilterString | None = None,
+        bot_name: FilterString | None = None,
+        next_marker: NextMarker | None = None,
+        **kwargs,
+    ) -> GetTopPathStatisticsByTrafficResponse:
+        """Retrieves aggregated statistics about the top URI paths accessed by bot
+        traffic for a specified web ACL and time window. You can use this
+        operation to analyze which paths on your web application receive the
+        most bot traffic and identify the specific bots accessing those paths.
+        The operation supports filtering by bot category, organization, or name,
+        and allows you to drill down into specific path prefixes to view
+        detailed URI-level statistics.
+
+        :param web_acl_arn: The Amazon Resource Name (ARN) of the web ACL for which you want to retrieve path statistics.
+        :param scope: Specifies whether the web ACL is for an Amazon Web Services CloudFront distribution or for a regional application.
+        :param time_window: The time window for which you want to retrieve path statistics.
+        :param limit: The maximum number of path statistics to return.
+        :param number_of_top_traffic_bots_per_path: The maximum number of top bots to include in the statistics for each path.
+        :param uri_path_prefix: A URI path prefix to filter the results.
+        :param bot_category: Filters the results to include only traffic from bots in the specified category.
+        :param bot_organization: Filters the results to include only traffic from bots belonging to the specified organization.
+        :param bot_name: Filters the results to include only traffic from the specified bot.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :returns: GetTopPathStatisticsByTrafficResponse
+        :raises WAFInternalErrorException:
+        :raises WAFInvalidParameterException:
+        :raises WAFNonexistentItemException:
+        :raises WAFInvalidOperationException:
+        :raises WAFFeatureNotIncludedInPricingPlanException:
         """
         raise NotImplementedError
 
@@ -4961,8 +5022,7 @@ class Wafv2Api:
         """Retrieves the specified WebACL.
 
         :param name: The name of the web ACL.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: The unique identifier for the web ACL.
         :param arn: The Amazon Resource Name (ARN) of the web ACL that you want to retrieve.
         :returns: GetWebACLResponse
@@ -4996,8 +5056,7 @@ class Wafv2Api:
         GetWebACLForResource <https://docs.aws.amazon.com/waf/latest/developerguide/security_iam_service-with-iam.html#security_iam_action-GetWebACLForResource>`__
         in the *WAF Developer Guide*.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource whose web ACL you want to
-        retrieve.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource whose web ACL you want to retrieve.
         :returns: GetWebACLForResourceResponse
         :raises WAFInternalErrorException:
         :raises WAFNonexistentItemException:
@@ -5027,13 +5086,9 @@ class Wafv2Api:
         integration <https://docs.aws.amazon.com/waf/latest/developerguide/waf-application-integration.html>`__
         in the *WAF Developer Guide*.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListAPIKeysResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5058,13 +5113,9 @@ class Wafv2Api:
 
         :param vendor_name: The name of the managed rule group vendor.
         :param name: The name of the managed rule group.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListAvailableManagedRuleGroupVersionsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5087,13 +5138,9 @@ class Wafv2Api:
         groups and all of the Amazon Web Services Marketplace managed rule
         groups that you're subscribed to.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListAvailableManagedRuleGroupsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5113,13 +5160,9 @@ class Wafv2Api:
         """Retrieves an array of IPSetSummary objects for the IP sets that you
         manage.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListIPSetsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5139,15 +5182,10 @@ class Wafv2Api:
     ) -> ListLoggingConfigurationsResponse:
         """Retrieves an array of your LoggingConfiguration objects.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
-        :param log_scope: The owner of the logging configuration, which must be set to
-        ``CUSTOMER`` for the configurations that you manage.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
+        :param log_scope: The owner of the logging configuration, which must be set to ``CUSTOMER`` for the configurations that you manage.
         :returns: ListLoggingConfigurationsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5175,13 +5213,9 @@ class Wafv2Api:
         ``PutManagedRuleSetVersions``, and
         ``UpdateManagedRuleSetVersionExpiryDate``.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListManagedRuleSetsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5209,11 +5243,8 @@ class Wafv2Api:
         in the *WAF Developer Guide*.
 
         :param platform: The device platform to retrieve the list for.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListMobileSdkReleasesResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5233,13 +5264,9 @@ class Wafv2Api:
         """Retrieves an array of RegexPatternSetSummary objects for the regex
         pattern sets that you manage.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListRegexPatternSetsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5292,13 +5319,9 @@ class Wafv2Api:
         """Retrieves an array of RuleGroupSummary objects for the rule groups that
         you manage.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListRuleGroupsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5327,11 +5350,8 @@ class Wafv2Api:
         manage or view tags through the WAF console.
 
         :param resource_arn: The Amazon Resource Name (ARN) of the resource.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListTagsForResourceResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5354,13 +5374,9 @@ class Wafv2Api:
         """Retrieves an array of WebACLSummary objects for the web ACLs that you
         manage.
 
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
-        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the
-        number of objects that are still available for retrieval exceeds the
-        limit, WAF returns a ``NextMarker`` value in the response.
-        :param limit: The maximum number of objects that you want WAF to return for this
-        request.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
+        :param next_marker: When you request a list of objects with a ``Limit`` setting, if the number of objects that are still available for retrieval exceeds the limit, WAF returns a ``NextMarker`` value in the response.
+        :param limit: The maximum number of objects that you want WAF to return for this request.
         :returns: ListWebACLsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5474,14 +5490,11 @@ class Wafv2Api:
         UpdateManagedRuleSetVersionExpiryDate.
 
         :param name: The name of the managed rule set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the managed rule set.
         :param lock_token: A token used for optimistic locking.
-        :param recommended_version: The version of the named managed rule group that you'd like your
-        customers to choose, from among your version offerings.
-        :param versions_to_publish: The versions of the named managed rule group that you want to offer to
-        your customers.
+        :param recommended_version: The version of the named managed rule group that you'd like your customers to choose, from among your version offerings.
+        :param versions_to_publish: The versions of the named managed rule group that you want to offer to your customers.
         :returns: PutManagedRuleSetVersionsResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5515,8 +5528,7 @@ class Wafv2Api:
         ``CreateWebACL`` and ``UpdateWebACL``. Rule groups that are shared with
         you don't appear in your WAF console rule groups listing.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the RuleGroup to which you want to
-        attach the policy.
+        :param resource_arn: The Amazon Resource Name (ARN) of the RuleGroup to which you want to attach the policy.
         :param policy: The policy to attach to the specified rule group.
         :returns: PutPermissionPolicyResponse
         :raises WAFNonexistentItemException:
@@ -5628,12 +5640,9 @@ class Wafv2Api:
            allowed in another.
 
         :param name: The name of the IP set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the set.
-        :param addresses: Contains an array of strings that specifies zero or more IP addresses or
-        blocks of IP addresses that you want WAF to inspect for in incoming
-        requests.
+        :param addresses: Contains an array of strings that specifies zero or more IP addresses or blocks of IP addresses that you want WAF to inspect for in incoming requests.
         :param lock_token: A token used for optimistic locking.
         :param description: A description of the IP set that helps with identification.
         :returns: UpdateIPSetResponse
@@ -5674,12 +5683,10 @@ class Wafv2Api:
         ``UpdateManagedRuleSetVersionExpiryDate``.
 
         :param name: The name of the managed rule set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the managed rule set.
         :param lock_token: A token used for optimistic locking.
-        :param version_to_expire: The version that you want to remove from your list of offerings for the
-        named managed rule group.
+        :param version_to_expire: The version that you want to remove from your list of offerings for the named managed rule group.
         :param expiry_timestamp: The time that you want the version to expire.
         :returns: UpdateManagedRuleSetVersionExpiryDateResponse
         :raises WAFInternalErrorException:
@@ -5742,8 +5749,7 @@ class Wafv2Api:
            allowed in another.
 
         :param name: The name of the set.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the set.
         :param regular_expression_list: .
         :param lock_token: A token used for optimistic locking.
@@ -5819,15 +5825,12 @@ class Wafv2Api:
            allowed in another.
 
         :param name: The name of the rule group.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: A unique identifier for the rule group.
-        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample
-        collection.
+        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
         :param lock_token: A token used for optimistic locking.
         :param description: A description of the rule group that helps with identification.
-        :param rules: The Rule statements used to identify the web requests that you want to
-        manage.
+        :param rules: The Rule statements used to identify the web requests that you want to manage.
         :param custom_response_bodies: A map of custom response keys and content bodies.
         :returns: UpdateRuleGroupResponse
         :raises WAFInternalErrorException:
@@ -5920,31 +5923,21 @@ class Wafv2Api:
            allowed in another.
 
         :param name: The name of the web ACL.
-        :param scope: Specifies whether this is for a global resource type, such as a Amazon
-        CloudFront distribution.
+        :param scope: Specifies whether this is for a global resource type, such as a Amazon CloudFront distribution.
         :param id: The unique identifier for the web ACL.
-        :param default_action: The action to perform if none of the ``Rules`` contained in the
-        ``WebACL`` match.
-        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample
-        collection.
+        :param default_action: The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
+        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
         :param lock_token: A token used for optimistic locking.
         :param description: A description of the web ACL that helps with identification.
-        :param rules: The Rule statements used to identify the web requests that you want to
-        manage.
-        :param data_protection_config: Specifies data protection to apply to the web request data for the web
-        ACL.
+        :param rules: The Rule statements used to identify the web requests that you want to manage.
+        :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL.
         :param custom_response_bodies: A map of custom response keys and content bodies.
-        :param captcha_config: Specifies how WAF should handle ``CAPTCHA`` evaluations for rules that
-        don't have their own ``CaptchaConfig`` settings.
-        :param challenge_config: Specifies how WAF should handle challenge evaluations for rules that
-        don't have their own ``ChallengeConfig`` settings.
+        :param captcha_config: Specifies how WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings.
+        :param challenge_config: Specifies how WAF should handle challenge evaluations for rules that don't have their own ``ChallengeConfig`` settings.
         :param token_domains: Specifies the domains that WAF should accept in a web request token.
-        :param association_config: Specifies custom configurations for the associations between the web ACL
-        and protected resources.
-        :param on_source_d_do_s_protection_config: Specifies the type of DDoS protection to apply to web request data for a
-        web ACL.
-        :param application_config: Configures the ability for the WAF console to store and retrieve
-        application attributes.
+        :param association_config: Specifies custom configurations for the associations between the web ACL and protected resources.
+        :param on_source_d_do_s_protection_config: Specifies the type of DDoS protection to apply to web request data for a web ACL.
+        :param application_config: Configures the ability for the WAF console to store and retrieve application attributes.
         :returns: UpdateWebACLResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:

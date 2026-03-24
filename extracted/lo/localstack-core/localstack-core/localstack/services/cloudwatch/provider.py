@@ -33,6 +33,7 @@ from localstack.constants import DEFAULT_AWS_ACCOUNT_ID
 from localstack.http import Request
 from localstack.services import moto
 from localstack.services.cloudwatch.alarm_scheduler import AlarmScheduler
+from localstack.services.cloudwatch.models import cloudwatch_stores
 from localstack.services.edge import ROUTER
 from localstack.services.plugins import SERVICE_PLUGINS, ServiceLifecycleHook
 from localstack.state import StateVisitor
@@ -45,7 +46,7 @@ from localstack.utils.aws.request_context import (
 from localstack.utils.patch import patch
 from localstack.utils.strings import camel_to_snake_case
 from localstack.utils.sync import poll_condition
-from localstack.utils.tagging import TaggingService
+from localstack.utils.tagging import tag_list_to_map, tag_map_to_list
 from localstack.utils.threads import start_worker_thread
 
 PATH_GET_RAW_METRICS = "/_aws/cloudwatch/metrics/raw"
@@ -304,7 +305,6 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
     """
 
     def __init__(self):
-        self.tags = TaggingService()
         self.alarm_scheduler = AlarmScheduler()
 
     def accept_state_visitor(self, visitor: StateVisitor):
@@ -339,9 +339,11 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
 
     def delete_alarms(self, context: RequestContext, alarm_names: AlarmNames, **kwargs) -> None:
         moto.call_moto(context)
+        store = cloudwatch_stores[context.account_id][context.region]
         for alarm_name in alarm_names:
             arn = arns.cloudwatch_alarm_arn(alarm_name, context.account_id, context.region)
             self.alarm_scheduler.delete_scheduler_for_alarm(arn)
+            store.tags.delete_all_tags(arn)
 
     def get_raw_metrics(self, request: Request):
         region = extract_region_from_auth_header(request.headers)
@@ -375,8 +377,10 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
     def list_tags_for_resource(
         self, context: RequestContext, resource_arn: AmazonResourceName, **kwargs
     ) -> ListTagsForResourceOutput:
-        tags = self.tags.list_tags_for_resource(resource_arn)
-        return ListTagsForResourceOutput(Tags=tags.get("Tags", []))
+        store = cloudwatch_stores[context.account_id][context.region]
+        tag_map = store.tags.get_tags(resource_arn)
+        tag_list = tag_map_to_list(tag_map)
+        return ListTagsForResourceOutput(Tags=tag_list)
 
     def untag_resource(
         self,
@@ -385,13 +389,16 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
         tag_keys: TagKeyList,
         **kwargs,
     ) -> UntagResourceOutput:
-        self.tags.untag_resource(resource_arn, tag_keys)
+        store = cloudwatch_stores[context.account_id][context.region]
+        store.tags.delete_tags(resource_arn, tag_keys)
         return UntagResourceOutput()
 
     def tag_resource(
         self, context: RequestContext, resource_arn: AmazonResourceName, tags: TagList, **kwargs
     ) -> TagResourceOutput:
-        self.tags.tag_resource(resource_arn, tags)
+        store = cloudwatch_stores[context.account_id][context.region]
+        tag_map = tag_list_to_map(tags)
+        store.tags.update_tags(resource_arn, tag_map)
         return TagResourceOutput()
 
     @handler("GetMetricData", expand=False)
@@ -453,7 +460,10 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
 
         name = request.get("AlarmName")
         arn = arns.cloudwatch_alarm_arn(name, context.account_id, context.region)
-        self.tags.tag_resource(arn, request.get("Tags"))
+        if tag_list := request.get("Tags"):
+            store = cloudwatch_stores[context.account_id][context.region]
+            tag_map = tag_list_to_map(tag_list)
+            store.tags.update_tags(arn, tag_map)
         self.alarm_scheduler.schedule_metric_alarm(arn)
 
     @handler("PutCompositeAlarm", expand=False)

@@ -30,6 +30,7 @@ from .paginator import (
     ListAnnotationImportJobsPaginator,
     ListAnnotationStoresPaginator,
     ListAnnotationStoreVersionsPaginator,
+    ListBatchPaginator,
     ListMultipartReadSetUploadsPaginator,
     ListReadSetActivationJobsPaginator,
     ListReadSetExportJobsPaginator,
@@ -41,6 +42,7 @@ from .paginator import (
     ListReferenceStoresPaginator,
     ListRunCachesPaginator,
     ListRunGroupsPaginator,
+    ListRunsInBatchPaginator,
     ListRunsPaginator,
     ListRunTasksPaginator,
     ListSequenceStoresPaginator,
@@ -57,6 +59,7 @@ from .type_defs import (
     BatchDeleteReadSetRequestTypeDef,
     BatchDeleteReadSetResponseTypeDef,
     CancelAnnotationImportRequestTypeDef,
+    CancelRunBatchRequestTypeDef,
     CancelRunRequestTypeDef,
     CancelVariantImportRequestTypeDef,
     CompleteMultipartReadSetUploadRequestTypeDef,
@@ -87,8 +90,10 @@ from .type_defs import (
     DeleteAnnotationStoreResponseTypeDef,
     DeleteAnnotationStoreVersionsRequestTypeDef,
     DeleteAnnotationStoreVersionsResponseTypeDef,
+    DeleteBatchRequestTypeDef,
     DeleteReferenceRequestTypeDef,
     DeleteReferenceStoreRequestTypeDef,
+    DeleteRunBatchRequestTypeDef,
     DeleteRunCacheRequestTypeDef,
     DeleteRunGroupRequestTypeDef,
     DeleteRunRequestTypeDef,
@@ -107,6 +112,8 @@ from .type_defs import (
     GetAnnotationStoreResponseTypeDef,
     GetAnnotationStoreVersionRequestTypeDef,
     GetAnnotationStoreVersionResponseTypeDef,
+    GetBatchRequestTypeDef,
+    GetBatchResponseTypeDef,
     GetReadSetActivationJobRequestTypeDef,
     GetReadSetActivationJobResponseTypeDef,
     GetReadSetExportJobRequestTypeDef,
@@ -153,6 +160,8 @@ from .type_defs import (
     ListAnnotationStoresResponseTypeDef,
     ListAnnotationStoreVersionsRequestTypeDef,
     ListAnnotationStoreVersionsResponseTypeDef,
+    ListBatchRequestTypeDef,
+    ListBatchResponseTypeDef,
     ListMultipartReadSetUploadsRequestTypeDef,
     ListMultipartReadSetUploadsResponseTypeDef,
     ListReadSetActivationJobsRequestTypeDef,
@@ -175,6 +184,8 @@ from .type_defs import (
     ListRunCachesResponseTypeDef,
     ListRunGroupsRequestTypeDef,
     ListRunGroupsResponseTypeDef,
+    ListRunsInBatchRequestTypeDef,
+    ListRunsInBatchResponseTypeDef,
     ListRunsRequestTypeDef,
     ListRunsResponseTypeDef,
     ListRunTasksRequestTypeDef,
@@ -205,6 +216,8 @@ from .type_defs import (
     StartReadSetImportJobResponseTypeDef,
     StartReferenceImportJobRequestTypeDef,
     StartReferenceImportJobResponseTypeDef,
+    StartRunBatchRequestTypeDef,
+    StartRunBatchResponseTypeDef,
     StartRunRequestTypeDef,
     StartRunResponseTypeDef,
     StartVariantImportRequestTypeDef,
@@ -338,7 +351,7 @@ class OmicsClient(BaseClient):
     ) -> dict[str, Any]:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/cancel_annotation_import_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#cancel_annotation_import_job)
@@ -353,12 +366,20 @@ class OmicsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#cancel_run)
         """
 
+    def cancel_run_batch(self, **kwargs: Unpack[CancelRunBatchRequestTypeDef]) -> dict[str, Any]:
+        """
+        Cancels all runs within a specified batch.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/cancel_run_batch.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#cancel_run_batch)
+        """
+
     def cancel_variant_import_job(
         self, **kwargs: Unpack[CancelVariantImportRequestTypeDef]
     ) -> dict[str, Any]:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/cancel_variant_import_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#cancel_variant_import_job)
@@ -381,7 +402,7 @@ class OmicsClient(BaseClient):
     ) -> CreateAnnotationStoreResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_annotation_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#create_annotation_store)
@@ -465,7 +486,7 @@ class OmicsClient(BaseClient):
     ) -> CreateVariantStoreResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_variant_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#create_variant_store)
@@ -497,7 +518,7 @@ class OmicsClient(BaseClient):
     ) -> DeleteAnnotationStoreResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_annotation_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#delete_annotation_store)
@@ -511,6 +532,16 @@ class OmicsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_annotation_store_versions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#delete_annotation_store_versions)
+        """
+
+    def delete_batch(
+        self, **kwargs: Unpack[DeleteBatchRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a run batch resource and its associated metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_batch.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#delete_batch)
         """
 
     def delete_reference(self, **kwargs: Unpack[DeleteReferenceRequestTypeDef]) -> dict[str, Any]:
@@ -540,6 +571,14 @@ class OmicsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_run.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#delete_run)
+        """
+
+    def delete_run_batch(self, **kwargs: Unpack[DeleteRunBatchRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes the individual workflow runs within a batch.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_run_batch.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#delete_run_batch)
         """
 
     def delete_run_cache(
@@ -600,7 +639,7 @@ class OmicsClient(BaseClient):
     ) -> DeleteVariantStoreResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_variant_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#delete_variant_store)
@@ -631,7 +670,7 @@ class OmicsClient(BaseClient):
     ) -> GetAnnotationImportResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_annotation_import_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#get_annotation_import_job)
@@ -642,7 +681,7 @@ class OmicsClient(BaseClient):
     ) -> GetAnnotationStoreResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_annotation_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#get_annotation_store)
@@ -656,6 +695,15 @@ class OmicsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_annotation_store_version.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#get_annotation_store_version)
+        """
+
+    def get_batch(self, **kwargs: Unpack[GetBatchRequestTypeDef]) -> GetBatchResponseTypeDef:
+        """
+        Retrieves details and current status for a specific run batch, including
+        submission progress and run execution counts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_batch.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#get_batch)
         """
 
     def get_read_set(self, **kwargs: Unpack[GetReadSetRequestTypeDef]) -> GetReadSetResponseTypeDef:
@@ -821,7 +869,7 @@ class OmicsClient(BaseClient):
     ) -> GetVariantImportResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_variant_import_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#get_variant_import_job)
@@ -832,7 +880,7 @@ class OmicsClient(BaseClient):
     ) -> GetVariantStoreResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_variant_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#get_variant_store)
@@ -863,7 +911,7 @@ class OmicsClient(BaseClient):
     ) -> ListAnnotationImportJobsResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_annotation_import_jobs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#list_annotation_import_jobs)
@@ -884,10 +932,19 @@ class OmicsClient(BaseClient):
     ) -> ListAnnotationStoresResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_annotation_stores.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#list_annotation_stores)
+        """
+
+    def list_batch(self, **kwargs: Unpack[ListBatchRequestTypeDef]) -> ListBatchResponseTypeDef:
+        """
+        Returns a list of run batches in your account, with optional filtering by
+        status, name, or run group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_batch.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#list_batch)
         """
 
     def list_multipart_read_set_uploads(
@@ -1024,6 +1081,16 @@ class OmicsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#list_runs)
         """
 
+    def list_runs_in_batch(
+        self, **kwargs: Unpack[ListRunsInBatchRequestTypeDef]
+    ) -> ListRunsInBatchResponseTypeDef:
+        """
+        Returns a paginated list of individual workflow runs within a specific batch.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_runs_in_batch.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#list_runs_in_batch)
+        """
+
     def list_sequence_stores(
         self, **kwargs: Unpack[ListSequenceStoresRequestTypeDef]
     ) -> ListSequenceStoresResponseTypeDef:
@@ -1057,7 +1124,7 @@ class OmicsClient(BaseClient):
     ) -> ListVariantImportJobsResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_variant_import_jobs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#list_variant_import_jobs)
@@ -1068,7 +1135,7 @@ class OmicsClient(BaseClient):
     ) -> ListVariantStoresResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_variant_stores.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#list_variant_stores)
@@ -1109,7 +1176,7 @@ class OmicsClient(BaseClient):
     ) -> StartAnnotationImportResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_annotation_import_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#start_annotation_import_job)
@@ -1165,12 +1232,22 @@ class OmicsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#start_run)
         """
 
+    def start_run_batch(
+        self, **kwargs: Unpack[StartRunBatchRequestTypeDef]
+    ) -> StartRunBatchResponseTypeDef:
+        """
+        Starts a batch of workflow runs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_run_batch.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#start_run_batch)
+        """
+
     def start_variant_import_job(
         self, **kwargs: Unpack[StartVariantImportRequestTypeDef]
     ) -> StartVariantImportResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_variant_import_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#start_variant_import_job)
@@ -1197,7 +1274,7 @@ class OmicsClient(BaseClient):
     ) -> UpdateAnnotationStoreResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/update_annotation_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#update_annotation_store)
@@ -1250,7 +1327,7 @@ class OmicsClient(BaseClient):
     ) -> UpdateVariantStoreResponseTypeDef:
         """
         <important> <p>Amazon Web Services HealthOmics variant stores and annotation
-        stores will no longer be open to new customers starting November 7, 2025.
+        stores are no longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/update_variant_store.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#update_variant_store)
@@ -1312,6 +1389,17 @@ class OmicsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_annotation_stores"]
     ) -> ListAnnotationStoresPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_batch"]
+    ) -> ListBatchPaginator:
         """
         Create a paginator for an operation.
 
@@ -1444,6 +1532,17 @@ class OmicsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_run_tasks"]
     ) -> ListRunTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_runs_in_batch"]
+    ) -> ListRunsInBatchPaginator:
         """
         Create a paginator for an operation.
 

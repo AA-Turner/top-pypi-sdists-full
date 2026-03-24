@@ -1120,11 +1120,9 @@ class MqApi:
         :param broker_name: Required.
         :param deployment_mode: Required.
         :param engine_type: Required.
-        :param publicly_accessible: Enables connections from applications outside of the VPC that hosts the
-        broker's subnets.
+        :param publicly_accessible: Enables connections from applications outside of the VPC that hosts the broker's subnets.
         :param authentication_strategy: Optional.
-        :param auto_minor_version_upgrade: Enables automatic upgrades to new patch versions for brokers as new
-        versions are released and supported by Amazon MQ.
+        :param auto_minor_version_upgrade: Enables automatic upgrades to new patch versions for brokers as new versions are released and supported by Amazon MQ.
         :param configuration: A list of information about the configuration.
         :param creator_request_id: The unique ID that the requester receives for the created broker.
         :param encryption_options: Encryption options for the broker.
@@ -1132,18 +1130,13 @@ class MqApi:
         :param ldap_server_metadata: Optional.
         :param logs: Enables Amazon CloudWatch logging for brokers.
         :param maintenance_window_start_time: The parameters that determine the WeeklyStartTime.
-        :param security_groups: The list of rules (1 minimum, 125 maximum) that authorize connections to
-        brokers.
+        :param security_groups: The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
         :param storage_type: The broker's storage type.
-        :param subnet_ids: The list of groups that define which subnets and IP ranges the broker
-        can use from different Availability Zones.
+        :param subnet_ids: The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones.
         :param tags: Create tags when creating the broker.
-        :param users: The list of broker users (persons or applications) who can access queues
-        and topics.
+        :param users: The list of broker users (persons or applications) who can access queues and topics.
         :param data_replication_mode: Defines whether this broker is a part of a data replication pair.
-        :param data_replication_primary_broker_arn: The Amazon Resource Name (ARN) of the primary broker that is used to
-        replicate data from in a data replication pair, and is applied to the
-        replica broker.
+        :param data_replication_primary_broker_arn: The Amazon Resource Name (ARN) of the primary broker that is used to replicate data from in a data replication pair, and is applied to the replica broker.
         :returns: CreateBrokerResponse
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -1323,10 +1316,8 @@ class MqApi:
         """Describe available engine types and versions.
 
         :param engine_type: Filter response by engine type.
-        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by
-        default).
-        :param next_token: The token that specifies the next page of results Amazon MQ should
-        return.
+        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by default).
+        :param next_token: The token that specifies the next page of results Amazon MQ should return.
         :returns: DescribeBrokerEngineTypesResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -1349,10 +1340,8 @@ class MqApi:
 
         :param engine_type: Filter response by engine type.
         :param host_instance_type: Filter response by host instance type.
-        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by
-        default).
-        :param next_token: The token that specifies the next page of results Amazon MQ should
-        return.
+        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by default).
+        :param next_token: The token that specifies the next page of results Amazon MQ should return.
         :param storage_type: Filter response by storage type.
         :returns: DescribeBrokerInstanceOptionsResponse
         :raises BadRequestException:
@@ -1423,10 +1412,8 @@ class MqApi:
     ) -> ListBrokersResponse:
         """Returns a list of all brokers.
 
-        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by
-        default).
-        :param next_token: The token that specifies the next page of results Amazon MQ should
-        return.
+        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by default).
+        :param next_token: The token that specifies the next page of results Amazon MQ should return.
         :returns: ListBrokersResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -1446,10 +1433,8 @@ class MqApi:
         """Returns a list of all revisions for the specified configuration.
 
         :param configuration_id: The unique ID that Amazon MQ generates for the configuration.
-        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by
-        default).
-        :param next_token: The token that specifies the next page of results Amazon MQ should
-        return.
+        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by default).
+        :param next_token: The token that specifies the next page of results Amazon MQ should return.
         :returns: ListConfigurationRevisionsResponse
         :raises NotFoundException:
         :raises BadRequestException:
@@ -1468,10 +1453,8 @@ class MqApi:
     ) -> ListConfigurationsResponse:
         """Returns a list of all configurations.
 
-        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by
-        default).
-        :param next_token: The token that specifies the next page of results Amazon MQ should
-        return.
+        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by default).
+        :param next_token: The token that specifies the next page of results Amazon MQ should return.
         :returns: ListConfigurationsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -1506,10 +1489,8 @@ class MqApi:
         """Returns a list of all ActiveMQ users.
 
         :param broker_id: The unique ID that Amazon MQ generates for the broker.
-        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by
-        default).
-        :param next_token: The token that specifies the next page of results Amazon MQ should
-        return.
+        :param max_results: The maximum number of brokers that Amazon MQ can return per page (20 by default).
+        :param next_token: The token that specifies the next page of results Amazon MQ should return.
         :returns: ListUsersResponse
         :raises NotFoundException:
         :raises BadRequestException:
@@ -1570,16 +1551,14 @@ class MqApi:
 
         :param broker_id: The unique ID that Amazon MQ generates for the broker.
         :param authentication_strategy: Optional.
-        :param auto_minor_version_upgrade: Enables automatic upgrades to new patch versions for brokers as new
-        versions are released and supported by Amazon MQ.
+        :param auto_minor_version_upgrade: Enables automatic upgrades to new patch versions for brokers as new versions are released and supported by Amazon MQ.
         :param configuration: A list of information about the configuration.
         :param engine_version: The broker engine version.
         :param host_instance_type: The broker's host instance type to upgrade to.
         :param ldap_server_metadata: Optional.
         :param logs: Enables Amazon CloudWatch logging for brokers.
         :param maintenance_window_start_time: The parameters that determine the WeeklyStartTime.
-        :param security_groups: The list of security groups (1 minimum, 5 maximum) that authorizes
-        connections to brokers.
+        :param security_groups: The list of security groups (1 minimum, 5 maximum) that authorizes connections to brokers.
         :param data_replication_mode: Defines whether this broker is a part of a data replication pair.
         :returns: UpdateBrokerResponse
         :raises NotFoundException:

@@ -15,7 +15,7 @@ from collections.abc import Callable
 from functools import lru_cache, partial
 from random import choice
 from socket import socket
-from typing import Any, Generic, TypedDict, TypeVar
+from typing import Any, Generic, Self, TypedDict, TypeVar
 
 import dns.message
 import dns.query
@@ -40,7 +40,11 @@ from localstack.constants import (
     MAX_POOL_CONNECTIONS,
 )
 from localstack.utils.aws.aws_stack import get_s3_hostname
-from localstack.utils.aws.client_types import ServicePrincipal, TypedServiceClientFactory
+from localstack.utils.aws.client_types import (
+    ServicePrincipal,
+    TraceVisibility,
+    TypedServiceClientFactory,
+)
 from localstack.utils.patch import patch
 from localstack.utils.strings import short_uid
 
@@ -128,6 +132,13 @@ def get_service_endpoint() -> str | None:
     return localstack_config.internal_service_url()
 
 
+def try_replace_s3_vhost_url(endpoint_url: str) -> str:
+    if match := re.match(r"https?://(localhost(\.localstack\.cloud)?)(:[0-9]+)?$", endpoint_url):
+        return endpoint_url.replace(f"://{match.group(1)}", f"://{get_s3_hostname()}")
+
+    return endpoint_url
+
+
 #
 # Data transfer object
 #
@@ -138,14 +149,17 @@ INTERNAL_REQUEST_PARAMS_HEADER = "x-localstack-data"
 
 class InternalRequestParameters(TypedDict):
     """
-    LocalStack Data Transfer Object.
+    LocalStack Data Transfer Object (DTO).
 
-    This is sent with every internal request and contains any additional information
-    LocalStack might need for the purpose of policy enforcement. It is serialised
+    This is sent for internal requests and contains any additional information
+    LocalStack might need (e.g., IAM policy enforcement). The DTO is serialised
     into text and sent in the request header.
 
     Attributes can be added as needed. The keys should roughly correspond to:
     https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html
+
+    Recommendation: Typed LocalStack-internal metadata go here and other headers such as the
+    AWS X-Amzn-Trace-Id go into .custom_headers(...).
     """
 
     source_arn: str | None
@@ -153,6 +167,9 @@ class InternalRequestParameters(TypedDict):
 
     service_principal: str | None
     """Service principal making this call"""
+
+    trace_visibility: str | None
+    """Visibility of this call, for tracing purposes"""
 
 
 def dump_dto(data: InternalRequestParameters) -> str:
@@ -169,43 +186,75 @@ T = TypeVar("T")
 
 
 class MetadataRequestInjector(Generic[T]):
-    def __init__(self, client: T, params: dict[str, str] | None = None):
+    def __init__(
+        self,
+        client: T,
+        params: dict[str, str] | None = None,
+        custom_headers: dict[str, str] | None = None,
+    ):
         self._client = client
         self._params = params
+        self._custom_headers = custom_headers
 
     def __getattr__(self, item):
         target = getattr(self._client, item)
         if not isinstance(target, Callable):
             return target
-        if self._params:
-            return partial(target, **self._params)
+        if self._params or self._custom_headers:
+            kwargs = {}
+            if self._params:
+                kwargs = self._params
+            if self._custom_headers:
+                kwargs["_CustomHeaders"] = self._custom_headers
+            return partial(target, **kwargs)
         else:
             return target
 
     def request_metadata(
-        self, source_arn: str | None = None, service_principal: str | None = None
-    ) -> T:
+        self,
+        source_arn: str | None = None,
+        service_principal: str | None = None,
+        trace_visibility: TraceVisibility | None = None,
+    ) -> T | Self:
         """
-        Returns a new client instance preset with the given request metadata.
-        Identical to providing _ServicePrincipal and _SourceArn directly as operation arguments but typing
-        compatible.
+        Returns a new client instance preset with the given request metadata or Self for chaining.
+        Identical to providing _ServicePrincipal, _SourceArn, or _TraceVisibilty
+        directly as operation arguments but typing compatible.
 
         Raw example: lambda_client.invoke(FunctionName="fn", _SourceArn="...")
         Injector example: lambda_client.request_metadata(source_arn="...").invoke(FunctionName="fn")
-        Cannot be called on objects where the parameters are already set.
 
-        :param source_arn: Arn on which behalf the calls of this client shall be made
-        :param service_principal: Service principal on which behalf the calls of this client shall be made
-        :return: A new version of the MetadataRequestInjector
+        Can be called on an already-configured injector to layer additional parameters on top of
+        the existing ones (later values win on conflict).
+
+        :param source_arn: ARN of the resource on whose behalf the call is made
+        :param service_principal: Service principal making the call
+        :param trace_visibility: Visibility of this call, for tracing purposes
+        :return: A new MetadataRequestInjector with the merged parameters
         """
-        if self._params is not None:
-            raise TypeError("Request_data cannot be called on it's own return value")
-        params = {}
+        params = dict(self._params) if self._params else {}
         if source_arn:
             params["_SourceArn"] = source_arn
         if service_principal:
             params["_ServicePrincipal"] = service_principal
+        if trace_visibility:
+            params["_TraceVisibility"] = trace_visibility.value
         return MetadataRequestInjector(client=self._client, params=params)
+
+    def custom_headers(self, custom_headers: dict[str, str]) -> T | Self:
+        """
+        Returns a new client instance preset with the given request metadata or Self for chaining.
+        Identical to providing _CustomHeaders directly as operation arguments but typing compatible.
+
+        Injector example: lambda_client.custom_headers({"X-Amzn-Trace-Id": "Root=1-67891233-abcdef012345678912345678"})
+                                       .invoke(FunctionName="fn")
+        Chaining .custom_headers().custom_headers() merges the dicts.
+        """
+        merged = dict(self._custom_headers) if self._custom_headers else {}
+        merged.update(custom_headers)
+        return MetadataRequestInjector(
+            client=self._client, params=self._params, custom_headers=merged
+        )
 
 
 #
@@ -518,12 +567,8 @@ class InternalClientFactory(ClientFactory):
             config = self._config.merge(config)
 
         endpoint_url = endpoint_url or self._endpoint or get_service_endpoint()
-        if (
-            endpoint_url
-            and service_name == "s3"
-            and re.match(r"https?://localhost(:[0-9]+)?", endpoint_url)
-        ):
-            endpoint_url = endpoint_url.replace("://localhost", f"://{get_s3_hostname()}")
+        if endpoint_url and service_name == "s3":
+            endpoint_url = try_replace_s3_vhost_url(endpoint_url)
 
         return self._get_client(
             service_name=service_name,
@@ -588,12 +633,8 @@ class ExternalClientFactory(ClientFactory):
             config = config.merge(Config(region_name=region_name))
 
         endpoint_url = endpoint_url or self._endpoint or get_service_endpoint()
-        if (
-            endpoint_url
-            and service_name == "s3"
-            and re.match(r"https?://localhost(:[0-9]+)?", endpoint_url)
-        ):
-            endpoint_url = endpoint_url.replace("://localhost", f"://{get_s3_hostname()}")
+        if endpoint_url and service_name == "s3":
+            endpoint_url = try_replace_s3_vhost_url(endpoint_url)
 
         # Prevent `PartialCredentialsError` when only access key ID is provided
         # The value of secret access key is insignificant and can be set to anything
@@ -801,12 +842,20 @@ def _handler_create_request_parameters(params: dict[str, Any], context: dict[str
             dto[member] = params.pop(parameter)
 
     context["_localstack"] = dto
+    if headers := params.pop("_CustomHeaders", None):
+        context["_custom_headers"] = headers
 
 
 def _handler_inject_dto_header(params: dict[str, Any], context: dict[str, Any], **kwargs):
     """
     Retrieve the data transfer object from the Boto context dict and serialise
     it as part of the request headers.
+
+    Custom headers (if any) are applied directly to the outgoing HTTP request on the sender
+    side and are not forwarded in the serialised DTO, since the receiving service already
+    sees them as regular HTTP headers.
     """
     if (dto := context.pop("_localstack", None)) is not None:
         params["headers"][INTERNAL_REQUEST_PARAMS_HEADER] = dump_dto(dto)
+        if custom_headers := context.pop("_custom_headers", None):
+            params["headers"].update(custom_headers)

@@ -174,6 +174,7 @@ class EnvironmentHealthStatus(StrEnum):
 class EnvironmentInfoType(StrEnum):
     tail = "tail"
     bundle = "bundle"
+    analyze = "analyze"
 
 
 class EnvironmentStatus(StrEnum):
@@ -1754,10 +1755,8 @@ class ElasticbeanstalkApi:
         """Cancels in-progress environment configuration update or application
         version deployment.
 
-        :param environment_id: This specifies the ID of the environment with the in-progress update
-        that you want to cancel.
-        :param environment_name: This specifies the name of the environment with the in-progress update
-        that you want to cancel.
+        :param environment_id: This specifies the ID of the environment with the in-progress update that you want to cancel.
+        :param environment_name: This specifies the name of the environment with the in-progress update that you want to cancel.
         :raises InsufficientPrivilegesException:
         """
         raise NotImplementedError
@@ -1800,8 +1799,7 @@ class ElasticbeanstalkApi:
         in the *AWS Elastic Beanstalk Developer Guide*.
 
         :param environment_name: The name of the environment to which to set the operations role.
-        :param operations_role: The Amazon Resource Name (ARN) of an existing IAM role to be used as the
-        environment's operations role.
+        :param operations_role: The Amazon Resource Name (ARN) of an existing IAM role to be used as the environment's operations role.
         :raises InsufficientPrivilegesException:
         """
         raise NotImplementedError
@@ -1835,11 +1833,9 @@ class ElasticbeanstalkApi:
         Environments <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environment-mgmt-compose.html>`__
         for details.
 
-        :param application_name: The name of the application to which the specified source bundles
-        belong.
+        :param application_name: The name of the application to which the specified source bundles belong.
         :param group_name: The name of the group to which the target environments belong.
-        :param version_labels: A list of version labels, specifying one or more application source
-        bundles that belong to the target application.
+        :param version_labels: A list of version labels, specifying one or more application source bundles that belong to the target application.
         :returns: EnvironmentDescriptionsMessage
         :raises TooManyEnvironmentsException:
         :raises InsufficientPrivilegesException:
@@ -1861,8 +1857,7 @@ class ElasticbeanstalkApi:
 
         :param application_name: The name of the application.
         :param description: Your description of the application.
-        :param resource_lifecycle_config: Specifies an application resource lifecycle configuration to prevent
-        your application from accumulating too many versions.
+        :param resource_lifecycle_config: Specifies an application resource lifecycle configuration to prevent your application from accumulating too many versions.
         :param tags: Specifies the tags applied to the application.
         :returns: ApplicationDescriptionMessage
         :raises TooManyApplicationsException:
@@ -1908,13 +1903,10 @@ class ElasticbeanstalkApi:
         :param application_name: The name of the application.
         :param version_label: A label identifying this version.
         :param description: A description of this application version.
-        :param source_build_information: Specify a commit in an AWS CodeCommit Git repository to use as the
-        source code for the application version.
-        :param source_bundle: The Amazon S3 bucket and key that identify the location of the source
-        bundle for this version.
+        :param source_build_information: Specify a commit in an AWS CodeCommit Git repository to use as the source code for the application version.
+        :param source_bundle: The Amazon S3 bucket and key that identify the location of the source bundle for this version.
         :param build_configuration: Settings for an AWS CodeBuild build.
-        :param auto_create_application: Set to ``true`` to create an application with the specified name if it
-        doesn't already exist.
+        :param auto_create_application: Set to ``true`` to create an application with the specified name if it doesn't already exist.
         :param process: Pre-processes and validates the environment manifest (``env.
         :param tags: Specifies the tags applied to the application version.
         :returns: ApplicationVersionDescriptionMessage
@@ -1958,18 +1950,14 @@ class ElasticbeanstalkApi:
 
         -  ListAvailableSolutionStacks
 
-        :param application_name: The name of the Elastic Beanstalk application to associate with this
-        configuration template.
+        :param application_name: The name of the Elastic Beanstalk application to associate with this configuration template.
         :param template_name: The name of the configuration template.
-        :param solution_stack_name: The name of an Elastic Beanstalk solution stack (platform version) that
-        this configuration uses.
+        :param solution_stack_name: The name of an Elastic Beanstalk solution stack (platform version) that this configuration uses.
         :param platform_arn: The Amazon Resource Name (ARN) of the custom platform.
         :param source_configuration: An Elastic Beanstalk configuration template to base this one on.
-        :param environment_id: The ID of an environment whose settings you want to use to create the
-        configuration template.
+        :param environment_id: The ID of an environment whose settings you want to use to create the configuration template.
         :param description: An optional description for this configuration.
-        :param option_settings: Option values for the Elastic Beanstalk configuration, such as the
-        instance type.
+        :param option_settings: Option values for the Elastic Beanstalk configuration, such as the instance type.
         :param tags: Specifies the tags applied to the configuration template.
         :returns: ConfigurationSettingsDescription
         :raises InsufficientPrivilegesException:
@@ -2005,24 +1993,16 @@ class ElasticbeanstalkApi:
         :param environment_name: A unique name for the environment.
         :param group_name: The name of the group to which the target environment belongs.
         :param description: Your description for this environment.
-        :param cname_prefix: If specified, the environment attempts to use this value as the prefix
-        for the CNAME in your Elastic Beanstalk environment URL.
+        :param cname_prefix: If specified, the environment attempts to use this value as the prefix for the CNAME in your Elastic Beanstalk environment URL.
         :param tier: Specifies the tier to use in creating this environment.
         :param tags: Specifies the tags applied to resources in the environment.
         :param version_label: The name of the application version to deploy.
-        :param template_name: The name of the Elastic Beanstalk configuration template to use with the
-        environment.
-        :param solution_stack_name: The name of an Elastic Beanstalk solution stack (platform version) to
-        use with the environment.
-        :param platform_arn: The Amazon Resource Name (ARN) of the custom platform to use with the
-        environment.
-        :param option_settings: If specified, AWS Elastic Beanstalk sets the specified configuration
-        options to the requested value in the configuration set for the new
-        environment.
-        :param options_to_remove: A list of custom user-defined configuration options to remove from the
-        configuration set for this new environment.
-        :param operations_role: The Amazon Resource Name (ARN) of an existing IAM role to be used as the
-        environment's operations role.
+        :param template_name: The name of the Elastic Beanstalk configuration template to use with the environment.
+        :param solution_stack_name: The name of an Elastic Beanstalk solution stack (platform version) to use with the environment.
+        :param platform_arn: The Amazon Resource Name (ARN) of the custom platform to use with the environment.
+        :param option_settings: If specified, AWS Elastic Beanstalk sets the specified configuration options to the requested value in the configuration set for the new environment.
+        :param options_to_remove: A list of custom user-defined configuration options to remove from the configuration set for this new environment.
+        :param operations_role: The Amazon Resource Name (ARN) of an existing IAM role to be used as the environment's operations role.
         :returns: EnvironmentDescription
         :raises TooManyEnvironmentsException:
         :raises InsufficientPrivilegesException:
@@ -2089,8 +2069,7 @@ class ElasticbeanstalkApi:
         You cannot delete an application that has a running environment.
 
         :param application_name: The name of the application to delete.
-        :param terminate_env_by_force: When set to true, running environments will be terminated before
-        deleting the application.
+        :param terminate_env_by_force: When set to true, running environments will be terminated before deleting the application.
         :raises OperationInProgressException:
         """
         raise NotImplementedError
@@ -2203,8 +2182,7 @@ class ElasticbeanstalkApi:
     ) -> ApplicationVersionDescriptionsMessage:
         """Retrieve a list of application versions.
 
-        :param application_name: Specify an application name to show only application versions for that
-        application.
+        :param application_name: Specify an application name to show only application versions for that application.
         :param version_labels: Specify a version label to show a specific application version.
         :param max_records: For a paginated request.
         :param next_token: For a paginated request.
@@ -2221,8 +2199,7 @@ class ElasticbeanstalkApi:
     ) -> ApplicationDescriptionsMessage:
         """Returns the descriptions of existing applications.
 
-        :param application_names: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to only include those with the specified names.
+        :param application_names: If specified, AWS Elastic Beanstalk restricts the returned descriptions to only include those with the specified names.
         :returns: ApplicationDescriptionsMessage
         """
         raise NotImplementedError
@@ -2245,14 +2222,10 @@ class ElasticbeanstalkApi:
         default values, and an indication of the required action on a running
         environment if an option value is changed.
 
-        :param application_name: The name of the application associated with the configuration template
-        or environment.
-        :param template_name: The name of the configuration template whose configuration options you
-        want to describe.
-        :param environment_name: The name of the environment whose configuration options you want to
-        describe.
-        :param solution_stack_name: The name of the solution stack whose configuration options you want to
-        describe.
+        :param application_name: The name of the application associated with the configuration template or environment.
+        :param template_name: The name of the configuration template whose configuration options you want to describe.
+        :param environment_name: The name of the environment whose configuration options you want to describe.
+        :param solution_stack_name: The name of the solution stack whose configuration options you want to describe.
         :param platform_arn: The ARN of the custom platform.
         :param options: If specified, restricts the descriptions to only the specified options.
         :returns: ConfigurationOptionsDescription
@@ -2386,20 +2359,12 @@ class ElasticbeanstalkApi:
     ) -> EnvironmentDescriptionsMessage:
         """Returns descriptions for existing environments.
 
-        :param application_name: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to include only those that are associated with this application.
-        :param version_label: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to include only those that are associated with this application version.
-        :param environment_ids: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to include only those that have the specified IDs.
-        :param environment_names: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to include only those that have the specified names.
-        :param include_deleted: Indicates whether to include deleted environments:
-
-        ``true``: Environments that have been deleted after
-        ``IncludedDeletedBackTo`` are displayed.
-        :param included_deleted_back_to: If specified when ``IncludeDeleted`` is set to ``true``, then
-        environments deleted after this date are displayed.
+        :param application_name: If specified, AWS Elastic Beanstalk restricts the returned descriptions to include only those that are associated with this application.
+        :param version_label: If specified, AWS Elastic Beanstalk restricts the returned descriptions to include only those that are associated with this application version.
+        :param environment_ids: If specified, AWS Elastic Beanstalk restricts the returned descriptions to include only those that have the specified IDs.
+        :param environment_names: If specified, AWS Elastic Beanstalk restricts the returned descriptions to include only those that have the specified names.
+        :param include_deleted: Indicates whether to include deleted environments:  ``true``: Environments that have been deleted after ``IncludedDeletedBackTo`` are displayed.
+        :param included_deleted_back_to: If specified when ``IncludeDeleted`` is set to ``true``, then environments deleted after this date are displayed.
         :param max_records: For a paginated request.
         :param next_token: For a paginated request.
         :returns: EnvironmentDescriptionsMessage
@@ -2430,27 +2395,17 @@ class ElasticbeanstalkApi:
         This action returns the most recent 1,000 events from the specified
         ``NextToken``.
 
-        :param application_name: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to include only those associated with this application.
-        :param version_label: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to those associated with this application version.
-        :param template_name: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to those that are associated with this environment configuration.
-        :param environment_id: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to those associated with this environment.
-        :param environment_name: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to those associated with this environment.
+        :param application_name: If specified, AWS Elastic Beanstalk restricts the returned descriptions to include only those associated with this application.
+        :param version_label: If specified, AWS Elastic Beanstalk restricts the returned descriptions to those associated with this application version.
+        :param template_name: If specified, AWS Elastic Beanstalk restricts the returned descriptions to those that are associated with this environment configuration.
+        :param environment_id: If specified, AWS Elastic Beanstalk restricts the returned descriptions to those associated with this environment.
+        :param environment_name: If specified, AWS Elastic Beanstalk restricts the returned descriptions to those associated with this environment.
         :param platform_arn: The ARN of a custom platform version.
-        :param request_id: If specified, AWS Elastic Beanstalk restricts the described events to
-        include only those associated with this request ID.
-        :param severity: If specified, limits the events returned from this call to include only
-        those with the specified severity or higher.
-        :param start_time: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to those that occur on or after this time.
-        :param end_time: If specified, AWS Elastic Beanstalk restricts the returned descriptions
-        to those that occur up to, but not including, the ``EndTime``.
-        :param max_records: Specifies the maximum number of events that can be returned, beginning
-        with the most recent event.
+        :param request_id: If specified, AWS Elastic Beanstalk restricts the described events to include only those associated with this request ID.
+        :param severity: If specified, limits the events returned from this call to include only those with the specified severity or higher.
+        :param start_time: If specified, AWS Elastic Beanstalk restricts the returned descriptions to those that occur on or after this time.
+        :param end_time: If specified, AWS Elastic Beanstalk restricts the returned descriptions to those that occur up to, but not including, the ``EndTime``.
+        :param max_records: Specifies the maximum number of events that can be returned, beginning with the most recent event.
         :param next_token: Pagination token.
         :returns: EventDescriptionsMessage
         """
@@ -2510,8 +2465,7 @@ class ElasticbeanstalkApi:
         roles <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/iam-operationsrole.html>`__
         in the *AWS Elastic Beanstalk Developer Guide*.
 
-        :param environment_name: The name of the environment from which to disassociate the operations
-        role.
+        :param environment_name: The name of the environment from which to disassociate the operations role.
         :raises InsufficientPrivilegesException:
         """
         raise NotImplementedError
@@ -2588,8 +2542,7 @@ class ElasticbeanstalkApi:
         about resource tagging, see `Tagging Application
         Resources <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/applications-tagging-resources.html>`__.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resouce for which a tag list is
-        requested.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resouce for which a tag list is requested.
         :returns: ResourceTagsDescriptionMessage
         :raises InsufficientPrivilegesException:
         :raises ResourceNotFoundException:
@@ -2634,6 +2587,11 @@ class ElasticbeanstalkApi:
         Setting the ``InfoType`` to ``bundle`` compresses the application server
         log files for every Amazon EC2 instance into a ``.zip`` file. Legacy and
         .NET containers do not support bundle logs.
+
+        Setting the ``InfoType`` to ``analyze`` collects recent events, instance
+        health, and logs from your environment and sends them to Amazon Bedrock
+        in your account to generate diagnostic insights and recommended next
+        steps.
 
         Use RetrieveEnvironmentInfo to obtain the set of logs.
 
@@ -2719,14 +2677,8 @@ class ElasticbeanstalkApi:
 
         :param environment_id: The ID of the environment to terminate.
         :param environment_name: The name of the environment to terminate.
-        :param terminate_resources: Indicates whether the associated AWS resources should shut down when the
-        environment is terminated:
-
-        -  ``true``: The specified environment as well as the associated AWS
-           resources, such as Auto Scaling group and LoadBalancer, are
-           terminated.
-        :param force_terminate: Terminates the target environment even if another environment in the
-        same group is dependent on it.
+        :param terminate_resources: Indicates whether the associated AWS resources should shut down when the environment is terminated:  -  ``true``: The specified environment as well as the associated AWS    resources, such as Auto Scaling group and LoadBalancer, are    terminated.
+        :param force_terminate: Terminates the target environment even if another environment in the same group is dependent on it.
         :returns: EnvironmentDescription
         :raises InsufficientPrivilegesException:
         """
@@ -2812,12 +2764,10 @@ class ElasticbeanstalkApi:
 
         -  DescribeConfigurationOptions
 
-        :param application_name: The name of the application associated with the configuration template
-        to update.
+        :param application_name: The name of the application associated with the configuration template to update.
         :param template_name: The name of the configuration template to update.
         :param description: A new description for the configuration.
-        :param option_settings: A list of configuration option settings to update with the new specified
-        option value.
+        :param option_settings: A list of configuration option settings to update with the new specified option value.
         :param options_to_remove: A list of configuration options to remove from the configuration set.
         :returns: ConfigurationSettingsDescription
         :raises InsufficientPrivilegesException:
@@ -2861,21 +2811,14 @@ class ElasticbeanstalkApi:
         :param environment_id: The ID of the environment to update.
         :param environment_name: The name of the environment to update.
         :param group_name: The name of the group to which the target environment belongs.
-        :param description: If this parameter is specified, AWS Elastic Beanstalk updates the
-        description of this environment.
+        :param description: If this parameter is specified, AWS Elastic Beanstalk updates the description of this environment.
         :param tier: This specifies the tier to use to update the environment.
-        :param version_label: If this parameter is specified, AWS Elastic Beanstalk deploys the named
-        application version to the environment.
-        :param template_name: If this parameter is specified, AWS Elastic Beanstalk deploys this
-        configuration template to the environment.
-        :param solution_stack_name: This specifies the platform version that the environment will run after
-        the environment is updated.
+        :param version_label: If this parameter is specified, AWS Elastic Beanstalk deploys the named application version to the environment.
+        :param template_name: If this parameter is specified, AWS Elastic Beanstalk deploys this configuration template to the environment.
+        :param solution_stack_name: This specifies the platform version that the environment will run after the environment is updated.
         :param platform_arn: The ARN of the platform, if used.
-        :param option_settings: If specified, AWS Elastic Beanstalk updates the configuration set
-        associated with the running environment and sets the specified
-        configuration options to the requested value.
-        :param options_to_remove: A list of custom user-defined configuration options to remove from the
-        configuration set for this environment.
+        :param option_settings: If specified, AWS Elastic Beanstalk updates the configuration set associated with the running environment and sets the specified configuration options to the requested value.
+        :param options_to_remove: A list of custom user-defined configuration options to remove from the configuration set for this environment.
         :returns: EnvironmentDescription
         :raises InsufficientPrivilegesException:
         :raises TooManyBucketsException:
@@ -2942,8 +2885,7 @@ class ElasticbeanstalkApi:
         This action returns a list of messages indicating any errors or warnings
         associated with the selection of option values.
 
-        :param application_name: The name of the application that the configuration template or
-        environment belongs to.
+        :param application_name: The name of the application that the configuration template or environment belongs to.
         :param option_settings: A list of the options and desired values to evaluate.
         :param template_name: The name of the configuration template to validate the settings against.
         :param environment_name: The name of the environment to validate the settings against.

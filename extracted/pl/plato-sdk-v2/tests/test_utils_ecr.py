@@ -38,6 +38,30 @@ def test_publish_docker_image_disables_provenance_by_default(tmp_path, monkeypat
     assert build_cmd[-1] == str(tmp_path)
 
 
+def test_clean_aws_env_strips_credentials_locally(monkeypatch):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "FAKE")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "FAKE")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "FAKE")
+
+    env = ecr._clean_aws_env()
+    assert "AWS_ACCESS_KEY_ID" not in env
+    assert "AWS_SECRET_ACCESS_KEY" not in env
+    assert "AWS_SESSION_TOKEN" not in env
+
+
+def test_clean_aws_env_preserves_credentials_in_ci(monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "OIDC_ID")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "OIDC_SECRET")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "OIDC_TOKEN")
+
+    env = ecr._clean_aws_env()
+    assert env["AWS_ACCESS_KEY_ID"] == "OIDC_ID"
+    assert env["AWS_SECRET_ACCESS_KEY"] == "OIDC_SECRET"
+    assert env["AWS_SESSION_TOKEN"] == "OIDC_TOKEN"
+
+
 def test_publish_docker_image_keeps_target_and_build_args(tmp_path, monkeypatch):
     (tmp_path / "Dockerfile").write_text("FROM scratch AS prod\n")
     calls = _mock_successful_publish(monkeypatch)

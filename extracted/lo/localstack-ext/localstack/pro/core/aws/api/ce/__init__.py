@@ -2550,8 +2550,7 @@ class CeApi:
         monitor specification.
 
         :param anomaly_monitor: The cost anomaly detection monitor object that you want to create.
-        :param resource_tags: An optional list of tags to associate with the specified
-        ```AnomalyMonitor`` <https://docs.
+        :param resource_tags: An optional list of tags to associate with the specified ```AnomalyMonitor`` <https://docs.
         :returns: CreateAnomalyMonitorResponse
         :raises LimitExceededException:
         """
@@ -2571,8 +2570,7 @@ class CeApi:
         threshold and a time frequency for receiving notifications.
 
         :param anomaly_subscription: The cost anomaly subscription object that you want to create.
-        :param resource_tags: An optional list of tags to associate with the specified
-        ```AnomalySubscription`` <https://docs.
+        :param resource_tags: An optional list of tags to associate with the specified ```AnomalySubscription`` <https://docs.
         :returns: CreateAnomalySubscriptionResponse
         :raises UnknownMonitorException:
         :raises LimitExceededException:
@@ -2599,10 +2597,8 @@ class CeApi:
         :param rules: The cost category rules used to categorize costs.
         :param effective_start: The cost category's effective start date.
         :param default_value: The default value for the cost category.
-        :param split_charge_rules: The split charge rules used to allocate your charges between your cost
-        category values.
-        :param resource_tags: An optional list of tags to associate with the specified
-        ```CostCategory`` <https://docs.
+        :param split_charge_rules: The split charge rules used to allocate your charges between your cost category values.
+        :param resource_tags: An optional list of tags to associate with the specified ```CostCategory`` <https://docs.
         :returns: CreateCostCategoryDefinitionResponse
         :raises ServiceQuotaExceededException:
         :raises LimitExceededException:
@@ -2615,8 +2611,7 @@ class CeApi:
     ) -> DeleteAnomalyMonitorResponse:
         """Deletes a cost anomaly monitor.
 
-        :param monitor_arn: The unique identifier of the cost anomaly monitor that you want to
-        delete.
+        :param monitor_arn: The unique identifier of the cost anomaly monitor that you want to delete.
         :returns: DeleteAnomalyMonitorResponse
         :raises LimitExceededException:
         :raises UnknownMonitorException:
@@ -2629,8 +2624,7 @@ class CeApi:
     ) -> DeleteAnomalySubscriptionResponse:
         """Deletes a cost anomaly subscription.
 
-        :param subscription_arn: The unique identifier of the cost anomaly subscription that you want to
-        delete.
+        :param subscription_arn: The unique identifier of the cost anomaly subscription that you want to delete.
         :returns: DeleteAnomalySubscriptionResponse
         :raises LimitExceededException:
         :raises UnknownSubscriptionException:
@@ -2693,8 +2687,7 @@ class CeApi:
         are available for up to 90 days.
 
         :param date_interval: Assigns the start and end dates for retrieving cost anomalies.
-        :param monitor_arn: Retrieves all of the cost anomalies detected for a specific cost anomaly
-        monitor Amazon Resource Name (ARN).
+        :param monitor_arn: Retrieves all of the cost anomalies detected for a specific cost anomaly monitor Amazon Resource Name (ARN).
         :param feedback: Filters anomaly results by the feedback field on the anomaly object.
         :param total_impact: Filters anomaly results by the total impact field on the anomaly object.
         :param next_page_token: The token to retrieve the next set of results.
@@ -2816,17 +2809,12 @@ class CeApi:
         restrictions <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/billing-limits.html>`__
         in the *Billing and Cost Management User Guide*.
 
-        :param time_period: Sets the start date and end date for retrieving Amazon Web Services
-        costs.
-        :param granularity: Sets the Amazon Web Services cost granularity to ``MONTHLY`` or
-        ``DAILY``, or ``HOURLY``.
+        :param time_period: Sets the start date and end date for retrieving Amazon Web Services costs.
+        :param granularity: Sets the Amazon Web Services cost granularity to ``MONTHLY`` or ``DAILY``, or ``HOURLY``.
         :param metrics: Which metrics are returned in the query.
         :param filter: Filters Amazon Web Services costs by different dimensions.
-        :param group_by: You can group Amazon Web Services costs using up to two different
-        groups, either dimensions, tag keys, cost categories, or any two group
-        by types.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
+        :param group_by: You can group Amazon Web Services costs using up to two different groups, either dimensions, tag keys, cost categories, or any two group by types.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
         :param next_page_token: The token to retrieve the next set of results.
         :returns: GetCostAndUsageResponse
         :raises LimitExceededException:
@@ -2860,11 +2848,9 @@ class CeApi:
         :param baseline_time_period: The reference time period for comparison.
         :param comparison_time_period: The comparison time period for analysis.
         :param metric_for_comparison: The cost and usage metric to compare.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
         :param filter: Use ``Expression`` to filter in various Cost Explorer APIs.
-        :param group_by: You can group results using the attributes ``DIMENSION``, ``TAG``, and
-        ``COST_CATEGORY``.
+        :param group_by: You can group results using the attributes ``DIMENSION``, ``TAG``, and ``COST_CATEGORY``.
         :param max_results: The maximum number of results that are returned for the request.
         :param next_page_token: The token to retrieve the next set of paginated results.
         :returns: GetCostAndUsageComparisonsResponse
@@ -2910,14 +2896,11 @@ class CeApi:
         in the *Billing and Cost Management User Guide*.
 
         :param time_period: Sets the start and end dates for retrieving Amazon Web Services costs.
-        :param granularity: Sets the Amazon Web Services cost granularity to ``MONTHLY``, ``DAILY``,
-        or ``HOURLY``.
+        :param granularity: Sets the Amazon Web Services cost granularity to ``MONTHLY``, ``DAILY``, or ``HOURLY``.
         :param filter: Filters Amazon Web Services costs by different dimensions.
         :param metrics: Which metrics are returned in the query.
-        :param group_by: You can group Amazon Web Services costs using up to two different
-        groups: ``DIMENSION``, ``TAG``, ``COST_CATEGORY``.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
+        :param group_by: You can group Amazon Web Services costs using up to two different groups: ``DIMENSION``, ``TAG``, ``COST_CATEGORY``.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
         :param next_page_token: The token to retrieve the next set of results.
         :returns: GetCostAndUsageWithResourcesResponse
         :raises DataUnavailableException:
@@ -2954,13 +2937,9 @@ class CeApi:
         :param cost_category_name: The unique name of the cost category.
         :param filter: Use ``Expression`` to filter in various Cost Explorer APIs.
         :param sort_by: The value that you sort the data by.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
-        :param max_results: This field is only used when the ``SortBy`` value is provided in the
-        request.
-        :param next_page_token: If the number of objects that are still available for retrieval exceeds
-        the quota, Amazon Web Services returns a NextPageToken value in the
-        response.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
+        :param max_results: This field is only used when the ``SortBy`` value is provided in the request.
+        :param next_page_token: If the number of objects that are still available for retrieval exceeds the quota, Amazon Web Services returns a NextPageToken value in the response.
         :returns: GetCostCategoriesResponse
         :raises LimitExceededException:
         :raises BillExpirationException:
@@ -2994,11 +2973,9 @@ class CeApi:
         :param baseline_time_period: The reference time period for comparison.
         :param comparison_time_period: The comparison time period for analysis.
         :param metric_for_comparison: The cost and usage metric to compare.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
         :param filter: Use ``Expression`` to filter in various Cost Explorer APIs.
-        :param group_by: You can group results using the attributes ``DIMENSION``, ``TAG``, and
-        ``COST_CATEGORY``.
+        :param group_by: You can group results using the attributes ``DIMENSION``, ``TAG``, and ``COST_CATEGORY``.
         :param max_results: The maximum number of results that are returned for the request.
         :param next_page_token: The token to retrieve the next set of paginated results.
         :returns: GetCostComparisonDriversResponse
@@ -3030,8 +3007,7 @@ class CeApi:
         :param metric: Which metric Cost Explorer uses to create your forecast.
         :param granularity: How granular you want the forecast to be.
         :param filter: The filters that you want to use to filter your forecast.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
         :param prediction_interval_level: Cost Explorer always returns the mean forecast as a single point.
         :returns: GetCostForecastResponse
         :raises LimitExceededException:
@@ -3055,8 +3031,7 @@ class CeApi:
         :param context: The context for the call to ``GetDimensionValues``.
         :param filter: Use ``Expression`` to filter in various Cost Explorer APIs.
         :param sort_by: The value that you want to sort the data by.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
         :param max_results: This field is only used when SortBy is provided in the request.
         :param next_page_token: The token to retrieve the next set of results.
         :returns: GetDimensionValuesResponse
@@ -3120,33 +3095,9 @@ class CeApi:
         To determine valid values for a dimension, use the
         ``GetDimensionValues`` operation.
 
-        :param time_period: The start and end dates of the period that you want to retrieve data
-        about reservation coverage for.
-        :param group_by: You can group the data by the following attributes:
-
-        -  AZ
-
-        -  CACHE_ENGINE
-
-        -  DATABASE_ENGINE
-
-        -  DEPLOYMENT_OPTION
-
-        -  INSTANCE_TYPE
-
-        -  INVOICING_ENTITY
-
-        -  LINKED_ACCOUNT
-
-        -  OPERATING_SYSTEM
-
-        -  PLATFORM
-
-        -  REGION
-
-        -  TENANCY.
-        :param granularity: The granularity of the Amazon Web Services cost data for the
-        reservation.
+        :param time_period: The start and end dates of the period that you want to retrieve data about reservation coverage for.
+        :param group_by: You can group the data by the following attributes:  -  AZ  -  CACHE_ENGINE  -  DATABASE_ENGINE  -  DEPLOYMENT_OPTION  -  INSTANCE_TYPE  -  INVOICING_ENTITY  -  LINKED_ACCOUNT  -  OPERATING_SYSTEM  -  PLATFORM  -  REGION  -  TENANCY.
+        :param granularity: The granularity of the Amazon Web Services cost data for the reservation.
         :param filter: Filters utilization data by dimensions.
         :param metrics: The measurement that you want your reservation coverage reported in.
         :param next_page_token: The token to retrieve the next set of results.
@@ -3202,17 +3153,12 @@ class CeApi:
         :param account_id: The account ID that's associated with the recommendation.
         :param filter: Use ``Expression`` to filter in various Cost Explorer APIs.
         :param account_scope: The account scope that you want your recommendations for.
-        :param lookback_period_in_days: The number of previous days that you want Amazon Web Services to
-        consider when it calculates your recommendations.
+        :param lookback_period_in_days: The number of previous days that you want Amazon Web Services to consider when it calculates your recommendations.
         :param term_in_years: The reservation term that you want recommendations for.
         :param payment_option: The reservation purchase option that you want recommendations for.
-        :param service_specification: The hardware specifications for the service instances that you want
-        recommendations for, such as standard or convertible Amazon EC2
-        instances.
-        :param page_size: The number of recommendations that you want returned in a single
-        response object.
-        :param next_page_token: The pagination token that indicates the next set of results that you
-        want to retrieve.
+        :param service_specification: The hardware specifications for the service instances that you want recommendations for, such as standard or convertible Amazon EC2 instances.
+        :param page_size: The number of recommendations that you want returned in a single response object.
+        :param next_page_token: The pagination token that indicates the next set of results that you want to retrieve.
         :returns: GetReservationPurchaseRecommendationResponse
         :raises LimitExceededException:
         :raises DataUnavailableException:
@@ -3239,8 +3185,7 @@ class CeApi:
         ``GetDimensionValues`` to determine the possible dimension values.
         Currently, you can group only by ``SUBSCRIPTION_ID``.
 
-        :param time_period: Sets the start and end dates for retrieving Reserved Instance (RI)
-        utilization.
+        :param time_period: Sets the start and end dates for retrieving Reserved Instance (RI) utilization.
         :param group_by: Groups only by ``SUBSCRIPTION_ID``.
         :param granularity: If ``GroupBy`` is set, ``Granularity`` can't be set.
         :param filter: Filters utilization data by dimensions.
@@ -3277,12 +3222,9 @@ class CeApi:
 
         :param service: The specific service that you want recommendations for.
         :param filter: Use ``Expression`` to filter in various Cost Explorer APIs.
-        :param configuration: You can use Configuration to customize recommendations across two
-        attributes.
-        :param page_size: The number of recommendations that you want returned in a single
-        response object.
-        :param next_page_token: The pagination token that indicates the next set of results that you
-        want to retrieve.
+        :param configuration: You can use Configuration to customize recommendations across two attributes.
+        :param page_size: The number of recommendations that you want returned in a single response object.
+        :param next_page_token: The pagination token that indicates the next set of results that you want to retrieve.
         :returns: GetRightsizingRecommendationResponse
         :raises LimitExceededException:
         :raises InvalidNextTokenException:
@@ -3337,10 +3279,8 @@ class CeApi:
         ``GetDimensionValues`` operation.
 
         :param time_period: The time period that you want the usage and costs for.
-        :param group_by: You can group the data using the attributes ``INSTANCE_FAMILY``,
-        ``REGION``, or ``SERVICE``.
-        :param granularity: The granularity of the Amazon Web Services cost data for your Savings
-        Plans.
+        :param group_by: You can group the data using the attributes ``INSTANCE_FAMILY``, ``REGION``, or ``SERVICE``.
+        :param granularity: The granularity of the Amazon Web Services cost data for your Savings Plans.
         :param filter: Filters Savings Plans coverage data by dimensions.
         :param metrics: The measurement that you want your Savings Plans coverage reported in.
         :param next_token: The token to retrieve the next set of results.
@@ -3373,16 +3313,13 @@ class CeApi:
         ``GetSavingsPlansPurchaseRecommendation`` to retrieve them.
 
         :param savings_plans_type: The Savings Plans recommendation type that's requested.
-        :param term_in_years: The savings plan recommendation term that's used to generate these
-        recommendations.
+        :param term_in_years: The savings plan recommendation term that's used to generate these recommendations.
         :param payment_option: The payment option that's used to generate these recommendations.
         :param lookback_period_in_days: The lookback period that's used to generate the recommendation.
         :param account_scope: The account scope that you want your recommendations for.
         :param next_page_token: The token to retrieve the next set of results.
-        :param page_size: The number of recommendations that you want returned in a single
-        response object.
-        :param filter: You can filter your recommendations by Account ID with the
-        ``LINKED_ACCOUNT`` dimension.
+        :param page_size: The number of recommendations that you want returned in a single response object.
+        :param filter: You can filter your recommendations by Account ID with the ``LINKED_ACCOUNT`` dimension.
         :returns: GetSavingsPlansPurchaseRecommendationResponse
         :raises LimitExceededException:
         :raises InvalidNextTokenException:
@@ -3409,10 +3346,8 @@ class CeApi:
         ``GetSavingsPlansUtilization``.
 
         :param time_period: The time period that you want the usage and costs for.
-        :param granularity: The granularity of the Amazon Web Services utillization data for your
-        Savings Plans.
-        :param filter: Filters Savings Plans utilization coverage data for active Savings Plans
-        dimensions.
+        :param granularity: The granularity of the Amazon Web Services utillization data for your Savings Plans.
+        :param filter: Filters Savings Plans utilization coverage data for active Savings Plans dimensions.
         :param sort_by: The value that you want to sort the data by.
         :returns: GetSavingsPlansUtilizationResponse
         :raises LimitExceededException:
@@ -3445,8 +3380,7 @@ class CeApi:
         ``SavingsPlansArn``.
 
         :param time_period: The time period that you want the usage and costs for.
-        :param filter: Filters Savings Plans utilization coverage data for active Savings Plans
-        dimensions.
+        :param filter: Filters Savings Plans utilization coverage data for active Savings Plans dimensions.
         :param data_type: The data type.
         :param next_token: The token to retrieve the next set of results.
         :param max_results: The number of items to be returned in a response.
@@ -3480,8 +3414,7 @@ class CeApi:
         :param tag_key: The key of the tag that you want to return values for.
         :param filter: Use ``Expression`` to filter in various Cost Explorer APIs.
         :param sort_by: The value that you want to sort the data by.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
         :param max_results: This field is only used when SortBy is provided in the request.
         :param next_page_token: The token to retrieve the next set of results.
         :returns: GetTagsResponse
@@ -3511,15 +3444,12 @@ class CeApi:
         will use over the forecast time period that you select, based on your
         past usage.
 
-        :param time_period: The start and end dates of the period that you want to retrieve usage
-        forecast for.
+        :param time_period: The start and end dates of the period that you want to retrieve usage forecast for.
         :param metric: Which metric Cost Explorer uses to create your forecast.
         :param granularity: How granular you want the forecast to be.
         :param filter: The filters that you want to use to filter your forecast.
-        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
-        billing view.
-        :param prediction_interval_level: Amazon Web Services Cost Explorer always returns the mean forecast as a
-        single point.
+        :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific billing view.
+        :param prediction_interval_level: Amazon Web Services Cost Explorer always returns the mean forecast as a single point.
         :returns: GetUsageForecastResponse
         :raises LimitExceededException:
         :raises DataUnavailableException:
@@ -3543,8 +3473,7 @@ class CeApi:
 
         :param analysis_status: The status of the analysis.
         :param next_page_token: The token to retrieve the next set of results.
-        :param page_size: The number of analyses that you want returned in a single response
-        object.
+        :param page_size: The number of analyses that you want returned in a single response object.
         :param analysis_ids: The analysis IDs associated with the commitment purchase analyses.
         :returns: ListCommitmentPurchaseAnalysesResponse
         :raises LimitExceededException:
@@ -3579,11 +3508,9 @@ class CeApi:
         """Get a list of cost allocation tags. All inputs in the API are optional
         and serve as filters. By default, all cost allocation tags are returned.
 
-        :param status: The status of cost allocation tag keys that are returned for this
-        request.
+        :param status: The status of cost allocation tag keys that are returned for this request.
         :param tag_keys: The list of cost allocation tag keys that are returned for this request.
-        :param type: The type of ``CostAllocationTag`` object that are returned for this
-        request.
+        :param type: The type of ``CostAllocationTag`` object that are returned for this request.
         :param next_token: The token to retrieve the next set of results.
         :param max_results: The maximum number of objects that are returned for this request.
         :returns: ListCostAllocationTagsResponse
@@ -3615,8 +3542,7 @@ class CeApi:
         :param effective_on: The date when the cost category was effective.
         :param next_token: The token to retrieve the next set of results.
         :param max_results: The number of entries a paginated response contains.
-        :param supported_resource_types: Filter cost category definitions that are supported by given resource
-        types based on the latest version.
+        :param supported_resource_types: Filter cost category definitions that are supported by given resource types based on the latest version.
         :returns: ListCostCategoryDefinitionsResponse
         :raises LimitExceededException:
         """
@@ -3661,8 +3587,7 @@ class CeApi:
 
         :param generation_status: The status of the recommendation generation.
         :param recommendation_ids: The IDs for each specific recommendation.
-        :param page_size: The number of recommendations that you want returned in a single
-        response object.
+        :param page_size: The number of recommendations that you want returned in a single response object.
         :param next_page_token: The token to retrieve the next set of results.
         :returns: ListSavingsPlansPurchaseRecommendationGenerationResponse
         :raises LimitExceededException:
@@ -3696,8 +3621,7 @@ class CeApi:
         """Modifies the feedback property of a given cost anomaly.
 
         :param anomaly_id: A cost anomaly ID.
-        :param feedback: Describes whether the cost anomaly was a planned activity or you
-        considered it an anomaly.
+        :param feedback: Describes whether the cost anomaly was a planned activity or you considered it an anomaly.
         :returns: ProvideAnomalyFeedbackResponse
         :raises LimitExceededException:
         """
@@ -3798,8 +3722,7 @@ class CeApi:
         request. Don't specify the value.
 
         :param resource_arn: The Amazon Resource Name (ARN) of the resource.
-        :param resource_tag_keys: A list of tag keys associated with tags that need to be removed from the
-        resource.
+        :param resource_tag_keys: A list of tag keys associated with tags that need to be removed from the resource.
         :returns: UntagResourceResponse
         :raises ResourceNotFoundException:
         :raises LimitExceededException:
@@ -3847,16 +3770,12 @@ class CeApi:
         for possible values as they apply to ``AnomalySubscription``.
 
         :param subscription_arn: A cost anomaly subscription Amazon Resource Name (ARN).
-        :param threshold: (deprecated)
-
-        The update to the threshold value for receiving notifications.
-        :param frequency: The update to the frequency value that subscribers receive
-        notifications.
+        :param threshold: (deprecated)  The update to the threshold value for receiving notifications.
+        :param frequency: The update to the frequency value that subscribers receive notifications.
         :param monitor_arn_list: A list of cost anomaly monitor ARNs.
         :param subscribers: The update to the subscriber list.
         :param subscription_name: The new name of the subscription.
-        :param threshold_expression: The update to the
-        `Expression <https://docs.
+        :param threshold_expression: The update to the `Expression <https://docs.
         :returns: UpdateAnomalySubscriptionResponse
         :raises LimitExceededException:
         :raises UnknownMonitorException:
@@ -3876,8 +3795,7 @@ class CeApi:
         status, the request doesn't fail. Instead, it doesn't have any effect on
         the tag status (for example, activating the active tag).
 
-        :param cost_allocation_tags_status: The list of ``CostAllocationTagStatusEntry`` objects that are used to
-        update cost allocation tags status for this request.
+        :param cost_allocation_tags_status: The list of ``CostAllocationTagStatusEntry`` objects that are used to update cost allocation tags status for this request.
         :returns: UpdateCostAllocationTagsStatusResponse
         :raises LimitExceededException:
         """
@@ -3904,8 +3822,7 @@ class CeApi:
         :param rules: The ``Expression`` object used to categorize costs.
         :param effective_start: The cost category's effective start date.
         :param default_value: The default value for the cost category.
-        :param split_charge_rules: The split charge rules used to allocate your charges between your cost
-        category values.
+        :param split_charge_rules: The split charge rules used to allocate your charges between your cost category values.
         :returns: UpdateCostCategoryDefinitionResponse
         :raises ResourceNotFoundException:
         :raises ServiceQuotaExceededException:

@@ -603,8 +603,7 @@ class CognitoIdentityApi:
         :param developer_provider_name: The "domain" by which Cognito will refer to your users.
         :param open_id_connect_provider_arns: The Amazon Resource Names (ARN) of the OpenID Connect providers.
         :param cognito_identity_providers: An array of Amazon Cognito user pools and their client IDs.
-        :param saml_provider_arns: An array of Amazon Resource Names (ARNs) of the SAML provider for your
-        identity pool.
+        :param saml_provider_arns: An array of Amazon Resource Names (ARNs) of the SAML provider for your identity pool.
         :param identity_pool_tags: Tags to assign to the identity pool.
         :returns: IdentityPool
         :raises InvalidParameterException:
@@ -710,10 +709,8 @@ class CognitoIdentityApi:
         This is a public API. You do not need any credentials to call this API.
 
         :param identity_id: A unique identifier in the format REGION:GUID.
-        :param logins: A set of optional name-value pairs that map provider names to provider
-        tokens.
-        :param custom_role_arn: The Amazon Resource Name (ARN) of the role to be assumed when multiple
-        roles were received in the token from the identity provider.
+        :param logins: A set of optional name-value pairs that map provider names to provider tokens.
+        :param custom_role_arn: The Amazon Resource Name (ARN) of the role to be assumed when multiple roles were received in the token from the identity provider.
         :returns: GetCredentialsForIdentityResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -742,8 +739,7 @@ class CognitoIdentityApi:
 
         :param identity_pool_id: An identity pool ID in the format REGION:GUID.
         :param account_id: A standard Amazon Web Services account ID (9+ digits).
-        :param logins: A set of optional name-value pairs that map provider names to provider
-        tokens.
+        :param logins: A set of optional name-value pairs that map provider names to provider tokens.
         :returns: GetIdResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -793,8 +789,7 @@ class CognitoIdentityApi:
         This is a public API. You do not need any credentials to call this API.
 
         :param identity_id: A unique identifier in the format REGION:GUID.
-        :param logins: A set of optional name-value pairs that map provider names to provider
-        tokens.
+        :param logins: A set of optional name-value pairs that map provider names to provider tokens.
         :returns: GetOpenIdTokenResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -837,8 +832,7 @@ class CognitoIdentityApi:
         operation.
 
         :param identity_pool_id: An identity pool ID in the format REGION:GUID.
-        :param logins: A set of optional name-value pairs that map provider names to provider
-        tokens.
+        :param logins: A set of optional name-value pairs that map provider names to provider tokens.
         :param identity_id: A unique identifier in the format REGION:GUID.
         :param principal_tags: Use this operation to configure attribute mappings for custom providers.
         :param token_duration: The expiration time of the token, in seconds.
@@ -864,8 +858,7 @@ class CognitoIdentityApi:
         """Use ``GetPrincipalTagAttributeMap`` to list all mappings between
         ``PrincipalTags`` and user attributes.
 
-        :param identity_pool_id: You can use this operation to get the ID of the Identity Pool you setup
-        attribute mappings for.
+        :param identity_pool_id: You can use this operation to get the ID of the Identity Pool you setup attribute mappings for.
         :param identity_provider_name: You can use this operation to get the provider name.
         :returns: GetPrincipalTagAttributeMapResponse
         :raises InvalidParameterException:
@@ -894,8 +887,7 @@ class CognitoIdentityApi:
         :param identity_pool_id: An identity pool ID in the format REGION:GUID.
         :param max_results: The maximum number of identities to return.
         :param next_token: A pagination token.
-        :param hide_disabled: An optional boolean parameter that allows you to hide disabled
-        identities.
+        :param hide_disabled: An optional boolean parameter that allows you to hide disabled identities.
         :returns: ListIdentitiesResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -941,8 +933,7 @@ class CognitoIdentityApi:
 
         You can use this action up to 10 times per second, per account.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the identity pool that the tags are
-        assigned to.
+        :param resource_arn: The Amazon Resource Name (ARN) of the identity pool that the tags are assigned to.
         :returns: ListTagsForResourceResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -986,8 +977,7 @@ class CognitoIdentityApi:
 
         :param identity_pool_id: An identity pool ID in the format REGION:GUID.
         :param identity_id: A unique identifier in the format REGION:GUID.
-        :param developer_user_identifier: A unique ID used by your backend authentication process to identify a
-        user.
+        :param developer_user_identifier: A unique ID used by your backend authentication process to identify a user.
         :param max_results: The maximum number of identities to return.
         :param next_token: A pagination token.
         :returns: LookupDeveloperIdentityResponse
@@ -1085,8 +1075,7 @@ class CognitoIdentityApi:
 
         :param identity_pool_id: The ID of the Identity Pool you want to set attribute mappings for.
         :param identity_provider_name: The provider name you want to use for attribute mappings.
-        :param use_defaults: You can use this operation to use default (username and clientID)
-        attribute mappings.
+        :param use_defaults: You can use this operation to use default (username and clientID) attribute mappings.
         :param principal_tags: You can use this operation to add principal tags.
         :returns: SetPrincipalTagAttributeMapResponse
         :raises InvalidParameterException:
@@ -1155,8 +1144,7 @@ class CognitoIdentityApi:
         :param identity_id: A unique identifier in the format REGION:GUID.
         :param identity_pool_id: An identity pool ID in the format REGION:GUID.
         :param developer_provider_name: The "domain" by which Cognito will refer to your users.
-        :param developer_user_identifier: A unique ID used by your backend authentication process to identify a
-        user.
+        :param developer_user_identifier: A unique ID used by your backend authentication process to identify a user.
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
         :raises NotAuthorizedException:
@@ -1182,8 +1170,7 @@ class CognitoIdentityApi:
         This is a public API. You do not need any credentials to call this API.
 
         :param identity_id: A unique identifier in the format REGION:GUID.
-        :param logins: A set of optional name-value pairs that map provider names to provider
-        tokens.
+        :param logins: A set of optional name-value pairs that map provider names to provider tokens.
         :param logins_to_remove: Provider names to unlink from this identity.
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -1249,8 +1236,7 @@ class CognitoIdentityApi:
         :param developer_provider_name: The "domain" by which Cognito will refer to your users.
         :param open_id_connect_provider_arns: The ARNs of the OpenID Connect providers.
         :param cognito_identity_providers: A list representing an Amazon Cognito user pool and its client ID.
-        :param saml_provider_arns: An array of Amazon Resource Names (ARNs) of the SAML provider for your
-        identity pool.
+        :param saml_provider_arns: An array of Amazon Resource Names (ARNs) of the SAML provider for your identity pool.
         :param identity_pool_tags: The tags that are assigned to the identity pool.
         :returns: IdentityPool
         :raises InvalidParameterException:

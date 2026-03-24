@@ -188,9 +188,9 @@ from pcluster.validators.instances_validators import (
     InstancesEFAValidator,
     InstancesMemorySchedulingWarningValidator,
     InstancesNetworkingValidator,
+    LaunchTemplateValidator,
 )
 from pcluster.validators.kms_validators import KmsKeyIdEncryptedValidator, KmsKeyValidator
-from pcluster.validators.login_nodes_validators import LoginNodesSshKeyNameDeprecatedValidator
 from pcluster.validators.monitoring_validators import DetailedMonitoringValidator, LogRotationValidator
 from pcluster.validators.networking_validators import (
     ElasticIpValidator,
@@ -842,25 +842,14 @@ class HeadNodeSsh(_BaseSsh):
         self.allowed_ips = Resource.init_param(allowed_ips, default=CIDR_ALL_IPS)
 
 
-class LoginNodesSsh(_BaseSsh):
+class LoginNodesSsh(Resource):
     """Represent the SSH configuration for LoginNodes."""
 
     def __init__(self, allowed_ips: str = None, **kwargs):
-        key_name_explicitly_set = kwargs.pop("key_name_explicitly_set", False)
         super().__init__(**kwargs)
         # If AllowedIPs is not specified for the login node pool, then allowed_ips will default to the same settings
         # in the HeadNode to restrict SSH access from a specific CIDR or prefix-list.
         self.allowed_ips = Resource.init_param(allowed_ips)
-        # Track whether the key_name was explicitly set in the configuration.
-        self._key_name_explicitly_set = key_name_explicitly_set
-
-    def _register_validators(self, context=None):
-        super()._register_validators(context)
-        self._register_validator(
-            LoginNodesSshKeyNameDeprecatedValidator,
-            key_name=self.key_name,
-            key_name_explicitly_set=self._key_name_explicitly_set,
-        )
 
 
 class SharedStorageEfsSettings(Resource):
@@ -888,6 +877,15 @@ class Efa(Resource):
         super().__init__(**kwargs)
         self.enabled = enabled
         self.gdr_support = Resource.init_param(gdr_support, default=False)
+
+
+class LaunchTemplateOverrides(Resource):
+    """Represent the Launch Template Overrides configuration."""
+
+    def __init__(self, launch_template_id: str = None, version: int = None, **kwargs):
+        super().__init__(**kwargs)
+        self.launch_template_id = Resource.init_param(launch_template_id)
+        self.version = Resource.init_param(version)
 
 
 # ---------------------- Health Checks ---------------------- #
@@ -1199,10 +1197,11 @@ class AdditionalPackages(Resource):
 class AmiSearchFilters(Resource):
     """Represent the configuration for AMI search filters."""
 
-    def __init__(self, tags: List[Tag] = None, owner: str = None):
+    def __init__(self, tags: List[Tag] = None, owner: str = None, name_prefix: str = None):
         super().__init__()
         self.tags = tags
         self.owner = owner
+        self.name_prefix = name_prefix
 
 
 class Timeouts(Resource):
@@ -1237,6 +1236,7 @@ class ClusterDevSettings(BaseDevSettings):
         instance_types_data: str = None,
         timeouts: Timeouts = None,
         compute_startup_time_metric_enabled: bool = None,
+        efa_interface_type: str = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1247,6 +1247,7 @@ class ClusterDevSettings(BaseDevSettings):
         self.compute_startup_time_metric_enabled = Resource.init_param(
             compute_startup_time_metric_enabled, default=False
         )
+        self.efa_interface_type = Resource.init_param(efa_interface_type)
 
     def _register_validators(self, context: ValidatorContext = None):
         super()._register_validators(context)
@@ -2239,6 +2240,7 @@ class _BaseSlurmComputeResource(BaseComputeResource):
         tags: List[Tag] = None,
         static_node_priority: int = None,
         dynamic_node_priority: int = None,
+        launch_template_overrides: LaunchTemplateOverrides = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -2259,6 +2261,7 @@ class _BaseSlurmComputeResource(BaseComputeResource):
         self.tags = tags
         self.static_node_priority = Resource.init_param(static_node_priority, default=1)
         self.dynamic_node_priority = Resource.init_param(dynamic_node_priority, default=1000)
+        self.launch_template_overrides = launch_template_overrides
 
     @abstractmethod
     def is_flexible(self) -> bool:
@@ -2302,6 +2305,11 @@ class _BaseSlurmComputeResource(BaseComputeResource):
     @abstractmethod
     def max_network_cards(self) -> int:
         """Return max number of NICs for the instance."""
+
+    @property
+    @abstractmethod
+    def max_efa_interfaces(self) -> int:
+        """Return max number of EFA interfaces for the instance."""
 
     @property
     @abstractmethod
@@ -2361,6 +2369,13 @@ class SlurmFlexibleComputeResource(_BaseSlurmComputeResource):
             ec2memory=min_memory,
             instance_type=smallest_type,
         )
+        if self.launch_template_overrides:
+            self._register_validator(
+                LaunchTemplateValidator,
+                compute_resource_name=self.name,
+                launch_template_id=self.launch_template_overrides.launch_template_id,
+                launch_template_version=self.launch_template_overrides.version,
+            )
 
     def is_flexible(self):
         """Return True because the ComputeResource can contain multiple instance types."""
@@ -2386,6 +2401,11 @@ class SlurmFlexibleComputeResource(_BaseSlurmComputeResource):
                 max_nics = instance_type_info.max_network_cards()
                 least_max_nics = min(least_max_nics, max_nics)
         return least_max_nics
+
+    @property
+    def max_efa_interfaces(self) -> int:
+        """Return max number of EFA interfaces for the compute resource."""
+        return min(self.instance_type_info_map[it].max_efa_interfaces() for it in self.instance_types)
 
     @property
     def network_cards_list(self) -> list:
@@ -2448,6 +2468,13 @@ class SlurmComputeResource(_BaseSlurmComputeResource):
             ec2memory=self._instance_type_info.ec2memory_size_in_mib(),
             instance_type=self.instance_type,
         )
+        if self.launch_template_overrides:
+            self._register_validator(
+                LaunchTemplateValidator,
+                compute_resource_name=self.name,
+                launch_template_id=self.launch_template_overrides.launch_template_id,
+                launch_template_version=self.launch_template_overrides.version,
+            )
 
     @property
     def architecture(self) -> str:
@@ -2463,6 +2490,11 @@ class SlurmComputeResource(_BaseSlurmComputeResource):
     def max_network_cards(self) -> int:
         """Return max number of NICs for the instance."""
         return self._instance_type_info.max_network_cards()
+
+    @property
+    def max_efa_interfaces(self) -> int:
+        """Return max number of EFA interfaces for the instance."""
+        return self._instance_type_info.max_efa_interfaces()
 
     @property
     def network_cards_list(self) -> list:
@@ -2706,6 +2738,7 @@ class SlurmQueue(_CommonQueue):
                 is False,
                 multi_az_enabled=self.multi_az_enabled,
                 capacity_type=self.capacity_type,
+                queue_name=self.name,
             )
             self._register_validator(
                 ComputeResourceSizeValidator,
@@ -2936,16 +2969,9 @@ class SlurmClusterConfig(BaseClusterConfig):
             # Create a LocalStorage for the LoginNodesPool and ensure that encrypted = true
             for pool in self.login_nodes.pools:
                 pool.local_storage = LocalStorage(implied=True)
-                # If there's no customer ssh key for LoginNodes pool, set a default value as HeadNode's ssh key
-                if pool.ssh and not pool.ssh.key_name:
-                    pool.ssh.key_name = self.head_node.ssh.key_name
-                    # Mark that this key was not explicitly set by the user
-                    pool.ssh._key_name_explicitly_set = False
-                elif not pool.ssh:
-                    pool.ssh = LoginNodesSsh(key_name=self.head_node.ssh.key_name, key_name_explicitly_set=False)
-                else:
-                    # SSH config exists and has a key_name, mark it as explicitly set
-                    pool.ssh._key_name_explicitly_set = True
+                # If the login node pool SSH config is not specified, create one
+                if not pool.ssh:
+                    pool.ssh = LoginNodesSsh()
                 # If the login node pool allowed IPs is not specified, forces the source allowed IP for the
                 # SSH connection to the one defined in the HeadNode
                 if not pool.ssh.allowed_ips:
@@ -3211,7 +3237,6 @@ class SlurmClusterConfig(BaseClusterConfig):
                         subnet=queue.networking.subnet_ids[0],
                         instance_types=compute_resource.instance_types,
                         multi_az_enabled=queue.multi_az_enabled,
-                        subnet_id_az_mapping=queue.networking.subnet_id_az_mapping,
                     )
                 for instance_type in compute_resource.instance_types:
                     if self.scheduling.settings.enable_memory_based_scheduling:

@@ -1010,8 +1010,7 @@ class S3TablesApi:
            You must have the ``s3tables:CreateNamespace`` permission to use this
            operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket to create the
-        namespace in.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket to create the namespace in.
         :param namespace: A name for the namespace.
         :returns: CreateNamespaceResponse
         :raises InternalServerErrorException:
@@ -1066,16 +1065,14 @@ class S3TablesApi:
            information, see `Permissions requirements for S3 Tables SSE-KMS
            encryption <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-tables-kms-permissions.html>`__.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket to create the table
-        in.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket to create the table in.
         :param namespace: The namespace to associated with the table.
         :param name: The name for the table.
         :param format: The format for the table.
         :param metadata: The metadata for the table.
         :param encryption_configuration: The encryption configuration to use for the table.
         :param storage_class_configuration: The storage class configuration for the table.
-        :param tags: A map of user-defined tags that you would like to apply to the table
-        that you are creating.
+        :param tags: A map of user-defined tags that you would like to apply to the table that you are creating.
         :returns: CreateTableResponse
         :raises InternalServerErrorException:
         :raises ForbiddenException:
@@ -1119,8 +1116,7 @@ class S3TablesApi:
         :param name: The name for the table bucket.
         :param encryption_configuration: The encryption configuration to use for the table bucket.
         :param storage_class_configuration: The default storage class configuration for the table bucket.
-        :param tags: A map of user-defined tags that you would like to apply to the table
-        bucket that you are creating.
+        :param tags: A map of user-defined tags that you would like to apply to the table bucket that you are creating.
         :returns: CreateTableBucketResponse
         :raises InternalServerErrorException:
         :raises ForbiddenException:
@@ -1147,8 +1143,7 @@ class S3TablesApi:
            You must have the ``s3tables:DeleteNamespace`` permission to use this
            operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket associated with the
-        namespace.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket associated with the namespace.
         :param namespace: The name of the namespace.
         :raises InternalServerErrorException:
         :raises ForbiddenException:
@@ -1177,8 +1172,7 @@ class S3TablesApi:
            You must have the ``s3tables:DeleteTable`` permission to use this
            operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the
-        table.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the table.
         :param namespace: The namespace associated with the table.
         :param name: The name of the table.
         :param version_token: The version token of the table.
@@ -1322,8 +1316,7 @@ class S3TablesApi:
            You must have the ``s3tables:DeleteTablePolicy`` permission to use
            this operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the
-        table.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the table.
         :param namespace: The namespace associated with the table.
         :param name: The table name.
         :raises InternalServerErrorException:
@@ -1407,8 +1400,7 @@ class S3TablesApi:
            You must have the ``s3tables:GetTable`` permission to use this
            operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket associated with the
-        table.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket associated with the table.
         :param namespace: The name of the namespace the table is associated with.
         :param name: The name of the table.
         :param table_arn: The Amazon Resource Name (ARN) of the table.
@@ -1482,8 +1474,7 @@ class S3TablesApi:
            You must have the ``s3tables:GetTableBucketMaintenanceConfiguration``
            permission to use this operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket associated with the
-        maintenance configuration.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket associated with the maintenance configuration.
         :returns: GetTableBucketMaintenanceConfigurationResponse
         :raises InternalServerErrorException:
         :raises ForbiddenException:
@@ -1669,8 +1660,7 @@ class S3TablesApi:
 
         :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket.
         :param namespace: The name of the namespace the table is associated with.
-        :param name: The name of the table containing the maintenance job status you want to
-        check.
+        :param name: The name of the table containing the maintenance job status you want to check.
         :returns: GetTableMaintenanceJobStatusResponse
         :raises InternalServerErrorException:
         :raises ForbiddenException:
@@ -1727,8 +1717,7 @@ class S3TablesApi:
            You must have the ``s3tables:GetTablePolicy`` permission to use this
            operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the
-        table.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the table.
         :param namespace: The namespace associated with the table.
         :param name: The name of the table.
         :returns: GetTablePolicyResponse
@@ -1852,8 +1841,7 @@ class S3TablesApi:
            You must have the ``s3tables:GetTableStorageClass`` permission to use
            this operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the
-        table.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the table.
         :param namespace: The namespace associated with the table.
         :param name: The name of the table.
         :returns: GetTableStorageClassResponse
@@ -1887,8 +1875,7 @@ class S3TablesApi:
 
         :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket.
         :param prefix: The prefix of the namespaces.
-        :param continuation_token: ``ContinuationToken`` indicates to Amazon S3 that the list is being
-        continued on this bucket with a token.
+        :param continuation_token: ``ContinuationToken`` indicates to Amazon S3 that the list is being continued on this bucket with a token.
         :param max_namespaces: The maximum number of namespaces to return in the list.
         :returns: ListNamespacesResponse
         :raises InternalServerErrorException:
@@ -1915,8 +1902,7 @@ class S3TablesApi:
            this operation.
 
         :param prefix: The prefix of the table buckets.
-        :param continuation_token: ``ContinuationToken`` indicates to Amazon S3 that the list is being
-        continued on this bucket with a token.
+        :param continuation_token: ``ContinuationToken`` indicates to Amazon S3 that the list is being continued on this bucket with a token.
         :param max_buckets: The maximum number of table buckets to return in the list.
         :param type: The type of table buckets to filter by in the list.
         :returns: ListTableBucketsResponse
@@ -1952,8 +1938,7 @@ class S3TablesApi:
         :param table_bucket_arn: The Amazon resource Name (ARN) of the table bucket.
         :param namespace: The namespace of the tables.
         :param prefix: The prefix of the tables.
-        :param continuation_token: ``ContinuationToken`` indicates to Amazon S3 that the list is being
-        continued on this bucket with a token.
+        :param continuation_token: ``ContinuationToken`` indicates to Amazon S3 that the list is being continued on this bucket with a token.
         :param max_tables: The maximum number of tables to return.
         :returns: ListTablesResponse
         :raises InternalServerErrorException:
@@ -1981,8 +1966,7 @@ class S3TablesApi:
            For tables and table buckets, you must have the
            ``s3tables:ListTagsForResource`` permission to use this operation.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the Amazon S3 Tables resource that you
-        want to list tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) of the Amazon S3 Tables resource that you want to list tags for.
         :returns: ListTagsForResourceResponse
         :raises InternalServerErrorException:
         :raises ForbiddenException:
@@ -2041,11 +2025,9 @@ class S3TablesApi:
            You must have the ``s3tables:PutTableBucketMaintenanceConfiguration``
            permission to use this operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket associated with the
-        maintenance configuration.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket associated with the maintenance configuration.
         :param type: The type of the maintenance configuration.
-        :param value: Defines the values of the maintenance configuration for the table
-        bucket.
+        :param value: Defines the values of the maintenance configuration for the table bucket.
         :raises InternalServerErrorException:
         :raises ForbiddenException:
         :raises NotFoundException:
@@ -2145,8 +2127,7 @@ class S3TablesApi:
               roles to be passed to ``replication.s3tables.amazonaws.com``.
 
         :param table_bucket_arn: The Amazon Resource Name (ARN) of the source table bucket.
-        :param configuration: The replication configuration to apply, including the IAM role and
-        replication rules.
+        :param configuration: The replication configuration to apply, including the IAM role and replication rules.
         :param version_token: A version token from a previous GetTableBucketReplication call.
         :returns: PutTableBucketReplicationResponse
         :raises InternalServerErrorException:
@@ -2201,8 +2182,7 @@ class S3TablesApi:
            You must have the ``s3tables:PutTableMaintenanceConfiguration``
            permission to use this operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table associated with the
-        maintenance configuration.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table associated with the maintenance configuration.
         :param namespace: The namespace of the table.
         :param name: The name of the table.
         :param type: The type of the maintenance configuration.
@@ -2235,8 +2215,7 @@ class S3TablesApi:
            You must have the ``s3tables:PutTablePolicy`` permission to use this
            operation.
 
-        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the
-        table.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket that contains the table.
         :param namespace: The namespace associated with the table.
         :param name: The name of the table.
         :param resource_policy: The ``JSON`` that defines the policy.
@@ -2267,8 +2246,7 @@ class S3TablesApi:
            permission to use this operation.
 
         :param table_arn: The Amazon Resource Name (ARN) of the table.
-        :param value: The record expiration configuration to apply to the table, including the
-        status (``enabled`` or ``disabled``) and retention period in days.
+        :param value: The record expiration configuration to apply to the table, including the status (``enabled`` or ``disabled``) and retention period in days.
         :raises InternalServerErrorException:
         :raises MethodNotAllowedException:
         :raises ForbiddenException:
@@ -2317,8 +2295,7 @@ class S3TablesApi:
               roles to be passed to ``replication.s3tables.amazonaws.com``.
 
         :param table_arn: The Amazon Resource Name (ARN) of the source table.
-        :param configuration: The replication configuration to apply to the table, including the IAM
-        role and replication rules.
+        :param configuration: The replication configuration to apply to the table, including the IAM role and replication rules.
         :param version_token: A version token from a previous GetTableReplication call.
         :returns: PutTableReplicationResponse
         :raises InternalServerErrorException:
@@ -2383,10 +2360,8 @@ class S3TablesApi:
            For tables and table buckets, you must have the
            ``s3tables:TagResource`` permission to use this operation.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the Amazon S3 Tables resource that
-        you're applying tags to.
-        :param tags: The user-defined tag that you want to add to the specified S3 Tables
-        resource.
+        :param resource_arn: The Amazon Resource Name (ARN) of the Amazon S3 Tables resource that you're applying tags to.
+        :param tags: The user-defined tag that you want to add to the specified S3 Tables resource.
         :returns: TagResourceResponse
         :raises InternalServerErrorException:
         :raises ForbiddenException:
@@ -2412,8 +2387,7 @@ class S3TablesApi:
            For tables and table buckets, you must have the
            ``s3tables:UntagResource`` permission to use this operation.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the Amazon S3 Tables resource that
-        you're removing tags from.
+        :param resource_arn: The Amazon Resource Name (ARN) of the Amazon S3 Tables resource that you're removing tags from.
         :param tag_keys: The array of tag keys that you're removing from the S3 Tables resource.
         :returns: UntagResourceResponse
         :raises InternalServerErrorException:

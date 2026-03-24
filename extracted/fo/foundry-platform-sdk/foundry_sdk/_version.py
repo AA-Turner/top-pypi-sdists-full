@@ -15,6 +15,6 @@
 
 # The version is set during the publishing step (since we can't know the version in advance)
 # using the autorelease bot
-__version__ = "1.75.0"
+__version__ = "1.76.0"
 
-__openapi_document_version__ = "1.1497.0"
+__openapi_document_version__ = "1.1527.0"

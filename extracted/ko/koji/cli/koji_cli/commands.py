@@ -19,6 +19,7 @@ from datetime import datetime
 from dateutil.tz import tzutc
 from optparse import SUPPRESS_HELP, OptionParser
 
+from requests.exceptions import HTTPError
 import six
 import six.moves.xmlrpc_client
 from six.moves import filter, map, range, zip
@@ -110,16 +111,36 @@ def handle_block_group(goptions, session, args):
     if not (session.hasPerm('admin') or session.hasPerm('tag')):
         parser.error("This action requires tag or admin privileges")
 
-    dsttag = session.getTag(tag)
-    if not dsttag:
+    taginfo = session.getTag(tag)
+    if not taginfo:
         error("No such tag: %s" % tag)
 
-    groups = dict([(p['name'], p['group_id']) for p in session.getTagGroups(tag, inherit=False)])
-    group_id = groups.get(group, None)
-    if group_id is None:
+    # sanity check
+    groups = session.getTagGroups(taginfo['id'], incl_pkgs=False, incl_reqs=False,
+                                  incl_blocked=True)
+    for ginfo in groups:
+        if ginfo['name'] == group:
+            break
+    else:
         error("Group %s doesn't exist within tag %s" % (group, tag))
+    if ginfo['blocked']:
+        error("Group %s is already blocked in this tag" % group)
+    # (we don't care if the entry is inherited for this)
 
     session.groupListBlock(tag, group)
+
+
+def handle_unblock_group(goptions, session, args):
+    "[admin] Unblock a group from tag"
+    usage = "usage: %prog unblock-group [options] <tag> <group>"
+    parser = OptionParser(usage=get_usage_str(usage))
+    (options, args) = parser.parse_args(args)
+    if len(args) != 2:
+        parser.error("You must specify a tag name and group name")
+    tag = args[0]
+    group = args[1]
+    activate_session(session, goptions)
+    session.groupListUnblock(tag, group)
 
 
 def handle_remove_group(goptions, session, args):
@@ -136,14 +157,25 @@ def handle_remove_group(goptions, session, args):
     if not (session.hasPerm('admin') or session.hasPerm('tag')):
         parser.error("This action requires tag or admin privileges")
 
-    dsttag = session.getTag(tag)
-    if not dsttag:
+    taginfo = session.getTag(tag)
+    if not taginfo:
         error("No such tag: %s" % tag)
 
-    groups = dict([(p['name'], p['group_id']) for p in session.getTagGroups(tag, inherit=False)])
-    group_id = groups.get(group, None)
-    if group_id is None:
+    # sanity checks
+    groups = session.getTagGroups(taginfo['id'], incl_pkgs=False, incl_reqs=False,
+                                  incl_blocked=True)
+    for ginfo in groups:
+        if ginfo['name'] == group:
+            break
+    else:
         error("Group %s doesn't exist within tag %s" % (group, tag))
+    if ginfo['blocked']:
+        error("Group %s is blocked in this tag. You could use unblock-group to unblock it" % group)
+    if ginfo['tag_id'] != taginfo['id']:
+        # listing is inherited
+        srctag = session.getTag(ginfo['tag_id'])
+        error("The entry for group %s is inherited from %s. "
+              "You could use block-group to prevent this" % (group, srctag['name']))
 
     session.groupListRemove(tag, group)
 
@@ -154,8 +186,9 @@ def handle_assign_task(goptions, session, args):
     parser = OptionParser(usage=get_usage_str(usage))
     parser.add_option('-f', '--force', action='store_true', default=False,
                       help='force to assign a non-free task')
+    parser.add_option('--override', action='store_true', default=False,
+                      help='prevent the scheduler from reassigning later')
     (options, args) = parser.parse_args(args)
-
     if len(args) != 2:
         parser.error('please specify a task id and a hostname')
     else:
@@ -170,15 +203,16 @@ def handle_assign_task(goptions, session, args):
     if hostinfo is None:
         raise koji.GenericError("No such host: %s" % hostname)
 
-    force = False
-    if options.force:
-        force = True
-
     activate_session(session, goptions)
     if not session.hasPerm('admin'):
         parser.error("This action requires admin privileges")
 
-    ret = session.assignTask(task_id, hostname, force)
+    kwargs = {}
+    if options.override:
+        # override option added in 1.34
+        kwargs['override'] = options.override
+    ret = session.assignTask(task_id, hostname, options.force, **kwargs)
+
     if ret:
         print('assigned task %d to host %s' % (task_id, hostname))
     else:
@@ -834,6 +868,10 @@ def handle_wrapper_rpm(options, session, args):
                       help="Run the build at a lower priority")
     parser.add_option("--create-draft", action="store_true",
                       help="Create a new draft build instead")
+    parser.add_option("--wait-repo", action="store_true",
+                      help="Wait for a current repo for the build tag")
+    parser.add_option("--wait-build", metavar="NVR", action="append", dest="wait_builds",
+                      default=[], help="Wait for the given nvr to appear in buildroot repo")
 
     (build_opts, args) = parser.parse_args(args)
     if build_opts.inis:
@@ -878,14 +916,13 @@ def handle_wrapper_rpm(options, session, args):
     if build_opts.background:
         priority = 5
     opts = {}
-    if build_opts.create_build:
-        opts['create_build'] = True
-    if build_opts.skip_tag:
-        opts['skip_tag'] = True
-    if build_opts.scratch:
-        opts['scratch'] = True
     if build_opts.create_draft:
         opts['draft'] = True
+    # the other passthough opts have matching names
+    for key in ('create_build', 'skip_tag', 'scratch', 'wait_repo', 'wait_builds'):
+        val = getattr(build_opts, key)
+        if val is not None:
+            opts[key] = val
     task_id = session.wrapperRPM(build_id, url, target, priority, opts=opts)
     print("Created task: %d" % task_id)
     print("Task info: %s/taskinfo?taskID=%s" % (options.weburl, task_id))
@@ -1188,6 +1225,9 @@ def anon_handle_mock_config(goptions, session, args):
         opts['bootstrap_image'] = buildcfg['extra']['mock.bootstrap_image']
     else:
         opts['use_bootstrap_image'] = False
+    if 'mock.bootstrap_image_ready' in buildcfg['extra']:
+        opts['bootstrap_image_ready'] = bool(buildcfg['extra']['mock.bootstrap_image_ready'])
+    # no else part as it would be driven by site-defaults.cfg
     if 'mock.use_bootstrap' in buildcfg['extra']:
         opts['use_bootstrap'] = buildcfg['extra']['mock.use_bootstrap']
     if 'mock.module_setup_commands' in buildcfg['extra']:
@@ -1326,6 +1366,7 @@ def handle_import(goptions, session, args):
     parser.add_option("--test", action="store_true", help="Don't actually import")
     parser.add_option("--create-build", action="store_true", help="Auto-create builds as needed")
     parser.add_option("--src-epoch", help="When auto-creating builds, use this epoch")
+    parser.add_option("--sigkey", help="Override the sigkey value")
     (options, args) = parser.parse_args(args)
     if len(args) < 1:
         parser.error("At least one package must be specified")
@@ -1339,8 +1380,10 @@ def handle_import(goptions, session, args):
     activate_session(session, goptions)
     to_import = {}
     for path in args:
-        data = koji.get_header_fields(path, ('name', 'version', 'release', 'epoch',
-                                             'arch', 'sigmd5', 'sourcepackage', 'sourcerpm'))
+        hdr = koji.get_rpm_header(path)
+        data = koji.get_header_fields(hdr, ('name', 'version', 'release', 'epoch',
+                                            'arch', 'sourcepackage', 'sourcerpm'))
+        data['_ident'] = koji.get_rpm_ident(hdr)
         if data['sourcepackage']:
             data['arch'] = 'src'
             nvr = "%(name)s-%(version)s-%(release)s" % data
@@ -1369,13 +1412,13 @@ def handle_import(goptions, session, args):
         rinfo = dict([(k, data[k]) for k in ('name', 'version', 'release', 'arch')])
         prev = session.getRPM(rinfo)
         if prev and not prev.get('external_repo_id', 0):
-            if prev['payloadhash'] == koji.hex_string(data['sigmd5']):
+            if prev['payloadhash'] == data['_ident']:
                 print("RPM already imported: %s" % path)
             else:
-                warn("md5sum mismatch for %s" % path)
+                warn("digest mismatch for %s" % path)
                 warn("  A different rpm with the same name has already been imported")
-                warn("  Existing sigmd5 is %r, your import has %r" % (
-                    prev['payloadhash'], koji.hex_string(data['sigmd5'])))
+                warn("  Existing rpm has %r, your import has %r" % (
+                    prev['payloadhash'], data['_ident']))
             print("Skipping import")
             return
         if options.test:
@@ -1392,8 +1435,11 @@ def handle_import(goptions, session, args):
             sys.stdout.flush()
         sys.stdout.write("importing %s... " % path)
         sys.stdout.flush()
+        kwargs = {}
+        if options.sigkey:
+            kwargs['sigkey'] = options.sigkey
         try:
-            session.importRPM(serverdir, os.path.basename(path))
+            session.importRPM(serverdir, os.path.basename(path), **kwargs)
         except koji.GenericError as e:
             print("\nError importing: %s" % str(e).splitlines()[-1])
             sys.stdout.flush()
@@ -1522,7 +1568,8 @@ def handle_import_cg(goptions, session, args):
             if callback:
                 print('')
 
-    session.CGImport(metadata, serverdir, options.token)
+    buildinfo = session.CGImport(metadata, serverdir, options.token)
+    print('Imported build %(name)s-%(version)s-%(release)s with id %(build_id)s' % buildinfo)
 
 
 def handle_reserve_cg(goptions, session, args):
@@ -1676,6 +1723,7 @@ def handle_import_sig(goptions, session, args):
                       help="Also import unsigned sig headers")
     parser.add_option("--write", action="store_true", help=SUPPRESS_HELP)
     parser.add_option("--test", action="store_true", help="Test mode -- don't actually import")
+    parser.add_option("--sigkey", action="store", default=None, help="Specify signature key")
     (options, args) = parser.parse_args(args)
     if len(args) < 1:
         parser.error("At least one package must be specified")
@@ -1689,20 +1737,24 @@ def handle_import_sig(goptions, session, args):
                                              'sourcepackage'))
         if data['sourcepackage']:
             data['arch'] = 'src'
-        sigkey = data['siggpg']
-        if not sigkey:
-            sigkey = data['sigpgp']
-        if not sigkey:
-            sigkey = data['dsaheader']
-        if not sigkey:
-            sigkey = data['rsaheader']
-        if not sigkey:
-            sigkey = ""
-            if not options.with_unsigned:
-                print("Skipping unsigned package: %s" % path)
-                continue
+        if options.sigkey is not None:
+            sigkey = options.sigkey
         else:
-            sigkey = koji.get_sigpacket_key_id(sigkey)
+            # calculate from header values
+            sigkey = data['siggpg']
+            if not sigkey:
+                sigkey = data['sigpgp']
+            if not sigkey:
+                sigkey = data['dsaheader']
+            if not sigkey:
+                sigkey = data['rsaheader']
+            if not sigkey:
+                sigkey = ""
+                if not options.with_unsigned:
+                    print("Skipping unsigned package: %s" % path)
+                    continue
+            else:
+                sigkey = koji.get_sigpacket_key_id(sigkey)
         del data['siggpg']
         del data['sigpgp']
         del data['dsaheader']
@@ -1728,12 +1780,37 @@ def handle_import_sig(goptions, session, args):
                 warn("  The system already has a signature for this rpm with key %s" % sigkey)
                 warn("  The two signature headers are not the same")
                 continue
+        kwargs = {}
+        if options.sigkey:
+            kwargs['sigkey'] = options.sigkey
+            # if sigkey is not specified, the hub will calculate from the header, similar to above
         print("Importing signature [key %s] from %s..." % (sigkey, path))
         if not options.test:
-            session.addRPMSig(rinfo['id'], base64encode(sighdr))
+            session.addRPMSig(rinfo['id'], base64encode(sighdr), **kwargs)
         print("Writing signed copy")
         if not options.test:
             session.writeSignedRPM(rinfo['id'], sigkey)
+
+
+def handle_rename_sig(goptions, session, args):
+    "[admin] Adjust the sigkey value for an rpm signature"
+    usage = "usage: %prog rename-sig [options] <rpm-id/n-v-r.a/rpminfo> <oldkey> <newkey>"
+    parser = OptionParser(usage=get_usage_str(usage))
+    (options, args) = parser.parse_args(args)
+    if len(args) != 3:
+        parser.error("This command takes exactly three arguments")
+
+    rpminfo = args[0]
+    oldkey = args[1]
+    newkey = args[2]
+
+    activate_session(session, goptions)
+
+    try:
+        session.renameRPMSig(rpminfo, oldkey, newkey)
+    except koji.GenericError as e:
+        # the api error messages are sufficiently descriptive
+        error(str(e))
 
 
 def handle_remove_sig(goptions, session, args):
@@ -1790,32 +1867,54 @@ def handle_write_signed_rpm(goptions, session, args):
     elif options.buildid:
         rpms = session.listRPMs(int(options.buildid))
     else:
-        nvrs = []
-        rpms = []
+        # for historical reasons, we accept either rpms or builds on command line
+        rpm_args = []
+        build_args = []
 
-        with session.multicall() as m:
-            result = [m.getRPM(nvra, strict=False) for nvra in args]
-        for rpm, nvra in zip(result, args):
-            rpm = rpm.result
-            if rpm:
-                rpms.append(rpm)
+        # first filter out invalid nvras, as getRPM will error on them
+        for arg in args:
+            if arg.isdigit():
+                # we also accept rpm ids
+                rpm_args.append(int(arg))
             else:
-                nvrs.append(nvra)
+                try:
+                    koji.parse_NVRA(arg)
+                    rpm_args.append(arg)
+                    # note that this is not perfect, many NVRs will succeed here
+                except koji.GenericError:
+                    build_args.append(arg)
 
-        # for historical reasons, we also accept nvrs
+        # look up rpms on hub
+        rpms = []
         with session.multicall() as m:
-            result = [m.getBuild(nvr, strict=True) for nvr in nvrs]
-        builds = []
-        for nvr, build in zip(nvrs, result):
-            try:
-                builds.append(build.result['id'])
-            except koji.GenericError:
-                raise koji.GenericError("No such rpm or build: %s" % nvr)
+            calls = [m.getRPM(r, strict=False) for r in rpm_args]
+        for call in calls:
+            rpminfo = call.result
+            if rpminfo:
+                rpms.append(rpminfo)
+            else:
+                # fetch the unmatched arg from call args
+                build_args.append(call.args[0])
 
+        # look up builds on hub
+        builds = []
+        with session.multicall() as m:
+            calls = [m.getBuild(nvr, strict=True) for nvr in build_args]
+        for call in calls:
+            try:
+                builds.append(call.result['id'])
+            except koji.GenericError:
+                # fetch the unmatched arg from call args
+                raise koji.GenericError("No such rpm or build: %s" % call.args[0])
+
+        # look up rpms for builds
         with session.multicall() as m:
             rpm_lists = [m.listRPMs(buildID=build_id) for build_id in builds]
         for rpm_list in rpm_lists:
             rpms.extend(rpm_list.result)
+
+    if not rpms:
+        warn('No rpms found')
 
     with session.multicall(strict=True) as m:
         for i, rpminfo in enumerate(rpms):
@@ -3093,6 +3192,55 @@ def handle_add_group_pkg(goptions, session, args):
         session.groupPackageListAdd(tag, group, pkg)
 
 
+def handle_remove_group_pkg(goptions, session, args):
+    "[admin] Remove packages from a group's package listing"
+    usage = "usage: %prog remove-group-pkg [options] <tag> <group> <pkg> [<pkg> ...]"
+    parser = OptionParser(usage=get_usage_str(usage))
+    (options, args) = parser.parse_args(args)
+    if len(args) < 3:
+        parser.error("You must specify a tag name, group name, and one or more package names")
+    tag = args[0]
+    group = args[1]
+    packages = args[2:]
+    activate_session(session, goptions)
+    taginfo = session.getTag(tag)
+    if taginfo is None:
+        error("No such tag: %s" % tag)
+
+    # sanity checks
+    groups = session.getTagGroups(taginfo['id'], incl_reqs=False, incl_blocked=True)
+    for ginfo in groups:
+        if ginfo['name'] == group:
+            break
+    else:
+        error("Group %s is not present in tag %s" % (group, tag))
+    pkg_idx = {p['package']: p for p in ginfo['packagelist']}
+    sane = True
+    for pkg in packages:
+        if pkg not in pkg_idx:
+            print("Package %s is not included in this group" % pkg)
+            sane = False
+            continue
+        pinfo = pkg_idx[pkg]
+        if pinfo['blocked']:
+            print("Package %s is blocked in this group. "
+                  "You could use unblock-group-pkg to unblock it" % pkg)
+            sane = False
+            continue
+        if pinfo['tag_id'] != taginfo['id']:
+            # listing is inherited
+            srctag = session.getTag(pinfo['tag_id'])
+            print("The entry for package %s is inherited from %s. "
+                  "You could use block-group-pkg to prevent this" % (pkg, srctag['name']))
+            sane = False
+            continue
+    if not sane:
+        error('Invalid parameters')
+
+    with session.multicall() as m:
+        [m.groupPackageListRemove(taginfo['id'], group, pkg) for pkg in packages]
+
+
 def handle_block_group_pkg(goptions, session, args):
     "[admin] Block a package from a group's package listing"
     usage = "usage: %prog block-group-pkg [options] <tag> <group> <pkg> [<pkg> ...]"
@@ -3163,6 +3311,55 @@ def handle_unblock_group_req(goptions, session, args):
     req = args[2]
     activate_session(session, goptions)
     session.groupReqListUnblock(tag, group, req)
+
+
+def handle_remove_group_req(goptions, session, args):
+    "[admin] Remove entries from a group's requirement listing"
+    usage = "usage: %prog remove-group-req [options] <tag> <group> <req> [<req> ...]"
+    parser = OptionParser(usage=get_usage_str(usage))
+    (options, args) = parser.parse_args(args)
+    if len(args) < 3:
+        parser.error("You must specify a tag name, group name, and one or more requirement names")
+    tag = args[0]
+    group = args[1]
+    requires = args[2:]
+    activate_session(session, goptions)
+    taginfo = session.getTag(tag)
+    if taginfo is None:
+        error("No such tag: %s" % tag)
+
+    # sanity checks
+    groups = session.getTagGroups(taginfo['id'], incl_pkgs=False, incl_blocked=True)
+    for ginfo in groups:
+        if ginfo['name'] == group:
+            break
+    else:
+        error("Group %s is not present in tag %s" % (group, tag))
+    req_idx = {r['name']: r for r in ginfo['grouplist']}
+    sane = True
+    for req in requires:
+        if req not in req_idx:
+            print("Req %s is not included in this group" % req)
+            sane = False
+            continue
+        rinfo = req_idx[req]
+        if rinfo['blocked']:
+            print("Req %s is blocked in this group. "
+                  "You could use unblock-group-req to unblock it" % req)
+            sane = False
+            continue
+        if rinfo['tag_id'] != taginfo['id']:
+            # listing is inherited
+            srctag = session.getTag(rinfo['tag_id'])
+            print("The entry for req %s is inherited from %s. "
+                  "You could use block-group-req to prevent this" % (req, srctag['name']))
+            sane = False
+            continue
+    if not sane:
+        error('Invalid parameters')
+
+    with session.multicall() as m:
+        [m.groupReqListRemove(taginfo['id'], group, req) for req in requires]
 
 
 def anon_handle_list_channels(goptions, session, args):
@@ -3666,7 +3863,21 @@ def anon_handle_rpminfo(goptions, session, args):
             print("SRPM Path: %s" % srpm_path)
             print("Built: %s" % time.strftime('%a, %d %b %Y %H:%M:%S %Z',
                                               time.localtime(info['buildtime'])))
-        print("SIGMD5: %(payloadhash)s" % info)
+        got_digest = False
+        for key in ('sigmd5', 'sha1header', 'sha256header', 'sha3_256header'):
+            # hubs before 1.36 will not report these fields
+            # old rpms in the system may have null values
+            digest = info.get(key)
+            if digest:
+                got_digest = True
+                print("%s: %s" % (key.upper(), digest))
+        if not got_digest:
+            if '::' in info['payloadhash']:
+                # shouldn't happen?
+                print("Legacy digest: %(payloadhash)s" % info)
+            else:
+                # compat case
+                print("SIGMD5: %(payloadhash)s" % info)
         print("Size: %(size)s" % info)
         if not info.get('external_repo_id', 0):
             headers = session.getRPMHeaders(rpmID=info['id'],
@@ -6891,6 +7102,8 @@ def anon_handle_download_build(options, session, args):
     parser.add_option("--task-id", action="store_true", help="Interperet id as a task id")
     parser.add_option("--rpm", action="store_true", help="Download the given rpm")
     parser.add_option("--key", help="Download rpms signed with the given key")
+    parser.add_option("--fallback-unsigned", action="store_true",
+                      help="When used with --key: download unsigned if signed packages not found")
     parser.add_option("--topurl", metavar="URL", default=options.topurl,
                       help="URL under which Koji files are accessible")
     parser.add_option("--noprogress", action="store_true", help="Do not display progress meter")
@@ -6973,6 +7186,7 @@ def anon_handle_download_build(options, session, args):
                 continue
             rpms.append(rpm)
 
+    unsigned = []
     if suboptions.key:
         with session.multicall() as m:
             results = [m.queryRPMSigs(rpm_id=r['id'], sigkey=suboptions.key) for r in rpms]
@@ -6982,14 +7196,33 @@ def anon_handle_download_build(options, session, args):
                 nvra = "%(nvr)s-%(arch)s.rpm" % rpm
                 warn("No such sigkey %s for rpm %s" % (suboptions.key, nvra))
                 rpms.remove(rpm)
+                if suboptions.fallback_unsigned:
+                    unsigned.append(rpm)
 
-    size = len(rpms) + len(archives)
+    size = len(rpms) + len(unsigned) + len(archives)
     number = 0
 
     # run the download
     for rpm in rpms:
         number += 1
-        download_rpm(info, rpm, suboptions.topurl, sigkey=suboptions.key, quiet=suboptions.quiet,
+        try:
+            download_rpm(info, rpm, suboptions.topurl, sigkey=suboptions.key,
+                         quiet=suboptions.quiet, noprogress=suboptions.noprogress, num=number,
+                         size=size)
+        except HTTPError as err:
+            # this is necessary even with the 'unsigned' handling above
+            # because sometimes queryRPMSigs will still tell us a
+            # package was signed with a given key, but the signed copy
+            # has been garbage-collected
+            if suboptions.key and suboptions.fallback_unsigned and err.response.status_code == 404:
+                warn("Signed copy not present, will download unsigned copy")
+                download_rpm(info, rpm, suboptions.topurl, sigkey=None, quiet=suboptions.quiet,
+                             noprogress=suboptions.noprogress, num=number, size=size)
+            else:
+                raise
+    for rpm in unsigned:
+        number += 1
+        download_rpm(info, rpm, suboptions.topurl, sigkey=None, quiet=suboptions.quiet,
                      noprogress=suboptions.noprogress, num=number, size=size)
     for archive in archives:
         number += 1
@@ -7107,25 +7340,31 @@ def anon_handle_download_logs(options, session, args):
                 save_logs(child_task['id'], match, task_log_dir, recurse)
 
     ensure_connection(session, options)
-    task_id = None
-    build_id = None
     for arg in args:
+        task_id = None
+        build_id = None
         if suboptions.nvr:
             suboptions.recurse = True
             binfo = session.getBuild(arg)
             if binfo is None:
                 error("There is no build with n-v-r: %s" % arg)
-            if binfo.get('task_id'):
-                task_id = binfo['task_id']
-                sys.stdout.write("Using task ID: %s\n" % task_id)
-            elif binfo.get('build_id'):
+            b_state = koji.BUILD_STATES[binfo['state']]
+            # getBuildLogs will only work for complete builds
+            if b_state == 'COMPLETE':
                 build_id = binfo['build_id']
                 sys.stdout.write("Using build ID: %s\n" % build_id)
+            elif binfo.get('task_id'):
+                # try falling back to the task logs
+                task_id = binfo['task_id']
+                sys.stdout.write("Build %s is %s\n" % (arg, b_state))
+                sys.stdout.write("Using task ID: %s\n" % task_id)
+            else:
+                sys.stdout.write("Unable to download build %s (state=%s)\n" % (arg, b_state))
         else:
             try:
                 task_id = int(arg)
             except ValueError:
-                error("Task id must be number: %r" % arg)
+                error("Task id must be a number: %r" % arg)
         if task_id:
             save_logs(task_id, suboptions.match, suboptions.dir, suboptions.recurse)
         elif build_id:
@@ -7735,6 +7974,8 @@ def handle_dist_repo(options, session, args):
     parser.add_option("--volume", help="Generate repo on given volume")
     parser.add_option('--non-latest', dest='latest', default=True,
                       action='store_false', help='Include older builds, not just the latest')
+    parser.add_option("--latest-n", type='int', metavar="N",
+                      help="Only include the latest N builds")
     parser.add_option('--multilib', default=None, metavar="CONFIG",
                       help='Include multilib packages in the repository using the given '
                            'config file')
@@ -7765,6 +8006,8 @@ def handle_dist_repo(options, session, args):
         parser.error('Please specify one or more GPG key IDs (or --allow-missing-signatures)')
     if task_opts.allow_missing_signatures and task_opts.skip_missing_signatures:
         parser.error('allow_missing_signatures and skip_missing_signatures are mutually exclusive')
+    if not task_opts.latest and task_opts.latest_n:
+        parser.error("Only --non-latest or --latest-n=N may be specified. Not both.")
     activate_session(session, options)
     stuffdir = unique_path('cli-dist-repo')
     if task_opts.comps:
@@ -7839,7 +8082,6 @@ def handle_dist_repo(options, session, args):
         'event': task_opts.event,
         'volume': task_opts.volume,
         'inherit': not task_opts.noinherit,
-        'latest': task_opts.latest,
         'multilib': task_opts.multilib,
         'split_debuginfo': task_opts.split_debuginfo,
         'skip_missing_signatures': task_opts.skip_missing_signatures,
@@ -7848,6 +8090,10 @@ def handle_dist_repo(options, session, args):
         'zck_dict_dir': task_opts.zck_dict_dir,
         'write_signed_rpms': task_opts.write_signed_rpms,
     }
+    if task_opts.latest_n:
+        opts['latest'] = task_opts.latest_n
+    else:
+        opts['latest'] = task_opts.latest
     if task_opts.skip_stat is not None:
         opts['createrepo_skip_stat'] = task_opts.skip_stat
     task_id = session.distRepo(tag, keys, **opts)

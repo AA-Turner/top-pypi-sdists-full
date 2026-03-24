@@ -22,17 +22,17 @@ try:
 except ImportError:  # pragma: NO COVER
     import mock
 
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +43,13 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,22 +58,18 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    options_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.dataplex_v1.services.business_glossary_service import (
     BusinessGlossaryServiceAsyncClient,
@@ -1015,10 +1017,9 @@ def test_business_glossary_service_client_get_mtls_endpoint_and_cert_source(
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1063,10 +1064,9 @@ def test_business_glossary_service_client_get_mtls_endpoint_and_cert_source(
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1102,10 +1102,9 @@ def test_business_glossary_service_client_get_mtls_endpoint_and_cert_source(
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -1365,9 +1364,7 @@ def test_business_glossary_service_client_create_channel_credentials_file(
         google.auth, "load_credentials_from_file", autospec=True
     ) as load_creds, mock.patch.object(
         google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    ) as adc, mock.patch.object(grpc_helpers, "create_channel") as create_channel:
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -4455,9 +4452,9 @@ def test_get_glossary_category_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_glossary_category
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_glossary_category] = (
+            mock_rpc
+        )
         request = {}
         client.get_glossary_category(request)
 
@@ -5372,9 +5369,9 @@ def test_create_glossary_term_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_glossary_term
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_glossary_term] = (
+            mock_rpc
+        )
         request = {}
         client.create_glossary_term(request)
 
@@ -5746,9 +5743,9 @@ def test_update_glossary_term_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_glossary_term
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_glossary_term] = (
+            mock_rpc
+        )
         request = {}
         client.update_glossary_term(request)
 
@@ -6103,9 +6100,9 @@ def test_delete_glossary_term_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_glossary_term
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_glossary_term] = (
+            mock_rpc
+        )
         request = {}
         client.delete_glossary_term(request)
 
@@ -6442,9 +6439,9 @@ def test_get_glossary_term_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_glossary_term
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_glossary_term] = (
+            mock_rpc
+        )
         request = {}
         client.get_glossary_term(request)
 
@@ -6800,9 +6797,9 @@ def test_list_glossary_terms_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_glossary_terms
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_glossary_terms] = (
+            mock_rpc
+        )
         request = {}
         client.list_glossary_terms(request)
 
@@ -8900,9 +8897,9 @@ def test_get_glossary_category_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_glossary_category
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_glossary_category] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_glossary_category(request)
@@ -9356,9 +9353,9 @@ def test_create_glossary_term_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_glossary_term
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_glossary_term] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_glossary_term(request)
@@ -9569,9 +9566,9 @@ def test_update_glossary_term_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_glossary_term
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_glossary_term] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_glossary_term(request)
@@ -9763,9 +9760,9 @@ def test_delete_glossary_term_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_glossary_term
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_glossary_term] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_glossary_term(request)
@@ -9940,9 +9937,9 @@ def test_get_glossary_term_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_glossary_term
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_glossary_term] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_glossary_term(request)
@@ -10124,9 +10121,9 @@ def test_list_glossary_terms_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_glossary_terms
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_glossary_terms] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_glossary_terms(request)
@@ -13867,6 +13864,192 @@ def test_list_locations_rest(request_type):
     assert isinstance(response, locations_pb2.ListLocationsResponse)
 
 
+def test_get_iam_policy_rest_bad_request(
+    request_type=iam_policy_pb2.GetIamPolicyRequest,
+):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"resource": "projects/sample1/locations/sample2/lakes/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with mock.patch.object(Session, "request") as req, pytest.raises(
+        core_exceptions.BadRequest
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_iam_policy(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.GetIamPolicyRequest,
+        dict,
+    ],
+)
+def test_get_iam_policy_rest(request_type):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"resource": "projects/sample1/locations/sample2/lakes/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = policy_pb2.Policy()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.get_iam_policy(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+
+def test_set_iam_policy_rest_bad_request(
+    request_type=iam_policy_pb2.SetIamPolicyRequest,
+):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"resource": "projects/sample1/locations/sample2/lakes/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with mock.patch.object(Session, "request") as req, pytest.raises(
+        core_exceptions.BadRequest
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.set_iam_policy(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.SetIamPolicyRequest,
+        dict,
+    ],
+)
+def test_set_iam_policy_rest(request_type):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"resource": "projects/sample1/locations/sample2/lakes/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = policy_pb2.Policy()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.set_iam_policy(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+
+def test_test_iam_permissions_rest_bad_request(
+    request_type=iam_policy_pb2.TestIamPermissionsRequest,
+):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type()
+    request = json_format.ParseDict(
+        {"resource": "projects/sample1/locations/sample2/lakes/sample3"}, request
+    )
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with mock.patch.object(Session, "request") as req, pytest.raises(
+        core_exceptions.BadRequest
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = Request()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.test_iam_permissions(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        iam_policy_pb2.TestIamPermissionsRequest,
+        dict,
+    ],
+)
+def test_test_iam_permissions_rest(request_type):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    request_init = {"resource": "projects/sample1/locations/sample2/lakes/sample3"}
+    request = request_type(**request_init)
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        response = client.test_iam_permissions(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, iam_policy_pb2.TestIamPermissionsResponse)
+
+
 def test_cancel_operation_rest_bad_request(
     request_type=operations_pb2.CancelOperationRequest,
 ):
@@ -14507,6 +14690,9 @@ def test_business_glossary_service_base_transport():
         "delete_glossary_term",
         "get_glossary_term",
         "list_glossary_terms",
+        "set_iam_policy",
+        "get_iam_policy",
+        "test_iam_permissions",
         "get_location",
         "list_locations",
         "get_operation",
@@ -16055,6 +16241,514 @@ async def test_get_location_from_dict_async():
         response = await client.get_location(
             request={
                 "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+def test_set_iam_policy(transport: str = "grpc"):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.SetIamPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy(
+            version=774,
+            etag=b"etag_blob",
+        )
+        response = client.set_iam_policy(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+    assert response.version == 774
+
+    assert response.etag == b"etag_blob"
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_async(transport: str = "grpc_asyncio"):
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.SetIamPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            policy_pb2.Policy(
+                version=774,
+                etag=b"etag_blob",
+            )
+        )
+        response = await client.set_iam_policy(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+    assert response.version == 774
+
+    assert response.etag == b"etag_blob"
+
+
+def test_set_iam_policy_field_headers():
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.SetIamPolicyRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        call.return_value = policy_pb2.Policy()
+
+        client.set_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_field_headers_async():
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.SetIamPolicyRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.set_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+def test_set_iam_policy_from_dict():
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        response = client.set_iam_policy(
+            request={
+                "resource": "resource_value",
+                "policy": policy_pb2.Policy(version=774),
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_from_dict_async():
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        response = await client.set_iam_policy(
+            request={
+                "resource": "resource_value",
+                "policy": policy_pb2.Policy(version=774),
+            }
+        )
+        call.assert_called()
+
+
+def test_get_iam_policy(transport: str = "grpc"):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.GetIamPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy(
+            version=774,
+            etag=b"etag_blob",
+        )
+
+        response = client.get_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+    assert response.version == 774
+
+    assert response.etag == b"etag_blob"
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_async(transport: str = "grpc_asyncio"):
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.GetIamPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            policy_pb2.Policy(
+                version=774,
+                etag=b"etag_blob",
+            )
+        )
+
+        response = await client.get_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, policy_pb2.Policy)
+
+    assert response.version == 774
+
+    assert response.etag == b"etag_blob"
+
+
+def test_get_iam_policy_field_headers():
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.GetIamPolicyRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        call.return_value = policy_pb2.Policy()
+
+        client.get_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_field_headers_async():
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.GetIamPolicyRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.get_iam_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+def test_get_iam_policy_from_dict():
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        response = client.get_iam_policy(
+            request={
+                "resource": "resource_value",
+                "options": options_pb2.GetPolicyOptions(requested_policy_version=2598),
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_from_dict_async():
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        response = await client.get_iam_policy(
+            request={
+                "resource": "resource_value",
+                "options": options_pb2.GetPolicyOptions(requested_policy_version=2598),
+            }
+        )
+        call.assert_called()
+
+
+def test_test_iam_permissions(transport: str = "grpc"):
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.TestIamPermissionsRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse(
+            permissions=["permissions_value"],
+        )
+
+        response = client.test_iam_permissions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, iam_policy_pb2.TestIamPermissionsResponse)
+
+    assert response.permissions == ["permissions_value"]
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_async(transport: str = "grpc_asyncio"):
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = iam_policy_pb2.TestIamPermissionsRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse(
+                permissions=["permissions_value"],
+            )
+        )
+
+        response = await client.test_iam_permissions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, iam_policy_pb2.TestIamPermissionsResponse)
+
+    assert response.permissions == ["permissions_value"]
+
+
+def test_test_iam_permissions_field_headers():
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.TestIamPermissionsRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        client.test_iam_permissions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_field_headers_async():
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = iam_policy_pb2.TestIamPermissionsRequest()
+    request.resource = "resource/value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        await client.test_iam_permissions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "resource=resource/value",
+    ) in kw["metadata"]
+
+
+def test_test_iam_permissions_from_dict():
+    client = BusinessGlossaryServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        response = client.test_iam_permissions(
+            request={
+                "resource": "resource_value",
+                "permissions": ["permissions_value"],
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_from_dict_async():
+    client = BusinessGlossaryServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        response = await client.test_iam_permissions(
+            request={
+                "resource": "resource_value",
+                "permissions": ["permissions_value"],
             }
         )
         call.assert_called()

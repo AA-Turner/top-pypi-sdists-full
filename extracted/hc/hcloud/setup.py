@@ -7,7 +7,7 @@ with open("README.md", encoding="utf-8") as readme_file:
 
 setup(
     name="hcloud",
-    version="2.17.0",  # x-releaser-pleaser-version
+    version="2.17.1",  # x-releaser-pleaser-version
     keywords="hcloud hetzner cloud",
     description="Official Hetzner Cloud python library",
     long_description=readme,
@@ -49,7 +49,7 @@ setup(
             "coverage>=7.13,<7.14",
             "pylint>=4,<4.1",
             "pytest>=9,<9.1",
-            "pytest-cov>=7,<7.1",
+            "pytest-cov>=7,<7.2",
             "mypy>=1.19,<1.20",
             "types-python-dateutil",
             "types-requests",

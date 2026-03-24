@@ -1,6 +1,6 @@
-from typing import Any, Iterable, Optional, Sequence, Type, Union
+from typing import Any, Iterable, Sequence, Type
 
-from fastembed.common.types import NumpyArray, OnnxProvider
+from fastembed.common.types import NumpyArray, OnnxProvider, Device
 from fastembed.common.onnx_model import OnnxOutputContext
 from fastembed.common.utils import define_cache_dir, normalize
 from fastembed.text.onnx_text_model import OnnxTextModel, TextEmbeddingWorker
@@ -199,14 +199,14 @@ class OnnxTextEmbedding(TextEmbeddingBase, OnnxTextModel[NumpyArray]):
     def __init__(
         self,
         model_name: str = "BAAI/bge-small-en-v1.5",
-        cache_dir: Optional[str] = None,
-        threads: Optional[int] = None,
-        providers: Optional[Sequence[OnnxProvider]] = None,
-        cuda: bool = False,
-        device_ids: Optional[list[int]] = None,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        providers: Sequence[OnnxProvider] | None = None,
+        cuda: bool | Device = Device.AUTO,
+        device_ids: list[int] | None = None,
         lazy_load: bool = False,
-        device_id: Optional[int] = None,
-        specific_model_path: Optional[str] = None,
+        device_id: int | None = None,
+        specific_model_path: str | None = None,
         **kwargs: Any,
     ):
         """
@@ -218,10 +218,11 @@ class OnnxTextEmbedding(TextEmbeddingBase, OnnxTextModel[NumpyArray]):
             threads (int, optional): The number of threads single onnxruntime session can use. Defaults to None.
             providers (Optional[Sequence[OnnxProvider]], optional): The list of onnxruntime providers to use.
                 Mutually exclusive with the `cuda` and `device_ids` arguments. Defaults to None.
-            cuda (bool, optional): Whether to use cuda for inference. Mutually exclusive with `providers`
-                Defaults to False.
+            cuda (Union[bool, Device], optional): Whether to use cuda for inference. Mutually exclusive with `providers`
+                Defaults to Device.AUTO.
             device_ids (Optional[list[int]], optional): The list of device ids to use for data parallel processing in
-                workers. Should be used with `cuda=True`, mutually exclusive with `providers`. Defaults to None.
+                workers. Should be used with `cuda` equals to `True`, `Device.AUTO` or `Device.CUDA`, mutually exclusive
+                with `providers`. Defaults to None.
             lazy_load (bool, optional): Whether to load the model during class initialization or on demand.
                 Should be set to True when using multiple-gpu and parallel encoding. Defaults to False.
             device_id (Optional[int], optional): The device id to use for loading the model in the worker process.
@@ -239,7 +240,7 @@ class OnnxTextEmbedding(TextEmbeddingBase, OnnxTextModel[NumpyArray]):
         self.cuda = cuda
 
         # This device_id will be used if we need to load model in current process
-        self.device_id: Optional[int] = None
+        self.device_id: int | None = None
         if device_id is not None:
             self.device_id = device_id
         elif self.device_ids is not None:
@@ -260,9 +261,9 @@ class OnnxTextEmbedding(TextEmbeddingBase, OnnxTextModel[NumpyArray]):
 
     def embed(
         self,
-        documents: Union[str, Iterable[str]],
+        documents: str | Iterable[str],
         batch_size: int = 256,
-        parallel: Optional[int] = None,
+        parallel: int | None = None,
         **kwargs: Any,
     ) -> Iterable[NumpyArray]:
         """
@@ -332,7 +333,7 @@ class OnnxTextEmbedding(TextEmbeddingBase, OnnxTextModel[NumpyArray]):
         )
 
     def token_count(
-        self, texts: Union[str, Iterable[str]], batch_size: int = 1024, **kwargs: Any
+        self, texts: str | Iterable[str], batch_size: int = 1024, **kwargs: Any
     ) -> int:
         return self._token_count(texts, batch_size=batch_size, **kwargs)
 

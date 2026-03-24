@@ -5,13 +5,13 @@ from pathlib import Path
 from typing import TypedDict
 
 import localstack.services.cloudformation.provider_utils as util
+from localstack.services.cloudformation.models import get_cloudformation_store
 from localstack.services.cloudformation.resource_provider import (
     OperationStatus,
     ProgressEvent,
     ResourceProvider,
     ResourceRequest,
 )
-from localstack.services.cloudformation.stores import get_cloudformation_store
 
 
 class CloudFormationMacroProperties(TypedDict):

@@ -31,6 +31,18 @@ _SUFFIX_FOR_TYPE: dict[str, str] = {
     'Double': '#', 'Currency': '@', 'String': '$',
 }
 
+_PROC_OPEN = re.compile(
+    r'^\s*(?:'
+    r'(?:(?:Public|Private|Friend)\s+)?'
+    r'(?:Static\s+)?'
+    r'(?:Sub|Function|Property\s+(?:Get|Let|Set)))\b',
+    re.IGNORECASE,
+)
+_PROC_CLOSE = re.compile(
+    r'^\s*End\s+(?:Sub|Function|Property)\b',
+    re.IGNORECASE,
+)
+
 
 class PCodeDecompilerError(Exception):
     """
@@ -134,6 +146,56 @@ _UNARY_FNS: dict[str, str] = {
     'FnMidB$': 'MidB$',
 }
 
+_VBA_CONTROL_CHARS = {
+    '\r\n' : 'vbCrLf',
+    '\r'   : 'vbCr',
+    '\n'   : 'vbLf',
+    '\0'   : 'vbNullChar',
+    '\t'   : 'vbTab',
+    '\b'   : 'vbBack',
+    '\f'   : 'vbFormFeed',
+    '\v'   : 'vbVerticalTab',
+}
+
+
+def vba_string_literal(value: str) -> str:
+    """
+    Convert a string into a valid VBA string literal, separating out control sequences as
+    separately concatenated parts.
+    """
+    concat: list[str] = []
+    buffer = io.StringIO()
+
+    def commit():
+        if buffer.tell() <= 0:
+            return
+        concat.append(F'"{buffer.getvalue()}"')
+        buffer.seek(0)
+        buffer.truncate(0)
+
+    i = 0
+    n = len(value)
+
+    while i < n:
+        for seq, name in _VBA_CONTROL_CHARS.items():
+            if value[i:i + len(seq)] == seq:
+                commit()
+                concat.append(name)
+                i += len(seq)
+                break
+        else:
+            if (ch := value[i]) == '"':
+                ch = '""'
+            buffer.write(ch)
+            i += 1
+
+    commit()
+
+    if not concat:
+        return '""'
+
+    return ' & '.join(concat)
+
 
 class VBADecompiler:
     """
@@ -191,10 +253,11 @@ class VBADecompiler:
         self.indent_increase_pending: bool = False
         self.has_bos: bool = False
         self.one_line_if: int = 0
-        self.unindented: int = 0
         self.has_structural_prefix: bool = False
+        self._lbif_indent_stack: list[int] = []
         self._enum_lines: set[int] = set()
         self._current_line: int = 0
+        self._loop_depth: int = 0
         self._dispatch_overrides: dict[str, Callable] = {}
         self._dispatch_overrides['FnCurDir$'] = lambda: self._stack.push('CurDir$')
         self._dispatch_overrides['FnError$'] = lambda: self._stack.push('Error$')
@@ -729,6 +792,7 @@ class VBADecompiler:
     def _op_do(self) -> None:
         self._stack.push('Do')
         self.indent_increase_pending = True
+        self._loop_depth += 1
 
     def _op_doevents(self, *args: str) -> None:
         self._stack.push('DoEvents')
@@ -736,10 +800,12 @@ class VBADecompiler:
     def _op_dounitil(self) -> None:
         self._stack.push(F'Do Until {self._stack.pop()}')
         self.indent_increase_pending = True
+        self._loop_depth += 1
 
     def _op_dowhile(self) -> None:
         self._stack.push(F'Do While {self._stack.pop()}')
         self.indent_increase_pending = True
+        self._loop_depth += 1
 
     def _op_else(self) -> None:
         self._stack.push('Else')
@@ -771,7 +837,8 @@ class VBADecompiler:
 
     def _op_endfunc(self) -> None:
         self._stack.push('End Function')
-        self.indent_level -= 1
+        self.indent_level = max(self.indent_level - 1, 0)
+        self._loop_depth = 0
 
     def _op_endif(self) -> None:
         if self.one_line_if > 0:
@@ -789,7 +856,8 @@ class VBADecompiler:
 
     def _op_endprop(self) -> None:
         self._stack.push('End Property')
-        self.indent_level -= 1
+        self.indent_level = max(self.indent_level - 1, 0)
+        self._loop_depth = 0
 
     def _op_endselect(self) -> None:
         self._stack.push('End Select')
@@ -797,7 +865,8 @@ class VBADecompiler:
 
     def _op_endsub(self) -> None:
         self._stack.push('End Sub')
-        self.indent_level -= 1
+        self.indent_level = max(self.indent_level - 1, 0)
+        self._loop_depth = 0
 
     def _op_endtype(self) -> None:
         self._stack.push('End Type')
@@ -986,18 +1055,21 @@ class VBADecompiler:
         loopvar = self._stack.pop()
         self._stack.push(F'For {loopvar} = {minvar} To {maxvar}')
         self.indent_increase_pending = True
+        self._loop_depth += 1
 
     def _op_foreach(self) -> None:
         collect = self._stack.pop()
         loopvar = self._stack.pop()
         self._stack.push(F'For Each {loopvar} In {collect}')
         self.indent_increase_pending = True
+        self._loop_depth += 1
 
     def _op_foreachas(self, type_name: str) -> None:
         collect = self._stack.pop()
         loopvar = self._stack.pop()
         self._stack.push(F'For Each {loopvar} In {collect}')
         self.indent_increase_pending = True
+        self._loop_depth += 1
 
     def _op_forstep(self) -> None:
         step = self._stack.pop()
@@ -1008,6 +1080,7 @@ class VBADecompiler:
             F'For {loopvar} = {minvar} To {maxvar}'
             F' Step {step}')
         self.indent_increase_pending = True
+        self._loop_depth += 1
 
     @staticmethod
     def _render_arg(arg: ArgInfo) -> str:
@@ -1025,7 +1098,10 @@ class VBADecompiler:
         if as_clause:
             parts.append(as_clause)
         if arg.default_value is not None:
-            parts.append(F'= {arg.default_value}')
+            dv = arg.default_value
+            if len(dv) >= 2 and dv[0] == '"' and dv[-1] == '"':
+                dv = vba_string_literal(dv[1:-1])
+            parts.append(F'= {dv}')
         return ' '.join(parts)
 
     @staticmethod
@@ -1069,6 +1145,7 @@ class VBADecompiler:
         self._stack.push(val)
         if not func.is_declare:
             self.indent_increase_pending = True
+        self._loop_depth = 0
 
     def _op_funcdefnsave(self, func: FuncInfo) -> None:
         val = self._render_func(func)
@@ -1076,6 +1153,7 @@ class VBADecompiler:
         self._stack.push(val)
         if not func.is_declare:
             self.indent_increase_pending = True
+        self._loop_depth = 0
 
     def _patch_optional_defaults(self, decl: str) -> str:
         paren_open = decl.find('(')
@@ -1343,8 +1421,7 @@ class VBADecompiler:
         val = ' '.join(args)
         if len(val) >= 2:
             val = val[1:-1]
-            val = val.replace('"', '""')
-            val = F'"{val}"'
+            val = vba_string_literal(val)
         self._stack.push(val)
 
     def _op_litvarspecial(self, var: str) -> None:
@@ -1355,15 +1432,21 @@ class VBADecompiler:
 
     def _op_loop(self) -> None:
         self._stack.push('Loop')
-        self.indent_level -= 1
+        if self._loop_depth > 0:
+            self._loop_depth -= 1
+            self.indent_level -= 1
 
     def _op_loopuntil(self) -> None:
         self._stack.push(F'Loop Until {self._stack.pop()}')
-        self.indent_level -= 1
+        if self._loop_depth > 0:
+            self._loop_depth -= 1
+            self.indent_level -= 1
 
     def _op_loopwhile(self) -> None:
         self._stack.push(F'Loop While {self._stack.pop()}')
-        self.indent_level -= 1
+        if self._loop_depth > 0:
+            self._loop_depth -= 1
+            self.indent_level -= 1
 
     def _op_lset(self) -> None:
         var = self._stack.pop()
@@ -1416,7 +1499,9 @@ class VBADecompiler:
 
     def _op_next(self) -> None:
         self._stack.push('Next')
-        self.indent_level -= 1
+        if self._loop_depth > 0:
+            self._loop_depth -= 1
+            self.indent_level -= 1
         self.indent_increase_pending = False
 
     def _op_nextvar(self) -> None:
@@ -1424,9 +1509,14 @@ class VBADecompiler:
         if self._stack.size() > 0 and self._stack.top().startswith('Next '):
             prev = self._stack.pop()
             self._stack.push(F'{prev}, {var}')
+            if self._loop_depth > 0:
+                self._loop_depth -= 1
+                self.indent_level -= 1
         else:
             self._stack.push(F'Next {var}')
-        self.indent_level -= 1
+            if self._loop_depth > 0:
+                self._loop_depth -= 1
+                self.indent_level -= 1
 
     def _op_onerror(self, *args: OpcodeArg) -> None:
         first = str(args[0]) if args else ''
@@ -1567,14 +1657,20 @@ class VBADecompiler:
         val = args[1][1:]
         for a in args[2:]:
             val += F' {a}'
-        val = val[:-1]
+        val = val[:-1].lstrip()
+        if _PROC_OPEN.match(val):
+            self.indent_increase_pending = True
+            self._loop_depth = 0
+        elif _PROC_CLOSE.match(val):
+            self.indent_level = max(self.indent_level - 1, 0)
+            self._loop_depth = 0
         self._stack.push(val)
 
     def _op_rem(self, length: str, quoted: str) -> None:
         self._stack.push(F'Rem {quoted[1:-1]}')
 
     def _op_resume(self, *args: str) -> None:
-        if not args:
+        if not args or not args[0]:
             self._stack.push('Resume')
         elif args[0] == '(Next)':
             self._stack.push('Resume Next')
@@ -1735,11 +1831,14 @@ class VBADecompiler:
 
     def _op_wend(self) -> None:
         self._stack.push('Wend')
-        self.indent_level -= 1
+        if self._loop_depth > 0:
+            self._loop_depth -= 1
+            self.indent_level -= 1
 
     def _op_while(self) -> None:
         self._stack.push(F'While {self._stack.pop()}')
         self.indent_increase_pending = True
+        self._loop_depth += 1
 
     def _op_with(self) -> None:
         self._stack.push(F'With {self._stack.pop()}')
@@ -1755,24 +1854,33 @@ class VBADecompiler:
         self._stack.push(F'#Const {var} = {self._stack.pop()}')
 
     def _op_lbif(self) -> None:
+        self._lbif_indent_stack.append(self.indent_level)
         self._stack.push(F'#If {self._stack.pop()} Then')
         self.indent_increase_pending = True
 
     def _op_lbelse(self) -> None:
         self._stack.push('#Else')
-        self.indent_level -= 1
+        if self._lbif_indent_stack:
+            self.indent_level = self._lbif_indent_stack[-1]
+        else:
+            self.indent_level -= 1
         self.indent_increase_pending = True
         self.has_structural_prefix = True
 
     def _op_lbelseif(self) -> None:
         self._stack.push(F'#ElseIf {self._stack.pop()} Then')
-        self.indent_level -= 1
+        if self._lbif_indent_stack:
+            self.indent_level = self._lbif_indent_stack[-1]
+        else:
+            self.indent_level -= 1
         self.indent_increase_pending = True
         self.has_structural_prefix = True
 
     def _op_lbendif(self) -> None:
         self._stack.push('#End If')
         self.indent_level -= 1
+        if self._lbif_indent_stack:
+            self._lbif_indent_stack.pop()
 
     def _op_lbmark(self) -> None:
         pass
@@ -1831,9 +1939,7 @@ class VBADecompiler:
         """
         Called after a line is fully processed to apply any pending indent level change.
         """
-        if self.unindented > 0:
-            self.unindented -= 1
-        elif self.indent_increase_pending:
+        if self.indent_increase_pending:
             self.indent_level += 1
         self.indent_increase_pending = False
 
@@ -1915,7 +2021,6 @@ class PCodeParser:
 
         enum_type_lines: set[int] = set()
         _type_stack: list[int] = []
-        unindented = 0
         for i, pcode_line in enumerate(pcode_lines):
             for mnemonic, _args in pcode_line.opcodes:
                 if mnemonic == 'Type':
@@ -1924,12 +2029,7 @@ class PCodeParser:
                     enum_type_lines.add(_type_stack.pop())
                 elif mnemonic == 'EndType' and _type_stack:
                     _type_stack.pop()
-                if mnemonic == 'FuncDefn':
-                    unindented += 1
-                if mnemonic in ('EndFunc', 'EndSub'):
-                    unindented -= 1
         dc._enum_lines = enum_type_lines
-        dc.unindented = unindented
 
         for linenum, pcode_line in enumerate(pcode_lines):
             dc._current_line = linenum
@@ -1938,15 +2038,18 @@ class PCodeParser:
             try:
                 self._stack.clear()
                 dc.has_structural_prefix = False
-                bos_segments: list[list[str]] = []
+                bos_segments: list[tuple[list[str], int]] = []
+                seg_indent_level = dc.indent_level
                 for mnemonic, op_args in pcode_line.opcodes:
                     if mnemonic == 'BoS' and self._stack.size() > 0:
                         segment: list[str] = []
                         while self._stack.size() > 0:
                             segment.append(self._stack.pop())
                         segment.reverse()
-                        bos_segments.append(segment)
+                        bos_segments.append((segment, seg_indent_level))
                         dc.has_bos = True
+                        dc.apply_pending_indent()
+                        seg_indent_level = dc.indent_level
                     else:
                         dc.execute(mnemonic, *op_args)
 
@@ -1955,15 +2058,18 @@ class PCodeParser:
                     while self._stack.size() > 0:
                         trailing.append(self._stack.pop())
                     trailing.reverse()
-                    indent = dc.indent_level * '  '
-                    self._add_line(indent, linenum, print_linenum, False)
                     all_segments = list(bos_segments)
                     if trailing:
-                        all_segments.append(trailing)
-                    for k, segment in enumerate(all_segments):
+                        all_segments.append((trailing, seg_indent_level))
+                    first_part = True
+                    for k, (segment, seg_level) in enumerate(all_segments):
                         last_segment = k == len(all_segments) - 1
+                        indent = seg_level * '  '
                         for j, part in enumerate(segment):
                             end_of_segment = j == len(segment) - 1
+                            if first_part:
+                                part = F'{indent}{part}'
+                                first_part = False
                             if last_segment and end_of_segment:
                                 self._add_line(part, linenum)
                             elif end_of_segment and not last_segment:
@@ -1982,7 +2088,7 @@ class PCodeParser:
                             if dc.indent_increase_pending:
                                 dc.apply_pending_indent()
                                 indent = dc.indent_level * '  '
-                    else:
+                    elif self._stack.size() > 0:
                         self._add_line(
                             F'{indent}{self._stack.top()}',
                             linenum, print_linenum)

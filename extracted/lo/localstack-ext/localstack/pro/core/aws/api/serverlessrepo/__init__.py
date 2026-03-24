@@ -595,28 +595,18 @@ class ServerlessrepoApi:
         :param description: The description of the application.
         :param name: The name of the application that you want to publish.
         :param author: The name of the author publishing the app.
-        :param home_page_url: A URL with more information about the application, for example the
-        location of your GitHub repository for the application.
+        :param home_page_url: A URL with more information about the application, for example the location of your GitHub repository for the application.
         :param labels: Labels to improve discovery of apps in search results.
-        :param license_body: A local text file that contains the license of the app that matches the
-        spdxLicenseID value of your application.
-        :param license_url: A link to the S3 object that contains the license of the app that
-        matches the spdxLicenseID value of your application.
-        :param readme_body: A local text readme file in Markdown language that contains a more
-        detailed description of the application and how it works.
-        :param readme_url: A link to the S3 object in Markdown language that contains a more
-        detailed description of the application and how it works.
-        :param semantic_version: The semantic version of the application:
-
-        https://semver.
-        :param source_code_archive_url: A link to the S3 object that contains the ZIP archive of the source code
-        for this version of your application.
-        :param source_code_url: A link to a public repository for the source code of your application,
-        for example the URL of a specific GitHub commit.
+        :param license_body: A local text file that contains the license of the app that matches the spdxLicenseID value of your application.
+        :param license_url: A link to the S3 object that contains the license of the app that matches the spdxLicenseID value of your application.
+        :param readme_body: A local text readme file in Markdown language that contains a more detailed description of the application and how it works.
+        :param readme_url: A link to the S3 object in Markdown language that contains a more detailed description of the application and how it works.
+        :param semantic_version: The semantic version of the application:  https://semver.
+        :param source_code_archive_url: A link to the S3 object that contains the ZIP archive of the source code for this version of your application.
+        :param source_code_url: A link to a public repository for the source code of your application, for example the URL of a specific GitHub commit.
         :param spdx_license_id: A valid identifier from https://spdx.
         :param template_body: The local raw packaged AWS SAM template file of your application.
-        :param template_url: A link to the S3 object containing the packaged AWS SAM template of your
-        application.
+        :param template_url: A link to the S3 object containing the packaged AWS SAM template of your application.
         :returns: CreateApplicationResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -642,10 +632,8 @@ class ServerlessrepoApi:
 
         :param application_id: The Amazon Resource Name (ARN) of the application.
         :param semantic_version: The semantic version of the new version.
-        :param source_code_archive_url: A link to the S3 object that contains the ZIP archive of the source code
-        for this version of your application.
-        :param source_code_url: A link to a public repository for the source code of your application,
-        for example the URL of a specific GitHub commit.
+        :param source_code_archive_url: A link to the S3 object that contains the ZIP archive of the source code for this version of your application.
+        :param source_code_url: A link to a public repository for the source code of your application, for example the URL of a specific GitHub commit.
         :param template_body: The raw packaged AWS SAM template of your application.
         :param template_url: A link to the packaged AWS SAM template of your application.
         :returns: CreateApplicationVersionResponse
@@ -679,28 +667,17 @@ class ServerlessrepoApi:
         """Creates an AWS CloudFormation change set for the given application.
 
         :param application_id: The Amazon Resource Name (ARN) of the application.
-        :param stack_name: This property corresponds to the parameter of the same name for the *AWS
-        CloudFormation* `CreateChangeSet <https://docs.
-        :param capabilities: A list of values that you must specify before you can deploy certain
-        applications.
-        :param change_set_name: This property corresponds to the parameter of the same name for the *AWS
-        CloudFormation* `CreateChangeSet <https://docs.
-        :param client_token: This property corresponds to the parameter of the same name for the *AWS
-        CloudFormation* `CreateChangeSet <https://docs.
-        :param description: This property corresponds to the parameter of the same name for the *AWS
-        CloudFormation* `CreateChangeSet <https://docs.
-        :param notification_arns: This property corresponds to the parameter of the same name for the *AWS
-        CloudFormation* `CreateChangeSet <https://docs.
+        :param stack_name: This property corresponds to the parameter of the same name for the *AWS CloudFormation* `CreateChangeSet <https://docs.
+        :param capabilities: A list of values that you must specify before you can deploy certain applications.
+        :param change_set_name: This property corresponds to the parameter of the same name for the *AWS CloudFormation* `CreateChangeSet <https://docs.
+        :param client_token: This property corresponds to the parameter of the same name for the *AWS CloudFormation* `CreateChangeSet <https://docs.
+        :param description: This property corresponds to the parameter of the same name for the *AWS CloudFormation* `CreateChangeSet <https://docs.
+        :param notification_arns: This property corresponds to the parameter of the same name for the *AWS CloudFormation* `CreateChangeSet <https://docs.
         :param parameter_overrides: A list of parameter values for the parameters of the application.
-        :param resource_types: This property corresponds to the parameter of the same name for the *AWS
-        CloudFormation* `CreateChangeSet <https://docs.
-        :param rollback_configuration: This property corresponds to the parameter of the same name for the *AWS
-        CloudFormation* `CreateChangeSet <https://docs.
-        :param semantic_version: The semantic version of the application:
-
-        https://semver.
-        :param tags: This property corresponds to the parameter of the same name for the *AWS
-        CloudFormation* `CreateChangeSet <https://docs.
+        :param resource_types: This property corresponds to the parameter of the same name for the *AWS CloudFormation* `CreateChangeSet <https://docs.
+        :param rollback_configuration: This property corresponds to the parameter of the same name for the *AWS CloudFormation* `CreateChangeSet <https://docs.
+        :param semantic_version: The semantic version of the application:  https://semver.
+        :param tags: This property corresponds to the parameter of the same name for the *AWS CloudFormation* `CreateChangeSet <https://docs.
         :param template_id: The UUID returned by CreateCloudFormationTemplate.
         :returns: CreateCloudFormationChangeSetResponse
         :raises TooManyRequestsException:
@@ -721,9 +698,7 @@ class ServerlessrepoApi:
         """Creates an AWS CloudFormation template.
 
         :param application_id: The Amazon Resource Name (ARN) of the application.
-        :param semantic_version: The semantic version of the application:
-
-        https://semver.
+        :param semantic_version: The semantic version of the application:  https://semver.
         :returns: CreateCloudFormationTemplateResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -932,13 +907,10 @@ class ServerlessrepoApi:
         :param application_id: The Amazon Resource Name (ARN) of the application.
         :param author: The name of the author publishing the app.
         :param description: The description of the application.
-        :param home_page_url: A URL with more information about the application, for example the
-        location of your GitHub repository for the application.
+        :param home_page_url: A URL with more information about the application, for example the location of your GitHub repository for the application.
         :param labels: Labels to improve discovery of apps in search results.
-        :param readme_body: A text readme file in Markdown language that contains a more detailed
-        description of the application and how it works.
-        :param readme_url: A link to the readme file in Markdown language that contains a more
-        detailed description of the application and how it works.
+        :param readme_body: A text readme file in Markdown language that contains a more detailed description of the application and how it works.
+        :param readme_url: A link to the readme file in Markdown language that contains a more detailed description of the application and how it works.
         :returns: UpdateApplicationResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:

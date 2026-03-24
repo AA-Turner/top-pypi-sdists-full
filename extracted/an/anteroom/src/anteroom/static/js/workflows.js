@@ -9,6 +9,9 @@ const Workflows = (() => {
     let _statusFilter = '';
     let _workflowEventSource = null;
     let _refreshTimer = null;
+    let _lastOutputEventId = 0;
+    let _transcriptVisible = true;
+    const _MAX_TRANSCRIPT_LINES = 200;
 
     function _escapeHtml(str) {
         const div = document.createElement('div');
@@ -189,6 +192,7 @@ const Workflows = (() => {
             `;
         }).join('');
 
+        const transcriptDisplay = _transcriptVisible ? '' : 'display:none';
         container.innerHTML = `
             <div class="wf-detail-header">
                 <button class="wf-back-btn" id="wf-back-btn">&larr; Back</button>
@@ -200,6 +204,7 @@ const Workflows = (() => {
                 ${run.completed_at ? `<div>Completed: ${_relativeTime(run.completed_at)}</div>` : ''}
             </div>
             <div class="wf-step-timeline">${stepsHtml || '<div class="wf-empty">No steps yet.</div>'}</div>
+            <div id="workflow-transcript"></div>
         `;
 
         const backBtn = document.getElementById('wf-back-btn');
@@ -209,15 +214,97 @@ const Workflows = (() => {
                 _refreshRunsList();
             });
         }
+
+
+        _renderTranscript(run.id);
+    }
+
+    async function _renderTranscript(runId) {
+        const container = document.getElementById('workflow-transcript');
+        if (!container) return;
+
+        try {
+            const events = await App.api('/api/workflow-runs/' + encodeURIComponent(runId) + '/events?event_type=transcript');
+            if (!events || events.length === 0) {
+                container.innerHTML = '<div class="wf-transcript-empty">No transcript data.</div>';
+                return;
+            }
+
+            let html = '';
+            let currentStep = null;
+            for (const event of events) {
+                if (event.step_id !== currentStep) {
+                    currentStep = event.step_id;
+                    html += '<div class="wf-transcript-step-header">' + _escapeHtml(currentStep || 'run') + '</div>';
+                }
+                html += _renderTranscriptEntry(event);
+            }
+            container.innerHTML = html;
+        } catch (e) {
+            container.innerHTML = '<div class="wf-transcript-empty">Failed to load transcript.</div>';
+        }
+    }
+
+    function _renderTranscriptEntry(event) {
+        const payload = event.payload || {};
+        const etype = event.event_type || '';
+
+        if (etype === 'transcript_assistant') {
+            const content = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(payload.content || '') : _escapeHtml(payload.content || '');
+            return '<div class="message assistant wf-transcript-entry"><div class="message-content">' + content + '</div></div>';
+        }
+        if (etype === 'transcript_tool_call') {
+            const name = _escapeHtml(payload.tool_name || '');
+            const args = _escapeHtml(typeof payload.arguments === 'string' ? payload.arguments : JSON.stringify(payload.arguments || {}));
+            return '<div class="message tool-call wf-transcript-entry"><div class="tool-name">' + name + '</div><pre class="tool-args">' + args + '</pre></div>';
+        }
+        if (etype === 'transcript_tool_result') {
+            const name = _escapeHtml(payload.tool_name || '');
+            const output = _escapeHtml(payload.output || '');
+            const status = _escapeHtml(payload.status || '');
+            return '<div class="message tool-result wf-transcript-entry"><div class="tool-name">' + name + ' &mdash; ' + status + '</div><pre class="tool-output">' + output + '</pre></div>';
+        }
+        if (etype === 'transcript_stdout') {
+            return '<div class="wf-transcript-stdout"><pre>' + _escapeHtml(payload.content || '') + '</pre></div>';
+        }
+        if (etype === 'transcript_stderr') {
+            return '<div class="wf-transcript-stderr"><pre>' + _escapeHtml(payload.content || '') + '</pre></div>';
+        }
+        if (etype === 'transcript_usage') {
+            const tokens = (payload.total_tokens || 0).toLocaleString();
+            return '<div class="wf-transcript-usage">' + tokens + ' tokens</div>';
+        }
+        return '';
     }
 
     function _openDetailEventSource(runId) {
         _closeDetailEventSource();
+        _lastOutputEventId = 0;
         const db = (typeof App !== 'undefined' && App.state) ? (App.state.currentDatabase || 'personal') : 'personal';
         const url = `/api/events?db=${encodeURIComponent(db)}&workflow_run_id=${encodeURIComponent(runId)}`;
         _workflowEventSource = new EventSource(url);
-        _workflowEventSource.onmessage = () => {
-            if (_currentRunId === runId) _loadRunDetail(runId);
+        _workflowEventSource.onmessage = (event) => {
+            if (_currentRunId !== runId) return;
+            try {
+                const data = JSON.parse(event.data);
+                if (data.event_type && data.event_type.startsWith('transcript_')) {
+                    const payload = data.payload || {};
+                    const stream = data.event_type === 'transcript_stderr' ? 'stderr'
+                        : (data.event_type === 'transcript_tool_call' || data.event_type === 'transcript_tool_result') ? 'tool'
+                        : 'stdout';
+                    _appendTranscriptLine(stream, payload.content || '', data.created_at || '');
+                } else if (data.event_type === 'step_started') {
+                    _appendTranscriptSeparator(`${data.step_id || '?'} started`);
+                    _loadRunDetail(runId); // Refresh step timeline
+                } else if (data.event_type === 'step_finished' || data.event_type === 'step_failed') {
+                    _appendTranscriptSeparator(`${data.step_id || '?'} ${data.event_type === 'step_finished' ? 'finished' : 'failed'}`);
+                    _loadRunDetail(runId);
+                } else {
+                    _loadRunDetail(runId); // Other lifecycle events: refresh
+                }
+            } catch (e) {
+                _loadRunDetail(runId); // Parse error: fall back to full refresh
+            }
         };
         _workflowEventSource.onerror = () => {
             _closeDetailEventSource();

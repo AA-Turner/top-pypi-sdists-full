@@ -7,11 +7,13 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from math import ceil
+from typing import TYPE_CHECKING
 
 from botocore.config import Config
 
 from localstack import config
 from localstack.aws.api.lambda_ import InvocationType, TooManyRequestsException
+from localstack.aws.connect import MetadataRequestInjector, connect_to
 from localstack.services.lambda_.analytics import (
     FunctionInitializationType,
     FunctionOperation,
@@ -23,7 +25,6 @@ from localstack.services.lambda_.invocation.lambda_models import (
     EventInvokeConfig,
     FunctionVersion,
     Invocation,
-    InvocationResult,
 )
 from localstack.services.lambda_.invocation.version_manager import LambdaVersionManager
 from localstack.utils.aws import dead_letter_queue
@@ -33,19 +34,15 @@ from localstack.utils.threads import FuncThread
 from localstack.utils.time import timestamp_millis
 from localstack.utils.xray.trace_header import TraceHeader
 
+if TYPE_CHECKING:
+    from mypy_boto3_lambda import LambdaClient
+
+
 LOG = logging.getLogger(__name__)
 
 
 def get_sqs_client(function_version: FunctionVersion, client_config=None):
     return get_fake_sqs_client()
-
-
-# TODO: remove once DLQ handling is refactored following the removal of the legacy lambda provider
-class LegacyInvocationException(Exception):
-    def __init__(self, message, log_output=None, result=None):
-        super().__init__(message)
-        self.log_output = log_output
-        self.result = result
 
 
 @dataclasses.dataclass
@@ -119,7 +116,6 @@ def has_enough_time_for_retry(
     )
 
 
-# TODO: optimize this client configuration. Do we need to consider client caching here?
 CLIENT_CONFIG = Config(
     connect_timeout=5,
     read_timeout=10,
@@ -132,6 +128,7 @@ class Poller:
     event_queue_url: str
     _shutdown_event: threading.Event
     invoker_pool: ThreadPoolExecutor
+    lambda_client: "LambdaClient | MetadataRequestInjector[LambdaClient]"
 
     def __init__(self, version_manager: LambdaVersionManager, event_queue_url: str):
         self.version_manager = version_manager
@@ -142,6 +139,10 @@ class Poller:
         self.invoker_pool = ThreadPoolExecutor(
             thread_name_prefix=f"lambda-invoker-{function_id.function_name}:{function_id.qualifier}"
         )
+        # Root client for LocalStack-internal requests bypassing IAM enforcement
+        self.lambda_client = connect_to(
+            aws_access_key_id=function_id.account, region_name=function_id.region
+        ).lambda_
 
     def run(self, *args, **kwargs):
         sqs_client = get_sqs_client(
@@ -153,7 +154,7 @@ class Poller:
                 response = sqs_client.receive_message(
                     QueueUrl=self.event_queue_url,
                     # TODO: consider replacing with short polling instead of long polling to prevent keeping connections open
-                    # however, we had some serious performance issues when tried out, so those have to be investigated first
+                    #  however, we had some serious performance issues when tried out, so those have to be investigated first
                     WaitTimeSeconds=2,
                     # Related: SQS event source mapping batches up to 10 messages:
                     # https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
@@ -197,13 +198,11 @@ class Poller:
         self.invoker_pool.shutdown(cancel_futures=True, wait=False)
 
     def handle_message(self, message: dict) -> None:
-        failure_cause = None
         qualifier = self.version_manager.function_version.id.qualifier
         function_config = self.version_manager.function_version.config
         event_invoke_config = self.version_manager.function.event_invoke_configs.get(qualifier)
-        runtime = None
-        status = None
-        # TODO: handle initialization_type provisioned-concurrency, which requires enriching invocation_result
+        runtime = function_config.runtime
+        # TODO: consider ignoring this one for async/event invoke now that we perform a lambda.Invoke
         initialization_type = (
             FunctionInitializationType.lambda_managed_instances
             if function_config.capacity_provider_config
@@ -212,31 +211,32 @@ class Poller:
         try:
             sqs_invocation = SQSInvocation.decode(message["Body"])
             invocation = sqs_invocation.invocation
-            try:
-                invocation_result = self.version_manager.invoke(invocation=invocation)
-                status = FunctionStatus.success
-            except Exception as e:
-                # Reserved concurrency == 0
-                if self.version_manager.function.reserved_concurrent_executions == 0:
-                    failure_cause = "ZeroReservedConcurrency"
-                    status = FunctionStatus.zero_reserved_concurrency_error
-                # Maximum event age expired (lookahead for next retry)
-                elif not has_enough_time_for_retry(sqs_invocation, event_invoke_config):
-                    failure_cause = "EventAgeExceeded"
-                    status = FunctionStatus.event_age_exceeded_error
 
-                if failure_cause:
-                    invocation_result = InvocationResult(
-                        is_error=True, request_id=invocation.request_id, payload=None, logs=None
-                    )
-                    self.process_failure_destination(
-                        sqs_invocation, invocation_result, event_invoke_config, failure_cause
-                    )
-                    self.process_dead_letter_queue(sqs_invocation, invocation_result)
-                    return
-                # 3) Otherwise, retry without increasing counter
-                status = self.process_throttles_and_system_errors(sqs_invocation, e)
-                return
+            invoke_response = None
+            response_payload = None
+            status = None
+            invoke_succeeded = False
+
+            try:
+                aws_trace_header = invocation.trace_context["aws_trace_header"]
+                invoke_response = self.lambda_client.custom_headers(
+                    {
+                        "X-Amzn-Trace-Id": aws_trace_header.to_header_str(),
+                        "X-Amz-Request-Id": invocation.request_id,
+                    }
+                ).invoke(
+                    FunctionName=invocation.invoked_arn,
+                    Payload=invocation.payload,
+                    InvocationType=InvocationType.RequestResponse,
+                )
+                # Read the stream because the payload can be used multiple times (e.g., DLQ + failure destination)
+                response_payload = (
+                    json.load(invoke_response["Payload"]) if invoke_response["Payload"] else {}
+                )
+                status = FunctionStatus.success
+                invoke_succeeded = True
+            except Exception as e:
+                status = self._handle_invoke_exception(sqs_invocation, e, event_invoke_config)
             finally:
                 sqs_client = get_sqs_client(self.version_manager.function_version)
                 sqs_client.delete_message(
@@ -252,60 +252,105 @@ class Poller:
                     initialization_type=initialization_type,
                 ).increment()
 
-            # Good summary blogpost: https://haithai91.medium.com/aws-lambdas-retry-behaviors-edff90e1cf1b
-            # Asynchronous invocation handling: https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html
-            # https://aws.amazon.com/blogs/compute/introducing-new-asynchronous-invocation-metrics-for-aws-lambda/
-            max_retry_attempts = 2
-            if event_invoke_config and event_invoke_config.maximum_retry_attempts is not None:
-                max_retry_attempts = event_invoke_config.maximum_retry_attempts
+            if invoke_succeeded:
+                # Good summary blogpost: https://haithai91.medium.com/aws-lambdas-retry-behaviors-edff90e1cf1b
+                # Asynchronous invocation handling: https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html
+                # https://aws.amazon.com/blogs/compute/introducing-new-asynchronous-invocation-metrics-for-aws-lambda/
+                max_retry_attempts = 2
+                if event_invoke_config and event_invoke_config.maximum_retry_attempts is not None:
+                    max_retry_attempts = event_invoke_config.maximum_retry_attempts
 
-            assert invocation_result, "Invocation result MUST exist if we are not returning before"
-
-            # An invocation error either leads to a terminal failure or to a scheduled retry
-            if invocation_result.is_error:  # invocation error
-                failure_cause = None
-                # Reserved concurrency == 0
-                if self.version_manager.function.reserved_concurrent_executions == 0:
-                    failure_cause = "ZeroReservedConcurrency"
-                # Maximum retries exhausted
-                elif sqs_invocation.retries >= max_retry_attempts:
-                    failure_cause = "RetriesExhausted"
-                # TODO: test what happens if max event age expired before it gets scheduled the first time?!
-                # Maximum event age expired (lookahead for next retry)
-                elif not has_enough_time_for_retry(sqs_invocation, event_invoke_config):
-                    failure_cause = "EventAgeExceeded"
-
-                if failure_cause:  # handle failure destination and DLQ
-                    self.process_failure_destination(
-                        sqs_invocation, invocation_result, event_invoke_config, failure_cause
+                # An invocation error either leads to a terminal failure or to a scheduled retry
+                if "FunctionError" in invoke_response:
+                    self._handle_function_error(
+                        sqs_invocation, response_payload, event_invoke_config, max_retry_attempts
                     )
-                    self.process_dead_letter_queue(sqs_invocation, invocation_result)
-                    return
-                else:  # schedule retry
-                    sqs_invocation.retries += 1
-                    # Assumption: We assume that the internal exception retries counter is reset after
-                    #  an invocation that does not throw an exception
-                    sqs_invocation.exception_retries = 0
-                    # LAMBDA_RETRY_BASE_DELAY_SECONDS has a limit of 300s because the maximum SQS DelaySeconds
-                    # is 15 minutes (900s) and the maximum retry count is 3. SQS quota for "Message timer":
-                    # https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html
-                    delay_seconds = sqs_invocation.retries * config.LAMBDA_RETRY_BASE_DELAY_SECONDS
-                    # TODO: max SQS message size limit could break parity with AWS because
-                    #  our SQSInvocation contains additional fields! 256kb is max for both Lambda payload + SQS
-                    # TODO: write test with max SQS message size
-                    sqs_client.send_message(
-                        QueueUrl=self.event_queue_url,
-                        MessageBody=sqs_invocation.encode(),
-                        DelaySeconds=delay_seconds,
+                else:
+                    self.process_success_destination(
+                        sqs_invocation, response_payload, event_invoke_config
                     )
-                    return
-            else:  # invocation success
-                self.process_success_destination(
-                    sqs_invocation, invocation_result, event_invoke_config
-                )
         except Exception as e:
             LOG.error(
                 "Error handling lambda invoke %s", e, exc_info=LOG.isEnabledFor(logging.DEBUG)
+            )
+
+    def _handle_invoke_exception(
+        self,
+        sqs_invocation: SQSInvocation,
+        error: Exception,
+        event_invoke_config: EventInvokeConfig | None,
+    ) -> str:
+        """Handle an exception raised during function invocation and return the resulting status."""
+        # Reserved concurrency == 0
+        if (
+            isinstance(error, self.lambda_client.exceptions.TooManyRequestsException)
+            and self.version_manager.function.reserved_concurrent_executions == 0
+        ):
+            failure_cause = "ZeroReservedConcurrency"
+            status = FunctionStatus.zero_reserved_concurrency_error
+        # Maximum event age expired (lookahead for next retry)
+        elif not has_enough_time_for_retry(sqs_invocation, event_invoke_config):
+            failure_cause = "EventAgeExceeded"
+            status = FunctionStatus.event_age_exceeded_error
+        else:
+            failure_cause = None
+            status = None
+
+        if failure_cause:
+            self.process_failure_destination(
+                sqs_invocation, None, event_invoke_config, failure_cause
+            )
+            self.process_dead_letter_queue(sqs_invocation, None)
+            assert status, "status MUST be set in case of failure"
+            return status
+
+        # Otherwise, retry without increasing counter (throttles or system errors)
+        return self.process_throttles_and_system_errors(sqs_invocation, error)
+
+    def _handle_function_error(
+        self,
+        sqs_invocation: SQSInvocation,
+        response_payload: dict,
+        event_invoke_config: EventInvokeConfig | None,
+        max_retry_attempts: int,
+    ) -> None:
+        """Handle a FunctionError in the invoke response: either terminal failure or scheduled retry."""
+        # Reserved concurrency == 0
+        if self.version_manager.function.reserved_concurrent_executions == 0:
+            failure_cause = "ZeroReservedConcurrency"
+        # Maximum retries exhausted
+        elif sqs_invocation.retries >= max_retry_attempts:
+            failure_cause = "RetriesExhausted"
+        # TODO: test what happens if max event age expired before it gets scheduled the first time?!
+        # Maximum event age expired (lookahead for next retry)
+        elif not has_enough_time_for_retry(sqs_invocation, event_invoke_config):
+            failure_cause = "EventAgeExceeded"
+        else:
+            failure_cause = None
+
+        if failure_cause:
+            self.process_failure_destination(
+                sqs_invocation, response_payload, event_invoke_config, failure_cause
+            )
+            self.process_dead_letter_queue(sqs_invocation, response_payload)
+        else:
+            # Schedule retry
+            sqs_invocation.retries += 1
+            # Assumption: We assume that the internal exception retries counter is reset after
+            #  an invocation that does not throw an exception
+            sqs_invocation.exception_retries = 0
+            # LAMBDA_RETRY_BASE_DELAY_SECONDS has a limit of 300s because the maximum SQS DelaySeconds
+            # is 15 minutes (900s) and the maximum retry count is 3. SQS quota for "Message timer":
+            # https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html
+            delay_seconds = sqs_invocation.retries * config.LAMBDA_RETRY_BASE_DELAY_SECONDS
+            # TODO: max SQS message size limit could break parity with AWS because
+            #  our SQSInvocation contains additional fields! 256kb is max for both Lambda payload + SQS
+            # TODO: write test with max SQS message size
+            sqs_client = get_sqs_client(self.version_manager.function_version)
+            sqs_client.send_message(
+                QueueUrl=self.event_queue_url,
+                MessageBody=sqs_invocation.encode(),
+                DelaySeconds=delay_seconds,
             )
 
     def process_throttles_and_system_errors(
@@ -346,7 +391,7 @@ class Poller:
     def process_success_destination(
         self,
         sqs_invocation: SQSInvocation,
-        invocation_result: InvocationResult,
+        response_payload: dict,
         event_invoke_config: EventInvokeConfig | None,
     ) -> None:
         if event_invoke_config is None:
@@ -363,7 +408,7 @@ class Poller:
             "version": "1.0",
             "timestamp": timestamp_millis(),
             "requestContext": {
-                "requestId": invocation_result.request_id,
+                "requestId": sqs_invocation.invocation.request_id,
                 "functionArn": self.version_manager.function_version.qualified_arn,
                 "condition": "Success",
                 "approximateInvokeCount": sqs_invocation.retries + 1,
@@ -373,7 +418,8 @@ class Poller:
                 "statusCode": 200,
                 "executedVersion": self.version_manager.function_version.id.qualifier,
             },
-            "responsePayload": json.loads(to_str(invocation_result.payload or {})),
+            # TODO: test None or empty string similar to test_invocation_type_no_return_payload
+            "responsePayload": response_payload,
         }
 
         target_arn = event_invoke_config.destination_config["OnSuccess"]["Destination"]
@@ -393,7 +439,7 @@ class Poller:
     def process_failure_destination(
         self,
         sqs_invocation: SQSInvocation,
-        invocation_result: InvocationResult,
+        response_payload: dict,
         event_invoke_config: EventInvokeConfig | None,
         failure_cause: str,
     ):
@@ -415,7 +461,7 @@ class Poller:
             "version": "1.0",
             "timestamp": timestamp_millis(),
             "requestContext": {
-                "requestId": invocation_result.request_id,
+                "requestId": sqs_invocation.invocation.request_id,
                 "functionArn": self.version_manager.function_version.qualified_arn,
                 "condition": failure_cause,
                 "approximateInvokeCount": approximate_invoke_count,
@@ -428,7 +474,7 @@ class Poller:
                 "executedVersion": self.version_manager.function_version.id.qualifier,
                 "functionError": "Unhandled",
             }
-            destination_payload["responsePayload"] = json.loads(to_str(invocation_result.payload))
+            destination_payload["responsePayload"] = response_payload
 
         target_arn = event_invoke_config.destination_config["OnFailure"]["Destination"]
         try:
@@ -447,26 +493,23 @@ class Poller:
     def process_dead_letter_queue(
         self,
         sqs_invocation: SQSInvocation,
-        invocation_result: InvocationResult,
+        response_payload: dict,
     ):
         LOG.debug("Handling dead letter queue for %s", self.version_manager.function_arn)
         try:
-            dead_letter_queue._send_to_dead_letter_queue(
+            dead_letter_queue.send_to_dead_letter_queue(
                 source_arn=self.version_manager.function_arn,
                 dlq_arn=self.version_manager.function_version.config.dead_letter_arn,
                 event=json.loads(to_str(sqs_invocation.invocation.payload)),
-                # TODO: Refactor DLQ handling by removing the invocation exception from the legacy lambda provider
-                # TODO: Check message. Possibly remove because it is not used in the DLQ message?!
-                error=LegacyInvocationException(
-                    message="hi", result=to_str(invocation_result.payload)
-                ),
+                error_message=response_payload.get("errorMessage"),
                 role=self.version_manager.function_version.config.role,
             )
         except Exception as e:
-            LOG.warning(
+            LOG.error(
                 "Error sending invocation result to DLQ %s: %s",
                 self.version_manager.function_version.config.dead_letter_arn,
                 e,
+                exc_info=LOG.isEnabledFor(logging.DEBUG),
             )
 
 

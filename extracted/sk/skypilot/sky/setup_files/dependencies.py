@@ -77,7 +77,8 @@ install_requires = [
     'psycopg2-binary',
     'aiosqlite',
     'asyncpg',
-    # Required by sqlalchemy.ext.asyncio which is used in sky/utils/db/db_utils.py
+    # Required by sqlalchemy.ext.asyncio which is used in
+    # sky/utils/db/db_utils.py
     'greenlet',
     # TODO(hailong): These three dependencies should be removed after we make
     # the client-side actually not importing them.
@@ -243,6 +244,7 @@ cloud_dependencies: Dict[str, List[str]] = {
         # docs instead.
         # 'vsphere-automation-sdk @ git+https://github.com/vmware/vsphere-automation-sdk-python.git@v8.0.1.0' pylint: disable=line-too-long
     ],
+    'vastdata': aws_dependencies,
     'nebius': [
         # Nebius requires grpcio and protobuf, so we need to include
         # our constraints here.
@@ -252,8 +254,11 @@ cloud_dependencies: Dict[str, List[str]] = {
     ] + aws_dependencies,
     'hyperbolic': [],  # No dependencies needed for hyperbolic
     'seeweb': ['ecsapi==0.4.0'],
+    'mithril': [],  # No dependencies needed for mithril
     'shadeform': [],  # No dependencies needed for shadeform
     'slurm': ['python-hostlist'],
+    'yotta': [],  # No dependencies needed for Yotta
+    'verda': [],  # No dependencies needed for verda
 }
 
 # Calculate which clouds should be included in the [all] installation.

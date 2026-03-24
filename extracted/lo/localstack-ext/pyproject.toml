@@ -9,13 +9,13 @@ authors = [
     { name = "LocalStack Team", email = "info@localstack.cloud" }
 ]
 description = "Extensions for LocalStack"
-requires-python = ">=3.10"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "click>=7.1",
     "cryptography",
     "packaging",
     "plux>=1.14.0",
-    "localstack-core==4.14.0",
+    "localstack-core==2026.3.0",
     "pyotp>=2.9.0",
     "PyJWT[crypto]>=1.7.0",
     "requests>=2.20.0",
@@ -24,32 +24,8 @@ dependencies = [
     "tabulate",
     "pyyaml>=5.1",
     # currently needed to load pro entrypoints, for the tree view
-    "windows-curses;platform_system=='Windows'",
-]
-dynamic = ["version", "entry-points"]
-license = "LicenseRef-All-Rights-Reserved"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Internet",
-    "Topic :: Software Development :: Testing",
-    "Topic :: System :: Emulators",
-]
-
-[tool.setuptools_scm]
-version_file = "localstack/pro/core/version.py"
-search_parent_directories = "true"
-# pypi (and our platform) does not support local versions:
-# https://setuptools-scm.readthedocs.io/en/latest/usage/#default-versioning-scheme
-local_scheme = "no-local-version"
-
-[project.urls]
-Homepage = "https://localstack.cloud"
-Documentation = "https://docs.localstack.cloud"
-Issues = "https://github.com/localstack/localstack/issues"
-
-[project.optional-dependencies]
-runtime = [
+    "windows_curses;platform_system=='Windows'",
+    # Runtime dependencies
     "airspeed-ext>=0.6.9",
     "alembic>=1.16.0",
     "avro>=1.11.0",
@@ -70,17 +46,17 @@ runtime = [
     "javascript",
     "jinja2>=3.1.6",
     "jsonpatch>=1.32",
-    "jsonpath-ng>=1.7.0",
     "jsonschema>=4.25.1",
     "confluent-kafka",
     # TODO: regression in NO_PROXY, see https://github.com/kubernetes-client/python/issues/2460, remove once fixed
     "kubernetes>=21.7.0,<34",
     "libvirt-python",
-    "localstack-core[runtime]==4.14.0",
-    "localstack-py-avro-schema==3.9.14",
+    "localstack-core[runtime]==2026.3.0",
+    "localstack-py-avro-schema==3.9.16",
     "opentelemetry-api",
     "opentelemetry-sdk",
     "opentelemetry-propagator-aws-xray",
+    "oras",
     "orjson",
     "paho-mqtt>=1.5",
     "parquet[snappy]>=1.3.1",
@@ -111,7 +87,10 @@ runtime = [
     "semver>=3.0.4",
     "setuptools",
     "sql-metadata>=2.6.0",
-    "sqlglot[rs]",
+    # TODO remove pin once sqlglot usage in DMS is compatible with v30+ - when unpinning
+    "sqlglot<30",
+    # TODO: remove `sqlglotc` definition and use `sqlglot[c]` extra. We have to pin the extra due to https://github.com/tobymao/sqlglot/issues/7304
+    "sqlglotc<30",
     "srp-ext>=1.0.7.1",
     "sqlalchemy>=2.0.0",
     "testing.common.database>=1.1.0",
@@ -123,35 +102,58 @@ runtime = [
     "websocket-client>=1.8.0",
     "werkzeug>=3.1.3",
     "Whoosh>=2.7.4",
-    "xmltodict>=1.0.2"
+    "xmltodict>=1.0.2",
+    # we have a runtime dependency on pip, we use it to install packages on demand
+    "pip"
+]
+dynamic = ["version", "entry-points"]
+license = "LicenseRef-All-Rights-Reserved"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Emulators",
 ]
 
-test = [
-    # test always needs the runtime to be able to run the tests
-    "localstack-ext[runtime]",
+[tool.setuptools_scm]
+version_file = "localstack/pro/core/version.py"
+search_parent_directories = true
+# pypi (and our platform) does not support local versions:
+# https://setuptools-scm.readthedocs.io/en/latest/usage/#default-versioning-scheme
+local_scheme = "no-local-version"
+
+[project.urls]
+Homepage = "https://localstack.cloud"
+Documentation = "https://docs.localstack.cloud"
+Issues = "https://github.com/localstack/localstack/issues"
+
+[dependency-groups]
+dev = [
     # ASF codegen generates docs with pypandoc
     "pypandoc",
-    # TODO fix issues with pytest-httpserver==1.1.2, remove upper boundary
     "pytest-httpserver>=1.0.1",
     "aiohttp",
     "async-timeout",
     "awsiotsdk",
     "awswrangler>=3.5.2",
     "aws_xray_sdk>=2.4.2",
-    "coverage[toml]>=5.0.0",
     "deepdiff>=5.5.0",
     "deptry>=0.13.0",
     "dnslib>=0.9.10",
     "dnspython>=1.16.0",
     "gremlinpython<3.8.0",
+    "jsonpath-ng>=1.7.0",
     "jws>=0.1.3",
     "kafka-python",
-    "localstack-core[test]==4.14.0",
+    "localstack-core[test]==2026.3.0",
     "msal",
     "msal-extensions",
     "msrest",
     "neo4j",
     "nest-asyncio>=1.4.1",
+    # usually lazily installed by the
+    "oras",
     "paramiko",
     "portalocker",
     "pre-commit>=3.5.0",
@@ -174,14 +176,14 @@ test = [
     "awsiotsdk",
     "aws-cdk.aws-cognito-identitypool-alpha",
     "playwright",
-    "pytest-playwright"
+    "pytest-playwright",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.39.1",
+    # type hints for boto
+    "boto3_stubs_lite[acm,amplify,apigateway,apigatewayv2,appconfig,appsync,athena,autoscaling,bedrock,bedrock-runtime,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codecommit,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,iot,iot-data,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,mediaconvert,mq,mwaa,neptune,opensearch,organizations,pi,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,s3tables,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,xray]"
 ]
 
-typehint = [
-    # typehint extends the test dev experience, so it needs the test dependencies
-    "localstack-ext[test]",
-    "boto3-stubs[acm,amplify,apigateway,apigatewayv2,appconfig,appsync,athena,autoscaling,bedrock,bedrock-runtime,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codecommit,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,iot,iot-data,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,mediaconvert,mq,mwaa,neptune,opensearch,organizations,pi,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,s3tables,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,xray]"
-]
+[tool.uv.sources]
+localstack-core = { path = "../../localstack", editable = true }
 
 [tool.setuptools]
 include-package-data = false
@@ -215,8 +217,6 @@ exclude = ["tests*"]
 [tool.ruff]
 # Extend the ruff config in the root dir
 extend = "../ruff.toml"
-# Generate code compatible with version defined in .python-version
-target-version = "py313"
 line-length = 100
 src = ["tests", "localstack"]
 exclude = [
@@ -231,44 +231,10 @@ exclude = [
     "**/version.py",
 ]
 
-[tool.ruff.per-file-target-version]
-# Only allow minimum version for code used in the CLI
-"localstack/pro/core/cli/**" = "py310"
-"localstack/pro/core/bootstrap/**" = "py310"
-
-[tool.ruff.lint]
-extend-safe-fixes = [
-    "UP006", # unsafe-fix for py39
-    "UP035", # unsafe-fix for py39
-]
-
 [tool.ruff.lint.pyupgrade]
 # Avoid PEP 604 rewrites (e.g. Union[str, int] -> str | int), even with the `from __future__ import annotations`
 # import. It only affects py39 and can be removed after we drop it.
 keep-runtime-typing = true
-
-[tool.coverage.run]
-relative_files = true
-source = [
-    "localstack/pro/core",
-]
-omit = [
-    "*/aws/api/*"
-]
-
-[tool.coverage.paths]
-source = [
-    "localstack",
-    "../.venv/**/site-packages"
-]
-
-[tool.coverage.report]
-exclude_lines = [
-    "if __name__ == .__main__.:",
-    "raise NotImplemented.",
-    "return NotImplemented",
-    "def __repr__",
-]
 
 [tool.pytest.ini_options]
 markers = [
@@ -278,12 +244,6 @@ log_cli = false
 log_level = "DEBUG"
 log_cli_format = "%(asctime)s.%(msecs)03d %(levelname)5s --- [%(threadName)12s] %(name)-26s : %(message)s"
 log_cli_date_format = "%Y-%m-%dT%H:%M:%S"
-
-[tool.pip-tools]
-# adding localstack-ext itself here because it is referenced in the pyproject.toml for stacking the extras
-# adding localstack-core because we do not want to pin it in the requirements files
-# pip, setuptools, and distribute are pip-tools defaults which need to be set again here
-unsafe-package = ["localstack-ext", "localstack-core", "pip", "setuptools", "distribute"] # packages that should not be pinned
 
 [tool.plux]
 # Alembic requires Python scripts that cannot be imported outside their own loading mechanism, which reports an error
@@ -298,20 +258,22 @@ known_first_party = [
     "PySiddhi", # managed by localstack package manager
     "pyarrow", # managed by localstack package manager
     "cookiecutter", # manually throwing warning that cookiecutter is needed in extensions CLI
-    "oras", # lazily installed if used and not yet installed
 ]
 extend_exclude = [
     "localstack/pro/core/testing/**", # utilities for testing
 ]
-pep621_dev_dependency_groups = ["typehint", "test", "package"]
 
 [tool.deptry.package_module_name_map]
 "localstack-ext" = ["localstack.pro.core"]
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
-    "windows-curses", # needed on Windows platforms
+    "windows_curses", # needed on Windows platforms
+    "pip" # used by package installers by calling the command
 ]
 DEP003 = [
     "moto", # directly depending on moto/moto-ext here will cause issues with dependency resolution
 ]
+
+[project.scripts]
+avro-cli = "localstack.pro.core.persistence.avro.dev.cli:main"

@@ -334,10 +334,10 @@ class ExpressionDescriptor:
         return self.get_segment_description(
             self._expression_parts[5],
             self.translate(", every day"),
-            lambda s: get_day_name(s),
+            get_day_name,
             lambda s: self.translate(", every {0} days of the week").format(s),
             lambda _: self.translate(", {0} through {1}"),
-            lambda s: get_format(s),
+            get_format,
             lambda _: self.translate(", {0} through {1}"),
         )
 
@@ -424,7 +424,7 @@ class ExpressionDescriptor:
         return self.get_segment_description(
             self._expression_parts[6],
             "",
-            lambda s: format_year(s),
+            format_year,
             lambda s: self.translate(", every {0} years").format(s),
             lambda _: self.translate(", year {0} through year {1}") or self.translate(", {0} through {1}"),
             lambda _: self.translate(", only in {0}"),
@@ -463,6 +463,39 @@ class ExpressionDescriptor:
         if not any(ext in expression for ext in ["/", "-", ","]):
             return get_description_format(expression).format(get_single_item_description(expression))
 
+        if "," in expression:
+            segments = expression.split(",")
+
+            description_content = ""
+            for i, segment in enumerate(segments):
+                if i > 0 and len(segments) > 2:
+                    description_content += ","
+
+                    if i < len(segments) - 1:
+                        description_content += " "
+
+                if i > 0 and len(segments) > 1 and (i == len(segments) - 1 or len(segments) == 2):
+                    description_content += self.translate(" and ")
+
+                if "/" in segment:
+                    description_content += self._describe_step_in_comma(
+                        segment, get_interval_description_format, get_range_format, get_single_item_description,
+                    )
+                elif "-" in segment:
+                    between_segment_description = self.generate_between_segment_description(
+                        segment,
+                        get_range_format,
+                        get_single_item_description,
+                    )
+
+                    between_segment_description = between_segment_description.replace(", ", "")
+
+                    description_content += between_segment_description
+                else:
+                    description_content += get_single_item_description(segment)
+
+            return get_description_format(expression).format(description_content)
+
         if "/" in expression:
             segments = expression.split("/")
             description = get_interval_description_format(segments[1]).format(segments[1])
@@ -486,35 +519,6 @@ class ExpressionDescriptor:
 
                 description += self.translate(", starting {0}").format(range_item_description)
             return description
-
-        if "," in expression:
-            segments = expression.split(",")
-
-            description_content = ""
-            for i, segment in enumerate(segments):
-                if i > 0 and len(segments) > 2:
-                    description_content += ","
-
-                    if i < len(segments) - 1:
-                        description_content += " "
-
-                if i > 0 and len(segments) > 1 and (i == len(segments) - 1 or len(segments) == 2):
-                    description_content += self.translate(" and ")
-
-                if "-" in segment:
-                    between_segment_description = self.generate_between_segment_description(
-                        segment,
-                        get_range_format,
-                        get_single_item_description,
-                    )
-
-                    between_segment_description = between_segment_description.replace(", ", "")
-
-                    description_content += between_segment_description
-                else:
-                    description_content += get_single_item_description(segment)
-
-            return get_description_format(expression).format(description_content)
 
         if "-" in expression:
             return self.generate_between_segment_description(
@@ -547,6 +551,31 @@ class ExpressionDescriptor:
         description += between_description_format.format(between_segment_1_description, between_segment_2_description)
 
         return description
+
+    def _describe_step_in_comma(
+        self,
+        segment: str,
+        get_interval_description_format: Callable[[str], str],
+        get_range_format: Callable[[str], str],
+        get_single_item_description: Callable[[str], str],
+    ) -> str:
+        """Describes a step expression that appears inside a comma-separated list.
+
+        For example, given "6-23/2" from the expression "0,6-23/2", this produces
+        "every 2 hours, 06:00 AM through 11:59 PM".
+        """
+        sub_segments = segment.split("/")
+        step_description = get_interval_description_format(sub_segments[1]).format(sub_segments[1])
+        if "-" in sub_segments[0]:
+            between_desc = self.generate_between_segment_description(
+                sub_segments[0], get_range_format, get_single_item_description,
+            )
+            between_desc = between_desc.replace(", ", "")
+            step_description += ", " + between_desc
+        elif sub_segments[0] != "*":
+            range_item = get_single_item_description(sub_segments[0])
+            step_description += ", " + self.translate("starting {0}").format(range_item)
+        return step_description
 
     def format_time(
         self,

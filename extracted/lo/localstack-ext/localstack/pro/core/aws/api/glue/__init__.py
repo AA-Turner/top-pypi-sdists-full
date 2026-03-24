@@ -4297,6 +4297,19 @@ class BatchGetJobsResponse(TypedDict, total=False):
     JobsNotFound: JobNameList | None
 
 
+class QuerySessionContext(TypedDict, total=False):
+    """A structure used as a protocol between query engines and Lake Formation
+    or Glue. Contains both a Lake Formation generated authorization
+    identifier and information from the request's authorization context.
+    """
+
+    QueryId: HashString | None
+    QueryStartTime: Timestamp | None
+    ClusterId: NullableString | None
+    QueryAuthorizationId: HashString | None
+    AdditionalContext: AdditionalContextMap | None
+
+
 BatchGetPartitionValueList = list[PartitionValueList]
 
 
@@ -4305,6 +4318,8 @@ class BatchGetPartitionRequest(ServiceRequest):
     DatabaseName: NameString
     TableName: NameString
     PartitionsToGet: BatchGetPartitionValueList
+    AuditContext: AuditContext | None
+    QuerySessionContext: QuerySessionContext | None
 
 
 class Partition(TypedDict, total=False):
@@ -8795,19 +8810,6 @@ class GetTriggersResponse(TypedDict, total=False):
     NextToken: GenericString | None
 
 
-class QuerySessionContext(TypedDict, total=False):
-    """A structure used as a protocol between query engines and Lake Formation
-    or Glue. Contains both a Lake Formation generated authorization
-    identifier and information from the request's authorization context.
-    """
-
-    QueryId: HashString | None
-    QueryStartTime: Timestamp | None
-    ClusterId: NullableString | None
-    QueryAuthorizationId: HashString | None
-    AdditionalContext: AdditionalContextMap | None
-
-
 PermissionTypeList = list[PermissionType]
 
 
@@ -10473,11 +10475,9 @@ class GlueApi:
     ) -> BatchCreatePartitionResponse:
         """Creates one or more partitions in a batch operation.
 
-        :param database_name: The name of the metadata database in which the partition is to be
-        created.
+        :param database_name: The name of the metadata database in which the partition is to be created.
         :param table_name: The name of the metadata table in which the partition is to be created.
-        :param partition_input_list: A list of ``PartitionInput`` structures that define the partitions to be
-        created.
+        :param partition_input_list: A list of ``PartitionInput`` structures that define the partitions to be created.
         :param catalog_id: The ID of the catalog in which the partition is to be created.
         :returns: BatchCreatePartitionResponse
         :raises InvalidInputException:
@@ -10522,8 +10522,7 @@ class GlueApi:
 
         :param database_name: The name of the catalog database in which the table in question resides.
         :param table_name: The name of the table that contains the partitions to be deleted.
-        :param partitions_to_delete: A list of ``PartitionInput`` structures that define the partitions to be
-        deleted.
+        :param partitions_to_delete: A list of ``PartitionInput`` structures that define the partitions to be deleted.
         :param catalog_id: The ID of the Data Catalog where the partition to be deleted resides.
         :returns: BatchDeletePartitionResponse
         :raises InvalidInputException:
@@ -10607,8 +10606,7 @@ class GlueApi:
 
         :param names: A list of blueprint names.
         :param include_blueprint: Specifies whether or not to include the blueprint in the response.
-        :param include_parameter_spec: Specifies whether or not to include the parameters, as a JSON string,
-        for the blueprint in the response.
+        :param include_parameter_spec: Specifies whether or not to include the parameters, as a JSON string, for the blueprint in the response.
         :returns: BatchGetBlueprintsResponse
         :raises InternalServiceException:
         :raises OperationTimeoutException:
@@ -10626,8 +10624,7 @@ class GlueApi:
         This operation supports all IAM permissions, including permission
         conditions that uses tags.
 
-        :param crawler_names: A list of crawler names, which might be the names returned from the
-        ``ListCrawlers`` operation.
+        :param crawler_names: A list of crawler names, which might be the names returned from the ``ListCrawlers`` operation.
         :returns: BatchGetCrawlersResponse
         :raises InvalidInputException:
         :raises OperationTimeoutException:
@@ -10673,8 +10670,7 @@ class GlueApi:
         granted permissions. This operation supports all IAM permissions,
         including permission conditions that uses tags.
 
-        :param dev_endpoint_names: The list of ``DevEndpoint`` names, which might be the names returned
-        from the ``ListDevEndpoint`` operation.
+        :param dev_endpoint_names: The list of ``DevEndpoint`` names, which might be the names returned from the ``ListDevEndpoint`` operation.
         :returns: BatchGetDevEndpointsResponse
         :raises AccessDeniedException:
         :raises InternalServiceException:
@@ -10693,8 +10689,7 @@ class GlueApi:
         operation supports all IAM permissions, including permission conditions
         that uses tags.
 
-        :param job_names: A list of job names, which might be the names returned from the
-        ``ListJobs`` operation.
+        :param job_names: A list of job names, which might be the names returned from the ``ListJobs`` operation.
         :returns: BatchGetJobsResponse
         :raises InternalServiceException:
         :raises OperationTimeoutException:
@@ -10710,6 +10705,8 @@ class GlueApi:
         table_name: NameString,
         partitions_to_get: BatchGetPartitionValueList,
         catalog_id: CatalogIdString | None = None,
+        audit_context: AuditContext | None = None,
+        query_session_context: QuerySessionContext | None = None,
         **kwargs,
     ) -> BatchGetPartitionResponse:
         """Retrieves partitions in a batch request.
@@ -10718,6 +10715,8 @@ class GlueApi:
         :param table_name: The name of the partitions' table.
         :param partitions_to_get: A list of partition values identifying the partitions to retrieve.
         :param catalog_id: The ID of the Data Catalog where the partitions in question reside.
+        :param audit_context: A structure containing the Lake Formation audit context.
+        :param query_session_context: A structure used as a protocol between query engines and Lake Formation or Glue.
         :returns: BatchGetPartitionResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -10736,8 +10735,7 @@ class GlueApi:
     ) -> BatchGetTableOptimizerResponse:
         """Returns the configuration for the specified table optimizers.
 
-        :param entries: A list of ``BatchGetTableOptimizerEntry`` objects specifying the table
-        optimizers to retrieve.
+        :param entries: A list of ``BatchGetTableOptimizerEntry`` objects specifying the table optimizers to retrieve.
         :returns: BatchGetTableOptimizerResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -10757,8 +10755,7 @@ class GlueApi:
         This operation supports all IAM permissions, including permission
         conditions that uses tags.
 
-        :param trigger_names: A list of trigger names, which may be the names returned from the
-        ``ListTriggers`` operation.
+        :param trigger_names: A list of trigger names, which may be the names returned from the ``ListTriggers`` operation.
         :returns: BatchGetTriggersResponse
         :raises InternalServiceException:
         :raises OperationTimeoutException:
@@ -10780,10 +10777,8 @@ class GlueApi:
         This operation supports all IAM permissions, including permission
         conditions that uses tags.
 
-        :param names: A list of workflow names, which may be the names returned from the
-        ``ListWorkflows`` operation.
-        :param include_graph: Specifies whether to include a graph when returning the workflow
-        resource metadata.
+        :param names: A list of workflow names, which may be the names returned from the ``ListWorkflows`` operation.
+        :param include_graph: Specifies whether to include a graph when returning the workflow resource metadata.
         :returns: BatchGetWorkflowsResponse
         :raises InternalServiceException:
         :raises OperationTimeoutException:
@@ -10825,8 +10820,7 @@ class GlueApi:
         """Stops one or more job runs for a specified job definition.
 
         :param job_name: The name of the job definition for which to stop job runs.
-        :param job_run_ids: A list of the ``JobRunIds`` that should be stopped for that job
-        definition.
+        :param job_run_ids: A list of the ``JobRunIds`` that should be stopped for that job definition.
         :returns: BatchStopJobRunResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -10846,11 +10840,9 @@ class GlueApi:
     ) -> BatchUpdatePartitionResponse:
         """Updates one or more partitions in a batch operation.
 
-        :param database_name: The name of the metadata database in which the partition is to be
-        updated.
+        :param database_name: The name of the metadata database in which the partition is to be updated.
         :param table_name: The name of the metadata table in which the partition is to be updated.
-        :param entries: A list of up to 100 ``BatchUpdatePartitionRequestEntry`` objects to
-        update.
+        :param entries: A list of up to 100 ``BatchUpdatePartitionRequestEntry`` objects to update.
         :param catalog_id: The ID of the catalog in which the partition is to be updated.
         :returns: BatchUpdatePartitionResponse
         :raises InvalidInputException:
@@ -11061,8 +11053,7 @@ class GlueApi:
         :param column_name_list: A list of column names for which to run statistics.
         :param sample_size: The percentage of data to sample.
         :param catalog_id: The ID of the Data Catalog in which the database resides.
-        :param security_configuration: Name of the security configuration that is used to encrypt CloudWatch
-        logs.
+        :param security_configuration: Name of the security configuration that is used to encrypt CloudWatch logs.
         :param tags: A map of tags.
         :returns: CreateColumnStatisticsTaskSettingsResponse
         :raises AlreadyExistsException:
@@ -11128,25 +11119,19 @@ class GlueApi:
         ``DynamoDBTargets`` field.
 
         :param name: Name of the new crawler.
-        :param role: The IAM role or Amazon Resource Name (ARN) of an IAM role used by the
-        new crawler to access customer resources.
+        :param role: The IAM role or Amazon Resource Name (ARN) of an IAM role used by the new crawler to access customer resources.
         :param targets: A list of collection of targets to crawl.
-        :param database_name: The Glue database where results are written, such as:
-        ``arn:aws:daylight:us-east-1::database/sometable/*``.
+        :param database_name: The Glue database where results are written, such as: ``arn:aws:daylight:us-east-1::database/sometable/*``.
         :param description: A description of the new crawler.
-        :param schedule: A ``cron`` expression used to specify the schedule (see `Time-Based
-        Schedules for Jobs and
-        Crawlers <https://docs.
+        :param schedule: A ``cron`` expression used to specify the schedule (see `Time-Based Schedules for Jobs and Crawlers <https://docs.
         :param classifiers: A list of custom classifiers that the user has registered.
         :param table_prefix: The table prefix used for catalog tables that are created.
         :param schema_change_policy: The policy for the crawler's update and deletion behavior.
-        :param recrawl_policy: A policy that specifies whether to crawl the entire dataset again, or to
-        crawl only folders that were added since the last crawler run.
+        :param recrawl_policy: A policy that specifies whether to crawl the entire dataset again, or to crawl only folders that were added since the last crawler run.
         :param lineage_configuration: Specifies data lineage configuration settings for the crawler.
         :param lake_formation_configuration: Specifies Lake Formation configuration settings for the crawler.
         :param configuration: Crawler configuration information.
-        :param crawler_security_configuration: The name of the ``SecurityConfiguration`` structure to be used by this
-        crawler.
+        :param crawler_security_configuration: The name of the ``SecurityConfiguration`` structure to be used by this crawler.
         :param tags: The tags to use with this crawler request.
         :returns: CreateCrawlerResponse
         :raises InvalidInputException:
@@ -11173,10 +11158,8 @@ class GlueApi:
         optional list of context words. If no context words are passed only a
         regular expression is checked.
 
-        :param name: A name for the custom pattern that allows it to be retrieved or deleted
-        later.
-        :param regex_string: A regular expression string that is used for detecting sensitive data in
-        a custom pattern.
+        :param name: A name for the custom pattern that allows it to be retrieved or deleted later.
+        :param regex_string: A regular expression string that is used for detecting sensitive data in a custom pattern.
         :param context_words: A list of context words.
         :param tags: A list of tags applied to the custom entity type.
         :returns: CreateCustomEntityTypeResponse
@@ -11214,11 +11197,8 @@ class GlueApi:
         :param description: A description of the data quality ruleset.
         :param tags: A list of tags applied to the data quality ruleset.
         :param target_table: A target table associated with the data quality ruleset.
-        :param data_quality_security_configuration: The name of the security configuration created with the data quality
-        encryption option.
-        :param client_token: Used for idempotency and is recommended to be set to a random ID (such
-        as a UUID) to avoid creating or starting multiple instances of the same
-        resource.
+        :param data_quality_security_configuration: The name of the security configuration created with the data quality encryption option.
+        :param client_token: Used for idempotency and is recommended to be set to a random ID (such as a UUID) to avoid creating or starting multiple instances of the same resource.
         :returns: CreateDataQualityRulesetResponse
         :raises InvalidInputException:
         :raises AlreadyExistsException:
@@ -11281,25 +11261,17 @@ class GlueApi:
 
         :param endpoint_name: The name to be assigned to the new ``DevEndpoint``.
         :param role_arn: The IAM role for the ``DevEndpoint``.
-        :param security_group_ids: Security group IDs for the security groups to be used by the new
-        ``DevEndpoint``.
+        :param security_group_ids: Security group IDs for the security groups to be used by the new ``DevEndpoint``.
         :param subnet_id: The subnet ID for the new ``DevEndpoint`` to use.
         :param public_key: The public key to be used by this ``DevEndpoint`` for authentication.
-        :param public_keys: A list of public keys to be used by the development endpoints for
-        authentication.
-        :param number_of_nodes: The number of Glue Data Processing Units (DPUs) to allocate to this
-        ``DevEndpoint``.
-        :param worker_type: The type of predefined worker that is allocated to the development
-        endpoint.
-        :param glue_version: Glue version determines the versions of Apache Spark and Python that
-        Glue supports.
-        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated to
-        the development endpoint.
-        :param extra_python_libs_s3_path: The paths to one or more Python libraries in an Amazon S3 bucket that
-        should be loaded in your ``DevEndpoint``.
+        :param public_keys: A list of public keys to be used by the development endpoints for authentication.
+        :param number_of_nodes: The number of Glue Data Processing Units (DPUs) to allocate to this ``DevEndpoint``.
+        :param worker_type: The type of predefined worker that is allocated to the development endpoint.
+        :param glue_version: Glue version determines the versions of Apache Spark and Python that Glue supports.
+        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated to the development endpoint.
+        :param extra_python_libs_s3_path: The paths to one or more Python libraries in an Amazon S3 bucket that should be loaded in your ``DevEndpoint``.
         :param extra_jars_s3_path: The path to one or more Java ``.
-        :param security_configuration: The name of the ``SecurityConfiguration`` structure to be used with this
-        ``DevEndpoint``.
+        :param security_configuration: The name of the ``SecurityConfiguration`` structure to be used with this ``DevEndpoint``.
         :param tags: The tags to use with this DevEndpoint.
         :param arguments: A map of arguments used to configure the ``DevEndpoint``.
         :returns: CreateDevEndpointResponse
@@ -11327,12 +11299,9 @@ class GlueApi:
         between Glue and Amazon Web Services IAM Identity Center for
         authentication and authorization.
 
-        :param instance_arn: The Amazon Resource Name (ARN) of the Identity Center instance to be
-        associated with the Glue configuration.
-        :param scopes: A list of Identity Center scopes that define the permissions and access
-        levels for the Glue configuration.
-        :param user_background_sessions_enabled: Specifies whether users can run background sessions when using Identity
-        Center authentication with Glue services.
+        :param instance_arn: The Amazon Resource Name (ARN) of the Identity Center instance to be associated with the Glue configuration.
+        :param scopes: A list of Identity Center scopes that define the permissions and access levels for the Glue configuration.
+        :param user_background_sessions_enabled: Specifies whether users can run background sessions when using Identity Center authentication with Glue services.
         :returns: CreateGlueIdentityCenterConfigurationResponse
         :raises InvalidInputException:
         :raises AlreadyExistsException:
@@ -11368,10 +11337,8 @@ class GlueApi:
         :param description: A description of the integration.
         :param data_filter: Selects source tables for the integration using Maxwell filter syntax.
         :param kms_key_id: The ARN of a KMS key used for encrypting the channel.
-        :param additional_encryption_context: An optional set of non-secret key–value pairs that contains additional
-        contextual information for encryption.
-        :param tags: Metadata assigned to the resource consisting of a list of key-value
-        pairs.
+        :param additional_encryption_context: An optional set of non-secret key–value pairs that contains additional contextual information for encryption.
+        :param tags: Metadata assigned to the resource consisting of a list of key-value pairs.
         :param integration_config: The configuration settings.
         :returns: CreateIntegrationResponse
         :raises ValidationException:
@@ -11410,8 +11377,7 @@ class GlueApi:
         :param resource_arn: The connection ARN of the source, or the database ARN of the target.
         :param source_processing_properties: The resource properties associated with the integration source.
         :param target_processing_properties: The resource properties associated with the integration target.
-        :param tags: Metadata assigned to the resource consisting of a list of key-value
-        pairs.
+        :param tags: Metadata assigned to the resource consisting of a list of key-value pairs.
         :returns: CreateIntegrationResourcePropertyResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -11442,8 +11408,7 @@ class GlueApi:
         ``SourceTableConfig``, and the Glue database ARN as ``ResourceArn`` with
         ``TargetTableConfig`` respectively.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the target table for which to create
-        integration table properties.
+        :param resource_arn: The Amazon Resource Name (ARN) of the target table for which to create integration table properties.
         :param table_name: The name of the table to be replicated.
         :param source_table_config: A structure for the source table configuration.
         :param target_table_config: A structure for the target table configuration.
@@ -11492,42 +11457,30 @@ class GlueApi:
         """Creates a new job definition.
 
         :param name: The name you assign to this job definition.
-        :param role: The name or Amazon Resource Name (ARN) of the IAM role associated with
-        this job.
+        :param role: The name or Amazon Resource Name (ARN) of the IAM role associated with this job.
         :param command: The ``JobCommand`` that runs this job.
         :param job_mode: A mode that describes how a job was created.
-        :param job_run_queuing_enabled: Specifies whether job run queuing is enabled for the job runs for this
-        job.
+        :param job_run_queuing_enabled: Specifies whether job run queuing is enabled for the job runs for this job.
         :param description: Description of the job being defined.
         :param log_uri: This field is reserved for future use.
-        :param execution_property: An ``ExecutionProperty`` specifying the maximum number of concurrent
-        runs allowed for this job.
-        :param default_arguments: The default arguments for every run of this job, specified as name-value
-        pairs.
-        :param non_overridable_arguments: Arguments for this job that are not overridden when providing job
-        arguments in a job run, specified as name-value pairs.
+        :param execution_property: An ``ExecutionProperty`` specifying the maximum number of concurrent runs allowed for this job.
+        :param default_arguments: The default arguments for every run of this job, specified as name-value pairs.
+        :param non_overridable_arguments: Arguments for this job that are not overridden when providing job arguments in a job run, specified as name-value pairs.
         :param connections: The connections used for this job.
         :param max_retries: The maximum number of times to retry this job if it fails.
         :param allocated_capacity: This parameter is deprecated.
         :param timeout: The job timeout in minutes.
         :param max_capacity: For Glue version 1.
-        :param security_configuration: The name of the ``SecurityConfiguration`` structure to be used with this
-        job.
+        :param security_configuration: The name of the ``SecurityConfiguration`` structure to be used with this job.
         :param tags: The tags to use with this job.
         :param notification_property: Specifies configuration properties of a job notification.
-        :param glue_version: In Spark jobs, ``GlueVersion`` determines the versions of Apache Spark
-        and Python that Glue available in a job.
-        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated
-        when a job runs.
+        :param glue_version: In Spark jobs, ``GlueVersion`` determines the versions of Apache Spark and Python that Glue available in a job.
+        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated when a job runs.
         :param worker_type: The type of predefined worker that is allocated when a job runs.
-        :param code_gen_configuration_nodes: The representation of a directed acyclic graph on which both the Glue
-        Studio visual component and Glue Studio code generation is based.
-        :param execution_class: Indicates whether the job is run with a standard or flexible execution
-        class.
-        :param source_control_details: The details for a source control configuration for a job, allowing
-        synchronization of job artifacts to or from a remote repository.
-        :param maintenance_window: This field specifies a day of the week and hour for a maintenance window
-        for streaming jobs.
+        :param code_gen_configuration_nodes: The representation of a directed acyclic graph on which both the Glue Studio visual component and Glue Studio code generation is based.
+        :param execution_class: Indicates whether the job is run with a standard or flexible execution class.
+        :param source_control_details: The details for a source control configuration for a job, allowing synchronization of job artifacts to or from a remote repository.
+        :param maintenance_window: This field specifies a day of the week and hour for a maintenance window for streaming jobs.
         :returns: CreateJobResponse
         :raises InvalidInputException:
         :raises IdempotentParameterMismatchException:
@@ -11576,22 +11529,16 @@ class GlueApi:
         :param name: The unique name that you give the transform when you create it.
         :param input_record_tables: A list of Glue table definitions used by the transform.
         :param parameters: The algorithmic parameters that are specific to the transform type used.
-        :param role: The name or Amazon Resource Name (ARN) of the IAM role with the required
-        permissions.
+        :param role: The name or Amazon Resource Name (ARN) of the IAM role with the required permissions.
         :param description: A description of the machine learning transform that is being defined.
-        :param glue_version: This value determines which version of Glue this machine learning
-        transform is compatible with.
-        :param max_capacity: The number of Glue data processing units (DPUs) that are allocated to
-        task runs for this transform.
+        :param glue_version: This value determines which version of Glue this machine learning transform is compatible with.
+        :param max_capacity: The number of Glue data processing units (DPUs) that are allocated to task runs for this transform.
         :param worker_type: The type of predefined worker that is allocated when this task runs.
-        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated
-        when this task runs.
+        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated when this task runs.
         :param timeout: The timeout of the task run for this transform in minutes.
-        :param max_retries: The maximum number of times to retry a task for this transform after a
-        task run fails.
+        :param max_retries: The maximum number of times to retry a task for this transform after a task run fails.
         :param tags: The tags to use with this machine learning transform.
-        :param transform_encryption: The encryption-at-rest settings of the transform that apply to accessing
-        user data.
+        :param transform_encryption: The encryption-at-rest settings of the transform that apply to accessing user data.
         :returns: CreateMLTransformResponse
         :raises AlreadyExistsException:
         :raises InvalidInputException:
@@ -11615,12 +11562,10 @@ class GlueApi:
     ) -> CreatePartitionResponse:
         """Creates a new partition.
 
-        :param database_name: The name of the metadata database in which the partition is to be
-        created.
+        :param database_name: The name of the metadata database in which the partition is to be created.
         :param table_name: The name of the metadata table in which the partition is to be created.
         :param partition_input: A ``PartitionInput`` structure defining the partition to be created.
-        :param catalog_id: The Amazon Web Services account ID of the catalog in which the partition
-        is to be created.
+        :param catalog_id: The Amazon Web Services account ID of the catalog in which the partition is to be created.
         :returns: CreatePartitionResponse
         :raises InvalidInputException:
         :raises AlreadyExistsException:
@@ -11644,12 +11589,9 @@ class GlueApi:
     ) -> CreatePartitionIndexResponse:
         """Creates a specified partition index in an existing table.
 
-        :param database_name: Specifies the name of a database in which you want to create a partition
-        index.
-        :param table_name: Specifies the name of a table in which you want to create a partition
-        index.
-        :param partition_index: Specifies a ``PartitionIndex`` structure to create a partition index in
-        an existing table.
+        :param database_name: Specifies the name of a database in which you want to create a partition index.
+        :param table_name: Specifies the name of a table in which you want to create a partition index.
+        :param partition_index: Specifies a ``PartitionIndex`` structure to create a partition index in an existing table.
         :param catalog_id: The catalog ID where the table resides.
         :returns: CreatePartitionIndexResponse
         :raises AlreadyExistsException:
@@ -11674,11 +11616,9 @@ class GlueApi:
         """Creates a new registry which may be used to hold a collection of
         schemas.
 
-        :param registry_name: Name of the registry to be created of max length of 255, and may only
-        contain letters, numbers, hyphen, underscore, dollar sign, or hash mark.
+        :param registry_name: Name of the registry to be created of max length of 255, and may only contain letters, numbers, hyphen, underscore, dollar sign, or hash mark.
         :param description: A description of the registry.
-        :param tags: Amazon Web Services tags that contain a key value pair and may be
-        searched by console, command line, or API.
+        :param tags: Amazon Web Services tags that contain a key value pair and may be searched by console, command line, or API.
         :returns: CreateRegistryResponse
         :raises InvalidInputException:
         :raises AccessDeniedException:
@@ -11717,16 +11657,13 @@ class GlueApi:
         entry for a "default-registry" in the registry database tables, if it is
         not already present.
 
-        :param schema_name: Name of the schema to be created of max length of 255, and may only
-        contain letters, numbers, hyphen, underscore, dollar sign, or hash mark.
+        :param schema_name: Name of the schema to be created of max length of 255, and may only contain letters, numbers, hyphen, underscore, dollar sign, or hash mark.
         :param data_format: The data format of the schema definition.
         :param registry_id: This is a wrapper shape to contain the registry identity fields.
         :param compatibility: The compatibility mode of the schema.
         :param description: An optional description of the schema.
-        :param tags: Amazon Web Services tags that contain a key value pair and may be
-        searched by console, command line, or API.
-        :param schema_definition: The schema definition using the ``DataFormat`` setting for
-        ``SchemaName``.
+        :param tags: Amazon Web Services tags that contain a key value pair and may be searched by console, command line, or API.
+        :param schema_definition: The schema definition using the ``DataFormat`` setting for ``SchemaName``.
         :returns: CreateSchemaResponse
         :raises InvalidInputException:
         :raises AccessDeniedException:
@@ -11816,15 +11753,11 @@ class GlueApi:
         :param idle_timeout: The number of minutes when idle before session times out.
         :param default_arguments: A map array of key-value pairs.
         :param connections: The number of connections to use for the session.
-        :param max_capacity: The number of Glue data processing units (DPUs) that can be allocated
-        when the job runs.
-        :param number_of_workers: The number of workers of a defined ``WorkerType`` to use for the
-        session.
+        :param max_capacity: The number of Glue data processing units (DPUs) that can be allocated when the job runs.
+        :param number_of_workers: The number of workers of a defined ``WorkerType`` to use for the session.
         :param worker_type: The type of predefined worker that is allocated when a job runs.
-        :param security_configuration: The name of the SecurityConfiguration structure to be used with the
-        session.
-        :param glue_version: The Glue version determines the versions of Apache Spark and Python that
-        Glue supports.
+        :param security_configuration: The name of the SecurityConfiguration structure to be used with the session.
+        :param glue_version: The Glue version determines the versions of Apache Spark and Python that Glue supports.
         :param tags: The map of key value pairs (tags) belonging to the session.
         :param request_origin: The origin of the request.
         :returns: CreateSessionResponse
@@ -11856,15 +11789,11 @@ class GlueApi:
 
         :param database_name: The catalog database in which to create the new table.
         :param catalog_id: The ID of the Data Catalog in which to create the ``Table``.
-        :param name: The unique identifier for the table within the specified database that
-        will be created in the Glue Data Catalog.
-        :param table_input: The ``TableInput`` object that defines the metadata table to create in
-        the catalog.
-        :param partition_indexes: A list of partition indexes, ``PartitionIndex`` structures, to create in
-        the table.
+        :param name: The unique identifier for the table within the specified database that will be created in the Glue Data Catalog.
+        :param table_input: The ``TableInput`` object that defines the metadata table to create in the catalog.
+        :param partition_indexes: A list of partition indexes, ``PartitionIndex`` structures, to create in the table.
         :param transaction_id: The ID of the transaction.
-        :param open_table_format_input: Specifies an ``OpenTableFormatInput`` structure when creating an open
-        format table.
+        :param open_table_format_input: Specifies an ``OpenTableFormatInput`` structure when creating an open format table.
         :returns: CreateTableResponse
         :raises AlreadyExistsException:
         :raises InvalidInputException:
@@ -11890,8 +11819,7 @@ class GlueApi:
         :param database_name: The name of the database in the catalog in which the table resides.
         :param table_name: The name of the table.
         :param type: The type of table optimizer.
-        :param table_optimizer_configuration: A ``TableOptimizerConfiguration`` object representing the configuration
-        of a table optimizer.
+        :param table_optimizer_configuration: A ``TableOptimizerConfiguration`` object representing the configuration of a table optimizer.
         :returns: CreateTableOptimizerResponse
         :raises EntityNotFoundException:
         :raises ValidationException:
@@ -11918,16 +11846,12 @@ class GlueApi:
         :param type: The type of the new trigger.
         :param actions: The actions initiated by this trigger when it fires.
         :param workflow_name: The name of the workflow associated with the trigger.
-        :param schedule: A ``cron`` expression used to specify the schedule (see `Time-Based
-        Schedules for Jobs and
-        Crawlers <https://docs.
+        :param schedule: A ``cron`` expression used to specify the schedule (see `Time-Based Schedules for Jobs and Crawlers <https://docs.
         :param predicate: A predicate to specify when the new trigger should fire.
         :param description: A description of the new trigger.
-        :param start_on_creation: Set to ``true`` to start ``SCHEDULED`` and ``CONDITIONAL`` triggers when
-        created.
+        :param start_on_creation: Set to ``true`` to start ``SCHEDULED`` and ``CONDITIONAL`` triggers when created.
         :param tags: The tags to use with this trigger.
-        :param event_batching_condition: Batch condition that must be met (specified number of events received or
-        batch time window expired) before EventBridge event trigger fires.
+        :param event_batching_condition: Batch condition that must be met (specified number of events received or batch time window expired) before EventBridge event trigger fires.
         :returns: CreateTriggerResponse
         :raises AlreadyExistsException:
         :raises EntityNotFoundException:
@@ -11953,8 +11877,7 @@ class GlueApi:
         """Creates an Glue usage profile.
 
         :param name: The name of the usage profile.
-        :param configuration: A ``ProfileConfiguration`` object specifying the job and session values
-        for the profile.
+        :param configuration: A ``ProfileConfiguration`` object specifying the job and session values for the profile.
         :param description: A description of the usage profile.
         :param tags: A list of tags applied to the usage profile.
         :returns: CreateUsageProfileResponse
@@ -11979,8 +11902,7 @@ class GlueApi:
         """Creates a new function definition in the Data Catalog.
 
         :param database_name: The name of the catalog database in which to create the function.
-        :param function_input: A ``FunctionInput`` object that defines the function to create in the
-        Data Catalog.
+        :param function_input: A ``FunctionInput`` object that defines the function to create in the Data Catalog.
         :param catalog_id: The ID of the Data Catalog in which to create the function.
         :returns: CreateUserDefinedFunctionResponse
         :raises AlreadyExistsException:
@@ -12008,12 +11930,9 @@ class GlueApi:
 
         :param name: The name to be assigned to the workflow.
         :param description: A description of the workflow.
-        :param default_run_properties: A collection of properties to be used as part of each execution of the
-        workflow.
+        :param default_run_properties: A collection of properties to be used as part of each execution of the workflow.
         :param tags: The tags to be used with this workflow.
-        :param max_concurrent_runs: You can use this parameter to prevent unwanted multiple updates to data,
-        to control costs, or in some cases, to prevent exceeding the maximum
-        number of concurrent runs of any of the component jobs.
+        :param max_concurrent_runs: You can use this parameter to prevent unwanted multiple updates to data, to control costs, or in some cases, to prevent exceeding the maximum number of concurrent runs of any of the component jobs.
         :returns: CreateWorkflowResponse
         :raises AlreadyExistsException:
         :raises InvalidInputException:
@@ -12444,10 +12363,8 @@ class GlueApi:
     ) -> DeletePartitionIndexResponse:
         """Deletes a specified partition index from an existing table.
 
-        :param database_name: Specifies the name of a database from which you want to delete a
-        partition index.
-        :param table_name: Specifies the name of a table from which you want to delete a partition
-        index.
+        :param database_name: Specifies the name of a database from which you want to delete a partition index.
+        :param table_name: Specifies the name of a table from which you want to delete a partition index.
         :param index_name: The name of the partition index to be deleted.
         :param catalog_id: The catalog ID where the table resides.
         :returns: DeletePartitionIndexResponse
@@ -12470,8 +12387,7 @@ class GlueApi:
         online operations for the registry such as the ``UpdateRegistry``,
         ``CreateSchema``, ``UpdateSchema``, and ``RegisterSchemaVersion`` APIs.
 
-        :param registry_id: This is a wrapper structure that may contain the registry name and
-        Amazon Resource Name (ARN).
+        :param registry_id: This is a wrapper structure that may contain the registry name and Amazon Resource Name (ARN).
         :returns: DeleteRegistryResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -12511,8 +12427,7 @@ class GlueApi:
         deactivate all online operations for the schema, such as the
         ``GetSchemaByDefinition``, and ``RegisterSchemaVersion`` APIs.
 
-        :param schema_id: This is a wrapper structure that may contain the schema name and Amazon
-        Resource Name (ARN).
+        :param schema_id: This is a wrapper structure that may contain the schema name and Amazon Resource Name (ARN).
         :returns: DeleteSchemaResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -12545,13 +12460,8 @@ class GlueApi:
         If the compatibility mode forbids deleting of a version that is
         necessary, such as BACKWARDS_FULL, an error is returned.
 
-        :param schema_id: This is a wrapper structure that may contain the schema name and Amazon
-        Resource Name (ARN).
-        :param versions: A version range may be supplied which may be of the format:
-
-        -  a single version number, 5
-
-        -  a range, 5-8 : deletes versions 5, 6, 7, 8.
+        :param schema_id: This is a wrapper structure that may contain the schema name and Amazon Resource Name (ARN).
+        :param versions: A version range may be supplied which may be of the format:  -  a single version number, 5  -  a range, 5-8 : deletes versions 5, 6, 7, 8.
         :returns: DeleteSchemaVersionsResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -12787,10 +12697,8 @@ class GlueApi:
 
         The response includes all the fields which make up the entity.
 
-        :param connection_name: The name of the connection that contains the connection type
-        credentials.
-        :param entity_name: The name of the entity that you want to describe from the connection
-        type.
+        :param connection_name: The name of the connection that contains the connection type credentials.
+        :param entity_name: The name of the entity that you want to describe from the connection type.
         :param catalog_id: The catalog ID of the catalog that contains the connection.
         :param next_token: A continuation token, included if this is a continuation call.
         :param data_store_api_version: The version of the API used for the data store.
@@ -12820,8 +12728,7 @@ class GlueApi:
         :param integration_arn: The Amazon Resource Name (ARN) of the integration.
         :param marker: A token to specify where to start paginating.
         :param max_records: The total number of items to return in the output.
-        :param target_arn: The Amazon Resource Name (ARN) of the target resource in the
-        integration.
+        :param target_arn: The Amazon Resource Name (ARN) of the target resource in the integration.
         :returns: DescribeInboundIntegrationsResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -12848,8 +12755,7 @@ class GlueApi:
         """The API is used to retrieve a list of integrations.
 
         :param integration_identifier: The Amazon Resource Name (ARN) for the integration.
-        :param marker: A value that indicates the starting point for the next set of response
-        records in a subsequent request.
+        :param marker: A value that indicates the starting point for the next set of response records in a subsequent request.
         :param max_records: The total number of items to return in the output.
         :param filters: A list of key and values, to filter down the results.
         :returns: DescribeIntegrationsResponse
@@ -12978,10 +12884,8 @@ class GlueApi:
         :param parent_catalog_id: The ID of the parent catalog in which the catalog resides.
         :param next_token: A continuation token, if this is a continuation call.
         :param max_results: The maximum number of catalogs to return in one response.
-        :param recursive: Whether to list all catalogs across the catalog hierarchy, starting from
-        the ``ParentCatalogId``.
-        :param include_root: Whether to list the default catalog in the account and region in the
-        response.
+        :param recursive: Whether to list all catalogs across the catalog hierarchy, starting from the ``ParentCatalogId``.
+        :param include_root: Whether to list the default catalog in the account and region in the response.
         :returns: GetCatalogsResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -13148,10 +13052,8 @@ class GlueApi:
 
         :param name: The name of the connection definition to retrieve.
         :param catalog_id: The ID of the Data Catalog in which the connection resides.
-        :param hide_password: Allows you to retrieve the connection metadata without returning the
-        password.
-        :param apply_override_for_compute_environment: For connections that may be used in multiple services, specifies
-        returning properties for the specified compute environment.
+        :param hide_password: Allows you to retrieve the connection metadata without returning the password.
+        :param apply_override_for_compute_environment: For connections that may be used in multiple services, specifies returning properties for the specified compute environment.
         :returns: GetConnectionResponse
         :raises EntityNotFoundException:
         :raises OperationTimeoutException:
@@ -13175,8 +13077,7 @@ class GlueApi:
 
         :param catalog_id: The ID of the Data Catalog in which the connections reside.
         :param filter: A filter that controls which connections are returned.
-        :param hide_password: Allows you to retrieve the connection metadata without returning the
-        password.
+        :param hide_password: Allows you to retrieve the connection metadata without returning the password.
         :param next_token: A continuation token, if this is a continuation call.
         :param max_results: The maximum number of connections to return in one response.
         :returns: GetConnectionsResponse
@@ -13403,8 +13304,7 @@ class GlueApi:
         :param catalog_id: The ID of the Data Catalog from which to retrieve ``Databases``.
         :param next_token: A continuation token, if this is a continuation call.
         :param max_results: The maximum number of databases to return in one response.
-        :param resource_share_type: Allows you to specify that you want to list the databases shared with
-        your account.
+        :param resource_share_type: Allows you to specify that you want to list the databases shared with your account.
         :param attributes_to_get: Specifies the database fields returned by the ``GetDatabases`` call.
         :returns: GetDatabasesResponse
         :raises InvalidInputException:
@@ -13504,11 +13404,9 @@ class GlueApi:
         mapping as in the ``DescribeEntity`` API. Spark connectors convert data
         to the appropriate data types matching the schema when returning rows.
 
-        :param entity_name: Name of the entity that we want to query the preview data from the given
-        connection type.
+        :param entity_name: Name of the entity that we want to query the preview data from the given connection type.
         :param limit: Limits the number of records fetched with the request.
-        :param connection_name: The name of the connection that contains the connection type
-        credentials.
+        :param connection_name: The name of the connection that contains the connection type credentials.
         :param catalog_id: The catalog ID of the catalog that contains the connection.
         :param next_token: A continuation token, included if this is a continuation call.
         :param data_store_api_version: The API version of the SaaS connector.
@@ -13572,8 +13470,7 @@ class GlueApi:
         that need to be replicated. These properties can include properties for
         filtering and partition for source and target tables.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the target table for which to retrieve
-        integration table properties.
+        :param resource_arn: The Amazon Resource Name (ARN) of the target table for which to retrieve integration table properties.
         :param table_name: The name of the table to be replicated.
         :returns: GetIntegrationTablePropertiesResponse
         :raises ValidationException:
@@ -13738,10 +13635,8 @@ class GlueApi:
         :param transform_id: The unique identifier of the machine learning transform.
         :param next_token: A token for pagination of the results.
         :param max_results: The maximum number of results to return.
-        :param filter: The filter criteria, in the ``TaskRunFilterCriteria`` structure, for the
-        task run.
-        :param sort: The sorting criteria, in the ``TaskRunSortCriteria`` structure, for the
-        task run.
+        :param filter: The filter criteria, in the ``TaskRunFilterCriteria`` structure, for the task run.
+        :param sort: The sorting criteria, in the ``TaskRunSortCriteria`` structure, for the task run.
         :returns: GetMLTaskRunsResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -13761,8 +13656,7 @@ class GlueApi:
         humans. These transformations are then saved by Glue. You can retrieve
         their metadata by calling ``GetMLTransform``.
 
-        :param transform_id: The unique identifier of the transform, generated at the time that the
-        transform was created.
+        :param transform_id: The unique identifier of the transform, generated at the time that the transform was created.
         :returns: GetMLTransformResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -13882,10 +13776,8 @@ class GlueApi:
     ) -> GetPartitionIndexesResponse:
         """Retrieves the partition indexes associated with a table.
 
-        :param database_name: Specifies the name of a database from which you want to retrieve
-        partition indexes.
-        :param table_name: Specifies the name of a table for which you want to retrieve the
-        partition indexes.
+        :param database_name: Specifies the name of a database from which you want to retrieve partition indexes.
+        :param table_name: Specifies the name of a table for which you want to retrieve the partition indexes.
         :param catalog_id: The catalog ID where the table resides.
         :param next_token: A continuation token, included if this is a continuation call.
         :returns: GetPartitionIndexesResponse
@@ -13919,8 +13811,7 @@ class GlueApi:
         :param table_name: The name of the partitions' table.
         :param catalog_id: The ID of the Data Catalog where the partitions in question reside.
         :param expression: An expression that filters the partitions to be returned.
-        :param next_token: A continuation token, if this is not the first call to retrieve these
-        partitions.
+        :param next_token: A continuation token, if this is not the first call to retrieve these partitions.
         :param segment: The segment of the table's partitions to scan in this request.
         :param max_results: The maximum number of partitions to return in a single response.
         :param exclude_column_schema: When true, specifies not returning the partition column schema.
@@ -13972,8 +13863,7 @@ class GlueApi:
     ) -> GetRegistryResponse:
         """Describes the specified registry in detail.
 
-        :param registry_id: This is a wrapper structure that may contain the registry name and
-        Amazon Resource Name (ARN).
+        :param registry_id: This is a wrapper structure that may contain the registry name and Amazon Resource Name (ARN).
         :returns: GetRegistryResponse
         :raises InvalidInputException:
         :raises AccessDeniedException:
@@ -14216,10 +14106,8 @@ class GlueApi:
         :param catalog_id: The ID of the Data Catalog where the table resides.
         :param transaction_id: The transaction ID at which to read the table contents.
         :param query_as_of_time: The time as of when to read the table contents.
-        :param audit_context: A structure containing the Lake Formation `audit
-        context <https://docs.
-        :param include_status_details: Specifies whether to include status details related to a request to
-        create or update an Glue Data Catalog view.
+        :param audit_context: A structure containing the Lake Formation `audit context <https://docs.
+        :param include_status_details: Specifies whether to include status details related to a request to create or update an Glue Data Catalog view.
         :returns: GetTableResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -14331,10 +14219,8 @@ class GlueApi:
         :param max_results: The maximum number of tables to return in a single response.
         :param transaction_id: The transaction ID at which to read the table contents.
         :param query_as_of_time: The time as of when to read the table contents.
-        :param audit_context: A structure containing the Lake Formation `audit
-        context <https://docs.
-        :param include_status_details: Specifies whether to include status details related to a request to
-        create or update an Glue Data Catalog view.
+        :param audit_context: A structure containing the Lake Formation `audit context <https://docs.
+        :param include_status_details: Specifies whether to include status details related to a request to create or update an Glue Data Catalog view.
         :param attributes_to_get: Specifies the table fields returned by the ``GetTables`` call.
         :returns: GetTablesResponse
         :raises EntityNotFoundException:
@@ -14353,8 +14239,7 @@ class GlueApi:
     ) -> GetTagsResponse:
         """Retrieves a list of tags associated with a resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which to retrieve
-        tags.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which to retrieve tags.
         :returns: GetTagsResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -14425,11 +14310,9 @@ class GlueApi:
         :param table_name: (Required) Specifies the name of a table that contains the partition.
         :param partition_values: (Required) A list of partition key values.
         :param supported_permission_types: (Required) A list of supported permission types.
-        :param region: Specified only if the base tables belong to a different Amazon Web
-        Services Region.
+        :param region: Specified only if the base tables belong to a different Amazon Web Services Region.
         :param audit_context: A structure containing Lake Formation audit context information.
-        :param query_session_context: A structure used as a protocol between query engines and Lake Formation
-        or Glue.
+        :param query_session_context: A structure used as a protocol between query engines and Lake Formation or Glue.
         :returns: GetUnfilteredPartitionMetadataResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -14469,16 +14352,13 @@ class GlueApi:
         :param database_name: The name of the catalog database where the partitions reside.
         :param table_name: The name of the table that contains the partition.
         :param supported_permission_types: A list of supported permission types.
-        :param region: Specified only if the base tables belong to a different Amazon Web
-        Services Region.
+        :param region: Specified only if the base tables belong to a different Amazon Web Services Region.
         :param expression: An expression that filters the partitions to be returned.
         :param audit_context: A structure containing Lake Formation audit context information.
-        :param next_token: A continuation token, if this is not the first call to retrieve these
-        partitions.
+        :param next_token: A continuation token, if this is not the first call to retrieve these partitions.
         :param segment: The segment of the table's partitions to scan in this request.
         :param max_results: The maximum number of partitions to return in a single response.
-        :param query_session_context: A structure used as a protocol between query engines and Lake Formation
-        or Glue.
+        :param query_session_context: A structure used as a protocol between query engines and Lake Formation or Glue.
         :returns: GetUnfilteredPartitionsMetadataResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -14516,21 +14396,15 @@ class GlueApi:
 
         :param catalog_id: The catalog ID where the table resides.
         :param database_name: (Required) Specifies the name of a database that contains the table.
-        :param name: (Required) Specifies the name of a table for which you are requesting
-        metadata.
-        :param supported_permission_types: Indicates the level of filtering a third-party analytical engine is
-        capable of enforcing when calling the ``GetUnfilteredTableMetadata`` API
-        operation.
-        :param region: Specified only if the base tables belong to a different Amazon Web
-        Services Region.
+        :param name: (Required) Specifies the name of a table for which you are requesting metadata.
+        :param supported_permission_types: Indicates the level of filtering a third-party analytical engine is capable of enforcing when calling the ``GetUnfilteredTableMetadata`` API operation.
+        :param region: Specified only if the base tables belong to a different Amazon Web Services Region.
         :param audit_context: A structure containing Lake Formation audit context information.
         :param parent_resource_arn: The resource ARN of the view.
         :param root_resource_arn: The resource ARN of the root view in a chain of nested views.
-        :param supported_dialect: A structure specifying the dialect and dialect version used by the query
-        engine.
+        :param supported_dialect: A structure specifying the dialect and dialect version used by the query engine.
         :param permissions: The Lake Formation data permissions of the caller on the table.
-        :param query_session_context: A structure used as a protocol between query engines and Lake Formation
-        or Glue.
+        :param query_session_context: A structure used as a protocol between query engines and Lake Formation or Glue.
         :returns: GetUnfilteredTableMetadataResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -14572,8 +14446,7 @@ class GlueApi:
 
         :param database_name: The name of the catalog database where the function is located.
         :param function_name: The name of the function.
-        :param catalog_id: The ID of the Data Catalog where the function to be retrieved is
-        located.
+        :param catalog_id: The ID of the Data Catalog where the function to be retrieved is located.
         :returns: GetUserDefinedFunctionResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -14597,13 +14470,10 @@ class GlueApi:
     ) -> GetUserDefinedFunctionsResponse:
         """Retrieves multiple function definitions from the Data Catalog.
 
-        :param pattern: An optional function-name pattern string that filters the function
-        definitions returned.
-        :param catalog_id: The ID of the Data Catalog where the functions to be retrieved are
-        located.
+        :param pattern: An optional function-name pattern string that filters the function definitions returned.
+        :param catalog_id: The ID of the Data Catalog where the functions to be retrieved are located.
         :param database_name: The name of the catalog database where the functions are located.
-        :param function_type: An optional function-type pattern string that filters the function
-        definitions returned from Amazon Redshift Federated Permissions Catalog.
+        :param function_type: An optional function-type pattern string that filters the function definitions returned from Amazon Redshift Federated Permissions Catalog.
         :param next_token: A continuation token, if this is a continuation call.
         :param max_results: The maximum number of functions to return in one response.
         :returns: GetUserDefinedFunctionsResponse
@@ -14626,8 +14496,7 @@ class GlueApi:
         """Retrieves resource metadata for a workflow.
 
         :param name: The name of the workflow to retrieve.
-        :param include_graph: Specifies whether to include a graph when returning the workflow
-        resource metadata.
+        :param include_graph: Specifies whether to include a graph when returning the workflow resource metadata.
         :returns: GetWorkflowResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -14834,8 +14703,7 @@ class GlueApi:
 
         :param crawler_name: The name of the crawler whose runs you want to retrieve.
         :param max_results: The maximum number of results to return.
-        :param filters: Filters the crawls by the criteria you specify in a list of
-        ``CrawlsFilter`` objects.
+        :param filters: Filters the crawls by the criteria you specify in a list of ``CrawlsFilter`` objects.
         :param next_token: A continuation token, if this is a continuation call.
         :returns: ListCrawlsResponse
         :raises EntityNotFoundException:
@@ -15046,8 +14914,7 @@ class GlueApi:
     ) -> ListEntitiesResponse:
         """Returns the available entities supported by the connection type.
 
-        :param connection_name: A name for the connection that has required credentials to query any
-        connection type.
+        :param connection_name: A name for the connection that has required credentials to query any connection type.
         :param catalog_id: The catalog ID of the catalog that contains the connection.
         :param parent_entity_name: Name of the parent entity for which you want to list the children.
         :param next_token: A continuation token, included if this is a continuation call.
@@ -15076,8 +14943,7 @@ class GlueApi:
         the filters, maxRecords and markers.
 
         :param marker: This is the pagination token for next page, initial value is ``null``.
-        :param filters: A list of filters, supported filter Key is ``SourceArn`` and
-        ``TargetArn``.
+        :param filters: A list of filters, supported filter Key is ``SourceArn`` and ``TargetArn``.
         :param max_records: This is total number of items to be evaluated.
         :returns: ListIntegrationResourcePropertiesResponse
         :raises ValidationException:
@@ -15140,10 +15006,8 @@ class GlueApi:
 
         :param next_token: A continuation token, if this is a continuation request.
         :param max_results: The maximum size of a list to return.
-        :param filter: A ``TransformFilterCriteria`` used to filter the machine learning
-        transforms.
-        :param sort: A ``TransformSortCriteria`` used to sort the machine learning
-        transforms.
+        :param filter: A ``TransformFilterCriteria`` used to filter the machine learning transforms.
+        :param sort: A ``TransformSortCriteria`` used to sort the machine learning transforms.
         :param tags: Specifies to return only these tagged resources.
         :returns: ListMLTransformsResponse
         :raises EntityNotFoundException:
@@ -15241,8 +15105,7 @@ class GlueApi:
         When the ``RegistryId`` is not provided, all the schemas across
         registries will be part of the API response.
 
-        :param registry_id: A wrapper structure that may contain the registry name and Amazon
-        Resource Name (ARN).
+        :param registry_id: A wrapper structure that may contain the registry name and Amazon Resource Name (ARN).
         :param max_results: Maximum number of results required per page.
         :param next_token: A continuation token, if this is a continuation call.
         :returns: ListSchemasResponse
@@ -15265,8 +15128,7 @@ class GlueApi:
     ) -> ListSessionsResponse:
         """Retrieve a list of sessions.
 
-        :param next_token: The token for the next set of results, or null if there are no more
-        result.
+        :param next_token: The token for the next set of results, or null if there are no more result.
         :param max_results: The maximum number of results.
         :param tags: Tags belonging to the session.
         :param request_origin: The origin of the request.
@@ -15483,16 +15345,9 @@ class GlueApi:
 
         :param policy_in_json: Contains the policy document to set, in JSON format.
         :param resource_arn: Do not use.
-        :param policy_hash_condition: The hash value returned when the previous policy was set using
-        ``PutResourcePolicy``.
+        :param policy_hash_condition: The hash value returned when the previous policy was set using ``PutResourcePolicy``.
         :param policy_exists_condition: A value of ``MUST_EXIST`` is used to update a policy.
-        :param enable_hybrid: If ``'TRUE'``, indicates that you are using both methods to grant
-        cross-account access to Data Catalog resources:
-
-        -  By directly updating the resource policy with ``PutResourePolicy``
-
-        -  By using the **Grant permissions** command on the Amazon Web Services
-           Management Console.
+        :param enable_hybrid: If ``'TRUE'``, indicates that you are using both methods to grant cross-account access to Data Catalog resources:  -  By directly updating the resource policy with ``PutResourePolicy``  -  By using the **Grant permissions** command on the Amazon Web Services    Management Console.
         :returns: PutResourcePolicyResponse
         :raises EntityNotFoundException:
         :raises InternalServiceException:
@@ -15543,8 +15398,7 @@ class GlueApi:
         the value otherwise adds the property to existing properties.
 
         :param name: Name of the workflow which was run.
-        :param run_id: The ID of the workflow run for which the run properties should be
-        updated.
+        :param run_id: The ID of the workflow run for which the run properties should be updated.
         :param run_properties: The properties to put for the specified run.
         :returns: PutWorkflowRunPropertiesResponse
         :raises AlreadyExistsException:
@@ -15571,12 +15425,10 @@ class GlueApi:
     ) -> QuerySchemaVersionMetadataResponse:
         """Queries for the schema version metadata information.
 
-        :param schema_id: A wrapper structure that may contain the schema name and Amazon Resource
-        Name (ARN).
+        :param schema_id: A wrapper structure that may contain the schema name and Amazon Resource Name (ARN).
         :param schema_version_number: The version number of the schema.
         :param schema_version_id: The unique version ID of the schema version.
-        :param metadata_list: Search key-value pairs for metadata, if they are not provided all the
-        metadata information will be fetched.
+        :param metadata_list: Search key-value pairs for metadata, if they are not provided all the metadata information will be fetched.
         :param max_results: Maximum number of results required per page.
         :param next_token: A continuation token, if this is a continuation call.
         :returns: QuerySchemaVersionMetadataResponse
@@ -15617,13 +15469,9 @@ class GlueApi:
 
         :param connection_type: The name of the connection type.
         :param integration_type: The integration type for the connection.
-        :param connection_properties: Defines the base URL and additional request parameters needed during
-        connection creation for this connection type.
-        :param connector_authentication_configuration: Defines the supported authentication types and required properties for
-        this connection type, including Basic, OAuth2, and Custom authentication
-        methods.
-        :param rest_configuration: Defines the HTTP request and response configuration, validation
-        endpoint, and entity configurations for REST API interactions.
+        :param connection_properties: Defines the base URL and additional request parameters needed during connection creation for this connection type.
+        :param connector_authentication_configuration: Defines the supported authentication types and required properties for this connection type, including Basic, OAuth2, and Custom authentication methods.
+        :param rest_configuration: Defines the HTTP request and response configuration, validation endpoint, and entity configurations for REST API interactions.
         :param description: A description of the connection type.
         :param tags: The tags you assign to the connection type.
         :returns: RegisterConnectionTypeResponse
@@ -15661,8 +15509,7 @@ class GlueApi:
         version, the schema ID of the existing schema is returned to the caller.
 
         :param schema_id: This is a wrapper structure to contain schema identity fields.
-        :param schema_definition: The schema definition using the ``DataFormat`` setting for the
-        ``SchemaName``.
+        :param schema_definition: The schema definition using the ``DataFormat`` setting for the ``SchemaName``.
         :returns: RegisterSchemaVersionResponse
         :raises InvalidInputException:
         :raises AccessDeniedException:
@@ -15687,8 +15534,7 @@ class GlueApi:
         specified schema version ID.
 
         :param metadata_key_value: The value of the metadata key.
-        :param schema_id: A wrapper structure that may contain the schema name and Amazon Resource
-        Name (ARN).
+        :param schema_id: A wrapper structure that may contain the schema name and Amazon Resource Name (ARN).
         :param schema_version_number: The version number of the schema.
         :param schema_version_id: The unique version ID of the schema version.
         :returns: RemoveSchemaVersionMetadataResponse
@@ -15805,16 +15651,12 @@ class GlueApi:
 
         :param catalog_id: A unique identifier, consisting of ``account_id``.
         :param next_token: A continuation token, included if this is a continuation call.
-        :param filters: A list of key-value pairs, and a comparator used to filter the search
-        results.
+        :param filters: A list of key-value pairs, and a comparator used to filter the search results.
         :param search_text: A string used for a text search.
-        :param sort_criteria: A list of criteria for sorting the results by a field name, in an
-        ascending or descending order.
+        :param sort_criteria: A list of criteria for sorting the results by a field name, in an ascending or descending order.
         :param max_results: The maximum number of tables to return in a single response.
-        :param resource_share_type: Allows you to specify that you want to search the tables shared with
-        your account.
-        :param include_status_details: Specifies whether to include status details related to a request to
-        create or update an Glue Data Catalog view.
+        :param resource_share_type: Allows you to specify that you want to search the tables shared with your account.
+        :param include_status_details: Specifies whether to include status details related to a request to create or update an Glue Data Catalog view.
         :returns: SearchTablesResponse
         :raises InternalServiceException:
         :raises InvalidInputException:
@@ -15867,8 +15709,7 @@ class GlueApi:
         :param column_name_list: A list of the column names to generate statistics.
         :param sample_size: The percentage of rows used to generate statistics.
         :param catalog_id: The ID of the Data Catalog where the table reside.
-        :param security_configuration: Name of the security configuration that is used to encrypt CloudWatch
-        logs for the column stats task run.
+        :param security_configuration: Name of the security configuration that is used to encrypt CloudWatch logs for the column stats task run.
         :returns: StartColumnStatisticsTaskRunResponse
         :raises AccessDeniedException:
         :raises EntityNotFoundException:
@@ -15886,8 +15727,7 @@ class GlueApi:
         """Starts a column statistics task run schedule.
 
         :param database_name: The name of the database where the table resides.
-        :param table_name: The name of the table for which to start a column statistic task run
-        schedule.
+        :param table_name: The name of the table for which to start a column statistic task run schedule.
         :returns: StartColumnStatisticsTaskRunScheduleResponse
         :raises AccessDeniedException:
         :raises EntityNotFoundException:
@@ -15955,11 +15795,8 @@ class GlueApi:
         :param number_of_workers: The number of ``G.
         :param timeout: The timeout for a run in minutes.
         :param created_ruleset_name: A name for the ruleset.
-        :param data_quality_security_configuration: The name of the security configuration created with the data quality
-        encryption option.
-        :param client_token: Used for idempotency and is recommended to be set to a random ID (such
-        as a UUID) to avoid creating or starting multiple instances of the same
-        resource.
+        :param data_quality_security_configuration: The name of the security configuration created with the data quality encryption option.
+        :param client_token: Used for idempotency and is recommended to be set to a random ID (such as a UUID) to avoid creating or starting multiple instances of the same resource.
         :returns: StartDataQualityRuleRecommendationRunResponse
         :raises InvalidInputException:
         :raises OperationTimeoutException:
@@ -15992,12 +15829,9 @@ class GlueApi:
         :param ruleset_names: A list of ruleset names.
         :param number_of_workers: The number of ``G.
         :param timeout: The timeout for a run in minutes.
-        :param client_token: Used for idempotency and is recommended to be set to a random ID (such
-        as a UUID) to avoid creating or starting multiple instances of the same
-        resource.
+        :param client_token: Used for idempotency and is recommended to be set to a random ID (such as a UUID) to avoid creating or starting multiple instances of the same resource.
         :param additional_run_options: Additional run options you can specify for an evaluation run.
-        :param additional_data_sources: A map of reference strings to additional data sources you can specify
-        for an evaluation run.
+        :param additional_data_sources: A map of reference strings to additional data sources you can specify for an evaluation run.
         :returns: StartDataQualityRulesetEvaluationRunResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -16071,8 +15905,7 @@ class GlueApi:
         ``GetMLTaskRun`` operation.
 
         :param transform_id: The unique identifier of the machine learning transform.
-        :param input_s3_path: The Amazon Simple Storage Service (Amazon S3) path from where you import
-        the labels.
+        :param input_s3_path: The Amazon Simple Storage Service (Amazon S3) path from where you import the labels.
         :param replace_all_labels: Indicates whether to overwrite your existing labels.
         :returns: StartImportLabelsTaskRunResponse
         :raises EntityNotFoundException:
@@ -16111,18 +15944,12 @@ class GlueApi:
         :param allocated_capacity: This field is deprecated.
         :param timeout: The ``JobRun`` timeout in minutes.
         :param max_capacity: For Glue version 1.
-        :param security_configuration: The name of the ``SecurityConfiguration`` structure to be used with this
-        job run.
+        :param security_configuration: The name of the ``SecurityConfiguration`` structure to be used with this job run.
         :param notification_property: Specifies configuration properties of a job run notification.
         :param worker_type: The type of predefined worker that is allocated when a job runs.
-        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated
-        when a job runs.
-        :param execution_class: Indicates whether the job is run with a standard or flexible execution
-        class.
-        :param execution_role_session_policy: This inline session policy to the StartJobRun API allows you to
-        dynamically restrict the permissions of the specified execution role for
-        the scope of the job, without requiring the creation of additional IAM
-        roles.
+        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated when a job runs.
+        :param execution_class: Indicates whether the job is run with a standard or flexible execution class.
+        :param execution_role_session_policy: This inline session policy to the StartJobRun API allows you to dynamically restrict the permissions of the specified execution role for the scope of the job, without requiring the creation of additional IAM roles.
         :returns: StartJobRunResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -16184,8 +16011,7 @@ class GlueApi:
         Transform, specified in the ``CreateMLTransform`` API.
 
         :param transform_id: The unique identifier of the machine learning transform.
-        :param output_s3_path: The Amazon Simple Storage Service (Amazon S3) path where you generate
-        the labeling set.
+        :param output_s3_path: The Amazon Simple Storage Service (Amazon S3) path where you generate the labeling set.
         :returns: StartMLLabelingSetGenerationTaskRunResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -16210,8 +16036,7 @@ class GlueApi:
 
         :param catalog_id: The ID of the Data Catalog where the table reside.
         :param database_name: The name of the database where the table resides.
-        :param table_name: The name of the table to generate run the materialized view refresh
-        task.
+        :param table_name: The name of the table to generate run the materialized view refresh task.
         :param full_refresh: Specifies whether this is a full refresh of the task run.
         :returns: StartMaterializedViewRefreshTaskRunResponse
         :raises AccessDeniedException:
@@ -16287,8 +16112,7 @@ class GlueApi:
         """Stops a column statistics task run schedule.
 
         :param database_name: The name of the database where the table resides.
-        :param table_name: The name of the table for which to stop a column statistic task run
-        schedule.
+        :param table_name: The name of the table for which to stop a column statistic task run schedule.
         :returns: StopColumnStatisticsTaskRunScheduleResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -16471,8 +16295,7 @@ class GlueApi:
     ) -> UntagResourceResponse:
         """Removes tags from a resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource from which to remove the
-        tags.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource from which to remove the tags.
         :param tags_to_remove: Tags to remove from this resource.
         :returns: UntagResourceResponse
         :raises InvalidInputException:
@@ -16517,8 +16340,7 @@ class GlueApi:
         """Updates an existing catalog's properties in the Glue Data Catalog.
 
         :param catalog_id: The ID of the catalog.
-        :param catalog_input: A ``CatalogInput`` object specifying the new properties of an existing
-        catalog.
+        :param catalog_input: A ``CatalogInput`` object specifying the new properties of an existing catalog.
         :returns: UpdateCatalogResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -16638,8 +16460,7 @@ class GlueApi:
         :param column_name_list: A list of column names for which to run statistics.
         :param sample_size: The percentage of data to sample.
         :param catalog_id: The ID of the Data Catalog in which the database resides.
-        :param security_configuration: Name of the security configuration that is used to encrypt CloudWatch
-        logs.
+        :param security_configuration: Name of the security configuration that is used to encrypt CloudWatch logs.
         :returns: UpdateColumnStatisticsTaskSettingsResponse
         :raises AccessDeniedException:
         :raises EntityNotFoundException:
@@ -16696,25 +16517,19 @@ class GlueApi:
         ``StopCrawler`` before updating it.
 
         :param name: Name of the new crawler.
-        :param role: The IAM role or Amazon Resource Name (ARN) of an IAM role that is used
-        by the new crawler to access customer resources.
-        :param database_name: The Glue database where results are stored, such as:
-        ``arn:aws:daylight:us-east-1::database/sometable/*``.
+        :param role: The IAM role or Amazon Resource Name (ARN) of an IAM role that is used by the new crawler to access customer resources.
+        :param database_name: The Glue database where results are stored, such as: ``arn:aws:daylight:us-east-1::database/sometable/*``.
         :param description: A description of the new crawler.
         :param targets: A list of targets to crawl.
-        :param schedule: A ``cron`` expression used to specify the schedule (see `Time-Based
-        Schedules for Jobs and
-        Crawlers <https://docs.
+        :param schedule: A ``cron`` expression used to specify the schedule (see `Time-Based Schedules for Jobs and Crawlers <https://docs.
         :param classifiers: A list of custom classifiers that the user has registered.
         :param table_prefix: The table prefix used for catalog tables that are created.
         :param schema_change_policy: The policy for the crawler's update and deletion behavior.
-        :param recrawl_policy: A policy that specifies whether to crawl the entire dataset again, or to
-        crawl only folders that were added since the last crawler run.
+        :param recrawl_policy: A policy that specifies whether to crawl the entire dataset again, or to crawl only folders that were added since the last crawler run.
         :param lineage_configuration: Specifies data lineage configuration settings for the crawler.
         :param lake_formation_configuration: Specifies Lake Formation configuration settings for the crawler.
         :param configuration: Crawler configuration information.
-        :param crawler_security_configuration: The name of the ``SecurityConfiguration`` structure to be used by this
-        crawler.
+        :param crawler_security_configuration: The name of the ``SecurityConfiguration`` structure to be used by this crawler.
         :returns: UpdateCrawlerResponse
         :raises InvalidInputException:
         :raises VersionMismatchException:
@@ -16735,9 +16550,7 @@ class GlueApi:
         """Updates the schedule of a crawler using a ``cron`` expression.
 
         :param crawler_name: The name of the crawler whose schedule to update.
-        :param schedule: The updated ``cron`` expression used to specify the schedule (see
-        `Time-Based Schedules for Jobs and
-        Crawlers <https://docs.
+        :param schedule: The updated ``cron`` expression used to specify the schedule (see `Time-Based Schedules for Jobs and Crawlers <https://docs.
         :returns: UpdateCrawlerScheduleResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -16784,8 +16597,7 @@ class GlueApi:
         """Updates an existing database definition in a Data Catalog.
 
         :param name: The name of the database to update in the catalog.
-        :param database_input: A ``DatabaseInput`` object specifying the new definition of the metadata
-        database in the catalog.
+        :param database_input: A ``DatabaseInput`` object specifying the new definition of the metadata database in the catalog.
         :param catalog_id: The ID of the Data Catalog in which the metadata database resides.
         :returns: UpdateDatabaseResponse
         :raises EntityNotFoundException:
@@ -16821,12 +16633,9 @@ class GlueApi:
         :param add_public_keys: The list of public keys for the ``DevEndpoint`` to use.
         :param delete_public_keys: The list of public keys to be deleted from the ``DevEndpoint``.
         :param custom_libraries: Custom Python or Java libraries to be loaded in the ``DevEndpoint``.
-        :param update_etl_libraries: ``True`` if the list of custom libraries to be loaded in the development
-        endpoint needs to be updated, or ``False`` if otherwise.
-        :param delete_arguments: The list of argument keys to be deleted from the map of arguments used
-        to configure the ``DevEndpoint``.
-        :param add_arguments: The map of arguments to add the map of arguments used to configure the
-        ``DevEndpoint``.
+        :param update_etl_libraries: ``True`` if the list of custom libraries to be loaded in the development endpoint needs to be updated, or ``False`` if otherwise.
+        :param delete_arguments: The list of argument keys to be deleted from the map of arguments used to configure the ``DevEndpoint``.
+        :param add_arguments: The map of arguments to add the map of arguments used to configure the ``DevEndpoint``.
         :returns: UpdateDevEndpointResponse
         :raises EntityNotFoundException:
         :raises InternalServiceException:
@@ -16847,10 +16656,8 @@ class GlueApi:
         """Updates the existing Glue Identity Center configuration, allowing
         modification of scopes and permissions for the integration.
 
-        :param scopes: A list of Identity Center scopes that define the updated permissions and
-        access levels for the Glue configuration.
-        :param user_background_sessions_enabled: Specifies whether users can run background sessions when using Identity
-        Center authentication with Glue services.
+        :param scopes: A list of Identity Center scopes that define the updated permissions and access levels for the Glue configuration.
+        :param user_background_sessions_enabled: Specifies whether users can run background sessions when using Identity Center authentication with Glue services.
         :returns: UpdateGlueIdentityCenterConfigurationResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -16966,16 +16773,14 @@ class GlueApi:
         This API supports optional parameters which take in the repository
         information.
 
-        :param job_name: The name of the Glue job to be synchronized to or from the remote
-        repository.
+        :param job_name: The name of the Glue job to be synchronized to or from the remote repository.
         :param provider: The provider for the remote repository.
         :param repository_name: The name of the remote repository that contains the job artifacts.
         :param repository_owner: The owner of the remote repository that contains the job artifacts.
         :param branch_name: An optional branch in the remote repository.
         :param folder: An optional folder in the remote repository.
         :param commit_id: A commit ID for a commit in the remote repository.
-        :param auth_strategy: The type of authentication, which can be an authentication token stored
-        in Amazon Web Services Secrets Manager, or a personal access token.
+        :param auth_strategy: The type of authentication, which can be an authentication token stored in Amazon Web Services Secrets Manager, or a personal access token.
         :param auth_token: The value of the authorization token.
         :returns: UpdateJobFromSourceControlResponse
         :raises AccessDeniedException:
@@ -17016,20 +16821,14 @@ class GlueApi:
         :param transform_id: A unique identifier that was generated when the transform was created.
         :param name: The unique name that you gave the transform when you created it.
         :param description: A description of the transform.
-        :param parameters: The configuration parameters that are specific to the transform type
-        (algorithm) used.
-        :param role: The name or Amazon Resource Name (ARN) of the IAM role with the required
-        permissions.
-        :param glue_version: This value determines which version of Glue this machine learning
-        transform is compatible with.
-        :param max_capacity: The number of Glue data processing units (DPUs) that are allocated to
-        task runs for this transform.
+        :param parameters: The configuration parameters that are specific to the transform type (algorithm) used.
+        :param role: The name or Amazon Resource Name (ARN) of the IAM role with the required permissions.
+        :param glue_version: This value determines which version of Glue this machine learning transform is compatible with.
+        :param max_capacity: The number of Glue data processing units (DPUs) that are allocated to task runs for this transform.
         :param worker_type: The type of predefined worker that is allocated when this task runs.
-        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated
-        when this task runs.
+        :param number_of_workers: The number of workers of a defined ``workerType`` that are allocated when this task runs.
         :param timeout: The timeout for a task run for this transform in minutes.
-        :param max_retries: The maximum number of times to retry a task for this transform after a
-        task run fails.
+        :param max_retries: The maximum number of times to retry a task for this transform after a task run fails.
         :returns: UpdateMLTransformResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -17078,8 +16877,7 @@ class GlueApi:
         schemas. The updated properties relate to the registry, and do not
         modify any of the schemas within the registry.
 
-        :param registry_id: This is a wrapper structure that may contain the registry name and
-        Amazon Resource Name (ARN).
+        :param registry_id: This is a wrapper structure that may contain the registry name and Amazon Resource Name (ARN).
         :param description: A description of the registry.
         :returns: UpdateRegistryResponse
         :raises InvalidInputException:
@@ -17150,16 +16948,14 @@ class GlueApi:
         This API supports optional parameters which take in the repository
         information.
 
-        :param job_name: The name of the Glue job to be synchronized to or from the remote
-        repository.
+        :param job_name: The name of the Glue job to be synchronized to or from the remote repository.
         :param provider: The provider for the remote repository.
         :param repository_name: The name of the remote repository that contains the job artifacts.
         :param repository_owner: The owner of the remote repository that contains the job artifacts.
         :param branch_name: An optional branch in the remote repository.
         :param folder: An optional folder in the remote repository.
         :param commit_id: A commit ID for a commit in the remote repository.
-        :param auth_strategy: The type of authentication, which can be an authentication token stored
-        in Amazon Web Services Secrets Manager, or a personal access token.
+        :param auth_strategy: The type of authentication, which can be an authentication token stored in Amazon Web Services Secrets Manager, or a personal access token.
         :param auth_token: The value of the authorization token.
         :returns: UpdateSourceControlFromJobResponse
         :raises AccessDeniedException:
@@ -17192,20 +16988,14 @@ class GlueApi:
 
         :param database_name: The name of the catalog database in which the table resides.
         :param catalog_id: The ID of the Data Catalog where the table resides.
-        :param name: The unique identifier for the table within the specified database that
-        will be created in the Glue Data Catalog.
-        :param table_input: An updated ``TableInput`` object to define the metadata table in the
-        catalog.
-        :param skip_archive: By default, ``UpdateTable`` always creates an archived version of the
-        table before updating it.
+        :param name: The unique identifier for the table within the specified database that will be created in the Glue Data Catalog.
+        :param table_input: An updated ``TableInput`` object to define the metadata table in the catalog.
+        :param skip_archive: By default, ``UpdateTable`` always creates an archived version of the table before updating it.
         :param transaction_id: The transaction ID at which to update the table contents.
         :param version_id: The version ID at which to update the table contents.
         :param view_update_action: The operation to be performed when updating the view.
-        :param force: A flag that can be set to true to ignore matching storage descriptor and
-        subobject matching requirements.
-        :param update_open_table_format_input: Input parameters for updating open table format tables in GlueData
-        Catalog, serving as a wrapper for format-specific update operations such
-        as Apache Iceberg.
+        :param force: A flag that can be set to true to ignore matching storage descriptor and subobject matching requirements.
+        :param update_open_table_format_input: Input parameters for updating open table format tables in GlueData Catalog, serving as a wrapper for format-specific update operations such as Apache Iceberg.
         :returns: UpdateTableResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -17231,8 +17021,7 @@ class GlueApi:
         :param database_name: The name of the database in the catalog in which the table resides.
         :param table_name: The name of the table.
         :param type: The type of table optimizer.
-        :param table_optimizer_configuration: A ``TableOptimizerConfiguration`` object representing the configuration
-        of a table optimizer.
+        :param table_optimizer_configuration: A ``TableOptimizerConfiguration`` object representing the configuration of a table optimizer.
         :returns: UpdateTableOptimizerResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -17278,8 +17067,7 @@ class GlueApi:
         """Update an Glue usage profile.
 
         :param name: The name of the usage profile.
-        :param configuration: A ``ProfileConfiguration`` object specifying the job and session values
-        for the profile.
+        :param configuration: A ``ProfileConfiguration`` object specifying the job and session values for the profile.
         :param description: A description of the usage profile.
         :returns: UpdateUsageProfileResponse
         :raises InvalidInputException:
@@ -17303,11 +17091,9 @@ class GlueApi:
     ) -> UpdateUserDefinedFunctionResponse:
         """Updates an existing function definition in the Data Catalog.
 
-        :param database_name: The name of the catalog database where the function to be updated is
-        located.
+        :param database_name: The name of the catalog database where the function to be updated is located.
         :param function_name: The name of the function.
-        :param function_input: A ``FunctionInput`` object that redefines the function in the Data
-        Catalog.
+        :param function_input: A ``FunctionInput`` object that redefines the function in the Data Catalog.
         :param catalog_id: The ID of the Data Catalog where the function to be updated is located.
         :returns: UpdateUserDefinedFunctionResponse
         :raises EntityNotFoundException:
@@ -17332,11 +17118,8 @@ class GlueApi:
 
         :param name: Name of the workflow to be updated.
         :param description: The description of the workflow.
-        :param default_run_properties: A collection of properties to be used as part of each execution of the
-        workflow.
-        :param max_concurrent_runs: You can use this parameter to prevent unwanted multiple updates to data,
-        to control costs, or in some cases, to prevent exceeding the maximum
-        number of concurrent runs of any of the component jobs.
+        :param default_run_properties: A collection of properties to be used as part of each execution of the workflow.
+        :param max_concurrent_runs: You can use this parameter to prevent unwanted multiple updates to data, to control costs, or in some cases, to prevent exceeding the maximum number of concurrent runs of any of the component jobs.
         :returns: UpdateWorkflowResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:

@@ -1,9 +1,11 @@
 from datetime import datetime
 
 from localstack import config
+from localstack.constants import VERSION
 from localstack.runtime import hooks
 from localstack.utils.analytics import get_session_id
 from localstack.utils.analytics.events import Event, EventMetadata
+from localstack.utils.analytics.metadata import get_localstack_product
 from localstack.utils.analytics.publisher import AnalyticsClientPublisher
 
 from .registry import MetricRegistry
@@ -30,7 +32,12 @@ def publish_metrics() -> None:
     )
 
     if collected_metrics:
+        payload = {
+            **collected_metrics.as_dict(),
+            "localstack_info": {
+                "version": VERSION,
+                "product": get_localstack_product(),
+            },
+        }
         publisher = AnalyticsClientPublisher()
-        publisher.publish(
-            [Event(name="ls_metrics", metadata=metadata, payload=collected_metrics.as_dict())]
-        )
+        publisher.publish([Event(name="ls_metrics", metadata=metadata, payload=payload)])

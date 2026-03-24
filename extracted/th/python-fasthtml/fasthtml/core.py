@@ -7,12 +7,12 @@ __all__ = ['empty', 'htmx_hdrs', 'fh_cfg', 'htmx_resps', 'htmx_exts', 'htmxsrc',
            'charset', 'cors_allow', 'iframe_scr', 'all_meths', 'devtools_loc', 'parsed_date', 'snake2hyphens',
            'HtmxHeaders', 'HttpHeader', 'HtmxResponseHeaders', 'form2dict', 'parse_form', 'ApiReturn', 'JSONResponse',
            'flat_xt', 'Beforeware', 'EventStream', 'signal_shutdown', 'uri', 'decode_uri', 'flat_tuple', 'noop_body',
-           'respond', 'is_full_page', 'Redirect', 'get_key', 'qp', 'def_hdrs', 'FastHTML', 'HostRoute', 'nested_name',
-           'serve', 'Client', 'RouteFuncs', 'APIRouter', 'cookie', 'reg_re_param', 'StaticNoCache', 'MiddlewareBase',
-           'FtResponse', 'unqid']
+           'respond', 'is_full_page', 'Redirect', 'get_key', 'qp', 'def_hdrs', 'Lifespan', 'FastHTML', 'HostRoute',
+           'nested_name', 'serve', 'Client', 'RouteFuncs', 'APIRouter', 'cookie', 'reg_re_param', 'StaticNoCache',
+           'MiddlewareBase', 'FtResponse', 'unqid']
 
 # %% ../nbs/api/00_core.ipynb #23503b9e
-import json,uuid,inspect,types,signal,asyncio,threading,inspect,random,contextlib,httpx,itsdangerous,uvicorn
+import json,uuid,inspect,types,asyncio,inspect,random,contextlib,httpx,itsdangerous,uvicorn
 
 from fastcore.utils import *
 from fastcore.xml import *
@@ -20,20 +20,20 @@ from fastcore.meta import use_kwargs_dict,delegates
 from fastcore.style import S
 
 from types import UnionType, SimpleNamespace as ns, GenericAlias
-from typing import Optional, get_type_hints, get_args, get_origin, Union, Mapping, TypedDict, List, Any
+from typing import get_args, get_origin, Union, Mapping, List, Any
 from datetime import datetime,date
-from dataclasses import dataclass,fields
-from collections import namedtuple
-from inspect import isfunction,ismethod,Parameter,get_annotations
-from functools import wraps, partialmethod, update_wrapper
+from dataclasses import dataclass
+from inspect import Parameter,get_annotations
+from functools import partialmethod, update_wrapper
 from http import cookies
 from urllib.parse import urlencode, parse_qs, quote, unquote
-from copy import copy,deepcopy
+from copy import deepcopy
 from warnings import warn
 from dateutil import parser as dtparse
 from anyio import from_thread
 from uuid import uuid4, UUID
-from base64 import b85encode,b64encode
+from base64 import b64encode
+from email.utils import format_datetime
 
 from .starlette import *
 
@@ -566,6 +566,33 @@ iframe_scr = Script(NotStr("""
         document.body.addEventListener('htmx:wsAfterMessage', sendmsg);
     };"""))
 
+# %% ../nbs/api/00_core.ipynb #17ced9a3
+class _LifespanCtx:
+    def __init__(self, gen): self.gen = gen
+    async def __aenter__(self): return await anext(self.gen)
+    async def __aexit__(self, *_):
+        try: await anext(self.gen)
+        except StopAsyncIteration: pass
+    def __aiter__(self): return self.gen
+    async def __anext__(self): return await self.gen.__anext__()
+
+class Lifespan:
+    def __init__(self, startup=None, shutdown=None, ls=None):
+        startup,shutdown = listify(startup),listify(shutdown)
+        store_attr()
+
+    def __call__(self, app): return _LifespanCtx(self._run(app))
+
+    async def _run(self, app):
+        for f in self.startup: await _handle(f)
+        if self.ls:
+            async for state in self.ls(app): yield state
+        else: yield
+        for f in self.shutdown: await _handle(f)
+
+    def on_event(self, event_type):
+        return lambda f: (getattr(self, event_type)).append(f)
+
 # %% ../nbs/api/00_core.ipynb #3327a1e9
 class FastHTML(Starlette):
     def __init__(self, debug=False, routes=None, middleware=None, title: str = "FastHTML page", exception_handlers=None,
@@ -586,8 +613,8 @@ class FastHTML(Starlette):
             from IPython.display import display,HTML
             if nb_hdrs: display(HTML(to_xml(tuple(hdrs))))
             middleware.append(cors_allow)
-        on_startup,on_shutdown = listify(on_startup) or None,listify(on_shutdown) or None
-        self.lifespan,self.hdrs,self.ftrs = lifespan,hdrs,ftrs
+        self.lifespan = Lifespan(on_startup, on_shutdown, lifespan)
+        self.hdrs,self.ftrs = hdrs,ftrs
         self.body_wrap,self.before,self.after,self.htmlkw,self.bodykw = body_wrap,before,after,htmlkw,bodykw
         self.secret_key = get_key(secret_key, key_fname)
         if sess_cls:
@@ -597,10 +624,12 @@ class FastHTML(Starlette):
             middleware.append(sess)
         exception_handlers = ifnone(exception_handlers, {})
         if 404 not in exception_handlers:
-            def _not_found(req, exc): return  Response('404 Not Found', status_code=404)
+            def _not_found(req, exc): return Response('404 Not Found', status_code=404)
             exception_handlers[404] = _not_found
         excs = {k:_wrap_ex(v, k, hdrs, ftrs, htmlkw, bodykw, body_wrap=body_wrap) for k,v in exception_handlers.items()}
-        super().__init__(debug, routes, middleware=middleware, exception_handlers=excs, on_startup=on_startup, on_shutdown=on_shutdown, lifespan=lifespan)
+        super().__init__(debug, routes, middleware=middleware, exception_handlers=excs, lifespan=self.lifespan)
+
+    def on_event(self, event_type): return self.lifespan.on_event(event_type)
 
 # %% ../nbs/api/00_core.ipynb #dce68049
 class HostRoute(Route):
@@ -678,6 +707,12 @@ def ws(self:FastHTML, path:str, conn=None, disconn=None, name=None, middleware=N
     "Add a websocket route at `path`"
     def f(func=noop): return self._add_ws(func, path, conn, disconn, name=name, middleware=middleware)
     return f
+
+# %% ../nbs/api/00_core.ipynb #j6ete5u68fo
+@patch
+def add_websocket_route(self:FastHTML, path, func, conn=None, disconn=None, name=None, middleware=None):
+    "Add a websocket route at `path` (Starlette-compatible API)"
+    return self._add_ws(func, path, conn, disconn, name=name, middleware=middleware)
 
 # %% ../nbs/api/00_core.ipynb #919618c3
 def _mk_locfunc(f, p, app=None):

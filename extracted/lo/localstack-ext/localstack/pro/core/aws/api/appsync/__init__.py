@@ -2076,8 +2076,7 @@ class AppsyncApi:
         :param name: The name for the ``Api``.
         :param event_config: The Event API configuration.
         :param owner_contact: The owner contact information for the ``Api``.
-        :param tags: A map with keys of ``TagKey`` objects and values of ``TagValue``
-        objects.
+        :param tags: A map with keys of ``TagKey`` objects and values of ``TagValue`` objects.
         :returns: CreateApiResponse
         :raises BadRequestException:
         :raises ConcurrentModificationException:
@@ -2153,14 +2152,10 @@ class AppsyncApi:
 
         :param api_id: The ``Api`` ID.
         :param name: The name of the ``ChannelNamespace``.
-        :param subscribe_auth_modes: The authorization mode to use for subscribing to messages on the channel
-        namespace.
-        :param publish_auth_modes: The authorization mode to use for publishing messages on the channel
-        namespace.
-        :param code_handlers: The event handler functions that run custom business logic to process
-        published events and subscribe requests.
-        :param tags: A map with keys of ``TagKey`` objects and values of ``TagValue``
-        objects.
+        :param subscribe_auth_modes: The authorization mode to use for subscribing to messages on the channel namespace.
+        :param publish_auth_modes: The authorization mode to use for publishing messages on the channel namespace.
+        :param code_handlers: The event handler functions that run custom business logic to process published events and subscribe requests.
+        :param tags: A map with keys of ``TagKey`` objects and values of ``TagValue`` objects.
         :param handler_configs: The configuration for the ``OnPublish`` and ``OnSubscribe`` handlers.
         :returns: CreateChannelNamespaceResponse
         :raises BadRequestException:
@@ -2183,8 +2178,7 @@ class AppsyncApi:
         :param name: A user-supplied name for the ``DataSource``.
         :param type: The type of the ``DataSource``.
         :param description: A description of the ``DataSource``.
-        :param service_role_arn: The Identity and Access Management (IAM) service role Amazon Resource
-        Name (ARN) for the data source.
+        :param service_role_arn: The Identity and Access Management (IAM) service role Amazon Resource Name (ARN) for the data source.
         :param dynamodb_config: Amazon DynamoDB settings.
         :param lambda_config: Lambda settings.
         :param elasticsearch_config: Amazon OpenSearch Service settings.
@@ -2192,8 +2186,7 @@ class AppsyncApi:
         :param http_config: HTTP endpoint settings.
         :param relational_database_config: Relational database settings.
         :param event_bridge_config: Amazon EventBridge settings.
-        :param metrics_config: Enables or disables enhanced data source metrics for specified data
-        sources.
+        :param metrics_config: Enables or disables enhanced data source metrics for specified data sources.
         :returns: CreateDataSourceResponse
         :raises BadRequestException:
         :raises ConcurrentModificationException:
@@ -2218,8 +2211,7 @@ class AppsyncApi:
         :param domain_name: The domain name.
         :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
         :param description: A description of the ``DomainName``.
-        :param tags: A map with keys of ``TagKey`` objects and values of ``TagValue``
-        objects.
+        :param tags: A map with keys of ``TagKey`` objects and values of ``TagValue`` objects.
         :returns: CreateDomainNameResponse
         :raises AccessDeniedException:
         :raises BadRequestException:
@@ -2258,8 +2250,7 @@ class AppsyncApi:
         :param function_version: The ``version`` of the request mapping template.
         :param sync_config: Describes a Sync configuration for a resolver.
         :param max_batch_size: The maximum batching size for a resolver.
-        :param runtime: Describes a runtime used by an Amazon Web Services AppSync pipeline
-        resolver or Amazon Web Services AppSync function.
+        :param runtime: Describes a runtime used by an Amazon Web Services AppSync pipeline resolver or Amazon Web Services AppSync function.
         :param code: The ``function`` code that contains the request and response functions.
         :returns: CreateFunctionResponse
         :raises ConcurrentModificationException:
@@ -2296,24 +2287,19 @@ class AppsyncApi:
         """Creates a ``GraphqlApi`` object.
 
         :param name: A user-supplied name for the ``GraphqlApi``.
-        :param authentication_type: The authentication type: API key, Identity and Access Management (IAM),
-        OpenID Connect (OIDC), Amazon Cognito user pools, or Lambda.
+        :param authentication_type: The authentication type: API key, Identity and Access Management (IAM), OpenID Connect (OIDC), Amazon Cognito user pools, or Lambda.
         :param log_config: The Amazon CloudWatch Logs configuration.
         :param user_pool_config: The Amazon Cognito user pool configuration.
         :param open_id_connect_config: The OIDC configuration.
         :param tags: A ``TagMap`` object.
-        :param additional_authentication_providers: A list of additional authentication providers for the ``GraphqlApi``
-        API.
+        :param additional_authentication_providers: A list of additional authentication providers for the ``GraphqlApi`` API.
         :param xray_enabled: A flag indicating whether to use X-Ray tracing for the ``GraphqlApi``.
         :param lambda_authorizer_config: Configuration for Lambda function authorization.
-        :param api_type: The value that indicates whether the GraphQL API is a standard API
-        (``GRAPHQL``) or merged API (``MERGED``).
+        :param api_type: The value that indicates whether the GraphQL API is a standard API (``GRAPHQL``) or merged API (``MERGED``).
         :param merged_api_execution_role_arn: The Identity and Access Management service role ARN for a merged API.
-        :param visibility: Sets the value of the GraphQL API to public (``GLOBAL``) or private
-        (``PRIVATE``).
+        :param visibility: Sets the value of the GraphQL API to public (``GLOBAL``) or private (``PRIVATE``).
         :param owner_contact: The owner contact information for an API resource.
-        :param introspection_config: Sets the value of the GraphQL API to enable (``ENABLED``) or disable
-        (``DISABLED``) introspection.
+        :param introspection_config: Sets the value of the GraphQL API to enable (``ENABLED``) or disable (``DISABLED``) introspection.
         :param query_depth_limit: The maximum depth a query can have in a single request.
         :param resolver_count_limit: The maximum number of resolvers that can be invoked in a single request.
         :param enhanced_metrics_config: The ``enhancedMetricsConfig`` object.
@@ -2363,8 +2349,7 @@ class AppsyncApi:
         :param sync_config: The ``SyncConfig`` for a resolver attached to a versioned data source.
         :param caching_config: The caching configuration for the resolver.
         :param max_batch_size: The maximum batching size for a resolver.
-        :param runtime: Describes a runtime used by an Amazon Web Services AppSync pipeline
-        resolver or Amazon Web Services AppSync function.
+        :param runtime: Describes a runtime used by an Amazon Web Services AppSync pipeline resolver or Amazon Web Services AppSync function.
         :param code: The ``resolver`` code that contains the request and response functions.
         :param metrics_config: Enables or disables enhanced resolver metrics for specified resolvers.
         :returns: CreateResolverResponse
@@ -2646,8 +2631,7 @@ class AppsyncApi:
 
         :param runtime: The runtime to be used when evaluating the code.
         :param code: The code definition to be evaluated.
-        :param context: The map that holds all of the contextual information for your resolver
-        invocation.
+        :param context: The map that holds all of the contextual information for your resolver invocation.
         :param function: The function within the code to be evaluated.
         :returns: EvaluateCodeResponse
         :raises AccessDeniedException:
@@ -2672,8 +2656,7 @@ class AppsyncApi:
         (VTL).
 
         :param template: The mapping template; this can be a request or response template.
-        :param context: The map that holds all of the contextual information for your resolver
-        invocation.
+        :param context: The map that holds all of the contextual information for your resolver invocation.
         :returns: EvaluateMappingTemplateResponse
         :raises AccessDeniedException:
         :raises InternalFailureException:
@@ -2792,12 +2775,9 @@ class AppsyncApi:
         instead.
 
         :param introspection_id: The introspection ID.
-        :param include_models_sdl: A boolean flag that determines whether SDL should be generated for
-        introspected types.
-        :param next_token: Determines the number of types to be returned in a single response
-        before paginating.
-        :param max_results: The maximum number of introspected types that will be returned in a
-        single response.
+        :param include_models_sdl: A boolean flag that determines whether SDL should be generated for introspected types.
+        :param next_token: Determines the number of types to be returned in a single response before paginating.
+        :param max_results: The maximum number of introspected types that will be returned in a single response.
         :returns: GetDataSourceIntrospectionResponse
         :raises BadRequestException:
         :raises NotFoundException:
@@ -2858,8 +2838,7 @@ class AppsyncApi:
         """Retrieves the list of environmental variable key-value pairs associated
         with an API by its ID value.
 
-        :param api_id: The ID of the API from which the environmental variable list will be
-        retrieved.
+        :param api_id: The ID of the API from which the environmental variable list will be retrieved.
         :returns: GetGraphqlApiEnvironmentVariablesResponse
         :raises BadRequestException:
         :raises NotFoundException:
@@ -2882,8 +2861,7 @@ class AppsyncApi:
 
         :param api_id: The API ID.
         :param format: The schema format: SDL or JSON.
-        :param include_directives: A flag that specifies whether the schema introspection should contain
-        directives.
+        :param include_directives: A flag that specifies whether the schema introspection should contain directives.
         :returns: GetIntrospectionSchemaResponse
         :raises GraphQLSchemaException:
         :raises NotFoundException:
@@ -2988,9 +2966,7 @@ class AppsyncApi:
         before it's automatically deleted.
 
         :param api_id: The API ID.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListApiKeysResponse
         :raises BadRequestException:
@@ -3013,9 +2989,7 @@ class AppsyncApi:
         ``ListApis`` returns only the high level API details. For more detailed
         information about an API, use ``GetApi``.
 
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListApisResponse
         :raises BadRequestException:
@@ -3040,9 +3014,7 @@ class AppsyncApi:
         ``GetChannelNamespace``.
 
         :param api_id: The ``Api`` ID.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListChannelNamespacesResponse
         :raises BadRequestException:
@@ -3064,9 +3036,7 @@ class AppsyncApi:
         """Lists the data sources for a given API.
 
         :param api_id: The API ID.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListDataSourcesResponse
         :raises BadRequestException:
@@ -3086,9 +3056,7 @@ class AppsyncApi:
     ) -> ListDomainNamesResponse:
         """Lists multiple custom domain names.
 
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListDomainNamesResponse
         :raises AccessDeniedException:
@@ -3109,9 +3077,7 @@ class AppsyncApi:
         """List multiple functions.
 
         :param api_id: The GraphQL API ID.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListFunctionsResponse
         :raises BadRequestException:
@@ -3133,12 +3099,9 @@ class AppsyncApi:
     ) -> ListGraphqlApisResponse:
         """Lists your GraphQL APIs.
 
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
-        :param api_type: The value that indicates whether the GraphQL API is a standard API
-        (``GRAPHQL``) or merged API (``MERGED``).
+        :param api_type: The value that indicates whether the GraphQL API is a standard API (``GRAPHQL``) or merged API (``MERGED``).
         :param owner: The account owner of the GraphQL API.
         :returns: ListGraphqlApisResponse
         :raises BadRequestException:
@@ -3161,9 +3124,7 @@ class AppsyncApi:
 
         :param api_id: The API ID.
         :param type_name: The type name.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListResolversResponse
         :raises BadRequestException:
@@ -3187,9 +3148,7 @@ class AppsyncApi:
 
         :param api_id: The API ID.
         :param function_id: The function ID.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListResolversByFunctionResponse
         :raises BadRequestException:
@@ -3211,9 +3170,7 @@ class AppsyncApi:
         """Lists the ``SourceApiAssociationSummary`` data.
 
         :param api_id: The API ID.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListSourceApiAssociationsResponse
         :raises UnauthorizedException:
@@ -3254,9 +3211,7 @@ class AppsyncApi:
 
         :param api_id: The API ID.
         :param format: The type format: SDL or JSON.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListTypesResponse
         :raises BadRequestException:
@@ -3283,9 +3238,7 @@ class AppsyncApi:
         :param merged_api_identifier: The identifier of the AppSync Merged API.
         :param association_id: The ID generated by the AppSync service for the source API association.
         :param format: The format type.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which you can use to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which you can use to return the next set of items in the list.
         :param max_results: The maximum number of results that you want the request to return.
         :returns: ListTypesByAssociationResponse
         :raises BadRequestException:
@@ -3344,8 +3297,7 @@ class AppsyncApi:
         this, you must include all existing and new environmental variables in
         the list each time you call this action.
 
-        :param api_id: The ID of the API to which the environmental variable list will be
-        written.
+        :param api_id: The ID of the API to which the environmental variable list will be written.
         :param environment_variables: The list of environmental variables to add to the API.
         :returns: PutGraphqlApiEnvironmentVariablesResponse
         :raises BadRequestException:
@@ -3538,12 +3490,9 @@ class AppsyncApi:
 
         :param api_id: The ``Api`` ID.
         :param name: The name of the ``ChannelNamespace``.
-        :param subscribe_auth_modes: The authorization mode to use for subscribing to messages on the channel
-        namespace.
-        :param publish_auth_modes: The authorization mode to use for publishing messages on the channel
-        namespace.
-        :param code_handlers: The event handler functions that run custom business logic to process
-        published events and subscribe requests.
+        :param subscribe_auth_modes: The authorization mode to use for subscribing to messages on the channel namespace.
+        :param publish_auth_modes: The authorization mode to use for publishing messages on the channel namespace.
+        :param code_handlers: The event handler functions that run custom business logic to process published events and subscribe requests.
         :param handler_configs: The configuration for the ``OnPublish`` and ``OnSubscribe`` handlers.
         :returns: UpdateChannelNamespaceResponse
         :raises BadRequestException:
@@ -3573,8 +3522,7 @@ class AppsyncApi:
         :param http_config: The new HTTP endpoint configuration.
         :param relational_database_config: The new relational database configuration.
         :param event_bridge_config: The new Amazon EventBridge settings.
-        :param metrics_config: Enables or disables enhanced data source metrics for specified data
-        sources.
+        :param metrics_config: Enables or disables enhanced data source metrics for specified data sources.
         :returns: UpdateDataSourceResponse
         :raises BadRequestException:
         :raises ConcurrentModificationException:
@@ -3635,8 +3583,7 @@ class AppsyncApi:
         :param function_version: The ``version`` of the request mapping template.
         :param sync_config: Describes a Sync configuration for a resolver.
         :param max_batch_size: The maximum batching size for a resolver.
-        :param runtime: Describes a runtime used by an Amazon Web Services AppSync pipeline
-        resolver or Amazon Web Services AppSync function.
+        :param runtime: Describes a runtime used by an Amazon Web Services AppSync pipeline resolver or Amazon Web Services AppSync function.
         :param code: The ``function`` code that contains the request and response functions.
         :returns: UpdateFunctionResponse
         :raises ConcurrentModificationException:
@@ -3674,17 +3621,14 @@ class AppsyncApi:
         :param name: The new name for the ``GraphqlApi`` object.
         :param authentication_type: The new authentication type for the ``GraphqlApi`` object.
         :param log_config: The Amazon CloudWatch Logs configuration for the ``GraphqlApi`` object.
-        :param user_pool_config: The new Amazon Cognito user pool configuration for the ``~GraphqlApi``
-        object.
+        :param user_pool_config: The new Amazon Cognito user pool configuration for the ``~GraphqlApi`` object.
         :param open_id_connect_config: The OpenID Connect configuration for the ``GraphqlApi`` object.
-        :param additional_authentication_providers: A list of additional authentication providers for the ``GraphqlApi``
-        API.
+        :param additional_authentication_providers: A list of additional authentication providers for the ``GraphqlApi`` API.
         :param xray_enabled: A flag indicating whether to use X-Ray tracing for the ``GraphqlApi``.
         :param lambda_authorizer_config: Configuration for Lambda function authorization.
         :param merged_api_execution_role_arn: The Identity and Access Management service role ARN for a merged API.
         :param owner_contact: The owner contact information for an API resource.
-        :param introspection_config: Sets the value of the GraphQL API to enable (``ENABLED``) or disable
-        (``DISABLED``) introspection.
+        :param introspection_config: Sets the value of the GraphQL API to enable (``ENABLED``) or disable (``DISABLED``) introspection.
         :param query_depth_limit: The maximum depth a query can have in a single request.
         :param resolver_count_limit: The maximum number of resolvers that can be invoked in a single request.
         :param enhanced_metrics_config: The ``enhancedMetricsConfig`` object.
@@ -3731,8 +3675,7 @@ class AppsyncApi:
         :param sync_config: The ``SyncConfig`` for a resolver attached to a versioned data source.
         :param caching_config: The caching configuration for the resolver.
         :param max_batch_size: The maximum batching size for a resolver.
-        :param runtime: Describes a runtime used by an Amazon Web Services AppSync pipeline
-        resolver or Amazon Web Services AppSync function.
+        :param runtime: Describes a runtime used by an Amazon Web Services AppSync pipeline resolver or Amazon Web Services AppSync function.
         :param code: The ``resolver`` code that contains the request and response functions.
         :param metrics_config: Enables or disables enhanced resolver metrics for specified resolvers.
         :returns: UpdateResolverResponse

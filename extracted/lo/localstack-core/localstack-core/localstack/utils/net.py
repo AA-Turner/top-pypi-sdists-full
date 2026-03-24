@@ -5,6 +5,7 @@ import socket
 import threading
 from collections.abc import MutableMapping
 from contextlib import closing
+from dataclasses import dataclass
 from typing import Any, NamedTuple
 from urllib.parse import urlparse
 
@@ -27,7 +28,7 @@ IP_REGEX = (
 
 # many linux kernels use 32768-60999, RFC 6335 is 49152-65535, so we use a mix here
 DYNAMIC_PORT_RANGE_START = 32768
-DYNAMIC_PORT_RANGE_END = 65536
+DYNAMIC_PORT_RANGE_END = 65535
 
 DEFAULT_PORT_RESERVED_SECONDS = 6
 """Default nuber of seconds a port is reserved in a PortRange."""
@@ -53,6 +54,30 @@ class Port(NamedTuple):
 IntOrPort = int | Port
 
 
+@dataclass
+class ParsedUrl:
+    host: str
+    protocol: str | None
+    port: int | None
+
+
+def parse_url(url: str) -> ParsedUrl:
+    """Parse a URL or host string into its components.
+
+    Handles full URLs (e.g., ``http://example.com:4566``), bare host strings
+    with or without a port (e.g., ``example.com`` or ``example.com:4566``),
+    and IPv6 addresses in bracketed notation (e.g., ``[::1]:4566`` or
+    ``http://[::1]:4566``).
+
+    :param url: a URL or host string to parse
+    :return: a ParsedUrl with host, port, and protocol fields
+    """
+    if "://" not in url:
+        url = f"//{url}"
+    parsed = urlparse(url)
+    return ParsedUrl(host=parsed.hostname, port=parsed.port, protocol=parsed.scheme or None)
+
+
 def is_port_open(
     port_or_url: int | str,
     http_path: str = None,
@@ -70,10 +95,11 @@ def is_port_open(
     protocol = "http"
     protocols = protocols if isinstance(protocols, list) else [protocols]
     if isinstance(port, str):
-        url = urlparse(port_or_url)
-        port = url.port
-        host = url.hostname
-        protocol = url.scheme
+        parsed = parse_url(port)
+        port = parsed.port
+        host = parsed.host
+        protocol = parsed.protocol or protocols[0]
+
     nw_protocols = []
     nw_protocols += [socket.SOCK_STREAM] if "tcp" in protocols else []
     nw_protocols += [socket.SOCK_DGRAM] if "udp" in protocols else []
@@ -124,12 +150,12 @@ def is_port_open(
 
 
 def wait_for_port_open(
-    port: int, http_path: str = None, expect_success=True, retries=10, sleep_time=0.5
+    port_or_url: int | str, http_path: str = None, expect_success=True, retries=10, sleep_time=0.5
 ):
     """Ping the given TCP network port until it becomes available (for a given number of retries).
     If 'http_path' is set, make a GET request to this path and assert a non-error response."""
     return wait_for_port_status(
-        port,
+        port_or_url,
         http_path=http_path,
         expect_success=expect_success,
         retries=retries,
@@ -138,10 +164,10 @@ def wait_for_port_open(
 
 
 def wait_for_port_closed(
-    port: int, http_path: str = None, expect_success=True, retries=10, sleep_time=0.5
+    port_or_url: int | str, http_path: str = None, expect_success=True, retries=10, sleep_time=0.5
 ):
     return wait_for_port_status(
-        port,
+        port_or_url,
         http_path=http_path,
         expect_success=expect_success,
         retries=retries,
@@ -151,7 +177,7 @@ def wait_for_port_closed(
 
 
 def wait_for_port_status(
-    port: int,
+    port_or_url: int | str,
     http_path: str = None,
     expect_success=True,
     retries=10,
@@ -161,11 +187,11 @@ def wait_for_port_status(
     """Ping the given TCP network port until it becomes (un)available (for a given number of retries)."""
 
     def check():
-        status = is_port_open(port, http_path=http_path, expect_success=expect_success)
+        status = is_port_open(port_or_url, http_path=http_path, expect_success=expect_success)
         if bool(status) != (not expect_closed):
             raise Exception(
                 "Port {} (path: {}) was not {}".format(
-                    port, http_path, "closed" if expect_closed else "open"
+                    port_or_url, http_path, "closed" if expect_closed else "open"
                 )
             )
 
@@ -436,6 +462,12 @@ class PortRange:
 
         self.mark_reserved(port, duration)
         return port.port
+
+    def release_port(self, port: IntOrPort) -> None:
+        """Releases the reservation of the given port, making it available again. It only acts on the cache."""
+        port = Port.wrap(port)
+        with self._ports_lock:
+            self._ports_cache.pop(port, None)
 
     def _port_can_be_bound(self, port: IntOrPort) -> bool:
         """

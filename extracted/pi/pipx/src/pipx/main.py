@@ -504,10 +504,7 @@ def _add_install(subparsers: argparse._SubParsersAction, shared_parser: argparse
     p.add_argument(
         "--suffix",
         default="",
-        help=(
-            "Optional suffix for virtual environment and executable names. "
-            "NOTE: The suffix feature is experimental and subject to change."
-        ),
+        help="Optional suffix for virtual environment and executable names.",
     )
     add_python_options(p)
     p.add_argument(
@@ -697,6 +694,7 @@ def _add_upgrade_all(subparsers: argparse._SubParsersAction, shared_parser: argp
         action="store_true",
         help="Modify existing virtual environment and files in PIPX_BIN_DIR and PIPX_MAN_DIR",
     )
+    add_pip_venv_args(p)
 
 
 def _add_upgrade_shared(subparsers: argparse._SubParsersAction, shared_parser: argparse.ArgumentParser) -> None:
@@ -1073,7 +1071,7 @@ def delete_oldest_logs(file_list: list[Path], keep_number: int) -> None:
 
 
 def _setup_log_file(pipx_log_dir: Optional[Path] = None) -> Path:
-    max_logs = 10
+    max_logs = int(os.getenv("PIPX_MAX_LOGS", 10))
     pipx_log_dir = pipx_log_dir or paths.ctx.logs
     # don't use utils.mkdir, to prevent emission of log message
     pipx_log_dir.mkdir(parents=True, exist_ok=True)

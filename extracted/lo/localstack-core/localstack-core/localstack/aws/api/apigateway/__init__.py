@@ -191,6 +191,7 @@ class SecurityPolicy(StrEnum):
     SecurityPolicy_TLS13_1_3_FIPS_2025_09 = "SecurityPolicy_TLS13_1_3_FIPS_2025_09"
     SecurityPolicy_TLS13_1_2_PFS_PQ_2025_09 = "SecurityPolicy_TLS13_1_2_PFS_PQ_2025_09"
     SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09 = "SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09"
+    SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09 = "SecurityPolicy_TLS13_1_2_FIPS_PFS_PQ_2025_09"
     SecurityPolicy_TLS13_1_2_PQ_2025_09 = "SecurityPolicy_TLS13_1_2_PQ_2025_09"
     SecurityPolicy_TLS13_1_2_2021_06 = "SecurityPolicy_TLS13_1_2_2021_06"
     SecurityPolicy_TLS13_2025_EDGE = "SecurityPolicy_TLS13_2025_EDGE"

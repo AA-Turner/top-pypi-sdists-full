@@ -25,8 +25,7 @@ _SENSITIVE_ENV_KEY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _ENV_ASSIGNMENT_PATTERN = re.compile(
-    r"(?P<prefix>\bexport\s+)?(?P<key>[A-Za-z_][A-Za-z0-9_]*)="
-    r"(?P<value>'[^']*'|\"[^\"]*\"|[^\s;|&]+)"
+    r"(?P<prefix>\bexport\s+)?(?P<key>[A-Za-z_][A-Za-z0-9_]*)=" r"(?P<value>'[^']*'|\"[^\"]*\"|[^\s;|&]+)"
 )
 
 

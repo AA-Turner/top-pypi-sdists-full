@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from types import MappingProxyType
-from typing import cast
+from typing import TypeVar, cast
 
 from .trait import Trait, _Identifiable, _resolve_alias
 
@@ -28,7 +28,9 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from ._types import _T, _TNestedReferences
+    from ._types import _TNestedReferences
+
+_T = TypeVar("_T")
 
 
 _MembersMapping = MappingProxyType[str, Trait]
@@ -144,9 +146,7 @@ class Group(_Identifiable):
             object.__setattr__(self, "unless_decorator_id", unless_id)
 
         # Accept either a MappingProxyType, dict, or iterable of Traits.
-        if isinstance(self.members, MappingProxyType):
-            traits = self.members.values()
-        elif isinstance(self.members, dict):
+        if isinstance(self.members, (MappingProxyType, dict)):
             traits = self.members.values()
         else:
             traits = self.members
@@ -522,7 +522,7 @@ class Group(_Identifiable):
             self.id,
             self.name,
             self.icon,
-            tuple(),
+            (),
         )
 
 
@@ -561,7 +561,7 @@ def traits_from_ids(*trait_and_group_ids: str) -> tuple[Trait, ...]:
     from .group_data import ALL_IDS, ALL_TRAIT_IDS, ALL_TRAITS
 
     # Normalize to lowercase and resolve aliases.
-    ids = _unique((_resolve_alias(s.lower()) for s in trait_and_group_ids))
+    ids = _unique(_resolve_alias(s.lower()) for s in trait_and_group_ids)
 
     # Check for unrecognized IDs (aliases have already been resolved).
     unrecognized_ids = set(ids) - ALL_IDS
@@ -595,7 +595,7 @@ def groups_from_ids(*group_ids: str) -> tuple[Group, ...]:
     # Avoid circular import.
     from .group_data import ALL_GROUP_IDS, ALL_GROUPS
 
-    ids = _unique((s.lower() for s in group_ids))
+    ids = _unique(s.lower() for s in group_ids)
     unrecognized_ids = set(ids) - ALL_GROUP_IDS
     if unrecognized_ids:
         raise ValueError(

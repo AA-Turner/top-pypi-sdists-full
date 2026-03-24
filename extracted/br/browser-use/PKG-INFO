@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.12.2
+Version: 0.12.3
 Summary: Make websites accessible for AI agents
 Project-URL: Homepage, https://browser-use.com
 Project-URL: Documentation, https://docs.browser-use.com
@@ -17,7 +17,6 @@ Requires-Python: <4.0,>=3.11
 Requires-Dist: aiohttp==3.13.3
 Requires-Dist: anthropic==0.76.0
 Requires-Dist: anyio==4.12.1
-Requires-Dist: authlib==1.6.6
 Requires-Dist: browser-use-sdk==2.0.15
 Requires-Dist: bubus==1.5.6
 Requires-Dist: cdp-use==1.4.5
@@ -31,18 +30,18 @@ Requires-Dist: google-genai==1.65.0
 Requires-Dist: groq==1.0.0
 Requires-Dist: httpx==0.28.1
 Requires-Dist: inquirerpy==0.3.4
+Requires-Dist: litellm>=1.82.2
 Requires-Dist: markdownify==1.2.2
 Requires-Dist: mcp==1.26.0
 Requires-Dist: ollama==0.6.1
 Requires-Dist: openai==2.16.0
-Requires-Dist: pillow==12.1.0
-Requires-Dist: portalocker==2.10.1
+Requires-Dist: pillow==12.1.1
 Requires-Dist: posthog==7.7.0
 Requires-Dist: psutil==7.2.2
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: pyobjc==12.1; platform_system == 'darwin'
 Requires-Dist: pyotp==2.9.0
-Requires-Dist: pypdf==6.6.2
+Requires-Dist: pypdf==6.9.1
 Requires-Dist: python-docx==1.2.0
 Requires-Dist: python-dotenv==1.2.1
 Requires-Dist: reportlab==4.4.9
@@ -66,11 +65,6 @@ Requires-Dist: textual==7.4.0; extra == 'cli'
 Provides-Extra: cli-oci
 Requires-Dist: oci==2.166.0; extra == 'cli-oci'
 Requires-Dist: textual==7.4.0; extra == 'cli-oci'
-Provides-Extra: code
-Requires-Dist: matplotlib==3.10.8; extra == 'code'
-Requires-Dist: numpy==2.4.1; extra == 'code'
-Requires-Dist: pandas==3.0.0; extra == 'code'
-Requires-Dist: tabulate==0.9.0; extra == 'code'
 Provides-Extra: eval
 Requires-Dist: anyio==4.12.1; extra == 'eval'
 Requires-Dist: datamodel-code-generator==0.53.0; extra == 'eval'
@@ -182,6 +176,32 @@ Check out the [library docs](https://docs.browser-use.com/open-source/introducti
 
 <br/>
 
+# Open Source vs Cloud
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="static/accuracy_by_model_light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="static/accuracy_by_model_dark.png">
+  <img alt="BU Bench V1 - LLM Success Rates" src="static/accuracy_by_model_light.png" width="100%">
+</picture>
+
+We benchmark Browser Use across 100 real-world browser tasks. Full benchmark is open source: **[browser-use/benchmark](https://github.com/browser-use/benchmark)**.
+
+**Use Open Source**
+- You need [custom tools](https://docs.browser-use.com/customize/tools/basics) or deep code-level integration
+- You want to self-host and deploy browser agents on your own machines
+
+**Use [Cloud](https://cloud.browser-use.com) (recommended)**
+- Much better agent for complex tasks (see plot above)
+- Easiest way to start and scale
+- Best stealth with proxy rotation and captcha solving
+- 1000+ integrations (Gmail, Slack, Notion, and more)
+- Persistent filesystem and memory
+
+**Use Both**
+- Use the open-source library with your [custom tools](https://docs.browser-use.com/customize/tools/basics) while running our [cloud browsers](https://docs.browser-use.com/open-source/customize/browser/remote) and [ChatBrowserUse model](https://docs.browser-use.com/open-source/supported-models)
+
+<br/>
+
 # Demos
 
 
@@ -277,6 +297,15 @@ We optimized **ChatBrowserUse()** specifically for browser automation tasks. On 
 For other LLM providers, see our [supported models documentation](https://docs.browser-use.com/supported-models).
 </details>
 
+<details>
+<summary><b>Should I use the Browser Use system prompt with the open-source preview model?</b></summary>
+
+Yes. If you use `ChatBrowserUse(model='browser-use/bu-30b-a3b-preview')` with a normal `Agent(...)`, Browser Use still sends its default agent system prompt for you.
+
+You do **not** need to add a separate custom "Browser Use system message" just because you switched to the open-source preview model. Only use `extend_system_message` or `override_system_message` when you intentionally want to customize the default behavior for your task.
+
+If you want the best default speed/accuracy, we still recommend the newer hosted `bu-*` models. If you want the open-source preview model, the setup stays the same apart from the `model=` value.
+</details>
 
 <details>
 <summary><b>Can I use custom tools with the agent?</b></summary>

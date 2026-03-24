@@ -1,14 +1,17 @@
 Metadata-Version: 2.4
 Name: pytest-markdown-docs
-Version: 0.9.1
+Version: 0.9.2
 Summary: Run markdown code fences through pytest
-Author: Modal Labs
+Author: Modal Labs, Elias Freider
 Author-email: Elias Freider <elias@modal.com>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: >=3.9
-Requires-Dist: markdown-it-py<4.0,>=2.2.0
+Requires-Dist: markdown-it-py>=2.2.0,<4.0
 Requires-Dist: pytest>=7.0.0
+Requires-Python: >=3.9
+Project-URL: Homepage, https://github.com/modal-labs/pytest-markdown-docs
+Project-URL: Repository, https://github.com/modal-labs/pytest-markdown-docs
+Project-URL: Issue Tracker, https://github.com/modal-labs/pytest-markdown-docs/issues
 Description-Content-Type: text/markdown
 
 # Pytest Markdown Docs
@@ -132,6 +135,29 @@ assert captured.out == "hello\n"
 ````
 
 As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
+
+### Async Fixtures (pytest-asyncio)
+
+If you have [pytest-asyncio](https://pypi.org/project/pytest-asyncio/) installed, you can use async fixtures with your markdown tests. The async fixture will be executed and its resolved value will be injected into the test code:
+
+```python
+# conftest.py
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def async_data():
+    # Simulate async data fetching
+    return {"status": "ok", "value": 42}
+```
+
+````markdown
+```python fixture:async_data
+assert async_data["status"] == "ok"
+assert async_data["value"] == 42
+```
+````
+
+Async fixtures can depend on other async fixtures, sync fixtures, or a mix of both. The fixture values are fully resolved before being passed to your markdown test code.
 
 ### Depending on previous snippets
 

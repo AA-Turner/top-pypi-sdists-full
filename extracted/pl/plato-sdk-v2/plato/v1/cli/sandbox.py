@@ -2024,7 +2024,7 @@ def _start_heartbeat_process(session_id: str, api_key: str) -> int | None:
     log_file = f"/tmp/plato_heartbeat_{session_id}.log"
 
     # Python script to run in background
-    heartbeat_script = f'''
+    heartbeat_script = f"""
 import time
 import os
 import httpx
@@ -2066,7 +2066,7 @@ while True:
     except Exception as e:
         log(f"Heartbeat #{{heartbeat_count}} EXCEPTION: {{type(e).__name__}}: {{e}}")
     time.sleep(30)
-'''
+"""
 
     try:
         # Start detached background process

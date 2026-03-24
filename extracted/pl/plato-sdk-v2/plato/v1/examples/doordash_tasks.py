@@ -1,8 +1,9 @@
 import json
 
 from openai import AsyncOpenAI
-from plato.models.task import CustomEvalConfig, PlatoTask
 from pydantic import BaseModel
+
+from plato.models.task import CustomEvalConfig, PlatoTask
 
 client = AsyncOpenAI()
 

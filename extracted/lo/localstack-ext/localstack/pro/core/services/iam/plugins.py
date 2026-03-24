@@ -20,6 +20,10 @@ class IamStreamPlugin(ProPlatformPlugin):
 	def on_platform_shutdown(B):from localstack.pro.core.services.iam.policy_generation.policy_generator import PolicyGenerator as A;A.get().shutdown()
 WANTED_ENFORCE_IAM=pro_config.ENFORCE_IAM
 @hooks.on_infra_start(should_load=pro_config.ACTIVATE_PRO and WANTED_ENFORCE_IAM,priority=20)
-def _disable_iam_during_startup():pro_config.ENFORCE_IAM=False
+def _disable_iam_during_startup():
+	if not pro_config.ACTIVATE_PRO:return
+	pro_config.ENFORCE_IAM=False
 @hooks.on_infra_ready(should_load=pro_config.ACTIVATE_PRO and WANTED_ENFORCE_IAM,priority=-20)
-def _enable_iam_after_ready():pro_config.ENFORCE_IAM=True
+def _enable_iam_after_ready():
+	if not pro_config.ACTIVATE_PRO:return
+	pro_config.ENFORCE_IAM=True

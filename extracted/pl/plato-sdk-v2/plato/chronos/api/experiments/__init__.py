@@ -7,7 +7,9 @@ from . import (
     delete_experiment_file,
     delete_experiment_version,
     detach_session_from_experiment_version,
+    list_experiment_creators,
     list_experiment_files,
+    list_experiment_tags,
     update_experiment_file,
     update_experiment_version,
 )
@@ -15,6 +17,8 @@ from . import (
 __all__ = [
     "list_experiment_files",
     "create_experiment_file",
+    "list_experiment_creators",
+    "list_experiment_tags",
     "update_experiment_file",
     "delete_experiment_file",
     "create_experiment_file_version",

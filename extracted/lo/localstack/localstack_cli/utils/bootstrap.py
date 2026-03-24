@@ -428,7 +428,7 @@ def validate_localstack_config(name: str):
     image_name = ls_service_details.get("image", "")
     if image_name.split(":")[0] not in constants.OFFICIAL_IMAGES:
         warns.append(
-            f'Using custom image "{image_name}", we recommend using an official image: {constants.OFFICIAL_IMAGES}'
+            f'Using custom image "{image_name}", we recommend using an officially supported image: {constants.OFFICIAL_IMAGES}'
         )
 
     # prepare config options
@@ -467,12 +467,7 @@ def validate_localstack_config(name: str):
 
 
 def get_docker_image_to_start():
-    image_name = os.environ.get("IMAGE_NAME")
-    if not image_name:
-        image_name = constants.DOCKER_IMAGE_NAME
-        if is_auth_token_configured():
-            image_name = constants.DOCKER_IMAGE_NAME_PRO
-    return image_name
+    return os.environ.get("IMAGE_NAME", constants.DOCKER_IMAGE_NAME_PRO)
 
 
 def extract_port_flags(user_flags, port_mappings: PortMappings):

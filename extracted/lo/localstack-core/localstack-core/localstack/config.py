@@ -1,9 +1,9 @@
+import enum
 import ipaddress
 import logging
 import os
 import platform
 import re
-import socket
 import subprocess
 import tempfile
 import time
@@ -301,96 +301,95 @@ def ping(host):
     )
 
 
-def in_docker():
+class ContainerRuntime(enum.StrEnum):
     """
-    Returns True if running in a docker container, else False
-    Ref. https://docs.docker.com/config/containers/runmetrics/#control-groups
+    Describes the container runtime the LocalStack container is running in.
+    This is not necessarly identical to the container runtime used to spawn new containers.
     """
-    if OVERRIDE_IN_DOCKER is not None:
-        return OVERRIDE_IN_DOCKER
 
-    # check some marker files that we create in our Dockerfiles
+    kubernetes = enum.auto()
+    """running in kubernetes"""
+    docker = enum.auto()
+    """running in docker"""
+    podman = enum.auto()
+    """running in podman"""
+    containerd = enum.auto()
+    """Running inside containerd, but not using any of the other runtimes"""
+    generic = enum.auto()
+    """Running inside a container, but we were not able to detect which runtime."""
+    none = enum.auto()
+    """Not running inside a container"""
+
+
+def detect_container_runtime() -> ContainerRuntime:
+    """
+    Detects the container runtime environment. Returns one of:
+    "kubernetes", "podman", "docker", "containerd", "generic", "none".
+
+    Detection order: kubernetes > podman > docker > containerd > generic > none.
+    K8s is checked first because K8s pods often also have /.dockerenv or containerd mounts.
+    """
+    # Kubernetes: env var set or serviceaccount directory exists
+    if os.environ.get("KUBERNETES_SERVICE_HOST") or os.path.isdir(
+        "/var/run/secrets/kubernetes.io/serviceaccount/"
+    ):
+        return ContainerRuntime.kubernetes
+
+    # Podman: container environment file
+    if os.path.exists("/run/.containerenv"):
+        return ContainerRuntime.podman
+
+    # Docker: marker file or cgroup content
+    if os.path.exists("/.dockerenv"):
+        return ContainerRuntime.docker
+
+    # Containerd: io.containerd in root FS mount options
+    # This MUST be after docker, to properly detect docker environments using containerd as image store
+    # Example: This method will detect `containerd` during a docker buildkit build with an containerd image store
+    try:
+        with open("/proc/mounts") as infile:
+            for line in infile:
+                line = line.strip()
+                if not line or line[0] == "#":
+                    continue
+                # format (man 5 fstab): <spec> <mount point> <type> <options> <rest>...
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+                if parts[1] == "/" and "io.containerd" in parts[3]:
+                    return ContainerRuntime.containerd
+    except FileNotFoundError:
+        pass
+
+    # Generic: LocalStack marker files present in our Dockerfiles
     for path in [
         "/usr/lib/localstack/.community-version",
         "/usr/lib/localstack/.pro-version",
         "/tmp/localstack/.marker",
     ]:
         if os.path.isfile(path):
-            return True
+            return ContainerRuntime.generic
 
-    # details: https://github.com/localstack/localstack/pull/4352
-    if os.path.exists("/.dockerenv"):
-        return True
-    if os.path.exists("/run/.containerenv"):
-        return True
+    return ContainerRuntime.none
 
-    if not os.path.exists("/proc/1/cgroup"):
-        return False
-    try:
-        if any(
-            [
-                os.path.exists("/sys/fs/cgroup/memory/docker/"),
-                any(
-                    "docker-" in file_names
-                    for file_names in os.listdir("/sys/fs/cgroup/memory/system.slice")
-                ),
-                os.path.exists("/sys/fs/cgroup/docker/"),
-                any(
-                    "docker-" in file_names
-                    for file_names in os.listdir("/sys/fs/cgroup/system.slice/")
-                ),
-            ]
-        ):
-            return False
-    except Exception:
-        pass
-    with open("/proc/1/cgroup") as ifh:
-        content = ifh.read()
-        if "docker" in content or "buildkit" in content:
-            return True
-        os_hostname = socket.gethostname()
-        if os_hostname and os_hostname in content:
-            return True
 
-    # containerd does not set any specific file or config, but it does use
-    # io.containerd.snapshotter.v1.overlayfs as the overlay filesystem for `/`.
-    try:
-        with open("/proc/mounts") as infile:
-            for line in infile:
-                line = line.strip()
-
-                if not line:
-                    continue
-
-                # skip comments
-                if line[0] == "#":
-                    continue
-
-                # format (man 5 fstab)
-                # <spec> <mount point> <type> <options> <rest>...
-                parts = line.split()
-                if len(parts) < 4:
-                    # badly formatted line
-                    continue
-
-                mount_point = parts[1]
-                options = parts[3]
-
-                # only consider the root filesystem
-                if mount_point != "/":
-                    continue
-
-                if "io.containerd" in options:
-                    return True
-
-    except FileNotFoundError:
-        pass
-
-    return False
-
+container_runtime: ContainerRuntime = detect_container_runtime()
 
 # whether the `in_docker` check should always return True or False
 OVERRIDE_IN_DOCKER = parse_boolean_env("OVERRIDE_IN_DOCKER")
+
+
+def in_docker() -> bool:
+    """
+    Returns True if running in a container, else False
+    TODO this should be renamed to `in_container` - it will also report True if running in alternate container runtimes.
+    It is basically only false when running directly on the host.
+    """
+    if OVERRIDE_IN_DOCKER is not None:
+        return OVERRIDE_IN_DOCKER
+    # Uses the cached value, so can only be called after container_runtime has been defined.
+    return container_runtime != ContainerRuntime.none
+
 
 is_in_docker = in_docker()
 is_in_linux = is_linux()
@@ -866,12 +865,6 @@ if not DOCKER_BRIDGE_IP:
 # get-function call.
 INTERNAL_RESOURCE_ACCOUNT = os.environ.get("INTERNAL_RESOURCE_ACCOUNT") or "949334387222"
 
-# TODO: remove with 4.1.0
-# Determine which implementation to use for the event rule / event filtering engine used by multiple services:
-# EventBridge, EventBridge Pipes, Lambda Event Source Mapping
-# Options: python (default) | java (deprecated since 4.0.3)
-EVENT_RULE_ENGINE = os.environ.get("EVENT_RULE_ENGINE", "python").strip()
-
 # -----
 # SERVICE-SPECIFIC CONFIGS BELOW
 # -----
@@ -1279,8 +1272,8 @@ IN_MEMORY_CLIENT = is_env_true("IN_MEMORY_CLIENT")
 # This flag enables all responses from LocalStack to contain a `x-localstack` HTTP header.
 LOCALSTACK_RESPONSE_HEADER_ENABLED = is_env_not_false("LOCALSTACK_RESPONSE_HEADER_ENABLED")
 
-# Serialization backend for the LocalStack internal state (`dill` is used by default`).
-STATE_SERIALIZATION_BACKEND = os.environ.get("STATE_SERIALIZATION_BACKEND", "").strip() or "dill"
+# Serialization backend for the LocalStack internal state (`avro` is used by default`).
+STATE_SERIALIZATION_BACKEND = os.environ.get("STATE_SERIALIZATION_BACKEND", "").strip() or "avro"
 
 # List of environment variable names used for configuration that are passed from the host into the LocalStack container.
 # => Synchronize this list with the above and the configuration docs:

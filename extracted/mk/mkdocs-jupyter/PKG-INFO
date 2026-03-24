@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: mkdocs-jupyter
-Version: 0.25.1
+Version: 0.26.0
 Summary: Use Jupyter in mkdocs websites
 Project-URL: Documentation, https://github.com/danielfrg/mkdocs-jupyter#readme
 Project-URL: Issues, https://github.com/danielfrg/mkdocs-jupyter/issues
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9
-Requires-Dist: ipykernel<7.0.0,>6.0.0
+Requires-Dist: ipykernel<8,>6.0.0
 Requires-Dist: jupytext<2,>1.13.8
 Requires-Dist: mkdocs-material>9.0.0
 Requires-Dist: mkdocs<2,>=1.4.0
@@ -285,6 +285,30 @@ you can create a `main.html` file like this:
 ```
 
 ![Download Notebook button](https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/master/docs/download-button.png)
+
+### Caching
+
+By default the plugin caches notebook conversion results so that unchanged
+notebooks are not re-converted on every build. The cache key is based on the
+notebook file content and all relevant plugin config options.
+
+To disable caching:
+
+```yaml
+plugins:
+    - mkdocs-jupyter:
+          cache: false
+```
+
+To change the cache directory (default is `.cache/mkdocs-jupyter`):
+
+```yaml
+plugins:
+    - mkdocs-jupyter:
+          cache_dir: .cache/custom-dir
+```
+
+Stale cache entries from previous builds are automatically cleaned up.
 
 ## Styles
 

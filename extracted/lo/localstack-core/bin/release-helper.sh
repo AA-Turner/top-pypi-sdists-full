@@ -14,10 +14,10 @@ function usage() {
     echo "  release-helper <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  github-outputs <patch|minor|major>"
+    echo "  github-outputs <patch|minor|major|monthly|yearly>"
     echo "      print version number outputs for github actions"
     echo ""
-    echo "  explain-steps <patch|minor|major>"
+    echo "  explain-steps <patch|minor|major|monthly|yearly>"
     echo "      print a list of steps that should be executed for the release type"
     echo ""
     echo "  get-ver"
@@ -42,12 +42,23 @@ function usage() {
 }
 
 function get_current_version() {
-    # check if setuptools_scm is installed, if not prompt to install. python3 is expected to be present
-    if ! python3 -m pip -qqq show setuptools_scm > /dev/null ; then
-      echo "ERROR: setuptools_scm is not installed. Run 'pip install --upgrade setuptools setuptools_scm'" >&2
-      exit 1
+    # Try hatch-vcs first, then fall back to setuptools_scm
+    # This allows projects to use either versioning backend
+
+    # Check for hatch with hatch-vcs
+    if python3 -m pip -qqq show hatch > /dev/null 2>&1 && python3 -m hatch version &> /dev/null; then
+        python3 -m hatch version
+        return 0
     fi
-    python3 -m setuptools_scm
+
+    # Fall back to setuptools_scm
+    if python3 -m pip -qqq show setuptools_scm > /dev/null 2>&1; then
+        python3 -m setuptools_scm
+        return 0
+    fi
+
+    echo "ERROR: No version backend found. Install either 'hatch' with 'hatch-vcs' plugin, or 'setuptools_scm'. Run 'pip install hatch hatch-vcs' or 'pip install setuptools setuptools_scm'" >&2
+    exit 1
 }
 
 function remove_ver_suffix() {
@@ -70,6 +81,10 @@ function increment_major() {
     awk -F. '{ print $1 + 1 "." 0 "." 0 }'
 }
 
+function increment_yearly() {
+    awk -F. '{ print $1 + 1 ".1.0" }'
+}
+
 function verify_valid_version() {
     read ver
     echo $ver | egrep "^([0-9]+)\.([0-9]+)(\.[0-9]+)?" > /dev/null || { echo "invalid version string '$ver'"; exit 1; }
@@ -85,6 +100,12 @@ function release_env_compute() {
             ;;
         "major")
             RELEASE_VER=$(get_current_version | increment_major)
+            ;;
+        "monthly")
+            RELEASE_VER=$(get_current_version | increment_minor)
+            ;;
+        "yearly")
+            RELEASE_VER=$(get_current_version | increment_yearly)
             ;;
         *)
             echo "unknown release type '$1'"

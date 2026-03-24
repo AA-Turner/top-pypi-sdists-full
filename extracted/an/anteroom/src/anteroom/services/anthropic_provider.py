@@ -9,6 +9,7 @@ import time
 from typing import Any, AsyncGenerator
 
 from ..config import AIConfig
+from .async_tasks import cancel_task
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
 from .token_provider import TokenProvider, TokenProviderError
@@ -230,15 +231,13 @@ class AnthropicService:
                         return_when=asyncio.FIRST_COMPLETED,
                     )
                 except Exception:
-                    enter_task.cancel()
-                    if cancel_wait:
-                        cancel_wait.cancel()
+                    await cancel_task(enter_task)
+                    await cancel_task(cancel_wait)
                     raise
 
                 if not done:
-                    enter_task.cancel()
-                    if cancel_wait:
-                        cancel_wait.cancel()
+                    await cancel_task(enter_task)
+                    await cancel_task(cancel_wait)
                     logger.warning(
                         "Anthropic stream() timed out after %ds (attempt %d/%d)",
                         connect_timeout,
@@ -248,12 +247,11 @@ class AnthropicService:
                     raise AnthropicTimeoutError.__new__(AnthropicTimeoutError)
 
                 if cancel_wait and cancel_wait in done:
-                    enter_task.cancel()
+                    await cancel_task(enter_task)
                     logger.info("Cancelled during Anthropic connecting phase")
                     return
 
-                if cancel_wait:
-                    cancel_wait.cancel()
+                await cancel_task(cancel_wait)
 
                 response = enter_task.result()
                 logger.debug(
@@ -289,16 +287,14 @@ class AnthropicService:
                                 return_when=asyncio.FIRST_COMPLETED,
                             )
                         except Exception:
-                            next_task.cancel()
-                            if iter_cancel:
-                                iter_cancel.cancel()
+                            await cancel_task(next_task)
+                            await cancel_task(iter_cancel)
                             raise
 
                         if not iter_done:
                             # Chunk stall timeout
-                            next_task.cancel()
-                            if iter_cancel:
-                                iter_cancel.cancel()
+                            await cancel_task(next_task)
+                            await cancel_task(iter_cancel)
                             logger.warning("Anthropic stream stalled — no chunk for %ds", chunk_stall_timeout)
                             yield {
                                 "event": "error",
@@ -311,11 +307,10 @@ class AnthropicService:
                             return
 
                         if iter_cancel and iter_cancel in iter_done:
-                            next_task.cancel()
+                            await cancel_task(next_task)
                             return
 
-                        if iter_cancel:
-                            iter_cancel.cancel()
+                        await cancel_task(iter_cancel)
 
                         try:
                             event = next_task.result()

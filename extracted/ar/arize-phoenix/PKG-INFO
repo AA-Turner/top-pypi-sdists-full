@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 13.16.0
+Version: 13.18.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -57,7 +57,7 @@ Requires-Dist: scipy
 Requires-Dist: sqlalchemy[asyncio]<3,>=2.0.4
 Requires-Dist: sqlean-py<3.50,>=3.45.1; platform_system == 'Windows'
 Requires-Dist: sqlean-py>=3.45.1; platform_system != 'Windows'
-Requires-Dist: starlette
+Requires-Dist: starlette>=0.37.0
 Requires-Dist: strawberry-graphql==0.287.3
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.6

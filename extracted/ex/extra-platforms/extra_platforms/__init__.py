@@ -19,15 +19,15 @@ import platform as stdlib_platform
 import sys
 from functools import cache
 
-from . import detection  # noqa: E402
+from . import detection
 from ._docstrings import _initialize_all_docstrings
-from .agent_data import (  # noqa: E402
+from .agent_data import (
     CLAUDE_CODE,
     CLINE,
     CURSOR,
     UNKNOWN_AGENT,
 )
-from .architecture_data import (  # noqa: E402
+from .architecture_data import (
     AARCH64,
     ARM,
     ARMV5TEL,
@@ -55,7 +55,7 @@ from .architecture_data import (  # noqa: E402
     WASM64,
     X86_64,
 )
-from .ci_data import (  # noqa: E402
+from .ci_data import (
     AZURE_PIPELINES,
     BAMBOO,
     BUILDKITE,
@@ -69,45 +69,7 @@ from .ci_data import (  # noqa: E402
     TRAVIS_CI,
     UNKNOWN_CI,
 )
-from .shell_data import (  # noqa: E402
-    ASH,
-    BASH,
-    CMD,
-    CSH,
-    DASH,
-    FISH,
-    KSH,
-    NUSHELL,
-    POWERSHELL,
-    TCSH,
-    UNKNOWN_SHELL,
-    XONSH,
-    ZSH,
-)
-from .terminal_data import (  # noqa: E402
-    ALACRITTY,
-    APPLE_TERMINAL,
-    CONTOUR,
-    FOOT,
-    GHOSTTY,
-    GNOME_TERMINAL,
-    GNU_SCREEN,
-    HYPER,
-    ITERM2,
-    KITTY,
-    KONSOLE,
-    RIO,
-    TABBY,
-    TILIX,
-    TMUX,
-    UNKNOWN_TERMINAL,
-    VSCODE_TERMINAL,
-    WEZTERM,
-    WINDOWS_TERMINAL,
-    XTERM,
-    ZELLIJ,
-)
-from .detection import (  # noqa: E402
+from .detection import (
     current_agent,
     current_architecture,
     current_ci,
@@ -124,23 +86,23 @@ from .detection import (  # noqa: E402
     is_android,
     is_apple_terminal,
     is_arch,
-    is_ash,
     is_arm,
     is_armv5tel,
     is_armv6l,
     is_armv7l,
     is_armv8l,
+    is_ash,
     is_azure_pipelines,
     is_bamboo,
     is_bash,
     is_buildkite,
     is_buildroot,
     is_cachyos,
-    is_claude_code,
-    is_cline,
     is_centos,
     is_circle_ci,
     is_cirrus_ci,
+    is_claude_code,
+    is_cline,
     is_cloudlinux,
     is_cmd,
     is_codebuild,
@@ -248,14 +210,14 @@ from .detection import (  # noqa: E402
     is_zellij,
     is_zsh,
 )
-from .group import (  # noqa: E402
+from .group import (
     Group,
     extract_members,
     groups_from_ids,
     reduce,
     traits_from_ids,
 )
-from .group_data import (  # noqa: E402
+from .group_data import (
     ALL_AGENT_GROUPS,
     ALL_AGENTS,
     ALL_ARCHITECTURE_GROUPS,
@@ -304,12 +266,12 @@ from .group_data import (  # noqa: E402
     UNIX_LAYERS,
     UNIX_WITHOUT_MACOS,
     UNKNOWN,
-    WEBASSEMBLY,
     WEB_TERMINALS,
+    WEBASSEMBLY,
     WINDOWS_SHELLS,
     X86,
 )
-from .platform_data import (  # noqa: E402
+from .platform_data import (
     AIX,
     ALPINE,
     ALTLINUX,
@@ -367,7 +329,45 @@ from .platform_data import (  # noqa: E402
     WSL2,
     XENSERVER,
 )
-from .trait import (  # noqa: E402
+from .shell_data import (
+    ASH,
+    BASH,
+    CMD,
+    CSH,
+    DASH,
+    FISH,
+    KSH,
+    NUSHELL,
+    POWERSHELL,
+    TCSH,
+    UNKNOWN_SHELL,
+    XONSH,
+    ZSH,
+)
+from .terminal_data import (
+    ALACRITTY,
+    APPLE_TERMINAL,
+    CONTOUR,
+    FOOT,
+    GHOSTTY,
+    GNOME_TERMINAL,
+    GNU_SCREEN,
+    HYPER,
+    ITERM2,
+    KITTY,
+    KONSOLE,
+    RIO,
+    TABBY,
+    TILIX,
+    TMUX,
+    UNKNOWN_TERMINAL,
+    VSCODE_TERMINAL,
+    WEZTERM,
+    WINDOWS_TERMINAL,
+    XTERM,
+    ZELLIJ,
+)
+from .trait import (
     CI,
     Agent,
     Architecture,
@@ -389,7 +389,7 @@ from .trait import (  # noqa: E402
 """
 
 
-__version__ = "11.0.2"
+__version__ = "11.0.3"
 
 
 def _initialize_group_detection_functions() -> list[str]:
@@ -437,6 +437,54 @@ These functions return a boolean value indicating the membership of the current
 system into that group.
 """
 
+# Declare type stubs for dynamically generated group detection functions so that
+# mypy and other static type checkers can see them. At runtime, the actual
+# implementations are the cached closures registered by
+# ``_initialize_group_detection_functions()`` above.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+
+    def is_any_agent() -> bool: ...
+    def is_any_architecture() -> bool: ...
+    def is_any_arm() -> bool: ...
+    def is_any_ci() -> bool: ...
+    def is_any_mips() -> bool: ...
+    def is_any_platform() -> bool: ...
+    def is_any_shell() -> bool: ...
+    def is_any_sparc() -> bool: ...
+    def is_any_terminal() -> bool: ...
+    def is_any_trait() -> bool: ...
+    def is_any_windows() -> bool: ...
+    def is_arch_32_bit() -> bool: ...
+    def is_arch_64_bit() -> bool: ...
+    def is_big_endian() -> bool: ...
+    def is_bourne_shells() -> bool: ...
+    def is_bsd() -> bool: ...
+    def is_bsd_not_macos() -> bool: ...
+    def is_c_shells() -> bool: ...
+    def is_gpu_terminals() -> bool: ...
+    def is_ibm_mainframe() -> bool: ...
+    def is_linux() -> bool: ...
+    def is_linux_layers() -> bool: ...
+    def is_linux_like() -> bool: ...
+    def is_little_endian() -> bool: ...
+    def is_loongarch() -> bool: ...
+    def is_multiplexers() -> bool: ...
+    def is_native_terminals() -> bool: ...
+    def is_other_posix() -> bool: ...
+    def is_other_shells() -> bool: ...
+    def is_powerpc() -> bool: ...
+    def is_riscv() -> bool: ...
+    def is_system_v() -> bool: ...
+    def is_unix() -> bool: ...
+    def is_unix_layers() -> bool: ...
+    def is_unix_not_macos() -> bool: ...
+    def is_unknown() -> bool: ...
+    def is_web_terminals() -> bool: ...
+    def is_webassembly() -> bool: ...
+    def is_windows_shells() -> bool: ...
+    def is_x86() -> bool: ...
+
 
 def invalidate_caches():
     """Invalidate all cached properties.
@@ -480,31 +528,30 @@ def invalidate_caches():
         globals()[func_id].cache_clear()
 
 
-__all__ = (  # noqa: F405
+__all__ = (
     "AARCH64",
-    "Agent",
     "AIX",
     "ALACRITTY",
-    "ALL_AGENT_GROUPS",
     "ALL_AGENTS",
-    "ALL_ARCHITECTURE_GROUPS",
+    "ALL_AGENT_GROUPS",
     "ALL_ARCHITECTURES",
+    "ALL_ARCHITECTURE_GROUPS",
     "ALL_ARM",
     "ALL_CI",
     "ALL_CI_GROUPS",
-    "ALL_GROUP_IDS",
     "ALL_GROUPS",
+    "ALL_GROUP_IDS",
     "ALL_IDS",
     "ALL_MIPS",
-    "ALL_PLATFORM_GROUPS",
     "ALL_PLATFORMS",
-    "ALL_SHELL_GROUPS",
+    "ALL_PLATFORM_GROUPS",
     "ALL_SHELLS",
+    "ALL_SHELL_GROUPS",
     "ALL_SPARC",
-    "ALL_TERMINAL_GROUPS",
     "ALL_TERMINALS",
-    "ALL_TRAIT_IDS",
+    "ALL_TERMINAL_GROUPS",
     "ALL_TRAITS",
+    "ALL_TRAIT_IDS",
     "ALL_WINDOWS",
     "ALPINE",
     "ALTLINUX",
@@ -514,7 +561,6 @@ __all__ = (  # noqa: F405
     "ARCH",
     "ARCH_32_BIT",
     "ARCH_64_BIT",
-    "Architecture",
     "ARM",
     "ARMV5TEL",
     "ARMV6L",
@@ -530,7 +576,6 @@ __all__ = (  # noqa: F405
     "BSD_WITHOUT_MACOS",
     "BUILDKITE",
     "BUILDROOT",
-    "C_SHELLS",
     "CACHYOS",
     "CENTOS",
     "CI",
@@ -543,21 +588,14 @@ __all__ = (  # noqa: F405
     "CODEBUILD",
     "CONTOUR",
     "CSH",
-    "current_agent",
-    "current_architecture",
-    "current_ci",
-    "current_platform",
-    "current_shell",
-    "current_terminal",
-    "current_traits",
     "CURSOR",
     "CYGWIN",
+    "C_SHELLS",
     "DASH",
     "DEBIAN",
     "DRAGONFLY_BSD",
     "EXHERBO",
     "EXTRA_GROUPS",
-    "extract_members",
     "FEDORA",
     "FISH",
     "FOOT",
@@ -570,8 +608,6 @@ __all__ = (  # noqa: F405
     "GNOME_TERMINAL",
     "GNU_SCREEN",
     "GPU_TERMINALS",
-    "Group",
-    "groups_from_ids",
     "GUIX",
     "HAIKU",
     "HEROKU_CI",
@@ -583,6 +619,117 @@ __all__ = (  # noqa: F405
     "IBM_MAINFRAME",
     "IBM_POWERKVM",
     "ILLUMOS",
+    "ITERM2",
+    "KALI",
+    "KITTY",
+    "KONSOLE",
+    "KSH",
+    "KVMIBM",
+    "LINUX",
+    "LINUXMINT",
+    "LINUX_LAYERS",
+    "LINUX_LIKE",
+    "LITTLE_ENDIAN",
+    "LOONGARCH",
+    "LOONGARCH64",
+    "MACOS",
+    "MAGEIA",
+    "MANDRIVA",
+    "MANJARO",
+    "MIDNIGHTBSD",
+    "MIPS",
+    "MIPS64",
+    "MIPS64EL",
+    "MIPSEL",
+    "MULTIPLEXERS",
+    "NATIVE_TERMINALS",
+    "NETBSD",
+    "NOBARA",
+    "NON_OVERLAPPING_GROUPS",
+    "NUSHELL",
+    "OPENBSD",
+    "OPENSUSE",
+    "OPENWRT",
+    "ORACLE",
+    "OTHER_POSIX",
+    "OTHER_SHELLS",
+    "PARALLELS",
+    "PIDORA",
+    "POWERPC",
+    "POWERSHELL",
+    "PPC",
+    "PPC64",
+    "PPC64LE",
+    "RASPBIAN",
+    "RHEL",
+    "RIO",
+    "RISCV",
+    "RISCV32",
+    "RISCV64",
+    "ROCKY",
+    "S390X",
+    "SCIENTIFIC",
+    "SLACKWARE",
+    "SLES",
+    "SOLARIS",
+    "SPARC",
+    "SPARC64",
+    "SUNOS",
+    "SYSTEM_V",
+    "TABBY",
+    "TCSH",
+    "TEAMCITY",
+    "TILIX",
+    "TMUX",
+    "TRAVIS_CI",
+    "TUMBLEWEED",
+    "TUXEDO",
+    "UBUNTU",
+    "ULTRAMARINE",
+    "UNIX",
+    "UNIX_LAYERS",
+    "UNIX_WITHOUT_MACOS",
+    "UNKNOWN",
+    "UNKNOWN_AGENT",
+    "UNKNOWN_ARCHITECTURE",
+    "UNKNOWN_CI",
+    "UNKNOWN_PLATFORM",
+    "UNKNOWN_SHELL",
+    "UNKNOWN_TERMINAL",
+    "VSCODE_TERMINAL",
+    "WASM32",
+    "WASM64",
+    "WEBASSEMBLY",
+    "WEB_TERMINALS",
+    "WEZTERM",
+    "WINDOWS",
+    "WINDOWS_SHELLS",
+    "WINDOWS_TERMINAL",
+    "WSL1",
+    "WSL2",
+    "X86",
+    "X86_64",
+    "XENSERVER",
+    "XONSH",
+    "XTERM",
+    "ZELLIJ",
+    "ZSH",
+    "Agent",
+    "Architecture",
+    "Group",
+    "Platform",
+    "Shell",
+    "Terminal",
+    "Trait",
+    "current_agent",
+    "current_architecture",
+    "current_ci",
+    "current_platform",
+    "current_shell",
+    "current_terminal",
+    "current_traits",
+    "extract_members",
+    "groups_from_ids",
     "invalidate_caches",
     "is_aarch64",
     "is_aix",
@@ -724,8 +871,8 @@ __all__ = (  # noqa: F405
     "is_tilix",
     "is_tmux",
     "is_travis_ci",
-    "is_tumbleweed",  # noqa: F822
-    "is_tuxedo",  # noqa: F822
+    "is_tumbleweed",
+    "is_tuxedo",
     "is_ubuntu",
     "is_ultramarine",
     "is_unix",  # noqa: F822
@@ -756,116 +903,15 @@ __all__ = (  # noqa: F405
     "is_xterm",
     "is_zellij",
     "is_zsh",
-    "ITERM2",
-    "KALI",
-    "KITTY",
-    "KONSOLE",
-    "KSH",
-    "KVMIBM",
-    "LINUX",
-    "LINUX_LAYERS",
-    "LINUX_LIKE",
-    "LINUXMINT",
-    "LITTLE_ENDIAN",
-    "LOONGARCH",
-    "LOONGARCH64",
-    "MACOS",
-    "MAGEIA",
-    "MANDRIVA",
-    "MANJARO",
-    "MIDNIGHTBSD",
-    "MIPS",
-    "MIPS64",
-    "MIPS64EL",
-    "MIPSEL",
-    "MULTIPLEXERS",
-    "NATIVE_TERMINALS",
-    "NETBSD",
-    "NOBARA",
-    "NON_OVERLAPPING_GROUPS",
-    "NUSHELL",
-    "OPENBSD",
-    "OPENSUSE",
-    "OPENWRT",
-    "ORACLE",
-    "OTHER_POSIX",
-    "OTHER_SHELLS",
-    "PARALLELS",
-    "PIDORA",
-    "Platform",
-    "POWERPC",
-    "POWERSHELL",
-    "PPC",
-    "PPC64",
-    "PPC64LE",
-    "RASPBIAN",
     "reduce",
-    "RHEL",
-    "RIO",
-    "RISCV",
-    "RISCV32",
-    "RISCV64",
-    "ROCKY",
-    "S390X",
-    "SCIENTIFIC",
-    "Shell",
-    "SLACKWARE",
-    "SLES",
-    "SOLARIS",
-    "SPARC",
-    "SPARC64",
-    "SUNOS",
-    "SYSTEM_V",
-    "TABBY",
-    "TCSH",
-    "TEAMCITY",
-    "Terminal",
-    "TILIX",
-    "TMUX",
-    "Trait",
     "traits_from_ids",
-    "TRAVIS_CI",
-    "TUMBLEWEED",
-    "TUXEDO",
-    "UBUNTU",
-    "ULTRAMARINE",
-    "UNIX",
-    "UNIX_LAYERS",
-    "UNIX_WITHOUT_MACOS",
-    "UNKNOWN",
-    "UNKNOWN_AGENT",
-    "UNKNOWN_ARCHITECTURE",
-    "UNKNOWN_CI",
-    "UNKNOWN_PLATFORM",
-    "UNKNOWN_SHELL",
-    "UNKNOWN_TERMINAL",
-    "VSCODE_TERMINAL",
-    "WASM32",
-    "WASM64",
-    "WEB_TERMINALS",
-    "WEBASSEMBLY",
-    "WEZTERM",
-    "WINDOWS",
-    "WINDOWS_SHELLS",
-    "WINDOWS_TERMINAL",
-    "WSL1",
-    "WSL2",
-    "X86",
-    "X86_64",
-    "XENSERVER",
-    "XONSH",
-    "XTERM",
-    "ZELLIJ",
-    "ZSH",
 )
 """Expose all package-wide elements.
 
 .. note::
-    The content of ``__all__`` is checked and enforced in unittests.
+    Sorting of ``__all__`` is enforced by ``ruff`` via rule ``RUF022``.
 
-.. todo::
-    Test Ruff's ``__all__`` formatting capabilities. And if good enough, remove
-    ``__all__`` checks in unittests.
+    Completeness (no missing or extra entries) is checked in unittests.
 """
 
 # Initialize docstrings for all trait and group instances after all imports

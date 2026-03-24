@@ -30,6 +30,7 @@ from localstack.services.cloudformation.engine.template_utils import (
     fn_equals_type_conversion,
     get_deps_for_resource,
 )
+from localstack.services.cloudformation.models import exports_map, find_stack
 from localstack.services.cloudformation.resource_provider import (
     Credentials,
     NoResourceProvider,
@@ -42,7 +43,6 @@ from localstack.services.cloudformation.resource_provider import (
 from localstack.services.cloudformation.service_models import (
     DependencyNotYetSatisfied,
 )
-from localstack.services.cloudformation.stores import exports_map, find_stack
 from localstack.utils.aws.arns import get_partition
 from localstack.utils.functions import prevent_stack_overflow
 from localstack.utils.json import clone_safe

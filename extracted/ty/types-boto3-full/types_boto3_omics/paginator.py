@@ -15,6 +15,7 @@ Usage::
         ListAnnotationImportJobsPaginator,
         ListAnnotationStoreVersionsPaginator,
         ListAnnotationStoresPaginator,
+        ListBatchPaginator,
         ListMultipartReadSetUploadsPaginator,
         ListReadSetActivationJobsPaginator,
         ListReadSetExportJobsPaginator,
@@ -27,6 +28,7 @@ Usage::
         ListRunCachesPaginator,
         ListRunGroupsPaginator,
         ListRunTasksPaginator,
+        ListRunsInBatchPaginator,
         ListRunsPaginator,
         ListSequenceStoresPaginator,
         ListSharesPaginator,
@@ -42,6 +44,7 @@ Usage::
     list_annotation_import_jobs_paginator: ListAnnotationImportJobsPaginator = client.get_paginator("list_annotation_import_jobs")
     list_annotation_store_versions_paginator: ListAnnotationStoreVersionsPaginator = client.get_paginator("list_annotation_store_versions")
     list_annotation_stores_paginator: ListAnnotationStoresPaginator = client.get_paginator("list_annotation_stores")
+    list_batch_paginator: ListBatchPaginator = client.get_paginator("list_batch")
     list_multipart_read_set_uploads_paginator: ListMultipartReadSetUploadsPaginator = client.get_paginator("list_multipart_read_set_uploads")
     list_read_set_activation_jobs_paginator: ListReadSetActivationJobsPaginator = client.get_paginator("list_read_set_activation_jobs")
     list_read_set_export_jobs_paginator: ListReadSetExportJobsPaginator = client.get_paginator("list_read_set_export_jobs")
@@ -54,6 +57,7 @@ Usage::
     list_run_caches_paginator: ListRunCachesPaginator = client.get_paginator("list_run_caches")
     list_run_groups_paginator: ListRunGroupsPaginator = client.get_paginator("list_run_groups")
     list_run_tasks_paginator: ListRunTasksPaginator = client.get_paginator("list_run_tasks")
+    list_runs_in_batch_paginator: ListRunsInBatchPaginator = client.get_paginator("list_runs_in_batch")
     list_runs_paginator: ListRunsPaginator = client.get_paginator("list_runs")
     list_sequence_stores_paginator: ListSequenceStoresPaginator = client.get_paginator("list_sequence_stores")
     list_shares_paginator: ListSharesPaginator = client.get_paginator("list_shares")
@@ -78,6 +82,8 @@ from .type_defs import (
     ListAnnotationStoresResponseTypeDef,
     ListAnnotationStoreVersionsRequestPaginateTypeDef,
     ListAnnotationStoreVersionsResponseTypeDef,
+    ListBatchRequestPaginateTypeDef,
+    ListBatchResponseTypeDef,
     ListMultipartReadSetUploadsRequestPaginateTypeDef,
     ListMultipartReadSetUploadsResponseTypeDef,
     ListReadSetActivationJobsRequestPaginateTypeDef,
@@ -100,6 +106,8 @@ from .type_defs import (
     ListRunCachesResponseTypeDef,
     ListRunGroupsRequestPaginateTypeDef,
     ListRunGroupsResponseTypeDef,
+    ListRunsInBatchRequestPaginateTypeDef,
+    ListRunsInBatchResponseTypeDef,
     ListRunsRequestPaginateTypeDef,
     ListRunsResponseTypeDef,
     ListRunTasksRequestPaginateTypeDef,
@@ -128,6 +136,7 @@ __all__ = (
     "ListAnnotationImportJobsPaginator",
     "ListAnnotationStoreVersionsPaginator",
     "ListAnnotationStoresPaginator",
+    "ListBatchPaginator",
     "ListMultipartReadSetUploadsPaginator",
     "ListReadSetActivationJobsPaginator",
     "ListReadSetExportJobsPaginator",
@@ -140,6 +149,7 @@ __all__ = (
     "ListRunCachesPaginator",
     "ListRunGroupsPaginator",
     "ListRunTasksPaginator",
+    "ListRunsInBatchPaginator",
     "ListRunsPaginator",
     "ListSequenceStoresPaginator",
     "ListSharesPaginator",
@@ -212,6 +222,27 @@ class ListAnnotationStoresPaginator(_ListAnnotationStoresPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListAnnotationStores.html#Omics.Paginator.ListAnnotationStores.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/paginators/#listannotationstorespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListBatchPaginatorBase = Paginator[ListBatchResponseTypeDef]
+else:
+    _ListBatchPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListBatchPaginator(_ListBatchPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListBatch.html#Omics.Paginator.ListBatch)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/paginators/#listbatchpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBatchRequestPaginateTypeDef]
+    ) -> PageIterator[ListBatchResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListBatch.html#Omics.Paginator.ListBatch.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/paginators/#listbatchpaginator)
         """
 
 
@@ -466,6 +497,27 @@ class ListRunTasksPaginator(_ListRunTasksPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListRunTasks.html#Omics.Paginator.ListRunTasks.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/paginators/#listruntaskspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRunsInBatchPaginatorBase = Paginator[ListRunsInBatchResponseTypeDef]
+else:
+    _ListRunsInBatchPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListRunsInBatchPaginator(_ListRunsInBatchPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListRunsInBatch.html#Omics.Paginator.ListRunsInBatch)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/paginators/#listrunsinbatchpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRunsInBatchRequestPaginateTypeDef]
+    ) -> PageIterator[ListRunsInBatchResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListRunsInBatch.html#Omics.Paginator.ListRunsInBatch.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_omics/paginators/#listrunsinbatchpaginator)
         """
 
 

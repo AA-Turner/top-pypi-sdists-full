@@ -18,7 +18,6 @@ import napari.components.grid
 import napari.components.layerlist
 import napari.components.overlays.base
 import napari.components.tooltip
-import napari.components.viewer_model
 import napari.layers.base.base
 import napari.layers.image.image
 import napari.layers.labels.labels
@@ -32,7 +31,7 @@ import napari.utils.events.event
 
 class ViewerModel(
     napari.utils.key_bindings.KeymapProvider,
-    napari.utils.mouse_bindings.MousemapProvider,
+    napari.utils.mouse_bindings.MousemapProviderPydantic,
     napari.utils.events.evented_model.EventedModel,
 ):
     """Viewer containing the rendered scene, layers, and controlling elements
@@ -477,7 +476,7 @@ class ViewerModel(
             top of the provided scale, rotate, and shear values.
         axis_labels : tuple of str
             Dimension names of the layer data.
-            If not provided, axis_labels will be set to (..., 'axis -2', 'axis -1').
+            If not provided, axis_labels will be set to (..., '-2', '-1').
         attenuation : float or list of float
             Attenuation rate for attenuated maximum intensity projection.
         blending : str or list of str
@@ -620,7 +619,7 @@ class ViewerModel(
             provided scale, rotate, and shear values.
         axis_labels : tuple of str, optional
             Dimension names of the layer data.
-            If not provided, axis_labels will be set to (..., 'axis -2', 'axis -1').
+            If not provided, axis_labels will be set to (..., '-2', '-1').
         blending : str
             One of a list of preset blending modes that determines how RGB and
             alpha values of the layer visual get mixed. Allowed values are
@@ -780,7 +779,7 @@ class ViewerModel(
             Amount of antialiasing in canvas pixels.
         axis_labels : tuple of str, optional
             Dimension names of the layer data.
-            If not provided, axis_labels will be set to (..., 'axis -2', 'axis -1').
+            If not provided, axis_labels will be set to (..., '-2', '-1').
         blending : str
             One of a list of preset blending modes that determines how RGB and
             alpha values of the layer visual get mixed. Allowed values are
@@ -951,7 +950,7 @@ class ViewerModel(
             provided scale, rotate, and shear values.
         axis_labels : tuple of str, optional
             Dimension names of the layer data.
-            If not provided, axis_labels will be set to (..., 'axis -2', 'axis -1').
+            If not provided, axis_labels will be set to (..., '-2', '-1').
         blending : str
             One of a list of preset blending modes that determines how RGB and
             alpha values of the layer visual get mixed. Allowed values are
@@ -1115,7 +1114,7 @@ class ViewerModel(
             provided scale, rotate, and shear values.
         axis_labels : tuple of str, optional
             Dimension names of the layer data.
-            If not provided, axis_labels will be set to (..., 'axis -2', 'axis -1').
+            If not provided, axis_labels will be set to (..., '-2', '-1').
         blending : str
             One of a list of preset blending modes that determines how RGB and
             alpha values of the layer visual get mixed. Allowed values are
@@ -1253,7 +1252,7 @@ class ViewerModel(
             provided scale, rotate, and shear values.
         axis_labels : tuple of str, optional
             Dimension names of the layer data.
-            If not provided, axis_labels will be set to (..., 'axis -2', 'axis -1').
+            If not provided, axis_labels will be set to (..., '-2', '-1').
         blending : str
             One of a list of preset blending modes that determines how RGB and
             alpha values of the layer visual get mixed. Allowed values are
@@ -1381,7 +1380,7 @@ class ViewerModel(
             provided scale, rotate, and shear values.
         axis_labels : tuple of str, optional
             Dimension names of the layer data.
-            If not provided, axis_labels will be set to (..., 'axis -2', 'axis -1').
+            If not provided, axis_labels will be set to (..., '-2', '-1').
         blending : str
             One of a list of preset blending modes that determines how RGB and
             alpha values of the layer visual get mixed. Allowed values are
@@ -1591,7 +1590,7 @@ class ViewerModel(
             Margin as fraction of the canvas, showing blank space around the
             data. Default is 0.05 (5% of the canvas).
         reset_camera_angle : bool
-            Whether to reset the camera angles to (0, 0, 90) before fitting
+            Whether to reset the camera angles to (0, 0, 0) before fitting
             to view. Default is True.
         """
 

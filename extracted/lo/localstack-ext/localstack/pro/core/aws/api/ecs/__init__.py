@@ -110,6 +110,7 @@ class CPUArchitecture(StrEnum):
 class CapacityOptionType(StrEnum):
     ON_DEMAND = "ON_DEMAND"
     SPOT = "SPOT"
+    RESERVED = "RESERVED"
 
 
 class CapacityProviderField(StrEnum):
@@ -140,6 +141,12 @@ class CapacityProviderUpdateStatus(StrEnum):
     UPDATE_IN_PROGRESS = "UPDATE_IN_PROGRESS"
     UPDATE_COMPLETE = "UPDATE_COMPLETE"
     UPDATE_FAILED = "UPDATE_FAILED"
+
+
+class CapacityReservationPreference(StrEnum):
+    RESERVATIONS_ONLY = "RESERVATIONS_ONLY"
+    RESERVATIONS_FIRST = "RESERVATIONS_FIRST"
+    RESERVATIONS_EXCLUDED = "RESERVATIONS_EXCLUDED"
 
 
 class ClusterField(StrEnum):
@@ -1132,6 +1139,15 @@ class InfrastructureOptimization(TypedDict, total=False):
     scaleInAfter: BoxedInteger | None
 
 
+class CapacityReservationRequest(TypedDict, total=False):
+    """The Capacity Reservation configurations to be used when using the
+    ``RESERVED`` capacity option type.
+    """
+
+    reservationGroupArn: String | None
+    reservationPreference: CapacityReservationPreference | None
+
+
 class NetworkBandwidthGbpsRequest(TypedDict, total=False):
     """The minimum and maximum network bandwidth in gigabits per second (Gbps)
     for instance type selection. This is important for network-intensive
@@ -1274,6 +1290,7 @@ class InstanceLaunchTemplate(TypedDict, total=False):
     capacityOptionType: CapacityOptionType | None
     instanceRequirements: InstanceRequirementsRequest | None
     fipsEnabled: BoxedBoolean | None
+    capacityReservations: CapacityReservationRequest | None
 
 
 class ManagedInstancesProvider(TypedDict, total=False):
@@ -4015,6 +4032,7 @@ class InstanceLaunchTemplateUpdate(TypedDict, total=False):
     storageConfiguration: ManagedInstancesStorageConfiguration | None
     monitoring: ManagedInstancesMonitoringOptions | None
     instanceRequirements: InstanceRequirementsRequest | None
+    capacityReservations: CapacityReservationRequest | None
 
 
 class ListAccountSettingsRequest(ServiceRequest):
@@ -4633,8 +4651,7 @@ class EcsApi:
         :param cluster: The name of the cluster to associate with the capacity provider.
         :param auto_scaling_group_provider: The details of the Auto Scaling group for the capacity provider.
         :param managed_instances_provider: The configuration for the Amazon ECS Managed Instances provider.
-        :param tags: The metadata that you apply to the capacity provider to categorize and
-        organize them more conveniently.
+        :param tags: The metadata that you apply to the capacity provider to categorize and organize them more conveniently.
         :returns: CreateCapacityProviderResponse
         :raises LimitExceededException:
         :raises ServerException:
@@ -4675,12 +4692,10 @@ class EcsApi:
         in the *Amazon Elastic Container Service Developer Guide*.
 
         :param cluster_name: The name of your cluster.
-        :param tags: The metadata that you apply to the cluster to help you categorize and
-        organize them.
+        :param tags: The metadata that you apply to the cluster to help you categorize and organize them.
         :param settings: The setting to use when creating a cluster.
         :param configuration: The ``execute`` command configuration for the cluster.
-        :param capacity_providers: The short name of one or more capacity providers to associate with the
-        cluster.
+        :param capacity_providers: The short name of one or more capacity providers to associate with the cluster.
         :param default_capacity_provider_strategy: The capacity provider strategy to set as the default for the cluster.
         :param service_connect_defaults: Use this parameter to set a default Service Connect namespace.
         :returns: CreateClusterResponse
@@ -4723,26 +4738,18 @@ class EcsApi:
         Provide an execution role for task operations and an infrastructure role
         for managing Amazon Web Services resources on your behalf.
 
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants
-        the Amazon ECS container agent permission to make Amazon Web Services
-        API calls on your behalf.
-        :param infrastructure_role_arn: The Amazon Resource Name (ARN) of the infrastructure role that grants
-        Amazon ECS permission to create and manage Amazon Web Services resources
-        on your behalf for the Express service.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make Amazon Web Services API calls on your behalf.
+        :param infrastructure_role_arn: The Amazon Resource Name (ARN) of the infrastructure role that grants Amazon ECS permission to create and manage Amazon Web Services resources on your behalf for the Express service.
         :param primary_container: The primary container configuration for the Express service.
         :param service_name: The name of the Express service.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster on
-        which to create the Express service.
-        :param health_check_path: The path on the container that the Application Load Balancer uses for
-        health checks.
-        :param task_role_arn: The Amazon Resource Name (ARN) of the IAM role that containers in this
-        task can assume.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster on which to create the Express service.
+        :param health_check_path: The path on the container that the Application Load Balancer uses for health checks.
+        :param task_role_arn: The Amazon Resource Name (ARN) of the IAM role that containers in this task can assume.
         :param network_configuration: The network configuration for the Express service tasks.
         :param cpu: The number of CPU units used by the task.
         :param memory: The amount of memory (in MiB) used by the task.
         :param scaling_target: The auto-scaling configuration for the Express service.
-        :param tags: The metadata that you apply to the Express service to help categorize
-        and organize it.
+        :param tags: The metadata that you apply to the Express service to help categorize and organize it.
         :returns: CreateExpressGatewayServiceResponse
         :raises AccessDeniedException:
         :raises PlatformUnknownException:
@@ -4993,47 +5000,30 @@ class EcsApi:
         in the *Amazon Elastic Container Service Developer Guide*
 
         :param service_name: The name of your service.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        you run your service on.
-        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the
-        task definition to run in your service.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on.
+        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the task definition to run in your service.
         :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service.
-        :param load_balancers: A load balancer object representing the load balancers to use with your
-        service.
-        :param service_registries: The details of the service discovery registry to associate with this
-        service.
-        :param desired_count: The number of instantiations of the specified task definition to place
-        and keep running in your service.
+        :param load_balancers: A load balancer object representing the load balancers to use with your service.
+        :param service_registries: The details of the service discovery registry to associate with this service.
+        :param desired_count: The number of instantiations of the specified task definition to place and keep running in your service.
         :param client_token: An identifier that you provide to ensure the idempotency of the request.
         :param launch_type: The infrastructure that you run your service on.
         :param capacity_provider_strategy: The capacity provider strategy to use for the service.
         :param platform_version: The platform version that your tasks in the service are running on.
-        :param role: The name or full Amazon Resource Name (ARN) of the IAM role that allows
-        Amazon ECS to make calls to your load balancer on your behalf.
-        :param deployment_configuration: Optional deployment parameters that control how many tasks run during
-        the deployment and the ordering of stopping and starting tasks.
-        :param placement_constraints: An array of placement constraint objects to use for tasks in your
-        service.
+        :param role: The name or full Amazon Resource Name (ARN) of the IAM role that allows Amazon ECS to make calls to your load balancer on your behalf.
+        :param deployment_configuration: Optional deployment parameters that control how many tasks run during the deployment and the ordering of stopping and starting tasks.
+        :param placement_constraints: An array of placement constraint objects to use for tasks in your service.
         :param placement_strategy: The placement strategy objects to use for tasks in your service.
         :param network_configuration: The network configuration for the service.
-        :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler
-        ignores unhealthy Elastic Load Balancing, VPC Lattice, and container
-        health checks after a task has first started.
+        :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started.
         :param scheduling_strategy: The scheduling strategy to use for the service.
         :param deployment_controller: The deployment controller to use for the service.
-        :param tags: The metadata that you apply to the service to help you categorize and
-        organize them.
-        :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks
-        within the service.
-        :param propagate_tags: Specifies whether to propagate the tags from the task definition to the
-        task.
-        :param enable_execute_command: Determines whether the execute command functionality is turned on for
-        the service.
-        :param service_connect_configuration: The configuration for this service to discover and connect to services,
-        and be discovered by, and connected from, other services within a
-        namespace.
-        :param volume_configurations: The configuration for a volume specified in the task definition as a
-        volume that is configured at launch time.
+        :param tags: The metadata that you apply to the service to help you categorize and organize them.
+        :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service.
+        :param propagate_tags: Specifies whether to propagate the tags from the task definition to the task.
+        :param enable_execute_command: Determines whether the execute command functionality is turned on for the service.
+        :param service_connect_configuration: The configuration for this service to discover and connect to services, and be discovered by, and connected from, other services within a namespace.
+        :param volume_configurations: The configuration for a volume specified in the task definition as a volume that is configured at launch time.
         :param vpc_lattice_configurations: The VPC Lattice configuration for the service being created.
         :returns: CreateServiceResponse
         :raises AccessDeniedException:
@@ -5083,26 +5073,19 @@ class EcsApi:
         quotas <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-quotas.html>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param service: The short name or full Amazon Resource Name (ARN) of the service to
-        create the task set in.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the service to create the task set in.
+        :param service: The short name or full Amazon Resource Name (ARN) of the service to create the task set in.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service to create the task set in.
         :param task_definition: The task definition for the tasks in the task set to use.
-        :param external_id: An optional non-unique tag that identifies this task set in external
-        systems.
+        :param external_id: An optional non-unique tag that identifies this task set in external systems.
         :param network_configuration: An object representing the network configuration for a task set.
-        :param load_balancers: A load balancer object representing the load balancer to use with the
-        task set.
-        :param service_registries: The details of the service discovery registries to assign to this task
-        set.
+        :param load_balancers: A load balancer object representing the load balancer to use with the task set.
+        :param service_registries: The details of the service discovery registries to assign to this task set.
         :param launch_type: The launch type that new tasks in the task set uses.
         :param capacity_provider_strategy: The capacity provider strategy to use for the task set.
         :param platform_version: The platform version that the tasks in the task set uses.
-        :param scale: A floating-point percentage of the desired number of tasks to place and
-        keep running in the task set.
+        :param scale: A floating-point percentage of the desired number of tasks to place and keep running in the task set.
         :param client_token: An identifier that you provide to ensure the idempotency of the request.
-        :param tags: The metadata that you apply to the task set to help you categorize and
-        organize them.
+        :param tags: The metadata that you apply to the task set to help you categorize and organize them.
         :returns: CreateTaskSetResponse
         :raises AccessDeniedException:
         :raises PlatformUnknownException:
@@ -5149,8 +5132,7 @@ class EcsApi:
         """Deletes one or more custom attributes from an Amazon ECS resource.
 
         :param attributes: The attributes to delete from your resource.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        contains the resource to delete attributes.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that contains the resource to delete attributes.
         :returns: DeleteAttributesResponse
         :raises TargetNotFoundException:
         :raises InvalidParameterException:
@@ -5186,8 +5168,7 @@ class EcsApi:
         `PutClusterCapacityProviders <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_PutClusterCapacityProviders.html>`__
         or delete the cluster.
 
-        :param capacity_provider: The short name or full Amazon Resource Name (ARN) of the capacity
-        provider to delete.
+        :param capacity_provider: The short name or full Amazon Resource Name (ARN) of the capacity provider to delete.
         :param cluster: The name of the cluster that contains the capacity provider to delete.
         :returns: DeleteCapacityProviderResponse
         :raises ServerException:
@@ -5214,8 +5195,7 @@ class EcsApi:
         and deregister them with
         `DeregisterContainerInstance <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeregisterContainerInstance.html>`__.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to
-        delete.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to delete.
         :returns: DeleteClusterResponse
         :raises ClusterContainsContainerInstancesException:
         :raises ClusterContainsServicesException:
@@ -5293,10 +5273,8 @@ class EcsApi:
         error.
 
         :param service: The name of the service to delete.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the service to delete.
-        :param force: If ``true``, allows you to delete a service even if it wasn't scaled
-        down to zero tasks.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service to delete.
+        :param force: If ``true``, allows you to delete a service even if it wasn't scaled down to zero tasks.
         :returns: DeleteServiceResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -5339,8 +5317,7 @@ class EcsApi:
         revision is incremented the next time you create a task definition with
         that name.
 
-        :param task_definitions: The ``family`` and ``revision`` (``family:revision``) or full Amazon
-        Resource Name (ARN) of the task definition to delete.
+        :param task_definitions: The ``family`` and ``revision`` (``family:revision``) or full Amazon Resource Name (ARN) of the task definition to delete.
         :returns: DeleteTaskDefinitionsResponse
         :raises AccessDeniedException:
         :raises ServerException:
@@ -5365,14 +5342,10 @@ class EcsApi:
         types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the service that the task set found in to delete.
-        :param service: The short name or full Amazon Resource Name (ARN) of the service that
-        hosts the task set to delete.
-        :param task_set: The task set ID or full Amazon Resource Name (ARN) of the task set to
-        delete.
-        :param force: If ``true``, you can delete a task set even if it hasn't been scaled
-        down to zero.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service that the task set found in to delete.
+        :param service: The short name or full Amazon Resource Name (ARN) of the service that hosts the task set to delete.
+        :param task_set: The task set ID or full Amazon Resource Name (ARN) of the task set to delete.
+        :param force: If ``true``, you can delete a task set even if it hasn't been scaled down to zero.
         :returns: DeleteTaskSetResponse
         :raises AccessDeniedException:
         :raises ServiceNotActiveException:
@@ -5413,10 +5386,8 @@ class EcsApi:
         or instances with disconnected agents aren't automatically deregistered
         when terminated).
 
-        :param container_instance: The container instance ID or full ARN of the container instance to
-        deregister.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the container instance to deregister.
+        :param container_instance: The container instance ID or full ARN of the container instance to deregister.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the container instance to deregister.
         :param force: Forces the container instance to be deregistered.
         :returns: DeregisterContainerInstanceResponse
         :raises ServerException:
@@ -5454,8 +5425,7 @@ class EcsApi:
         more information, see
         `DeleteTaskDefinitions <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteTaskDefinitions.html>`__.
 
-        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full Amazon
-        Resource Name (ARN) of the task definition to deregister.
+        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full Amazon Resource Name (ARN) of the task definition to deregister.
         :returns: DeregisterTaskDefinitionResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -5476,16 +5446,11 @@ class EcsApi:
     ) -> DescribeCapacityProvidersResponse:
         """Describes one or more of your capacity providers.
 
-        :param capacity_providers: The short name or full Amazon Resource Name (ARN) of one or more
-        capacity providers.
+        :param capacity_providers: The short name or full Amazon Resource Name (ARN) of one or more capacity providers.
         :param cluster: The name of the cluster to describe capacity providers for.
-        :param include: Specifies whether or not you want to see the resource tags for the
-        capacity provider.
-        :param max_results: The maximum number of account setting results returned by
-        ``DescribeCapacityProviders`` in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeCapacityProviders`` request where ``maxResults`` was used and
-        the results exceeded the value of that parameter.
+        :param include: Specifies whether or not you want to see the resource tags for the capacity provider.
+        :param max_results: The maximum number of account setting results returned by ``DescribeCapacityProviders`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeCapacityProviders`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: DescribeCapacityProvidersResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -5509,10 +5474,8 @@ class EcsApi:
         `describe-clusters.rst <https://github.com/aws/aws-cli/blob/develop/awscli/examples/ecs/describe-clusters.rst>`__
         on GitHub.
 
-        :param clusters: A list of up to 100 cluster names or full cluster Amazon Resource Name
-        (ARN) entries.
-        :param include: Determines whether to include additional information about the clusters
-        in the response.
+        :param clusters: A list of up to 100 cluster names or full cluster Amazon Resource Name (ARN) entries.
+        :param include: Determines whether to include additional information about the clusters in the response.
         :returns: DescribeClustersResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -5532,12 +5495,9 @@ class EcsApi:
         """Describes one or more container instances. Returns metadata about each
         container instance requested.
 
-        :param container_instances: A list of up to 100 container instance IDs or full Amazon Resource Name
-        (ARN) entries.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the container instances to describe.
-        :param include: Specifies whether you want to see the resource tags for the container
-        instance.
+        :param container_instances: A list of up to 100 container instance IDs or full Amazon Resource Name (ARN) entries.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the container instances to describe.
+        :param include: Specifies whether you want to see the resource tags for the container instance.
         :returns: DescribeContainerInstancesResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -5640,8 +5600,7 @@ class EcsApi:
         """Describes the specified services running in your cluster.
 
         :param services: A list of services to describe.
-        :param cluster: The short name or full Amazon Resource Name (ARN)the cluster that hosts
-        the service to describe.
+        :param cluster: The short name or full Amazon Resource Name (ARN)the cluster that hosts the service to describe.
         :param include: Determines whether you want to see the resource tags for the service.
         :returns: DescribeServicesResponse
         :raises ServerException:
@@ -5667,10 +5626,7 @@ class EcsApi:
         You can only describe ``INACTIVE`` task definitions while an active task
         or service references them.
 
-        :param task_definition: The ``family`` for the latest ``ACTIVE`` revision, ``family`` and
-        ``revision`` (``family:revision``) for a specific revision in the
-        family, or full Amazon Resource Name (ARN) of the task definition to
-        describe.
+        :param task_definition: The ``family`` for the latest ``ACTIVE`` revision, ``family`` and ``revision`` (``family:revision``) for a specific revision in the family, or full Amazon Resource Name (ARN) of the task definition to describe.
         :param include: Determines whether to see the resource tags for the task definition.
         :returns: DescribeTaskDefinitionResponse
         :raises ServerException:
@@ -5695,10 +5651,8 @@ class EcsApi:
         Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the service that the task sets exist in.
-        :param service: The short name or full Amazon Resource Name (ARN) of the service that
-        the task sets exist in.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service that the task sets exist in.
+        :param service: The short name or full Amazon Resource Name (ARN) of the service that the task sets exist in.
         :param task_sets: The ID or full Amazon Resource Name (ARN) of task sets to describe.
         :param include: Specifies whether to see the resource tags for the task set.
         :returns: DescribeTaskSetsResponse
@@ -5733,8 +5687,7 @@ class EcsApi:
         the response.
 
         :param tasks: A list of up to 100 task IDs or full ARN entries.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the task or tasks to describe.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the task or tasks to describe.
         :param include: Specifies whether you want to see the resource tags for the task.
         :returns: DescribeTasksResponse
         :raises ServerException:
@@ -5758,8 +5711,7 @@ class EcsApi:
         Returns an endpoint for the Amazon ECS agent to poll for updates.
 
         :param container_instance: The container instance ID or full ARN of the container instance.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        the container instance belongs to.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that the container instance belongs to.
         :returns: DiscoverPollEndpointResponse
         :raises ServerException:
         :raises ClientException:
@@ -5792,10 +5744,8 @@ class EcsApi:
 
         :param command: The command to run on the container.
         :param interactive: Use this flag to run your command in interactive mode.
-        :param task: The Amazon Resource Name (ARN) or ID of the task the container is part
-        of.
-        :param cluster: The Amazon Resource Name (ARN) or short name of the cluster the task is
-        running in.
+        :param task: The Amazon Resource Name (ARN) or ID of the task the container is part of.
+        :param cluster: The Amazon Resource Name (ARN) or short name of the cluster the task is running in.
         :param container: The name of the container to execute the command on.
         :returns: ExecuteCommandResponse
         :raises AccessDeniedException:
@@ -5813,8 +5763,7 @@ class EcsApi:
     ) -> GetTaskProtectionResponse:
         """Retrieves the protection status of tasks in an Amazon ECS service.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the service that the task sets exist in.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service that the task sets exist in.
         :param tasks: A list of up to 100 task IDs or full ARN entries.
         :returns: GetTaskProtectionResponse
         :raises AccessDeniedException:
@@ -5845,11 +5794,8 @@ class EcsApi:
         :param value: The value of the account settings to filter results with.
         :param principal_arn: The ARN of the principal, which can be a user, role, or the root user.
         :param effective_settings: Determines whether to return the effective settings.
-        :param next_token: The ``nextToken`` value returned from a ``ListAccountSettings`` request
-        indicating that more results are available to fulfill the request and
-        further calls will be needed.
-        :param max_results: The maximum number of account setting results returned by
-        ``ListAccountSettings`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a ``ListAccountSettings`` request indicating that more results are available to fulfill the request and further calls will be needed.
+        :param max_results: The maximum number of account setting results returned by ``ListAccountSettings`` in paginated output.
         :returns: ListAccountSettingsResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -5879,15 +5825,11 @@ class EcsApi:
         running a Linux AMI (``ecs.os-type=linux``).
 
         :param target_type: The type of the target to list attributes with.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to list
-        attributes.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to list attributes.
         :param attribute_name: The name of the attribute to filter the results with.
         :param attribute_value: The value of the attribute to filter results with.
-        :param next_token: The ``nextToken`` value returned from a ``ListAttributes`` request
-        indicating that more results are available to fulfill the request and
-        further calls are needed.
-        :param max_results: The maximum number of cluster results that ``ListAttributes`` returned
-        in paginated output.
+        :param next_token: The ``nextToken`` value returned from a ``ListAttributes`` request indicating that more results are available to fulfill the request and further calls are needed.
+        :param max_results: The maximum number of cluster results that ``ListAttributes`` returned in paginated output.
         :returns: ListAttributesResponse
         :raises InvalidParameterException:
         :raises ClusterNotFoundException:
@@ -5904,11 +5846,8 @@ class EcsApi:
     ) -> ListClustersResponse:
         """Returns a list of existing clusters.
 
-        :param next_token: The ``nextToken`` value returned from a ``ListClusters`` request
-        indicating that more results are available to fulfill the request and
-        further calls are needed.
-        :param max_results: The maximum number of cluster results that ``ListClusters`` returned in
-        paginated output.
+        :param next_token: The ``nextToken`` value returned from a ``ListClusters`` request indicating that more results are available to fulfill the request and further calls are needed.
+        :param max_results: The maximum number of cluster results that ``ListClusters`` returned in paginated output.
         :returns: ListClustersResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -5934,15 +5873,10 @@ class EcsApi:
         Language <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-query-language.html>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the container instances to list.
-        :param filter: You can filter the results of a ``ListContainerInstances`` operation
-        with cluster query language statements.
-        :param next_token: The ``nextToken`` value returned from a ``ListContainerInstances``
-        request indicating that more results are available to fulfill the
-        request and further calls are needed.
-        :param max_results: The maximum number of container instance results that
-        ``ListContainerInstances`` returned in paginated output.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the container instances to list.
+        :param filter: You can filter the results of a ``ListContainerInstances`` operation with cluster query language statements.
+        :param next_token: The ``nextToken`` value returned from a ``ListContainerInstances`` request indicating that more results are available to fulfill the request and further calls are needed.
+        :param max_results: The maximum number of container instance results that ``ListContainerInstances`` returned in paginated output.
         :param status: Filters the container instances by status.
         :returns: ListContainerInstancesResponse
         :raises ServerException:
@@ -5977,13 +5911,9 @@ class EcsApi:
         :param service: The ARN or name of the service.
         :param cluster: The cluster that hosts the service.
         :param status: An optional filter you can use to narrow the results.
-        :param created_at: An optional filter you can use to narrow the results by the service
-        creation date.
-        :param next_token: The ``nextToken`` value returned from a ``ListServiceDeployments``
-        request indicating that more results are available to fulfill the
-        request and further calls are needed.
-        :param max_results: The maximum number of service deployment results that
-        ``ListServiceDeployments`` returned in paginated output.
+        :param created_at: An optional filter you can use to narrow the results by the service creation date.
+        :param next_token: The ``nextToken`` value returned from a ``ListServiceDeployments`` request indicating that more results are available to fulfill the request and further calls are needed.
+        :param max_results: The maximum number of service deployment results that ``ListServiceDeployments`` returned in paginated output.
         :returns: ListServiceDeploymentsResponse
         :raises AccessDeniedException:
         :raises ServerException:
@@ -6009,18 +5939,12 @@ class EcsApi:
         """Returns a list of services. You can filter the results by cluster,
         launch type, and scheduling strategy.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to use
-        when filtering the ``ListServices`` results.
-        :param next_token: The ``nextToken`` value returned from a ``ListServices`` request
-        indicating that more results are available to fulfill the request and
-        further calls will be needed.
-        :param max_results: The maximum number of service results that ``ListServices`` returned in
-        paginated output.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to use when filtering the ``ListServices`` results.
+        :param next_token: The ``nextToken`` value returned from a ``ListServices`` request indicating that more results are available to fulfill the request and further calls will be needed.
+        :param max_results: The maximum number of service results that ``ListServices`` returned in paginated output.
         :param launch_type: The launch type to use when filtering the ``ListServices`` results.
-        :param scheduling_strategy: The scheduling strategy to use when filtering the ``ListServices``
-        results.
-        :param resource_management_type: The resourceManagementType type to use when filtering the
-        ``ListServices`` results.
+        :param scheduling_strategy: The scheduling strategy to use when filtering the ``ListServices`` results.
+        :param resource_management_type: The resourceManagementType type to use when filtering the ``ListServices`` results.
         :returns: ListServicesResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -6047,12 +5971,9 @@ class EcsApi:
         Connect <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param namespace: The namespace name or full Amazon Resource Name (ARN) of the Cloud Map
-        namespace to list the services in.
-        :param next_token: The ``nextToken`` value that's returned from a
-        ``ListServicesByNamespace`` request.
-        :param max_results: The maximum number of service results that ``ListServicesByNamespace``
-        returns in paginated output.
+        :param namespace: The namespace name or full Amazon Resource Name (ARN) of the Cloud Map namespace to list the services in.
+        :param next_token: The ``nextToken`` value that's returned from a ``ListServicesByNamespace`` request.
+        :param max_results: The maximum number of service results that ``ListServicesByNamespace`` returns in paginated output.
         :returns: ListServicesByNamespaceResponse
         :raises NamespaceNotFoundException:
         :raises ServerException:
@@ -6067,8 +5988,7 @@ class EcsApi:
     ) -> ListTagsForResourceResponse:
         """List the tags for an Amazon ECS resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list the
-        tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list the tags for.
         :returns: ListTagsForResourceResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -6096,15 +6016,10 @@ class EcsApi:
         to ``ACTIVE``. You can also filter the results with the ``familyPrefix``
         parameter.
 
-        :param family_prefix: The ``familyPrefix`` is a string that's used to filter the results of
-        ``ListTaskDefinitionFamilies``.
-        :param status: The task definition family status to filter the
-        ``ListTaskDefinitionFamilies`` results with.
-        :param next_token: The ``nextToken`` value returned from a ``ListTaskDefinitionFamilies``
-        request indicating that more results are available to fulfill the
-        request and further calls will be needed.
-        :param max_results: The maximum number of task definition family results that
-        ``ListTaskDefinitionFamilies`` returned in paginated output.
+        :param family_prefix: The ``familyPrefix`` is a string that's used to filter the results of ``ListTaskDefinitionFamilies``.
+        :param status: The task definition family status to filter the ``ListTaskDefinitionFamilies`` results with.
+        :param next_token: The ``nextToken`` value returned from a ``ListTaskDefinitionFamilies`` request indicating that more results are available to fulfill the request and further calls will be needed.
+        :param max_results: The maximum number of task definition family results that ``ListTaskDefinitionFamilies`` returned in paginated output.
         :returns: ListTaskDefinitionFamiliesResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -6128,14 +6043,10 @@ class EcsApi:
         parameter or by status with the ``status`` parameter.
 
         :param family_prefix: The full family name to filter the ``ListTaskDefinitions`` results with.
-        :param status: The task definition status to filter the ``ListTaskDefinitions`` results
-        with.
+        :param status: The task definition status to filter the ``ListTaskDefinitions`` results with.
         :param sort: The order to sort the results in.
-        :param next_token: The ``nextToken`` value returned from a ``ListTaskDefinitions`` request
-        indicating that more results are available to fulfill the request and
-        further calls will be needed.
-        :param max_results: The maximum number of task definition results that
-        ``ListTaskDefinitions`` returned in paginated output.
+        :param next_token: The ``nextToken`` value returned from a ``ListTaskDefinitions`` request indicating that more results are available to fulfill the request and further calls will be needed.
+        :param max_results: The maximum number of task definition results that ``ListTaskDefinitions`` returned in paginated output.
         :returns: ListTaskDefinitionsResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -6164,17 +6075,11 @@ class EcsApi:
 
         Recently stopped tasks might appear in the returned results.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to use
-        when filtering the ``ListTasks`` results.
-        :param container_instance: The container instance ID or full ARN of the container instance to use
-        when filtering the ``ListTasks`` results.
-        :param family: The name of the task definition family to use when filtering the
-        ``ListTasks`` results.
-        :param next_token: The ``nextToken`` value returned from a ``ListTasks`` request indicating
-        that more results are available to fulfill the request and further calls
-        will be needed.
-        :param max_results: The maximum number of task results that ``ListTasks`` returned in
-        paginated output.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to use when filtering the ``ListTasks`` results.
+        :param container_instance: The container instance ID or full ARN of the container instance to use when filtering the ``ListTasks`` results.
+        :param family: The name of the task definition family to use when filtering the ``ListTasks`` results.
+        :param next_token: The ``nextToken`` value returned from a ``ListTasks`` request indicating that more results are available to fulfill the request and further calls will be needed.
+        :param max_results: The maximum number of task results that ``ListTasks`` returned in paginated output.
         :param started_by: The ``startedBy`` value to filter the task results with.
         :param service_name: The name of the service to use when filtering the ``ListTasks`` results.
         :param desired_status: The task desired status to use when filtering the ``ListTasks`` results.
@@ -6250,8 +6155,7 @@ class EcsApi:
         in the *Amazon Elastic Container Service Developer Guide*.
 
         :param attributes: The attributes to apply to your resource.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        contains the resource to apply attributes.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that contains the resource to apply attributes.
         :returns: PutAttributesResponse
         :raises TargetNotFoundException:
         :raises AttributeLimitExceededException:
@@ -6293,10 +6197,8 @@ class EcsApi:
         create a capacity provider with Amazon ECS Managed Instances, it becomes
         available only within the specified cluster.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to
-        modify the capacity provider settings for.
-        :param capacity_providers: The name of one or more capacity providers to associate with the
-        cluster.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to modify the capacity provider settings for.
+        :param capacity_providers: The name of one or more capacity providers to associate with the cluster.
         :param default_capacity_provider_strategy: The capacity provider strategy to use by default for the cluster.
         :returns: PutClusterCapacityProvidersResponse
         :raises ServerException:
@@ -6329,19 +6231,15 @@ class EcsApi:
         Registers an EC2 instance into the specified cluster. This instance
         becomes available to place containers on.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to
-        register your container instance with.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to register your container instance with.
         :param instance_identity_document: The instance identity document for the EC2 instance to register.
-        :param instance_identity_document_signature: The instance identity document signature for the EC2 instance to
-        register.
+        :param instance_identity_document_signature: The instance identity document signature for the EC2 instance to register.
         :param total_resources: The resources available on the instance.
-        :param version_info: The version information for the Amazon ECS container agent and Docker
-        daemon that runs on the container instance.
+        :param version_info: The version information for the Amazon ECS container agent and Docker daemon that runs on the container instance.
         :param container_instance_arn: The ARN of the container instance (if it was previously registered).
         :param attributes: The container instance attributes that this container instance supports.
         :param platform_devices: The devices that are available on the container instance.
-        :param tags: The metadata that you apply to the container instance to help you
-        categorize and organize them.
+        :param tags: The metadata that you apply to the container instance to help you categorize and organize them.
         :returns: RegisterContainerInstanceResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -6399,33 +6297,23 @@ class EcsApi:
         in the *Amazon Elastic Container Service Developer Guide*.
 
         :param family: You must specify a ``family`` for a task definition.
-        :param container_definitions: A list of container definitions in JSON format that describe the
-        different containers that make up your task.
-        :param task_role_arn: The short name or full Amazon Resource Name (ARN) of the IAM role that
-        containers in this task can assume.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants
-        the Amazon ECS container agent permission to make Amazon Web Services
-        API calls on your behalf.
+        :param container_definitions: A list of container definitions in JSON format that describe the different containers that make up your task.
+        :param task_role_arn: The short name or full Amazon Resource Name (ARN) of the IAM role that containers in this task can assume.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make Amazon Web Services API calls on your behalf.
         :param network_mode: The Docker networking mode to use for the containers in the task.
-        :param volumes: A list of volume definitions in JSON format that containers in your task
-        might use.
+        :param volumes: A list of volume definitions in JSON format that containers in your task might use.
         :param placement_constraints: An array of placement constraint objects to use for the task.
-        :param requires_compatibilities: The task launch type that Amazon ECS validates the task definition
-        against.
+        :param requires_compatibilities: The task launch type that Amazon ECS validates the task definition against.
         :param cpu: The number of CPU units used by the task.
         :param memory: The amount of memory (in MiB) used by the task.
-        :param tags: The metadata that you apply to the task definition to help you
-        categorize and organize them.
+        :param tags: The metadata that you apply to the task definition to help you categorize and organize them.
         :param pid_mode: The process namespace to use for the containers in the task.
         :param ipc_mode: The IPC resource namespace to use for the containers in the task.
         :param proxy_configuration: The configuration details for the App Mesh proxy.
-        :param inference_accelerators: The Elastic Inference accelerators to use for the containers in the
-        task.
+        :param inference_accelerators: The Elastic Inference accelerators to use for the containers in the task.
         :param ephemeral_storage: The amount of ephemeral storage to allocate for the task.
         :param runtime_platform: The operating system that your tasks definitions run on.
-        :param enable_fault_injection: Enables fault injection when you register your task definition and
-        allows for fault injection requests to be accepted from the task's
-        containers.
+        :param enable_fault_injection: Enables fault injection when you register your task definition and allows for fault injection requests to be accepted from the task's containers.
         :returns: RegisterTaskDefinitionResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -6524,31 +6412,23 @@ class EcsApi:
         service
         quotas <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-quotas.html>`__.
 
-        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the
-        task definition to run.
+        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the task definition to run.
         :param capacity_provider_strategy: The capacity provider strategy to use for the task.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to run
-        your task on.
-        :param count: The number of instantiations of the specified task to place on your
-        cluster.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to run your task on.
+        :param count: The number of instantiations of the specified task to place on your cluster.
         :param enable_ecs_managed_tags: Specifies whether to use Amazon ECS managed tags for the task.
-        :param enable_execute_command: Determines whether to use the execute command functionality for the
-        containers in this task.
+        :param enable_execute_command: Determines whether to use the execute command functionality for the containers in this task.
         :param group: The name of the task group to associate with the task.
         :param launch_type: The infrastructure to run your standalone task on.
         :param network_configuration: The network configuration for the task.
-        :param overrides: A list of container overrides in JSON format that specify the name of a
-        container in the specified task definition and the overrides it should
-        receive.
+        :param overrides: A list of container overrides in JSON format that specify the name of a container in the specified task definition and the overrides it should receive.
         :param placement_constraints: An array of placement constraint objects to use for the task.
         :param placement_strategy: The placement strategy objects to use for the task.
         :param platform_version: The platform version the task uses.
-        :param propagate_tags: Specifies whether to propagate the tags from the task definition to the
-        task.
+        :param propagate_tags: Specifies whether to propagate the tags from the task definition to the task.
         :param reference_id: This parameter is only used by Amazon ECS.
         :param started_by: An optional tag specified when a task is started.
-        :param tags: The metadata that you apply to the task to help you categorize and
-        organize them.
+        :param tags: The metadata that you apply to the task to help you categorize and organize them.
         :param client_token: An identifier that you provide to ensure the idempotency of the request.
         :param volume_configurations: The details of the volume that was ``configuredAtLaunch``.
         :returns: RunTaskResponse
@@ -6605,28 +6485,18 @@ class EcsApi:
         volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-types>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param container_instances: The container instance IDs or full ARN entries for the container
-        instances where you would like to place your task.
-        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the
-        task definition to start.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster where
-        to start your task.
+        :param container_instances: The container instance IDs or full ARN entries for the container instances where you would like to place your task.
+        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the task definition to start.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster where to start your task.
         :param enable_ecs_managed_tags: Specifies whether to use Amazon ECS managed tags for the task.
-        :param enable_execute_command: Whether or not the execute command functionality is turned on for the
-        task.
+        :param enable_execute_command: Whether or not the execute command functionality is turned on for the task.
         :param group: The name of the task group to associate with the task.
-        :param network_configuration: The VPC subnet and security group configuration for tasks that receive
-        their own elastic network interface by using the ``awsvpc`` networking
-        mode.
-        :param overrides: A list of container overrides in JSON format that specify the name of a
-        container in the specified task definition and the overrides it
-        receives.
-        :param propagate_tags: Specifies whether to propagate the tags from the task definition or the
-        service to the task.
+        :param network_configuration: The VPC subnet and security group configuration for tasks that receive their own elastic network interface by using the ``awsvpc`` networking mode.
+        :param overrides: A list of container overrides in JSON format that specify the name of a container in the specified task definition and the overrides it receives.
+        :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the task.
         :param reference_id: This parameter is only used by Amazon ECS.
         :param started_by: An optional tag specified when a task is started.
-        :param tags: The metadata that you apply to the task to help you categorize and
-        organize them.
+        :param tags: The metadata that you apply to the task to help you categorize and organize them.
         :param volume_configurations: The details of the volume that was ``configuredAtLaunch``.
         :returns: StartTaskResponse
         :raises ServerException:
@@ -6704,8 +6574,7 @@ class EcsApi:
         in the *Amazon Elastic Container Service Developer Guide*.
 
         :param task: Thefull Amazon Resource Name (ARN) of the task.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the task to stop.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the task to stop.
         :param reason: An optional message specified when a task is stopped.
         :returns: StopTaskResponse
         :raises ServerException:
@@ -6729,8 +6598,7 @@ class EcsApi:
         Sent to acknowledge that an attachment changed states.
 
         :param attachments: Any attachments associated with the state change request.
-        :param cluster: The short name or full ARN of the cluster that hosts the container
-        instance the attachment belongs to.
+        :param cluster: The short name or full ARN of the cluster that hosts the container instance the attachment belongs to.
         :returns: SubmitAttachmentStateChangesResponse
         :raises AccessDeniedException:
         :raises ServerException:
@@ -6759,8 +6627,7 @@ class EcsApi:
         Sent to acknowledge that a container changed states.
 
         :param cluster: The short name or full ARN of the cluster that hosts the container.
-        :param task: The task ID or full Amazon Resource Name (ARN) of the task that hosts
-        the container.
+        :param task: The task ID or full Amazon Resource Name (ARN) of the task that hosts the container.
         :param container_name: The name of the container.
         :param runtime_id: The ID of the Docker container.
         :param status: The status of the state change request.
@@ -6795,8 +6662,7 @@ class EcsApi:
 
         Sent to acknowledge that a task changed states.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the task.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the task.
         :param task: The task ID or full ARN of the task in the state change request.
         :param status: The status of the state change request.
         :param reason: The reason for the state change request.
@@ -6868,8 +6734,7 @@ class EcsApi:
 
         :param name: The name of the capacity provider to update.
         :param cluster: The name of the cluster that contains the capacity provider to update.
-        :param auto_scaling_group_provider: An object that represent the parameters to update for the Auto Scaling
-        group capacity provider.
+        :param auto_scaling_group_provider: An object that represent the parameters to update for the Auto Scaling group capacity provider.
         :param managed_instances_provider: The updated configuration for the Amazon ECS Managed Instances provider.
         :returns: UpdateCapacityProviderResponse
         :raises ServerException:
@@ -6955,10 +6820,8 @@ class EcsApi:
         agent <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html#manually_update_agent>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param container_instance: The container instance ID or full ARN entries for the container instance
-        where you would like to update the Amazon ECS container agent.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        your container instance is running on.
+        :param container_instance: The container instance ID or full ARN entries for the container instance where you would like to update the Amazon ECS container agent.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that your container instance is running on.
         :returns: UpdateContainerAgentResponse
         :raises NoUpdateAvailableException:
         :raises MissingVersionException:
@@ -7037,8 +6900,7 @@ class EcsApi:
 
         :param container_instances: A list of up to 10 container instance IDs or full ARN entries.
         :param status: The container instance state to update the container instance with.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the container instance to update.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the container instance to update.
         :returns: UpdateContainerInstancesStateResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -7074,12 +6936,10 @@ class EcsApi:
         service creation and require creating a new service.
 
         :param service_arn: The Amazon Resource Name (ARN) of the Express service to update.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role for the
-        Express service.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role for the Express service.
         :param health_check_path: The path on the container for Application Load Balancer health checks.
         :param primary_container: The primary container configuration for the Express service.
-        :param task_role_arn: The Amazon Resource Name (ARN) of the IAM role for containers in this
-        task.
+        :param task_role_arn: The Amazon Resource Name (ARN) of the IAM role for containers in this task.
         :param network_configuration: The network configuration for the Express service tasks.
         :param cpu: The number of CPU units used by the task.
         :param memory: The amount of memory (in MiB) used by the task.
@@ -7261,42 +7121,27 @@ class EcsApi:
            largest number of running tasks for this service.
 
         :param service: The name of the service to update.
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        your service runs on.
-        :param desired_count: The number of instantiations of the task to place and keep running in
-        your service.
-        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the
-        task definition to run in your service.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that your service runs on.
+        :param desired_count: The number of instantiations of the task to place and keep running in your service.
+        :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the task definition to run in your service.
         :param capacity_provider_strategy: The details of a capacity provider strategy.
-        :param deployment_configuration: Optional deployment parameters that control how many tasks run during
-        the deployment and the ordering of stopping and starting tasks.
+        :param deployment_configuration: Optional deployment parameters that control how many tasks run during the deployment and the ordering of stopping and starting tasks.
         :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service.
         :param network_configuration: An object representing the network configuration for the service.
-        :param placement_constraints: An array of task placement constraint objects to update the service to
-        use.
+        :param placement_constraints: An array of task placement constraint objects to update the service to use.
         :param placement_strategy: The task placement strategy objects to update the service to use.
         :param platform_version: The platform version that your tasks in the service run on.
         :param force_new_deployment: Determines whether to force a new deployment of the service.
-        :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler
-        ignores unhealthy Elastic Load Balancing, VPC Lattice, and container
-        health checks after a task has first started.
+        :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started.
         :param deployment_controller: The deployment controller to use for the service.
-        :param enable_execute_command: If ``true``, this enables execute command functionality on all task
-        containers.
-        :param enable_ecs_managed_tags: Determines whether to turn on Amazon ECS managed tags for the tasks in
-        the service.
-        :param load_balancers: You must have a service-linked role when you update this property
-
-        A list of Elastic Load Balancing load balancer objects.
-        :param propagate_tags: Determines whether to propagate the tags from the task definition or the
-        service to the task.
+        :param enable_execute_command: If ``true``, this enables execute command functionality on all task containers.
+        :param enable_ecs_managed_tags: Determines whether to turn on Amazon ECS managed tags for the tasks in the service.
+        :param load_balancers: You must have a service-linked role when you update this property  A list of Elastic Load Balancing load balancer objects.
+        :param propagate_tags: Determines whether to propagate the tags from the task definition or the service to the task.
         :param service_registries: You must have a service-linked role when you update this property.
-        :param service_connect_configuration: The configuration for this service to discover and connect to services,
-        and be discovered by, and connected from, other services within a
-        namespace.
+        :param service_connect_configuration: The configuration for this service to discover and connect to services, and be discovered by, and connected from, other services within a namespace.
         :param volume_configurations: The details of the volume that was ``configuredAtLaunch``.
-        :param vpc_lattice_configurations: An object representing the VPC Lattice configuration for the service
-        being updated.
+        :param vpc_lattice_configurations: An object representing the VPC Lattice configuration for the service being updated.
         :returns: UpdateServiceResponse
         :raises AccessDeniedException:
         :raises PlatformUnknownException:
@@ -7329,12 +7174,9 @@ class EcsApi:
         Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the service that the task set exists in.
-        :param service: The short name or full Amazon Resource Name (ARN) of the service that
-        the task set exists in.
-        :param primary_task_set: The short name or full Amazon Resource Name (ARN) of the task set to set
-        as the primary task set in the deployment.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service that the task set exists in.
+        :param service: The short name or full Amazon Resource Name (ARN) of the service that the task set exists in.
+        :param primary_task_set: The short name or full Amazon Resource Name (ARN) of the task set to set as the primary task set in the deployment.
         :returns: UpdateServicePrimaryTaskSetResponse
         :raises AccessDeniedException:
         :raises ServiceNotActiveException:
@@ -7390,13 +7232,10 @@ class EcsApi:
         recommend using the `Task scale-in protection
         endpoint <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-scale-in-protection-endpoint.html>`__.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the service that the task sets exist in.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service that the task sets exist in.
         :param tasks: A list of up to 10 task IDs or full ARN entries.
-        :param protection_enabled: Specify ``true`` to mark a task for protection and ``false`` to unset
-        protection, making it eligible for termination.
-        :param expires_in_minutes: If you set ``protectionEnabled`` to ``true``, you can specify the
-        duration for task protection in minutes.
+        :param protection_enabled: Specify ``true`` to mark a task for protection and ``false`` to unset protection, making it eligible for termination.
+        :param expires_in_minutes: If you set ``protectionEnabled`` to ``true``, you can specify the duration for task protection in minutes.
         :returns: UpdateTaskProtectionResponse
         :raises AccessDeniedException:
         :raises ResourceNotFoundException:
@@ -7424,14 +7263,10 @@ class EcsApi:
         Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
-        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
-        hosts the service that the task set is found in.
-        :param service: The short name or full Amazon Resource Name (ARN) of the service that
-        the task set is found in.
-        :param task_set: The short name or full Amazon Resource Name (ARN) of the task set to
-        update.
-        :param scale: A floating-point percentage of the desired number of tasks to place and
-        keep running in the task set.
+        :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that hosts the service that the task set is found in.
+        :param service: The short name or full Amazon Resource Name (ARN) of the service that the task set is found in.
+        :param task_set: The short name or full Amazon Resource Name (ARN) of the task set to update.
+        :param scale: A floating-point percentage of the desired number of tasks to place and keep running in the task set.
         :returns: UpdateTaskSetResponse
         :raises AccessDeniedException:
         :raises ServiceNotActiveException:

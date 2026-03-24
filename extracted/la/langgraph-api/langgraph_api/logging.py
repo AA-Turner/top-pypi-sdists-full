@@ -19,6 +19,21 @@ LOG_LEVEL = log_env("LOG_LEVEL", cast=str, default="INFO")
 logger = logging.getLogger()
 logging.getLogger().setLevel(LOG_LEVEL.upper())
 logging.getLogger("psycopg").setLevel(logging.WARNING)
+
+
+class _GrpcCallbackFilter(logging.Filter):
+    """Downgrade noisy gRPC PollerCompletionQueue callback errors to DEBUG."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.WARNING:
+            msg = record.getMessage()
+            if "PollerCompletionQueue._handle_events" in msg:
+                record.levelno = logging.DEBUG
+                record.levelname = "DEBUG"
+        return True
+
+
+logging.getLogger("asyncio").addFilter(_GrpcCallbackFilter())
 if hasattr(logger, "isEnabledFor"):
     LOG_LEVEL_DEBUG = logger.isEnabledFor(logging.DEBUG)
 elif hasattr(logger, "is_enabled_for"):

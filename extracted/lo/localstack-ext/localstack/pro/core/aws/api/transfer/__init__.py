@@ -2194,24 +2194,14 @@ class TransferApi:
         ``CreateAccess`` to limit the access to the correct set of users who
         need this ability.
 
-        :param role: The Amazon Resource Name (ARN) of the Identity and Access Management
-        (IAM) role that controls your users' access to your Amazon S3 bucket or
-        Amazon EFS file system.
+        :param role: The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role that controls your users' access to your Amazon S3 bucket or Amazon EFS file system.
         :param server_id: A system-assigned unique identifier for a server instance.
-        :param external_id: A unique identifier that is required to identify specific groups within
-        your directory.
-        :param home_directory: The landing directory (folder) for a user when they log in to the server
-        using the client.
-        :param home_directory_type: The type of landing directory (folder) that you want your users' home
-        directory to be when they log in to the server.
-        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS
-        paths and keys should be visible to your user and how you want to make
-        them visible.
-        :param policy: A session policy for your user so that you can use the same Identity and
-        Access Management (IAM) role across multiple users.
-        :param posix_profile: The full POSIX identity, including user ID (``Uid``), group ID
-        (``Gid``), and any secondary groups IDs (``SecondaryGids``), that
-        controls your users' access to your Amazon EFS file systems.
+        :param external_id: A unique identifier that is required to identify specific groups within your directory.
+        :param home_directory: The landing directory (folder) for a user when they log in to the server using the client.
+        :param home_directory_type: The type of landing directory (folder) that you want your users' home directory to be when they log in to the server.
+        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS paths and keys should be visible to your user and how you want to make them visible.
+        :param policy: A session policy for your user so that you can use the same Identity and Access Management (IAM) role across multiple users.
+        :param posix_profile: The full POSIX identity, including user ID (``Uid``), group ID (``Gid``), and any secondary groups IDs (``SecondaryGids``), that controls your users' access to your Amazon EFS file systems.
         :returns: CreateAccessResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2256,15 +2246,11 @@ class TransferApi:
         :param partner_profile_id: A unique identifier for the partner profile used in the agreement.
         :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol.
         :param description: A name or short description to identify the agreement.
-        :param base_directory: The landing directory (folder) for files transferred by using the AS2
-        protocol.
+        :param base_directory: The landing directory (folder) for files transferred by using the AS2 protocol.
         :param status: The status of the agreement.
         :param tags: Key-value pairs that can be used to group and search for agreements.
-        :param preserve_filename: Determines whether or not Transfer Family appends a unique string of
-        characters to the end of the AS2 message payload filename when saving
-        it.
-        :param enforce_message_signing: Determines whether or not unsigned messages from your trading partners
-        will be accepted.
+        :param preserve_filename: Determines whether or not Transfer Family appends a unique string of characters to the end of the AS2 message payload filename when saving it.
+        :param enforce_message_signing: Determines whether or not unsigned messages from your trading partners will be accepted.
         :param custom_directories: A ``CustomDirectoriesType`` structure.
         :returns: CreateAgreementResponse
         :raises ResourceNotFoundException:
@@ -2306,14 +2292,11 @@ class TransferApi:
         :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol.
         :param url: The URL of the partner's AS2 or SFTP endpoint.
         :param as2_config: A structure that contains the parameters for an AS2 connector object.
-        :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management
-        (IAM) role that allows a connector to turn on CloudWatch logging for
-        Amazon S3 events.
+        :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role that allows a connector to turn on CloudWatch logging for Amazon S3 events.
         :param tags: Key-value pairs that can be used to group and search for connectors.
         :param sftp_config: A structure that contains the parameters for an SFTP connector object.
         :param security_policy_name: Specifies the name of the security policy for the connector.
-        :param egress_config: Specifies the egress configuration for the connector, which determines
-        how traffic is routed from the connector to the SFTP server.
+        :param egress_config: Specifies the egress configuration for the connector, which determines how traffic is routed from the connector to the SFTP server.
         :returns: CreateConnectorResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2336,11 +2319,8 @@ class TransferApi:
     ) -> CreateProfileResponse:
         """Creates the local or partner profile to use for AS2 transfers.
 
-        :param as2_id: The ``As2Id`` is the *AS2-name*, as defined in the `RFC
-        4130 <https://datatracker.
-        :param profile_type: Determines the type of profile to create:
-
-        -  Specify ``LOCAL`` to create a local profile.
+        :param as2_id: The ``As2Id`` is the *AS2-name*, as defined in the `RFC 4130 <https://datatracker.
+        :param profile_type: Determines the type of profile to create:  -  Specify ``LOCAL`` to create a local profile.
         :param certificate_ids: An array of identifiers for the imported certificates.
         :param tags: Key-value pairs that can be used to group and search for AS2 profiles.
         :returns: CreateProfileResponse
@@ -2382,35 +2362,24 @@ class TransferApi:
         the service-generated ``ServerId`` property that is assigned to the
         newly created server.
 
-        :param certificate: The Amazon Resource Name (ARN) of the Certificate Manager (ACM)
-        certificate.
+        :param certificate: The Amazon Resource Name (ARN) of the Certificate Manager (ACM) certificate.
         :param domain: The domain of the storage system that is used for file transfers.
-        :param endpoint_details: The virtual private cloud (VPC) endpoint settings that are configured
-        for your server.
+        :param endpoint_details: The virtual private cloud (VPC) endpoint settings that are configured for your server.
         :param endpoint_type: The type of endpoint that you want your server to use.
-        :param host_key: The RSA, ECDSA, or ED25519 private key to use for your SFTP-enabled
-        server.
-        :param identity_provider_details: Required when ``IdentityProviderType`` is set to
-        ``AWS_DIRECTORY_SERVICE``, ``Amazon Web Services_LAMBDA`` or
-        ``API_GATEWAY``.
+        :param host_key: The RSA, ECDSA, or ED25519 private key to use for your SFTP-enabled server.
+        :param identity_provider_details: Required when ``IdentityProviderType`` is set to ``AWS_DIRECTORY_SERVICE``, ``Amazon Web Services_LAMBDA`` or ``API_GATEWAY``.
         :param identity_provider_type: The mode of authentication for a server.
-        :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management
-        (IAM) role that allows a server to turn on Amazon CloudWatch logging for
-        Amazon S3 or Amazon EFS events.
+        :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role that allows a server to turn on Amazon CloudWatch logging for Amazon S3 or Amazon EFS events.
         :param post_authentication_login_banner: Specifies a string to display when users connect to a server.
         :param pre_authentication_login_banner: Specifies a string to display when users connect to a server.
-        :param protocols: Specifies the file transfer protocol or protocols over which your file
-        transfer protocol client can connect to your server's endpoint.
+        :param protocols: Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint.
         :param protocol_details: The protocol settings that are configured for your server.
         :param security_policy_name: Specifies the name of the security policy for the server.
         :param tags: Key-value pairs that can be used to group and search for servers.
-        :param workflow_details: Specifies the workflow ID for the workflow to assign and the execution
-        role that's used for executing the workflow.
+        :param workflow_details: Specifies the workflow ID for the workflow to assign and the execution role that's used for executing the workflow.
         :param structured_log_destinations: Specifies the log groups to which your server logs are sent.
-        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is
-        optimized.
-        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6)
-        for your Transfer Family endpoint.
+        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is optimized.
+        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your Transfer Family endpoint.
         :returns: CreateServerResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2447,26 +2416,15 @@ class TransferApi:
         You can also optionally add a session policy, and assign metadata with
         tags that can be used to group and search for users.
 
-        :param role: The Amazon Resource Name (ARN) of the Identity and Access Management
-        (IAM) role that controls your users' access to your Amazon S3 bucket or
-        Amazon EFS file system.
+        :param role: The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role that controls your users' access to your Amazon S3 bucket or Amazon EFS file system.
         :param server_id: A system-assigned unique identifier for a server instance.
-        :param user_name: A unique string that identifies a user and is associated with a
-        ``ServerId``.
-        :param home_directory: The landing directory (folder) for a user when they log in to the server
-        using the client.
-        :param home_directory_type: The type of landing directory (folder) that you want your users' home
-        directory to be when they log in to the server.
-        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS
-        paths and keys should be visible to your user and how you want to make
-        them visible.
-        :param policy: A session policy for your user so that you can use the same Identity and
-        Access Management (IAM) role across multiple users.
-        :param posix_profile: Specifies the full POSIX identity, including user ID (``Uid``), group ID
-        (``Gid``), and any secondary groups IDs (``SecondaryGids``), that
-        controls your users' access to your Amazon EFS file systems.
-        :param ssh_public_key_body: The public portion of the Secure Shell (SSH) key used to authenticate
-        the user to the server.
+        :param user_name: A unique string that identifies a user and is associated with a ``ServerId``.
+        :param home_directory: The landing directory (folder) for a user when they log in to the server using the client.
+        :param home_directory_type: The type of landing directory (folder) that you want your users' home directory to be when they log in to the server.
+        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS paths and keys should be visible to your user and how you want to make them visible.
+        :param policy: A session policy for your user so that you can use the same Identity and Access Management (IAM) role across multiple users.
+        :param posix_profile: Specifies the full POSIX identity, including user ID (``Uid``), group ID (``Gid``), and any secondary groups IDs (``SecondaryGids``), that controls your users' access to your Amazon EFS file systems.
+        :param ssh_public_key_body: The public portion of the Secure Shell (SSH) key used to authenticate the user to the server.
         :param tags: Key-value pairs that can be used to group and search for users.
         :returns: CreateUserResponse
         :raises ResourceNotFoundException:
@@ -2497,12 +2455,9 @@ class TransferApi:
         `Create a Transfer Family web app in a
         VPC <https://docs.aws.amazon.com/transfer/latest/userguide/create-webapp-in-vpc.html>`__.
 
-        :param identity_provider_details: You can provide a structure that contains the details for the identity
-        provider to use with your web app.
-        :param access_endpoint: The ``AccessEndpoint`` is the URL that you provide to your users for
-        them to interact with the Transfer Family web app.
-        :param web_app_units: A union that contains the value for number of concurrent connections or
-        the user sessions on your web app.
+        :param identity_provider_details: You can provide a structure that contains the details for the identity provider to use with your web app.
+        :param access_endpoint: The ``AccessEndpoint`` is the URL that you provide to your users for them to interact with the Transfer Family web app.
+        :param web_app_units: A union that contains the value for number of concurrent connections or the user sessions on your web app.
         :param tags: Key-value pairs that can be used to group and search for web apps.
         :param web_app_endpoint_policy: Setting for the type of endpoint policy for the web app.
         :param endpoint_details: The endpoint configuration for the web app.
@@ -2533,8 +2488,7 @@ class TransferApi:
 
         :param steps: Specifies the details for the steps that are in the specified workflow.
         :param description: A textual description for the workflow.
-        :param on_exception_steps: Specifies the steps (actions) to take if errors are encountered during
-        execution of the workflow.
+        :param on_exception_steps: Specifies the steps (actions) to take if errors are encountered during execution of the workflow.
         :param tags: Key-value pairs that can be used to group and search for workflows.
         :returns: CreateWorkflowResponse
         :raises InvalidRequestException:
@@ -2553,10 +2507,8 @@ class TransferApi:
         """Allows you to delete the access specified in the ``ServerID`` and
         ``ExternalID`` parameters.
 
-        :param server_id: A system-assigned unique identifier for a server that has this user
-        assigned.
-        :param external_id: A unique identifier that is required to identify specific groups within
-        your directory.
+        :param server_id: A system-assigned unique identifier for a server that has this user assigned.
+        :param external_id: A unique identifier that is required to identify specific groups within your directory.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
         :raises InternalServiceError:
@@ -2571,8 +2523,7 @@ class TransferApi:
         """Delete the agreement that's specified in the provided ``AgreementId``.
 
         :param agreement_id: A unique identifier for the agreement.
-        :param server_id: The server identifier associated with the agreement that you are
-        deleting.
+        :param server_id: The server identifier associated with the agreement that you are deleting.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
         :raises InternalServiceError:
@@ -2615,8 +2566,7 @@ class TransferApi:
     ) -> None:
         """Deletes the host key that's specified in the ``HostKeyId`` parameter.
 
-        :param server_id: The identifier of the server that contains the host key that you are
-        deleting.
+        :param server_id: The identifier of the server that contains the host key that you are deleting.
         :param host_key_id: The identifier of the host key that you are deleting.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2664,11 +2614,9 @@ class TransferApi:
     ) -> None:
         """Deletes a user's Secure Shell (SSH) public key.
 
-        :param server_id: A system-assigned unique identifier for a file transfer protocol-enabled
-        server instance that has the user assigned to it.
+        :param server_id: A system-assigned unique identifier for a file transfer protocol-enabled server instance that has the user assigned to it.
         :param ssh_public_key_id: A unique identifier used to reference your user's specific SSH key.
-        :param user_name: A unique string that identifies a user whose public key is being
-        deleted.
+        :param user_name: A unique string that identifies a user whose public key is being deleted.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
         :raises ThrottlingException:
@@ -2688,10 +2636,8 @@ class TransferApi:
 
         When you delete a user from a server, the user's information is lost.
 
-        :param server_id: A system-assigned unique identifier for a server instance that has the
-        user assigned to it.
-        :param user_name: A unique string that identifies a user that is being deleted from a
-        server.
+        :param server_id: A system-assigned unique identifier for a server instance that has the user assigned to it.
+        :param user_name: A unique string that identifies a user that is being deleted from a server.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
         :raises InternalServiceError:
@@ -2719,8 +2665,7 @@ class TransferApi:
         """Deletes the ``WebAppCustomization`` object that corresponds to the web
         app ID specified.
 
-        :param web_app_id: Provide the unique identifier for the web app that contains the
-        customizations that you are deleting.
+        :param web_app_id: Provide the unique identifier for the web app that contains the customizations that you are deleting.
         :raises ConflictException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2754,10 +2699,8 @@ class TransferApi:
         The response from this call returns the properties of the access that is
         associated with the ``ServerId`` value that was specified.
 
-        :param server_id: A system-assigned unique identifier for a server that has this access
-        assigned.
-        :param external_id: A unique identifier that is required to identify specific groups within
-        your directory.
+        :param server_id: A system-assigned unique identifier for a server that has this access assigned.
+        :param external_id: A unique identifier that is required to identify specific groups within your directory.
         :returns: DescribeAccessResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2848,8 +2791,7 @@ class TransferApi:
         """Returns the details of the host key that's specified by the
         ``HostKeyId`` and ``ServerId``.
 
-        :param server_id: The identifier of the server that contains the host key that you want
-        described.
+        :param server_id: The identifier of the server that contains the host key that you want described.
         :param host_key_id: The identifier of the host key that you want described.
         :returns: DescribeHostKeyResponse
         :raises ResourceNotFoundException:
@@ -2887,8 +2829,7 @@ class TransferApi:
         or `Working with security policies for SFTP
         connectors <https://docs.aws.amazon.com/transfer/latest/userguide/security-policies-connectors.html>`__.
 
-        :param security_policy_name: Specify the text name of the security policy for which you want the
-        details.
+        :param security_policy_name: Specify the text name of the security policy for which you want the details.
         :returns: DescribeSecurityPolicyResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2927,8 +2868,7 @@ class TransferApi:
         The response from this call returns the properties of the user
         associated with the ``ServerId`` value that was specified.
 
-        :param server_id: A system-assigned unique identifier for a server that has this user
-        assigned.
+        :param server_id: A system-assigned unique identifier for a server that has this user assigned.
         :param user_name: The name of the user assigned to one or more servers.
         :returns: DescribeUserResponse
         :raises ResourceNotFoundException:
@@ -3039,8 +2979,7 @@ class TransferApi:
 
         :param usage: Specifies how this certificate is used.
         :param certificate: -  For the CLI, provide a file path for a certificate in URI format.
-        :param certificate_chain: An optional list of certificates that make up the chain for the
-        certificate that's being imported.
+        :param certificate_chain: An optional list of certificates that make up the chain for the certificate that's being imported.
         :param private_key: -  For the CLI, provide a file path for a private key in URI format.
         :param active_date: An optional date that specifies when the certificate becomes active.
         :param inactive_date: An optional date that specifies when the certificate becomes inactive.
@@ -3067,8 +3006,7 @@ class TransferApi:
         """Adds a host key to the server that's specified by the ``ServerId``
         parameter.
 
-        :param server_id: The identifier of the server that contains the host key that you are
-        importing.
+        :param server_id: The identifier of the server that contains the host key that you are importing.
         :param host_key_body: The private key portion of an SSH key pair.
         :param description: The text description that identifies this host key.
         :param tags: Key-value pairs that can be used to group and search for host keys.
@@ -3100,8 +3038,7 @@ class TransferApi:
 
         :param server_id: A system-assigned unique identifier for a server.
         :param ssh_public_key_body: The public key portion of an SSH key pair.
-        :param user_name: The name of the Transfer Family user that is assigned to one or more
-        servers.
+        :param user_name: The name of the Transfer Family user that is assigned to one or more servers.
         :returns: ImportSshPublicKeyResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3123,11 +3060,9 @@ class TransferApi:
     ) -> ListAccessesResponse:
         """Lists the details for all the accesses you have on your server.
 
-        :param server_id: A system-assigned unique identifier for a server that has users assigned
-        to it.
+        :param server_id: A system-assigned unique identifier for a server that has users assigned to it.
         :param max_results: The maximum number of items to return.
-        :param next_token: When you can get additional results from the ``ListAccesses`` call, a
-        ``NextToken`` parameter is returned in the output.
+        :param next_token: When you can get additional results from the ``ListAccesses`` call, a ``NextToken`` parameter is returned in the output.
         :returns: ListAccessesResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3155,8 +3090,7 @@ class TransferApi:
 
         :param server_id: The identifier of the server for which you want a list of agreements.
         :param max_results: The maximum number of items to return.
-        :param next_token: When you can get additional results from the ``ListAgreements`` call, a
-        ``NextToken`` parameter is returned in the output.
+        :param next_token: When you can get additional results from the ``ListAgreements`` call, a ``NextToken`` parameter is returned in the output.
         :returns: ListAgreementsResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3182,8 +3116,7 @@ class TransferApi:
         off.
 
         :param max_results: The maximum number of items to return.
-        :param next_token: When you can get additional results from the ``ListCertificates`` call,
-        a ``NextToken`` parameter is returned in the output.
+        :param next_token: When you can get additional results from the ``ListCertificates`` call, a ``NextToken`` parameter is returned in the output.
         :returns: ListCertificatesResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3204,8 +3137,7 @@ class TransferApi:
         """Lists the connectors for the specified Region.
 
         :param max_results: The maximum number of items to return.
-        :param next_token: When you can get additional results from the ``ListConnectors`` call, a
-        ``NextToken`` parameter is returned in the output.
+        :param next_token: When you can get additional results from the ``ListConnectors`` call, a ``NextToken`` parameter is returned in the output.
         :returns: ListConnectorsResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3261,9 +3193,7 @@ class TransferApi:
 
         :param connector_id: A unique identifier for a connector.
         :param transfer_id: A unique identifier for a file transfer.
-        :param next_token: If there are more file details than returned in this call, use this
-        value for a subsequent call to ``ListFileTransferResults`` to retrieve
-        them.
+        :param next_token: If there are more file details than returned in this call, use this value for a subsequent call to ``ListFileTransferResults`` to retrieve them.
         :param max_results: The maximum number of files to return in a single page.
         :returns: ListFileTransferResultsResponse
         :raises ResourceNotFoundException:
@@ -3285,11 +3215,9 @@ class TransferApi:
         """Returns a list of host keys for the server that's specified by the
         ``ServerId`` parameter.
 
-        :param server_id: The identifier of the server that contains the host keys that you want
-        to view.
+        :param server_id: The identifier of the server that contains the host keys that you want to view.
         :param max_results: The maximum number of items to return.
-        :param next_token: When there are additional results that were not returned, a
-        ``NextToken`` parameter is returned.
+        :param next_token: When there are additional results that were not returned, a ``NextToken`` parameter is returned.
         :returns: ListHostKeysResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3315,10 +3243,8 @@ class TransferApi:
         from where you left off.
 
         :param max_results: The maximum number of items to return.
-        :param next_token: When there are additional results that were not returned, a
-        ``NextToken`` parameter is returned.
-        :param profile_type: Indicates whether to list only ``LOCAL`` type profiles or only
-        ``PARTNER`` type profiles.
+        :param next_token: When there are additional results that were not returned, a ``NextToken`` parameter is returned.
+        :param profile_type: Indicates whether to list only ``LOCAL`` type profiles or only ``PARTNER`` type profiles.
         :returns: ListProfilesResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3343,10 +3269,8 @@ class TransferApi:
         or `Working with security policies for SFTP
         connectors <https://docs.aws.amazon.com/transfer/latest/userguide/security-policies-connectors.html>`__.
 
-        :param max_results: Specifies the number of security policies to return as a response to the
-        ``ListSecurityPolicies`` query.
-        :param next_token: When additional results are obtained from the ``ListSecurityPolicies``
-        command, a ``NextToken`` parameter is returned in the output.
+        :param max_results: Specifies the number of security policies to return as a response to the ``ListSecurityPolicies`` query.
+        :param next_token: When additional results are obtained from the ``ListSecurityPolicies`` command, a ``NextToken`` parameter is returned in the output.
         :returns: ListSecurityPoliciesResponse
         :raises InvalidRequestException:
         :raises InternalServiceError:
@@ -3366,10 +3290,8 @@ class TransferApi:
         """Lists the file transfer protocol-enabled servers that are associated
         with your Amazon Web Services account.
 
-        :param max_results: Specifies the number of servers to return as a response to the
-        ``ListServers`` query.
-        :param next_token: When additional results are obtained from the ``ListServers`` command, a
-        ``NextToken`` parameter is returned in the output.
+        :param max_results: Specifies the number of servers to return as a response to the ``ListServers`` query.
+        :param next_token: When additional results are obtained from the ``ListServers`` command, a ``NextToken`` parameter is returned in the output.
         :returns: ListServersResponse
         :raises InvalidRequestException:
         :raises InternalServiceError:
@@ -3390,12 +3312,9 @@ class TransferApi:
         """Lists all of the tags associated with the Amazon Resource Name (ARN)
         that you specify. The resource can be a user, server, or role.
 
-        :param arn: Requests the tags associated with a particular Amazon Resource Name
-        (ARN).
-        :param max_results: Specifies the number of tags to return as a response to the
-        ``ListTagsForResource`` request.
-        :param next_token: When you request additional results from the ``ListTagsForResource``
-        operation, a ``NextToken`` parameter is returned in the input.
+        :param arn: Requests the tags associated with a particular Amazon Resource Name (ARN).
+        :param max_results: Specifies the number of tags to return as a response to the ``ListTagsForResource`` request.
+        :param next_token: When you request additional results from the ``ListTagsForResource`` operation, a ``NextToken`` parameter is returned in the input.
         :returns: ListTagsForResourceResponse
         :raises InvalidRequestException:
         :raises InternalServiceError:
@@ -3416,12 +3335,9 @@ class TransferApi:
         """Lists the users for a file transfer protocol-enabled server that you
         specify by passing the ``ServerId`` parameter.
 
-        :param server_id: A system-assigned unique identifier for a server that has users assigned
-        to it.
-        :param max_results: Specifies the number of users to return as a response to the
-        ``ListUsers`` request.
-        :param next_token: If there are additional results from the ``ListUsers`` call, a
-        ``NextToken`` parameter is returned in the output.
+        :param server_id: A system-assigned unique identifier for a server that has users assigned to it.
+        :param max_results: Specifies the number of users to return as a response to the ``ListUsers`` request.
+        :param next_token: If there are additional results from the ``ListUsers`` call, a ``NextToken`` parameter is returned in the output.
         :returns: ListUsersResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3496,8 +3412,7 @@ class TransferApi:
 
         :param workflow_id: A unique identifier for the workflow.
         :param execution_id: A unique identifier for the execution of a workflow.
-        :param token: Used to distinguish between multiple callbacks for multiple Lambda steps
-        within the same execution.
+        :param token: Used to distinguish between multiple callbacks for multiple Lambda steps within the same execution.
         :param status: Indicates whether the specified step succeeded or failed.
         :returns: SendWorkflowStepStateResponse
         :raises ResourceNotFoundException:
@@ -3560,12 +3475,9 @@ class TransferApi:
            items).
 
         :param connector_id: The unique identifier for the connector.
-        :param remote_directory_path: Specifies the directory on the remote SFTP server for which you want to
-        list its contents.
-        :param output_directory_path: Specifies the path (bucket and prefix) in Amazon S3 storage to store the
-        results of the directory listing.
-        :param max_items: An optional parameter where you can specify the maximum number of
-        file/directory names to retrieve.
+        :param remote_directory_path: Specifies the directory on the remote SFTP server for which you want to list its contents.
+        :param output_directory_path: Specifies the path (bucket and prefix) in Amazon S3 storage to store the results of the directory listing.
+        :param max_items: An optional parameter where you can specify the maximum number of file/directory names to retrieve.
         :returns: StartDirectoryListingResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3610,14 +3522,9 @@ class TransferApi:
         :param connector_id: The unique identifier for the connector.
         :param send_file_paths: One or more source paths for the Amazon S3 storage.
         :param retrieve_file_paths: One or more source paths for the partner's SFTP server.
-        :param local_directory_path: For an inbound transfer, the ``LocaDirectoryPath`` specifies the
-        destination for one or more files that are transferred from the
-        partner's SFTP server.
-        :param remote_directory_path: For an outbound transfer, the ``RemoteDirectoryPath`` specifies the
-        destination for one or more files that are transferred to the partner's
-        SFTP server.
-        :param custom_http_headers: An array of key-value pairs that represent custom HTTP headers to
-        include in AS2 messages.
+        :param local_directory_path: For an inbound transfer, the ``LocaDirectoryPath`` specifies the destination for one or more files that are transferred from the partner's SFTP server.
+        :param remote_directory_path: For an outbound transfer, the ``RemoteDirectoryPath`` specifies the destination for one or more files that are transferred to the partner's SFTP server.
+        :param custom_http_headers: An array of key-value pairs that represent custom HTTP headers to include in AS2 messages.
         :returns: StartFileTransferResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3723,10 +3630,8 @@ class TransferApi:
 
         There is no response returned from this call.
 
-        :param arn: An Amazon Resource Name (ARN) for a specific Amazon Web Services
-        resource, such as a server, user, or role.
-        :param tags: Key-value pairs assigned to ARNs that you can use to group and search
-        for resources by type.
+        :param arn: An Amazon Resource Name (ARN) for a specific Amazon Web Services resource, such as a server, user, or role.
+        :param tags: Key-value pairs assigned to ARNs that you can use to group and search for resources by type.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
         :raises InternalServiceError:
@@ -3827,8 +3732,7 @@ class TransferApi:
         No response is returned from this call.
 
         :param arn: The value of the resource that will have the tag removed.
-        :param tag_keys: TagKeys are key-value pairs assigned to ARNs that can be used to group
-        and search for resources by type.
+        :param tag_keys: TagKeys are key-value pairs assigned to ARNs that can be used to group and search for resources by type.
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
         :raises InternalServiceError:
@@ -3854,23 +3758,13 @@ class TransferApi:
         ``ServerID`` and ``ExternalID`` parameters.
 
         :param server_id: A system-assigned unique identifier for a server instance.
-        :param external_id: A unique identifier that is required to identify specific groups within
-        your directory.
-        :param home_directory: The landing directory (folder) for a user when they log in to the server
-        using the client.
-        :param home_directory_type: The type of landing directory (folder) that you want your users' home
-        directory to be when they log in to the server.
-        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS
-        paths and keys should be visible to your user and how you want to make
-        them visible.
-        :param policy: A session policy for your user so that you can use the same Identity and
-        Access Management (IAM) role across multiple users.
-        :param posix_profile: The full POSIX identity, including user ID (``Uid``), group ID
-        (``Gid``), and any secondary groups IDs (``SecondaryGids``), that
-        controls your users' access to your Amazon EFS file systems.
-        :param role: The Amazon Resource Name (ARN) of the Identity and Access Management
-        (IAM) role that controls your users' access to your Amazon S3 bucket or
-        Amazon EFS file system.
+        :param external_id: A unique identifier that is required to identify specific groups within your directory.
+        :param home_directory: The landing directory (folder) for a user when they log in to the server using the client.
+        :param home_directory_type: The type of landing directory (folder) that you want your users' home directory to be when they log in to the server.
+        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS paths and keys should be visible to your user and how you want to make them visible.
+        :param policy: A session policy for your user so that you can use the same Identity and Access Management (IAM) role across multiple users.
+        :param posix_profile: The full POSIX identity, including user ID (``Uid``), group ID (``Gid``), and any secondary groups IDs (``SecondaryGids``), that controls your users' access to your Amazon EFS file systems.
+        :param role: The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role that controls your users' access to your Amazon S3 bucket or Amazon EFS file system.
         :returns: UpdateAccessResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3912,21 +3806,14 @@ class TransferApi:
 
         :param agreement_id: A unique identifier for the agreement.
         :param server_id: A system-assigned unique identifier for a server instance.
-        :param description: To replace the existing description, provide a short description for the
-        agreement.
-        :param status: You can update the status for the agreement, either activating an
-        inactive agreement or the reverse.
+        :param description: To replace the existing description, provide a short description for the agreement.
+        :param status: You can update the status for the agreement, either activating an inactive agreement or the reverse.
         :param local_profile_id: A unique identifier for the AS2 local profile.
         :param partner_profile_id: A unique identifier for the partner profile.
-        :param base_directory: To change the landing directory (folder) for files that are transferred,
-        provide the bucket folder that you want to use; for example,
-        ``/amzn-s3-demo-bucket/home/mydirectory``.
+        :param base_directory: To change the landing directory (folder) for files that are transferred, provide the bucket folder that you want to use; for example, ``/amzn-s3-demo-bucket/home/mydirectory``.
         :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol.
-        :param preserve_filename: Determines whether or not Transfer Family appends a unique string of
-        characters to the end of the AS2 message payload filename when saving
-        it.
-        :param enforce_message_signing: Determines whether or not unsigned messages from your trading partners
-        will be accepted.
+        :param preserve_filename: Determines whether or not Transfer Family appends a unique string of characters to the end of the AS2 message payload filename when saving it.
+        :param enforce_message_signing: Determines whether or not unsigned messages from your trading partners will be accepted.
         :param custom_directories: A ``CustomDirectoriesType`` structure.
         :returns: UpdateAgreementResponse
         :raises ResourceNotFoundException:
@@ -3985,13 +3872,10 @@ class TransferApi:
         :param url: The URL of the partner's AS2 or SFTP endpoint.
         :param as2_config: A structure that contains the parameters for an AS2 connector object.
         :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol.
-        :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management
-        (IAM) role that allows a connector to turn on CloudWatch logging for
-        Amazon S3 events.
+        :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role that allows a connector to turn on CloudWatch logging for Amazon S3 events.
         :param sftp_config: A structure that contains the parameters for an SFTP connector object.
         :param security_policy_name: Specifies the name of the security policy for the connector.
-        :param egress_config: Updates the egress configuration for the connector, allowing you to
-        modify how traffic is routed from the connector to the SFTP server.
+        :param egress_config: Updates the egress configuration for the connector, allowing you to modify how traffic is routed from the connector to the SFTP server.
         :returns: UpdateConnectorResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -4014,8 +3898,7 @@ class TransferApi:
         """Updates the description for the host key that's specified by the
         ``ServerId`` and ``HostKeyId`` parameters.
 
-        :param server_id: The identifier of the server that contains the host key that you are
-        updating.
+        :param server_id: The identifier of the server that contains the host key that you are updating.
         :param host_key_id: The identifier of the host key that you are updating.
         :param description: An updated description for the host key.
         :returns: UpdateHostKeyResponse
@@ -4079,33 +3962,22 @@ class TransferApi:
         The ``UpdateServer`` call returns the ``ServerId`` of the server you
         updated.
 
-        :param server_id: A system-assigned unique identifier for a server instance that the
-        Transfer Family user is assigned to.
-        :param certificate: The Amazon Resource Name (ARN) of the Amazon Web ServicesCertificate
-        Manager (ACM) certificate.
+        :param server_id: A system-assigned unique identifier for a server instance that the Transfer Family user is assigned to.
+        :param certificate: The Amazon Resource Name (ARN) of the Amazon Web ServicesCertificate Manager (ACM) certificate.
         :param protocol_details: The protocol settings that are configured for your server.
-        :param endpoint_details: The virtual private cloud (VPC) endpoint settings that are configured
-        for your server.
+        :param endpoint_details: The virtual private cloud (VPC) endpoint settings that are configured for your server.
         :param endpoint_type: The type of endpoint that you want your server to use.
-        :param host_key: The RSA, ECDSA, or ED25519 private key to use for your SFTP-enabled
-        server.
-        :param identity_provider_details: An array containing all of the information required to call a customer's
-        authentication API method.
-        :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management
-        (IAM) role that allows a server to turn on Amazon CloudWatch logging for
-        Amazon S3 or Amazon EFS events.
+        :param host_key: The RSA, ECDSA, or ED25519 private key to use for your SFTP-enabled server.
+        :param identity_provider_details: An array containing all of the information required to call a customer's authentication API method.
+        :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role that allows a server to turn on Amazon CloudWatch logging for Amazon S3 or Amazon EFS events.
         :param post_authentication_login_banner: Specifies a string to display when users connect to a server.
         :param pre_authentication_login_banner: Specifies a string to display when users connect to a server.
-        :param protocols: Specifies the file transfer protocol or protocols over which your file
-        transfer protocol client can connect to your server's endpoint.
+        :param protocols: Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint.
         :param security_policy_name: Specifies the name of the security policy for the server.
-        :param workflow_details: Specifies the workflow ID for the workflow to assign and the execution
-        role that's used for executing the workflow.
+        :param workflow_details: Specifies the workflow ID for the workflow to assign and the execution role that's used for executing the workflow.
         :param structured_log_destinations: Specifies the log groups to which your server logs are sent.
-        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is
-        optimized.
-        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6)
-        for your Transfer Family endpoint.
+        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is optimized.
+        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your Transfer Family endpoint.
         :param identity_provider_type: The mode of authentication for a server.
         :returns: UpdateServerResponse
         :raises ConflictException:
@@ -4153,26 +4025,14 @@ class TransferApi:
 
         ``aws transfer update-user --server-id <server-id> --user-name admin-user --home-directory-type LOGICAL --home-directory-mappings "[{\\"Entry\\":\\"/\\", \\"Target\\":\\"/test/admin-user\\"}]"``
 
-        :param server_id: A system-assigned unique identifier for a Transfer Family server
-        instance that the user is assigned to.
-        :param user_name: A unique string that identifies a user and is associated with a server
-        as specified by the ``ServerId``.
-        :param home_directory: The landing directory (folder) for a user when they log in to the server
-        using the client.
-        :param home_directory_type: The type of landing directory (folder) that you want your users' home
-        directory to be when they log in to the server.
-        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS
-        paths and keys should be visible to your user and how you want to make
-        them visible.
-        :param policy: A session policy for your user so that you can use the same Identity and
-        Access Management (IAM) role across multiple users.
-        :param posix_profile: Specifies the full POSIX identity, including user ID (``Uid``), group ID
-        (``Gid``), and any secondary groups IDs (``SecondaryGids``), that
-        controls your users' access to your Amazon Elastic File Systems (Amazon
-        EFS).
-        :param role: The Amazon Resource Name (ARN) of the Identity and Access Management
-        (IAM) role that controls your users' access to your Amazon S3 bucket or
-        Amazon EFS file system.
+        :param server_id: A system-assigned unique identifier for a Transfer Family server instance that the user is assigned to.
+        :param user_name: A unique string that identifies a user and is associated with a server as specified by the ``ServerId``.
+        :param home_directory: The landing directory (folder) for a user when they log in to the server using the client.
+        :param home_directory_type: The type of landing directory (folder) that you want your users' home directory to be when they log in to the server.
+        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS paths and keys should be visible to your user and how you want to make them visible.
+        :param policy: A session policy for your user so that you can use the same Identity and Access Management (IAM) role across multiple users.
+        :param posix_profile: Specifies the full POSIX identity, including user ID (``Uid``), group ID (``Gid``), and any secondary groups IDs (``SecondaryGids``), that controls your users' access to your Amazon Elastic File Systems (Amazon EFS).
+        :param role: The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role that controls your users' access to your Amazon S3 bucket or Amazon EFS file system.
         :returns: UpdateUserResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -4202,12 +4062,9 @@ class TransferApi:
         VPC <https://docs.aws.amazon.com/transfer/latest/userguide/create-webapp-in-vpc.html>`__.
 
         :param web_app_id: Provide the identifier of the web app that you are updating.
-        :param identity_provider_details: Provide updated identity provider values in a
-        ``WebAppIdentityProviderDetails`` object.
-        :param access_endpoint: The ``AccessEndpoint`` is the URL that you provide to your users for
-        them to interact with the Transfer Family web app.
-        :param web_app_units: A union that contains the value for number of concurrent connections or
-        the user sessions on your web app.
+        :param identity_provider_details: Provide updated identity provider values in a ``WebAppIdentityProviderDetails`` object.
+        :param access_endpoint: The ``AccessEndpoint`` is the URL that you provide to your users for them to interact with the Transfer Family web app.
+        :param web_app_units: A union that contains the value for number of concurrent connections or the user sessions on your web app.
         :param endpoint_details: The updated endpoint configuration for the web app.
         :returns: UpdateWebAppResponse
         :raises ConflictException:

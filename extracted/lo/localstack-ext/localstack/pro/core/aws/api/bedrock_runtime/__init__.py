@@ -2192,28 +2192,18 @@ class BedrockRuntimeApi:
         Codes <https://docs.aws.amazon.com/bedrock/latest/userguide/troubleshooting-api-error-codes.html>`__
         in the Amazon Bedrock User Guide
 
-        :param model_id: Specifies the model or throughput with which to run inference, or the
-        prompt resource to use in inference.
+        :param model_id: Specifies the model or throughput with which to run inference, or the prompt resource to use in inference.
         :param messages: The messages that you want to send to the model.
-        :param system: A prompt that provides instructions or context to the model about the
-        task it should perform, or the persona it should adopt during the
-        conversation.
+        :param system: A prompt that provides instructions or context to the model about the task it should perform, or the persona it should adopt during the conversation.
         :param inference_config: Inference parameters to pass to the model.
-        :param tool_config: Configuration information for the tools that the model can use when
-        generating a response.
-        :param guardrail_config: Configuration information for a guardrail that you want to use in the
-        request.
-        :param additional_model_request_fields: Additional inference parameters that the model supports, beyond the base
-        set of inference parameters that ``Converse`` and ``ConverseStream``
-        support in the ``inferenceConfig`` field.
-        :param prompt_variables: Contains a map of variables in a prompt from Prompt management to
-        objects containing the values to fill in for them when running model
-        invocation.
+        :param tool_config: Configuration information for the tools that the model can use when generating a response.
+        :param guardrail_config: Configuration information for a guardrail that you want to use in the request.
+        :param additional_model_request_fields: Additional inference parameters that the model supports, beyond the base set of inference parameters that ``Converse`` and ``ConverseStream`` support in the ``inferenceConfig`` field.
+        :param prompt_variables: Contains a map of variables in a prompt from Prompt management to objects containing the values to fill in for them when running model invocation.
         :param additional_model_response_field_paths: Additional model parameters field paths to return in the response.
         :param request_metadata: Key-value pairs that you can use to filter invocation logs.
         :param performance_config: Model performance settings for the request.
-        :param service_tier: Specifies the processing tier configuration used for serving the
-        request.
+        :param service_tier: Specifies the processing tier configuration used for serving the request.
         :param output_config: Output configuration for a model response.
         :returns: ConverseResponse
         :raises AccessDeniedException:
@@ -2308,28 +2298,18 @@ class BedrockRuntimeApi:
         Codes <https://docs.aws.amazon.com/bedrock/latest/userguide/troubleshooting-api-error-codes.html>`__
         in the Amazon Bedrock User Guide
 
-        :param model_id: Specifies the model or throughput with which to run inference, or the
-        prompt resource to use in inference.
+        :param model_id: Specifies the model or throughput with which to run inference, or the prompt resource to use in inference.
         :param messages: The messages that you want to send to the model.
-        :param system: A prompt that provides instructions or context to the model about the
-        task it should perform, or the persona it should adopt during the
-        conversation.
+        :param system: A prompt that provides instructions or context to the model about the task it should perform, or the persona it should adopt during the conversation.
         :param inference_config: Inference parameters to pass to the model.
-        :param tool_config: Configuration information for the tools that the model can use when
-        generating a response.
-        :param guardrail_config: Configuration information for a guardrail that you want to use in the
-        request.
-        :param additional_model_request_fields: Additional inference parameters that the model supports, beyond the base
-        set of inference parameters that ``Converse`` and ``ConverseStream``
-        support in the ``inferenceConfig`` field.
-        :param prompt_variables: Contains a map of variables in a prompt from Prompt management to
-        objects containing the values to fill in for them when running model
-        invocation.
+        :param tool_config: Configuration information for the tools that the model can use when generating a response.
+        :param guardrail_config: Configuration information for a guardrail that you want to use in the request.
+        :param additional_model_request_fields: Additional inference parameters that the model supports, beyond the base set of inference parameters that ``Converse`` and ``ConverseStream`` support in the ``inferenceConfig`` field.
+        :param prompt_variables: Contains a map of variables in a prompt from Prompt management to objects containing the values to fill in for them when running model invocation.
         :param additional_model_response_field_paths: Additional model parameters field paths to return in the response.
         :param request_metadata: Key-value pairs that you can use to filter invocation logs.
         :param performance_config: Model performance settings for the request.
-        :param service_tier: Specifies the processing tier configuration used for serving the
-        request.
+        :param service_tier: Specifies the processing tier configuration used for serving the request.
         :param output_config: Output configuration for a model response.
         :returns: ConverseStreamResponse
         :raises AccessDeniedException:
@@ -2382,8 +2362,7 @@ class BedrockRuntimeApi:
         -  `Converse <https://docs.aws.amazon.com/bedrock/latest/API/API_runtime_Converse.html>`__
            - Sends conversation-based inference requests to foundation models
 
-        :param model_id: The unique identifier or ARN of the foundation model to use for token
-        counting.
+        :param model_id: The unique identifier or ARN of the foundation model to use for token counting.
         :param input: The input for which to count tokens.
         :returns: CountTokensResponse
         :raises AccessDeniedException:
@@ -2452,8 +2431,7 @@ class BedrockRuntimeApi:
         in the Amazon Bedrock User Guide
 
         :param model_id: The unique identifier of the model to invoke to run inference.
-        :param body: The prompt and inference parameters in the format specified in the
-        ``contentType`` in the header.
+        :param body: The prompt and inference parameters in the format specified in the ``contentType`` in the header.
         :param content_type: The MIME type of the input data in the request.
         :param accept: The desired MIME type of the inference body in the response.
         :param trace: Specifies whether to enable or disable the Bedrock trace.
@@ -2496,8 +2474,7 @@ class BedrockRuntimeApi:
         the new prompt.
 
         :param model_id: The model ID or ARN of the model ID to use.
-        :param body: The prompt and inference parameters in the format specified in the
-        ``BidirectionalInputPayloadPart`` in the header.
+        :param body: The prompt and inference parameters in the format specified in the ``BidirectionalInputPayloadPart`` in the header.
         :returns: InvokeModelWithBidirectionalStreamResponse
         :raises AccessDeniedException:
         :raises ResourceNotFoundException:
@@ -2562,8 +2539,7 @@ class BedrockRuntimeApi:
         in the Amazon Bedrock User Guide
 
         :param model_id: The unique identifier of the model to invoke to run inference.
-        :param body: The prompt and inference parameters in the format specified in the
-        ``contentType`` in the header.
+        :param body: The prompt and inference parameters in the format specified in the ``contentType`` in the header.
         :param content_type: The MIME type of the input data in the request.
         :param accept: The desired MIME type of the inference body in the response.
         :param trace: Specifies whether to enable or disable the Bedrock trace.
@@ -2605,8 +2581,7 @@ class BedrockRuntimeApi:
         :param submit_time_before: Include invocations submitted before this time.
         :param status_equals: Filter invocations by status.
         :param max_results: The maximum number of invocations to return in one page of results.
-        :param next_token: Specify the pagination token from a previous request to retrieve the
-        next page of results.
+        :param next_token: Specify the pagination token from a previous request to retrieve the next page of results.
         :param sort_by: How to sort the response.
         :param sort_order: The sorting order for the response.
         :returns: ListAsyncInvokesResponse

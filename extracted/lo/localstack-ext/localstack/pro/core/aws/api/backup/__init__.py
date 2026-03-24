@@ -2917,8 +2917,7 @@ class BackupApi:
         """Associates an MPA approval team with a backup vault.
 
         :param backup_vault_name: The name of the backup vault to associate with the MPA approval team.
-        :param mpa_approval_team_arn: The Amazon Resource Name (ARN) of the MPA approval team to associate
-        with the backup vault.
+        :param mpa_approval_team_arn: The Amazon Resource Name (ARN) of the MPA approval team to associate with the backup vault.
         :param requester_comment: A comment provided by the requester explaining the association request.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -2970,8 +2969,7 @@ class BackupApi:
 
         :param backup_plan: The body of a backup plan.
         :param backup_plan_tags: The tags to assign to the backup plan.
-        :param creator_request_id: Identifies the request and allows failed requests to be retried without
-        the risk of running the operation twice.
+        :param creator_request_id: Identifies the request and allows failed requests to be retried without the risk of running the operation twice.
         :returns: CreateBackupPlanOutput
         :raises LimitExceededException:
         :raises AlreadyExistsException:
@@ -2996,8 +2994,7 @@ class BackupApi:
 
         :param backup_plan_id: The ID of the backup plan.
         :param backup_selection: The body of a request to assign a set of resources to a backup plan.
-        :param creator_request_id: A unique string that identifies the request and allows failed requests
-        to be retried without the risk of running the operation twice.
+        :param creator_request_id: A unique string that identifies the request and allows failed requests to be retried without the risk of running the operation twice.
         :returns: CreateBackupSelectionOutput
         :raises LimitExceededException:
         :raises AlreadyExistsException:
@@ -3026,11 +3023,8 @@ class BackupApi:
 
         :param backup_vault_name: The name of a logical container where backups are stored.
         :param backup_vault_tags: The tags to assign to the backup vault.
-        :param encryption_key_arn: The server-side encryption key that is used to protect your backups; for
-        example,
-        ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab``.
-        :param creator_request_id: A unique string that identifies the request and allows failed requests
-        to be retried without the risk of running the operation twice.
+        :param encryption_key_arn: The server-side encryption key that is used to protect your backups; for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab``.
+        :param creator_request_id: A unique string that identifies the request and allows failed requests to be retried without the risk of running the operation twice.
         :returns: CreateBackupVaultOutput
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -3059,10 +3053,8 @@ class BackupApi:
 
         :param framework_name: The unique name of the framework.
         :param framework_controls: The controls that make up the framework.
-        :param framework_description: An optional description of the framework with a maximum of 1,024
-        characters.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``CreateFrameworkInput``.
+        :param framework_description: An optional description of the framework with a maximum of 1,024 characters.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``CreateFrameworkInput``.
         :param framework_tags: The tags to assign to the framework.
         :returns: CreateFrameworkOutput
         :raises AlreadyExistsException:
@@ -3092,10 +3084,8 @@ class BackupApi:
 
         :param title: The title of the legal hold.
         :param description: The description of the legal hold.
-        :param idempotency_token: This is a user-chosen string used to distinguish between otherwise
-        identical calls.
-        :param recovery_point_selection: The criteria to assign a set of resources, such as resource types or
-        backup vaults.
+        :param idempotency_token: This is a user-chosen string used to distinguish between otherwise identical calls.
+        :param recovery_point_selection: The criteria to assign a set of resources, such as resource types or backup vaults.
         :param tags: Optional tags to include.
         :returns: CreateLegalHoldOutput
         :raises InvalidParameterValueException:
@@ -3127,13 +3117,11 @@ class BackupApi:
         a backup vault.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param min_retention_days: This setting specifies the minimum retention period that the vault
-        retains its recovery points.
+        :param min_retention_days: This setting specifies the minimum retention period that the vault retains its recovery points.
         :param max_retention_days: The maximum retention period that the vault retains its recovery points.
         :param backup_vault_tags: The tags to assign to the vault.
         :param creator_request_id: The ID of the creation request.
-        :param encryption_key_arn: The ARN of the customer-managed KMS key to use for encrypting the
-        logically air-gapped backup vault.
+        :param encryption_key_arn: The ARN of the customer-managed KMS key to use for encrypting the logically air-gapped backup vault.
         :returns: CreateLogicallyAirGappedBackupVaultOutput
         :raises AlreadyExistsException:
         :raises InvalidParameterValueException:
@@ -3164,15 +3152,11 @@ class BackupApi:
         receive an ``AlreadyExistsException`` exception.
 
         :param report_plan_name: The unique name of the report plan.
-        :param report_delivery_channel: A structure that contains information about where and how to deliver
-        your reports, specifically your Amazon S3 bucket name, S3 key prefix,
-        and the formats of your reports.
+        :param report_delivery_channel: A structure that contains information about where and how to deliver your reports, specifically your Amazon S3 bucket name, S3 key prefix, and the formats of your reports.
         :param report_setting: Identifies the report template for the report.
-        :param report_plan_description: An optional description of the report plan with a maximum of 1,024
-        characters.
+        :param report_plan_description: An optional description of the report plan with a maximum of 1,024 characters.
         :param report_plan_tags: The tags to assign to the report plan.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``CreateReportPlanInput``.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``CreateReportPlanInput``.
         :returns: CreateReportPlanOutput
         :raises AlreadyExistsException:
         :raises LimitExceededException:
@@ -3197,14 +3181,11 @@ class BackupApi:
         recovery points in a logically air-gapped backup vault, subject to MPA
         approval.
 
-        :param source_backup_vault_arn: The ARN of the source backup vault containing the recovery points to
-        which temporary access is requested.
+        :param source_backup_vault_arn: The ARN of the source backup vault containing the recovery points to which temporary access is requested.
         :param backup_vault_name: The name of the backup vault to associate with an MPA approval team.
         :param backup_vault_tags: Optional tags to assign to the restore access backup vault.
-        :param creator_request_id: A unique string that identifies the request and allows failed requests
-        to be retried without the risk of executing the operation twice.
-        :param requester_comment: A comment explaining the reason for requesting restore access to the
-        backup vault.
+        :param creator_request_id: A unique string that identifies the request and allows failed requests to be retried without the risk of executing the operation twice.
+        :param requester_comment: A comment explaining the reason for requesting restore access to the backup vault.
         :returns: CreateRestoreAccessBackupVaultOutput
         :raises AlreadyExistsException:
         :raises InvalidParameterValueException:
@@ -3231,10 +3212,8 @@ class BackupApi:
         request is successful, finish the procedure using
         CreateRestoreTestingSelection.
 
-        :param restore_testing_plan: A restore testing plan must contain a unique ``RestoreTestingPlanName``
-        string you create and must contain a ``ScheduleExpression`` cron.
-        :param creator_request_id: This is a unique string that identifies the request and allows failed
-        requests to be retriedwithout the risk of running the operation twice.
+        :param restore_testing_plan: A restore testing plan must contain a unique ``RestoreTestingPlanName`` string you create and must contain a ``ScheduleExpression`` cron.
+        :param creator_request_id: This is a unique string that identifies the request and allows failed requests to be retriedwithout the risk of running the operation twice.
         :param tags: The tags to assign to the restore testing plan.
         :returns: CreateRestoreTestingPlanOutput
         :raises AlreadyExistsException:
@@ -3276,19 +3255,9 @@ class BackupApi:
         Cannot select by both protected resource types AND specific ARNs.
         Request will fail if both are included.
 
-        :param restore_testing_plan_name: Input the restore testing plan name that was returned from the related
-        CreateRestoreTestingPlan request.
-        :param restore_testing_selection: This consists of ``RestoreTestingSelectionName``,
-        ``ProtectedResourceType``, and one of the following:
-
-        -  ``ProtectedResourceArns``
-
-        -  ``ProtectedResourceConditions``
-
-        Each protected resource type can have one single value.
-        :param creator_request_id: This is an optional unique string that identifies the request and allows
-        failed requests to be retried without the risk of running the operation
-        twice.
+        :param restore_testing_plan_name: Input the restore testing plan name that was returned from the related CreateRestoreTestingPlan request.
+        :param restore_testing_selection: This consists of ``RestoreTestingSelectionName``, ``ProtectedResourceType``, and one of the following:  -  ``ProtectedResourceArns``  -  ``ProtectedResourceConditions``  Each protected resource type can have one single value.
+        :param creator_request_id: This is an optional unique string that identifies the request and allows failed requests to be retried without the risk of running the operation twice.
         :returns: CreateRestoreTestingSelectionOutput
         :raises AlreadyExistsException:
         :raises InvalidParameterValueException:
@@ -3317,12 +3286,9 @@ class BackupApi:
         Each vault can only have one vault-specific tiering configuration, in
         addition to any global configuration that applies to all vaults.
 
-        :param tiering_configuration: A tiering configuration must contain a unique
-        ``TieringConfigurationName`` string you create and must contain a
-        ``BackupVaultName`` and ``ResourceSelection``.
+        :param tiering_configuration: A tiering configuration must contain a unique ``TieringConfigurationName`` string you create and must contain a ``BackupVaultName`` and ``ResourceSelection``.
         :param tiering_configuration_tags: The tags to assign to the tiering configuration.
-        :param creator_request_id: This is a unique string that identifies the request and allows failed
-        requests to be retried without the risk of running the operation twice.
+        :param creator_request_id: This is a unique string that identifies the request and allows failed requests to be retried without the risk of running the operation twice.
         :returns: CreateTieringConfigurationOutput
         :raises AlreadyExistsException:
         :raises ConflictException:
@@ -3360,8 +3326,7 @@ class BackupApi:
         specified by the ``SelectionId``.
 
         :param backup_plan_id: Uniquely identifies a backup plan.
-        :param selection_id: Uniquely identifies the body of a request to assign a set of resources
-        to a backup plan.
+        :param selection_id: Uniquely identifies the body of a request to assign a set of resources to a backup plan.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -3479,9 +3444,7 @@ class BackupApi:
         ``EXPIRED`` state.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point;
-        for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
+        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -3534,10 +3497,8 @@ class BackupApi:
         All testing selections associated with a restore testing plan must be
         deleted before the restore testing plan can be deleted.
 
-        :param restore_testing_plan_name: Required unique name of the restore testing plan that contains the
-        restore testing selection you wish to delete.
-        :param restore_testing_selection_name: Required unique name of the restore testing selection you wish to
-        delete.
+        :param restore_testing_plan_name: Required unique name of the restore testing plan that contains the restore testing selection you wish to delete.
+        :param restore_testing_selection_name: Required unique name of the restore testing selection you wish to delete.
         :raises ResourceNotFoundException:
         :raises ServiceUnavailableException:
         """
@@ -3673,9 +3634,7 @@ class BackupApi:
         encryption, and lifecycle.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point;
-        for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
+        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
         :param backup_vault_account_id: The account ID of the specified backup vault.
         :returns: DescribeRecoveryPointOutput
         :raises ResourceNotFoundException:
@@ -3774,10 +3733,8 @@ class BackupApi:
         """Removes the association between an MPA approval team and a backup vault,
         disabling the MPA approval workflow for restore operations.
 
-        :param backup_vault_name: The name of the backup vault from which to disassociate the MPA approval
-        team.
-        :param requester_comment: An optional comment explaining the reason for disassociating the MPA
-        approval team from the backup vault.
+        :param backup_vault_name: The name of the backup vault from which to disassociate the MPA approval team.
+        :param requester_comment: An optional comment explaining the reason for disassociating the MPA approval team from the backup vault.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -3803,8 +3760,7 @@ class BackupApi:
         Does not support snapshot backup recovery points.
 
         :param backup_vault_name: The unique name of an Backup vault.
-        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies an Backup
-        recovery point.
+        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies an Backup recovery point.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -3826,11 +3782,8 @@ class BackupApi:
         relationship between the specified recovery point and its parent
         (composite) recovery point.
 
-        :param backup_vault_name: The name of a logical container where the child (nested) recovery point
-        is stored.
-        :param recovery_point_arn: The Amazon Resource Name (ARN) that uniquely identifies the child
-        (nested) recovery point; for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45.
+        :param backup_vault_name: The name of a logical container where the child (nested) recovery point is stored.
+        :param recovery_point_arn: The Amazon Resource Name (ARN) that uniquely identifies the child (nested) recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -3869,8 +3822,7 @@ class BackupApi:
         plan metadata.
 
         :param backup_plan_id: Uniquely identifies a backup plan.
-        :param version_id: Unique, randomly generated, Unicode, UTF-8 encoded strings that are at
-        most 1,024 bytes long.
+        :param version_id: Unique, randomly generated, Unicode, UTF-8 encoded strings that are at most 1,024 bytes long.
         :param max_scheduled_runs_preview: Number of future scheduled backup runs to preview.
         :returns: GetBackupPlanOutput
         :raises ResourceNotFoundException:
@@ -3919,8 +3871,7 @@ class BackupApi:
         a list of resources that are associated with a backup plan.
 
         :param backup_plan_id: Uniquely identifies a backup plan.
-        :param selection_id: Uniquely identifies the body of a request to assign a set of resources
-        to a backup plan.
+        :param selection_id: Uniquely identifies the body of a request to assign a set of resources to a backup plan.
         :returns: GetBackupSelectionOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -3988,8 +3939,7 @@ class BackupApi:
         index associated with the specified recovery point.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param recovery_point_arn: An ARN that uniquely identifies a recovery point; for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
+        :param recovery_point_arn: An ARN that uniquely identifies a recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
         :returns: GetRecoveryPointIndexDetailsOutput
         :raises MissingParameterValueException:
         :raises InvalidParameterValueException:
@@ -4011,9 +3961,7 @@ class BackupApi:
         backup.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point;
-        for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
+        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
         :param backup_vault_account_id: The account ID of the specified backup vault.
         :returns: GetRecoveryPointRestoreMetadataOutput
         :raises ResourceNotFoundException:
@@ -4053,9 +4001,7 @@ class BackupApi:
         ``BackupVaultAccountId`` is an optional parameter.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point;
-        for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
+        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
         :param backup_vault_account_id: The account ID of the specified backup vault.
         :returns: GetRestoreTestingInferredMetadataOutput
         :raises InvalidParameterValueException:
@@ -4191,55 +4137,17 @@ class BackupApi:
 
         :param next_token: The next item following a partial list of returned items.
         :param max_results: The maximum number of items to be returned.
-        :param by_resource_arn: Returns only backup jobs that match the specified resource Amazon
-        Resource Name (ARN).
+        :param by_resource_arn: Returns only backup jobs that match the specified resource Amazon Resource Name (ARN).
         :param by_state: Returns only backup jobs that are in the specified state.
-        :param by_backup_vault_name: Returns only backup jobs that will be stored in the specified backup
-        vault.
+        :param by_backup_vault_name: Returns only backup jobs that will be stored in the specified backup vault.
         :param by_created_before: Returns only backup jobs that were created before the specified date.
         :param by_created_after: Returns only backup jobs that were created after the specified date.
-        :param by_resource_type: Returns only backup jobs for the specified resources:
-
-        -  ``Aurora`` for Amazon Aurora
-
-        -  ``CloudFormation`` for CloudFormation
-
-        -  ``DocumentDB`` for Amazon DocumentDB (with MongoDB compatibility)
-
-        -  ``DynamoDB`` for Amazon DynamoDB
-
-        -  ``EBS`` for Amazon Elastic Block Store
-
-        -  ``EC2`` for Amazon Elastic Compute Cloud
-
-        -  ``EFS`` for Amazon Elastic File System
-
-        -  ``FSx`` for Amazon FSx
-
-        -  ``Neptune`` for Amazon Neptune
-
-        -  ``RDS`` for Amazon Relational Database Service
-
-        -  ``Redshift`` for Amazon Redshift
-
-        -  ``S3`` for Amazon Simple Storage Service (Amazon S3)
-
-        -  ``SAP HANA on Amazon EC2`` for SAP HANA databases on Amazon Elastic
-           Compute Cloud instances
-
-        -  ``Storage Gateway`` for Storage Gateway
-
-        -  ``Timestream`` for Amazon Timestream
-
-        -  ``VirtualMachine`` for VMware virtual machines.
+        :param by_resource_type: Returns only backup jobs for the specified resources:  -  ``Aurora`` for Amazon Aurora  -  ``CloudFormation`` for CloudFormation  -  ``DocumentDB`` for Amazon DocumentDB (with MongoDB compatibility)  -  ``DynamoDB`` for Amazon DynamoDB  -  ``EBS`` for Amazon Elastic Block Store  -  ``EC2`` for Amazon Elastic Compute Cloud  -  ``EFS`` for Amazon Elastic File System  -  ``FSx`` for Amazon FSx  -  ``Neptune`` for Amazon Neptune  -  ``RDS`` for Amazon Relational Database Service  -  ``Redshift`` for Amazon Redshift  -  ``S3`` for Amazon Simple Storage Service (Amazon S3)  -  ``SAP HANA on Amazon EC2`` for SAP HANA databases on Amazon Elastic    Compute Cloud instances  -  ``Storage Gateway`` for Storage Gateway  -  ``Timestream`` for Amazon Timestream  -  ``VirtualMachine`` for VMware virtual machines.
         :param by_account_id: The account ID to list the jobs from.
-        :param by_complete_after: Returns only backup jobs completed after a date expressed in Unix format
-        and Coordinated Universal Time (UTC).
-        :param by_complete_before: Returns only backup jobs completed before a date expressed in Unix
-        format and Coordinated Universal Time (UTC).
+        :param by_complete_after: Returns only backup jobs completed after a date expressed in Unix format and Coordinated Universal Time (UTC).
+        :param by_complete_before: Returns only backup jobs completed before a date expressed in Unix format and Coordinated Universal Time (UTC).
         :param by_parent_job_id: This is a filter to list child (nested) jobs based on parent job ID.
-        :param by_message_category: This is an optional parameter that can be used to filter out jobs with a
-        MessageCategory which matches the value you input.
+        :param by_message_category: This is an optional parameter that can be used to filter out jobs with a MessageCategory which matches the value you input.
         :returns: ListBackupJobsOutput
         :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
@@ -4303,8 +4211,7 @@ class BackupApi:
 
         :param next_token: The next item following a partial list of returned items.
         :param max_results: The maximum number of items to be returned.
-        :param include_deleted: A Boolean value with a default value of ``FALSE`` that returns deleted
-        backup plans when set to ``TRUE``.
+        :param include_deleted: A Boolean value with a default value of ``FALSE`` that returns deleted backup plans when set to ``TRUE``.
         :returns: ListBackupPlansOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -4420,56 +4327,17 @@ class BackupApi:
 
         :param next_token: The next item following a partial list of returned items.
         :param max_results: The maximum number of items to be returned.
-        :param by_resource_arn: Returns only copy jobs that match the specified resource Amazon Resource
-        Name (ARN).
+        :param by_resource_arn: Returns only copy jobs that match the specified resource Amazon Resource Name (ARN).
         :param by_state: Returns only copy jobs that are in the specified state.
         :param by_created_before: Returns only copy jobs that were created before the specified date.
         :param by_created_after: Returns only copy jobs that were created after the specified date.
-        :param by_resource_type: Returns only backup jobs for the specified resources:
-
-        -  ``Aurora`` for Amazon Aurora
-
-        -  ``CloudFormation`` for CloudFormation
-
-        -  ``DocumentDB`` for Amazon DocumentDB (with MongoDB compatibility)
-
-        -  ``DynamoDB`` for Amazon DynamoDB
-
-        -  ``EBS`` for Amazon Elastic Block Store
-
-        -  ``EC2`` for Amazon Elastic Compute Cloud
-
-        -  ``EFS`` for Amazon Elastic File System
-
-        -  ``FSx`` for Amazon FSx
-
-        -  ``Neptune`` for Amazon Neptune
-
-        -  ``RDS`` for Amazon Relational Database Service
-
-        -  ``Redshift`` for Amazon Redshift
-
-        -  ``S3`` for Amazon Simple Storage Service (Amazon S3)
-
-        -  ``SAP HANA on Amazon EC2`` for SAP HANA databases on Amazon Elastic
-           Compute Cloud instances
-
-        -  ``Storage Gateway`` for Storage Gateway
-
-        -  ``Timestream`` for Amazon Timestream
-
-        -  ``VirtualMachine`` for VMware virtual machines.
-        :param by_destination_vault_arn: An Amazon Resource Name (ARN) that uniquely identifies a source backup
-        vault to copy from; for example,
-        ``arn:aws:backup:us-east-1:123456789012:backup-vault:aBackupVault``.
+        :param by_resource_type: Returns only backup jobs for the specified resources:  -  ``Aurora`` for Amazon Aurora  -  ``CloudFormation`` for CloudFormation  -  ``DocumentDB`` for Amazon DocumentDB (with MongoDB compatibility)  -  ``DynamoDB`` for Amazon DynamoDB  -  ``EBS`` for Amazon Elastic Block Store  -  ``EC2`` for Amazon Elastic Compute Cloud  -  ``EFS`` for Amazon Elastic File System  -  ``FSx`` for Amazon FSx  -  ``Neptune`` for Amazon Neptune  -  ``RDS`` for Amazon Relational Database Service  -  ``Redshift`` for Amazon Redshift  -  ``S3`` for Amazon Simple Storage Service (Amazon S3)  -  ``SAP HANA on Amazon EC2`` for SAP HANA databases on Amazon Elastic    Compute Cloud instances  -  ``Storage Gateway`` for Storage Gateway  -  ``Timestream`` for Amazon Timestream  -  ``VirtualMachine`` for VMware virtual machines.
+        :param by_destination_vault_arn: An Amazon Resource Name (ARN) that uniquely identifies a source backup vault to copy from; for example, ``arn:aws:backup:us-east-1:123456789012:backup-vault:aBackupVault``.
         :param by_account_id: The account ID to list the jobs from.
-        :param by_complete_before: Returns only copy jobs completed before a date expressed in Unix format
-        and Coordinated Universal Time (UTC).
-        :param by_complete_after: Returns only copy jobs completed after a date expressed in Unix format
-        and Coordinated Universal Time (UTC).
+        :param by_complete_before: Returns only copy jobs completed before a date expressed in Unix format and Coordinated Universal Time (UTC).
+        :param by_complete_after: Returns only copy jobs completed after a date expressed in Unix format and Coordinated Universal Time (UTC).
         :param by_parent_job_id: This is a filter to list child (nested) jobs based on parent job ID.
-        :param by_message_category: This is an optional parameter that can be used to filter out jobs with a
-        MessageCategory which matches the value you input.
+        :param by_message_category: This is an optional parameter that can be used to filter out jobs with a MessageCategory which matches the value you input.
         :param by_source_recovery_point_arn: Filters copy jobs by the specified source recovery point ARN.
         :returns: ListCopyJobsOutput
         :raises InvalidParameterValueException:
@@ -4489,9 +4357,7 @@ class BackupApi:
         Amazon Web Services Region.
 
         :param max_results: The number of desired results from 1 to 1000.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which can be used to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which can be used to return the next set of items in the list.
         :returns: ListFrameworksOutput
         :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
@@ -4519,16 +4385,11 @@ class BackupApi:
 
         :param next_token: The next item following a partial list of returned recovery points.
         :param max_results: The maximum number of resource list items to be returned.
-        :param source_resource_arn: A string of the Amazon Resource Name (ARN) that uniquely identifies the
-        source resource.
-        :param created_before: Returns only indexed recovery points that were created before the
-        specified date.
-        :param created_after: Returns only indexed recovery points that were created after the
-        specified date.
-        :param resource_type: Returns a list of indexed recovery points for the specified resource
-        type(s).
-        :param index_status: Include this parameter to filter the returned list by the indicated
-        statuses.
+        :param source_resource_arn: A string of the Amazon Resource Name (ARN) that uniquely identifies the source resource.
+        :param created_before: Returns only indexed recovery points that were created before the specified date.
+        :param created_after: Returns only indexed recovery points that were created after the specified date.
+        :param resource_type: Returns a list of indexed recovery points for the specified resource type(s).
+        :param index_status: Include this parameter to filter the returned list by the indicated statuses.
         :returns: ListIndexedRecoveryPointsOutput
         :raises InvalidParameterValueException:
         :raises ResourceNotFoundException:
@@ -4587,10 +4448,8 @@ class BackupApi:
         """This request lists the protected resources corresponding to each backup
         vault.
 
-        :param backup_vault_name: The list of protected resources by backup vault within the vault(s) you
-        specify by name.
-        :param backup_vault_account_id: The list of protected resources by backup vault within the vault(s) you
-        specify by account ID.
+        :param backup_vault_name: The list of protected resources by backup vault within the vault(s) you specify by name.
+        :param backup_vault_account_id: The list of protected resources by backup vault within the vault(s) you specify by account ID.
         :param next_token: The next item following a partial list of returned items.
         :param max_results: The maximum number of items to be returned.
         :returns: ListProtectedResourcesByBackupVaultOutput
@@ -4623,49 +4482,12 @@ class BackupApi:
         :param backup_vault_account_id: This parameter will sort the list of recovery points by account ID.
         :param next_token: The next item following a partial list of returned items.
         :param max_results: The maximum number of items to be returned.
-        :param by_resource_arn: Returns only recovery points that match the specified resource Amazon
-        Resource Name (ARN).
-        :param by_resource_type: Returns only recovery points that match the specified resource type(s):
-
-        -  ``Aurora`` for Amazon Aurora
-
-        -  ``CloudFormation`` for CloudFormation
-
-        -  ``DocumentDB`` for Amazon DocumentDB (with MongoDB compatibility)
-
-        -  ``DynamoDB`` for Amazon DynamoDB
-
-        -  ``EBS`` for Amazon Elastic Block Store
-
-        -  ``EC2`` for Amazon Elastic Compute Cloud
-
-        -  ``EFS`` for Amazon Elastic File System
-
-        -  ``FSx`` for Amazon FSx
-
-        -  ``Neptune`` for Amazon Neptune
-
-        -  ``RDS`` for Amazon Relational Database Service
-
-        -  ``Redshift`` for Amazon Redshift
-
-        -  ``S3`` for Amazon Simple Storage Service (Amazon S3)
-
-        -  ``SAP HANA on Amazon EC2`` for SAP HANA databases on Amazon Elastic
-           Compute Cloud instances
-
-        -  ``Storage Gateway`` for Storage Gateway
-
-        -  ``Timestream`` for Amazon Timestream
-
-        -  ``VirtualMachine`` for VMware virtual machines.
+        :param by_resource_arn: Returns only recovery points that match the specified resource Amazon Resource Name (ARN).
+        :param by_resource_type: Returns only recovery points that match the specified resource type(s):  -  ``Aurora`` for Amazon Aurora  -  ``CloudFormation`` for CloudFormation  -  ``DocumentDB`` for Amazon DocumentDB (with MongoDB compatibility)  -  ``DynamoDB`` for Amazon DynamoDB  -  ``EBS`` for Amazon Elastic Block Store  -  ``EC2`` for Amazon Elastic Compute Cloud  -  ``EFS`` for Amazon Elastic File System  -  ``FSx`` for Amazon FSx  -  ``Neptune`` for Amazon Neptune  -  ``RDS`` for Amazon Relational Database Service  -  ``Redshift`` for Amazon Redshift  -  ``S3`` for Amazon Simple Storage Service (Amazon S3)  -  ``SAP HANA on Amazon EC2`` for SAP HANA databases on Amazon Elastic    Compute Cloud instances  -  ``Storage Gateway`` for Storage Gateway  -  ``Timestream`` for Amazon Timestream  -  ``VirtualMachine`` for VMware virtual machines.
         :param by_backup_plan_id: Returns only recovery points that match the specified backup plan ID.
-        :param by_created_before: Returns only recovery points that were created before the specified
-        timestamp.
-        :param by_created_after: Returns only recovery points that were created after the specified
-        timestamp.
-        :param by_parent_recovery_point_arn: This returns only recovery points that match the specified parent
-        (composite) recovery point Amazon Resource Name (ARN).
+        :param by_created_before: Returns only recovery points that were created before the specified timestamp.
+        :param by_created_after: Returns only recovery points that were created after the specified timestamp.
+        :param by_parent_recovery_point_arn: This returns only recovery points that match the specified parent (composite) recovery point Amazon Resource Name (ARN).
         :returns: ListRecoveryPointsByBackupVaultOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -4739,15 +4561,11 @@ class BackupApi:
         """Returns details about your report jobs.
 
         :param by_report_plan_name: Returns only report jobs with the specified report plan name.
-        :param by_creation_before: Returns only report jobs that were created before the date and time
-        specified in Unix format and Coordinated Universal Time (UTC).
-        :param by_creation_after: Returns only report jobs that were created after the date and time
-        specified in Unix format and Coordinated Universal Time (UTC).
+        :param by_creation_before: Returns only report jobs that were created before the date and time specified in Unix format and Coordinated Universal Time (UTC).
+        :param by_creation_after: Returns only report jobs that were created after the date and time specified in Unix format and Coordinated Universal Time (UTC).
         :param by_status: Returns only report jobs that are in the specified status.
         :param max_results: The number of desired results from 1 to 1000.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which can be used to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which can be used to return the next set of items in the list.
         :returns: ListReportJobsOutput
         :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
@@ -4767,9 +4585,7 @@ class BackupApi:
         single report plan, use ``DescribeReportPlan``.
 
         :param max_results: The number of desired results from 1 to 1000.
-        :param next_token: An identifier that was returned from the previous call to this
-        operation, which can be used to return the next set of items in the
-        list.
+        :param next_token: An identifier that was returned from the previous call to this operation, which can be used to return the next set of items in the list.
         :returns: ListReportPlansOutput
         :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
@@ -4788,10 +4604,8 @@ class BackupApi:
         """Returns a list of restore access backup vaults associated with a
         specified backup vault.
 
-        :param backup_vault_name: The name of the backup vault for which to list associated restore access
-        backup vaults.
-        :param next_token: The pagination token from a previous request to retrieve the next set of
-        results.
+        :param backup_vault_name: The name of the backup vault for which to list associated restore access backup vaults.
+        :param next_token: The pagination token from a previous request to retrieve the next set of results.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListRestoreAccessBackupVaultsOutput
         :raises ResourceNotFoundException:
@@ -4857,52 +4671,14 @@ class BackupApi:
         :param next_token: The next item following a partial list of returned items.
         :param max_results: The maximum number of items to be returned.
         :param by_account_id: The account ID to list the jobs from.
-        :param by_resource_type: Include this parameter to return only restore jobs for the specified
-        resources:
-
-        -  ``Aurora`` for Amazon Aurora
-
-        -  ``CloudFormation`` for CloudFormation
-
-        -  ``DocumentDB`` for Amazon DocumentDB (with MongoDB compatibility)
-
-        -  ``DynamoDB`` for Amazon DynamoDB
-
-        -  ``EBS`` for Amazon Elastic Block Store
-
-        -  ``EC2`` for Amazon Elastic Compute Cloud
-
-        -  ``EFS`` for Amazon Elastic File System
-
-        -  ``FSx`` for Amazon FSx
-
-        -  ``Neptune`` for Amazon Neptune
-
-        -  ``RDS`` for Amazon Relational Database Service
-
-        -  ``Redshift`` for Amazon Redshift
-
-        -  ``S3`` for Amazon Simple Storage Service (Amazon S3)
-
-        -  ``SAP HANA on Amazon EC2`` for SAP HANA databases on Amazon Elastic
-           Compute Cloud instances
-
-        -  ``Storage Gateway`` for Storage Gateway
-
-        -  ``Timestream`` for Amazon Timestream
-
-        -  ``VirtualMachine`` for VMware virtual machines.
+        :param by_resource_type: Include this parameter to return only restore jobs for the specified resources:  -  ``Aurora`` for Amazon Aurora  -  ``CloudFormation`` for CloudFormation  -  ``DocumentDB`` for Amazon DocumentDB (with MongoDB compatibility)  -  ``DynamoDB`` for Amazon DynamoDB  -  ``EBS`` for Amazon Elastic Block Store  -  ``EC2`` for Amazon Elastic Compute Cloud  -  ``EFS`` for Amazon Elastic File System  -  ``FSx`` for Amazon FSx  -  ``Neptune`` for Amazon Neptune  -  ``RDS`` for Amazon Relational Database Service  -  ``Redshift`` for Amazon Redshift  -  ``S3`` for Amazon Simple Storage Service (Amazon S3)  -  ``SAP HANA on Amazon EC2`` for SAP HANA databases on Amazon Elastic    Compute Cloud instances  -  ``Storage Gateway`` for Storage Gateway  -  ``Timestream`` for Amazon Timestream  -  ``VirtualMachine`` for VMware virtual machines.
         :param by_created_before: Returns only restore jobs that were created before the specified date.
         :param by_created_after: Returns only restore jobs that were created after the specified date.
         :param by_status: Returns only restore jobs associated with the specified job status.
-        :param by_complete_before: Returns only copy jobs completed before a date expressed in Unix format
-        and Coordinated Universal Time (UTC).
-        :param by_complete_after: Returns only copy jobs completed after a date expressed in Unix format
-        and Coordinated Universal Time (UTC).
-        :param by_restore_testing_plan_arn: This returns only restore testing jobs that match the specified resource
-        Amazon Resource Name (ARN).
-        :param by_parent_job_id: This is a filter to list child (nested) restore jobs based on parent
-        restore job ID.
+        :param by_complete_before: Returns only copy jobs completed before a date expressed in Unix format and Coordinated Universal Time (UTC).
+        :param by_complete_after: Returns only copy jobs completed after a date expressed in Unix format and Coordinated Universal Time (UTC).
+        :param by_restore_testing_plan_arn: This returns only restore testing jobs that match the specified resource Amazon Resource Name (ARN).
+        :param by_parent_job_id: This is a filter to list child (nested) restore jobs based on parent restore job ID.
         :returns: ListRestoreJobsOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -4930,13 +4706,10 @@ class BackupApi:
         ``ByRecoveryPointCreationDateAfter`` , and
         ``ByRecoveryPointCreationDateBefore``.
 
-        :param resource_arn: Returns only restore jobs that match the specified resource Amazon
-        Resource Name (ARN).
+        :param resource_arn: Returns only restore jobs that match the specified resource Amazon Resource Name (ARN).
         :param by_status: Returns only restore jobs associated with the specified job status.
-        :param by_recovery_point_creation_date_after: Returns only restore jobs of recovery points that were created after the
-        specified date.
-        :param by_recovery_point_creation_date_before: Returns only restore jobs of recovery points that were created before
-        the specified date.
+        :param by_recovery_point_creation_date_after: Returns only restore jobs of recovery points that were created after the specified date.
+        :param by_recovery_point_creation_date_before: Returns only restore jobs of recovery points that were created before the specified date.
         :param next_token: The next item following a partial list of returned items.
         :param max_results: The maximum number of items to be returned.
         :returns: ListRestoreJobsByProtectedResourceOutput
@@ -4977,8 +4750,7 @@ class BackupApi:
         """Returns a list of restore testing selections. Can be filtered by
         ``MaxResults`` and ``RestoreTestingPlanName``.
 
-        :param restore_testing_plan_name: Returns restore testing selections by the specified restore testing plan
-        name.
+        :param restore_testing_plan_name: Returns restore testing selections by the specified restore testing plan name.
         :param max_results: The maximum number of items to be returned.
         :param next_token: The next item following a partial list of returned items.
         :returns: ListRestoreTestingSelectionsOutput
@@ -5041,24 +4813,14 @@ class BackupApi:
         the last 30 days.
 
         :param by_account_id: The account ID to list the jobs from.
-        :param by_backup_vault_name: Returns only scan jobs that will be stored in the specified backup
-        vault.
-        :param by_complete_after: Returns only scan jobs completed after a date expressed in Unix format
-        and Coordinated Universal Time (UTC).
-        :param by_complete_before: Returns only backup jobs completed before a date expressed in Unix
-        format and Coordinated Universal Time (UTC).
+        :param by_backup_vault_name: Returns only scan jobs that will be stored in the specified backup vault.
+        :param by_complete_after: Returns only scan jobs completed after a date expressed in Unix format and Coordinated Universal Time (UTC).
+        :param by_complete_before: Returns only backup jobs completed before a date expressed in Unix format and Coordinated Universal Time (UTC).
         :param by_malware_scanner: Returns only the scan jobs for the specified malware scanner.
-        :param by_recovery_point_arn: Returns only the scan jobs that are ran against the specified recovery
-        point.
-        :param by_resource_arn: Returns only scan jobs that match the specified resource Amazon Resource
-        Name (ARN).
-        :param by_resource_type: Returns restore testing selections by the specified restore testing plan
-        name.
-        :param by_scan_result_status: Returns only the scan jobs for the specified scan results:
-
-        -  ``THREATS_FOUND``
-
-        -  ``NO_THREATS_FOUND``.
+        :param by_recovery_point_arn: Returns only the scan jobs that are ran against the specified recovery point.
+        :param by_resource_arn: Returns only scan jobs that match the specified resource Amazon Resource Name (ARN).
+        :param by_resource_type: Returns restore testing selections by the specified restore testing plan name.
+        :param by_scan_result_status: Returns only the scan jobs for the specified scan results:  -  ``THREATS_FOUND``  -  ``NO_THREATS_FOUND``.
         :param by_state: Returns only the scan jobs for the specified scanning job state.
         :param max_results: The maximum number of items to be returned.
         :param next_token: The next item following a partial list of returned items.
@@ -5172,14 +4934,10 @@ class BackupApi:
         For more information, see `Backup Vault
         Lock <https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html>`__.
 
-        :param backup_vault_name: The Backup Vault Lock configuration that specifies the name of the
-        backup vault it protects.
-        :param min_retention_days: The Backup Vault Lock configuration that specifies the minimum retention
-        period that the vault retains its recovery points.
-        :param max_retention_days: The Backup Vault Lock configuration that specifies the maximum retention
-        period that the vault retains its recovery points.
-        :param changeable_for_days: The Backup Vault Lock configuration that specifies the number of days
-        before the lock date.
+        :param backup_vault_name: The Backup Vault Lock configuration that specifies the name of the backup vault it protects.
+        :param min_retention_days: The Backup Vault Lock configuration that specifies the minimum retention period that the vault retains its recovery points.
+        :param max_retention_days: The Backup Vault Lock configuration that specifies the maximum retention period that the vault retains its recovery points.
+        :param changeable_for_days: The Backup Vault Lock configuration that specifies the number of days before the lock date.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -5201,11 +4959,8 @@ class BackupApi:
         events.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param sns_topic_arn: The Amazon Resource Name (ARN) that specifies the topic for a backup
-        vault’s events; for example,
-        ``arn:aws:sns:us-west-2:111122223333:MyVaultTopic``.
-        :param backup_vault_events: An array of events that indicate the status of jobs to back up resources
-        to the backup vault.
+        :param sns_topic_arn: The Amazon Resource Name (ARN) that specifies the topic for a backup vault’s events; for example, ``arn:aws:sns:us-west-2:111122223333:MyVaultTopic``.
+        :param backup_vault_events: An array of events that indicate the status of jobs to back up resources to the backup vault.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
@@ -5228,8 +4983,7 @@ class BackupApi:
 
         :param restore_job_id: This is a unique identifier of a restore job within Backup.
         :param validation_status: The status of your restore validation.
-        :param validation_status_message: This is an optional message string you can input to describe the
-        validation status for the restore test validation.
+        :param validation_status_message: This is an optional message string you can input to describe the validation status for the restore test validation.
         :raises InvalidParameterValueException:
         :raises InvalidRequestException:
         :raises MissingParameterValueException:
@@ -5250,11 +5004,9 @@ class BackupApi:
         """Revokes access to a restore access backup vault, removing the ability to
         restore from its recovery points and permanently deleting the vault.
 
-        :param backup_vault_name: The name of the source backup vault associated with the restore access
-        backup vault to be revoked.
+        :param backup_vault_name: The name of the source backup vault associated with the restore access backup vault to be revoked.
         :param restore_access_backup_vault_arn: The ARN of the restore access backup vault to revoke.
-        :param requester_comment: A comment explaining the reason for revoking access to the restore
-        access backup vault.
+        :param requester_comment: A comment explaining the reason for revoking access to the restore access backup vault.
         :raises ResourceNotFoundException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
@@ -5284,21 +5036,15 @@ class BackupApi:
 
         :param backup_vault_name: The name of a logical container where backups are stored.
         :param resource_arn: An Amazon Resource Name (ARN) that uniquely identifies a resource.
-        :param iam_role_arn: Specifies the IAM role ARN used to create the target recovery point; for
-        example, ``arn:aws:iam::123456789012:role/S3Access``.
+        :param iam_role_arn: Specifies the IAM role ARN used to create the target recovery point; for example, ``arn:aws:iam::123456789012:role/S3Access``.
         :param logically_air_gapped_backup_vault_arn: The ARN of a logically air-gapped vault.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``StartBackupJob``.
-        :param start_window_minutes: A value in minutes after a backup is scheduled before a job will be
-        canceled if it doesn't start successfully.
-        :param complete_window_minutes: A value in minutes during which a successfully started backup must
-        complete, or else Backup will cancel the job.
-        :param lifecycle: The lifecycle defines when a protected resource is transitioned to cold
-        storage and when it expires.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``StartBackupJob``.
+        :param start_window_minutes: A value in minutes after a backup is scheduled before a job will be canceled if it doesn't start successfully.
+        :param complete_window_minutes: A value in minutes during which a successfully started backup must complete, or else Backup will cancel the job.
+        :param lifecycle: The lifecycle defines when a protected resource is transitioned to cold storage and when it expires.
         :param recovery_point_tags: The tags to assign to the resources.
         :param backup_options: The backup option for a selected resource.
-        :param index: Include this parameter to enable index creation if your backup job has a
-        resource type that supports backup indexes.
+        :param index: Include this parameter to enable index creation if your backup job has a resource type that supports backup indexes.
         :returns: StartBackupJobOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -5329,19 +5075,12 @@ class BackupApi:
         retry <https://docs.aws.amazon.com/aws-backup/latest/devguide/recov-point-create-a-copy.html#backup-copy-retry>`__
         for information on how Backup retries copy job operations.
 
-        :param recovery_point_arn: An ARN that uniquely identifies a recovery point to use for the copy
-        job; for example,
-        arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45.
+        :param recovery_point_arn: An ARN that uniquely identifies a recovery point to use for the copy job; for example, arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45.
         :param source_backup_vault_name: The name of a logical source container where backups are stored.
-        :param destination_backup_vault_arn: An Amazon Resource Name (ARN) that uniquely identifies a destination
-        backup vault to copy to; for example,
-        ``arn:aws:backup:us-east-1:123456789012:backup-vault:aBackupVault``.
-        :param iam_role_arn: Specifies the IAM role ARN used to copy the target recovery point; for
-        example, ``arn:aws:iam::123456789012:role/S3Access``.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``StartCopyJob``.
-        :param lifecycle: Specifies the time period, in days, before a recovery point transitions
-        to cold storage or is deleted.
+        :param destination_backup_vault_arn: An Amazon Resource Name (ARN) that uniquely identifies a destination backup vault to copy to; for example, ``arn:aws:backup:us-east-1:123456789012:backup-vault:aBackupVault``.
+        :param iam_role_arn: Specifies the IAM role ARN used to copy the target recovery point; for example, ``arn:aws:iam::123456789012:role/S3Access``.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``StartCopyJob``.
+        :param lifecycle: Specifies the time period, in days, before a recovery point transitions to cold storage or is deleted.
         :returns: StartCopyJobOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -5363,8 +5102,7 @@ class BackupApi:
         """Starts an on-demand report job for the specified report plan.
 
         :param report_plan_name: The unique name of a report plan.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``StartReportJobInput``.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``StartReportJobInput``.
         :returns: StartReportJobOutput
         :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
@@ -5387,46 +5125,11 @@ class BackupApi:
     ) -> StartRestoreJobOutput:
         """Recovers the saved resource identified by an Amazon Resource Name (ARN).
 
-        :param recovery_point_arn: An ARN that uniquely identifies a recovery point; for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
+        :param recovery_point_arn: An ARN that uniquely identifies a recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
         :param metadata: A set of metadata key-value pairs.
-        :param iam_role_arn: The Amazon Resource Name (ARN) of the IAM role that Backup uses to
-        create the target resource; for example:
-        ``arn:aws:iam::123456789012:role/S3Access``.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``StartRestoreJob``.
-        :param resource_type: Starts a job to restore a recovery point for one of the following
-        resources:
-
-        -  ``Aurora`` - Amazon Aurora
-
-        -  ``DocumentDB`` - Amazon DocumentDB
-
-        -  ``CloudFormation`` - CloudFormation
-
-        -  ``DynamoDB`` - Amazon DynamoDB
-
-        -  ``EBS`` - Amazon Elastic Block Store
-
-        -  ``EC2`` - Amazon Elastic Compute Cloud
-
-        -  ``EFS`` - Amazon Elastic File System
-
-        -  ``FSx`` - Amazon FSx
-
-        -  ``Neptune`` - Amazon Neptune
-
-        -  ``RDS`` - Amazon Relational Database Service
-
-        -  ``Redshift`` - Amazon Redshift
-
-        -  ``Storage Gateway`` - Storage Gateway
-
-        -  ``S3`` - Amazon Simple Storage Service
-
-        -  ``Timestream`` - Amazon Timestream
-
-        -  ``VirtualMachine`` - Virtual machines.
+        :param iam_role_arn: The Amazon Resource Name (ARN) of the IAM role that Backup uses to create the target resource; for example: ``arn:aws:iam::123456789012:role/S3Access``.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``StartRestoreJob``.
+        :param resource_type: Starts a job to restore a recovery point for one of the following resources:  -  ``Aurora`` - Amazon Aurora  -  ``DocumentDB`` - Amazon DocumentDB  -  ``CloudFormation`` - CloudFormation  -  ``DynamoDB`` - Amazon DynamoDB  -  ``EBS`` - Amazon Elastic Block Store  -  ``EC2`` - Amazon Elastic Compute Cloud  -  ``EFS`` - Amazon Elastic File System  -  ``FSx`` - Amazon FSx  -  ``Neptune`` - Amazon Neptune  -  ``RDS`` - Amazon Relational Database Service  -  ``Redshift`` - Amazon Redshift  -  ``Storage Gateway`` - Storage Gateway  -  ``S3`` - Amazon Simple Storage Service  -  ``Timestream`` - Amazon Timestream  -  ``VirtualMachine`` - Virtual machines.
         :param copy_source_tags_to_restored_resource: This is an optional parameter.
         :returns: StartRestoreJobOutput
         :raises ResourceNotFoundException:
@@ -5454,16 +5157,13 @@ class BackupApi:
         """Starts scanning jobs for specific resources.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param iam_role_arn: Specifies the IAM role ARN used to create the target recovery point; for
-        example, ``arn:aws:iam::123456789012:role/S3Access``.
+        :param iam_role_arn: Specifies the IAM role ARN used to create the target recovery point; for example, ``arn:aws:iam::123456789012:role/S3Access``.
         :param malware_scanner: Specifies the malware scanner used during the scan job.
         :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point.
         :param scan_mode: Specifies the scan type use for the scan job.
         :param scanner_role_arn: Specified the IAM scanner role ARN.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``StartScanJob``.
-        :param scan_base_recovery_point_arn: An ARN that uniquely identifies the base recovery point to be used for
-        incremental scanning.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``StartScanJob``.
+        :param scan_base_recovery_point_arn: An ARN that uniquely identifies the base recovery point to be used for incremental scanning.
         :returns: StartScanJobOutput
         :raises InvalidParameterValueException:
         :raises InvalidRequestException:
@@ -5577,11 +5277,9 @@ class BackupApi:
         """Updates the specified framework.
 
         :param framework_name: The unique name of a framework.
-        :param framework_description: An optional description of the framework with a maximum 1,024
-        characters.
+        :param framework_description: An optional description of the framework with a maximum 1,024 characters.
         :param framework_controls: The controls that make up the framework.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``UpdateFrameworkInput``.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``UpdateFrameworkInput``.
         :returns: UpdateFrameworkOutput
         :raises AlreadyExistsException:
         :raises ResourceNotFoundException:
@@ -5602,9 +5300,7 @@ class BackupApi:
         Organizations management account. Use the ``DescribeGlobalSettings`` API
         to determine the current settings.
 
-        :param global_settings: Inputs can include:
-
-        A value for ``isCrossAccountBackupEnabled`` and a Region.
+        :param global_settings: Inputs can include:  A value for ``isCrossAccountBackupEnabled`` and a Region.
         :raises ServiceUnavailableException:
         :raises MissingParameterValueException:
         :raises InvalidParameterValueException:
@@ -5627,10 +5323,8 @@ class BackupApi:
         Required: BackupVaultName, RecoveryPointArn, and IAMRoleArn
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param recovery_point_arn: An ARN that uniquely identifies a recovery point; for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
-        :param index: Index can have 1 of 2 possible values, either ``ENABLED`` or
-        ``DISABLED``.
+        :param recovery_point_arn: An ARN that uniquely identifies a recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
+        :param index: Index can have 1 of 2 possible values, either ``ENABLED`` or ``DISABLED``.
         :param iam_role_arn: This specifies the IAM role ARN used for this operation.
         :returns: UpdateRecoveryPointIndexSettingsOutput
         :raises MissingParameterValueException:
@@ -5675,11 +5369,8 @@ class BackupApi:
         This operation does not support continuous backups.
 
         :param backup_vault_name: The name of a logical container where backups are stored.
-        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point;
-        for example,
-        ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
-        :param lifecycle: The lifecycle defines when a protected resource is transitioned to cold
-        storage and when it expires.
+        :param recovery_point_arn: An Amazon Resource Name (ARN) that uniquely identifies a recovery point; for example, ``arn:aws:backup:us-east-1:123456789012:recovery-point:1EB3B5E7-9EB0-435A-A80B-108B488B0D45``.
+        :param lifecycle: The lifecycle defines when a protected resource is transitioned to cold storage and when it expires.
         :returns: UpdateRecoveryPointLifecycleOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -5702,10 +5393,8 @@ class BackupApi:
         Use the ``DescribeRegionSettings`` API to determine the resource types
         that are supported.
 
-        :param resource_type_opt_in_preference: Updates the list of services along with the opt-in preferences for the
-        Region.
-        :param resource_type_management_preference: Enables or disables full Backup management of backups for a resource
-        type.
+        :param resource_type_opt_in_preference: Updates the list of services along with the opt-in preferences for the Region.
+        :param resource_type_management_preference: Enables or disables full Backup management of backups for a resource type.
         :raises ServiceUnavailableException:
         :raises MissingParameterValueException:
         :raises InvalidParameterValueException:
@@ -5726,13 +5415,10 @@ class BackupApi:
         """Updates the specified report plan.
 
         :param report_plan_name: The unique name of the report plan.
-        :param report_plan_description: An optional description of the report plan with a maximum 1,024
-        characters.
-        :param report_delivery_channel: The information about where to deliver your reports, specifically your
-        Amazon S3 bucket name, S3 key prefix, and the formats of your reports.
+        :param report_plan_description: An optional description of the report plan with a maximum 1,024 characters.
+        :param report_delivery_channel: The information about where to deliver your reports, specifically your Amazon S3 bucket name, S3 key prefix, and the formats of your reports.
         :param report_setting: The report template for the report.
-        :param idempotency_token: A customer-chosen string that you can use to distinguish between
-        otherwise identical calls to ``UpdateReportPlanInput``.
+        :param idempotency_token: A customer-chosen string that you can use to distinguish between otherwise identical calls to ``UpdateReportPlanInput``.
         :returns: UpdateReportPlanOutput
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:
@@ -5792,12 +5478,9 @@ class BackupApi:
 
         You can use either protected resource ARNs or conditions, but not both.
 
-        :param restore_testing_plan_name: The restore testing plan name is required to update the indicated
-        testing plan.
-        :param restore_testing_selection: To update your restore testing selection, you can use either protected
-        resource ARNs or conditions, but not both.
-        :param restore_testing_selection_name: The required restore testing selection name of the restore testing
-        selection you wish to update.
+        :param restore_testing_plan_name: The restore testing plan name is required to update the indicated testing plan.
+        :param restore_testing_selection: To update your restore testing selection, you can use either protected resource ARNs or conditions, but not both.
+        :param restore_testing_selection_name: The required restore testing selection name of the restore testing selection you wish to update.
         :returns: UpdateRestoreTestingSelectionOutput
         :raises ConflictException:
         :raises InvalidParameterValueException:

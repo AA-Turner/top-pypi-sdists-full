@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vlmrun
-Version: 0.5.9
+Version: 0.5.10
 Summary: Official Python SDK for VLM Run
 Author-email: VLM Support <support@vlm.com>
 License: Apache-2.0

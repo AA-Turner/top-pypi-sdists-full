@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dominodatalab
-Version: 2.0.0
+Version: 2.1.0
 Summary: Python bindings for the Domino API
 Home-page: https://github.com/dominodatalab/python-domino
-Download-URL: https://github.com/dominodatalab/python-domino/archive/Release-2.0.0.zip
+Download-URL: https://github.com/dominodatalab/python-domino/archive/Release-2.1.0.zip
 Author: Domino Data Lab
 Author-email: support@dominodatalab.com
 License: Apache Software License (Apache 2.0)
@@ -76,7 +76,7 @@ See this documentation for details about the APIs:
 
 -   [Legacy APIs](https://dominodatalab.github.io/api-docs/)
 
-The latest released version of `python-domino` is `2.0.0`.
+The latest released version of `python-domino` is `2.1.0`.
 
 # Version compatibility matrix
 
@@ -203,7 +203,7 @@ See
 # Budgets and Billing Tags
 
 See
-[`example_budget_manager.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/example_budget_manager.py)
+[`example_budget_manager.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/example_budget_manager.py)
 for example code.
 
 ### budget_defaults_list()
@@ -373,7 +373,7 @@ Requires Admin permission
 ## Projects
 
 See
-[`example_projects_usage.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/example_projects_usage.py)
+[`example_projects_usage.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/example_projects_usage.py)
 for example code.
 
 ### project_create_v4(project_name, owner_id, owner_username, description, collaborators, tags, billing_tag, visibility=PUBLIC)
@@ -431,7 +431,7 @@ project, the packages and libraries it uses, or the source of the data
 within.
 
 See
-[`example_projects_usage.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/example_projects_usage.py)
+[`example_projects_usage.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/example_projects_usage.py)
 for example code.
 
 ### tags_list(\*project_id)
@@ -475,9 +475,9 @@ Remove a tag from a project.
 
 See these code example files:
 
--   [`start_run_and_check_status.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/start_run_and_check_status.py)
+-   [`start_run_and_check_status.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/start_run_and_check_status.py)
 
--   [`export_runs.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/export_runs.py)
+-   [`export_runs.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/export_runs.py)
 
 ### runs_list()
 
@@ -561,9 +561,9 @@ Get `stdout` emitted by a particular execution.
 
 See these code example files:
 
--   [`upload_file.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/upload_file.py)
+-   [`upload_file.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/upload_file.py)
 
--   [`upload_and_run_file_and_download_results.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/upload_and_run_file_and_download_results.py)
+-   [`upload_and_run_file_and_download_results.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/upload_and_run_file_and_download_results.py)
 
 ### files_list(commitId, path)
 
@@ -620,7 +620,7 @@ Stop the running app in the project.
 
 ## Jobs
 
-### job_start(command, commit_id=None, hardware_tier_name=None, environment_id=None, on_demand_spark_cluster_properties=None, compute_cluster_properties=None, external_volume_mounts=None, title=None):
+### job_start(command, commit_id=None, hardware_tier_name=None, environment_id=None, on_demand_spark_cluster_properties=None, compute_cluster_properties=None, external_volume_mounts=None, title=None, main_repo_git_ref=None):
 
 Start a new job (execution) in the project.
 
@@ -686,6 +686,16 @@ Start a new job (execution) in the project.
 
 -   *title (string): (Optional) Title for Job.
 
+-   *main_repo_git_ref (dict):* (Optional) For git-based projects,
+    specifies the branch or tag to run from. Must contain
+    `"type"` and `"value"` keys. For example:
+
+        {"type": "branches", "value": "my-feature-branch"}
+        {"type": "tags", "value": "v1.2.3"}
+
+    If not provided, the job launches from the latest commit on the
+    default branch.
+
 ### job_stop(job_id, commit_results=True):
 
 Stop the Job (execution) in the project.
@@ -748,7 +758,7 @@ through the Domino UI or through workload executions.
 See [Domino
 Datasets](https://docs.dominodatalab.com/en/latest/user_guide/0a8d11/datasets-overview/)
 for more details, and
-[`example_dataset.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/example_dataset.py)
+[`example_dataset.py`](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/example_dataset.py)
 for example code.
 
 ### datasets_list(project_id=None)
@@ -862,7 +872,7 @@ Classes
 |----|----|
 | `DominoRun`(\[experiment_name, run_id, ...\]) | DominoRun is a context manager that starts an Mlflow run and attaches the user's Agent configuration to it, create a Logged Model with the Agent configuration, and computes summary metrics for evaluation traces made during the run. |
 
-### *class* domino.agents.logging.DominoRun(*experiment_name: str \| None = None*, *run_id: str \| None = None*, *agent_config_path: str \| None = None*, *custom_summary_metrics: list\[str, Literal\['mean', 'median', 'stdev', 'max', 'min'\]\] \| None = None*)  
+### *class* domino.agents.logging.DominoRun(*experiment_name: str \| None = None*, *run_id: str \| None = None*, *agent_config_path: str \| None = None*, *custom_summary_metrics: list\[str, Literal\['mean', 'median', 'stdev', 'max', 'min'\]\] \| None = None*)
 Bases: `object`
 
 DominoRun is a context manager that starts an Mlflow run and attaches
@@ -872,6 +882,7 @@ made during the run. Average metrics are computed by default, but the
 user can provide a custom list of evaluation metric aggregators. This is
 intended to be used in development mode for Agent evaluation. Context
 manager docs: https://docs.python.org/3/library/contextlib.html
+When running an agentic workflow, use DominoAgentContext instead to indicate the run in the context of an agent.
 
 Parallelism: DominoRun is not thread-safe. Runs in different threads
 will work correctly. This is due to Mlflow’s architecture. Parallelizing
@@ -883,10 +894,10 @@ import mlflow
 
 mlflow.set_experiment(“my_experiment”)
 
-with DominoRun():  
+with DominoRun():
 train_model()
 
-Parameters:  
+Parameters:
 - **experiment_name** – the name of the mlflow experiment to log the run
   to.
 
@@ -903,6 +914,41 @@ Parameters:
   \[(“hallucination_rate”, “max”)\]
 
 Returns: DominoRun context manager
+
+&nbsp;
+
+### *class* domino.agents.logging.DominoAgentContext(*experiment_name: str \| None = None*, *run_id: str \| None = None*, *agent_config_path: str \| None = None*, *custom_summary_metrics: list\[str, Literal\['mean', 'median', 'stdev', 'max', 'min'\]\] \| None = None*)
+Bases: `DominoRun`
+
+DominoAgentContext behaves identically to DominoRun but it is used to indicate that the run originated from an agent.
+Use DominoAgentContext instead of DominoRun when the run is part of an agentic workflow.
+
+Example
+
+import mlflow
+
+mlflow.set_experiment("my_experiment")
+
+with DominoAgentContext():
+agent.run()
+
+Parameters:
+- **experiment_name** – the name of the mlflow experiment to log the run
+  to.
+
+- **run_id** – optional, the ID of the mlflow run to continue logging
+  to. If not provided a new run will start.
+
+- **agent_config_path** – the optional path to the Agent configuration
+  file. If not provided, defaults to the DOMINO_AGENT_CONFIG_PATH
+  environment variable.
+
+- **custom_summary_metrics** – an optional list of tuples that define
+  what summary statistic to use with what evaluation metric. Valid
+  summary statistics are: "mean", "median", "stdev", "max", "min" e.g.
+  \[("hallucination_rate", "max")\]
+
+Returns: DominoAgentContext context manager
 
 &nbsp;
 
@@ -1014,7 +1060,7 @@ The child spans of this trace
 
 &nbsp;
 
-### domino.agents.tracing.add_tracing(*name: str*, *autolog_frameworks: list\[str\] \| None = \[\]*, *evaluator: Callable\[\[mlflow.entities.Span\], dict\[str, int \| float \| str\]\] \| None = None*, *trace_evaluator: Callable\[\[mlflow.entities.Trace\], dict\[str, int \| float \| str\]\] \| None = None*, *eagerly_evaluate_streamed_results: bool = True*, *allow_tracing_evaluator: bool = False*)  
+### domino.agents.tracing.add_tracing(*name: str*, *autolog_frameworks: list\[str\] \| None = \[\]*, *evaluator: Callable\[\[mlflow.entities.Span\], dict\[str, int \| float \| str\]\] \| None = None*, *trace_evaluator: Callable\[\[mlflow.entities.Trace\], dict\[str, int \| float \| str\]\] \| None = None*, *eagerly_evaluate_streamed_results: bool = True*, *span_type: str \| None = SpanType.UNKNOWN*, *attributes: dict\[str, Any\] \| None = None*)
 This is a decorator that starts an mlflow span for the function it
 decorates. If there is an existing trace a span will be appended to it.
 If there is no existing trace, a new trace will be created.
@@ -1067,6 +1113,18 @@ Parameters:
 
 - **allow_tracing_evaluator** – optional boolean, defaults to false.
   This determines if inline evaluators will be traced by mlflow autolog.
+
+- **span_type** – optional string specifying the type of span, passed
+  directly to `mlflow.start_span()`. Defaults to `SpanType.UNKNOWN`.
+  Common types from `mlflow.entities.SpanType` include LLM, AGENT,
+  TOOL, CHAIN, RETRIEVER, CHAT_MODEL, PARSER, EMBEDDING, RERANKER.
+  Consult the [MLflow documentation](https://mlflow.org/docs/latest) for more information.
+
+- **attributes** – optional dictionary of additional attributes to set
+  on the span, passed directly to `mlflow.start_span()`. These can be
+  used to attach metadata and context to the span. For example:
+  {"model": "gpt-4", "temperature": 0.7}.
+  Consult the [MLflow documentation](https://mlflow.org/docs/latest) for more information.
 
 Returns:  
 A decorator that wraps the function to be traced.
@@ -1170,7 +1228,7 @@ command:
     pip install -e git+https://github.com/dominodatalab/python-domino.git@1.0.6#egg="dominodatalab[airflow]"
 
 See also
-[example_airflow_dag.py](https://github.com/dominodatalab/python-domino/blob/Release-2.0.0/examples/example_airflow_dag.py)
+[example_airflow_dag.py](https://github.com/dominodatalab/python-domino/blob/Release-2.1.0/examples/example_airflow_dag.py)
 for example code.
 
 ## DominoOperator

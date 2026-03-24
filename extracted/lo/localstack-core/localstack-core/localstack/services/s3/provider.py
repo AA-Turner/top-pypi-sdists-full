@@ -312,7 +312,6 @@ from localstack.services.s3.utils import (
     validate_dict_fields,
     validate_failed_precondition,
     validate_kms_key_id,
-    validate_location_constraint,
     validate_tag_set,
 )
 from localstack.services.s3.validation import (
@@ -320,12 +319,14 @@ from localstack.services.s3.validation import (
     validate_acl_acp,
     validate_bucket_analytics_configuration,
     validate_bucket_intelligent_tiering_configuration,
+    validate_bucket_namespace,
     validate_canned_acl,
     validate_checksum_value,
     validate_cors_configuration,
     validate_encoding_type,
     validate_inventory_configuration,
     validate_lifecycle_configuration,
+    validate_location_constraint,
     validate_object_key,
     validate_sse_c,
     validate_website_configuration,
@@ -499,8 +500,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             )
 
         bucket_name = request["Bucket"]
-
         if not is_bucket_name_valid(bucket_name):
+            # see https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
             raise InvalidBucketName("The specified bucket is not valid.", BucketName=bucket_name)
 
         create_bucket_configuration = request.get("CreateBucketConfiguration") or {}
@@ -509,14 +510,24 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         if bucket_tags:
             validate_tag_set(bucket_tags, type_set="create-bucket")
 
+        bucket_namespace = request.get("BucketNamespace")
         location_constraint = create_bucket_configuration.get("LocationConstraint", "")
-        validate_location_constraint(context.region, location_constraint)
+        validate_location_constraint(
+            context.region, location_constraint, bucket_namespace=bucket_namespace
+        )
 
         bucket_region = location_constraint
         if not location_constraint:
             bucket_region = AWS_REGION_US_EAST_1
         if location_constraint == BucketLocationConstraint.EU:
             bucket_region = AWS_REGION_EU_WEST_1
+
+        validate_bucket_namespace(
+            bucket=bucket_name,
+            bucket_namespace=bucket_namespace,
+            account_id=context.account_id,
+            region=context.region,
+        )
 
         store = self.get_store(context.account_id, bucket_region)
 

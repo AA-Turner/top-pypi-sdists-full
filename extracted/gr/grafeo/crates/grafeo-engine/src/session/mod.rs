@@ -70,6 +70,8 @@ pub(crate) struct SessionConfig {
     pub query_timeout: Option<Duration>,
     pub commit_counter: Arc<AtomicUsize>,
     pub gc_interval: usize,
+    /// When true, the session permanently blocks all mutations.
+    pub read_only: bool,
 }
 
 /// Your handle to the database - execute queries and manage transactions.
@@ -97,6 +99,9 @@ pub struct Session {
     current_transaction: parking_lot::Mutex<Option<TransactionId>>,
     /// Whether the current transaction is read-only (blocks mutations).
     read_only_tx: parking_lot::Mutex<bool>,
+    /// Whether the database itself is read-only (set at open time, never changes).
+    /// When true, `read_only_tx` is always true regardless of transaction flags.
+    db_read_only: bool,
     /// Whether the session is in auto-commit mode.
     auto_commit: bool,
     /// Adaptive execution configuration.
@@ -189,7 +194,8 @@ impl Session {
             transaction_manager: cfg.transaction_manager,
             query_cache: cfg.query_cache,
             current_transaction: parking_lot::Mutex::new(None),
-            read_only_tx: parking_lot::Mutex::new(false),
+            read_only_tx: parking_lot::Mutex::new(cfg.read_only),
+            db_read_only: cfg.read_only,
             auto_commit: true,
             adaptive_config: cfg.adaptive_config,
             factorized_execution: cfg.factorized_execution,
@@ -273,7 +279,8 @@ impl Session {
             transaction_manager: cfg.transaction_manager,
             query_cache: cfg.query_cache,
             current_transaction: parking_lot::Mutex::new(None),
-            read_only_tx: parking_lot::Mutex::new(false),
+            read_only_tx: parking_lot::Mutex::new(cfg.read_only),
+            db_read_only: cfg.read_only,
             auto_commit: true,
             adaptive_config: cfg.adaptive_config,
             factorized_execution: cfg.factorized_execution,
@@ -2059,6 +2066,13 @@ impl Session {
             processor::QueryLanguage, translators::gql,
         };
 
+        let _span = tracing::info_span!(
+            "grafeo::session::execute",
+            language = "gql",
+            query_len = query.len(),
+        )
+        .entered();
+
         #[cfg(not(target_arch = "wasm32"))]
         let start_time = std::time::Instant::now();
 
@@ -2166,8 +2180,16 @@ impl Session {
 
             // Convert to physical plan with transaction context
             // (Physical planning cannot be cached as it depends on transaction state)
-            let planner =
-                self.create_planner_for_store(Arc::clone(&active), viewing_epoch, transaction_id);
+            // Safe to use read-only fast path when: this query has no mutations AND
+            // there is no active transaction that may have prior uncommitted writes.
+            let has_active_tx = self.current_transaction.lock().is_some();
+            let read_only = !has_mutations && !has_active_tx;
+            let planner = self.create_planner_for_store_with_read_only(
+                Arc::clone(&active),
+                viewing_epoch,
+                transaction_id,
+                read_only,
+            );
             let mut physical_plan = planner.plan(&optimized_plan)?;
 
             // Execute the plan
@@ -2212,6 +2234,30 @@ impl Session {
     pub fn execute_at_epoch(&self, query: &str, epoch: EpochId) -> Result<QueryResult> {
         let previous = self.viewing_epoch_override.lock().replace(epoch);
         let result = self.execute(query);
+        *self.viewing_epoch_override.lock() = previous;
+        result
+    }
+
+    /// Executes a GQL query at a specific epoch with optional parameters.
+    ///
+    /// Combines epoch-based time travel with parameterized queries.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing or execution fails.
+    #[cfg(feature = "gql")]
+    pub fn execute_at_epoch_with_params(
+        &self,
+        query: &str,
+        epoch: EpochId,
+        params: Option<std::collections::HashMap<String, Value>>,
+    ) -> Result<QueryResult> {
+        let previous = self.viewing_epoch_override.lock().replace(epoch);
+        let result = if let Some(p) = params {
+            self.execute_with_params(query, p)
+        } else {
+            self.execute(query)
+        };
         *self.viewing_epoch_override.lock() = previous;
         result
     }
@@ -2802,6 +2848,12 @@ impl Session {
         language: &str,
         params: Option<std::collections::HashMap<String, Value>>,
     ) -> Result<QueryResult> {
+        let _span = tracing::info_span!(
+            "grafeo::session::execute",
+            language,
+            query_len = query.len(),
+        )
+        .entered();
         match language {
             "gql" => {
                 if let Some(p) = params {
@@ -2958,6 +3010,7 @@ impl Session {
         read_only: bool,
         isolation_level: Option<crate::transaction::IsolationLevel>,
     ) -> Result<()> {
+        let _span = tracing::debug_span!("grafeo::tx::begin", read_only).entered();
         let mut current = self.current_transaction.lock();
         if current.is_some() {
             // Nested transaction: create an auto-savepoint instead of a new tx.
@@ -2980,7 +3033,7 @@ impl Session {
             self.transaction_manager.begin()
         };
         *current = Some(transaction_id);
-        *self.read_only_tx.lock() = read_only;
+        *self.read_only_tx.lock() = read_only || self.db_read_only;
 
         // Record the initial graph as "touched" for cross-graph atomicity.
         // Uses the full storage key (schema/graph) for schema-scoped resolution.
@@ -3014,6 +3067,7 @@ impl Session {
 
     /// Core commit logic, usable from both `&mut self` and `&self` paths.
     fn commit_inner(&self) -> Result<()> {
+        let _span = tracing::debug_span!("grafeo::tx::commit").entered();
         // Nested transaction: release the auto-savepoint (changes are preserved).
         {
             let mut depth = self.transaction_nesting_depth.lock();
@@ -3046,7 +3100,7 @@ impl Session {
                 }
                 #[cfg(feature = "rdf")]
                 self.rollback_rdf_transaction(transaction_id);
-                *self.read_only_tx.lock() = false;
+                *self.read_only_tx.lock() = self.db_read_only;
                 self.savepoints.lock().clear();
                 self.touched_graphs.lock().clear();
                 #[cfg(feature = "metrics")]
@@ -3091,7 +3145,7 @@ impl Session {
         }
 
         // Reset read-only flag, clear savepoints and touched graphs
-        *self.read_only_tx.lock() = false;
+        *self.read_only_tx.lock() = self.db_read_only;
         self.savepoints.lock().clear();
         self.touched_graphs.lock().clear();
 
@@ -3153,6 +3207,7 @@ impl Session {
 
     /// Core rollback logic, usable from both `&mut self` and `&self` paths.
     fn rollback_inner(&self) -> Result<()> {
+        let _span = tracing::debug_span!("grafeo::tx::rollback").entered();
         // Nested transaction: rollback to the auto-savepoint.
         {
             let mut depth = self.transaction_nesting_depth.lock();
@@ -3173,7 +3228,7 @@ impl Session {
         })?;
 
         // Reset read-only flag
-        *self.read_only_tx.lock() = false;
+        *self.read_only_tx.lock() = self.db_read_only;
 
         // Discard uncommitted versions in ALL touched LPG stores (cross-graph atomicity).
         let touched = self.touched_graphs.lock().clone();
@@ -3594,6 +3649,16 @@ impl Session {
         viewing_epoch: EpochId,
         transaction_id: Option<TransactionId>,
     ) -> crate::query::Planner {
+        self.create_planner_for_store_with_read_only(store, viewing_epoch, transaction_id, false)
+    }
+
+    fn create_planner_for_store_with_read_only(
+        &self,
+        store: Arc<dyn GraphStoreMut>,
+        viewing_epoch: EpochId,
+        transaction_id: Option<TransactionId>,
+        read_only: bool,
+    ) -> crate::query::Planner {
         use crate::query::Planner;
         use grafeo_core::execution::operators::{LazyValue, SessionContext};
 
@@ -3616,7 +3681,8 @@ impl Session {
         )
         .with_factorized_execution(self.factorized_execution)
         .with_catalog(Arc::clone(&self.catalog))
-        .with_session_context(session_context);
+        .with_session_context(session_context)
+        .with_read_only(read_only);
 
         // Attach the constraint validator for schema enforcement
         let validator =

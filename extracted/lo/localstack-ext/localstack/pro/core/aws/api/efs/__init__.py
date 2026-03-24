@@ -1066,15 +1066,11 @@ class EfsApi:
         more information, see `Granting permissions to tag resources during
         creation <https://docs.aws.amazon.com/efs/latest/ug/using-tags-efs.html#supported-iam-actions-tagging.html>`__.
 
-        :param client_token: A string of up to 64 ASCII characters that Amazon EFS uses to ensure
-        idempotent creation.
+        :param client_token: A string of up to 64 ASCII characters that Amazon EFS uses to ensure idempotent creation.
         :param file_system_id: The ID of the EFS file system that the access point provides access to.
         :param tags: Creates tags associated with the access point.
-        :param posix_user: The operating system user and group applied to all file system requests
-        made using the access point.
-        :param root_directory: Specifies the directory on the EFS file system that the access point
-        exposes as the root directory of your file system to NFS clients using
-        the access point.
+        :param posix_user: The operating system user and group applied to all file system requests made using the access point.
+        :param root_directory: Specifies the directory on the EFS file system that the access point exposes as the root directory of your file system to NFS clients using the access point.
         :returns: AccessPointDescription
         :raises BadRequest:
         :raises AccessPointAlreadyExists:
@@ -1174,15 +1170,11 @@ class EfsApi:
         :param creation_token: A string of up to 64 ASCII characters.
         :param performance_mode: The performance mode of the file system.
         :param encrypted: A Boolean value that, if true, creates an encrypted file system.
-        :param kms_key_id: The ID of the KMS key that you want to use to protect the encrypted file
-        system.
+        :param kms_key_id: The ID of the KMS key that you want to use to protect the encrypted file system.
         :param throughput_mode: Specifies the throughput mode for the file system.
-        :param provisioned_throughput_in_mibps: The throughput, measured in mebibytes per second (MiBps), that you want
-        to provision for a file system that you're creating.
-        :param availability_zone_name: For One Zone file systems, specify the Amazon Web Services Availability
-        Zone in which to create the file system.
-        :param backup: Specifies whether automatic backups are enabled on the file system that
-        you are creating.
+        :param provisioned_throughput_in_mibps: The throughput, measured in mebibytes per second (MiBps), that you want to provision for a file system that you're creating.
+        :param availability_zone_name: For One Zone file systems, specify the Amazon Web Services Availability Zone in which to create the file system.
+        :param backup: Specifies whether automatic backups are enabled on the file system that you are creating.
         :param tags: Use to create one or more tags associated with the file system.
         :returns: FileSystemDescription
         :raises BadRequest:
@@ -1329,10 +1321,8 @@ class EfsApi:
 
         :param file_system_id: The ID of the file system for which to create the mount target.
         :param subnet_id: The ID of the subnet to add the mount target in.
-        :param ip_address: If the IP address type for the mount target is IPv4, then specify the
-        IPv4 address within the address range of the specified subnet.
-        :param ipv6_address: If the IP address type for the mount target is IPv6, then specify the
-        IPv6 address within the address range of the specified subnet.
+        :param ip_address: If the IP address type for the mount target is IPv4, then specify the IPv4 address within the address range of the specified subnet.
+        :param ipv6_address: If the IP address type for the mount target is IPv6, then specify the IPv6 address within the address range of the specified subnet.
         :param ip_address_type: Specify the type of IP address of the mount target you are creating.
         :param security_groups: VPC security group IDs, of the form ``sg-xxxxxxxx``.
         :returns: MountTargetDescription
@@ -1499,8 +1489,7 @@ class EfsApi:
         This operation requires permissions for the
         ``elasticfilesystem:DeleteFileSystemPolicy`` action.
 
-        :param file_system_id: Specifies the EFS file system for which to delete the
-        ``FileSystemPolicy``.
+        :param file_system_id: Specifies the EFS file system for which to delete the ``FileSystemPolicy``.
         :raises BadRequest:
         :raises InternalServerError:
         :raises FileSystemNotFound:
@@ -1566,10 +1555,7 @@ class EfsApi:
         ``elasticfilesystem:DeleteReplicationConfiguration`` action.
 
         :param source_file_system_id: The ID of the source file system in the replication configuration.
-        :param deletion_mode: When replicating across Amazon Web Services accounts or across Amazon
-        Web Services Regions, Amazon EFS deletes the replication configuration
-        from both the source and destination account or Region
-        (``ALL_CONFIGURATIONS``) by default.
+        :param deletion_mode: When replicating across Amazon Web Services accounts or across Amazon Web Services Regions, Amazon EFS deletes the replication configuration from both the source and destination account or Region (``ALL_CONFIGURATIONS``) by default.
         :raises BadRequest:
         :raises InternalServerError:
         :raises FileSystemNotFound:
@@ -1621,14 +1607,10 @@ class EfsApi:
         This operation requires permissions for the
         ``elasticfilesystem:DescribeAccessPoints`` action.
 
-        :param max_results: (Optional) When retrieving all access points for a file system, you can
-        optionally specify the ``MaxItems`` parameter to limit the number of
-        objects returned in a response.
+        :param max_results: (Optional) When retrieving all access points for a file system, you can optionally specify the ``MaxItems`` parameter to limit the number of objects returned in a response.
         :param next_token: ``NextToken`` is present if the response is paginated.
-        :param access_point_id: (Optional) Specifies an EFS access point to describe in the response;
-        mutually exclusive with ``FileSystemId``.
-        :param file_system_id: (Optional) If you provide a ``FileSystemId``, EFS returns all access
-        points for that file system; mutually exclusive with ``AccessPointId``.
+        :param access_point_id: (Optional) Specifies an EFS access point to describe in the response; mutually exclusive with ``FileSystemId``.
+        :param file_system_id: (Optional) If you provide a ``FileSystemId``, EFS returns all access points for that file system; mutually exclusive with ``AccessPointId``.
         :returns: DescribeAccessPointsResponse
         :raises BadRequest:
         :raises InternalServerError:
@@ -1649,12 +1631,8 @@ class EfsApi:
         account associated with the user making the request, in the current
         Amazon Web Services Region.
 
-        :param next_token: (Optional) You can use ``NextToken`` in a subsequent request to fetch
-        the next page of Amazon Web Services account preferences if the response
-        payload was paginated.
-        :param max_results: (Optional) When retrieving account preferences, you can optionally
-        specify the ``MaxItems`` parameter to limit the number of objects
-        returned in a response.
+        :param next_token: (Optional) You can use ``NextToken`` in a subsequent request to fetch the next page of Amazon Web Services account preferences if the response payload was paginated.
+        :param max_results: (Optional) When retrieving account preferences, you can optionally specify the ``MaxItems`` parameter to limit the number of objects returned in a response.
         :returns: DescribeAccountPreferencesResponse
         :raises InternalServerError:
         """
@@ -1666,8 +1644,7 @@ class EfsApi:
     ) -> BackupPolicyDescription:
         """Returns the backup policy for the specified EFS file system.
 
-        :param file_system_id: Specifies which EFS file system for which to retrieve the
-        ``BackupPolicy``.
+        :param file_system_id: Specifies which EFS file system for which to retrieve the ``BackupPolicy``.
         :returns: BackupPolicyDescription
         :raises BadRequest:
         :raises FileSystemNotFound:
@@ -1686,8 +1663,7 @@ class EfsApi:
         This operation requires permissions for the
         ``elasticfilesystem:DescribeFileSystemPolicy`` action.
 
-        :param file_system_id: Specifies which EFS file system to retrieve the ``FileSystemPolicy``
-        for.
+        :param file_system_id: Specifies which EFS file system to retrieve the ``FileSystemPolicy`` for.
         :returns: FileSystemPolicyDescription
         :raises BadRequest:
         :raises InternalServerError:
@@ -1733,14 +1709,10 @@ class EfsApi:
         This operation requires permissions for the
         ``elasticfilesystem:DescribeFileSystems`` action.
 
-        :param max_items: (Optional) Specifies the maximum number of file systems to return in the
-        response (integer).
-        :param marker: (Optional) Opaque pagination token returned from a previous
-        ``DescribeFileSystems`` operation (String).
-        :param creation_token: (Optional) Restricts the list to the file system with this creation
-        token (String).
-        :param file_system_id: (Optional) ID of the file system whose description you want to retrieve
-        (String).
+        :param max_items: (Optional) Specifies the maximum number of file systems to return in the response (integer).
+        :param marker: (Optional) Opaque pagination token returned from a previous ``DescribeFileSystems`` operation (String).
+        :param creation_token: (Optional) Restricts the list to the file system with this creation token (String).
+        :param file_system_id: (Optional) ID of the file system whose description you want to retrieve (String).
         :returns: DescribeFileSystemsResponse
         :raises BadRequest:
         :raises InternalServerError:
@@ -1761,8 +1733,7 @@ class EfsApi:
         This operation requires permissions for the
         ``elasticfilesystem:DescribeLifecycleConfiguration`` operation.
 
-        :param file_system_id: The ID of the file system whose ``LifecycleConfiguration`` object you
-        want to retrieve (String).
+        :param file_system_id: The ID of the file system whose ``LifecycleConfiguration`` object you want to retrieve (String).
         :returns: LifecycleConfigurationDescription
         :raises InternalServerError:
         :raises BadRequest:
@@ -1818,14 +1789,10 @@ class EfsApi:
         the mount target that you specify in ``MountTargetId``.
 
         :param max_items: (Optional) Maximum number of mount targets to return in the response.
-        :param marker: (Optional) Opaque pagination token returned from a previous
-        ``DescribeMountTargets`` operation (String).
-        :param file_system_id: (Optional) ID of the file system whose mount targets you want to list
-        (String).
-        :param mount_target_id: (Optional) ID of the mount target that you want to have described
-        (String).
-        :param access_point_id: (Optional) The ID of the access point whose mount targets that you want
-        to list.
+        :param marker: (Optional) Opaque pagination token returned from a previous ``DescribeMountTargets`` operation (String).
+        :param file_system_id: (Optional) ID of the file system whose mount targets you want to list (String).
+        :param mount_target_id: (Optional) ID of the mount target that you want to have described (String).
+        :param access_point_id: (Optional) The ID of the access point whose mount targets that you want to list.
         :returns: DescribeMountTargetsResponse
         :raises BadRequest:
         :raises InternalServerError:
@@ -1849,11 +1816,9 @@ class EfsApi:
         the Amazon Web Services account in an Amazon Web Services Region are
         retrieved.
 
-        :param file_system_id: You can retrieve the replication configuration for a specific file
-        system by providing its file system ID.
+        :param file_system_id: You can retrieve the replication configuration for a specific file system by providing its file system ID.
         :param next_token: ``NextToken`` is present if the response is paginated.
-        :param max_results: (Optional) To limit the number of objects returned in a response, you
-        can specify the ``MaxItems`` parameter.
+        :param max_results: (Optional) To limit the number of objects returned in a response, you can specify the ``MaxItems`` parameter.
         :returns: DescribeReplicationConfigurationsResponse
         :raises BadRequest:
         :raises FileSystemNotFound:
@@ -1885,10 +1850,8 @@ class EfsApi:
         ``elasticfilesystem:DescribeTags`` action.
 
         :param file_system_id: The ID of the file system whose tag set you want to retrieve.
-        :param max_items: (Optional) The maximum number of file system tags to return in the
-        response.
-        :param marker: (Optional) An opaque pagination token returned from a previous
-        ``DescribeTags`` operation (String).
+        :param max_items: (Optional) The maximum number of file system tags to return in the response.
+        :param marker: (Optional) An opaque pagination token returned from a previous ``DescribeTags`` operation (String).
         :returns: DescribeTagsResponse
         :raises BadRequest:
         :raises InternalServerError:
@@ -1912,11 +1875,8 @@ class EfsApi:
         ``elasticfilesystem:DescribeAccessPoints`` action.
 
         :param resource_id: Specifies the EFS resource you want to retrieve tags for.
-        :param max_results: (Optional) Specifies the maximum number of tag objects to return in the
-        response.
-        :param next_token: (Optional) You can use ``NextToken`` in a subsequent request to fetch
-        the next page of access point descriptions if the response payload was
-        paginated.
+        :param max_results: (Optional) Specifies the maximum number of tag objects to return in the response.
+        :param next_token: (Optional) You can use ``NextToken`` in a subsequent request to fetch the next page of access point descriptions if the response payload was paginated.
         :returns: ListTagsForResourceResponse
         :raises BadRequest:
         :raises InternalServerError:
@@ -1980,9 +1940,7 @@ class EfsApi:
         Contact Amazon Web Services support if you receive an error and must use
         short IDs for file system and mount target resources.
 
-        :param resource_id_type: Specifies the EFS resource ID preference to set for the user's Amazon
-        Web Services account, in the current Amazon Web Services Region, either
-        ``LONG_ID`` (17 characters), or ``SHORT_ID`` (8 characters).
+        :param resource_id_type: Specifies the EFS resource ID preference to set for the user's Amazon Web Services account, in the current Amazon Web Services Region, either ``LONG_ID`` (17 characters), or ``SHORT_ID`` (8 characters).
         :returns: PutAccountPreferencesResponse
         :raises BadRequest:
         :raises InternalServerError:
@@ -2035,11 +1993,9 @@ class EfsApi:
         This operation requires permissions for the
         ``elasticfilesystem:PutFileSystemPolicy`` action.
 
-        :param file_system_id: The ID of the EFS file system that you want to create or update the
-        ``FileSystemPolicy`` for.
+        :param file_system_id: The ID of the EFS file system that you want to create or update the ``FileSystemPolicy`` for.
         :param policy: The ``FileSystemPolicy`` that you're creating.
-        :param bypass_policy_lockout_safety_check: (Optional) A boolean that specifies whether or not to bypass the
-        ``FileSystemPolicy`` lockout safety check.
+        :param bypass_policy_lockout_safety_check: (Optional) A boolean that specifies whether or not to bypass the ``FileSystemPolicy`` lockout safety check.
         :returns: FileSystemPolicyDescription
         :raises BadRequest:
         :raises InternalServerError:
@@ -2110,10 +2066,8 @@ class EfsApi:
         system, you need the same Key Management Service permissions as when you
         created the encrypted file system.
 
-        :param file_system_id: The ID of the file system for which you are creating the
-        ``LifecycleConfiguration`` object (String).
-        :param lifecycle_policies: An array of ``LifecyclePolicy`` objects that define the file system's
-        ``LifecycleConfiguration`` object.
+        :param file_system_id: The ID of the file system for which you are creating the ``LifecycleConfiguration`` object (String).
+        :param lifecycle_policies: An array of ``LifecyclePolicy`` objects that define the file system's ``LifecycleConfiguration`` object.
         :returns: LifecycleConfigurationDescription
         :raises BadRequest:
         :raises InternalServerError:
@@ -2152,8 +2106,7 @@ class EfsApi:
         ``elasticfilesystem:UntagResource`` action.
 
         :param resource_id: Specifies the EFS resource that you want to remove tags from.
-        :param tag_keys: The keys of the key-value tag pairs that you want to remove from the
-        specified EFS resource.
+        :param tag_keys: The keys of the key-value tag pairs that you want to remove from the specified EFS resource.
         :raises BadRequest:
         :raises InternalServerError:
         :raises FileSystemNotFound:
@@ -2175,8 +2128,7 @@ class EfsApi:
 
         :param file_system_id: The ID of the file system that you want to update.
         :param throughput_mode: (Optional) Updates the file system's throughput mode.
-        :param provisioned_throughput_in_mibps: (Optional) The throughput, measured in mebibytes per second (MiBps),
-        that you want to provision for a file system that you're creating.
+        :param provisioned_throughput_in_mibps: (Optional) The throughput, measured in mebibytes per second (MiBps), that you want to provision for a file system that you're creating.
         :returns: FileSystemDescription
         :raises BadRequest:
         :raises FileSystemNotFound:

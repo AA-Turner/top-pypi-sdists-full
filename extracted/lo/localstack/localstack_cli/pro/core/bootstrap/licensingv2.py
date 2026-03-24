@@ -69,7 +69,7 @@ class LicensingError(Exception):
 
             - Please check that your credentials are set up correctly and that you have an active license.
               You can find your credentials in our webapp at https://app.localstack.cloud.
-            - If you want to continue using LocalStack without pro features you can set `ACTIVATE_PRO=0`.
+            - If you want to continue using LocalStack without pro features, set `LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT=1` during the grace period.
             """
         )
 

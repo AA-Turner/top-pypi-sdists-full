@@ -15,7 +15,7 @@ _C=False
 _B=True
 _A=None
 import base64,binascii,copy,dataclasses,hashlib,hmac,json,logging,os,platform,re,textwrap,threading
-from datetime import datetime,timezone
+from datetime import UTC,datetime
 from enum import Enum
 from json import JSONDecodeError,JSONEncoder
 from pathlib import PurePosixPath
@@ -166,7 +166,7 @@ class AESLicenseV1SecretDecoder(LicenseSecretDecoder):
 class LicenseV1ClientBase(LicensingClient):
 	def validate_license(D,credentials:Credentials,license:LicenseV1):
 		try:
-			A=datetime.now(tz=timezone.utc)
+			A=datetime.now(tz=UTC)
 			if license.expiry_date<A:raise LicenseExpiredError()
 			if license.license_status!=LicenseStatus.ACTIVE:raise LicenseStatusError(f"expected license to be ACTIVE, was {license.license_status}")
 			if license.reactivate_after<A:raise LicenseStaleError(license)

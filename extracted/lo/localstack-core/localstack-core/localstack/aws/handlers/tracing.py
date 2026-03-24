@@ -9,6 +9,8 @@ class TraceContextParser(Handler):
     A handler that parses trace context headers, including:
     * AWS X-Ray trace header: https://docs.aws.amazon.com/xray/latest/devguide/xray-concepts.html#xray-concepts-tracingheader
       X-Amzn-Trace-Id: Root=1-5759e988-bd862e3fe1be46a994272793;Sampled=1;Lineage=a87bd80c:1|68fd508a:5|c512fbe3:2
+    * AWS request id header: https://http.dev/x-amz-request-id
+      X-Amz-Request-Id: 6479de2e-44d0-47c9-ac32-4d720d411eb1
     """
 
     def __call__(self, chain: HandlerChain, context: RequestContext, response: Response):
@@ -21,3 +23,8 @@ class TraceContextParser(Handler):
         context.trace_context["aws_trace_header"] = aws_trace_header
         # NOTE: X-Ray sampling might require service-specific decisions:
         #  https://docs.aws.amazon.com/xray/latest/devguide/xray-console-sampling.html
+
+        # Allows retaining a request id for cross-service calls. For example, Lambda event invokes must retain the same
+        # AWS request id for retries and this mechanism enables LocalStack-internal lambda.Invoke calls to do that.
+        if request_id := context.request.headers.get("X-Amz-Request-Id"):
+            context.request_id = request_id

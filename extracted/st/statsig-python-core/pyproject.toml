@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "statsig_python_core"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -21,7 +21,7 @@ changelog = "https://github.com/statsig-io/statsig-server-core/releases"
 
 
 [tool.maturin]
-features = ["pyo3/extension-module", "pyo3/abi3-py37"]
-python-source = "py_src"
+features = ["pyo3/extension-module", "pyo3/abi3-py310"]
 include = ["statsig_python_core.pyi"]
 manifest-path = "statsig-pyo3/Cargo.toml"
+python-source = "py_src"

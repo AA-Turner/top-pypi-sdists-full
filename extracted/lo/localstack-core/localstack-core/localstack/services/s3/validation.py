@@ -1,10 +1,12 @@
 import base64
 import datetime
 import hashlib
+import re
 from zoneinfo import ZoneInfo
 
 from botocore.utils import InvalidArnException
 
+from localstack import config
 from localstack.aws.api import CommonServiceException
 from localstack.aws.api.s3 import (
     AccessControlPolicy,
@@ -13,6 +15,7 @@ from localstack.aws.api.s3 import (
     BucketCannedACL,
     BucketLifecycleConfiguration,
     BucketName,
+    BucketNamespace,
     ChecksumAlgorithm,
     CORSConfiguration,
     EncodingType,
@@ -22,11 +25,14 @@ from localstack.aws.api.s3 import (
     IntelligentTieringConfiguration,
     IntelligentTieringId,
     InvalidArgument,
-    InvalidBucketName,
+    InvalidBucketNamespace,
     InvalidEncryptionAlgorithmError,
+    InvalidLocationConstraint,
+    InvalidNamespaceHeader,
     InventoryConfiguration,
     InventoryId,
     KeyTooLongError,
+    MissingNamespaceHeader,
     ObjectCannedACL,
     Permission,
     ServerSideEncryption,
@@ -36,17 +42,24 @@ from localstack.aws.api.s3 import (
     WebsiteConfiguration,
 )
 from localstack.aws.api.s3 import Type as GranteeType
+from localstack.constants import AWS_REGION_EU_WEST_1, AWS_REGION_US_EAST_1
 from localstack.services.s3 import constants as s3_constants
-from localstack.services.s3.exceptions import InvalidRequest, MalformedACLError, MalformedXML
+from localstack.services.s3.exceptions import (
+    IllegalLocationConstraintException,
+    InvalidRequest,
+    MalformedACLError,
+    MalformedXML,
+)
 from localstack.services.s3.utils import (
     get_class_attrs_from_spec_class,
     get_permission_header_name,
-    is_bucket_name_valid,
     is_valid_canonical_id,
     validate_dict_fields,
 )
 from localstack.utils.aws import arns
 from localstack.utils.strings import to_bytes
+
+BUCKET_NAMESPACE_REGEX = re.compile(r"^.+-(?P<accountId>\d{12})-(?P<region>.+)-an$")
 
 # https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl
 # bucket-owner-read + bucket-owner-full-control are allowed, but ignored for buckets
@@ -73,13 +86,55 @@ def validate_bucket_intelligent_tiering_configuration(
         )
 
 
-def validate_bucket_name(bucket: BucketName) -> None:
+def validate_bucket_namespace(
+    bucket: BucketName,
+    bucket_namespace: BucketNamespace | None,
+    account_id: str,
+    region: str,
+) -> None:
     """
-    Validate s3 bucket name based on the documentation
-    ref. https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
+    Validate the S3 bucket namespace, based on its name and `x-amz-bucket-namespace` input
+    ref. https://docs.aws.amazon.com/AmazonS3/latest/userguide/gpbucketnamespaces.html
     """
-    if not is_bucket_name_valid(bucket_name=bucket):
-        raise InvalidBucketName("The specified bucket is not valid.", BucketName=bucket)
+    if bucket_namespace not in (None, BucketNamespace.global_, BucketNamespace.account_regional):
+        raise InvalidNamespaceHeader(
+            "The x-amz-bucket-namespace header value random-value is not valid. Only account-regional or global is supported.",
+            Header="x-amz-bucket-namespace",
+            HeaderValue=bucket_namespace,
+        )
+
+    if bucket.endswith("-an"):
+        if not bucket_namespace:
+            raise MissingNamespaceHeader(
+                "The requested bucket is an account-regional namespace bucket, but your request is missing the required x-amz-bucket-namespace header.",
+                Header="x-amz-bucket-namespace",
+            )
+        elif bucket_namespace != BucketNamespace.account_regional:
+            raise InvalidNamespaceHeader(
+                "The requested bucket is an account-regional namespace bucket, but the provided x-amz-bucket-namespace header value is global. "
+                "If you want to create an account-regional namespace bucket, set your x-amz-bucket-namespace header to account-regional.",
+                Header=bucket_namespace,
+                HeaderValue=bucket,
+            )
+
+    if bucket_namespace == BucketNamespace.account_regional:
+        parts = BUCKET_NAMESPACE_REGEX.match(bucket)
+        if not parts:
+            raise InvalidNamespaceHeader(
+                "The requested bucket name did not include the account-regional namespace suffix, but the provided x-amz-bucket-namespace header value is account-regional. Specify -[accountId]-[region]-an as the bucket name suffix to create a bucket in your account-regional namespace, or remove the header.",
+                Header=bucket,
+            )
+
+        if (ns_account_id := parts.group("accountId")) != account_id:
+            raise InvalidBucketNamespace(
+                f"The requested bucket is an account-regional namespace bucket, but the requested AWS Account ID '{ns_account_id}' does not match the caller's AWS Account ID '{account_id}'. Specify the caller's AWS Account ID in the bucket name.",
+                BucketNamespace=bucket,
+            )
+        if (ns_region := parts.group("region")) != region:
+            raise InvalidBucketNamespace(
+                f"The requested bucket is an account-regional namespace bucket, but the requested region '{ns_region}' does not match the current region '{region}'. Specify the targeted region in the bucket name.",
+                BucketNamespace=bucket,
+            )
 
 
 def validate_canned_acl(canned_acl: str) -> None:
@@ -526,3 +581,32 @@ def validate_encoding_type(encoding_type: EncodingType):
             ArgumentName="encoding-type",
             ArgumentValue=encoding_type,
         )
+
+
+def validate_location_constraint(
+    context_region: str, location_constraint: str, bucket_namespace: BucketNamespace
+) -> None:
+    if location_constraint:
+        if context_region == AWS_REGION_US_EAST_1:
+            if (
+                not config.ALLOW_NONSTANDARD_REGIONS
+                and location_constraint not in s3_constants.BUCKET_LOCATION_CONSTRAINTS
+            ):
+                raise InvalidLocationConstraint(
+                    "The specified location-constraint is not valid",
+                    LocationConstraint=location_constraint,
+                )
+            if bucket_namespace == BucketNamespace.account_regional:
+                raise InvalidLocationConstraint(
+                    "The specified location-constraint is not valid with account-regional namespace buckets in this region",
+                    LocationConstraint=location_constraint,
+                )
+
+        elif context_region == AWS_REGION_EU_WEST_1:
+            if location_constraint not in s3_constants.EU_WEST_1_LOCATION_CONSTRAINTS:
+                raise IllegalLocationConstraintException(location_constraint)
+        elif context_region != location_constraint:
+            raise IllegalLocationConstraintException(location_constraint)
+    else:
+        if context_region != AWS_REGION_US_EAST_1:
+            raise IllegalLocationConstraintException("unspecified")

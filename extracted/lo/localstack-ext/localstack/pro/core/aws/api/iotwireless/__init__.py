@@ -3428,8 +3428,7 @@ class IotwirelessApi:
         :param lo_ra_wan: The device profile information to use to create the device profile.
         :param tags: The tags to attach to the new device profile.
         :param client_request_token: Each resource must have a unique client request token.
-        :param sidewalk: The Sidewalk-related information for creating the Sidewalk device
-        profile.
+        :param sidewalk: The Sidewalk-related information for creating the Sidewalk device profile.
         :returns: CreateDeviceProfileResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -3458,8 +3457,7 @@ class IotwirelessApi:
     ) -> CreateFuotaTaskResponse:
         """Creates a FUOTA task.
 
-        :param firmware_update_image: The S3 URI points to a firmware update image that is to be used with a
-        FUOTA task.
+        :param firmware_update_image: The S3 URI points to a firmware update image that is to be used with a FUOTA task.
         :param firmware_update_role: The firmware update role that is to be used with a FUOTA task.
         :param name: The name of a FUOTA task.
         :param description: The description of the new resource.
@@ -3468,10 +3466,8 @@ class IotwirelessApi:
         :param tags: The tag to attach to the specified resource.
         :param redundancy_percent: The percentage of the added fragments that are redundant.
         :param fragment_size_bytes: The size of each fragment in bytes.
-        :param fragment_interval_ms: The interval for sending fragments in milliseconds, rounded to the
-        nearest second.
-        :param descriptor: The descriptor is the metadata about the file that is transferred to the
-        device using FUOTA, such as the software version.
+        :param fragment_interval_ms: The interval for sending fragments in milliseconds, rounded to the nearest second.
+        :param descriptor: The descriptor is the metadata about the file that is transferred to the device using FUOTA, such as the software version.
         :returns: CreateFuotaTaskResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -3580,13 +3576,10 @@ class IotwirelessApi:
         :param name: The name of the new resource.
         :param description: The description of the new resource.
         :param client_request_token: Each resource must have a unique client request token.
-        :param lo_ra_wan: The device configuration information to use to create the wireless
-        device.
+        :param lo_ra_wan: The device configuration information to use to create the wireless device.
         :param tags: The tags to attach to the new wireless device.
-        :param positioning: The integration status of the Device Location feature for LoRaWAN and
-        Sidewalk devices.
-        :param sidewalk: The device configuration information to use to create the Sidewalk
-        device.
+        :param positioning: The integration status of the Device Location feature for LoRaWAN and Sidewalk devices.
+        :param sidewalk: The device configuration information to use to create the Sidewalk device.
         :returns: CreateWirelessDeviceResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -3621,8 +3614,7 @@ class IotwirelessApi:
         To avoid this error, make sure that you use unique identifiers and
         parameters for each request within the specified time period.
 
-        :param lo_ra_wan: The gateway configuration information to use to create the wireless
-        gateway.
+        :param lo_ra_wan: The gateway configuration information to use to create the wireless gateway.
         :param name: The name of the new resource.
         :param description: The description of the new resource.
         :param tags: The tags to attach to the new wireless gateway.
@@ -3671,8 +3663,7 @@ class IotwirelessApi:
     ) -> CreateWirelessGatewayTaskDefinitionResponse:
         """Creates a gateway task definition.
 
-        :param auto_create_tasks: Whether to automatically create tasks using this task definition for all
-        gateways with the specified current version.
+        :param auto_create_tasks: Whether to automatically create tasks using this task definition for all gateways with the specified current version.
         :param name: The name of the new resource.
         :param update: Information about the gateways to update.
         :param client_request_token: Each resource must have a unique client request token.
@@ -3785,10 +3776,8 @@ class IotwirelessApi:
     ) -> DeleteQueuedMessagesResponse:
         """Remove queued messages from the downlink queue.
 
-        :param id: The ID of a given wireless device for which downlink messages will be
-        deleted.
-        :param message_id: If message ID is ``"*"``, it cleares the entire downlink queue for a
-        given device, specified by the wireless device ID.
+        :param id: The ID of a given wireless device for which downlink messages will be deleted.
+        :param message_id: If message ID is ``"*"``, it cleares the entire downlink queue for a given device, specified by the wireless device ID.
         :param wireless_device_type: The wireless device type, which can be either Sidewalk or LoRaWAN.
         :returns: DeleteQueuedMessagesResponse
         :raises ValidationException:
@@ -3919,10 +3908,8 @@ class IotwirelessApi:
     ) -> DeregisterWirelessDeviceResponse:
         """Deregister a wireless device from AWS IoT Wireless.
 
-        :param identifier: The identifier of the wireless device to deregister from AWS IoT
-        Wireless.
-        :param wireless_device_type: The type of wireless device to deregister from AWS IoT Wireless, which
-        can be ``LoRaWAN`` or ``Sidewalk``.
+        :param identifier: The identifier of the wireless device to deregister from AWS IoT Wireless.
+        :param wireless_device_type: The type of wireless device to deregister from AWS IoT Wireless, which can be ``LoRaWAN`` or ``Sidewalk``.
         :returns: DeregisterWirelessDeviceResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -4270,8 +4257,7 @@ class IotwirelessApi:
         API operation instead.
 
         :param resource_identifier: Resource identifier used to retrieve the position information.
-        :param resource_type: Resource type of the resource for which position information is
-        retrieved.
+        :param resource_type: Resource type of the resource for which position information is retrieved.
         :returns: GetPositionResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4297,8 +4283,7 @@ class IotwirelessApi:
         API operation instead.
 
         :param resource_identifier: Resource identifier used in a position configuration.
-        :param resource_type: Resource type of the resource for which position configuration is
-        retrieved.
+        :param resource_type: Resource type of the resource for which position configuration is retrieved.
         :returns: GetPositionConfigurationResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4323,16 +4308,11 @@ class IotwirelessApi:
         payload measurement data is resolved using solvers that are provided by
         third-party vendors.
 
-        :param wi_fi_access_points: Retrieves an estimated device position by resolving WLAN measurement
-        data.
-        :param cell_towers: Retrieves an estimated device position by resolving measurement data
-        from cellular radio towers.
-        :param ip: Retrieves an estimated device position by resolving the IP address
-        information from the device.
-        :param gnss: Retrieves an estimated device position by resolving the global
-        navigation satellite system (GNSS) scan data.
-        :param timestamp: Optional information that specifies the time when the position
-        information will be resolved.
+        :param wi_fi_access_points: Retrieves an estimated device position by resolving WLAN measurement data.
+        :param cell_towers: Retrieves an estimated device position by resolving measurement data from cellular radio towers.
+        :param ip: Retrieves an estimated device position by resolving the IP address information from the device.
+        :param gnss: Retrieves an estimated device position by resolving the global navigation satellite system (GNSS) scan data.
+        :param timestamp: Optional information that specifies the time when the position information will be resolved.
         :returns: GetPositionEstimateResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4354,10 +4334,8 @@ class IotwirelessApi:
         """Get the event configuration for a particular resource identifier.
 
         :param identifier: Resource identifier to opt in for event messaging.
-        :param identifier_type: Identifier type of the particular resource identifier for event
-        configuration.
-        :param partner_type: Partner type of the resource if the identifier type is
-        ``PartnerAccountId``.
+        :param identifier_type: Identifier type of the particular resource identifier for event configuration.
+        :param partner_type: Partner type of the resource if the identifier type is ``PartnerAccountId``.
         :returns: GetResourceEventConfigurationResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4378,10 +4356,8 @@ class IotwirelessApi:
         """Fetches the log-level override, if any, for a given resource ID and
         resource type..
 
-        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway
-        ID, the wireless device ID, or the FUOTA task ID.
-        :param resource_type: The type of resource, which can be ``WirelessDevice``,
-        ``WirelessGateway``, or ``FuotaTask``.
+        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway ID, the wireless device ID, or the FUOTA task ID.
+        :param resource_type: The type of resource, which can be ``WirelessDevice``, ``WirelessGateway``, or ``FuotaTask``.
         :returns: GetResourceLogLevelResponse
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -4404,10 +4380,8 @@ class IotwirelessApi:
         System
         (WGS84) <https://gisgeography.com/wgs84-world-geodetic-system/>`__.
 
-        :param resource_identifier: The identifier of the resource for which position information is
-        retrieved.
-        :param resource_type: The type of resource for which position information is retrieved, which
-        can be a wireless device or a wireless gateway.
+        :param resource_identifier: The identifier of the resource for which position information is retrieved.
+        :param resource_type: The type of resource for which position information is retrieved, which can be a wireless device or a wireless gateway.
         :returns: GetResourcePositionResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4621,9 +4595,7 @@ class IotwirelessApi:
         """Lists the destinations registered to your AWS account.
 
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :returns: ListDestinationsResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4643,12 +4615,9 @@ class IotwirelessApi:
     ) -> ListDeviceProfilesResponse:
         """Lists the device profiles registered to your AWS account.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
-        :param device_profile_type: A filter to list only device profiles that use this type, which can be
-        ``LoRaWAN`` or ``Sidewalk``.
+        :param device_profile_type: A filter to list only device profiles that use this type, which can be ``LoRaWAN`` or ``Sidewalk``.
         :returns: ListDeviceProfilesResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4671,9 +4640,7 @@ class IotwirelessApi:
 
         :param id: The identifier of the import task for which wireless devices are listed.
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise ``null`` to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise ``null`` to receive the first set of results.
         :param status: The status of the devices in the import task.
         :returns: ListDevicesForWirelessDeviceImportTaskResponse
         :raises ValidationException:
@@ -4699,9 +4666,7 @@ class IotwirelessApi:
 
         :param resource_type: Resource type to filter event configurations.
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :returns: ListEventConfigurationsResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4720,9 +4685,7 @@ class IotwirelessApi:
     ) -> ListFuotaTasksResponse:
         """Lists the FUOTA tasks registered to your AWS account.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListFuotaTasksResponse
         :raises ValidationException:
@@ -4742,9 +4705,7 @@ class IotwirelessApi:
     ) -> ListMulticastGroupsResponse:
         """Lists the multicast groups registered to your AWS account.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListMulticastGroupsResponse
         :raises ValidationException:
@@ -4766,9 +4727,7 @@ class IotwirelessApi:
         """List all multicast groups associated with a FUOTA task.
 
         :param id: The ID of a FUOTA task.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListMulticastGroupsByFuotaTaskResponse
         :raises ValidationException:
@@ -4790,9 +4749,7 @@ class IotwirelessApi:
         """Lists the network analyzer configurations.
 
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :returns: ListNetworkAnalyzerConfigurationsResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4811,9 +4768,7 @@ class IotwirelessApi:
     ) -> ListPartnerAccountsResponse:
         """Lists the partner accounts associated with your AWS account.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListPartnerAccountsResponse
         :raises ValidationException:
@@ -4842,9 +4797,7 @@ class IotwirelessApi:
 
         :param resource_type: Resource type for which position configurations are listed.
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :returns: ListPositionConfigurationsResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4865,11 +4818,8 @@ class IotwirelessApi:
     ) -> ListQueuedMessagesResponse:
         """List queued messages in the downlink queue.
 
-        :param id: The ID of a given wireless device which the downlink message packets are
-        being sent.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param id: The ID of a given wireless device which the downlink message packets are being sent.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :param wireless_device_type: The wireless device type, whic can be either Sidewalk or LoRaWAN.
         :returns: ListQueuedMessagesResponse
@@ -4891,9 +4841,7 @@ class IotwirelessApi:
     ) -> ListServiceProfilesResponse:
         """Lists the service profiles registered to your AWS account.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListServiceProfilesResponse
         :raises ValidationException:
@@ -4931,9 +4879,7 @@ class IotwirelessApi:
         devices in each import task.
 
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise ``null`` to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise ``null`` to receive the first set of results.
         :returns: ListWirelessDeviceImportTasksResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -4961,16 +4907,11 @@ class IotwirelessApi:
         """Lists the wireless devices registered to your AWS account.
 
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
-        :param destination_name: A filter to list only the wireless devices that use as uplink
-        destination.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
+        :param destination_name: A filter to list only the wireless devices that use as uplink destination.
         :param device_profile_id: A filter to list only the wireless devices that use this device profile.
-        :param service_profile_id: A filter to list only the wireless devices that use this service
-        profile.
-        :param wireless_device_type: A filter to list only the wireless devices that use this wireless device
-        type.
+        :param service_profile_id: A filter to list only the wireless devices that use this service profile.
+        :param wireless_device_type: A filter to list only the wireless devices that use this wireless device type.
         :param fuota_task_id: The ID of a FUOTA task.
         :param multicast_group_id: The ID of the multicast group.
         :returns: ListWirelessDevicesResponse
@@ -4994,11 +4935,8 @@ class IotwirelessApi:
         account.
 
         :param max_results: The maximum number of results to return in this operation.
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
-        :param task_definition_type: A filter to list only the wireless gateway task definitions that use
-        this task definition type.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
+        :param task_definition_type: A filter to list only the wireless gateway task definitions that use this task definition type.
         :returns: ListWirelessGatewayTaskDefinitionsResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -5017,9 +4955,7 @@ class IotwirelessApi:
     ) -> ListWirelessGatewaysResponse:
         """Lists the wireless gateways registered to your AWS account.
 
-        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
-        previous response; otherwise **null** to receive the first set of
-        results.
+        :param next_token: To retrieve the next set of results, the ``nextToken`` value from a previous response; otherwise **null** to receive the first set of results.
         :param max_results: The maximum number of results to return in this operation.
         :returns: ListWirelessGatewaysResponse
         :raises ValidationException:
@@ -5047,13 +4983,9 @@ class IotwirelessApi:
         API operation instead.
 
         :param resource_identifier: Resource identifier used to update the position configuration.
-        :param resource_type: Resource type of the resource for which you want to update the position
-        configuration.
-        :param solvers: The positioning solvers used to update the position configuration of the
-        resource.
-        :param destination: The position data destination that describes the AWS IoT rule that
-        processes the device's position data for use by AWS IoT Core for
-        LoRaWAN.
+        :param resource_type: Resource type of the resource for which you want to update the position configuration.
+        :param solvers: The positioning solvers used to update the position configuration of the resource.
+        :param destination: The position data destination that describes the AWS IoT rule that processes the device's position data for use by AWS IoT Core for LoRaWAN.
         :returns: PutPositionConfigurationResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -5075,10 +5007,8 @@ class IotwirelessApi:
         """Sets the log-level override for a resource ID and resource type. A limit
         of 200 log level override can be set per account.
 
-        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway
-        ID, the wireless device ID, or the FUOTA task ID.
-        :param resource_type: The type of resource, which can be ``WirelessDevice``,
-        ``WirelessGateway``, or ``FuotaTask``.
+        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway ID, the wireless device ID, or the FUOTA task ID.
+        :param resource_type: The type of resource, which can be ``WirelessDevice``, ``WirelessGateway``, or ``FuotaTask``.
         :param log_level: The log level for a log message.
         :returns: PutResourceLogLevelResponse
         :raises AccessDeniedException:
@@ -5117,10 +5047,8 @@ class IotwirelessApi:
         resource type. It can be used for a wireless device, a wireless gateway,
         or a FUOTA task.
 
-        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway
-        ID, the wireless device ID, or the FUOTA task ID.
-        :param resource_type: The type of resource, which can be ``WirelessDevice``,
-        ``WirelessGateway``, or ``FuotaTask``.
+        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway ID, the wireless device ID, or the FUOTA task ID.
+        :param resource_type: The type of resource, which can be ``WirelessDevice``, ``WirelessGateway``, or ``FuotaTask``.
         :returns: ResetResourceLogLevelResponse
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -5191,8 +5119,7 @@ class IotwirelessApi:
         multicast group.
 
         :param id: The ID of the multicast group.
-        :param query_string: Query string used to search for wireless devices as part of the bulk
-        associate and disassociate process.
+        :param query_string: Query string used to search for wireless devices as part of the bulk associate and disassociate process.
         :param tags: The tag to attach to the specified resource.
         :returns: StartBulkAssociateWirelessDeviceWithMulticastGroupResponse
         :raises ValidationException:
@@ -5216,8 +5143,7 @@ class IotwirelessApi:
         multicast group.
 
         :param id: The ID of the multicast group.
-        :param query_string: Query string used to search for wireless devices as part of the bulk
-        associate and disassociate process.
+        :param query_string: Query string used to search for wireless devices as part of the bulk associate and disassociate process.
         :param tags: The tag to attach to the specified resource.
         :returns: StartBulkDisassociateWirelessDeviceFromMulticastGroupResponse
         :raises ValidationException:
@@ -5286,16 +5212,12 @@ class IotwirelessApi:
     ) -> StartSingleWirelessDeviceImportTaskResponse:
         """Start import task for a single wireless device.
 
-        :param destination_name: The name of the Sidewalk destination that describes the IoT rule to
-        route messages from the device in the import task that will be onboarded
-        to AWS IoT Wireless.
+        :param destination_name: The name of the Sidewalk destination that describes the IoT rule to route messages from the device in the import task that will be onboarded to AWS IoT Wireless.
         :param sidewalk: The Sidewalk-related parameters for importing a single wireless device.
         :param client_request_token: Each resource must have a unique client request token.
-        :param device_name: The name of the wireless device for which an import task is being
-        started.
+        :param device_name: The name of the wireless device for which an import task is being started.
         :param tags: The tag to attach to the specified resource.
-        :param positioning: The integration status of the Device Location feature for Sidewalk
-        devices.
+        :param positioning: The integration status of the Device Location feature for Sidewalk devices.
         :returns: StartSingleWirelessDeviceImportTaskResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -5320,15 +5242,11 @@ class IotwirelessApi:
         """Start import task for provisioning Sidewalk devices in bulk using an S3
         CSV file.
 
-        :param destination_name: The name of the Sidewalk destination that describes the IoT rule to
-        route messages from the devices in the import task that are onboarded to
-        AWS IoT Wireless.
-        :param sidewalk: The Sidewalk-related parameters for importing wireless devices that need
-        to be provisioned in bulk.
+        :param destination_name: The name of the Sidewalk destination that describes the IoT rule to route messages from the devices in the import task that are onboarded to AWS IoT Wireless.
+        :param sidewalk: The Sidewalk-related parameters for importing wireless devices that need to be provisioned in bulk.
         :param client_request_token: Each resource must have a unique client request token.
         :param tags: The tag to attach to the specified resource.
-        :param positioning: The integration status of the Device Location feature for Sidewalk
-        devices.
+        :param positioning: The integration status of the Device Location feature for Sidewalk devices.
         :returns: StartWirelessDeviceImportTaskResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -5435,16 +5353,11 @@ class IotwirelessApi:
     ) -> UpdateEventConfigurationByResourceTypesResponse:
         """Update the event configuration based on resource types.
 
-        :param device_registration_state: Device registration state resource type event configuration object for
-        enabling and disabling wireless gateway topic.
-        :param proximity: Proximity resource type event configuration object for enabling and
-        disabling wireless gateway topic.
-        :param join: Join resource type event configuration object for enabling and disabling
-        wireless device topic.
-        :param connection_status: Connection status resource type event configuration object for enabling
-        and disabling wireless gateway topic.
-        :param message_delivery_status: Message delivery status resource type event configuration object for
-        enabling and disabling wireless device topic.
+        :param device_registration_state: Device registration state resource type event configuration object for enabling and disabling wireless gateway topic.
+        :param proximity: Proximity resource type event configuration object for enabling and disabling wireless gateway topic.
+        :param join: Join resource type event configuration object for enabling and disabling wireless device topic.
+        :param connection_status: Connection status resource type event configuration object for enabling and disabling wireless gateway topic.
+        :param message_delivery_status: Message delivery status resource type event configuration object for enabling and disabling wireless device topic.
         :returns: UpdateEventConfigurationByResourceTypesResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -5475,15 +5388,12 @@ class IotwirelessApi:
         :param name: The name of a FUOTA task.
         :param description: The description of the new resource.
         :param lo_ra_wan: The LoRaWAN information used with a FUOTA task.
-        :param firmware_update_image: The S3 URI points to a firmware update image that is to be used with a
-        FUOTA task.
+        :param firmware_update_image: The S3 URI points to a firmware update image that is to be used with a FUOTA task.
         :param firmware_update_role: The firmware update role that is to be used with a FUOTA task.
         :param redundancy_percent: The percentage of the added fragments that are redundant.
         :param fragment_size_bytes: The size of each fragment in bytes.
-        :param fragment_interval_ms: The interval for sending fragments in milliseconds, rounded to the
-        nearest second.
-        :param descriptor: The descriptor is the metadata about the file that is transferred to the
-        device using FUOTA, such as the software version.
+        :param fragment_interval_ms: The interval for sending fragments in milliseconds, rounded to the nearest second.
+        :param descriptor: The descriptor is the metadata about the file that is transferred to the device using FUOTA, such as the software version.
         :returns: UpdateFuotaTaskResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -5588,15 +5498,12 @@ class IotwirelessApi:
         :param configuration_name: Name of the network analyzer configuration.
         :param trace_content: Trace content for your wireless devices, gateways, and multicast groups.
         :param wireless_devices_to_add: Wireless device resources to add to the network analyzer configuration.
-        :param wireless_devices_to_remove: Wireless device resources to remove from the network analyzer
-        configuration.
+        :param wireless_devices_to_remove: Wireless device resources to remove from the network analyzer configuration.
         :param wireless_gateways_to_add: Wireless gateway resources to add to the network analyzer configuration.
-        :param wireless_gateways_to_remove: Wireless gateway resources to remove from the network analyzer
-        configuration.
+        :param wireless_gateways_to_remove: Wireless gateway resources to remove from the network analyzer configuration.
         :param description: The description of the new resource.
         :param multicast_groups_to_add: Multicast group resources to add to the network analyzer configuration.
-        :param multicast_groups_to_remove: Multicast group resources to remove from the network analyzer
-        configuration.
+        :param multicast_groups_to_remove: Multicast group resources to remove from the network analyzer configuration.
         :returns: UpdateNetworkAnalyzerConfigurationResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -5673,10 +5580,8 @@ class IotwirelessApi:
         """Update the event configuration for a particular resource identifier.
 
         :param identifier: Resource identifier to opt in for event messaging.
-        :param identifier_type: Identifier type of the particular resource identifier for event
-        configuration.
-        :param partner_type: Partner type of the resource if the identifier type is
-        ``PartnerAccountId``.
+        :param identifier_type: Identifier type of the particular resource identifier for event configuration.
+        :param partner_type: Partner type of the resource if the identifier type is ``PartnerAccountId``.
         :param device_registration_state: Event configuration for the device registration state event.
         :param proximity: Event configuration for the proximity event.
         :param join: Event configuration for the join event.
@@ -5706,10 +5611,8 @@ class IotwirelessApi:
         Geodetic System
         (WGS84) <https://gisgeography.com/wgs84-world-geodetic-system/>`__.
 
-        :param resource_identifier: The identifier of the resource for which position information is
-        updated.
-        :param resource_type: The type of resource for which position information is updated, which
-        can be a wireless device or a wireless gateway.
+        :param resource_identifier: The identifier of the resource for which position information is updated.
+        :param resource_type: The type of resource for which position information is updated, which can be a wireless device or a wireless gateway.
         :param geo_json_payload: The position information of the resource, displayed as a JSON payload.
         :returns: UpdateResourcePositionResponse
         :raises ValidationException:
@@ -5740,8 +5643,7 @@ class IotwirelessApi:
         :param name: The new name of the resource.
         :param description: A new description of the resource.
         :param lo_ra_wan: The updated wireless device's configuration.
-        :param positioning: The integration status of the Device Location feature for LoRaWAN and
-        Sidewalk devices.
+        :param positioning: The integration status of the Device Location feature for LoRaWAN and Sidewalk devices.
         :param sidewalk: The updated sidewalk properties.
         :returns: UpdateWirelessDeviceResponse
         :raises ValidationException:
@@ -5792,8 +5694,7 @@ class IotwirelessApi:
         :param name: The new name of the resource.
         :param description: A new description of the resource.
         :param join_eui_filters: A list of JoinEuiRange used by LoRa gateways to filter LoRa frames.
-        :param net_id_filters: A list of NetId values that are used by LoRa gateways to filter the
-        uplink frames.
+        :param net_id_filters: A list of NetId values that are used by LoRa gateways to filter the uplink frames.
         :param max_eirp: The MaxEIRP value.
         :returns: UpdateWirelessGatewayResponse
         :raises ValidationException:

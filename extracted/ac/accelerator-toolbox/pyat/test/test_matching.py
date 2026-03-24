@@ -6,10 +6,9 @@ import numpy as np
 import pytest
 
 # import at
-from at.lattice import Lattice, End
+from at.lattice import Lattice, RefptsVariable, VariableList, End
 from at.latticetools import LocalOpticsObservable, GlobalOpticsObservable
-from at.latticetools import EmittanceObservable, ObservableList
-from at.future import RefptsVariable, VariableList, match
+from at.latticetools import EmittanceObservable, ObservableList, ring_match
 
 
 @pytest.fixture()
@@ -38,14 +37,14 @@ def mline(hmba_lattice: Lattice):
     sf1 = ring[sf[0]].divide([0.5, 0.5])
     ring.pop(sf[0])
     ring.insert(sf[0], sf1[0])
-    return ring[:sf[0]+1], twiss_in
+    return ring[: sf[0] + 1], twiss_in
 
 
 def test_linopt_matching(mring: Lattice):
     """Test linear optics matching."""
 
     # noinspection PyUnusedLocal
-    def phase_advance(elemdata):
+    def phase_advance(elemdata, **__):
         # Evaluation function for the phase advance (both planes)
         mu = elemdata.mu
         return (mu[-1] - mu[0]) / 2.0 / np.pi
@@ -59,7 +58,7 @@ def test_linopt_matching(mring: Lattice):
     bounds = [[0, 5], [-5, 0], [-5, 0], [0, 5], [-5, 0], [0, 5], [0, 5]]
     variables = VariableList(
         RefptsVariable(nm, "PolynomB", index=1, bounds=bnd, name=nm, ring=mring)
-        for nm, bnd in zip(names, bounds)
+        for nm, bnd in zip(names, bounds, strict=True)
     )
 
     # Define the observables
@@ -89,7 +88,7 @@ def test_linopt_matching(mring: Lattice):
     )
 
     # Perform the fit
-    newring = match(mring, variables, obs, copy=True)
+    newring = ring_match(mring, variables, obs, copy=True)
 
     # check the residuals
     obs.evaluate(newring)
@@ -110,7 +109,7 @@ def test_envelope_matching(mring: Lattice):
 
     # Perform the fit
     ring = mring.enable_6d(copy=True)
-    newring = match(ring, variables, obs, copy=True)
+    newring = ring_match(ring, variables, obs, copy=True)
 
     # check the residuals
     obs.evaluate(newring)
@@ -123,7 +122,7 @@ def test_envelope_matching(mring: Lattice):
 
     # Perform the fit
     ring = mring.enable_6d(copy=True)
-    newring = match(ring, variables, obs, copy=True)
+    newring = ring_match(ring, variables, obs, copy=True)
 
     # check the residuals
     obs.evaluate(newring)
@@ -142,7 +141,7 @@ def test_line_matching(mline):
     obs.append(LocalOpticsObservable(End, "alpha", target=[0.0, 0.0]))
 
     # Perform the fit
-    newline = match(line, variables, obs, copy=True)
+    newline = ring_match(line, variables, obs, copy=True)
 
     # check the residuals
     obs.evaluate(newline)

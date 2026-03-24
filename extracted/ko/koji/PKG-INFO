@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: koji
-Version: 1.35.3
+Version: 1.36.0
 Summary: Koji is a system for building and tracking RPMS. The base package contains shared libraries and the command-line interface.
 Home-page: http://pagure.io/koji/
 Author: Koji developers
@@ -76,8 +76,9 @@ Related Software
 ----------------
 
 * [Mock](https://fedoraproject.org/wiki/Projects/Mock): The tool Koji uses to generate buildroots
-* [Yum](http://yum.baseurl.org/)
-* [Pungi](https://pagure.io/pungi): Use Pungi to "compose" Koji builds into highly customizable Yum repositories.
+* [Yum](http://yum.baseurl.org/) - RPM package manager
+* [DNF](https://github.com/rpm-software-management/dnf) / [DNF5](https://github.com/rpm-software-management/dnf5) - Next-gen RPM package manager
+* [Pungi](https://pagure.io/pungi): Use Pungi to "compose" Koji builds into highly customizable Yum/DNF repositories.
 * [Koji Tools](https://pagure.io/koji-tools): Various utilities for Koji
 * [Kojiji](https://github.com/release-engineering/kojiji): Koji Java Interface
 * [txkoji](https://github.com/ktdreyer/txkoji): Async interface to Koji, using Twisted

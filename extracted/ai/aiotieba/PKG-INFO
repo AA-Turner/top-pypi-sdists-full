@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: aiotieba
-Version: 4.6.3
+Version: 4.6.4
 Summary: Asynchronous I/O Client for Baidu Tieba
 Keywords: baidu,tieba
 Author-Email: lumina37 <starry.qvq@gmail.com>

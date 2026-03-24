@@ -1,10 +1,5 @@
 import pytest
-
-try:
-    from pydantic.v1 import StrictBool
-except ImportError:
-    from pydantic import StrictBool  # type: ignore
-
+from pydantic import StrictBool
 from thinc.api import ConfigValidationError
 
 from spacy.lang.en import English
@@ -51,7 +46,7 @@ def test_initialize_arguments():
     errors = e.value.errors
     assert len(errors) == 1
     assert errors[0]["loc"] == ("custom1",)
-    assert errors[0]["type"] == "value_error.missing"
+    assert errors[0]["type"] == "missing"
     init_cfg = {
         "tokenizer": {"custom": 1},
         "components": {name: {"custom1": "x", "custom2": 1}},
@@ -63,7 +58,7 @@ def test_initialize_arguments():
     errors = e.value.errors
     assert len(errors) == 1
     assert errors[0]["loc"] == ("custom2",)
-    assert errors[0]["type"] == "value_error.strictbool"
+    assert errors[0]["type"] == "bool_type"
     init_cfg = {
         "tokenizer": {"custom": 1},
         "components": {name: {"custom1": "x"}},

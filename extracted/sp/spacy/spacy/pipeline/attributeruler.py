@@ -1,5 +1,4 @@
 import importlib
-import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -14,12 +13,14 @@ from ..symbols import IDS
 from ..tokens import Doc, Span
 from ..tokens._retokenize import normalize_token_attrs, set_token_attrs
 from ..training import Example
-from ..util import SimpleFrozenList, registry
+from ..util import SimpleFrozenList
 from ..vocab import Vocab
 from .pipe import Pipe
 
 MatcherPatternType = List[Dict[Union[int, str], Any]]
-AttributeRulerPatternType = Dict[str, Union[MatcherPatternType, Dict, int]]
+AttributeRulerPatternType = Dict[
+    str, Union[List[MatcherPatternType], MatcherPatternType, Dict, int]
+]
 TagMapType = Dict[str, Dict[Union[int, str], Union[int, str]]]
 MorphRulesType = Dict[str, Dict[str, Dict[Union[int, str], Union[int, str]]]]
 
@@ -137,7 +138,8 @@ class AttributeRuler(Pipe):
         matches = self.matcher(doc, allow_missing=True, as_spans=False)
         # Sort by the attribute ID, so that later rules have precedence
         matches = [
-            (int(self.vocab.strings[m_id]), m_id, s, e) for m_id, s, e in matches  # type: ignore
+            (int(self.vocab.strings[m_id]), m_id, s, e)
+            for m_id, s, e in matches  # type: ignore
         ]
         matches.sort()
         return matches

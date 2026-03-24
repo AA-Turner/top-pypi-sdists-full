@@ -260,7 +260,7 @@ def analyze_session(spans: list[OTelSpan], session_id: str) -> SessionAnalysis:
         if node.parent_span_id and node.parent_span_id in claimed_span_ids:
             continue
         if node.get_attr("atif.agent.name") and node.span.name != "agent.execution.output":
-            step_nodes = _collect_descendant_steps(node)
+            step_nodes = [sn for sn in _collect_descendant_steps(node) if sn.span.span_id not in claimed_span_ids]
             claimed_span_ids.add(sid)
             for sn in step_nodes:
                 claimed_span_ids.add(sn.span.span_id)

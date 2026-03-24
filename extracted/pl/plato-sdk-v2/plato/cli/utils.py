@@ -11,9 +11,20 @@ import httpx
 import typer
 import yaml
 from rich.console import Console
+from rich.markup import MarkupError
 
 # Initialize Rich console - shared across all CLI modules
 console = Console()
+
+
+def safe_print(*args, **kwargs):
+    """Print with Rich markup, falling back to raw output on MarkupError."""
+    try:
+        console.print(*args, **kwargs)
+    except MarkupError:
+        fallback_kwargs = dict(kwargs)
+        fallback_kwargs.pop("markup", None)
+        console.print(*args, markup=False, **fallback_kwargs)
 
 
 def read_plato_config(config_path: str | Path) -> dict:

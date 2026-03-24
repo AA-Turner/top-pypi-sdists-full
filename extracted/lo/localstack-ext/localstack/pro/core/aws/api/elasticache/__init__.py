@@ -3094,10 +3094,7 @@ class ElasticacheApi:
         ElastiCache <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Tagging.html>`__
         in the *ElastiCache User Guide*.
 
-        :param resource_name: The Amazon Resource Name (ARN) of the resource to which the tags are to
-        be added, for example
-        ``arn:aws:elasticache:us-west-2:0123456789:cluster:myCluster`` or
-        ``arn:aws:elasticache:us-west-2:0123456789:snapshot:mySnapshot``.
+        :param resource_name: The Amazon Resource Name (ARN) of the resource to which the tags are to be added, for example ``arn:aws:elasticache:us-west-2:0123456789:cluster:myCluster`` or ``arn:aws:elasticache:us-west-2:0123456789:snapshot:mySnapshot``.
         :param tags: A list of tags to be added to this resource.
         :returns: TagListMessage
         :raises CacheClusterNotFoundFault:
@@ -3136,8 +3133,7 @@ class ElasticacheApi:
         region to an ElastiCache cluster in another region.
 
         :param cache_security_group_name: The cache security group that allows network ingress.
-        :param ec2_security_group_name: The Amazon EC2 security group to be authorized for ingress to the cache
-        security group.
+        :param ec2_security_group_name: The Amazon EC2 security group to be authorized for ingress to the cache security group.
         :param ec2_security_group_owner_id: The Amazon account number of the Amazon EC2 security group owner.
         :returns: AuthorizeCacheSecurityGroupIngressResult
         :raises CacheSecurityGroupNotFoundFault:
@@ -3389,9 +3385,7 @@ class ElasticacheApi:
 
         :param cache_cluster_id: The node group (shard) identifier.
         :param replication_group_id: The ID of the replication group to which this cluster should belong.
-        :param az_mode: Specifies whether the nodes in this Memcached cluster are created in a
-        single Availability Zone or created across multiple Availability Zones
-        in the cluster's region.
+        :param az_mode: Specifies whether the nodes in this Memcached cluster are created in a single Availability Zone or created across multiple Availability Zones in the cluster's region.
         :param preferred_availability_zone: The EC2 Availability Zone in which the cluster is created.
         :param preferred_availability_zones: A list of the Availability Zones in which cache nodes are created.
         :param num_cache_nodes: The initial number of cache nodes that the cluster has.
@@ -3403,31 +3397,22 @@ class ElasticacheApi:
         :param cache_security_group_names: A list of security group names to associate with this cluster.
         :param security_group_ids: One or more VPC security groups associated with the cluster.
         :param tags: A list of tags to be added to this resource.
-        :param snapshot_arns: A single-element string list containing an Amazon Resource Name (ARN)
-        that uniquely identifies a Valkey or Redis OSS RDB snapshot file stored
-        in Amazon S3.
-        :param snapshot_name: The name of a Valkey or Redis OSS snapshot from which to restore data
-        into the new node group (shard).
-        :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster
-        is performed.
+        :param snapshot_arns: A single-element string list containing an Amazon Resource Name (ARN) that uniquely identifies a Valkey or Redis OSS RDB snapshot file stored in Amazon S3.
+        :param snapshot_name: The name of a Valkey or Redis OSS snapshot from which to restore data into the new node group (shard).
+        :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed.
         :param port: The port number on which each of the cache nodes accepts connections.
-        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service
-        (SNS) topic to which notifications are sent.
+        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sent.
         :param auto_minor_version_upgrade: If you are running Valkey 7.
-        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic snapshots
-        before deleting them.
-        :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a
-        daily snapshot of your node group (shard).
+        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic snapshots before deleting them.
+        :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a daily snapshot of your node group (shard).
         :param auth_token: **Reserved parameter.
-        :param outpost_mode: Specifies whether the nodes in the cluster are created in a single
-        outpost or across multiple outposts.
+        :param outpost_mode: Specifies whether the nodes in the cluster are created in a single outpost or across multiple outposts.
         :param preferred_outpost_arn: The outpost ARN in which the cache cluster is created.
         :param preferred_outpost_arns: The outpost ARNs in which the cache cluster is created.
         :param log_delivery_configurations: Specifies the destination, format and type of the logs.
         :param transit_encryption_enabled: A flag that enables in-transit encryption when set to true.
         :param network_type: Must be either ``ipv4`` | ``ipv6`` | ``dual_stack``.
-        :param ip_discovery: The network type you choose when modifying a cluster, either ``ipv4`` |
-        ``ipv6``.
+        :param ip_discovery: The network type you choose when modifying a cluster, either ``ipv4`` | ``ipv6``.
         :returns: CreateCacheClusterResult
         :raises ReplicationGroupNotFoundFault:
         :raises InvalidReplicationGroupStateFault:
@@ -3474,8 +3459,7 @@ class ElasticacheApi:
            in the ElastiCache User Guide.
 
         :param cache_parameter_group_name: A user-specified name for the cache parameter group.
-        :param cache_parameter_group_family: The name of the cache parameter group family that the cache parameter
-        group can be used with.
+        :param cache_parameter_group_family: The name of the cache parameter group family that the cache parameter group can be used with.
         :param description: A user-specified description for the cache parameter group.
         :param tags: A list of tags to be added to this resource.
         :returns: CreateCacheParameterGroupResult
@@ -3571,8 +3555,7 @@ class ElasticacheApi:
            secondary cluster.
 
         :param global_replication_group_id_suffix: The suffix name of a Global datastore.
-        :param primary_replication_group_id: The name of the primary cluster that accepts writes and will replicate
-        updates to the secondary cluster.
+        :param primary_replication_group_id: The name of the primary cluster that accepts writes and will replicate updates to the secondary cluster.
         :param global_replication_group_description: Provides details of the Global datastore.
         :returns: CreateGlobalReplicationGroupResult
         :raises ReplicationGroupNotFoundFault:
@@ -3674,48 +3657,30 @@ class ElasticacheApi:
         :param replication_group_id: The replication group identifier.
         :param replication_group_description: A user-created description for the replication group.
         :param global_replication_group_id: The name of the Global datastore.
-        :param primary_cluster_id: The identifier of the cluster that serves as the primary for this
-        replication group.
-        :param automatic_failover_enabled: Specifies whether a read-only replica is automatically promoted to
-        read/write primary if the existing primary fails.
-        :param multi_az_enabled: A flag indicating if you have Multi-AZ enabled to enhance fault
-        tolerance.
+        :param primary_cluster_id: The identifier of the cluster that serves as the primary for this replication group.
+        :param automatic_failover_enabled: Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails.
+        :param multi_az_enabled: A flag indicating if you have Multi-AZ enabled to enhance fault tolerance.
         :param num_cache_clusters: The number of clusters this replication group initially has.
-        :param preferred_cache_cluster_azs: A list of EC2 Availability Zones in which the replication group's
-        clusters are created.
-        :param num_node_groups: An optional parameter that specifies the number of node groups (shards)
-        for this Valkey or Redis OSS (cluster mode enabled) replication group.
-        :param replicas_per_node_group: An optional parameter that specifies the number of replica nodes in each
-        node group (shard).
+        :param preferred_cache_cluster_azs: A list of EC2 Availability Zones in which the replication group's clusters are created.
+        :param num_node_groups: An optional parameter that specifies the number of node groups (shards) for this Valkey or Redis OSS (cluster mode enabled) replication group.
+        :param replicas_per_node_group: An optional parameter that specifies the number of replica nodes in each node group (shard).
         :param node_group_configuration: A list of node group (shard) configuration options.
         :param cache_node_type: The compute and memory capacity of the nodes in the node group (shard).
-        :param engine: The name of the cache engine to be used for the clusters in this
-        replication group.
-        :param engine_version: The version number of the cache engine to be used for the clusters in
-        this replication group.
-        :param cache_parameter_group_name: The name of the parameter group to associate with this replication
-        group.
+        :param engine: The name of the cache engine to be used for the clusters in this replication group.
+        :param engine_version: The version number of the cache engine to be used for the clusters in this replication group.
+        :param cache_parameter_group_name: The name of the parameter group to associate with this replication group.
         :param cache_subnet_group_name: The name of the cache subnet group to be used for the replication group.
-        :param cache_security_group_names: A list of cache security group names to associate with this replication
-        group.
-        :param security_group_ids: One or more Amazon VPC security groups associated with this replication
-        group.
+        :param cache_security_group_names: A list of cache security group names to associate with this replication group.
+        :param security_group_ids: One or more Amazon VPC security groups associated with this replication group.
         :param tags: A list of tags to be added to this resource.
-        :param snapshot_arns: A list of Amazon Resource Names (ARN) that uniquely identify the Valkey
-        or Redis OSS RDB snapshot files stored in Amazon S3.
-        :param snapshot_name: The name of a snapshot from which to restore data into the new
-        replication group.
-        :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster
-        is performed.
-        :param port: The port number on which each member of the replication group accepts
-        connections.
-        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service
-        (SNS) topic to which notifications are sent.
+        :param snapshot_arns: A list of Amazon Resource Names (ARN) that uniquely identify the Valkey or Redis OSS RDB snapshot files stored in Amazon S3.
+        :param snapshot_name: The name of a snapshot from which to restore data into the new replication group.
+        :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed.
+        :param port: The port number on which each member of the replication group accepts connections.
+        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sent.
         :param auto_minor_version_upgrade: If you are running Valkey 7.
-        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic snapshots
-        before deleting them.
-        :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a
-        daily snapshot of your node group (shard).
+        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic snapshots before deleting them.
+        :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a daily snapshot of your node group (shard).
         :param auth_token: **Reserved parameter.
         :param transit_encryption_enabled: A flag that enables in-transit encryption when set to ``true``.
         :param at_rest_encryption_enabled: A flag that enables encryption at rest when set to ``true``.
@@ -3724,10 +3689,8 @@ class ElasticacheApi:
         :param log_delivery_configurations: Specifies the destination, format and type of the logs.
         :param data_tiering_enabled: Enables data tiering.
         :param network_type: Must be either ``ipv4`` | ``ipv6`` | ``dual_stack``.
-        :param ip_discovery: The network type you choose when creating a replication group, either
-        ``ipv4`` | ``ipv6``.
-        :param transit_encryption_mode: A setting that allows you to migrate your clients to use in-transit
-        encryption, with no downtime.
+        :param ip_discovery: The network type you choose when creating a replication group, either ``ipv4`` | ``ipv6``.
+        :param transit_encryption_mode: A setting that allows you to migrate your clients to use in-transit encryption, with no downtime.
         :param cluster_mode: Enabled or Disabled.
         :param serverless_cache_snapshot_name: The name of the snapshot used to create a replication group.
         :returns: CreateReplicationGroupResult
@@ -3775,28 +3738,18 @@ class ElasticacheApi:
         """Creates a serverless cache.
 
         :param serverless_cache_name: User-provided identifier for the serverless cache.
-        :param engine: The name of the cache engine to be used for creating the serverless
-        cache.
+        :param engine: The name of the cache engine to be used for creating the serverless cache.
         :param description: User-provided description for the serverless cache.
-        :param major_engine_version: The version of the cache engine that will be used to create the
-        serverless cache.
-        :param cache_usage_limits: Sets the cache usage limits for storage and ElastiCache Processing Units
-        for the cache.
+        :param major_engine_version: The version of the cache engine that will be used to create the serverless cache.
+        :param cache_usage_limits: Sets the cache usage limits for storage and ElastiCache Processing Units for the cache.
         :param kms_key_id: ARN of the customer managed key for encrypting the data at rest.
-        :param security_group_ids: A list of the one or more VPC security groups to be associated with the
-        serverless cache.
-        :param snapshot_arns_to_restore: The ARN(s) of the snapshot that the new serverless cache will be created
-        from.
-        :param tags: The list of tags (key, value) pairs to be added to the serverless cache
-        resource.
-        :param user_group_id: The identifier of the UserGroup to be associated with the serverless
-        cache.
-        :param subnet_ids: A list of the identifiers of the subnets where the VPC endpoint for the
-        serverless cache will be deployed.
-        :param snapshot_retention_limit: The number of snapshots that will be retained for the serverless cache
-        that is being created.
-        :param daily_snapshot_time: The daily time that snapshots will be created from the new serverless
-        cache.
+        :param security_group_ids: A list of the one or more VPC security groups to be associated with the serverless cache.
+        :param snapshot_arns_to_restore: The ARN(s) of the snapshot that the new serverless cache will be created from.
+        :param tags: The list of tags (key, value) pairs to be added to the serverless cache resource.
+        :param user_group_id: The identifier of the UserGroup to be associated with the serverless cache.
+        :param subnet_ids: A list of the identifiers of the subnets where the VPC endpoint for the serverless cache will be deployed.
+        :param snapshot_retention_limit: The number of snapshots that will be retained for the serverless cache that is being created.
+        :param daily_snapshot_time: The daily time that snapshots will be created from the new serverless cache.
         :returns: CreateServerlessCacheResponse
         :raises ServerlessCacheNotFoundFault:
         :raises InvalidServerlessCacheStateFault:
@@ -3958,15 +3911,10 @@ class ElasticacheApi:
         """Decreases the number of node groups in a Global datastore
 
         :param global_replication_group_id: The name of the Global datastore.
-        :param node_group_count: The number of node groups (shards) that results from the modification of
-        the shard configuration.
+        :param node_group_count: The number of node groups (shards) that results from the modification of the shard configuration.
         :param apply_immediately: Indicates that the shard reconfiguration process begins immediately.
-        :param global_node_groups_to_remove: If the value of NodeGroupCount is less than the current number of node
-        groups (shards), then either NodeGroupsToRemove or NodeGroupsToRetain is
-        required.
-        :param global_node_groups_to_retain: If the value of NodeGroupCount is less than the current number of node
-        groups (shards), then either NodeGroupsToRemove or NodeGroupsToRetain is
-        required.
+        :param global_node_groups_to_remove: If the value of NodeGroupCount is less than the current number of node groups (shards), then either NodeGroupsToRemove or NodeGroupsToRetain is required.
+        :param global_node_groups_to_retain: If the value of NodeGroupCount is less than the current number of node groups (shards), then either NodeGroupsToRemove or NodeGroupsToRetain is required.
         :returns: DecreaseNodeGroupsInGlobalReplicationGroupResult
         :raises GlobalReplicationGroupNotFoundFault:
         :raises InvalidGlobalReplicationGroupStateFault:
@@ -3992,15 +3940,11 @@ class ElasticacheApi:
         mode enabled) replication group. This operation is performed with no
         cluster down time.
 
-        :param replication_group_id: The id of the replication group from which you want to remove replica
-        nodes.
+        :param replication_group_id: The id of the replication group from which you want to remove replica nodes.
         :param apply_immediately: If ``True``, the number of replica nodes is decreased immediately.
-        :param new_replica_count: The number of read replica nodes you want at the completion of this
-        operation.
-        :param replica_configuration: A list of ``ConfigureShard`` objects that can be used to configure each
-        shard in a Valkey or Redis OSS replication group.
-        :param replicas_to_remove: A list of the node ids to remove from the replication group or node
-        group (shard).
+        :param new_replica_count: The number of read replica nodes you want at the completion of this operation.
+        :param replica_configuration: A list of ``ConfigureShard`` objects that can be used to configure each shard in a Valkey or Redis OSS replication group.
+        :param replicas_to_remove: A list of the node ids to remove from the replication group or node group (shard).
         :returns: DecreaseReplicaCountResult
         :raises ReplicationGroupNotFoundFault:
         :raises InvalidReplicationGroupStateFault:
@@ -4138,8 +4082,7 @@ class ElasticacheApi:
         cannot cancel or revert this operation.
 
         :param global_replication_group_id: The name of the Global datastore.
-        :param retain_primary_replication_group: The primary replication group is retained as a standalone replication
-        group.
+        :param retain_primary_replication_group: The primary replication group is retained as a standalone replication group.
         :returns: DeleteGlobalReplicationGroupResult
         :raises GlobalReplicationGroupNotFoundFault:
         :raises InvalidGlobalReplicationGroupStateFault:
@@ -4173,8 +4116,7 @@ class ElasticacheApi:
         -  This operation is valid for Redis OSS only.
 
         :param replication_group_id: The identifier for the cluster to be deleted.
-        :param retain_primary_cluster: If set to ``true``, all of the read replicas are deleted, but the
-        primary node is retained.
+        :param retain_primary_cluster: If set to ``true``, all of the read replicas are deleted, but the primary node is retained.
         :param final_snapshot_identifier: The name of a final node group (shard) snapshot.
         :returns: DeleteReplicationGroupResult
         :raises ReplicationGroupNotFoundFault:
@@ -4202,8 +4144,7 @@ class ElasticacheApi:
         ``Access Denied`` exception.
 
         :param serverless_cache_name: The identifier of the serverless cache to be deleted.
-        :param final_snapshot_name: Name of the final snapshot to be taken before the serverless cache is
-        deleted.
+        :param final_snapshot_name: Name of the final snapshot to be taken before the serverless cache is deleted.
         :returns: DeleteServerlessCacheResponse
         :raises ServerlessCacheNotFoundFault:
         :raises InvalidServerlessCacheStateFault:
@@ -4325,11 +4266,8 @@ class ElasticacheApi:
         :param cache_cluster_id: The user-supplied cluster identifier.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional marker returned from a prior request.
-        :param show_cache_node_info: An optional flag that can be included in the ``DescribeCacheCluster``
-        request to retrieve information about the individual cache nodes.
-        :param show_cache_clusters_not_in_replication_groups: An optional flag that can be included in the ``DescribeCacheCluster``
-        request to show only nodes (API/CLI: clusters) that are not members of a
-        replication group.
+        :param show_cache_node_info: An optional flag that can be included in the ``DescribeCacheCluster`` request to retrieve information about the individual cache nodes.
+        :param show_cache_clusters_not_in_replication_groups: An optional flag that can be included in the ``DescribeCacheCluster`` request to show only nodes (API/CLI: clusters) that are not members of a replication group.
         :returns: CacheClusterMessage
         :raises CacheClusterNotFoundFault:
         :raises InvalidParameterValueException:
@@ -4353,12 +4291,10 @@ class ElasticacheApi:
 
         :param engine: The cache engine to return.
         :param engine_version: The cache engine version to return.
-        :param cache_parameter_group_family: The name of a specific cache parameter group family to return details
-        for.
+        :param cache_parameter_group_family: The name of a specific cache parameter group family to return details for.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional marker returned from a prior request.
-        :param default_only: If ``true``, specifies that only the default version of the specified
-        engine or engine and major version combination is to be returned.
+        :param default_only: If ``true``, specifies that only the default version of the specified engine or engine and major version combination is to be returned.
         :returns: CacheEngineVersionMessage
         """
         raise NotImplementedError
@@ -4499,10 +4435,8 @@ class ElasticacheApi:
 
         :param source_identifier: The identifier of the event source for which events are returned.
         :param source_type: The event source to retrieve events for.
-        :param start_time: The beginning of the time interval to retrieve events for, specified in
-        ISO 8601 format.
-        :param end_time: The end of the time interval for which to retrieve events, specified in
-        ISO 8601 format.
+        :param start_time: The beginning of the time interval to retrieve events for, specified in ISO 8601 format.
+        :param end_time: The end of the time interval for which to retrieve events, specified in ISO 8601 format.
         :param duration: The number of minutes worth of events to retrieve.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional marker returned from a prior request.
@@ -4643,8 +4577,7 @@ class ElasticacheApi:
         :param serverless_cache_name: The identifier of serverless cache.
         :param serverless_cache_snapshot_name: The identifier of the serverless cache’s snapshot.
         :param snapshot_type: The type of snapshot that is being described.
-        :param next_token: An optional marker returned from a prior request to support pagination
-        of results from this operation.
+        :param next_token: An optional marker returned from a prior request to support pagination of results from this operation.
         :param max_results: The maximum number of records to include in the response.
         :returns: DescribeServerlessCacheSnapshotsResponse
         :raises ServerlessCacheNotFoundFault:
@@ -4669,8 +4602,7 @@ class ElasticacheApi:
 
         :param serverless_cache_name: The identifier for the serverless cache.
         :param max_results: The maximum number of records in the response.
-        :param next_token: An optional marker returned from a prior request to support pagination
-        of results from this operation.
+        :param next_token: An optional marker returned from a prior request to support pagination of results from this operation.
         :returns: DescribeServerlessCachesResponse
         :raises ServerlessCacheNotFoundFault:
         :raises InvalidParameterValueException:
@@ -4724,12 +4656,10 @@ class ElasticacheApi:
         :param replication_group_id: A user-supplied replication group identifier.
         :param cache_cluster_id: A user-supplied cluster identifier.
         :param snapshot_name: A user-supplied name of the snapshot.
-        :param snapshot_source: If set to ``system``, the output shows snapshots that were automatically
-        created by ElastiCache.
+        :param snapshot_source: If set to ``system``, the output shows snapshots that were automatically created by ElastiCache.
         :param marker: An optional marker returned from a prior request.
         :param max_records: The maximum number of records to include in the response.
-        :param show_node_group_config: A Boolean value which if true, the node group (shard) configuration is
-        included in the snapshot description.
+        :param show_node_group_config: A Boolean value which if true, the node group (shard) configuration is included in the snapshot description.
         :returns: DescribeSnapshotsListMessage
         :raises CacheClusterNotFoundFault:
         :raises SnapshotNotFoundFault:
@@ -4761,8 +4691,7 @@ class ElasticacheApi:
         :param cache_cluster_ids: The cache cluster IDs.
         :param engine: The Elasticache engine to which the update applies.
         :param service_update_status: The status of the service update.
-        :param service_update_time_range: The range of time specified to search for service updates that are in
-        available status.
+        :param service_update_time_range: The range of time specified to search for service updates that are in available status.
         :param update_action_status: The status of the update action.
         :param show_node_level_update_status: Dictates whether to include node level update status in the response.
         :param max_records: The maximum number of records to include in the response.
@@ -4834,10 +4763,8 @@ class ElasticacheApi:
         that Amazon region.
 
         :param global_replication_group_id: The name of the Global datastore.
-        :param replication_group_id: The name of the secondary cluster you wish to remove from the Global
-        datastore.
-        :param replication_group_region: The Amazon region of secondary cluster you wish to remove from the
-        Global datastore.
+        :param replication_group_id: The name of the secondary cluster you wish to remove from the Global datastore.
+        :param replication_group_region: The Amazon region of secondary cluster you wish to remove from the Global datastore.
         :returns: DisassociateGlobalReplicationGroupResult
         :raises GlobalReplicationGroupNotFoundFault:
         :raises InvalidGlobalReplicationGroupStateFault:
@@ -4906,9 +4833,7 @@ class ElasticacheApi:
         :param global_replication_group_id: The name of the Global datastore.
         :param node_group_count: Total number of node groups you want.
         :param apply_immediately: Indicates that the process begins immediately.
-        :param regional_configurations: Describes the replication group IDs, the Amazon regions where they are
-        stored and the shard configuration for each that comprise the Global
-        datastore.
+        :param regional_configurations: Describes the replication group IDs, the Amazon regions where they are stored and the shard configuration for each that comprise the Global datastore.
         :returns: IncreaseNodeGroupsInGlobalReplicationGroupResult
         :raises GlobalReplicationGroupNotFoundFault:
         :raises InvalidGlobalReplicationGroupStateFault:
@@ -4934,10 +4859,8 @@ class ElasticacheApi:
 
         :param replication_group_id: The id of the replication group to which you want to add replica nodes.
         :param apply_immediately: If ``True``, the number of replica nodes is increased immediately.
-        :param new_replica_count: The number of read replica nodes you want at the completion of this
-        operation.
-        :param replica_configuration: A list of ``ConfigureShard`` objects that can be used to configure each
-        shard in a Valkey or Redis OSS (cluster mode enabled) replication group.
+        :param new_replica_count: The number of read replica nodes you want at the completion of this operation.
+        :param replica_configuration: A list of ``ConfigureShard`` objects that can be used to configure each shard in a Valkey or Redis OSS (cluster mode enabled) replication group.
         :returns: IncreaseReplicaCountResult
         :raises ReplicationGroupNotFoundFault:
         :raises InvalidReplicationGroupStateFault:
@@ -4970,10 +4893,8 @@ class ElasticacheApi:
         ``CacheNodeType`` parameter must be one of the node types returned by
         this operation.
 
-        :param cache_cluster_id: The name of the cluster you want to scale up to a larger node instanced
-        type.
-        :param replication_group_id: The name of the replication group want to scale up to a larger node
-        type.
+        :param cache_cluster_id: The name of the cluster you want to scale up to a larger node instanced type.
+        :param replication_group_id: The name of the replication group want to scale up to a larger node type.
         :returns: AllowedNodeTypeModificationsMessage
         :raises CacheClusterNotFoundFault:
         :raises ReplicationGroupNotFoundFault:
@@ -4999,10 +4920,7 @@ class ElasticacheApi:
         If the cluster is not in the *available* state, ``ListTagsForResource``
         returns an error.
 
-        :param resource_name: The Amazon Resource Name (ARN) of the resource for which you want the
-        list of tags, for example
-        ``arn:aws:elasticache:us-west-2:0123456789:cluster:myCluster`` or
-        ``arn:aws:elasticache:us-west-2:0123456789:snapshot:mySnapshot``.
+        :param resource_name: The Amazon Resource Name (ARN) of the resource for which you want the list of tags, for example ``arn:aws:elasticache:us-west-2:0123456789:cluster:myCluster`` or ``arn:aws:elasticache:us-west-2:0123456789:snapshot:mySnapshot``.
         :returns: TagListMessage
         :raises CacheClusterNotFoundFault:
         :raises CacheParameterGroupNotFoundFault:
@@ -5058,37 +4976,26 @@ class ElasticacheApi:
         :param cache_cluster_id: The cluster identifier.
         :param num_cache_nodes: The number of cache nodes that the cluster should have.
         :param cache_node_ids_to_remove: A list of cache node IDs to be removed.
-        :param az_mode: Specifies whether the new nodes in this Memcached cluster are all
-        created in a single Availability Zone or created across multiple
-        Availability Zones.
+        :param az_mode: Specifies whether the new nodes in this Memcached cluster are all created in a single Availability Zone or created across multiple Availability Zones.
         :param new_availability_zones: This option is only supported on Memcached clusters.
         :param cache_security_group_names: A list of cache security group names to authorize on this cluster.
         :param security_group_ids: Specifies the VPC Security Groups associated with the cluster.
-        :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster
-        is performed.
-        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to which
-        notifications are sent.
+        :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed.
+        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications are sent.
         :param cache_parameter_group_name: The name of the cache parameter group to apply to this cluster.
         :param notification_topic_status: The status of the Amazon SNS notification topic.
-        :param apply_immediately: If ``true``, this parameter causes the modifications in this request and
-        any pending modifications to be applied, asynchronously and as soon as
-        possible, regardless of the ``PreferredMaintenanceWindow`` setting for
-        the cluster.
+        :param apply_immediately: If ``true``, this parameter causes the modifications in this request and any pending modifications to be applied, asynchronously and as soon as possible, regardless of the ``PreferredMaintenanceWindow`` setting for the cluster.
         :param engine: The engine type used by the cache cluster.
         :param engine_version: The upgraded version of the cache engine to be run on the cache nodes.
         :param auto_minor_version_upgrade: If you are running Valkey 7.
-        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic cluster
-        snapshots before deleting them.
-        :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a
-        daily snapshot of your cluster.
+        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic cluster snapshots before deleting them.
+        :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a daily snapshot of your cluster.
         :param cache_node_type: A valid cache node type that you want to scale this cluster up to.
         :param auth_token: Reserved parameter.
         :param auth_token_update_strategy: Specifies the strategy to use to update the AUTH token.
         :param log_delivery_configurations: Specifies the destination, format and type of the logs.
-        :param ip_discovery: The network type you choose when modifying a cluster, either ``ipv4`` |
-        ``ipv6``.
-        :param scale_config: Configures horizontal or vertical scaling for Memcached clusters,
-        specifying the scaling percentage and interval.
+        :param ip_discovery: The network type you choose when modifying a cluster, either ``ipv4`` | ``ipv6``.
+        :param scale_config: Configures horizontal or vertical scaling for Memcached clusters, specifying the scaling percentage and interval.
         :returns: ModifyCacheClusterResult
         :raises InvalidCacheClusterStateFault:
         :raises InvalidCacheSecurityGroupStateFault:
@@ -5167,16 +5074,13 @@ class ElasticacheApi:
         """Modifies the settings for a Global datastore.
 
         :param global_replication_group_id: The name of the Global datastore.
-        :param apply_immediately: This parameter causes the modifications in this request and any pending
-        modifications to be applied, asynchronously and as soon as possible.
+        :param apply_immediately: This parameter causes the modifications in this request and any pending modifications to be applied, asynchronously and as soon as possible.
         :param cache_node_type: A valid cache node type that you want to scale this Global datastore to.
         :param engine: Modifies the engine listed in a global replication group message.
-        :param engine_version: The upgraded version of the cache engine to be run on the clusters in
-        the Global datastore.
+        :param engine_version: The upgraded version of the cache engine to be run on the clusters in the Global datastore.
         :param cache_parameter_group_name: The name of the cache parameter group to use with the Global datastore.
         :param global_replication_group_description: A description of the Global datastore.
-        :param automatic_failover_enabled: Determines whether a read replica is automatically promoted to
-        read/write primary if the existing primary encounters a failure.
+        :param automatic_failover_enabled: Determines whether a read replica is automatically promoted to read/write primary if the existing primary encounters a failure.
         :returns: ModifyGlobalReplicationGroupResult
         :raises GlobalReplicationGroupNotFoundFault:
         :raises InvalidGlobalReplicationGroupStateFault:
@@ -5234,55 +5138,33 @@ class ElasticacheApi:
 
         :param replication_group_id: The identifier of the replication group to modify.
         :param replication_group_description: A description for the replication group.
-        :param primary_cluster_id: For replication groups with a single primary, if this parameter is
-        specified, ElastiCache promotes the specified cluster in the specified
-        replication group to the primary role.
-        :param snapshotting_cluster_id: The cluster ID that is used as the daily snapshot source for the
-        replication group.
-        :param automatic_failover_enabled: Determines whether a read replica is automatically promoted to
-        read/write primary if the existing primary encounters a failure.
+        :param primary_cluster_id: For replication groups with a single primary, if this parameter is specified, ElastiCache promotes the specified cluster in the specified replication group to the primary role.
+        :param snapshotting_cluster_id: The cluster ID that is used as the daily snapshot source for the replication group.
+        :param automatic_failover_enabled: Determines whether a read replica is automatically promoted to read/write primary if the existing primary encounters a failure.
         :param multi_az_enabled: A flag to indicate MultiAZ is enabled.
         :param node_group_id: Deprecated.
-        :param cache_security_group_names: A list of cache security group names to authorize for the clusters in
-        this replication group.
-        :param security_group_ids: Specifies the VPC Security Groups associated with the clusters in the
-        replication group.
-        :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster
-        is performed.
-        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to which
-        notifications are sent.
-        :param cache_parameter_group_name: The name of the cache parameter group to apply to all of the clusters in
-        this replication group.
-        :param notification_topic_status: The status of the Amazon SNS notification topic for the replication
-        group.
-        :param apply_immediately: If ``true``, this parameter causes the modifications in this request and
-        any pending modifications to be applied, asynchronously and as soon as
-        possible, regardless of the ``PreferredMaintenanceWindow`` setting for
-        the replication group.
+        :param cache_security_group_names: A list of cache security group names to authorize for the clusters in this replication group.
+        :param security_group_ids: Specifies the VPC Security Groups associated with the clusters in the replication group.
+        :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed.
+        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications are sent.
+        :param cache_parameter_group_name: The name of the cache parameter group to apply to all of the clusters in this replication group.
+        :param notification_topic_status: The status of the Amazon SNS notification topic for the replication group.
+        :param apply_immediately: If ``true``, this parameter causes the modifications in this request and any pending modifications to be applied, asynchronously and as soon as possible, regardless of the ``PreferredMaintenanceWindow`` setting for the replication group.
         :param engine: Modifies the engine listed in a replication group message.
-        :param engine_version: The upgraded version of the cache engine to be run on the clusters in
-        the replication group.
+        :param engine_version: The upgraded version of the cache engine to be run on the clusters in the replication group.
         :param auto_minor_version_upgrade: If you are running Valkey or Redis OSS engine version 6.
-        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic node group
-        (shard) snapshots before deleting them.
-        :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a
-        daily snapshot of the node group (shard) specified by
-        ``SnapshottingClusterId``.
-        :param cache_node_type: A valid cache node type that you want to scale this replication group
-        to.
+        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic node group (shard) snapshots before deleting them.
+        :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a daily snapshot of the node group (shard) specified by ``SnapshottingClusterId``.
+        :param cache_node_type: A valid cache node type that you want to scale this replication group to.
         :param auth_token: Reserved parameter.
         :param auth_token_update_strategy: Specifies the strategy to use to update the AUTH token.
         :param user_group_ids_to_add: The ID of the user group you are associating with the replication group.
-        :param user_group_ids_to_remove: The ID of the user group to disassociate from the replication group,
-        meaning the users in the group no longer can access the replication
-        group.
+        :param user_group_ids_to_remove: The ID of the user group to disassociate from the replication group, meaning the users in the group no longer can access the replication group.
         :param remove_user_groups: Removes the user group associated with this replication group.
         :param log_delivery_configurations: Specifies the destination, format and type of the logs.
-        :param ip_discovery: The network type you choose when modifying a cluster, either ``ipv4`` |
-        ``ipv6``.
+        :param ip_discovery: The network type you choose when modifying a cluster, either ``ipv4`` | ``ipv6``.
         :param transit_encryption_enabled: A flag that enables in-transit encryption when set to true.
-        :param transit_encryption_mode: A setting that allows you to migrate your clients to use in-transit
-        encryption, with no downtime.
+        :param transit_encryption_mode: A setting that allows you to migrate your clients to use in-transit encryption, with no downtime.
         :param cluster_mode: Enabled or Disabled.
         :returns: ModifyReplicationGroupResult
         :raises ReplicationGroupNotFoundFault:
@@ -5320,19 +5202,12 @@ class ElasticacheApi:
         add shards, remove shards, or rebalance the keyspaces among existing
         shards.
 
-        :param replication_group_id: The name of the Valkey or Redis OSS (cluster mode enabled) cluster
-        (replication group) on which the shards are to be configured.
-        :param node_group_count: The number of node groups (shards) that results from the modification of
-        the shard configuration.
+        :param replication_group_id: The name of the Valkey or Redis OSS (cluster mode enabled) cluster (replication group) on which the shards are to be configured.
+        :param node_group_count: The number of node groups (shards) that results from the modification of the shard configuration.
         :param apply_immediately: Indicates that the shard reconfiguration process begins immediately.
-        :param resharding_configuration: Specifies the preferred availability zones for each node group in the
-        cluster.
-        :param node_groups_to_remove: If the value of ``NodeGroupCount`` is less than the current number of
-        node groups (shards), then either ``NodeGroupsToRemove`` or
-        ``NodeGroupsToRetain`` is required.
-        :param node_groups_to_retain: If the value of ``NodeGroupCount`` is less than the current number of
-        node groups (shards), then either ``NodeGroupsToRemove`` or
-        ``NodeGroupsToRetain`` is required.
+        :param resharding_configuration: Specifies the preferred availability zones for each node group in the cluster.
+        :param node_groups_to_remove: If the value of ``NodeGroupCount`` is less than the current number of node groups (shards), then either ``NodeGroupsToRemove`` or ``NodeGroupsToRetain`` is required.
+        :param node_groups_to_retain: If the value of ``NodeGroupCount`` is less than the current number of node groups (shards), then either ``NodeGroupsToRemove`` or ``NodeGroupsToRetain`` is required.
         :returns: ModifyReplicationGroupShardConfigurationResult
         :raises ReplicationGroupNotFoundFault:
         :raises InvalidReplicationGroupStateFault:
@@ -5368,16 +5243,11 @@ class ElasticacheApi:
         :param serverless_cache_name: User-provided identifier for the serverless cache to be modified.
         :param description: User provided description for the serverless cache.
         :param cache_usage_limits: Modify the cache usage limit for the serverless cache.
-        :param remove_user_group: The identifier of the UserGroup to be removed from association with the
-        Valkey and Redis OSS serverless cache.
-        :param user_group_id: The identifier of the UserGroup to be associated with the serverless
-        cache.
-        :param security_group_ids: The new list of VPC security groups to be associated with the serverless
-        cache.
-        :param snapshot_retention_limit: The number of days for which Elasticache retains automatic snapshots
-        before deleting them.
-        :param daily_snapshot_time: The daily time during which Elasticache begins taking a daily snapshot
-        of the serverless cache.
+        :param remove_user_group: The identifier of the UserGroup to be removed from association with the Valkey and Redis OSS serverless cache.
+        :param user_group_id: The identifier of the UserGroup to be associated with the serverless cache.
+        :param security_group_ids: The new list of VPC security groups to be associated with the serverless cache.
+        :param snapshot_retention_limit: The number of days for which Elasticache retains automatic snapshots before deleting them.
+        :param daily_snapshot_time: The daily time during which Elasticache begins taking a daily snapshot of the serverless cache.
         :param engine: Modifies the engine listed in a serverless cache request.
         :param major_engine_version: Modifies the engine vesion listed in a serverless cache request.
         :returns: ModifyServerlessCacheResponse
@@ -5550,12 +5420,8 @@ class ElasticacheApi:
         see `Resource-level
         permissions <http://docs.aws.amazon.com/AmazonElastiCache/latest/dg/IAM.ResourceLevelPermissions.html>`__.
 
-        :param resource_name: The Amazon Resource Name (ARN) of the resource from which you want the
-        tags removed, for example
-        ``arn:aws:elasticache:us-west-2:0123456789:cluster:myCluster`` or
-        ``arn:aws:elasticache:us-west-2:0123456789:snapshot:mySnapshot``.
-        :param tag_keys: A list of ``TagKeys`` identifying the tags you want removed from the
-        named resource.
+        :param resource_name: The Amazon Resource Name (ARN) of the resource from which you want the tags removed, for example ``arn:aws:elasticache:us-west-2:0123456789:cluster:myCluster`` or ``arn:aws:elasticache:us-west-2:0123456789:snapshot:mySnapshot``.
+        :param tag_keys: A list of ``TagKeys`` identifying the tags you want removed from the named resource.
         :returns: TagListMessage
         :raises CacheClusterNotFoundFault:
         :raises CacheParameterGroupNotFoundFault:
@@ -5592,8 +5458,7 @@ class ElasticacheApi:
         parameters.
 
         :param cache_parameter_group_name: The name of the cache parameter group to reset.
-        :param reset_all_parameters: If ``true``, all parameters in the cache parameter group are reset to
-        their default values.
+        :param reset_all_parameters: If ``true``, all parameters in the cache parameter group are reset to their default values.
         :param parameter_name_values: An array of parameter names to reset to their default values.
         :returns: CacheParameterGroupNameMessage
         :raises InvalidCacheParameterGroupStateFault:
@@ -5714,10 +5579,8 @@ class ElasticacheApi:
         Multi-AZ <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/AutoFailover.html#auto-failover-test>`__
         in the *ElastiCache User Guide*.
 
-        :param replication_group_id: The name of the replication group (console: cluster) whose automatic
-        failover is being tested by this operation.
-        :param node_group_id: The name of the node group (called shard in the console) in this
-        replication group on which automatic failover is to be tested.
+        :param replication_group_id: The name of the replication group (console: cluster) whose automatic failover is being tested by this operation.
+        :param node_group_id: The name of the node group (called shard in the console) in this replication group on which automatic failover is to be tested.
         :returns: TestFailoverResult
         :raises APICallRateForCustomerExceededFault:
         :raises InvalidCacheClusterStateFault:

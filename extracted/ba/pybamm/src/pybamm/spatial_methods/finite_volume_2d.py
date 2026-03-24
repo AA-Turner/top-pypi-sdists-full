@@ -22,17 +22,13 @@ def _evaluates_on_edges_one_side(symbol, direction):
         return symbol
     if direction == "lr":
         symbol._evaluates_on_edges_original = symbol._evaluates_on_edges
-        symbol._evaluates_on_edges = (
-            lambda dim: "lr"
-            if dim == "primary"
-            else symbol._evaluates_on_edges_original(dim)
+        symbol._evaluates_on_edges = lambda dim: (
+            "lr" if dim == "primary" else symbol._evaluates_on_edges_original(dim)
         )
     elif direction == "tb":
         symbol._evaluates_on_edges_original = symbol._evaluates_on_edges
-        symbol._evaluates_on_edges = (
-            lambda dim: "tb"
-            if dim == "primary"
-            else symbol._evaluates_on_edges_original(dim)
+        symbol._evaluates_on_edges = lambda dim: (
+            "tb" if dim == "primary" else symbol._evaluates_on_edges_original(dim)
         )
     return symbol
 
@@ -2205,9 +2201,9 @@ class FiniteVolume2D(pybamm.SpatialMethod):
         if not all(isinstance(child, pybamm.StateVector) for child in disc_children):
             # All will have the same number of points in the tb direction, so we just need to get the lr points
             lr_mesh_points = [
-                self.mesh[child.domain[0]].npts_lr for child in disc_children
+                self.mesh[child.domain].npts_lr for child in disc_children
             ]
-            tb_mesh_points = self.mesh[disc_children[0].domain[0]].npts_tb
+            tb_mesh_points = self.mesh[disc_children[0].domain].npts_tb
             num_children = len(disc_children)
             rows = np.arange(0, tb_mesh_points * sum(lr_mesh_points))
             cols = []

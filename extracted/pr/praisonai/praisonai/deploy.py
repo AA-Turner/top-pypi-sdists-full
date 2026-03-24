@@ -57,7 +57,7 @@ class CloudDeployer:
             file.write("FROM python:3.11-slim\n")
             file.write("WORKDIR /app\n")
             file.write("COPY . .\n")
-            file.write("RUN pip install flask praisonai==4.5.82 gunicorn markdown\n")
+            file.write("RUN pip install flask praisonai==4.5.83 gunicorn markdown\n")
             file.write("EXPOSE 8080\n")
             file.write('CMD ["gunicorn", "-b", "0.0.0.0:8080", "api:app"]\n')
             
@@ -87,7 +87,8 @@ class CloudDeployer:
             file.write("    html_output = markdown.markdown(output)\n")
             file.write("    return f'<html><body>{html_output}</body></html>'\n\n")
             file.write("if __name__ == \"__main__\":\n")
-            file.write("    app.run(debug=True)\n")
+            file.write("    import os\n")
+            file.write("    app.run(debug=os.environ.get('DEBUG', 'false').lower() == 'true')\n")
     
     def set_environment_variables(self):
         """Sets environment variables with fallback to .env values or defaults."""

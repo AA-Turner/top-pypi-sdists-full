@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.11.2
+Version: 2.11.6
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -41,7 +41,7 @@ Requires-Dist: datasets[audio]; extra == "audio"
 Provides-Extra: codecarbon
 Requires-Dist: codecarbon<3.0.0,>=2.0.0; extra == "codecarbon"
 Provides-Extra: leaderboard
-Requires-Dist: gradio==6.9.0; extra == "leaderboard"
+Requires-Dist: gradio==6.0.1; extra == "leaderboard"
 Requires-Dist: plotly<6.0.0,>=5.24.0; extra == "leaderboard"
 Requires-Dist: cachetools>=5.2.0; extra == "leaderboard"
 Requires-Dist: matplotlib>=3.9.4; extra == "leaderboard"

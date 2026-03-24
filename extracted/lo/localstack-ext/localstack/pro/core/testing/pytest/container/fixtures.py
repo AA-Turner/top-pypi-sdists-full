@@ -10,10 +10,10 @@ from localstack.utils.bootstrap import Container,ContainerConfigurators
 from localstack.utils.container_utils.container_client import ContainerConfigurator
 @pytest.fixture
 def pro_container_configurators(tmp_path,docker_network)->list[ContainerConfigurator]:
-	F='test';C='LOCALSTACK_API_KEY';B='LOCALSTACK_AUTH_TOKEN';D=tmp_path/'localstack-volume';D.mkdir(parents=_A,exist_ok=_A);A=[ContainerConfigurators.random_gateway_port,ContainerConfigurators.random_container_name,ContainerConfigurators.mount_docker_socket,ContainerConfigurators.mount_localstack_volume(D),ContainerConfigurators.debug,ContainerConfigurators.network(docker_network),ContainerConfigurators.env_vars({'ACTIVATE_PRO':'1'})]
-	if config.is_env_true(ENV_TEST_CONTAINER_MOUNT_SOURCES):G=os.path.join(constants.LOCALSTACK_VENV_FOLDER,'..','..');E=HostPaths(workspace_dir=Path(G).absolute(),volume_dir=D);A.append(SourceVolumeMountConfigurator(host_paths=E,pro=_A));A.append(EntryPointMountConfigurator(host_paths=E,pro=_A))
-	elif os.getenv(B)and os.getenv(B)!=F:A.append(ContainerConfigurators.env_vars({B:os.getenv(B)}));A.append(ContainerConfigurators.env_vars({C:''}))
-	elif os.getenv(C)and os.getenv(C)!=F:A.append(ContainerConfigurators.env_vars({C:os.getenv(C)}));A.append(ContainerConfigurators.env_vars({B:''}))
+	G='test';E='..';C='LOCALSTACK_API_KEY';B='LOCALSTACK_AUTH_TOKEN';D=tmp_path/'localstack-volume';D.mkdir(parents=_A,exist_ok=_A);A=[ContainerConfigurators.random_gateway_port,ContainerConfigurators.random_container_name,ContainerConfigurators.mount_docker_socket,ContainerConfigurators.mount_localstack_volume(D),ContainerConfigurators.debug,ContainerConfigurators.network(docker_network)]
+	if config.is_env_true(ENV_TEST_CONTAINER_MOUNT_SOURCES):H=os.path.join(constants.LOCALSTACK_VENV_FOLDER,E,E,E);F=HostPaths(workspace_dir=Path(H).absolute(),volume_dir=D,venv_dir=constants.LOCALSTACK_VENV_FOLDER);A.append(SourceVolumeMountConfigurator(host_paths=F,pro=_A));A.append(EntryPointMountConfigurator(host_paths=F,pro=_A))
+	elif os.getenv(B)and os.getenv(B)!=G:A.append(ContainerConfigurators.env_vars({B:os.getenv(B)}));A.append(ContainerConfigurators.env_vars({C:''}))
+	elif os.getenv(C)and os.getenv(C)!=G:A.append(ContainerConfigurators.env_vars({C:os.getenv(C)}));A.append(ContainerConfigurators.env_vars({B:''}))
 	else:raise ValueError('Cannot start LocalStack Pro without a valid LOCALSTACK_AUTH_TOKEN')
 	return A
 @pytest.fixture

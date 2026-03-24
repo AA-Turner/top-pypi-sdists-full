@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack
-Version: 4.14.0
+Version: 2026.3.0
 Summary: The LocalStack Command Line Interface
 Author-email: LocalStack Contributors <info@localstack.cloud>
 License-Expression: Apache-2.0

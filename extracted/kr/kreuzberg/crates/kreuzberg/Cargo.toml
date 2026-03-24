@@ -52,7 +52,7 @@ office = [
     "dep:dbase",
     "html",
 ]
-hwp = ["dep:hwpers"]
+hwp = ["dep:cfb", "dep:flate2"]
 iwork = ["dep:zip", "dep:snap"]
 email = ["dep:mail-parser", "dep:cfb"]
 html = ["dep:html-to-markdown-rs"]
@@ -237,7 +237,7 @@ bitvec = "1.0"
 blake3 = { workspace = true }
 bytes = { workspace = true }
 calamine = { version = "0.34.0", features = ["dates"], optional = true }
-cfb = { version = "0.14.0", optional = true }
+cfb = { workspace = true, optional = true }
 chardetng = { version = "0.1.17", optional = true }
 dashmap = "6.1"
 dbase = { workspace = true, optional = true }
@@ -255,7 +255,6 @@ html-to-markdown-rs = { workspace = true, features = [
     "metadata",
     "visitor",
 ], optional = true }
-hwpers = { workspace = true, optional = true }
 image = { workspace = true, default-features = false, features = [
     "png",
     "jpeg",
@@ -271,7 +270,7 @@ infer = "0.19.0"
 jotdown = "0.9"
 kamadak-exif = { version = "0.6.1", optional = true }
 
-kreuzberg-tesseract = { path = "../kreuzberg-tesseract", version = "4.5.3", optional = true }
+kreuzberg-tesseract = { path = "../kreuzberg-tesseract", version = "4.5.4", optional = true }
 lazy_static = { workspace = true }
 libc = { workspace = true }
 lopdf = { version = "0.40.0", optional = true }
@@ -334,14 +333,14 @@ unicode-normalization = { version = "0.1.25", optional = true }
 utoipa = { version = "5.4", features = ["axum_extras"], optional = true }
 whatlang = { version = "0.18.0", optional = true }
 yake-rust = { version = "1.0.3", optional = true }
-zip = { version = "8.3.1", optional = true, default-features = false, features = [
+zip = { version = ">=7.0.0, <7.4.0", optional = true, default-features = false, features = [
     "deflate-flate2",
 ] }
 
 [target.'cfg(all(not(target_os = "windows"), not(target_arch = "wasm32")))'.dependencies]
 hf-hub = { version = "0.5", default-features = false, features = ["ureq"], optional = true }
 # PaddleOCR via ONNX Runtime - not available on WASM (vendored from paddle-ocr-rs)
-kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.5.3", optional = true }
+kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.5.4", optional = true }
 pprof = { version = "0.15.0", features = ["flamegraph"], optional = true }
 # Force ureq (transitive dep via hf-hub) to use rustls on non-Windows
 ureq = { version = "3.3", default-features = false, features = ["rustls", "json"], optional = true }
@@ -350,7 +349,7 @@ ureq = { version = "3.3", default-features = false, features = ["rustls", "json"
 [target.'cfg(all(target_os = "windows", not(target_arch = "wasm32")))'.dependencies]
 hf-hub = { version = "0.5", default-features = false, features = ["ureq"], optional = true }
 # PaddleOCR via ONNX Runtime - not available on WASM (vendored from paddle-ocr-rs)
-kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.5.3", optional = true }
+kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.5.4", optional = true }
 # Force ureq (transitive dep via hf-hub) to use native-tls on Windows
 ureq = { version = "3.3", default-features = false, features = [
     "native-tls",
@@ -378,4 +377,4 @@ tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "time"] }
 tokio-test = "0.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-zip = { version = "8.3.1", default-features = false, features = ["deflate-flate2"] }
+zip = { version = ">=7.0.0, <7.4.0", default-features = false, features = ["deflate-flate2"] }

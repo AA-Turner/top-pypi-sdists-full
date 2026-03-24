@@ -10,6 +10,8 @@ _doubleMin0 = float
 _doubleMin0Max1 = float
 _doubleMin0Max2147483647 = float
 _doubleMin1Max10 = float
+_doubleMinNegative1000Max3 = float
+_doubleMinNegative1000MaxNegative1 = float
 _doubleMinNegative59Max0 = float
 _doubleMinNegative60Max3 = float
 _doubleMinNegative60Max6 = float
@@ -62,6 +64,7 @@ _integerMin10Max48 = int
 _integerMin16000Max320000 = int
 _integerMin16000Max48000 = int
 _integerMin16Max24 = int
+_integerMin192000Max1024000 = int
 _integerMin1Max1 = int
 _integerMin1Max10 = int
 _integerMin1Max100 = int
@@ -284,6 +287,33 @@ class Ac3MetadataControl(StrEnum):
     USE_CONFIGURED = "USE_CONFIGURED"
 
 
+class Ac4BitstreamMode(StrEnum):
+    COMPLETE_MAIN = "COMPLETE_MAIN"
+    EMERGENCY = "EMERGENCY"
+
+
+class Ac4CodingMode(StrEnum):
+    CODING_MODE_2_0 = "CODING_MODE_2_0"
+    CODING_MODE_3_2_LFE = "CODING_MODE_3_2_LFE"
+    CODING_MODE_5_1_4 = "CODING_MODE_5_1_4"
+
+
+class Ac4DynamicRangeCompressionDrcProfile(StrEnum):
+    NONE = "NONE"
+    FILM_STANDARD = "FILM_STANDARD"
+    FILM_LIGHT = "FILM_LIGHT"
+    MUSIC_STANDARD = "MUSIC_STANDARD"
+    MUSIC_LIGHT = "MUSIC_LIGHT"
+    SPEECH = "SPEECH"
+
+
+class Ac4StereoDownmix(StrEnum):
+    NOT_INDICATED = "NOT_INDICATED"
+    LO_RO = "LO_RO"
+    LT_RT = "LT_RT"
+    DPL2 = "DPL2"
+
+
 class AccelerationMode(StrEnum):
     DISABLED = "DISABLED"
     ENABLED = "ENABLED"
@@ -377,6 +407,7 @@ class AudioCodec(StrEnum):
     WAV = "WAV"
     AIFF = "AIFF"
     AC3 = "AC3"
+    AC4 = "AC4"
     EAC3 = "EAC3"
     EAC3_ATMOS = "EAC3_ATMOS"
     VORBIS = "VORBIS"
@@ -697,6 +728,7 @@ class CmafInitializationVectorInManifest(StrEnum):
 class CmafIntervalCadence(StrEnum):
     FOLLOW_IFRAME = "FOLLOW_IFRAME"
     FOLLOW_CUSTOM = "FOLLOW_CUSTOM"
+    FOLLOW_SEGMENTATION = "FOLLOW_SEGMENTATION"
 
 
 class CmafKeyProviderType(StrEnum):
@@ -846,11 +878,12 @@ class Codec(StrEnum):
     MP4V = "MP4V"
     MPEG2 = "MPEG2"
     PRORES = "PRORES"
+    QTRLE = "QTRLE"
     THEORA = "THEORA"
+    UNCOMPRESSED = "UNCOMPRESSED"
     VFW = "VFW"
     VP8 = "VP8"
     VP9 = "VP9"
-    QTRLE = "QTRLE"
     C608 = "C608"
     C708 = "C708"
     WEBVTT = "WEBVTT"
@@ -953,6 +986,7 @@ class DashIsoImageBasedTrickPlay(StrEnum):
 class DashIsoIntervalCadence(StrEnum):
     FOLLOW_IFRAME = "FOLLOW_IFRAME"
     FOLLOW_CUSTOM = "FOLLOW_CUSTOM"
+    FOLLOW_SEGMENTATION = "FOLLOW_SEGMENTATION"
 
 
 class DashIsoMpdManifestBandwidthType(StrEnum):
@@ -1336,6 +1370,7 @@ class Format(StrEnum):
     webm = "webm"
     mxf = "mxf"
     wave = "wave"
+    avi = "avi"
 
 
 class FrameControl(StrEnum):
@@ -1760,6 +1795,11 @@ class HlsCaptionSegmentLengthControl(StrEnum):
     MATCH_VIDEO = "MATCH_VIDEO"
 
 
+class HlsClearLead(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
 class HlsClientCache(StrEnum):
     DISABLED = "DISABLED"
     ENABLED = "ENABLED"
@@ -1806,6 +1846,7 @@ class HlsInitializationVectorInManifest(StrEnum):
 class HlsIntervalCadence(StrEnum):
     FOLLOW_IFRAME = "FOLLOW_IFRAME"
     FOLLOW_CUSTOM = "FOLLOW_CUSTOM"
+    FOLLOW_SEGMENTATION = "FOLLOW_SEGMENTATION"
 
 
 class HlsKeyProviderType(StrEnum):
@@ -3345,6 +3386,24 @@ class Ac3Settings(TypedDict, total=False):
     SampleRate: _integerMin48000Max48000 | None
 
 
+class Ac4Settings(TypedDict, total=False):
+    """Required when you set Codec to the value AC4."""
+
+    Bitrate: _integerMin192000Max1024000 | None
+    BitstreamMode: Ac4BitstreamMode | None
+    CodingMode: Ac4CodingMode | None
+    DynamicRangeCompressionFlatPanelTv: Ac4DynamicRangeCompressionDrcProfile | None
+    DynamicRangeCompressionHomeTheater: Ac4DynamicRangeCompressionDrcProfile | None
+    DynamicRangeCompressionPortableHeadphones: Ac4DynamicRangeCompressionDrcProfile | None
+    DynamicRangeCompressionPortableSpeakers: Ac4DynamicRangeCompressionDrcProfile | None
+    LoRoCenterMixLevel: _doubleMinNegative1000Max3 | None
+    LoRoSurroundMixLevel: _doubleMinNegative1000MaxNegative1 | None
+    LtRtCenterMixLevel: _doubleMinNegative1000Max3 | None
+    LtRtSurroundMixLevel: _doubleMinNegative1000MaxNegative1 | None
+    SampleRate: _integerMin48000Max48000 | None
+    StereoDownmix: Ac4StereoDownmix | None
+
+
 class AccelerationSettings(TypedDict, total=False):
     """Accelerated transcoding can significantly speed up jobs with long,
     visually complex content.
@@ -3533,6 +3592,7 @@ class AudioCodecSettings(TypedDict, total=False):
 
     AacSettings: AacSettings | None
     Ac3Settings: Ac3Settings | None
+    Ac4Settings: Ac4Settings | None
     AiffSettings: AiffSettings | None
     Codec: AudioCodec | None
     Eac3AtmosSettings: Eac3AtmosSettings | None
@@ -4275,6 +4335,7 @@ class SpekeKeyProviderCmaf(TypedDict, total=False):
 class CmafEncryptionSettings(TypedDict, total=False):
     """Settings for CMAF encryption"""
 
+    ClearLead: HlsClearLead | None
     ConstantInitializationVector: _stringMin32Max32Pattern09aFAF32 | None
     EncryptionMethod: CmafEncryptionType | None
     InitializationVectorInManifest: CmafInitializationVectorInManifest | None
@@ -6765,8 +6826,7 @@ class MediaconvertApi:
         """Associates an AWS Certificate Manager (ACM) Amazon Resource Name (ARN)
         with AWS Elemental MediaConvert.
 
-        :param arn: The ARN of the ACM certificate that you want to associate with your
-        MediaConvert resource.
+        :param arn: The ARN of the ACM certificate that you want to associate with your MediaConvert resource.
         :returns: AssociateCertificateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6822,14 +6882,10 @@ class MediaconvertApi:
         :param role: Required.
         :param settings: JobSettings contains all the transcode settings for a job.
         :param acceleration_settings: Optional.
-        :param billing_tags_source: Optionally choose a Billing tags source that AWS Billing and Cost
-        Management will use to display tags for individual output costs on any
-        billing report that you set up.
-        :param client_request_token: Prevent duplicate jobs from being created and ensure idempotency for
-        your requests.
+        :param billing_tags_source: Optionally choose a Billing tags source that AWS Billing and Cost Management will use to display tags for individual output costs on any billing report that you set up.
+        :param client_request_token: Prevent duplicate jobs from being created and ensure idempotency for your requests.
         :param hop_destinations: Optional.
-        :param job_engine_version: Use Job engine versions to run jobs for your production workflow on one
-        version, while you test and validate the latest version.
+        :param job_engine_version: Use Job engine versions to run jobs for your production workflow on one version, while you test and validate the latest version.
         :param job_template: Optional.
         :param priority: Optional.
         :param queue: Optional.
@@ -6868,18 +6924,15 @@ class MediaconvertApi:
         User Guide at
         http://docs.aws.amazon.com/mediaconvert/latest/ug/what-is.html
 
-        :param settings: JobTemplateSettings contains all the transcode settings saved in the
-        template that will be applied to jobs created from it.
+        :param settings: JobTemplateSettings contains all the transcode settings saved in the template that will be applied to jobs created from it.
         :param name: The name of the job template you are creating.
-        :param acceleration_settings: Accelerated transcoding can significantly speed up jobs with long,
-        visually complex content.
+        :param acceleration_settings: Accelerated transcoding can significantly speed up jobs with long, visually complex content.
         :param category: Optional.
         :param description: Optional.
         :param hop_destinations: Optional.
         :param priority: Specify the relative priority for this job.
         :param queue: Optional.
-        :param status_update_interval: Specify how often MediaConvert sends STATUS_UPDATE events to Amazon
-        CloudWatch Events.
+        :param status_update_interval: Specify how often MediaConvert sends STATUS_UPDATE events to Amazon CloudWatch Events.
         :param tags: The tags that you want to add to the resource.
         :returns: CreateJobTemplateResponse
         :raises BadRequestException:
@@ -6942,8 +6995,7 @@ class MediaconvertApi:
         :param name: The name of the queue that you are creating.
         :param concurrent_jobs: Specify the maximum number of jobs your queue can process concurrently.
         :param description: Optional.
-        :param pricing_plan: Specifies whether the pricing plan for the queue is on-demand or
-        reserved.
+        :param pricing_plan: Specifies whether the pricing plan for the queue is on-demand or reserved.
         :param reservation_plan_settings: Details about the pricing plan for your reserved queue.
         :param status: Initial state of the queue.
         :param tags: The tags that you want to add to the resource.
@@ -7061,8 +7113,7 @@ class MediaconvertApi:
 
         :param max_results: Optional.
         :param mode: Optional field, defaults to DEFAULT.
-        :param next_token: Use this string, provided with the response to a previous request, to
-        request the next batch of endpoints.
+        :param next_token: Use this string, provided with the response to a previous request, to request the next batch of endpoints.
         :returns: DescribeEndpointsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -7082,8 +7133,7 @@ class MediaconvertApi:
         Certificate Manager (ACM) certificate and an AWS Elemental MediaConvert
         resource.
 
-        :param arn: The ARN of the ACM certificate that you want to disassociate from your
-        MediaConvert resource.
+        :param arn: The ARN of the ACM certificate that you want to disassociate from your MediaConvert resource.
         :returns: DisassociateCertificateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -7211,12 +7261,10 @@ class MediaconvertApi:
         the next twenty templates, use the nextToken string returned with the
         array
 
-        :param category: Optionally, specify a job template category to limit responses to only
-        job templates from that category.
+        :param category: Optionally, specify a job template category to limit responses to only job templates from that category.
         :param list_by: Optional.
         :param max_results: Optional.
-        :param next_token: Use this string, provided with the response to a previous request, to
-        request the next batch of job templates.
+        :param next_token: Use this string, provided with the response to a previous request, to request the next batch of job templates.
         :param order: Optional.
         :returns: ListJobTemplatesResponse
         :raises BadRequestException:
@@ -7277,12 +7325,10 @@ class MediaconvertApi:
         the presets themselves, not just a list of them. To retrieve the next
         twenty presets, use the nextToken string returned with the array.
 
-        :param category: Optionally, specify a preset category to limit responses to only presets
-        from that category.
+        :param category: Optionally, specify a preset category to limit responses to only presets from that category.
         :param list_by: Optional.
         :param max_results: Optional.
-        :param next_token: Use this string, provided with the response to a previous request, to
-        request the next batch of presets.
+        :param next_token: Use this string, provided with the response to a previous request, to request the next batch of presets.
         :param order: Optional.
         :returns: ListPresetsResponse
         :raises BadRequestException:
@@ -7311,8 +7357,7 @@ class MediaconvertApi:
 
         :param list_by: Optional.
         :param max_results: Optional.
-        :param next_token: Use this string, provided with the response to a previous request, to
-        request the next batch of queues.
+        :param next_token: Use this string, provided with the response to a previous request, to request the next batch of queues.
         :param order: Optional.
         :returns: ListQueuesResponse
         :raises BadRequestException:
@@ -7331,8 +7376,7 @@ class MediaconvertApi:
     ) -> ListTagsForResourceResponse:
         """Retrieve the tags for a MediaConvert resource.
 
-        :param arn: The Amazon Resource Name (ARN) of the resource that you want to list
-        tags for.
+        :param arn: The Amazon Resource Name (ARN) of the resource that you want to list tags for.
         :returns: ListTagsForResourceResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -7396,8 +7440,7 @@ class MediaconvertApi:
         the user guide at
         http://docs.aws.amazon.com/mediaconvert/latest/ug/what-is.html
 
-        :param policy: A policy configures behavior that you allow or disallow for your
-        account.
+        :param policy: A policy configures behavior that you allow or disallow for your account.
         :returns: PutPolicyResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -7459,8 +7502,7 @@ class MediaconvertApi:
 
         :param filter_list: Optional.
         :param max_results: Optional.
-        :param next_token: Use this string to request the next batch of jobs matched by a jobs
-        query.
+        :param next_token: Use this string to request the next batch of jobs matched by a jobs query.
         :param order: Optional.
         :returns: StartJobsQueryResponse
         :raises BadRequestException:
@@ -7506,8 +7548,7 @@ class MediaconvertApi:
         information about tagging, see the User Guide at
         https://docs.aws.amazon.com/mediaconvert/latest/ug/tagging-resources.html
 
-        :param arn: The Amazon Resource Name (ARN) of the resource that you want to remove
-        tags from.
+        :param arn: The Amazon Resource Name (ARN) of the resource that you want to remove tags from.
         :param tag_keys: The keys of the tags that you want to remove from the resource.
         :returns: UntagResourceResponse
         :raises BadRequestException:
@@ -7538,17 +7579,14 @@ class MediaconvertApi:
         """Modify one of your existing job templates.
 
         :param name: The name of the job template you are modifying.
-        :param acceleration_settings: Accelerated transcoding can significantly speed up jobs with long,
-        visually complex content.
+        :param acceleration_settings: Accelerated transcoding can significantly speed up jobs with long, visually complex content.
         :param category: The new category for the job template, if you are changing it.
         :param description: The new description for the job template, if you are changing it.
         :param hop_destinations: Optional list of hop destinations.
         :param priority: Specify the relative priority for this job.
         :param queue: The new queue for the job template, if you are changing it.
-        :param settings: JobTemplateSettings contains all the transcode settings saved in the
-        template that will be applied to jobs created from it.
-        :param status_update_interval: Specify how often MediaConvert sends STATUS_UPDATE events to Amazon
-        CloudWatch Events.
+        :param settings: JobTemplateSettings contains all the transcode settings saved in the template that will be applied to jobs created from it.
+        :param status_update_interval: Specify how often MediaConvert sends STATUS_UPDATE events to Amazon CloudWatch Events.
         :returns: UpdateJobTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -7604,8 +7642,7 @@ class MediaconvertApi:
         :param concurrent_jobs: Specify the maximum number of jobs your queue can process concurrently.
         :param description: The new description for the queue, if you are changing it.
         :param reservation_plan_settings: The new details of your pricing plan for your reserved queue.
-        :param status: Pause or activate a queue by changing its status between ACTIVE and
-        PAUSED.
+        :param status: Pause or activate a queue by changing its status between ACTIVE and PAUSED.
         :returns: UpdateQueueResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:

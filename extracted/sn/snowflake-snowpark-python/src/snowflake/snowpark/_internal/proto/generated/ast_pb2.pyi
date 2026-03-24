@@ -921,7 +921,7 @@ Global___FlattenMode: _TypeAlias = FlattenMode  # noqa: Y015
 
 @_typing.final
 class JoinType(_message.Message):
-    """dataframe.ir:251"""
+    """dataframe.ir:252"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -3713,7 +3713,7 @@ Global___DataframeAnalyticsTimeSeriesAgg: _TypeAlias = DataframeAnalyticsTimeSer
 
 @_typing.final
 class DataframeCacheResult(_message.Message):
-    """dataframe.ir:375"""
+    """dataframe.ir:378"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -3774,7 +3774,7 @@ Global___DataframeCol: _TypeAlias = DataframeCol  # noqa: Y015
 
 @_typing.final
 class DataframeColIlike(_message.Message):
-    """dataframe.ir:382"""
+    """dataframe.ir:385"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4060,11 +4060,14 @@ class DataframeCrossJoin(_message.Message):
 
     DESCRIPTOR: _descriptor.Descriptor
 
+    DIRECTED_FIELD_NUMBER: _builtins.int
     LHS_FIELD_NUMBER: _builtins.int
     LSUFFIX_FIELD_NUMBER: _builtins.int
     RHS_FIELD_NUMBER: _builtins.int
     RSUFFIX_FIELD_NUMBER: _builtins.int
     SRC_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def directed(self) -> _wrappers_pb2.BoolValue: ...
     @_builtins.property
     def lhs(self) -> Global___Expr: ...
     @_builtins.property
@@ -4078,15 +4081,16 @@ class DataframeCrossJoin(_message.Message):
     def __init__(
         self,
         *,
+        directed: _wrappers_pb2.BoolValue | None = ...,
         lhs: Global___Expr | None = ...,
         lsuffix: _wrappers_pb2.StringValue | None = ...,
         rhs: Global___Expr | None = ...,
         rsuffix: _wrappers_pb2.StringValue | None = ...,
         src: Global___SrcPosition | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["lhs", b"lhs", "lsuffix", b"lsuffix", "rhs", b"rhs", "rsuffix", b"rsuffix", "src", b"src"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["directed", b"directed", "lhs", b"lhs", "lsuffix", b"lsuffix", "rhs", b"rhs", "rsuffix", b"rsuffix", "src", b"src"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["lhs", b"lhs", "lsuffix", b"lsuffix", "rhs", b"rhs", "rsuffix", b"rsuffix", "src", b"src"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["directed", b"directed", "lhs", b"lhs", "lsuffix", b"lsuffix", "rhs", b"rhs", "rsuffix", b"rsuffix", "src", b"src"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___DataframeCrossJoin: _TypeAlias = DataframeCrossJoin  # noqa: Y015
@@ -4122,7 +4126,7 @@ Global___DataframeCube: _TypeAlias = DataframeCube  # noqa: Y015
 
 @_typing.final
 class DataframeDescribe(_message.Message):
-    """dataframe.ir:200"""
+    """dataframe.ir:201"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4154,7 +4158,7 @@ Global___DataframeDescribe: _TypeAlias = DataframeDescribe  # noqa: Y015
 
 @_typing.final
 class DataframeDistinct(_message.Message):
-    """dataframe.ir:206"""
+    """dataframe.ir:207"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4179,7 +4183,7 @@ Global___DataframeDistinct: _TypeAlias = DataframeDistinct  # noqa: Y015
 
 @_typing.final
 class DataframeDrop(_message.Message):
-    """dataframe.ir:210"""
+    """dataframe.ir:211"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4208,7 +4212,7 @@ Global___DataframeDrop: _TypeAlias = DataframeDrop  # noqa: Y015
 
 @_typing.final
 class DataframeDropDuplicates(_message.Message):
-    """dataframe.ir:215"""
+    """dataframe.ir:216"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4237,7 +4241,7 @@ Global___DataframeDropDuplicates: _TypeAlias = DataframeDropDuplicates  # noqa: 
 
 @_typing.final
 class DataframeExcept(_message.Message):
-    """dataframe.ir:220"""
+    """dataframe.ir:221"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4266,7 +4270,7 @@ Global___DataframeExcept: _TypeAlias = DataframeExcept  # noqa: Y015
 
 @_typing.final
 class DataframeFilter(_message.Message):
-    """dataframe.ir:225"""
+    """dataframe.ir:226"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4295,7 +4299,7 @@ Global___DataframeFilter: _TypeAlias = DataframeFilter  # noqa: Y015
 
 @_typing.final
 class DataframeFirst(_message.Message):
-    """dataframe.ir:239"""
+    """dataframe.ir:240"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4330,7 +4334,7 @@ Global___DataframeFirst: _TypeAlias = DataframeFirst  # noqa: Y015
 
 @_typing.final
 class DataframeFlatten(_message.Message):
-    """dataframe.ir:230"""
+    """dataframe.ir:231"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4431,7 +4435,7 @@ Global___DataframeGroupByGroupingSets: _TypeAlias = DataframeGroupByGroupingSets
 
 @_typing.final
 class DataframeIntersect(_message.Message):
-    """dataframe.ir:246"""
+    """dataframe.ir:247"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4460,10 +4464,11 @@ Global___DataframeIntersect: _TypeAlias = DataframeIntersect  # noqa: Y015
 
 @_typing.final
 class DataframeJoin(_message.Message):
-    """dataframe.ir:262"""
+    """dataframe.ir:263"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
+    DIRECTED_FIELD_NUMBER: _builtins.int
     JOIN_EXPR_FIELD_NUMBER: _builtins.int
     JOIN_TYPE_FIELD_NUMBER: _builtins.int
     LHS_FIELD_NUMBER: _builtins.int
@@ -4472,6 +4477,8 @@ class DataframeJoin(_message.Message):
     RHS_FIELD_NUMBER: _builtins.int
     RSUFFIX_FIELD_NUMBER: _builtins.int
     SRC_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def directed(self) -> _wrappers_pb2.BoolValue: ...
     @_builtins.property
     def join_expr(self) -> Global___Expr: ...
     @_builtins.property
@@ -4491,6 +4498,7 @@ class DataframeJoin(_message.Message):
     def __init__(
         self,
         *,
+        directed: _wrappers_pb2.BoolValue | None = ...,
         join_expr: Global___Expr | None = ...,
         join_type: Global___JoinType | None = ...,
         lhs: Global___Expr | None = ...,
@@ -4500,16 +4508,16 @@ class DataframeJoin(_message.Message):
         rsuffix: _wrappers_pb2.StringValue | None = ...,
         src: Global___SrcPosition | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["join_expr", b"join_expr", "join_type", b"join_type", "lhs", b"lhs", "lsuffix", b"lsuffix", "match_condition", b"match_condition", "rhs", b"rhs", "rsuffix", b"rsuffix", "src", b"src"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["directed", b"directed", "join_expr", b"join_expr", "join_type", b"join_type", "lhs", b"lhs", "lsuffix", b"lsuffix", "match_condition", b"match_condition", "rhs", b"rhs", "rsuffix", b"rsuffix", "src", b"src"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["join_expr", b"join_expr", "join_type", b"join_type", "lhs", b"lhs", "lsuffix", b"lsuffix", "match_condition", b"match_condition", "rhs", b"rhs", "rsuffix", b"rsuffix", "src", b"src"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["directed", b"directed", "join_expr", b"join_expr", "join_type", b"join_type", "lhs", b"lhs", "lsuffix", b"lsuffix", "match_condition", b"match_condition", "rhs", b"rhs", "rsuffix", b"rsuffix", "src", b"src"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___DataframeJoin: _TypeAlias = DataframeJoin  # noqa: Y015
 
 @_typing.final
 class DataframeJoinTableFunction(_message.Message):
-    """dataframe.ir:280"""
+    """dataframe.ir:282"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4538,7 +4546,7 @@ Global___DataframeJoinTableFunction: _TypeAlias = DataframeJoinTableFunction  # 
 
 @_typing.final
 class DataframeLateralJoin(_message.Message):
-    """dataframe.ir:272"""
+    """dataframe.ir:274"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4579,7 +4587,7 @@ Global___DataframeLateralJoin: _TypeAlias = DataframeLateralJoin  # noqa: Y015
 
 @_typing.final
 class DataframeLimit(_message.Message):
-    """dataframe.ir:285"""
+    """dataframe.ir:287"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4770,14 +4778,17 @@ Global___DataframeNaReplace: _TypeAlias = DataframeNaReplace  # noqa: Y015
 
 @_typing.final
 class DataframeNaturalJoin(_message.Message):
-    """dataframe.ir:291"""
+    """dataframe.ir:293"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
+    DIRECTED_FIELD_NUMBER: _builtins.int
     JOIN_TYPE_FIELD_NUMBER: _builtins.int
     LHS_FIELD_NUMBER: _builtins.int
     RHS_FIELD_NUMBER: _builtins.int
     SRC_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def directed(self) -> _wrappers_pb2.BoolValue: ...
     @_builtins.property
     def join_type(self) -> Global___JoinType: ...
     @_builtins.property
@@ -4789,14 +4800,15 @@ class DataframeNaturalJoin(_message.Message):
     def __init__(
         self,
         *,
+        directed: _wrappers_pb2.BoolValue | None = ...,
         join_type: Global___JoinType | None = ...,
         lhs: Global___Expr | None = ...,
         rhs: Global___Expr | None = ...,
         src: Global___SrcPosition | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["join_type", b"join_type", "lhs", b"lhs", "rhs", b"rhs", "src", b"src"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["directed", b"directed", "join_type", b"join_type", "lhs", b"lhs", "rhs", b"rhs", "src", b"src"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["join_type", b"join_type", "lhs", b"lhs", "rhs", b"rhs", "src", b"src"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["directed", b"directed", "join_type", b"join_type", "lhs", b"lhs", "rhs", b"rhs", "src", b"src"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___DataframeNaturalJoin: _TypeAlias = DataframeNaturalJoin  # noqa: Y015
@@ -4840,7 +4852,7 @@ Global___DataframePivot: _TypeAlias = DataframePivot  # noqa: Y015
 
 @_typing.final
 class DataframeRandomSplit(_message.Message):
-    """dataframe.ir:305"""
+    """dataframe.ir:308"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -4938,7 +4950,7 @@ Global___DataframeRef: _TypeAlias = DataframeRef  # noqa: Y015
 
 @_typing.final
 class DataframeRename(_message.Message):
-    """dataframe.ir:312"""
+    """dataframe.ir:315"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5000,7 +5012,7 @@ Global___DataframeRollup: _TypeAlias = DataframeRollup  # noqa: Y015
 
 @_typing.final
 class DataframeSample(_message.Message):
-    """dataframe.ir:318"""
+    """dataframe.ir:321"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5037,7 +5049,7 @@ Global___DataframeSample: _TypeAlias = DataframeSample  # noqa: Y015
 
 @_typing.final
 class DataframeSelect(_message.Message):
-    """dataframe.ir:325"""
+    """dataframe.ir:328"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5097,7 +5109,7 @@ Global___DataframeShow: _TypeAlias = DataframeShow  # noqa: Y015
 
 @_typing.final
 class DataframeSort(_message.Message):
-    """dataframe.ir:332"""
+    """dataframe.ir:335"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5439,7 +5451,7 @@ Global___DataframeToPandasBatches: _TypeAlias = DataframeToPandasBatches  # noqa
 
 @_typing.final
 class DataframeUnion(_message.Message):
-    """dataframe.ir:338"""
+    """dataframe.ir:341"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5477,7 +5489,7 @@ Global___DataframeUnion: _TypeAlias = DataframeUnion  # noqa: Y015
 
 @_typing.final
 class DataframeUnpivot(_message.Message):
-    """dataframe.ir:297"""
+    """dataframe.ir:300"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5515,7 +5527,7 @@ Global___DataframeUnpivot: _TypeAlias = DataframeUnpivot  # noqa: Y015
 
 @_typing.final
 class DataframeWithColumn(_message.Message):
-    """dataframe.ir:346"""
+    """dataframe.ir:349"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5547,7 +5559,7 @@ Global___DataframeWithColumn: _TypeAlias = DataframeWithColumn  # noqa: Y015
 
 @_typing.final
 class DataframeWithColumnRenamed(_message.Message):
-    """dataframe.ir:352"""
+    """dataframe.ir:355"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5579,7 +5591,7 @@ Global___DataframeWithColumnRenamed: _TypeAlias = DataframeWithColumnRenamed  # 
 
 @_typing.final
 class DataframeWithColumns(_message.Message):
-    """dataframe.ir:358"""
+    """dataframe.ir:361"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -7072,7 +7084,7 @@ Global___Geq: _TypeAlias = Geq  # noqa: Y015
 
 @_typing.final
 class GroupingSets(_message.Message):
-    """dataframe.ir:364"""
+    """dataframe.ir:367"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -9987,7 +9999,7 @@ Global___TableUpdate: _TypeAlias = TableUpdate  # noqa: Y015
 
 @_typing.final
 class ToSnowparkPandas(_message.Message):
-    """dataframe.ir:368"""
+    """dataframe.ir:371"""
 
     DESCRIPTOR: _descriptor.Descriptor
 

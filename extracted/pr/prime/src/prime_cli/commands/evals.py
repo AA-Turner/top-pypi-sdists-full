@@ -8,14 +8,19 @@ from typing import Any, Optional
 import typer
 from click.core import ParameterSource
 from prime_evals import EvalsAPIError, EvalsClient, InvalidEvaluationError
-from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
-from typer.core import TyperGroup
 
 from ..client import APIClient, APIError
 from ..core import Config
-from ..utils import load_toml, output_data_as_json
+from ..utils import (
+    DefaultCommandGroup,
+    PlainTyper,
+    get_console,
+    json_output_help,
+    load_toml,
+    output_data_as_json,
+)
 from ..utils.display import get_eval_viewer_url
 from ..utils.env_metadata import find_environment_metadata
 from ..utils.eval_push import load_results_jsonl
@@ -38,7 +43,31 @@ from ..verifiers_bridge import (
     run_eval_tui,
 )
 
-console = Console()
+console = get_console()
+
+LIST_EVALS_JSON_HELP = json_output_help(
+    ".evaluations[] = {evaluation_id|id, environment_names[], model_name, status, metadata}",
+    ".total = number",
+)
+
+EVAL_DETAIL_JSON_HELP = json_output_help(
+    ". = evaluation object from Prime Evals",
+    "Common keys: .evaluation_id? | .id, .environment_names[]?, .model_name?, "
+    ".status?, .metadata?, .metrics?",
+)
+
+EVAL_SAMPLES_JSON_HELP = json_output_help(
+    ".samples[] = sample object",
+    "Common keys: .samples[].example_id?, .samples[].input?, .samples[].output?, .samples[].score?",
+    ".total? = number",
+    ".page? = number",
+    ".limit? = number",
+)
+
+PUSH_EVAL_JSON_HELP = json_output_help(
+    "Single push: .evaluation_id = string",
+    "Auto-discovery batch push: .results[] = {path, status, eval_id?, error?}",
+)
 
 HOSTED_LOGS_DEFAULT_TAIL_LINES = 1000
 HOSTED_LOGS_DEFAULT_POLL_INTERVAL_SECONDS = 5.0
@@ -65,6 +94,7 @@ HOSTED_EVAL_CONFIG_ALLOWED_FIELDS = {
     "timeout_minutes",
     "allow_sandbox_access",
     "allow_instances_access",
+    "sampling_args",
     "eval_name",
 }
 HOSTED_EVAL_CONFIG_FIELD_TYPES: dict[str, tuple[type[Any], str]] = {
@@ -78,24 +108,7 @@ HOSTED_EVAL_CONFIG_FIELD_TYPES: dict[str, tuple[type[Any], str]] = {
 }
 
 
-class DefaultGroup(TyperGroup):
-    def __init__(self, *args, default_cmd_name: str = "run", **kwargs):
-        super().__init__(*args, **kwargs)
-        self.default_cmd_name = default_cmd_name
-
-    def parse_args(self, ctx, args):
-        if not args:
-            return super().parse_args(ctx, args)
-
-        if args[0] in ("--help", "-h"):
-            return super().parse_args(ctx, args)
-
-        if args[0] in self.commands:
-            return super().parse_args(ctx, args)
-
-        args = [self.default_cmd_name] + list(args)
-        return super().parse_args(ctx, args)
-
+class DefaultGroup(DefaultCommandGroup):
     def format_usage(self, ctx, formatter):
         formatter.write_usage(
             ctx.command_path,
@@ -103,7 +116,7 @@ class DefaultGroup(TyperGroup):
         )
 
 
-subcommands_app = typer.Typer()
+subcommands_app = PlainTyper()
 
 
 def handle_errors(func):
@@ -137,7 +150,7 @@ def format_output(data: dict, output: str) -> None:
         console.print(syntax)
 
 
-def _parse_json_option(raw: Optional[str], option_name: str) -> Optional[dict[str, str]]:
+def _parse_json_object_option(raw: Optional[str], option_name: str) -> Optional[dict[str, Any]]:
     if raw is None:
         return None
     try:
@@ -150,6 +163,14 @@ def _parse_json_option(raw: Optional[str], option_name: str) -> Optional[dict[st
         console.print(f"[red]Error:[/red] {option_name} must be a JSON object")
         raise typer.Exit(1)
 
+    return parsed
+
+
+def _parse_string_map_option(raw: Optional[str], option_name: str) -> Optional[dict[str, str]]:
+    parsed = _parse_json_object_option(raw, option_name)
+    if parsed is None:
+        return None
+
     for key, value in parsed.items():
         if type(key) is not str or type(value) is not str:
             console.print(
@@ -158,6 +179,46 @@ def _parse_json_option(raw: Optional[str], option_name: str) -> Optional[dict[st
             raise typer.Exit(1)
 
     return parsed
+
+
+def _validate_string_map_field(merged: dict[str, Any], field_name: str) -> None:
+    field_value = merged.get(field_name)
+    if field_value is None:
+        return
+    if not isinstance(field_value, dict) or any(
+        type(key) is not str or type(value) is not str for key, value in field_value.items()
+    ):
+        console.print(
+            "[red]Error:[/red] hosted eval config "
+            f"`{field_name}` must contain only string keys and values"
+        )
+        raise typer.Exit(1)
+
+
+def _validate_json_object_field(merged: dict[str, Any], field_name: str) -> None:
+    field_value = merged.get(field_name)
+    if field_value is None:
+        return
+    if not isinstance(field_value, dict):
+        console.print(f"[red]Error:[/red] hosted eval config `{field_name}` must be a TOML table")
+        raise typer.Exit(1)
+
+    try:
+        json.dumps(field_value)
+    except (TypeError, ValueError) as exc:
+        console.print(
+            "[red]Error:[/red] hosted eval config "
+            f"`{field_name}` must contain only JSON-serializable values"
+        )
+        raise typer.Exit(1) from exc
+
+
+def _freeze_json_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return tuple(sorted((key, _freeze_json_value(nested)) for key, nested in value.items()))
+    if isinstance(value, list):
+        return tuple(_freeze_json_value(item) for item in value)
+    return value
 
 
 def _validate_hosted_config_field(
@@ -257,17 +318,8 @@ def _validate_single_hosted_eval_config(
         console.print("[red]Error:[/red] hosted eval config requires a non-empty `env_id`")
         raise typer.Exit(1)
 
-    env_args = merged.get("env_args")
-    if env_args is None:
-        merged["env_args"] = None
-    elif not isinstance(env_args, dict) or any(
-        type(key) is not str or type(value) is not str for key, value in env_args.items()
-    ):
-        console.print(
-            "[red]Error:[/red] hosted eval config `env_args` must contain only "
-            "string keys and values"
-        )
-        raise typer.Exit(1)
+    _validate_string_map_field(merged, "env_args")
+    _validate_json_object_field(merged, "sampling_args")
 
     for field_name, (expected_type, description) in HOSTED_EVAL_CONFIG_FIELD_TYPES.items():
         _validate_hosted_config_field(merged, field_name, expected_type, description)
@@ -337,6 +389,8 @@ def _build_hosted_evaluation_payload(config: HostedEvalConfig) -> dict[str, Any]
         eval_config["timeout_minutes"] = config.timeout_minutes
     if config.custom_secrets:
         eval_config["custom_secrets"] = config.custom_secrets
+    if config.sampling_args:
+        eval_config["sampling_args"] = config.sampling_args
 
     payload: dict[str, Any] = {
         "environment_ids": [config.environment_id],
@@ -563,7 +617,7 @@ def _resolve_hosted_environment(
     return platform_slug, str(environment_id)
 
 
-@subcommands_app.command("list")
+@subcommands_app.command("list", epilog=LIST_EVALS_JSON_HELP)
 @handle_errors
 def list_evals(
     output: str = typer.Option("table", "--output", "-o", help="table|json"),
@@ -665,7 +719,7 @@ def list_evals(
         raise typer.Exit(1)
 
 
-@subcommands_app.command("get")
+@subcommands_app.command("get", epilog=EVAL_DETAIL_JSON_HELP)
 @handle_errors
 def get_eval(
     eval_id: str = typer.Argument(..., help="The ID of the evaluation to retrieve"),
@@ -679,7 +733,7 @@ def get_eval(
     format_output(data, output)
 
 
-@subcommands_app.command("samples")
+@subcommands_app.command("samples", epilog=EVAL_SAMPLES_JSON_HELP)
 @handle_errors
 def get_samples(
     eval_id: str = typer.Argument(..., help="The ID of the evaluation"),
@@ -894,7 +948,7 @@ def tui_cmd(
     run_eval_tui(env_dir=env_dir, outputs_dir=outputs_dir)
 
 
-@subcommands_app.command("push")
+@subcommands_app.command("push", epilog=PUSH_EVAL_JSON_HELP)
 @handle_errors
 def push_eval(
     config_path: Optional[str] = typer.Argument(
@@ -1047,7 +1101,7 @@ def push_eval(
         raise typer.Exit(1)
 
 
-app = typer.Typer(
+app = PlainTyper(
     cls=DefaultGroup,
     help=(
         "Run evaluations or manage results (list, get, push, samples).\n\n"
@@ -1159,6 +1213,14 @@ def run_eval_cmd(
         "--custom-secrets",
         help='Custom secrets for hosted eval as JSON (e.g. \'{"API_KEY":"xxx"}\')',
     ),
+    sampling_args: Optional[str] = typer.Option(
+        None,
+        "--sampling-args",
+        help=(
+            "Sampling args for hosted eval as JSON. "
+            'Example: {"temperature": 0.7, "extra_body": {"provider": {"order": ["azure"]}}}'
+        ),
+    ),
     eval_name: Optional[str] = typer.Option(
         None,
         "--eval-name",
@@ -1195,6 +1257,7 @@ def run_eval_cmd(
             "--allow-sandbox-access": allow_sandbox_access,
             "--allow-instances-access": allow_instances_access,
             "--custom-secrets": custom_secrets is not None,
+            "--sampling-args": sampling_args is not None,
             "--eval-name": eval_name is not None,
         }
         used_hosted_only_args = [flag for flag, used in hosted_only_args.items() if used]
@@ -1221,6 +1284,7 @@ def run_eval_cmd(
                     "timeout_minutes": None,
                     "allow_sandbox_access": False,
                     "allow_instances_access": False,
+                    "sampling_args": None,
                     "eval_name": None,
                 }
             ]
@@ -1234,9 +1298,12 @@ def run_eval_cmd(
         )
         raw_env_args = _parse_value_option(passthrough_args, "--env-args", "")
         parsed_cli_env_args = (
-            _parse_json_option(raw_env_args, "--env-args") if raw_env_args is not None else None
+            _parse_string_map_option(raw_env_args, "--env-args")
+            if raw_env_args is not None
+            else None
         )
-        parsed_custom_secrets = _parse_json_option(custom_secrets, "--custom-secrets")
+        parsed_custom_secrets = _parse_string_map_option(custom_secrets, "--custom-secrets")
+        parsed_sampling_args = _parse_json_object_option(sampling_args, "--sampling-args")
 
         effective_targets: list[dict[str, Any]] = []
         for target_config in hosted_target_configs:
@@ -1296,6 +1363,12 @@ def run_eval_cmd(
                         if allow_instances_access
                         else target_config.get("allow_instances_access", False)
                     ),
+                    "custom_secrets": parsed_custom_secrets,
+                    "sampling_args": (
+                        parsed_sampling_args
+                        if parsed_sampling_args is not None
+                        else target_config.get("sampling_args")
+                    ),
                     "eval_name": eval_name or target_config.get("eval_name"),
                 }
             )
@@ -1309,16 +1382,15 @@ def run_eval_cmd(
         grouped_targets: dict[tuple[Any, ...], dict[str, Any]] = {}
         target_order: list[tuple[Any, ...]] = []
         for target in effective_targets:
-            env_args = target.get("env_args")
-            env_args_key = tuple(sorted(env_args.items())) if env_args is not None else None
             group_key = (
                 target["model"],
                 target["num_examples"],
                 target["rollouts_per_example"],
-                env_args_key,
+                _freeze_json_value(target.get("env_args")),
                 target.get("timeout_minutes"),
                 target.get("allow_sandbox_access", False),
                 target.get("allow_instances_access", False),
+                _freeze_json_value(target.get("sampling_args")),
                 target.get("eval_name"),
             )
             if group_key not in grouped_targets:
@@ -1362,7 +1434,8 @@ def run_eval_cmd(
                     timeout_minutes=target.get("timeout_minutes"),
                     allow_sandbox_access=target.get("allow_sandbox_access", False),
                     allow_instances_access=target.get("allow_instances_access", False),
-                    custom_secrets=parsed_custom_secrets,
+                    custom_secrets=target.get("custom_secrets"),
+                    sampling_args=target.get("sampling_args"),
                 )
                 result = _create_hosted_evaluations(
                     hosted_config,

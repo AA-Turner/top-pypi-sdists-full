@@ -4,7 +4,7 @@ import platform
 import random
 
 from localstack_cli import config
-from localstack_cli.constants import DEFAULT_VOLUME_DIR, DOCKER_IMAGE_NAME
+from localstack_cli.constants import DEFAULT_VOLUME_DIR, DOCKER_IMAGE_NAME_PRO
 from localstack_cli.utils.collections import ensure_list
 from localstack_cli.utils.container_utils.container_client import (
     ContainerClient,
@@ -266,7 +266,7 @@ def _get_ports_check_docker_image() -> str:
         return container["Config"]["Image"]
     except Exception:
         # fall back to using the default Docker image
-        return DOCKER_IMAGE_NAME
+        return DOCKER_IMAGE_NAME_PRO
 
 
 DOCKER_CLIENT: ContainerClient = create_docker_client()

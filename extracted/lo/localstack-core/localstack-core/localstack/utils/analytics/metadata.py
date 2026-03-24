@@ -30,6 +30,7 @@ class ClientMetadata:
     is_testing: bool
     product: str
     edition: str
+    container_runtime: str
 
     def __repr__(self):
         d = dataclasses.asdict(self)
@@ -63,6 +64,7 @@ def read_client_metadata() -> ClientMetadata:
         is_testing=config.is_local_test_mode(),
         product=get_localstack_product(),
         edition=os.getenv("LOCALSTACK_TELEMETRY_EDITION") or get_localstack_edition(),
+        container_runtime=config.container_runtime.value,
     )
 
 

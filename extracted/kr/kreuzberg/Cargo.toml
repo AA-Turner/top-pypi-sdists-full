@@ -8,7 +8,7 @@ exclude = [
 resolver = "2"
 
 [workspace.package]
-version = "4.5.3"
+version = "4.5.4"
 edition = "2024"
 rust-version = "1.91"
 authors = ["Na'aman Hirschfeld <naaman@kreuzberg.dev>"]
@@ -32,12 +32,12 @@ dbase = "0.7"
 getrandom = { version = "0.4.2", features = ["wasm_js"] }
 hex = "0.4.3"
 html-to-markdown-rs = { version = "2.29.0", default-features = false }
-hwpers = "0.5"
+cfb = "0.14"
 image = { version = "0.25.10", default-features = false }
 itertools = "0.14"
 js-sys = "0.3"
-kreuzberg = { path = "./crates/kreuzberg", version = "4.5.3", default-features = false }
-kreuzberg-ffi = { path = "./crates/kreuzberg-ffi", version = "4.5.3" }
+kreuzberg = { path = "./crates/kreuzberg", version = "4.5.4", default-features = false }
+kreuzberg-ffi = { path = "./crates/kreuzberg-ffi", version = "4.5.4" }
 lazy_static = "1.5.0"
 libc = "0.2.183"
 log = "0.4"

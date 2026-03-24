@@ -846,6 +846,8 @@ class CmdDockerClient(ContainerClient):
         log_config: LogConfig | None = None,
         cpu_shares: int | None = None,
         mem_limit: int | str | None = None,
+        cgroupns: str | None = None,
+        hostname: str | None = None,
     ) -> tuple[list[str], str]:
         env_file = None
         cmd = self._docker_cmd() + [action]
@@ -913,6 +915,10 @@ class CmdDockerClient(ContainerClient):
             cmd += ["--cpu-shares", str(cpu_shares)]
         if mem_limit:
             cmd += ["--memory", str(mem_limit)]
+        if cgroupns:
+            cmd += ["--cgroupns", cgroupns]
+        if hostname:
+            cmd += ["--hostname", hostname]
 
         if additional_flags:
             cmd += shlex.split(additional_flags)

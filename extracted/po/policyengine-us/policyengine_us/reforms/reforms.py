@@ -1,4 +1,5 @@
 from .congress.delauro import create_american_family_act_with_baby_bonus_reform
+from .states.al.hb527 import create_al_hb527_overtime_deduction_reform
 from .dc_kccatc import create_dc_kccatc_reform
 from .winship import create_eitc_winship_reform
 from .dc_tax_threshold_joint_ratio import (
@@ -196,6 +197,9 @@ from .states.hi.hb2306_cdcc import (
 from .states.nc.eitc import (
     create_nc_eitc_reform,
 )
+from .states.mi.ctc import (
+    create_mi_ctc_reform,
+)
 from policyengine_core.reforms import Reform
 import warnings
 
@@ -361,9 +365,13 @@ def create_structural_reforms_from_parameters(parameters, period):
     ct_tax_rebate_2026 = create_ct_tax_rebate_2026_reform(parameters, period)
     ct_hb5009 = create_ct_hb5009_reform(parameters, period)
     ct_hb5114 = create_ct_hb5114_reform(parameters, period)
+    al_hb527_overtime_deduction = create_al_hb527_overtime_deduction_reform(
+        parameters, period
+    )
     ga_sb520 = create_ga_sb520_reform(parameters, period)
     hi_hb2306_cdcc = create_hi_hb2306_cdcc_reform(parameters, period)
     nc_eitc = create_nc_eitc_reform(parameters, period)
+    mi_ctc = create_mi_ctc_reform(parameters, period)
     watca = create_watca_reform(parameters, period)
     wa_sb6346 = create_wa_sb6346_reform(parameters, period)
 
@@ -449,9 +457,11 @@ def create_structural_reforms_from_parameters(parameters, period):
         ct_hb5114,
         ct_sb100,
         ct_tax_rebate_2026,
+        al_hb527_overtime_deduction,
         ga_sb520,
         hi_hb2306_cdcc,
         nc_eitc,
+        mi_ctc,
         watca,
         wa_sb6346,
     ]

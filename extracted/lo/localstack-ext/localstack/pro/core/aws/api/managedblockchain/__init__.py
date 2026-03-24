@@ -959,8 +959,7 @@ class ManagedblockchainApi:
         that supports token based access. The accessor contains information
         required for token based access.
 
-        :param client_request_token: This is a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the operation.
+        :param client_request_token: This is a unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :param accessor_type: The type of accessor.
         :param tags: Tags to assign to the Accessor.
         :param network_type: The blockchain network that the ``Accessor`` token is created for.
@@ -989,10 +988,8 @@ class ManagedblockchainApi:
 
         Applies only to Hyperledger Fabric.
 
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
-        :param invitation_id: The unique identifier of the invitation that is sent to the member to
-        join the network.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
+        :param invitation_id: The unique identifier of the invitation that is sent to the member to join the network.
         :param network_id: The unique identifier of the network in which the member is created.
         :param member_configuration: Member configuration parameters.
         :returns: CreateMemberOutput
@@ -1027,17 +1024,14 @@ class ManagedblockchainApi:
 
         Applies only to Hyperledger Fabric.
 
-        :param client_request_token: This is a unique, case-sensitive identifier that you provide to ensure
-        the idempotency of the operation.
+        :param client_request_token: This is a unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :param name: The name of the network.
         :param framework: The blockchain framework that the network uses.
         :param framework_version: The version of the blockchain framework that the network uses.
-        :param voting_policy: The voting rules used by the network to determine if a proposal is
-        approved.
+        :param voting_policy: The voting rules used by the network to determine if a proposal is approved.
         :param member_configuration: Configuration properties for the first member within the network.
         :param description: An optional description for the network.
-        :param framework_configuration: Configuration properties of the blockchain framework relevant to the
-        network configuration.
+        :param framework_configuration: Configuration properties of the blockchain framework relevant to the network configuration.
         :param tags: Tags to assign to the network.
         :returns: CreateNetworkOutput
         :raises InvalidRequestException:
@@ -1065,8 +1059,7 @@ class ManagedblockchainApi:
 
         Applies to Hyperledger Fabric and Ethereum.
 
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :param network_id: The unique identifier of the network for the node.
         :param node_configuration: The properties of a node configuration.
         :param member_id: The unique identifier of the member that owns this node.
@@ -1102,14 +1095,11 @@ class ManagedblockchainApi:
 
         Applies only to Hyperledger Fabric.
 
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :param network_id: The unique identifier of the network for which the proposal is made.
         :param member_id: The unique identifier of the member that is creating the proposal.
-        :param actions: The type of actions proposed, such as inviting a member or removing a
-        member.
-        :param description: A description for the proposal that is visible to voting members, for
-        example, "Proposal to add Example Corp.
+        :param actions: The type of actions proposed, such as inviting a member or removing a member.
+        :param description: A description for the proposal that is visible to voting members, for example, "Proposal to add Example Corp.
         :param tags: Tags to assign to the proposal.
         :returns: CreateProposalOutput
         :raises InvalidRequestException:
@@ -1609,8 +1599,7 @@ class ManagedblockchainApi:
 
         Applies only to Hyperledger Fabric.
 
-        :param network_id: The unique identifier of the Managed Blockchain network to which the
-        member belongs.
+        :param network_id: The unique identifier of the Managed Blockchain network to which the member belongs.
         :param member_id: The unique identifier of the member.
         :param log_publishing_configuration: Configuration properties for publishing to Amazon CloudWatch Logs.
         :returns: UpdateMemberOutput

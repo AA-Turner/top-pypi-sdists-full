@@ -28,6 +28,7 @@ else:  # pragma: NO COVER
     # this code path once we drop support for Python 3.7
     import importlib_metadata as metadata
 
+
 from .services.security_center import SecurityCenterAsyncClient, SecurityCenterClient
 from .types.access import Access, Geolocation, ServiceAccountDelegationInfo
 from .types.application import Application
@@ -36,6 +37,7 @@ from .types.attack_exposure import AttackExposure
 from .types.attack_path import AttackPath
 from .types.backup_disaster_recovery import BackupDisasterRecovery
 from .types.bigquery_export import BigQueryExport
+from .types.chokepoint import Chokepoint
 from .types.cloud_armor import (
     AdaptiveProtection,
     Attack,
@@ -43,7 +45,11 @@ from .types.cloud_armor import (
     Requests,
     SecurityPolicy,
 )
-from .types.cloud_dlp_data_profile import CloudDlpDataProfile
+from .types.cloud_dlp_data_profile import (
+    CloudDlpDataProfile,
+    InfoType,
+    SensitivityScore,
+)
 from .types.cloud_dlp_inspection import CloudDlpInspection
 from .types.compliance import Compliance
 from .types.connection import Connection
@@ -63,6 +69,7 @@ from .types.event_threat_detection_custom_module_validation_errors import (
     Position,
 )
 from .types.exfiltration import ExfilResource, Exfiltration
+from .types.external_exposure import ExternalExposure
 from .types.external_system import ExternalSystem
 from .types.file import File
 from .types.finding import Finding
@@ -307,6 +314,7 @@ __all__ = (
     "BigQueryExport",
     "BulkMuteFindingsRequest",
     "BulkMuteFindingsResponse",
+    "Chokepoint",
     "CloudArmor",
     "CloudDlpDataProfile",
     "CloudDlpInspection",
@@ -343,6 +351,7 @@ __all__ = (
     "EventThreatDetectionCustomModule",
     "ExfilResource",
     "Exfiltration",
+    "ExternalExposure",
     "ExternalSystem",
     "File",
     "Finding",
@@ -368,6 +377,7 @@ __all__ = (
     "GroupResult",
     "IamBinding",
     "Indicator",
+    "InfoType",
     "KernelRootkit",
     "Kubernetes",
     "Label",
@@ -428,6 +438,7 @@ __all__ = (
     "SecurityMarks",
     "SecurityPolicy",
     "SecurityPosture",
+    "SensitivityScore",
     "ServiceAccountDelegationInfo",
     "SetFindingStateRequest",
     "SetMuteRequest",

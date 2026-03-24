@@ -1282,8 +1282,7 @@ class CodeartifactApi:
         :param domain: The name of the domain that contains the repository.
         :param repository: The name of the repository to which the external connection is added.
         :param external_connection: The name of the external connection to add to the repository.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: AssociateExternalConnectionResult
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -1318,22 +1317,17 @@ class CodeartifactApi:
         You must specify ``versions`` or ``versionRevisions``. You cannot
         specify both.
 
-        :param domain: The name of the domain that contains the source and destination
-        repositories.
-        :param source_repository: The name of the repository that contains the package versions to be
-        copied.
+        :param domain: The name of the domain that contains the source and destination repositories.
+        :param source_repository: The name of the repository that contains the package versions to be copied.
         :param destination_repository: The name of the repository into which package versions are copied.
         :param format: The format of the package versions to be copied.
         :param package: The name of the package that contains the versions to be copied.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package versions to be copied.
         :param versions: The versions of the package to be copied.
         :param version_revisions: A list of key-value pairs.
-        :param allow_overwrite: Set to true to overwrite a package version that already exists in the
-        destination repository.
-        :param include_from_upstream: Set to true to copy packages from repositories that are upstream from
-        the source repository to the destination repository.
+        :param allow_overwrite: Set to true to overwrite a package version that already exists in the destination repository.
+        :param include_from_upstream: Set to true to copy packages from repositories that are upstream from the source repository to the destination repository.
         :returns: CopyPackageVersionsResult
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -1398,8 +1392,7 @@ class CodeartifactApi:
 
         :param domain: The name of the domain in which you want to create a package group.
         :param package_group: The pattern of the package group to create.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param contact_info: The contact information for the created package group.
         :param description: A description of the package group.
         :param tags: One or more tag key-value pairs for the package group.
@@ -1430,8 +1423,7 @@ class CodeartifactApi:
 
         :param domain: The name of the domain that contains the created repository.
         :param repository: The name of the repository to create.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param description: A description of the created repository.
         :param upstreams: A list of upstream repositories to associate with the repository.
         :param tags: One or more tag key-value pairs for the repository.
@@ -1459,8 +1451,7 @@ class CodeartifactApi:
         repositories.
 
         :param domain: The name of the domain to delete.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: DeleteDomainResult
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -1481,10 +1472,8 @@ class CodeartifactApi:
     ) -> DeleteDomainPermissionsPolicyResult:
         """Deletes the resource policy set on a domain.
 
-        :param domain: The name of the domain associated with the resource policy to be
-        deleted.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain: The name of the domain associated with the resource policy to be deleted.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param policy_revision: The current revision of the resource policy to be deleted.
         :returns: DeleteDomainPermissionsPolicyResult
         :raises AccessDeniedException:
@@ -1517,8 +1506,7 @@ class CodeartifactApi:
         :param repository: The name of the repository that contains the package to delete.
         :param format: The format of the requested package to delete.
         :param package: The name of the package to delete.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package to delete.
         :returns: DeletePackageResult
         :raises AccessDeniedException:
@@ -1548,8 +1536,7 @@ class CodeartifactApi:
 
         :param domain: The domain that contains the package group to be deleted.
         :param package_group: The pattern of the package group to be deleted.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: DeletePackageGroupResult
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -1589,8 +1576,7 @@ class CodeartifactApi:
         :param format: The format of the package versions to delete.
         :param package: The name of the package with the versions to delete.
         :param versions: An array of strings that specify the versions of the package to delete.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package versions to be deleted.
         :param expected_status: The expected status of the package version to delete.
         :returns: DeletePackageVersionsResult
@@ -1616,8 +1602,7 @@ class CodeartifactApi:
 
         :param domain: The name of the domain that contains the repository to delete.
         :param repository: The name of the repository to delete.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: DeleteRepositoryResult
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -1648,12 +1633,9 @@ class CodeartifactApi:
         permissions to perform the repository actions granted by the deleted
         policy.
 
-        :param domain: The name of the domain that contains the repository associated with the
-        resource policy to be deleted.
-        :param repository: The name of the repository that is associated with the resource policy
-        to be deleted.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain: The name of the domain that contains the repository associated with the resource policy to be deleted.
+        :param repository: The name of the repository that is associated with the resource policy to be deleted.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param policy_revision: The revision of the repository's resource policy to be deleted.
         :returns: DeleteRepositoryPermissionsPolicyResult
         :raises AccessDeniedException:
@@ -1678,8 +1660,7 @@ class CodeartifactApi:
         object that contains information about the requested domain.
 
         :param domain: A string that specifies the name of the requested domain.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: DescribeDomainResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1705,13 +1686,11 @@ class CodeartifactApi:
         `PackageDescription <https://docs.aws.amazon.com/codeartifact/latest/APIReference/API_PackageDescription.html>`__
         object that contains information about the requested package.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        package.
+        :param domain: The name of the domain that contains the repository that contains the package.
         :param repository: The name of the repository that contains the requested package.
         :param format: A format that specifies the type of the requested package.
         :param package: The name of the requested package.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the requested package.
         :returns: DescribePackageResult
         :raises AccessDeniedException:
@@ -1737,8 +1716,7 @@ class CodeartifactApi:
 
         :param domain: The name of the domain that contains the package group.
         :param package_group: The pattern of the requested package group.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: DescribePackageGroupResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1765,14 +1743,12 @@ class CodeartifactApi:
         `PackageVersionDescription <https://docs.aws.amazon.com/codeartifact/latest/APIReference/API_PackageVersionDescription.html>`__
         object that contains information about the requested package version.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        package version.
+        :param domain: The name of the domain that contains the repository that contains the package version.
         :param repository: The name of the repository that contains the package version.
         :param format: A format that specifies the type of the requested package version.
         :param package: The name of the requested package version.
         :param package_version: A string that contains the package version (for example, ``3.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the requested package version.
         :returns: DescribePackageVersionResult
         :raises AccessDeniedException:
@@ -1798,8 +1774,7 @@ class CodeartifactApi:
 
         :param domain: The name of the domain that contains the repository to describe.
         :param repository: A string that specifies the name of the requested repository.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: DescribeRepositoryResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1821,13 +1796,10 @@ class CodeartifactApi:
     ) -> DisassociateExternalConnectionResult:
         """Removes an existing external connection from a repository.
 
-        :param domain: The name of the domain that contains the repository from which to remove
-        the external repository.
-        :param repository: The name of the repository from which the external connection will be
-        removed.
+        :param domain: The name of the domain that contains the repository from which to remove the external repository.
+        :param repository: The name of the repository from which the external connection will be removed.
         :param external_connection: The name of the external connection to be removed from the repository.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: DisassociateExternalConnectionResult
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -1868,14 +1840,11 @@ class CodeartifactApi:
         `DescribePackageVersion <https://docs.aws.amazon.com/codeartifact/latest/APIReference/API_DescribePackageVersion.html>`__.
 
         :param domain: The name of the domain that contains the repository you want to dispose.
-        :param repository: The name of the repository that contains the package versions you want
-        to dispose.
-        :param format: A format that specifies the type of package versions you want to
-        dispose.
+        :param repository: The name of the repository that contains the package versions you want to dispose.
+        :param format: A format that specifies the type of package versions you want to dispose.
         :param package: The name of the package with the versions you want to dispose.
         :param versions: The versions of the package you want to dispose.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package versions to be disposed.
         :param version_revisions: The revisions of the package versions you want to dispose.
         :param expected_status: The expected status of the package version to dispose.
@@ -1912,15 +1881,11 @@ class CodeartifactApi:
         behavior <https://docs.aws.amazon.com/codeartifact/latest/ug/package-group-definition-syntax-matching-behavior.html>`__
         in the *CodeArtifact User Guide*.
 
-        :param domain: The name of the domain that contains the package from which to get the
-        associated package group.
-        :param format: The format of the package from which to get the associated package
-        group.
+        :param domain: The name of the domain that contains the package from which to get the associated package group.
+        :param format: The format of the package from which to get the associated package group.
         :param package: The package from which to get the associated package group.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
-        :param namespace: The namespace of the package from which to get the associated package
-        group.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
+        :param namespace: The namespace of the package from which to get the associated package group.
         :returns: GetAssociatedPackageGroupResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1964,10 +1929,8 @@ class CodeartifactApi:
         Roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html>`__
         for more information on controlling session duration.
 
-        :param domain: The name of the domain that is in scope for the generated authorization
-        token.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain: The name of the domain that is in scope for the generated authorization token.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param duration_seconds: The time, in seconds, that the generated authorization token is valid.
         :returns: GetAuthorizationTokenResult
         :raises AccessDeniedException:
@@ -1994,8 +1957,7 @@ class CodeartifactApi:
         in the *IAM User Guide*.
 
         :param domain: The name of the domain to which the resource policy is attached.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: GetDomainPermissionsPolicyResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -2025,20 +1987,15 @@ class CodeartifactApi:
         ``JAR`` file, a ``POM`` file, or any other assets in the package
         version.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        package version with the requested asset.
-        :param repository: The repository that contains the package version with the requested
-        asset.
-        :param format: A format that specifies the type of the package version with the
-        requested asset file.
+        :param domain: The name of the domain that contains the repository that contains the package version with the requested asset.
+        :param repository: The repository that contains the package version with the requested asset.
+        :param format: A format that specifies the type of the package version with the requested asset file.
         :param package: The name of the package that contains the requested asset.
         :param package_version: A string that contains the package version (for example, ``3.
         :param asset: The name of the requested asset.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package version with the requested asset file.
-        :param package_version_revision: The name of the package version revision that contains the requested
-        asset.
+        :param package_version_revision: The name of the package version revision that contains the requested asset.
         :returns: GetPackageVersionAssetResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -2067,15 +2024,12 @@ class CodeartifactApi:
         The returned text might contain formatting. For example, it might
         contain formatting for Markdown or reStructuredText.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        package version with the requested readme file.
+        :param domain: The name of the domain that contains the repository that contains the package version with the requested readme file.
         :param repository: The repository that contains the package with the requested readme file.
-        :param format: A format that specifies the type of the package version with the
-        requested readme file.
+        :param format: A format that specifies the type of the package version with the requested readme file.
         :param package: The name of the package version that contains the requested readme file.
         :param package_version: A string that contains the package version (for example, ``3.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package version with the requested readme file.
         :returns: GetPackageVersionReadmeResult
         :raises AccessDeniedException:
@@ -2119,8 +2073,7 @@ class CodeartifactApi:
         :param domain: The name of the domain that contains the repository.
         :param repository: The name of the repository.
         :param format: Returns which endpoint of a repository to return.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain that contains the repository.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain that contains the repository.
         :param endpoint_type: A string that specifies the type of endpoint.
         :returns: GetRepositoryEndpointResult
         :raises AccessDeniedException:
@@ -2142,12 +2095,9 @@ class CodeartifactApi:
     ) -> GetRepositoryPermissionsPolicyResult:
         """Returns the resource policy that is set on a repository.
 
-        :param domain: The name of the domain containing the repository whose associated
-        resource policy is to be retrieved.
-        :param repository: The name of the repository whose associated resource policy is to be
-        retrieved.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain: The name of the domain containing the repository whose associated resource policy is to be retrieved.
+        :param repository: The name of the repository whose associated resource policy is to be retrieved.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :returns: GetRepositoryPermissionsPolicyResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -2175,14 +2125,10 @@ class CodeartifactApi:
         controls <https://docs.aws.amazon.com/codeartifact/latest/ug/package-group-origin-controls.html>`__
         in the *CodeArtifact User Guide*.
 
-        :param domain: The name of the domain that contains the package group from which to
-        list allowed repositories.
-        :param package_group: The pattern of the package group from which to list allowed
-        repositories.
-        :param origin_restriction_type: The origin configuration restriction type of which to list allowed
-        repositories.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain: The name of the domain that contains the package group from which to list allowed repositories.
+        :param package_group: The pattern of the package group from which to list allowed repositories.
+        :param origin_restriction_type: The origin configuration restriction type of which to list allowed repositories.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param max_results: The maximum number of results to return per page.
         :param next_token: The token for the next set of results.
         :returns: ListAllowedRepositoriesForGroupResult
@@ -2213,16 +2159,12 @@ class CodeartifactApi:
         behavior <https://docs.aws.amazon.com/codeartifact/latest/ug/package-group-definition-syntax-matching-behavior.html>`__
         in the *CodeArtifact User Guide*.
 
-        :param domain: The name of the domain that contains the package group from which to
-        list associated packages.
+        :param domain: The name of the domain that contains the package group from which to list associated packages.
         :param package_group: The pattern of the package group from which to list associated packages.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param max_results: The maximum number of results to return per page.
         :param next_token: The token for the next set of results.
-        :param preview: When this flag is included, ``ListAssociatedPackages`` will return a
-        list of packages that would be associated with a package group, even if
-        it does not exist.
+        :param preview: When this flag is included, ``ListAssociatedPackages`` will return a list of packages that would be associated with a package group, even if it does not exist.
         :returns: ListAssociatedPackagesResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -2269,8 +2211,7 @@ class CodeartifactApi:
         """Returns a list of package groups in the requested domain.
 
         :param domain: The domain for which you want to list package groups.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param max_results: The maximum number of results to return per page.
         :param next_token: The token for the next set of results.
         :param prefix: A prefix for which to search package groups.
@@ -2302,19 +2243,13 @@ class CodeartifactApi:
         `AssetSummary <https://docs.aws.amazon.com/codeartifact/latest/APIReference/API_AssetSummary.html>`__
         objects for assets in a package version.
 
-        :param domain: The name of the domain that contains the repository associated with the
-        package version assets.
-        :param repository: The name of the repository that contains the package that contains the
-        requested package version assets.
-        :param format: The format of the package that contains the requested package version
-        assets.
-        :param package: The name of the package that contains the requested package version
-        assets.
+        :param domain: The name of the domain that contains the repository associated with the package version assets.
+        :param repository: The name of the repository that contains the package that contains the requested package version assets.
+        :param format: The format of the package that contains the requested package version assets.
+        :param package: The name of the package that contains the requested package version assets.
         :param package_version: A string that contains the package version (for example, ``3.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
-        :param namespace: The namespace of the package version that contains the requested package
-        version assets.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
+        :param namespace: The namespace of the package version that contains the requested package version assets.
         :param max_results: The maximum number of results to return per page.
         :param next_token: The token for the next set of results.
         :returns: ListPackageVersionAssetsResult
@@ -2349,14 +2284,12 @@ class CodeartifactApi:
         Maven). Any package version dependencies that are not listed in the
         configuration file are not returned.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        requested package version dependencies.
+        :param domain: The name of the domain that contains the repository that contains the requested package version dependencies.
         :param repository: The name of the repository that contains the requested package version.
         :param format: The format of the package with the requested dependencies.
         :param package: The name of the package versions' package.
         :param package_version: A string that contains the package version (for example, ``3.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package version with the requested dependencies.
         :param next_token: The token for the next set of results.
         :returns: ListPackageVersionDependenciesResult
@@ -2391,15 +2324,12 @@ class CodeartifactApi:
         parameters. Package versions of all statuses will be returned by default
         when calling ``list-package-versions`` with no ``--status`` parameter.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        requested package versions.
+        :param domain: The name of the domain that contains the repository that contains the requested package versions.
         :param repository: The name of the repository that contains the requested package versions.
         :param format: The format of the package versions you want to list.
         :param package: The name of the package for which you want to request package versions.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
-        :param namespace: The namespace of the package that contains the requested package
-        versions.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
+        :param namespace: The namespace of the package that contains the requested package versions.
         :param status: A string that filters the requested package versions by status.
         :param sort_by: How to sort the requested list of package versions.
         :param max_results: The maximum number of results to return per page.
@@ -2434,20 +2364,16 @@ class CodeartifactApi:
         `PackageSummary <https://docs.aws.amazon.com/codeartifact/latest/APIReference/API_PackageSummary.html>`__
         objects for packages in a repository that match the request parameters.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        requested packages.
+        :param domain: The name of the domain that contains the repository that contains the requested packages.
         :param repository: The name of the repository that contains the requested packages.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param format: The format used to filter requested packages.
         :param namespace: The namespace prefix used to filter requested packages.
         :param package_prefix: A prefix used to filter requested packages.
         :param max_results: The maximum number of results to return per page.
         :param next_token: The token for the next set of results.
-        :param publish: The value of the ``Publish`` package origin control restriction used to
-        filter requested packages.
-        :param upstream: The value of the ``Upstream`` package origin control restriction used to
-        filter requested packages.
+        :param publish: The value of the ``Publish`` package origin control restriction used to filter requested packages.
+        :param upstream: The value of the ``Upstream`` package origin control restriction used to filter requested packages.
         :returns: ListPackagesResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -2502,10 +2428,8 @@ class CodeartifactApi:
         parameters.
 
         :param domain: The name of the domain that contains the returned list of repositories.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
-        :param administrator_account: Filter the list of repositories to only include those that are managed
-        by the Amazon Web Services account ID.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
+        :param administrator_account: Filter the list of repositories to only include those that are managed by the Amazon Web Services account ID.
         :param repository_prefix: A prefix used to filter returned repositories.
         :param max_results: The maximum number of results to return per page.
         :param next_token: The token for the next set of results.
@@ -2536,11 +2460,9 @@ class CodeartifactApi:
         behavior <https://docs.aws.amazon.com/codeartifact/latest/ug/package-group-definition-syntax-matching-behavior.html>`__
         in the *CodeArtifact User Guide*.
 
-        :param domain: The name of the domain which contains the package group from which to
-        list sub package groups.
+        :param domain: The name of the domain which contains the package group from which to list sub package groups.
         :param package_group: The pattern of the package group from which to list sub package groups.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param max_results: The maximum number of results to return per page.
         :param next_token: The token for the next set of results.
         :returns: ListSubPackageGroupsResult
@@ -2603,12 +2525,9 @@ class CodeartifactApi:
         packages <https://docs.aws.amazon.com/codeartifact/latest/ug/using-generic.html>`__
         in the *CodeArtifact User Guide*.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        package version to publish.
-        :param repository: The name of the repository that the package version will be published
-        to.
-        :param format: A format that specifies the type of the package version with the
-        requested asset file.
+        :param domain: The name of the domain that contains the repository that contains the package version to publish.
+        :param repository: The name of the repository that the package version will be published to.
+        :param format: A format that specifies the type of the package version with the requested asset file.
         :param package: The name of the package version to publish.
         :param package_version: The package version to publish (for example, ``3.
         :param asset_content: The content of the asset to publish.
@@ -2616,8 +2535,7 @@ class CodeartifactApi:
         :param asset_sha256: The SHA256 hash of the ``assetContent`` to publish.
         :param domain_owner: The 12-digit account number of the AWS account that owns the domain.
         :param namespace: The namespace of the package version to publish.
-        :param unfinished: Specifies whether the package version should remain in the
-        ``unfinished`` state.
+        :param unfinished: Specifies whether the package version should remain in the ``unfinished`` state.
         :returns: PublishPackageVersionResult
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -2648,10 +2566,8 @@ class CodeartifactApi:
         prevent them from being able to update the resource policy.
 
         :param domain: The name of the domain on which to set the resource policy.
-        :param policy_document: A valid displayable JSON Aspen policy string to be set as the access
-        control resource policy on the provided domain.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param policy_document: A valid displayable JSON Aspen policy string to be set as the access control resource policy on the provided domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param policy_revision: The current revision of the resource policy to be set.
         :returns: PutDomainPermissionsPolicyResult
         :raises AccessDeniedException:
@@ -2697,15 +2613,12 @@ class CodeartifactApi:
         versions of the package into the repository before connecting any
         package managers or publishers to the repository.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        package.
+        :param domain: The name of the domain that contains the repository that contains the package.
         :param repository: The name of the repository that contains the package.
         :param format: A format that specifies the type of the package to be updated.
         :param package: The name of the package to be updated.
-        :param restrictions: A
-        `PackageOriginRestrictions <https://docs.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param restrictions: A `PackageOriginRestrictions <https://docs.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package to be updated.
         :returns: PutPackageOriginConfigurationResult
         :raises AccessDeniedException:
@@ -2735,15 +2648,11 @@ class CodeartifactApi:
         the owner of a repository cannot lock themselves out of the repository,
         which would prevent them from being able to update the resource policy.
 
-        :param domain: The name of the domain containing the repository to set the resource
-        policy on.
+        :param domain: The name of the domain containing the repository to set the resource policy on.
         :param repository: The name of the repository to set the resource policy on.
-        :param policy_document: A valid displayable JSON Aspen policy string to be set as the access
-        control resource policy on the provided repository.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
-        :param policy_revision: Sets the revision of the resource policy that specifies permissions to
-        access the repository.
+        :param policy_document: A valid displayable JSON Aspen policy string to be set as the access control resource policy on the provided repository.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
+        :param policy_revision: Sets the revision of the resource policy that specifies permissions to access the repository.
         :returns: PutRepositoryPermissionsPolicyResult
         :raises AccessDeniedException:
         :raises ConflictException:
@@ -2761,8 +2670,7 @@ class CodeartifactApi:
     ) -> TagResourceResult:
         """Adds or updates tags for a resource in CodeArtifact.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to add or
-        update tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to add or update tags for.
         :param tags: The tags you want to modify or add to the resource.
         :returns: TagResourceResult
         :raises AccessDeniedException:
@@ -2779,8 +2687,7 @@ class CodeartifactApi:
     ) -> UntagResourceResult:
         """Removes tags from a resource in CodeArtifact.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to remove
-        tags from.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to remove tags from.
         :param tag_keys: The tag key for each tag that you want to remove from the resource.
         :returns: UntagResourceResult
         :raises AccessDeniedException:
@@ -2808,10 +2715,8 @@ class CodeartifactApi:
 
         :param domain: The name of the domain which contains the package group to be updated.
         :param package_group: The pattern of the package group to be updated.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
-        :param contact_info: Contact information which you want to update the requested package group
-        with.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
+        :param contact_info: Contact information which you want to update the requested package group with.
         :param description: The description you want to update the requested package group with.
         :returns: UpdatePackageGroupResult
         :raises AccessDeniedException:
@@ -2846,18 +2751,12 @@ class CodeartifactApi:
         controls <https://docs.aws.amazon.com/codeartifact/latest/ug/package-group-origin-controls.html>`__
         in the *CodeArtifact User Guide*.
 
-        :param domain: The name of the domain which contains the package group for which to
-        update the origin configuration.
-        :param package_group: The pattern of the package group for which to update the origin
-        configuration.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
-        :param restrictions: The origin configuration settings that determine how package versions
-        can enter repositories.
-        :param add_allowed_repositories: The repository name and restrictions to add to the allowed repository
-        list of the specified package group.
-        :param remove_allowed_repositories: The repository name and restrictions to remove from the allowed
-        repository list of the specified package group.
+        :param domain: The name of the domain which contains the package group for which to update the origin configuration.
+        :param package_group: The pattern of the package group for which to update the origin configuration.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
+        :param restrictions: The origin configuration settings that determine how package versions can enter repositories.
+        :param add_allowed_repositories: The repository name and restrictions to add to the allowed repository list of the specified package group.
+        :param remove_allowed_repositories: The repository name and restrictions to remove from the allowed repository list of the specified package group.
         :returns: UpdatePackageGroupOriginConfigurationResult
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -2890,18 +2789,13 @@ class CodeartifactApi:
         status of a package version to ``Disposed``, use
         `DisposePackageVersions <https://docs.aws.amazon.com/codeartifact/latest/APIReference/API_DisposePackageVersions.html>`__.
 
-        :param domain: The name of the domain that contains the repository that contains the
-        package versions with a status to be updated.
-        :param repository: The repository that contains the package versions with the status you
-        want to update.
-        :param format: A format that specifies the type of the package with the statuses to
-        update.
+        :param domain: The name of the domain that contains the repository that contains the package versions with a status to be updated.
+        :param repository: The repository that contains the package versions with the status you want to update.
+        :param format: A format that specifies the type of the package with the statuses to update.
         :param package: The name of the package with the version statuses to update.
-        :param versions: An array of strings that specify the versions of the package with the
-        statuses to update.
+        :param versions: An array of strings that specify the versions of the package with the statuses to update.
         :param target_status: The status you want to change the package version status to.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param namespace: The namespace of the package version to be updated.
         :param version_revisions: A map of package versions and package version revisions.
         :param expected_status: The package version’s expected status before it is updated.
@@ -2930,8 +2824,7 @@ class CodeartifactApi:
 
         :param domain: The name of the domain associated with the repository to update.
         :param repository: The name of the repository to update.
-        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns
-        the domain.
+        :param domain_owner: The 12-digit account number of the Amazon Web Services account that owns the domain.
         :param description: An updated repository description.
         :param upstreams: A list of upstream repositories to associate with the repository.
         :returns: UpdateRepositoryResult

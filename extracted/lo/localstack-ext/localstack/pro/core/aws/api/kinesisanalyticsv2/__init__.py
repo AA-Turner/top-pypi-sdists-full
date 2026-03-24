@@ -2134,8 +2134,7 @@ class Kinesisanalyticsv2Api:
         operation, results in a new version of the application. You can use the
         DescribeApplication operation to find the current application version.
 
-        :param application_name: The name of your existing application to which you want to add the
-        streaming source.
+        :param application_name: The name of your existing application to which you want to add the streaming source.
         :param current_application_version_id: The current version of your application.
         :param input: The Input to add.
         :returns: AddApplicationInputResponse
@@ -2164,12 +2163,9 @@ class Kinesisanalyticsv2Api:
         only input processor available is `Amazon
         Lambda <https://docs.aws.amazon.com/lambda/>`__.
 
-        :param application_name: The name of the application to which you want to add the input
-        processing configuration.
-        :param current_application_version_id: The version of the application to which you want to add the input
-        processing configuration.
-        :param input_id: The ID of the input configuration to add the input processing
-        configuration to.
+        :param application_name: The name of the application to which you want to add the input processing configuration.
+        :param current_application_version_id: The version of the application to which you want to add the input processing configuration.
+        :param input_id: The ID of the input configuration to add the input processing configuration to.
         :param input_processing_configuration: The InputProcessingConfiguration to add to the application.
         :returns: AddApplicationInputProcessingConfigurationResponse
         :raises ResourceNotFoundException:
@@ -2208,10 +2204,8 @@ class Kinesisanalyticsv2Api:
         operation, results in a new version of the application. You can use the
         DescribeApplication operation to find the current application version.
 
-        :param application_name: The name of the application to which you want to add the output
-        configuration.
-        :param current_application_version_id: The version of the application to which you want to add the output
-        configuration.
+        :param application_name: The name of the application to which you want to add the output configuration.
+        :param current_application_version_id: The version of the application to which you want to add the output configuration.
         :param output: An array of objects, each describing one output configuration.
         :returns: AddApplicationOutputResponse
         :raises ResourceNotFoundException:
@@ -2242,8 +2236,7 @@ class Kinesisanalyticsv2Api:
         to columns in the resulting in-application table.
 
         :param application_name: The name of an existing application.
-        :param current_application_version_id: The version of the application for which you are adding the reference
-        data source.
+        :param current_application_version_id: The version of the application for which you are adding the reference data source.
         :param reference_data_source: The reference data source can be an object in your Amazon S3 bucket.
         :returns: AddApplicationReferenceDataSourceResponse
         :raises ResourceNotFoundException:
@@ -2279,8 +2272,7 @@ class Kinesisanalyticsv2Api:
 
         :param application_name: The name of an existing application.
         :param vpc_configuration: Description of the VPC to add to the application.
-        :param current_application_version_id: The version of the application to which you want to add the VPC
-        configuration.
+        :param current_application_version_id: The version of the application to which you want to add the VPC configuration.
         :param conditional_token: A value you use to implement strong concurrency for application updates.
         :returns: AddApplicationVpcConfigurationResponse
         :raises ResourceNotFoundException:
@@ -2312,16 +2304,12 @@ class Kinesisanalyticsv2Api:
 
         :param application_name: The name of your application (for example, ``sample-app``).
         :param runtime_environment: The runtime environment for the application.
-        :param service_execution_role: The IAM role used by the application to access Kinesis data streams,
-        Kinesis Data Firehose delivery streams, Amazon S3 objects, and other
-        external resources.
+        :param service_execution_role: The IAM role used by the application to access Kinesis data streams, Kinesis Data Firehose delivery streams, Amazon S3 objects, and other external resources.
         :param application_description: A summary description of the application.
         :param application_configuration: Use this parameter to configure the application.
-        :param cloud_watch_logging_options: Use this parameter to configure an Amazon CloudWatch log stream to
-        monitor application configuration errors.
+        :param cloud_watch_logging_options: Use this parameter to configure an Amazon CloudWatch log stream to monitor application configuration errors.
         :param tags: A list of one or more tags to assign to the application.
-        :param application_mode: Use the ``STREAMING`` mode to create a Managed Service for Apache Flink
-        application.
+        :param application_mode: Use the ``STREAMING`` mode to create a Managed Service for Apache Flink application.
         :returns: CreateApplicationResponse
         :raises CodeValidationException:
         :raises ResourceInUseException:
@@ -2431,8 +2419,7 @@ class Kinesisanalyticsv2Api:
         Analytics application.
 
         :param application_name: The application name.
-        :param cloud_watch_logging_option_id: The ``CloudWatchLoggingOptionId`` of the Amazon CloudWatch logging
-        option to delete.
+        :param cloud_watch_logging_option_id: The ``CloudWatchLoggingOptionId`` of the Amazon CloudWatch logging option to delete.
         :param current_application_version_id: The version ID of the application.
         :param conditional_token: A value you use to implement strong concurrency for application updates.
         :returns: DeleteApplicationCloudWatchLoggingOptionResponse
@@ -2458,8 +2445,7 @@ class Kinesisanalyticsv2Api:
 
         :param application_name: The name of the application.
         :param current_application_version_id: The application version.
-        :param input_id: The ID of the input configuration from which to delete the input
-        processing configuration.
+        :param input_id: The ID of the input configuration from which to delete the input processing configuration.
         :returns: DeleteApplicationInputProcessingConfigurationResponse
         :raises ResourceNotFoundException:
         :raises ResourceInUseException:
@@ -2588,8 +2574,7 @@ class Kinesisanalyticsv2Api:
         the ListApplications operation.
 
         :param application_name: The name of the application.
-        :param include_additional_details: Displays verbose information about a Managed Service for Apache Flink
-        application, including the application's job plan.
+        :param include_additional_details: Displays verbose information about a Managed Service for Apache Flink application, including the application's job plan.
         :returns: DescribeApplicationResponse
         :raises ResourceNotFoundException:
         :raises InvalidArgumentException:
@@ -2653,10 +2638,8 @@ class Kinesisanalyticsv2Api:
 
         This operation is supported only for Managed Service for Apache Flink.
 
-        :param application_name: The name of the application for which you want to get the version
-        description.
-        :param application_version_id: The ID of the application version for which you want to get the
-        description.
+        :param application_name: The name of the application for which you want to get the version description.
+        :param application_version_id: The ID of the application version for which you want to get the description.
         :returns: DescribeApplicationVersionResponse
         :raises InvalidArgumentException:
         :raises ResourceNotFoundException:
@@ -2688,12 +2671,9 @@ class Kinesisanalyticsv2Api:
 
         :param service_execution_role: The ARN of the role that is used to access the streaming source.
         :param resource_arn: The Amazon Resource Name (ARN) of the streaming source.
-        :param input_starting_position_configuration: The point at which you want Kinesis Data Analytics to start reading
-        records from the specified streaming source for discovery purposes.
-        :param s3_configuration: Specify this parameter to discover a schema from data in an Amazon S3
-        object.
-        :param input_processing_configuration: The InputProcessingConfiguration to use to preprocess the records before
-        discovering the schema of the records.
+        :param input_starting_position_configuration: The point at which you want Kinesis Data Analytics to start reading records from the specified streaming source for discovery purposes.
+        :param s3_configuration: Specify this parameter to discover a schema from data in an Amazon S3 object.
+        :param input_processing_configuration: The InputProcessingConfiguration to use to preprocess the records before discovering the schema of the records.
         :returns: DiscoverInputSchemaResponse
         :raises InvalidArgumentException:
         :raises UnableToDetectSchemaException:
@@ -2749,8 +2729,7 @@ class Kinesisanalyticsv2Api:
 
         :param application_name: The name of an existing application.
         :param limit: The maximum number of application snapshots to list.
-        :param next_token: Use this parameter if you receive a ``NextToken`` response in a previous
-        request that indicates that there is more output available.
+        :param next_token: Use this parameter if you receive a ``NextToken`` response in a previous request that indicates that there is more output available.
         :returns: ListApplicationSnapshotsResponse
         :raises InvalidArgumentException:
         :raises UnsupportedOperationException:
@@ -2776,10 +2755,8 @@ class Kinesisanalyticsv2Api:
         This operation is supported only for Managed Service for Apache Flink.
 
         :param application_name: The name of the application for which you want to list all versions.
-        :param limit: The maximum number of versions to list in this invocation of the
-        operation.
-        :param next_token: If a previous invocation of this operation returned a pagination token,
-        pass it into this value to retrieve the next set of results.
+        :param limit: The maximum number of versions to list in this invocation of the operation.
+        :param next_token: If a previous invocation of this operation returned a pagination token, pass it into this value to retrieve the next set of results.
         :returns: ListApplicationVersionsResponse
         :raises InvalidArgumentException:
         :raises ResourceNotFoundException:
@@ -2803,8 +2780,7 @@ class Kinesisanalyticsv2Api:
         DescribeApplication.
 
         :param limit: The maximum number of applications to list.
-        :param next_token: If a previous command returned a pagination token, pass it into this
-        value to retrieve the next set of results.
+        :param next_token: If a previous command returned a pagination token, pass it into this value to retrieve the next set of results.
         :returns: ListApplicationsResponse
         :raises InvalidRequestException:
         """
@@ -2870,8 +2846,7 @@ class Kinesisanalyticsv2Api:
         start your application.
 
         :param application_name: The name of the application.
-        :param run_configuration: Identifies the run configuration (start parameters) of a Managed Service
-        for Apache Flink application.
+        :param run_configuration: Identifies the run configuration (start parameters) of a Managed Service for Apache Flink application.
         :returns: StartApplicationResponse
         :raises ResourceNotFoundException:
         :raises ResourceInUseException:
@@ -2944,8 +2919,7 @@ class Kinesisanalyticsv2Api:
         application. For more information, see `Using
         Tagging <https://docs.aws.amazon.com/kinesisanalytics/latest/java/how-tagging.html>`__.
 
-        :param resource_arn: The ARN of the Managed Service for Apache Flink application from which
-        to remove the tags.
+        :param resource_arn: The ARN of the Managed Service for Apache Flink application from which to remove the tags.
         :param tag_keys: A list of keys of tags to remove from the specified application.
         :returns: UntagResourceResponse
         :raises ResourceNotFoundException:
@@ -2984,8 +2958,7 @@ class Kinesisanalyticsv2Api:
         :param run_configuration_update: Describes updates to the application's starting parameters.
         :param cloud_watch_logging_option_updates: Describes application Amazon CloudWatch logging option updates.
         :param conditional_token: A value you use to implement strong concurrency for application updates.
-        :param runtime_environment_update: Updates the Managed Service for Apache Flink runtime environment used to
-        run your code.
+        :param runtime_environment_update: Updates the Managed Service for Apache Flink runtime environment used to run your code.
         :returns: UpdateApplicationResponse
         :raises CodeValidationException:
         :raises ResourceNotFoundException:
@@ -3030,8 +3003,7 @@ class Kinesisanalyticsv2Api:
 
         This operation is supported only for Managed Service for Apache Flink.
 
-        :param application_name: The name of the application for which you want to update the maintenance
-        configuration.
+        :param application_name: The name of the application for which you want to update the maintenance configuration.
         :param application_maintenance_configuration_update: Describes the application maintenance configuration update.
         :returns: UpdateApplicationMaintenanceConfigurationResponse
         :raises ResourceNotFoundException:

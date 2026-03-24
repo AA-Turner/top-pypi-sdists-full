@@ -762,8 +762,7 @@ class TimestreamWriteApi:
         For details, see `code
         sample <https://docs.aws.amazon.com/timestream/latest/developerguide/code-samples.create-batch-load.html>`__.
 
-        :param data_source_configuration: Defines configuration details about the data source for a batch load
-        task.
+        :param data_source_configuration: Defines configuration details about the data source for a batch load task.
         :param report_configuration: Report configuration for a batch load task.
         :param target_database_name: Target Timestream database for a batch load task.
         :param target_table_name: Target Timestream table for a batch load task.
@@ -840,11 +839,9 @@ class TimestreamWriteApi:
 
         :param database_name: The name of the Timestream database.
         :param table_name: The name of the Timestream table.
-        :param retention_properties: The duration for which your time-series data must be stored in the
-        memory store and the magnetic store.
+        :param retention_properties: The duration for which your time-series data must be stored in the memory store and the magnetic store.
         :param tags: A list of key-value pairs to label the table.
-        :param magnetic_store_write_properties: Contains properties to set on the table when enabling magnetic store
-        writes.
+        :param magnetic_store_write_properties: Contains properties to set on the table when enabling magnetic store writes.
         :param schema: The schema of the table.
         :returns: CreateTableResponse
         :raises ConflictException:
@@ -1189,8 +1186,7 @@ class TimestreamWriteApi:
         for details.
 
         :param database_name: The name of the database.
-        :param kms_key_id: The identifier of the new KMS key (``KmsKeyId``) to be used to encrypt
-        the data stored in the database.
+        :param kms_key_id: The identifier of the new KMS key (``KmsKeyId``) to be used to encrypt the data stored in the database.
         :returns: UpdateDatabaseResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -1229,8 +1225,7 @@ class TimestreamWriteApi:
         :param database_name: The name of the Timestream database.
         :param table_name: The name of the Timestream table.
         :param retention_properties: The retention duration of the memory store and the magnetic store.
-        :param magnetic_store_write_properties: Contains properties to set on the table when enabling magnetic store
-        writes.
+        :param magnetic_store_write_properties: Contains properties to set on the table when enabling magnetic store writes.
         :param schema: The schema of the table.
         :returns: UpdateTableResponse
         :raises InternalServerException:
@@ -1304,10 +1299,8 @@ class TimestreamWriteApi:
 
         :param database_name: The name of the Timestream database.
         :param table_name: The name of the Timestream table.
-        :param records: An array of records that contain the unique measure, dimension, time,
-        and version attributes for each time-series data point.
-        :param common_attributes: A record that contains the common measure, dimension, time, and version
-        attributes shared across all the records in the request.
+        :param records: An array of records that contain the unique measure, dimension, time, and version attributes for each time-series data point.
+        :param common_attributes: A record that contains the common measure, dimension, time, and version attributes shared across all the records in the request.
         :returns: WriteRecordsResponse
         :raises InternalServerException:
         :raises ThrottlingException:

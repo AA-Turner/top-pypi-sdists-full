@@ -29,7 +29,7 @@ class MedConceptsQAExtractor(HuggingFaceBenchmarkExtractor):
     - Clinical concepts
     """
 
-    evaluator_name = "generation"
+    evaluator_name = "med_concepts_qa"
 
     def __init__(self, subset: str | None = None):
         """

@@ -2292,8 +2292,7 @@ class CodebuildApi:
         """Creates a compute fleet.
 
         :param name: The name of the compute fleet.
-        :param base_capacity: The initial number of machines allocated to the ﬂeet, which deﬁnes the
-        number of builds that can run in parallel.
+        :param base_capacity: The initial number of machines allocated to the ﬂeet, which deﬁnes the number of builds that can run in parallel.
         :param environment_type: The environment type of the compute fleet.
         :param compute_type: Information about the compute resources the compute fleet uses.
         :param compute_configuration: The compute configuration of the compute fleet.
@@ -2345,33 +2344,23 @@ class CodebuildApi:
         :param source: Information about the build input source code for the build project.
         :param artifacts: Information about the build output artifacts for the build project.
         :param environment: Information about the build environment for the build project.
-        :param service_role: The ARN of the IAM role that enables CodeBuild to interact with
-        dependent Amazon Web Services services on behalf of the Amazon Web
-        Services account.
+        :param service_role: The ARN of the IAM role that enables CodeBuild to interact with dependent Amazon Web Services services on behalf of the Amazon Web Services account.
         :param description: A description that makes the build project easy to identify.
         :param secondary_sources: An array of ``ProjectSource`` objects.
         :param source_version: A version of the build input to be built for this project.
         :param secondary_source_versions: An array of ``ProjectSourceVersion`` objects.
         :param secondary_artifacts: An array of ``ProjectArtifacts`` objects.
-        :param cache: Stores recently used information so that it can be quickly accessed at a
-        later time.
-        :param timeout_in_minutes: How long, in minutes, from 5 to 2160 (36 hours), for CodeBuild to wait
-        before it times out any build that has not been marked as completed.
-        :param queued_timeout_in_minutes: The number of minutes a build is allowed to be queued before it times
-        out.
-        :param encryption_key: The Key Management Service customer master key (CMK) to be used for
-        encrypting the build output artifacts.
+        :param cache: Stores recently used information so that it can be quickly accessed at a later time.
+        :param timeout_in_minutes: How long, in minutes, from 5 to 2160 (36 hours), for CodeBuild to wait before it times out any build that has not been marked as completed.
+        :param queued_timeout_in_minutes: The number of minutes a build is allowed to be queued before it times out.
+        :param encryption_key: The Key Management Service customer master key (CMK) to be used for encrypting the build output artifacts.
         :param tags: A list of tag key and value pairs associated with this build project.
         :param vpc_config: VpcConfig enables CodeBuild to access resources in an Amazon VPC.
-        :param badge_enabled: Set this to true to generate a publicly accessible URL for your
-        project's build badge.
+        :param badge_enabled: Set this to true to generate a publicly accessible URL for your project's build badge.
         :param logs_config: Information about logs for the build project.
-        :param file_system_locations: An array of ``ProjectFileSystemLocation`` objects for a CodeBuild build
-        project.
-        :param build_batch_config: A ProjectBuildBatchConfig object that defines the batch build options
-        for the project.
-        :param concurrent_build_limit: The maximum number of concurrent builds that are allowed for this
-        project.
+        :param file_system_locations: An array of ``ProjectFileSystemLocation`` objects for a CodeBuild build project.
+        :param build_batch_config: A ProjectBuildBatchConfig object that defines the batch build options for the project.
+        :param concurrent_build_limit: The maximum number of concurrent builds that are allowed for this project.
         :param auto_retry_limit: The maximum number of additional automatic retries after a failed build.
         :returns: CreateProjectOutput
         :raises InvalidInputException:
@@ -2388,8 +2377,7 @@ class CodebuildApi:
 
         :param name: The name of the report group.
         :param type: The type of report group.
-        :param export_config: A ``ReportExportConfig`` object that contains information about where
-        the report group test results are exported.
+        :param export_config: A ``ReportExportConfig`` object that contains information about where the report group test results are exported.
         :param tags: A list of tag key and value pairs associated with this report group.
         :returns: CreateReportGroupOutput
         :raises InvalidInputException:
@@ -2427,17 +2415,12 @@ class CodebuildApi:
         Settings <https://docs.aws.amazon.com/codebuild/latest/userguide/change-project.html#change-project-console>`__.
 
         :param project_name: The name of the CodeBuild project.
-        :param branch_filter: A regular expression used to determine which repository branches are
-        built when a webhook is triggered.
-        :param filter_groups: An array of arrays of ``WebhookFilter`` objects used to determine which
-        webhooks are triggered.
+        :param branch_filter: A regular expression used to determine which repository branches are built when a webhook is triggered.
+        :param filter_groups: An array of arrays of ``WebhookFilter`` objects used to determine which webhooks are triggered.
         :param build_type: Specifies the type of build this webhook will trigger.
-        :param manual_creation: If manualCreation is true, CodeBuild doesn't create a webhook in GitHub
-        and instead returns ``payloadUrl`` and ``secret`` values for the
-        webhook.
+        :param manual_creation: If manualCreation is true, CodeBuild doesn't create a webhook in GitHub and instead returns ``payloadUrl`` and ``secret`` values for the webhook.
         :param scope_configuration: The scope configuration for global or organization webhooks.
-        :param pull_request_build_policy: A PullRequestBuildPolicy object that defines comment-based approval
-        requirements for triggering builds on pull requests.
+        :param pull_request_build_policy: A PullRequestBuildPolicy object that defines comment-based approval requirements for triggering builds on pull requests.
         :returns: CreateWebhookOutput
         :raises InvalidInputException:
         :raises OAuthProviderException:
@@ -2508,8 +2491,7 @@ class CodebuildApi:
         delete its reports.
 
         :param arn: The ARN of the report group to delete.
-        :param delete_reports: If ``true``, deletes any reports that belong to a report group before
-        deleting the report group.
+        :param delete_reports: If ``true``, deletes any reports that belong to a report group before deleting the report group.
         :returns: DeleteReportGroupOutput
         :raises InvalidInputException:
         """
@@ -2573,8 +2555,7 @@ class CodebuildApi:
         """Retrieves one or more code coverage reports.
 
         :param report_arn: The ARN of the report for which test cases are returned.
-        :param next_token: The ``nextToken`` value returned from a previous call to
-        ``DescribeCodeCoverages``.
+        :param next_token: The ``nextToken`` value returned from a previous call to ``DescribeCodeCoverages``.
         :param max_results: The maximum number of results to return.
         :param sort_order: Specifies if the results are sorted in ascending or descending order.
         :param sort_by: Specifies how the results are sorted.
@@ -2598,8 +2579,7 @@ class CodebuildApi:
         """Returns a list of details about test cases for a report.
 
         :param report_arn: The ARN of the report for which test cases are returned.
-        :param next_token: During a previous call, the maximum number of items that can be returned
-        is the value specified in ``maxResults``.
+        :param next_token: During a previous call, the maximum number of items that can be returned is the value specified in ``maxResults``.
         :param max_results: The maximum number of paginated test cases returned per response.
         :param filter: A ``TestCaseFilter`` object used to filter the returned reports.
         :returns: DescribeTestCasesOutput
@@ -2659,11 +2639,9 @@ class CodebuildApi:
 
         :param token: For GitHub or GitHub Enterprise, this is the personal access token.
         :param server_type: The source provider used for this project.
-        :param auth_type: The type of authentication used to connect to a GitHub, GitHub
-        Enterprise, GitLab, GitLab Self Managed, or Bitbucket repository.
+        :param auth_type: The type of authentication used to connect to a GitHub, GitHub Enterprise, GitLab, GitLab Self Managed, or Bitbucket repository.
         :param username: The Bitbucket username when the ``authType`` is BASIC_AUTH.
-        :param should_overwrite: Set to ``false`` to prevent overwriting the repository source
-        credentials.
+        :param should_overwrite: Set to ``false`` to prevent overwriting the repository source credentials.
         :returns: ImportSourceCredentialsOutput
         :raises InvalidInputException:
         :raises AccountLimitExceededException:
@@ -2699,8 +2677,7 @@ class CodebuildApi:
         :param filter: A ``BuildBatchFilter`` object that specifies the filters for the search.
         :param max_results: The maximum number of results to return.
         :param sort_order: Specifies the sort order of the returned items.
-        :param next_token: The ``nextToken`` value returned from a previous call to
-        ``ListBuildBatches``.
+        :param next_token: The ``nextToken`` value returned from a previous call to ``ListBuildBatches``.
         :returns: ListBuildBatchesOutput
         :raises InvalidInputException:
         """
@@ -2723,8 +2700,7 @@ class CodebuildApi:
         :param filter: A ``BuildBatchFilter`` object that specifies the filters for the search.
         :param max_results: The maximum number of results to return.
         :param sort_order: Specifies the sort order of the returned items.
-        :param next_token: The ``nextToken`` value returned from a previous call to
-        ``ListBuildBatchesForProject``.
+        :param next_token: The ``nextToken`` value returned from a previous call to ``ListBuildBatchesForProject``.
         :returns: ListBuildBatchesForProjectOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:
@@ -2743,9 +2719,7 @@ class CodebuildApi:
         build.
 
         :param sort_order: The order to list build IDs.
-        :param next_token: During a previous call, if there are more than 100 items in the list,
-        only the first 100 items are returned, along with a unique string called
-        a *nextToken*.
+        :param next_token: During a previous call, if there are more than 100 items in the list, only the first 100 items are returned, along with a unique string called a *nextToken*.
         :returns: ListBuildsOutput
         :raises InvalidInputException:
         """
@@ -2765,9 +2739,7 @@ class CodebuildApi:
 
         :param project_name: The name of the CodeBuild project.
         :param sort_order: The order to sort the results in.
-        :param next_token: During a previous call, if there are more than 100 items in the list,
-        only the first 100 items are returned, along with a unique string called
-        a *nextToken*.
+        :param next_token: During a previous call, if there are more than 100 items in the list, only the first 100 items are returned, along with a unique string called a *nextToken*.
         :returns: ListBuildsForProjectOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:
@@ -2819,9 +2791,7 @@ class CodebuildApi:
         """Gets a list of compute fleet names with each compute fleet name
         representing a single compute fleet.
 
-        :param next_token: During a previous call, if there are more than 100 items in the list,
-        only the first 100 items are returned, along with a unique string called
-        a *nextToken*.
+        :param next_token: During a previous call, if there are more than 100 items in the list, only the first 100 items are returned, along with a unique string called a *nextToken*.
         :param max_results: The maximum number of paginated compute fleets returned per response.
         :param sort_order: The order in which to list compute fleets.
         :param sort_by: The criterion to be used to list compute fleet names.
@@ -2844,9 +2814,7 @@ class CodebuildApi:
 
         :param sort_by: The criterion to be used to list build project names.
         :param sort_order: The order in which to list build projects.
-        :param next_token: During a previous call, if there are more than 100 items in the list,
-        only the first 100 items are returned, along with a unique string called
-        a *nextToken*.
+        :param next_token: During a previous call, if there are more than 100 items in the list, only the first 100 items are returned, along with a unique string called a *nextToken*.
         :returns: ListProjectsOutput
         :raises InvalidInputException:
         """
@@ -2867,8 +2835,7 @@ class CodebuildApi:
 
         :param sort_order: Used to specify the order to sort the list of returned report groups.
         :param sort_by: The criterion to be used to list build report groups.
-        :param next_token: During a previous call, the maximum number of items that can be returned
-        is the value specified in ``maxResults``.
+        :param next_token: During a previous call, the maximum number of items that can be returned is the value specified in ``maxResults``.
         :param max_results: The maximum number of paginated report groups returned per response.
         :returns: ListReportGroupsOutput
         :raises InvalidInputException:
@@ -2889,8 +2856,7 @@ class CodebuildApi:
         Services account.
 
         :param sort_order: Specifies the sort order for the list of returned reports.
-        :param next_token: During a previous call, the maximum number of items that can be returned
-        is the value specified in ``maxResults``.
+        :param next_token: During a previous call, the maximum number of items that can be returned is the value specified in ``maxResults``.
         :param max_results: The maximum number of paginated reports returned per response.
         :param filter: A ``ReportFilter`` object used to filter the returned reports.
         :returns: ListReportsOutput
@@ -2912,12 +2878,9 @@ class CodebuildApi:
         """Returns a list of ARNs for the reports that belong to a ``ReportGroup``.
 
         :param report_group_arn: The ARN of the report group for which you want to return report ARNs.
-        :param next_token: During a previous call, the maximum number of items that can be returned
-        is the value specified in ``maxResults``.
-        :param sort_order: Use to specify whether the results are returned in ascending or
-        descending order.
-        :param max_results: The maximum number of paginated reports in this report group returned
-        per response.
+        :param next_token: During a previous call, the maximum number of items that can be returned is the value specified in ``maxResults``.
+        :param sort_order: Use to specify whether the results are returned in ascending or descending order.
+        :param max_results: The maximum number of paginated reports in this report group returned per response.
         :param filter: A ``ReportFilter`` object used to filter the returned reports.
         :returns: ListReportsForReportGroupOutput
         :raises InvalidInputException:
@@ -2979,13 +2942,10 @@ class CodebuildApi:
         """Gets a list of projects that are shared with other Amazon Web Services
         accounts or users.
 
-        :param sort_by: The criterion to be used to list build projects shared with the current
-        Amazon Web Services account or user.
+        :param sort_by: The criterion to be used to list build projects shared with the current Amazon Web Services account or user.
         :param sort_order: The order in which to list shared build projects.
-        :param max_results: The maximum number of paginated shared build projects returned per
-        response.
-        :param next_token: During a previous call, the maximum number of items that can be returned
-        is the value specified in ``maxResults``.
+        :param max_results: The maximum number of paginated shared build projects returned per response.
+        :param next_token: During a previous call, the maximum number of items that can be returned is the value specified in ``maxResults``.
         :returns: ListSharedProjectsOutput
         :raises InvalidInputException:
         """
@@ -3005,10 +2965,8 @@ class CodebuildApi:
         Services accounts or users.
 
         :param sort_order: The order in which to list shared report groups.
-        :param sort_by: The criterion to be used to list report groups shared with the current
-        Amazon Web Services account or user.
-        :param next_token: During a previous call, the maximum number of items that can be returned
-        is the value specified in ``maxResults``.
+        :param sort_by: The criterion to be used to list report groups shared with the current Amazon Web Services account or user.
+        :param next_token: During a previous call, the maximum number of items that can be returned is the value specified in ``maxResults``.
         :param max_results: The maximum number of paginated shared report groups per response.
         :returns: ListSharedReportGroupsOutput
         :raises InvalidInputException:
@@ -3038,8 +2996,7 @@ class CodebuildApi:
         object.
 
         :param policy: A JSON-formatted resource policy.
-        :param resource_arn: The ARN of the ``Project`` or ``ReportGroup`` resource you want to
-        associate with a resource policy.
+        :param resource_arn: The ARN of the ``Project`` or ``ReportGroup`` resource you want to associate with a resource policy.
         :returns: PutResourcePolicyOutput
         :raises ResourceNotFoundException:
         :raises InvalidInputException:
@@ -3057,8 +3014,7 @@ class CodebuildApi:
         """Restarts a build.
 
         :param id: Specifies the identifier of the build to restart.
-        :param idempotency_token: A unique, case sensitive identifier you provide to ensure the
-        idempotency of the ``RetryBuild`` request.
+        :param idempotency_token: A unique, case sensitive identifier you provide to ensure the idempotency of the ``RetryBuild`` request.
         :returns: RetryBuildOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:
@@ -3079,8 +3035,7 @@ class CodebuildApi:
         retried.
 
         :param id: Specifies the identifier of the batch build to restart.
-        :param idempotency_token: A unique, case sensitive identifier you provide to ensure the
-        idempotency of the ``RetryBuildBatch`` request.
+        :param idempotency_token: A unique, case sensitive identifier you provide to ensure the idempotency of the ``RetryBuildBatch`` request.
         :param retry_type: Specifies the type of retry to perform.
         :returns: RetryBuildBatchOutput
         :raises InvalidInputException:
@@ -3138,63 +3093,36 @@ class CodebuildApi:
 
         :param project_name: The name of the CodeBuild build project to start running a build.
         :param secondary_sources_override: An array of ``ProjectSource`` objects.
-        :param secondary_sources_version_override: An array of ``ProjectSourceVersion`` objects that specify one or more
-        versions of the project's secondary sources to be used for this build
-        only.
+        :param secondary_sources_version_override: An array of ``ProjectSourceVersion`` objects that specify one or more versions of the project's secondary sources to be used for this build only.
         :param source_version: The version of the build input to be built, for this build only.
-        :param artifacts_override: Build output artifact settings that override, for this build only, the
-        latest ones already defined in the build project.
+        :param artifacts_override: Build output artifact settings that override, for this build only, the latest ones already defined in the build project.
         :param secondary_artifacts_override: An array of ``ProjectArtifacts`` objects.
-        :param environment_variables_override: A set of environment variables that overrides, for this build only, the
-        latest ones already defined in the build project.
-        :param source_type_override: A source input type, for this build, that overrides the source input
-        defined in the build project.
-        :param source_location_override: A location that overrides, for this build, the source location for the
-        one defined in the build project.
-        :param source_auth_override: An authorization type for this build that overrides the one defined in
-        the build project.
-        :param git_clone_depth_override: The user-defined depth of history, with a minimum value of 0, that
-        overrides, for this build only, any previous depth of history defined in
-        the build project.
-        :param git_submodules_config_override: Information about the Git submodules configuration for this build of an
-        CodeBuild build project.
-        :param buildspec_override: A buildspec file declaration that overrides the latest one defined in
-        the build project, for this build only.
-        :param insecure_ssl_override: Enable this flag to override the insecure SSL setting that is specified
-        in the build project.
-        :param report_build_status_override: Set to true to report to your source provider the status of a build's
-        start and completion.
-        :param build_status_config_override: Contains information that defines how the build project reports the
-        build status to the source provider.
-        :param environment_type_override: A container type for this build that overrides the one specified in the
-        build project.
-        :param image_override: The name of an image for this build that overrides the one specified in
-        the build project.
-        :param compute_type_override: The name of a compute type for this build that overrides the one
-        specified in the build project.
-        :param certificate_override: The name of a certificate for this build that overrides the one
-        specified in the build project.
-        :param cache_override: A ProjectCache object specified for this build that overrides the one
-        defined in the build project.
-        :param service_role_override: The name of a service role for this build that overrides the one
-        specified in the build project.
+        :param environment_variables_override: A set of environment variables that overrides, for this build only, the latest ones already defined in the build project.
+        :param source_type_override: A source input type, for this build, that overrides the source input defined in the build project.
+        :param source_location_override: A location that overrides, for this build, the source location for the one defined in the build project.
+        :param source_auth_override: An authorization type for this build that overrides the one defined in the build project.
+        :param git_clone_depth_override: The user-defined depth of history, with a minimum value of 0, that overrides, for this build only, any previous depth of history defined in the build project.
+        :param git_submodules_config_override: Information about the Git submodules configuration for this build of an CodeBuild build project.
+        :param buildspec_override: A buildspec file declaration that overrides the latest one defined in the build project, for this build only.
+        :param insecure_ssl_override: Enable this flag to override the insecure SSL setting that is specified in the build project.
+        :param report_build_status_override: Set to true to report to your source provider the status of a build's start and completion.
+        :param build_status_config_override: Contains information that defines how the build project reports the build status to the source provider.
+        :param environment_type_override: A container type for this build that overrides the one specified in the build project.
+        :param image_override: The name of an image for this build that overrides the one specified in the build project.
+        :param compute_type_override: The name of a compute type for this build that overrides the one specified in the build project.
+        :param certificate_override: The name of a certificate for this build that overrides the one specified in the build project.
+        :param cache_override: A ProjectCache object specified for this build that overrides the one defined in the build project.
+        :param service_role_override: The name of a service role for this build that overrides the one specified in the build project.
         :param privileged_mode_override: Enable this flag to override privileged mode in the build project.
-        :param timeout_in_minutes_override: The number of build timeout minutes, from 5 to 2160 (36 hours), that
-        overrides, for this build only, the latest setting already defined in
-        the build project.
-        :param queued_timeout_in_minutes_override: The number of minutes a build is allowed to be queued before it times
-        out.
-        :param encryption_key_override: The Key Management Service customer master key (CMK) that overrides the
-        one specified in the build project.
-        :param idempotency_token: A unique, case sensitive identifier you provide to ensure the
-        idempotency of the StartBuild request.
-        :param logs_config_override: Log settings for this build that override the log settings defined in
-        the build project.
+        :param timeout_in_minutes_override: The number of build timeout minutes, from 5 to 2160 (36 hours), that overrides, for this build only, the latest setting already defined in the build project.
+        :param queued_timeout_in_minutes_override: The number of minutes a build is allowed to be queued before it times out.
+        :param encryption_key_override: The Key Management Service customer master key (CMK) that overrides the one specified in the build project.
+        :param idempotency_token: A unique, case sensitive identifier you provide to ensure the idempotency of the StartBuild request.
+        :param logs_config_override: Log settings for this build that override the log settings defined in the build project.
         :param registry_credential_override: The credentials for access to a private registry.
         :param image_pull_credentials_type_override: The type of credentials CodeBuild uses to pull images in your build.
         :param debug_session_enabled: Specifies if session debugging is enabled for this build.
-        :param fleet_override: A ProjectFleet object specified for this build that overrides the one
-        defined in the build project.
+        :param fleet_override: A ProjectFleet object specified for this build that overrides the one defined in the build project.
         :param auto_retry_limit_override: The maximum number of additional automatic retries after a failed build.
         :returns: StartBuildOutput
         :raises InvalidInputException:
@@ -3243,61 +3171,35 @@ class CodebuildApi:
         """Starts a batch build for a project.
 
         :param project_name: The name of the project.
-        :param secondary_sources_override: An array of ``ProjectSource`` objects that override the secondary
-        sources defined in the batch build project.
-        :param secondary_sources_version_override: An array of ``ProjectSourceVersion`` objects that override the secondary
-        source versions in the batch build project.
+        :param secondary_sources_override: An array of ``ProjectSource`` objects that override the secondary sources defined in the batch build project.
+        :param secondary_sources_version_override: An array of ``ProjectSourceVersion`` objects that override the secondary source versions in the batch build project.
         :param source_version: The version of the batch build input to be built, for this build only.
-        :param artifacts_override: An array of ``ProjectArtifacts`` objects that contains information about
-        the build output artifact overrides for the build project.
-        :param secondary_artifacts_override: An array of ``ProjectArtifacts`` objects that override the secondary
-        artifacts defined in the batch build project.
-        :param environment_variables_override: An array of ``EnvironmentVariable`` objects that override, or add to,
-        the environment variables defined in the batch build project.
-        :param source_type_override: The source input type that overrides the source input defined in the
-        batch build project.
-        :param source_location_override: A location that overrides, for this batch build, the source location
-        defined in the batch build project.
-        :param source_auth_override: A ``SourceAuth`` object that overrides the one defined in the batch
-        build project.
-        :param git_clone_depth_override: The user-defined depth of history, with a minimum value of 0, that
-        overrides, for this batch build only, any previous depth of history
-        defined in the batch build project.
-        :param git_submodules_config_override: A ``GitSubmodulesConfig`` object that overrides the Git submodules
-        configuration for this batch build.
-        :param buildspec_override: A buildspec file declaration that overrides, for this build only, the
-        latest one already defined in the build project.
-        :param insecure_ssl_override: Enable this flag to override the insecure SSL setting that is specified
-        in the batch build project.
-        :param report_build_batch_status_override: Set to ``true`` to report to your source provider the status of a batch
-        build's start and completion.
-        :param environment_type_override: A container type for this batch build that overrides the one specified
-        in the batch build project.
-        :param image_override: The name of an image for this batch build that overrides the one
-        specified in the batch build project.
-        :param compute_type_override: The name of a compute type for this batch build that overrides the one
-        specified in the batch build project.
-        :param certificate_override: The name of a certificate for this batch build that overrides the one
-        specified in the batch build project.
+        :param artifacts_override: An array of ``ProjectArtifacts`` objects that contains information about the build output artifact overrides for the build project.
+        :param secondary_artifacts_override: An array of ``ProjectArtifacts`` objects that override the secondary artifacts defined in the batch build project.
+        :param environment_variables_override: An array of ``EnvironmentVariable`` objects that override, or add to, the environment variables defined in the batch build project.
+        :param source_type_override: The source input type that overrides the source input defined in the batch build project.
+        :param source_location_override: A location that overrides, for this batch build, the source location defined in the batch build project.
+        :param source_auth_override: A ``SourceAuth`` object that overrides the one defined in the batch build project.
+        :param git_clone_depth_override: The user-defined depth of history, with a minimum value of 0, that overrides, for this batch build only, any previous depth of history defined in the batch build project.
+        :param git_submodules_config_override: A ``GitSubmodulesConfig`` object that overrides the Git submodules configuration for this batch build.
+        :param buildspec_override: A buildspec file declaration that overrides, for this build only, the latest one already defined in the build project.
+        :param insecure_ssl_override: Enable this flag to override the insecure SSL setting that is specified in the batch build project.
+        :param report_build_batch_status_override: Set to ``true`` to report to your source provider the status of a batch build's start and completion.
+        :param environment_type_override: A container type for this batch build that overrides the one specified in the batch build project.
+        :param image_override: The name of an image for this batch build that overrides the one specified in the batch build project.
+        :param compute_type_override: The name of a compute type for this batch build that overrides the one specified in the batch build project.
+        :param certificate_override: The name of a certificate for this batch build that overrides the one specified in the batch build project.
         :param cache_override: A ``ProjectCache`` object that specifies cache overrides.
-        :param service_role_override: The name of a service role for this batch build that overrides the one
-        specified in the batch build project.
+        :param service_role_override: The name of a service role for this batch build that overrides the one specified in the batch build project.
         :param privileged_mode_override: Enable this flag to override privileged mode in the batch build project.
         :param build_timeout_in_minutes_override: Overrides the build timeout specified in the batch build project.
-        :param queued_timeout_in_minutes_override: The number of minutes a batch build is allowed to be queued before it
-        times out.
-        :param encryption_key_override: The Key Management Service customer master key (CMK) that overrides the
-        one specified in the batch build project.
-        :param idempotency_token: A unique, case sensitive identifier you provide to ensure the
-        idempotency of the ``StartBuildBatch`` request.
-        :param logs_config_override: A ``LogsConfig`` object that override the log settings defined in the
-        batch build project.
-        :param registry_credential_override: A ``RegistryCredential`` object that overrides credentials for access to
-        a private registry.
-        :param image_pull_credentials_type_override: The type of credentials CodeBuild uses to pull images in your batch
-        build.
-        :param build_batch_config_override: A ``BuildBatchConfigOverride`` object that contains batch build
-        configuration overrides.
+        :param queued_timeout_in_minutes_override: The number of minutes a batch build is allowed to be queued before it times out.
+        :param encryption_key_override: The Key Management Service customer master key (CMK) that overrides the one specified in the batch build project.
+        :param idempotency_token: A unique, case sensitive identifier you provide to ensure the idempotency of the ``StartBuildBatch`` request.
+        :param logs_config_override: A ``LogsConfig`` object that override the log settings defined in the batch build project.
+        :param registry_credential_override: A ``RegistryCredential`` object that overrides credentials for access to a private registry.
+        :param image_pull_credentials_type_override: The type of credentials CodeBuild uses to pull images in your batch build.
+        :param build_batch_config_override: A ``BuildBatchConfigOverride`` object that contains batch build configuration overrides.
         :param debug_session_enabled: Specifies if session debugging is enabled for this batch build.
         :returns: StartBuildBatchOutput
         :raises InvalidInputException:
@@ -3410,8 +3312,7 @@ class CodebuildApi:
         """Updates a compute fleet.
 
         :param arn: The ARN of the compute fleet.
-        :param base_capacity: The initial number of machines allocated to the compute ﬂeet, which
-        deﬁnes the number of builds that can run in parallel.
+        :param base_capacity: The initial number of machines allocated to the compute ﬂeet, which deﬁnes the number of builds that can run in parallel.
         :param environment_type: The environment type of the compute fleet.
         :param compute_type: Information about the compute resources the compute fleet uses.
         :param compute_configuration: The compute configuration of the compute fleet.
@@ -3461,39 +3362,25 @@ class CodebuildApi:
 
         :param name: The name of the build project.
         :param description: A new or replacement description of the build project.
-        :param source: Information to be changed about the build input source code for the
-        build project.
+        :param source: Information to be changed about the build input source code for the build project.
         :param secondary_sources: An array of ``ProjectSource`` objects.
         :param source_version: A version of the build input to be built for this project.
         :param secondary_source_versions: An array of ``ProjectSourceVersion`` objects.
-        :param artifacts: Information to be changed about the build output artifacts for the build
-        project.
+        :param artifacts: Information to be changed about the build output artifacts for the build project.
         :param secondary_artifacts: An array of ``ProjectArtifact`` objects.
-        :param cache: Stores recently used information so that it can be quickly accessed at a
-        later time.
-        :param environment: Information to be changed about the build environment for the build
-        project.
-        :param service_role: The replacement ARN of the IAM role that enables CodeBuild to interact
-        with dependent Amazon Web Services services on behalf of the Amazon Web
-        Services account.
-        :param timeout_in_minutes: The replacement value in minutes, from 5 to 2160 (36 hours), for
-        CodeBuild to wait before timing out any related build that did not get
-        marked as completed.
-        :param queued_timeout_in_minutes: The number of minutes a build is allowed to be queued before it times
-        out.
-        :param encryption_key: The Key Management Service customer master key (CMK) to be used for
-        encrypting the build output artifacts.
-        :param tags: An updated list of tag key and value pairs associated with this build
-        project.
+        :param cache: Stores recently used information so that it can be quickly accessed at a later time.
+        :param environment: Information to be changed about the build environment for the build project.
+        :param service_role: The replacement ARN of the IAM role that enables CodeBuild to interact with dependent Amazon Web Services services on behalf of the Amazon Web Services account.
+        :param timeout_in_minutes: The replacement value in minutes, from 5 to 2160 (36 hours), for CodeBuild to wait before timing out any related build that did not get marked as completed.
+        :param queued_timeout_in_minutes: The number of minutes a build is allowed to be queued before it times out.
+        :param encryption_key: The Key Management Service customer master key (CMK) to be used for encrypting the build output artifacts.
+        :param tags: An updated list of tag key and value pairs associated with this build project.
         :param vpc_config: VpcConfig enables CodeBuild to access resources in an Amazon VPC.
-        :param badge_enabled: Set this to true to generate a publicly accessible URL for your
-        project's build badge.
+        :param badge_enabled: Set this to true to generate a publicly accessible URL for your project's build badge.
         :param logs_config: Information about logs for the build project.
-        :param file_system_locations: An array of ``ProjectFileSystemLocation`` objects for a CodeBuild build
-        project.
+        :param file_system_locations: An array of ``ProjectFileSystemLocation`` objects for a CodeBuild build project.
         :param build_batch_config: Contains configuration information about a batch build project.
-        :param concurrent_build_limit: The maximum number of concurrent builds that are allowed for this
-        project.
+        :param concurrent_build_limit: The maximum number of concurrent builds that are allowed for this project.
         :param auto_retry_limit: The maximum number of additional automatic retries after a failed build.
         :returns: UpdateProjectOutput
         :raises InvalidInputException:
@@ -3545,8 +3432,7 @@ class CodebuildApi:
 
         :param project_arn: The Amazon Resource Name (ARN) of the build project.
         :param project_visibility: Specifies the visibility of the project's builds.
-        :param resource_access_role: The ARN of the IAM role that enables CodeBuild to access the CloudWatch
-        Logs and Amazon S3 artifacts for the project's builds.
+        :param resource_access_role: The ARN of the IAM role that enables CodeBuild to access the CloudWatch Logs and Amazon S3 artifacts for the project's builds.
         :returns: UpdateProjectVisibilityOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:
@@ -3566,8 +3452,7 @@ class CodebuildApi:
 
         :param arn: The ARN of the report group to update.
         :param export_config: Used to specify an updated export type.
-        :param tags: An updated list of tag key and value pairs associated with this report
-        group.
+        :param tags: An updated list of tag key and value pairs associated with this report group.
         :returns: UpdateReportGroupOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:
@@ -3591,15 +3476,11 @@ class CodebuildApi:
         If you use Bitbucket for your repository, ``rotateSecret`` is ignored.
 
         :param project_name: The name of the CodeBuild project.
-        :param branch_filter: A regular expression used to determine which repository branches are
-        built when a webhook is triggered.
-        :param rotate_secret: A boolean value that specifies whether the associated GitHub
-        repository's secret token should be updated.
-        :param filter_groups: An array of arrays of ``WebhookFilter`` objects used to determine if a
-        webhook event can trigger a build.
+        :param branch_filter: A regular expression used to determine which repository branches are built when a webhook is triggered.
+        :param rotate_secret: A boolean value that specifies whether the associated GitHub repository's secret token should be updated.
+        :param filter_groups: An array of arrays of ``WebhookFilter`` objects used to determine if a webhook event can trigger a build.
         :param build_type: Specifies the type of build this webhook will trigger.
-        :param pull_request_build_policy: A PullRequestBuildPolicy object that defines comment-based approval
-        requirements for triggering builds on pull requests.
+        :param pull_request_build_policy: A PullRequestBuildPolicy object that defines comment-based approval requirements for triggering builds on pull requests.
         :returns: UpdateWebhookOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:

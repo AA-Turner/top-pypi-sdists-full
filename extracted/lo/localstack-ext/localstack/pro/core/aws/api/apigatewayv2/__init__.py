@@ -3208,8 +3208,7 @@ class Apigatewayv2Api:
         :param credentials_arn: This property is part of quick create.
         :param description: The description of the API.
         :param disable_schema_validation: Avoid validating models when creating a deployment.
-        :param disable_execute_api_endpoint: Specifies whether clients can invoke your API by using the default
-        execute-api endpoint.
+        :param disable_execute_api_endpoint: Specifies whether clients can invoke your API by using the default execute-api endpoint.
         :param ip_address_type: The IP address types that can invoke the API.
         :param route_key: This property is part of quick create.
         :param route_selection_expression: The route selection expression for the API.
@@ -3271,14 +3270,11 @@ class Apigatewayv2Api:
         :param authorizer_type: The authorizer type.
         :param identity_source: The identity source for which authorization is requested.
         :param name: The name of the authorizer.
-        :param authorizer_credentials_arn: Specifies the required credentials as an IAM role for API Gateway to
-        invoke the authorizer.
-        :param authorizer_payload_format_version: Specifies the format of the payload sent to an HTTP API Lambda
-        authorizer.
+        :param authorizer_credentials_arn: Specifies the required credentials as an IAM role for API Gateway to invoke the authorizer.
+        :param authorizer_payload_format_version: Specifies the format of the payload sent to an HTTP API Lambda authorizer.
         :param authorizer_result_ttl_in_seconds: The time to live (TTL) for cached authorizer results, in seconds.
         :param authorizer_uri: The authorizer's Uniform Resource Identifier (URI).
-        :param enable_simple_responses: Specifies whether a Lambda authorizer returns a response in a simple
-        format.
+        :param enable_simple_responses: Specifies whether a Lambda authorizer returns a response in a simple format.
         :param identity_validation_expression: This parameter is not used.
         :param jwt_configuration: Represents the configuration of a JWT authorizer.
         :returns: CreateAuthorizerResponse
@@ -3374,19 +3370,13 @@ class Apigatewayv2Api:
         :param integration_method: Specifies the integration's HTTP method type.
         :param integration_subtype: Supported only for HTTP API AWS_PROXY integrations.
         :param integration_uri: For a Lambda integration, specify the URI of a Lambda function.
-        :param passthrough_behavior: Specifies the pass-through behavior for incoming requests based on the
-        Content-Type header in the request, and the available mapping templates
-        specified as the requestTemplates property on the Integration resource.
+        :param passthrough_behavior: Specifies the pass-through behavior for incoming requests based on the Content-Type header in the request, and the available mapping templates specified as the requestTemplates property on the Integration resource.
         :param payload_format_version: Specifies the format of the payload sent to an integration.
-        :param request_parameters: For WebSocket APIs, a key-value map specifying request parameters that
-        are passed from the method request to the backend.
-        :param request_templates: Represents a map of Velocity templates that are applied on the request
-        payload based on the value of the Content-Type header sent by the
-        client.
+        :param request_parameters: For WebSocket APIs, a key-value map specifying request parameters that are passed from the method request to the backend.
+        :param request_templates: Represents a map of Velocity templates that are applied on the request payload based on the value of the Content-Type header sent by the client.
         :param response_parameters: Supported only for HTTP APIs.
         :param template_selection_expression: The template selection expression for the integration.
-        :param timeout_in_millis: Custom timeout between 50 and 29,000 milliseconds for WebSocket APIs and
-        between 50 and 30,000 milliseconds for HTTP APIs.
+        :param timeout_in_millis: Custom timeout between 50 and 29,000 milliseconds for WebSocket APIs and between 50 and 30,000 milliseconds for HTTP APIs.
         :param tls_config: The TLS configuration for a private integration.
         :returns: CreateIntegrationResult
         :raises NotFoundException:
@@ -3415,10 +3405,8 @@ class Apigatewayv2Api:
         :param integration_id: The integration ID.
         :param integration_response_key: The integration response key.
         :param content_handling_strategy: Specifies how to handle response payload content type conversions.
-        :param response_parameters: A key-value map specifying response parameters that are passed to the
-        method response from the backend.
-        :param response_templates: The collection of response templates for the integration response as a
-        string-to-string map of key-value pairs.
+        :param response_parameters: A key-value map specifying response parameters that are passed to the method response from the backend.
+        :param response_templates: The collection of response templates for the integration response as a string-to-string map of key-value pairs.
         :param template_selection_expression: The template selection expression for the integration response.
         :returns: CreateIntegrationResponseResponse
         :raises NotFoundException:
@@ -3473,8 +3461,7 @@ class Apigatewayv2Api:
         :param portal_content: The content of the portal.
         :param endpoint_configuration: The domain configuration for the portal.
         :param included_portal_product_arns: The ARNs of the portal products included in the portal.
-        :param logo_uri: The URI for the portal logo image that is displayed in the portal
-        header.
+        :param logo_uri: The URI for the portal logo image that is displayed in the portal header.
         :param rum_app_monitor_name: The name of the Amazon CloudWatch RUM app monitor for the portal.
         :param tags: The collection of tags.
         :returns: CreatePortalResponse
@@ -3574,8 +3561,7 @@ class Apigatewayv2Api:
         :param api_key_required: Specifies whether an API key is required for the route.
         :param authorization_scopes: The authorization scopes supported by this route.
         :param authorization_type: The authorization type for the route.
-        :param authorizer_id: The identifier of the Authorizer resource to be associated with this
-        route.
+        :param authorizer_id: The identifier of the Authorizer resource to be associated with this route.
         :param model_selection_expression: The model selection expression for the route.
         :param operation_name: The operation name for the route.
         :param request_models: The request models for the route.
@@ -3666,8 +3652,7 @@ class Apigatewayv2Api:
         :param api_id: The API identifier.
         :param stage_name: The name of the stage.
         :param access_log_settings: Settings for logging access in this stage.
-        :param auto_deploy: Specifies whether updates to an API automatically trigger a new
-        deployment.
+        :param auto_deploy: Specifies whether updates to an API automatically trigger a new deployment.
         :param client_certificate_id: The identifier of a client certificate for a Stage.
         :param default_route_settings: The default route settings for the stage.
         :param deployment_id: The deployment identifier of the API stage.
@@ -4045,8 +4030,7 @@ class Apigatewayv2Api:
         :param output_type: The output type of the exported definition file.
         :param api_id: The API identifier.
         :param export_version: The version of the API Gateway export algorithm.
-        :param include_extensions: Specifies whether to include `API Gateway
-        extensions <https://docs.
+        :param include_extensions: Specifies whether to include `API Gateway extensions <https://docs.
         :param stage_name: The name of the API stage to export.
         :returns: ExportApiResponse
         :raises NotFoundException:
@@ -4687,8 +4671,7 @@ class Apigatewayv2Api:
 
         :param body: The OpenAPI definition.
         :param basepath: Specifies how to interpret the base path of the API during import.
-        :param fail_on_warnings: Specifies whether to rollback the API creation when a warning is
-        encountered.
+        :param fail_on_warnings: Specifies whether to rollback the API creation when a warning is encountered.
         :returns: ImportApiResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -4885,8 +4868,7 @@ class Apigatewayv2Api:
         :param api_id: The API identifier.
         :param body: The OpenAPI definition.
         :param basepath: Specifies how to interpret the base path of the API during import.
-        :param fail_on_warnings: Specifies whether to rollback the API creation when a warning is
-        encountered.
+        :param fail_on_warnings: Specifies whether to rollback the API creation when a warning is encountered.
         :returns: ReimportApiResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -4953,8 +4935,7 @@ class Apigatewayv2Api:
         :param credentials_arn: This property is part of quick create.
         :param description: The description of the API.
         :param disable_schema_validation: Avoid validating models when creating a deployment.
-        :param disable_execute_api_endpoint: Specifies whether clients can invoke your API by using the default
-        execute-api endpoint.
+        :param disable_execute_api_endpoint: Specifies whether clients can invoke your API by using the default execute-api endpoint.
         :param ip_address_type: The IP address types that can invoke your API or domain name.
         :param name: The name of the API.
         :param route_key: This property is part of quick create.
@@ -5017,15 +4998,12 @@ class Apigatewayv2Api:
 
         :param authorizer_id: The authorizer identifier.
         :param api_id: The API identifier.
-        :param authorizer_credentials_arn: Specifies the required credentials as an IAM role for API Gateway to
-        invoke the authorizer.
-        :param authorizer_payload_format_version: Specifies the format of the payload sent to an HTTP API Lambda
-        authorizer.
+        :param authorizer_credentials_arn: Specifies the required credentials as an IAM role for API Gateway to invoke the authorizer.
+        :param authorizer_payload_format_version: Specifies the format of the payload sent to an HTTP API Lambda authorizer.
         :param authorizer_result_ttl_in_seconds: The time to live (TTL) for cached authorizer results, in seconds.
         :param authorizer_type: The authorizer type.
         :param authorizer_uri: The authorizer's Uniform Resource Identifier (URI).
-        :param enable_simple_responses: Specifies whether a Lambda authorizer returns a response in a simple
-        format.
+        :param enable_simple_responses: Specifies whether a Lambda authorizer returns a response in a simple format.
         :param identity_source: The identity source for which authorization is requested.
         :param identity_validation_expression: This parameter is not used.
         :param jwt_configuration: Represents the configuration of a JWT authorizer.
@@ -5122,19 +5100,13 @@ class Apigatewayv2Api:
         :param integration_subtype: Supported only for HTTP API AWS_PROXY integrations.
         :param integration_type: The integration type of an integration.
         :param integration_uri: For a Lambda integration, specify the URI of a Lambda function.
-        :param passthrough_behavior: Specifies the pass-through behavior for incoming requests based on the
-        Content-Type header in the request, and the available mapping templates
-        specified as the requestTemplates property on the Integration resource.
+        :param passthrough_behavior: Specifies the pass-through behavior for incoming requests based on the Content-Type header in the request, and the available mapping templates specified as the requestTemplates property on the Integration resource.
         :param payload_format_version: Specifies the format of the payload sent to an integration.
-        :param request_parameters: For WebSocket APIs, a key-value map specifying request parameters that
-        are passed from the method request to the backend.
-        :param request_templates: Represents a map of Velocity templates that are applied on the request
-        payload based on the value of the Content-Type header sent by the
-        client.
+        :param request_parameters: For WebSocket APIs, a key-value map specifying request parameters that are passed from the method request to the backend.
+        :param request_templates: Represents a map of Velocity templates that are applied on the request payload based on the value of the Content-Type header sent by the client.
         :param response_parameters: Supported only for HTTP APIs.
         :param template_selection_expression: The template selection expression for the integration.
-        :param timeout_in_millis: Custom timeout between 50 and 29,000 milliseconds for WebSocket APIs and
-        between 50 and 30,000 milliseconds for HTTP APIs.
+        :param timeout_in_millis: Custom timeout between 50 and 29,000 milliseconds for WebSocket APIs and between 50 and 30,000 milliseconds for HTTP APIs.
         :param tls_config: The TLS configuration for a private integration.
         :returns: UpdateIntegrationResult
         :raises NotFoundException:
@@ -5165,10 +5137,8 @@ class Apigatewayv2Api:
         :param integration_id: The integration ID.
         :param content_handling_strategy: Supported only for WebSocket APIs.
         :param integration_response_key: The integration response key.
-        :param response_parameters: A key-value map specifying response parameters that are passed to the
-        method response from the backend.
-        :param response_templates: The collection of response templates for the integration response as a
-        string-to-string map of key-value pairs.
+        :param response_parameters: A key-value map specifying response parameters that are passed to the method response from the backend.
+        :param response_templates: The collection of response templates for the integration response as a string-to-string map of key-value pairs.
         :param template_selection_expression: The template selection expression for the integration response.
         :returns: UpdateIntegrationResponseResponse
         :raises NotFoundException:
@@ -5226,8 +5196,7 @@ class Apigatewayv2Api:
         :param endpoint_configuration: Represents an endpoint configuration.
         :param included_portal_product_arns: The ARNs of the portal products included in the portal.
         :param logo_uri: The logo URI.
-        :param portal_content: Contains the content that is visible to portal consumers including the
-        themes, display names, and description.
+        :param portal_content: Contains the content that is visible to portal consumers including the themes, display names, and description.
         :param rum_app_monitor_name: The CloudWatch RUM app monitor name.
         :returns: UpdatePortalResponse
         :raises NotFoundException:
@@ -5334,8 +5303,7 @@ class Apigatewayv2Api:
         :param api_key_required: Specifies whether an API key is required for the route.
         :param authorization_scopes: The authorization scopes supported by this route.
         :param authorization_type: The authorization type for the route.
-        :param authorizer_id: The identifier of the Authorizer resource to be associated with this
-        route.
+        :param authorizer_id: The identifier of the Authorizer resource to be associated with this route.
         :param model_selection_expression: The model selection expression for the route.
         :param operation_name: The operation name for the route.
         :param request_models: The request models for the route.
@@ -5402,8 +5370,7 @@ class Apigatewayv2Api:
         :param stage_name: The stage name.
         :param api_id: The API identifier.
         :param access_log_settings: Settings for logging access in this stage.
-        :param auto_deploy: Specifies whether updates to an API automatically trigger a new
-        deployment.
+        :param auto_deploy: Specifies whether updates to an API automatically trigger a new deployment.
         :param client_certificate_id: The identifier of a client certificate for a Stage.
         :param default_route_settings: The default route settings for the stage.
         :param deployment_id: The deployment identifier for the API stage.

@@ -11,6 +11,7 @@ from .util import (
 from .util import (
     get_parameters_filepath,
     has_jax,
+    raise_jax_not_found,
     import_optional_dependency,
 )
 from .logger import logger, set_logging_level, get_new_logger
@@ -21,6 +22,7 @@ from . import config
 # Classes for the Expression Tree
 from .expression_tree.symbol import *
 from .expression_tree.binary_operators import *
+from .expression_tree.tracing import is_tracing, tracing
 from .expression_tree.concatenations import *
 from .expression_tree.array import Array, linspace, meshgrid
 from .expression_tree.matrix import Matrix
@@ -60,12 +62,16 @@ from .expression_tree.operations.jacobian import Jacobian
 from .expression_tree.operations.convert_to_casadi import CasadiConverter
 from .expression_tree.operations.unpack_symbols import SymbolUnpacker
 from .expression_tree.operations.serialise import Serialise,ExpressionFunctionParameter
+from .expression_tree.operations.regularise import RegulariseSqrtAndPower
 
 # Model classes
 from .models.base_model import BaseModel, ModelSolutionObservability
 from .models.symbol_processor import SymbolProcessor
 from .models.event import Event
 from .models.event import EventType
+
+# DiffSL export
+from .expression_tree.operations.diffsl import DiffSLExport
 
 # Battery models
 from .models.full_battery_models.base_battery_model import (

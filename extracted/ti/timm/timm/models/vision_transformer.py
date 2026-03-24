@@ -49,6 +49,7 @@ from timm.layers import (
     Attention,
     DiffAttention,
     AttentionPoolLatent,
+    AttentionPoolPrr,
     PatchEmbed,
     Mlp,
     SwiGLUPacked,
@@ -66,6 +67,7 @@ from timm.layers import (
     get_act_layer,
     get_norm_layer,
     maybe_add_mask,
+    resolve_self_attn_mask,
     LayerType,
     LayerScale,
 )
@@ -201,8 +203,13 @@ class Block(nn.Module):
         self.ls2 = LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()
         self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        x = x + self.drop_path1(self.ls1(self.attn(self.norm1(x), attn_mask=attn_mask)))
+    def forward(
+            self,
+            x: torch.Tensor,
+            attn_mask: Optional[torch.Tensor] = None,
+            is_causal: bool = False,
+    ) -> torch.Tensor:
+        x = x + self.drop_path1(self.ls1(self.attn(self.norm1(x), attn_mask=attn_mask, is_causal=is_causal)))
         x = x + self.drop_path2(self.ls2(self.mlp(self.norm2(x))))
         return x
 
@@ -271,8 +278,13 @@ class ResPostBlock(nn.Module):
             nn.init.constant_(self.norm1.weight, self.init_values)
             nn.init.constant_(self.norm2.weight, self.init_values)
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        x = x + self.drop_path1(self.norm1(self.attn(x, attn_mask=attn_mask)))
+    def forward(
+            self,
+            x: torch.Tensor,
+            attn_mask: Optional[torch.Tensor] = None,
+            is_causal: bool = False,
+    ) -> torch.Tensor:
+        x = x + self.drop_path1(self.norm1(self.attn(x, attn_mask=attn_mask, is_causal=is_causal)))
         x = x + self.drop_path2(self.norm2(self.mlp(x)))
         return x
 
@@ -356,7 +368,12 @@ class ParallelScalingBlock(nn.Module):
         if self.mlp_bias is not None:
             nn.init.zeros_(self.mlp_bias)
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+            self,
+            x: torch.Tensor,
+            attn_mask: Optional[torch.Tensor] = None,
+            is_causal: bool = False,
+    ) -> torch.Tensor:
         B, N, C = x.shape
 
         # Combined MLP fc1 & qkv projections
@@ -375,11 +392,13 @@ class ParallelScalingBlock(nn.Module):
                 q, k, v,
                 attn_mask=attn_mask,
                 dropout_p=self.attn_drop.p if self.training else 0.,
+                is_causal=is_causal,
             )
         else:
             q = q * self.scale
             attn = q @ k.transpose(-2, -1)
-            attn = maybe_add_mask(attn, attn_mask)
+            attn_bias = resolve_self_attn_mask(N, attn, attn_mask, is_causal=is_causal)
+            attn = maybe_add_mask(attn, attn_bias)
             attn = attn.softmax(dim=-1)
             attn = self.attn_drop(attn)
             x_attn = attn @ v
@@ -512,7 +531,12 @@ class DiffParallelScalingBlock(nn.Module):
             lambda_2 = torch.exp(torch.sum(self.lambda_q2 * self.lambda_k2, dim=-1).float())
         return lambda_1 - lambda_2 + self.lambda_init
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+            self,
+            x: torch.Tensor,
+            attn_mask: Optional[torch.Tensor] = None,
+            is_causal: bool = False,
+    ) -> torch.Tensor:
         B, N, C = x.shape
 
         # Combined MLP fc1 & qkv projections
@@ -538,14 +562,15 @@ class DiffParallelScalingBlock(nn.Module):
             k1, k2 = k.unbind(2)
 
             dropout_p = self.attn_drop_p if self.training else 0.0
-            attn1 = F.scaled_dot_product_attention(q1, k1, v, attn_mask=attn_mask, dropout_p=dropout_p)
-            attn2 = F.scaled_dot_product_attention(q2, k2, v, attn_mask=attn_mask, dropout_p=dropout_p)
+            attn1 = F.scaled_dot_product_attention(q1, k1, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal)
+            attn2 = F.scaled_dot_product_attention(q2, k2, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal)
 
             x_attn = attn1 - lambda_full * attn2
         else:
             q = q * self.scale
             attn = q @ k.transpose(-2, -1)
-            attn = maybe_add_mask(attn, attn_mask)
+            attn_bias = resolve_self_attn_mask(N, attn, attn_mask, is_causal=is_causal)
+            attn = maybe_add_mask(attn, attn_bias)
             attn = attn.softmax(dim=-1)
             attn = self.attn_drop(attn)
 
@@ -637,12 +662,17 @@ class ParallelThingsBlock(nn.Module):
                 ('drop_path', DropPath(drop_path) if drop_path > 0. else nn.Identity())
             ])))
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        if attn_mask is not None:
+    def forward(
+            self,
+            x: torch.Tensor,
+            attn_mask: Optional[torch.Tensor] = None,
+            is_causal: bool = False,
+    ) -> torch.Tensor:
+        if attn_mask is not None or is_causal:
             attn_out = []
             for attn in self.attns:
                 x_attn = attn.norm(x)
-                x_attn = attn.attn(x_attn, attn_mask=attn_mask)
+                x_attn = attn.attn(x_attn, attn_mask=attn_mask, is_causal=is_causal)
                 x_attn = attn.ls(x_attn)
                 x_attn = attn.drop_path(x_attn)
                 attn_out.append(x_attn)
@@ -692,7 +722,7 @@ class VisionTransformer(nn.Module):
             patch_size: Union[int, Tuple[int, int]] = 16,
             in_chans: int = 3,
             num_classes: int = 1000,
-            global_pool: Literal['', 'avg', 'avgmax', 'max', 'token', 'map'] = 'token',
+            global_pool: Literal['', 'avg', 'avgmax', 'max', 'token', 'map', 'prr'] = 'token',
             embed_dim: int = 768,
             depth: int = 12,
             num_heads: int = 12,
@@ -764,7 +794,7 @@ class VisionTransformer(nn.Module):
         """
         super().__init__()
         dd = {'device': device, 'dtype': dtype}
-        assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map')
+        assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map', 'prr')
         assert class_token or global_pool != 'token'
         assert pos_embed in ('', 'none', 'learn')
         use_fc_norm = global_pool in ('avg', 'avgmax', 'max') if fc_norm is None else fc_norm
@@ -858,6 +888,15 @@ class VisionTransformer(nn.Module):
                 act_layer=act_layer,
                 **dd,
             )
+        elif global_pool == 'prr':
+            self.attn_pool = AttentionPoolPrr(
+                self.embed_dim,
+                num_heads=num_heads,
+                pool_type='token' if class_token else 'avg',
+                norm_layer=norm_layer,
+                **dd,
+            )
+            self.pool_include_prefix = True
         else:
             self.attn_pool = None
         self.fc_norm = norm_layer(embed_dim, **dd) if final_norm and use_fc_norm else nn.Identity()
@@ -961,11 +1000,13 @@ class VisionTransformer(nn.Module):
         """
         self.num_classes = num_classes
         if global_pool is not None:
-            assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map')
-            if global_pool == 'map' and self.attn_pool is None:
+            assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map', 'prr')
+            if global_pool in ('map', 'prr') and self.attn_pool is None:
                 assert False, "Cannot currently add attention pooling in reset_classifier()."
-            elif global_pool != 'map' and self.attn_pool is not None:
+            elif global_pool not in ('map', 'prr') and self.attn_pool is not None:
                 self.attn_pool = None  # remove attention pooling
+            elif global_pool in ('map', 'prr') and self.global_pool != global_pool:
+                assert False, "Cannot currently change attention pooling type in reset_classifier()."
             self.global_pool = global_pool
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
@@ -996,8 +1037,14 @@ class VisionTransformer(nn.Module):
 
     def _pos_embed(self, x: torch.Tensor) -> torch.Tensor:
         """Apply positional embedding to input."""
+        to_cat = []
+        if self.cls_token is not None:
+            to_cat.append(self.cls_token.expand(x.shape[0], -1, -1))
+        if self.reg_token is not None:
+            to_cat.append(self.reg_token.expand(x.shape[0], -1, -1))
+
         if self.pos_embed is None:
-            return x.view(x.shape[0], -1, x.shape[-1])
+            return torch.cat(to_cat + [x.view(x.shape[0], -1, x.shape[-1])], dim=1)
 
         if self.dynamic_img_size:
             B, H, W, C = x.shape
@@ -1011,12 +1058,6 @@ class VisionTransformer(nn.Module):
             x = x.view(B, -1, C)
         else:
             pos_embed = self.pos_embed
-
-        to_cat = []
-        if self.cls_token is not None:
-            to_cat.append(self.cls_token.expand(x.shape[0], -1, -1))
-        if self.reg_token is not None:
-            to_cat.append(self.reg_token.expand(x.shape[0], -1, -1))
 
         if self.no_embed_class:
             # deit-3, updated JAX (big vision)
@@ -1044,6 +1085,7 @@ class VisionTransformer(nn.Module):
             intermediates_only: bool = False,
             output_dict: bool = False,
             attn_mask: Optional[torch.Tensor] = None,
+            is_causal: bool = False,
     ) -> Union[List[torch.Tensor], Tuple[torch.Tensor, List[torch.Tensor]], Dict[str, Any]]:
         """ Forward features that returns intermediates.
 
@@ -1057,6 +1099,7 @@ class VisionTransformer(nn.Module):
             intermediates_only: Only return intermediate features
             output_dict: Return outputs as a dictionary with 'image_features' and 'image_intermediates' keys
             attn_mask: Optional attention mask for masked attention (e.g., for NaFlex)
+            is_causal: If True, use causal (autoregressive) masking in attention
         Returns:
             A tuple with (final_features, intermediates), a list of intermediate features, or a dictionary containing
             'image_features' and 'image_intermediates' (and optionally 'image_intermediates_prefix')
@@ -1078,8 +1121,8 @@ class VisionTransformer(nn.Module):
         else:
             blocks = self.blocks[:max_index + 1]
         for i, blk in enumerate(blocks):
-            if attn_mask is not None:
-                x = blk(x, attn_mask=attn_mask)
+            if attn_mask is not None or is_causal:
+                x = blk(x, attn_mask=attn_mask, is_causal=is_causal)
             elif self.grad_checkpointing and not torch.jit.is_scripting():
                 x = checkpoint(blk, x)
             else:
@@ -1185,17 +1228,22 @@ class VisionTransformer(nn.Module):
             attn_mask=attn_mask,
         )
 
-    def forward_features(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward_features(
+            self,
+            x: torch.Tensor,
+            attn_mask: Optional[torch.Tensor] = None,
+            is_causal: bool = False,
+    ) -> torch.Tensor:
         """Forward pass through feature layers (embeddings, transformer blocks, post-transformer norm)."""
         x = self.patch_embed(x)
         x = self._pos_embed(x)
         x = self.patch_drop(x)
         x = self.norm_pre(x)
 
-        if attn_mask is not None:
-            # If mask provided, we need to apply blocks one by one
+        if attn_mask is not None or is_causal:
+            # If mask/causal provided, we need to apply blocks one by one
             for blk in self.blocks:
-                x = blk(x, attn_mask=attn_mask)
+                x = blk(x, attn_mask=attn_mask, is_causal=is_causal)
         elif self.grad_checkpointing and not torch.jit.is_scripting():
             x = checkpoint_seq(self.blocks, x)
         else:
@@ -1243,8 +1291,13 @@ class VisionTransformer(nn.Module):
         x = self.head_drop(x)
         return x if pre_logits else self.head(x)
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        x = self.forward_features(x, attn_mask=attn_mask)
+    def forward(
+            self,
+            x: torch.Tensor,
+            attn_mask: Optional[torch.Tensor] = None,
+            is_causal: bool = False,
+    ) -> torch.Tensor:
+        x = self.forward_features(x, attn_mask=attn_mask, is_causal=is_causal)
         x = self.forward_head(x)
         return x
 
@@ -1476,7 +1529,7 @@ def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = 
     # if isinstance(getattr(model.pre_logits, 'fc', None), nn.Linear) and f'{prefix}pre_logits/bias' in w:
     #     model.pre_logits.fc.weight.copy_(_n2p(w[f'{prefix}pre_logits/kernel']))
     #     model.pre_logits.fc.bias.copy_(_n2p(w[f'{prefix}pre_logits/bias']))
-    if model.attn_pool is not None:
+    if isinstance(model.attn_pool, AttentionPoolLatent):
         block_prefix = f'{prefix}MAPHead_0/'
         mha_prefix = block_prefix + f'MultiHeadDotProductAttention_0/'
         model.attn_pool.latent.copy_(_n2p(w[f'{block_prefix}probe'], t=False))

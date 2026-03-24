@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: diskimage-builder
-Version: 3.40.2
+Version: 3.41.0
 Summary: Golden Disk Image builder.
 Home-page: https://docs.openstack.org/diskimage-builder/latest/
 Author: OpenStack
@@ -10,13 +10,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Environment :: Console
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: networkx>=2.3.0
 Requires-Dist: pbr!=2.1.0,>=2.0.0

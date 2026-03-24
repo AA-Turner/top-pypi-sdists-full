@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: darts
-Version: 0.42.1
+Version: 0.43.0
 Summary: A python library for easy manipulation and forecasting of time series.
 Maintainer-email: Unit8 SA <darts@unit8.co>
 License-Expression: Apache-2.0

@@ -20,6 +20,7 @@ from openai import (
 )
 
 from ..config import AIConfig
+from .async_tasks import cancel_task
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
 from .token_provider import TokenProvider, TokenProviderError
@@ -185,16 +186,14 @@ class AIService:
                     return_when=asyncio.FIRST_COMPLETED,
                 )
             except Exception:
-                next_chunk.cancel()
-                if cancel_wait:
-                    cancel_wait.cancel()
+                await cancel_task(next_chunk)
+                await cancel_task(cancel_wait)
                 raise
 
             if not done:
                 # Timeout with no completion — stall or total deadline
-                next_chunk.cancel()
-                if cancel_wait:
-                    cancel_wait.cancel()
+                await cancel_task(next_chunk)
+                await cancel_task(cancel_wait)
                 remaining_now = deadline - asyncio.get_running_loop().time()
                 if remaining_now <= 0:
                     logger.debug("Stream total deadline exceeded after %.0fs", total_timeout)
@@ -208,7 +207,7 @@ class AIService:
 
             # Cancel was triggered
             if cancel_wait and cancel_wait in done:
-                next_chunk.cancel()
+                await cancel_task(next_chunk)
                 try:
                     await stream_iter.aclose()
                 except Exception:
@@ -217,7 +216,7 @@ class AIService:
 
             # Stream produced a chunk (or ended)
             if cancel_wait and cancel_wait not in done:
-                cancel_wait.cancel()
+                await cancel_task(cancel_wait)
 
             try:
                 chunk = next_chunk.result()
@@ -311,16 +310,14 @@ class AIService:
                         return_when=asyncio.FIRST_COMPLETED,
                     )
                 except Exception:
-                    create_task.cancel()
-                    if cancel_wait:
-                        cancel_wait.cancel()
+                    await cancel_task(create_task)
+                    await cancel_task(cancel_wait)
                     raise
 
                 if not done:
                     # Hard timeout exceeded — create() never returned
-                    create_task.cancel()
-                    if cancel_wait:
-                        cancel_wait.cancel()
+                    await cancel_task(create_task)
+                    await cancel_task(cancel_wait)
                     logger.warning(
                         "API create() timed out after %ds (attempt %d/%d)",
                         self.config.request_timeout,
@@ -331,13 +328,12 @@ class AIService:
 
                 if cancel_wait and cancel_wait in done:
                     # User pressed Escape during connecting — clean exit
-                    create_task.cancel()
+                    await cancel_task(create_task)
                     logger.info("Cancelled during connecting phase")
                     return
 
                 # create() completed — clean up cancel_wait
-                if cancel_wait:
-                    cancel_wait.cancel()
+                await cancel_task(cancel_wait)
 
                 stream = create_task.result()
                 logger.debug(
@@ -367,16 +363,14 @@ class AIService:
                         return_when=asyncio.FIRST_COMPLETED,
                     )
                 except Exception:
-                    first_token_task.cancel()
-                    if ft_cancel_wait:
-                        ft_cancel_wait.cancel()
+                    await cancel_task(first_token_task)
+                    await cancel_task(ft_cancel_wait)
                     raise
 
                 if not ft_done:
                     # First-token timeout
-                    first_token_task.cancel()
-                    if ft_cancel_wait:
-                        ft_cancel_wait.cancel()
+                    await cancel_task(first_token_task)
+                    await cancel_task(ft_cancel_wait)
                     logger.warning(
                         "No first token within %ds (attempt %d/%d)",
                         self.config.first_token_timeout,
@@ -392,7 +386,7 @@ class AIService:
 
                 if ft_cancel_wait and ft_cancel_wait in ft_done:
                     # User cancelled during first-token wait
-                    first_token_task.cancel()
+                    await cancel_task(first_token_task)
                     try:
                         if hasattr(stream, "close"):
                             await stream.close()
@@ -400,8 +394,7 @@ class AIService:
                         pass
                     return
 
-                if ft_cancel_wait:
-                    ft_cancel_wait.cancel()
+                await cancel_task(ft_cancel_wait)
 
                 try:
                     first_chunk = first_token_task.result()

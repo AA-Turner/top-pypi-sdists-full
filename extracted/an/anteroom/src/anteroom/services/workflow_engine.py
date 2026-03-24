@@ -13,6 +13,7 @@ import hashlib
 import logging
 import shlex
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,6 +63,7 @@ class WorkflowStepDef:
     env: dict[str, str] | None = None  # additional env vars
     working_dir: str | None = None  # cwd override
     credentials: list[dict[str, str]] | None = None  # [{"name": "MY_KEY", "from": "cred_name"}]
+    max_iterations: int | None = None  # agent runners: per-step iteration override
     # Artifact integration (#957)
     skill_name: str | None = None  # skill to resolve and expand as prompt
     skill_args: str | None = None  # args for skill prompt expansion
@@ -470,6 +472,7 @@ def _parse_step(raw: dict[str, Any], *, _inside_parallel: bool = False) -> Workf
         options=raw.get("options"),
         on_timeout=raw.get("on_timeout"),
         credentials=raw.get("credentials"),
+        max_iterations=raw.get("max_iterations"),
         destination=raw.get("destination"),
         idempotency_key=raw.get("idempotency_key"),
         skill_name=raw.get("skill_name"),
@@ -511,6 +514,15 @@ def _validate_step_common(step: WorkflowStepDef, seen_step_ids: set[str], defn: 
             raise ValueError(f"Agent runner step {step.id!r} requires a 'prompt' or 'skill_name' field")
         if step.skill_name and step.runner not in AGENT_RUNNER_TYPES:
             raise ValueError(f"Step {step.id!r}: skill_name requires an agent runner, got {step.runner!r}")
+        if step.max_iterations is not None:
+            if step.runner not in AGENT_RUNNER_TYPES:
+                raise ValueError(
+                    f"Step {step.id!r}: max_iterations is only allowed on agent runner steps, got {step.runner!r}"
+                )
+            if not isinstance(step.max_iterations, int) or step.max_iterations < 1:
+                raise ValueError(f"Step {step.id!r}: max_iterations must be an integer >= 1")
+    elif step.max_iterations is not None:
+        raise ValueError(f"Step {step.id!r}: max_iterations is only allowed on runner steps")
     elif step.type == "gate":
         if not step.condition:
             raise ValueError(f"Gate step {step.id!r} requires a 'condition' field")
@@ -1351,63 +1363,16 @@ class WorkflowEngine:
         """Start a new workflow run. Returns the run dict."""
         from . import workflow_storage as ws
 
-        # Validate approval mode bounded by effective config
-        effective_mode = self._config_approval_mode or "ask_for_writes"
-        validate_approval_mode(definition, effective_mode)
-
-        # Validate notification hook URLs against egress allowlist at load time
-        if definition.notifications:
-            hooks = definition.notifications.get("hooks", [])
-            if hooks:
-                from .workflow_hooks import validate_hook_config
-
-                validate_hook_config(
-                    hooks,
-                    self._egress_allowed_domains,
-                    block_localhost=self._egress_block_localhost,
-                )
-
-        # Validate publish step webhook URLs against egress allowlist (#966)
-        for step in _all_steps(definition.steps):
-            if step.type == "publish" and step.destination and step.destination.get("adapter") == "webhook":
-                url = step.destination.get("url", "")
-                if url and "{" not in url:  # Skip template URLs — validated at execution time
-                    from .egress_allowlist import check_egress_allowed
-
-                    if not check_egress_allowed(
-                        url, self._egress_allowed_domains, block_localhost=self._egress_block_localhost
-                    ):
-                        raise ValueError(f"Publish step {step.id!r}: webhook URL {url!r} blocked by egress allowlist")
-
-        # Validate required inputs
-        for name, schema in definition.inputs.items():
-            if schema.get("required") and (not inputs or name not in inputs):
-                raise ValueError(f"Missing required input: {name!r}")
-
-        # Resolve workflow params (#958)
-        resolved_params = _resolve_params(definition, param_overrides)
-
-        # Validate credential bindings BEFORE run creation/lock (#970)
-        self._validate_step_credentials(definition)
-
-        # Compute effective budget: minimum of non-zero values per dimension (#967)
-        budget = self._compute_effective_budget(definition)
-
-        # Create run record with definition snapshot (#964) and budget (#967)
-        run = ws.create_workflow_run(
-            self._db,
-            workflow_id=definition.id,
-            workflow_version=definition.version,
+        run = self._create_pending_run(
+            definition,
             target_kind=target_kind,
             target_ref=target_ref,
             inputs=inputs,
             space_id=space_id,
-            definition_hash=definition.content_hash or None,
-            definition_content=definition.raw_yaml.decode("utf-8", errors="replace") if definition.raw_yaml else None,
-            budget=budget or None,
-            params=resolved_params or None,
+            param_overrides=param_overrides,
             conversation_id=conversation_id,
         )
+        resolved_params = run.get("params") or {}
 
         # Acquire concurrency lock
         if not ws.acquire_lock(
@@ -1466,6 +1431,94 @@ class WorkflowEngine:
 
         return run
 
+    def _create_pending_run(
+        self,
+        definition: WorkflowDefinition,
+        *,
+        target_kind: str,
+        target_ref: str,
+        inputs: dict[str, Any] | None = None,
+        space_id: str | None = None,
+        trigger_source: str | None = None,
+        trigger_meta: dict[str, Any] | None = None,
+        param_overrides: dict[str, str] | None = None,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Validate inputs and create a pending run record without executing it."""
+        from . import workflow_storage as ws
+
+        effective_mode = self._config_approval_mode or "ask_for_writes"
+        validate_approval_mode(definition, effective_mode)
+
+        if definition.notifications:
+            hooks = definition.notifications.get("hooks", [])
+            if hooks:
+                from .workflow_hooks import validate_hook_config
+
+                validate_hook_config(
+                    hooks,
+                    self._egress_allowed_domains,
+                    block_localhost=self._egress_block_localhost,
+                )
+
+        for step in _all_steps(definition.steps):
+            if step.type == "publish" and step.destination and step.destination.get("adapter") == "webhook":
+                url = step.destination.get("url", "")
+                if url and "{" not in url:
+                    from .egress_allowlist import check_egress_allowed
+
+                    if not check_egress_allowed(
+                        url, self._egress_allowed_domains, block_localhost=self._egress_block_localhost
+                    ):
+                        raise ValueError(f"Publish step {step.id!r}: webhook URL {url!r} blocked by egress allowlist")
+
+        for name, schema in definition.inputs.items():
+            if schema.get("required") and (not inputs or name not in inputs):
+                raise ValueError(f"Missing required input: {name!r}")
+
+        resolved_params = _resolve_params(definition, param_overrides)
+        self._validate_step_credentials(definition)
+        budget = self._compute_effective_budget(definition)
+
+        return ws.create_workflow_run(
+            self._db,
+            workflow_id=definition.id,
+            workflow_version=definition.version,
+            target_kind=target_kind,
+            target_ref=target_ref,
+            inputs=inputs,
+            space_id=space_id,
+            definition_hash=definition.content_hash or None,
+            definition_content=definition.raw_yaml.decode("utf-8", errors="replace") if definition.raw_yaml else None,
+            budget=budget or None,
+            trigger_source=trigger_source,
+            trigger_meta=trigger_meta,
+            params=resolved_params or None,
+            conversation_id=conversation_id,
+        )
+
+    async def prepare_run(
+        self,
+        definition: WorkflowDefinition,
+        *,
+        target_kind: str,
+        target_ref: str,
+        inputs: dict[str, Any] | None = None,
+        space_id: str | None = None,
+        param_overrides: dict[str, str] | None = None,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a pending run without executing it."""
+        return self._create_pending_run(
+            definition,
+            target_kind=target_kind,
+            target_ref=target_ref,
+            inputs=inputs,
+            space_id=space_id,
+            param_overrides=param_overrides,
+            conversation_id=conversation_id,
+        )
+
     async def enqueue_run(
         self,
         definition: WorkflowDefinition,
@@ -1484,46 +1537,15 @@ class WorkflowEngine:
         The run is created in 'pending' status for the background executor
         to claim and dispatch. No lock is acquired, no execution starts.
         """
-        from . import workflow_storage as ws
-
-        effective_mode = self._config_approval_mode or "ask_for_writes"
-        validate_approval_mode(definition, effective_mode)
-
-        if definition.notifications:
-            hooks = definition.notifications.get("hooks", [])
-            if hooks:
-                from .workflow_hooks import validate_hook_config
-
-                validate_hook_config(
-                    hooks,
-                    self._egress_allowed_domains,
-                    block_localhost=self._egress_block_localhost,
-                )
-
-        for name, schema in definition.inputs.items():
-            if schema.get("required") and (not inputs or name not in inputs):
-                raise ValueError(f"Missing required input: {name!r}")
-
-        # Resolve workflow params (#958)
-        resolved_params = _resolve_params(definition, param_overrides)
-
-        self._validate_step_credentials(definition)
-        budget = self._compute_effective_budget(definition)
-
-        run = ws.create_workflow_run(
-            self._db,
-            workflow_id=definition.id,
-            workflow_version=definition.version,
+        run = self._create_pending_run(
+            definition,
             target_kind=target_kind,
             target_ref=target_ref,
             inputs=inputs,
             space_id=space_id,
-            definition_hash=definition.content_hash or None,
-            definition_content=definition.raw_yaml.decode("utf-8", errors="replace") if definition.raw_yaml else None,
-            budget=budget or None,
             trigger_source=trigger_source,
             trigger_meta=trigger_meta,
-            params=resolved_params or None,
+            param_overrides=param_overrides,
             conversation_id=conversation_id,
         )
 
@@ -1539,6 +1561,23 @@ class WorkflowEngine:
         )
 
         return run
+
+    async def execute_pending_run(
+        self,
+        run_id: str,
+        definition: WorkflowDefinition,
+    ) -> dict[str, Any]:
+        """Claim a pending run and execute it inline."""
+        from . import workflow_storage as ws
+
+        worker_id = f"inline-{uuid.uuid4()}"
+        claimed = ws.claim_workflow_run(self._db, run_id, worker_id)
+        if claimed is None:
+            run = ws.get_workflow_run(self._db, run_id)
+            if run is None:
+                raise ValueError(f"Run {run_id!r} not found")
+            raise ValueError(f"Run {run_id!r} has status {run['status']!r}, expected 'pending'")
+        return await self.execute_enqueued_run(run_id, definition)
 
     async def execute_enqueued_run(
         self,
@@ -2949,6 +2988,29 @@ class WorkflowEngine:
         if step_def.context_from:
             context = resolve_context_from(step_def.context_from, step_results, db=self._db)
 
+        # Build transcript callback (#1111)
+        transcript_cb = None
+        transcript_cfg = getattr(self._config, "transcript", None)
+        if transcript_cfg is not None and transcript_cfg.enabled:
+            from . import workflow_storage as _ws_transcript
+
+            _run_id = run["id"]
+            _db_ref = self._db
+
+            def transcript_cb(etype: str, sid: str | None, payload: dict[str, Any]) -> None:
+                _ws_transcript.create_workflow_event(
+                    _db_ref,
+                    run_id=_run_id,
+                    event_type=etype,
+                    step_id=sid,
+                    payload=payload,
+                )
+                if self._progress_callback is not None:
+                    try:
+                        self._progress_callback(etype, sid, payload)
+                    except Exception:
+                        logger.warning("Progress callback error for transcript event", exc_info=True)
+
         if self._runner_registry.is_agent_runner(step_def.runner):
             # Skill prompt expansion (#957)
             if step_def.skill_name:
@@ -3020,12 +3082,17 @@ class WorkflowEngine:
                 system_prompt=system_prompt or None,
                 tools_filter=step_def.tools,
                 timeout=timeout,
+                max_iterations=step_def.max_iterations or self._config.max_iterations,
                 ai_service=self._ai_service,
                 tool_executor=step_tool_executor,
                 tools_openai=self._tools_openai,
                 pause_signal=pause_signal,
                 confirm_callback=_workflow_confirm,
                 model=getattr(self._ai_service, "model", None),
+                transcript_cb=transcript_cb,
+                transcript_max_assistant_chars=transcript_cfg.max_assistant_chars if transcript_cfg else 4000,
+                transcript_max_tool_output_chars=transcript_cfg.max_tool_output_chars if transcript_cfg else 2000,
+                step_id=step_def.id,
             )
         else:
             # Merge credential env into step env for opaque runners (#970)
@@ -3043,6 +3110,10 @@ class WorkflowEngine:
                     env=step_env or None,
                     working_dir=step_def.working_dir,
                     timeout=timeout,
+                    transcript_cb=transcript_cb,
+                    transcript_max_stdout_chars=transcript_cfg.max_stdout_chars if transcript_cfg else 4000,
+                    transcript_max_stderr_chars=transcript_cfg.max_stderr_chars if transcript_cfg else 4000,
+                    step_id=step_def.id,
                 )
             elif step_def.runner == "python_script":
                 if not step_def.command:
@@ -3055,6 +3126,10 @@ class WorkflowEngine:
                     env=step_env or None,
                     working_dir=step_def.working_dir,
                     timeout=timeout,
+                    transcript_cb=transcript_cb,
+                    transcript_max_stdout_chars=transcript_cfg.max_stdout_chars if transcript_cfg else 4000,
+                    transcript_max_stderr_chars=transcript_cfg.max_stderr_chars if transcript_cfg else 4000,
+                    step_id=step_def.id,
                 )
             elif step_def.runner == "stub":
                 from .workflow_runners import RunnerResult
@@ -3322,6 +3397,35 @@ class WorkflowEngine:
                         completion_tokens=usage.get("completion_tokens", 0),
                         response_format=step_def.response_format,
                         ttl_seconds=cache_ttl,
+                    )
+
+                # Emit transcript events for LLM step (#1111)
+                _llm_transcript_cfg = getattr(self._config, "transcript", None)
+                if _llm_transcript_cfg is not None and _llm_transcript_cfg.enabled:
+                    from . import workflow_storage as _ws_llm_t
+
+                    _llm_t_limit = _llm_transcript_cfg.max_assistant_chars
+                    _ws_llm_t.create_workflow_event(
+                        self._db,
+                        run_id=run["id"],
+                        event_type="transcript_assistant",
+                        step_id=step_def.id,
+                        payload={
+                            "content": (text or "")[:_llm_t_limit],
+                            "tokens": usage.get("completion_tokens", 0),
+                            "model": model_spec["model"],
+                        },
+                    )
+                    _ws_llm_t.create_workflow_event(
+                        self._db,
+                        run_id=run["id"],
+                        event_type="transcript_usage",
+                        step_id=step_def.id,
+                        payload={
+                            "prompt_tokens": usage.get("prompt_tokens", 0),
+                            "completion_tokens": usage.get("completion_tokens", 0),
+                            "total_tokens": usage.get("total_tokens", 0),
+                        },
                     )
 
                 # Parse structured output (#984)

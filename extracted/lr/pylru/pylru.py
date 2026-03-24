@@ -2,23 +2,8 @@
 # Cache implementaion with a Least Recently Used (LRU) replacement policy and
 # a basic dictionary interface.
 
-# Copyright (C) 2006-2022 Jay Hutchinson
-
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the Free
-# Software Foundation; either version 2 of the License, or (at your option)
-# any later version.
-
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-# more details.
-
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc., 51
-# Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-
+# Copyright (c) 2006-2026 Jay Hutchinson
+# SPDX-License-Identifier: MIT
 
 # The cache is implemented using a combination of a python dictionary (hash
 # table) and a circular doubly linked list. Items in the cache are stored in
@@ -49,7 +34,6 @@ class lrucache(object):
     def __init__(self, size, callback=None):
         self.callback = callback
 
-        # Create an empty hash table.
         self.table = {}
 
         # Initialize the doubly linked list with one empty node. This is an
@@ -64,7 +48,8 @@ class lrucache(object):
 
         self.listSize = 1
 
-        # Now adjust the list to the desired size.
+        # Now that the invariant mentioned above is met, we can call size()
+        # to adjust the list to the desired size.
         self.size(size)
 
     def __len__(self):
@@ -118,12 +103,12 @@ class lrucache(object):
 
             return
 
-        # Ok, no value is currently stored under 'key' in the cache. We need
+        # No value is currently stored under 'key' in the cache. We need
         # to choose a node to place the new item in. There are two cases. If
-        # the cache is full some item will have to be pushed out of the
+        # the cache is full, some item will have to be pushed out of the
         # cache. We want to choose the node with the least recently used
         # item. This is the node at the tail of the list. If the cache is not
-        # full we want to choose a node that is empty. Because of the way the
+        # full, we want to choose a node that is empty. Because of the way the
         # list is managed, the empty nodes are always together at the tail
         # end of the list. Thus, in either case, by chooseing the node at the
         # tail of the list our conditions are satisfied.
@@ -205,7 +190,6 @@ class lrucache(object):
         if len(self) < 1:
             raise KeyError
 
-        # Grab the head node
         node = self.head
 
         # Save the key and value so that we can return them.
@@ -623,6 +607,7 @@ def lruwrap(store, size, writeback=False):
 import functools
 
 class lrudecorator(object):
+    # Ben doesn't like the MIT License, but he agreed to it anyway. Thanks Ben!
     def __init__(self, size, callback=None):
         self.cache = lrucache(size, callback)
 

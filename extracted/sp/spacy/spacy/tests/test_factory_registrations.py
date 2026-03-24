@@ -1,17 +1,14 @@
-import inspect
 import json
 from pathlib import Path
 
 import pytest
 
-from spacy.language import Language
 from spacy.util import registry
 
 # Path to the reference factory registrations, relative to this file
 REFERENCE_FILE = Path(__file__).parent / "factory_registrations.json"
 
 # Monkey patch the util.is_same_func to handle Cython functions
-import inspect
 
 from spacy import util
 
@@ -82,9 +79,9 @@ def test_factory_registrations_preserved(reference_factory_registrations):
     missing_registrations = set(reference_factory_registrations.keys()) - set(
         current_registrations.keys()
     )
-    assert (
-        not missing_registrations
-    ), f"Missing factory registrations: {', '.join(sorted(missing_registrations))}"
+    assert not missing_registrations, (
+        f"Missing factory registrations: {', '.join(sorted(missing_registrations))}"
+    )
 
     # Check for new registrations (not an error, but informative)
     new_registrations = set(current_registrations.keys()) - set(

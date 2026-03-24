@@ -18,7 +18,7 @@ from localstack.services.cloudformation.engine.parameters import StackParameter
 from localstack.services.cloudformation.engine.policy_loader import create_policy_loader
 from localstack.services.cloudformation.engine.template_deployer import resolve_refs_recursively
 from localstack.services.cloudformation.engine.validations import ValidationError
-from localstack.services.cloudformation.stores import get_cloudformation_store
+from localstack.services.cloudformation.models import get_cloudformation_store
 from localstack.utils import testutil
 from localstack.utils.objects import recurse_object
 from localstack.utils.strings import long_uid

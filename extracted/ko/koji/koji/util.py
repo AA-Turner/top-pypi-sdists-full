@@ -303,8 +303,11 @@ class RepoWatcher(object):
             if not check['request']['active']:
                 if check['request']['task_id']:
                     tstate = koji.TASK_STATES[check['request']['task_state']]
-                    self.logger.error('Task %s state is %s', check['request']['task_id'], tstate)
-                raise koji.GenericError("Repo request no longer active")
+                    msg = 'Repo request inactive: task %s state is %s' % (
+                          check['request']['task_id'], tstate)
+                else:
+                    msg = 'Repo request no longer active'
+                raise koji.GenericError(msg)
             self.pause()
 
     def wait_builds(self, builds):
@@ -1074,6 +1077,9 @@ def check_sigmd5(filename):
                 assert (data_type == 7)  # binary data
                 assert (count == 16)     # 16 bytes of md5
                 break
+        else:
+            # rpm v6 format does not include this header
+            return True
         # seek to location of md5
         f.seek(o + 8 + indexcount * 16 + offset)
         sigmd5 = f.read(16)

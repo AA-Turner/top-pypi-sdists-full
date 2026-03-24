@@ -271,6 +271,7 @@ class UpstreamRegistry(StrEnum):
     github_container_registry = "github-container-registry"
     azure_container_registry = "azure-container-registry"
     gitlab_container_registry = "gitlab-container-registry"
+    chainguard = "chainguard"
 
 
 class BlockedByOrganizationPolicyException(ServiceException):
@@ -2146,11 +2147,9 @@ class EcrApi:
         by customers for pulling and pushing images. In most cases, you should
         use the ``docker`` CLI to pull, tag, and push images.
 
-        :param repository_name: The name of the repository that is associated with the image layers to
-        check.
+        :param repository_name: The name of the repository that is associated with the image layers to check.
         :param layer_digests: The digests of the image layers to check.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the image layers to check.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the image layers to check.
         :returns: BatchCheckLayerAvailabilityResponse
         :raises RepositoryNotFoundException:
         :raises InvalidParameterException:
@@ -2179,8 +2178,7 @@ class EcrApi:
 
         :param repository_name: The repository that contains the image to delete.
         :param image_ids: A list of image ID references that correspond to images to delete.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the image to delete.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the image to delete.
         :returns: BatchDeleteImageResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2206,8 +2204,7 @@ class EcrApi:
 
         :param repository_name: The repository that contains the images to describe.
         :param image_ids: A list of image ID references that correspond to images to describe.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the images to describe.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the images to describe.
         :param accepted_media_types: The accepted media types for the request.
         :returns: BatchGetImageResponse
         :raises ServerException:
@@ -2259,11 +2256,9 @@ class EcrApi:
         use the ``docker`` CLI to pull, tag, and push images.
 
         :param repository_name: The name of the repository to associate with the image layer.
-        :param upload_id: The upload ID from a previous InitiateLayerUpload operation to associate
-        with the image layer.
+        :param upload_id: The upload ID from a previous InitiateLayerUpload operation to associate with the image layer.
         :param layer_digests: The ``sha256`` digest of the image layer.
-        :param registry_id: The Amazon Web Services account ID associated with the registry to which
-        to upload layers.
+        :param registry_id: The Amazon Web Services account ID associated with the registry to which to upload layers.
         :returns: CompleteLayerUploadResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2296,20 +2291,13 @@ class EcrApi:
         rules <https://docs.aws.amazon.com/AmazonECR/latest/userguide/pull-through-cache.html>`__
         in the *Amazon Elastic Container Registry User Guide*.
 
-        :param ecr_repository_prefix: The repository name prefix to use when caching images from the source
-        registry.
-        :param upstream_registry_url: The registry URL of the upstream public registry to use as the source
-        for the pull through cache rule.
-        :param registry_id: The Amazon Web Services account ID associated with the registry to
-        create the pull through cache rule for.
+        :param ecr_repository_prefix: The repository name prefix to use when caching images from the source registry.
+        :param upstream_registry_url: The registry URL of the upstream public registry to use as the source for the pull through cache rule.
+        :param registry_id: The Amazon Web Services account ID associated with the registry to create the pull through cache rule for.
         :param upstream_registry: The name of the upstream registry.
-        :param credential_arn: The Amazon Resource Name (ARN) of the Amazon Web Services Secrets
-        Manager secret that identifies the credentials to authenticate to the
-        upstream registry.
-        :param custom_role_arn: Amazon Resource Name (ARN) of the IAM role to be assumed by Amazon ECR
-        to authenticate to the ECR upstream registry.
-        :param upstream_repository_prefix: The repository name prefix of the upstream registry to match with the
-        upstream repository name.
+        :param credential_arn: The Amazon Resource Name (ARN) of the Amazon Web Services Secrets Manager secret that identifies the credentials to authenticate to the upstream registry.
+        :param custom_role_arn: Amazon Resource Name (ARN) of the IAM role to be assumed by Amazon ECR to authenticate to the ECR upstream registry.
+        :param upstream_repository_prefix: The repository name prefix of the upstream registry to match with the upstream repository name.
         :returns: CreatePullThroughCacheRuleResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2341,16 +2329,11 @@ class EcrApi:
         in the *Amazon Elastic Container Registry User Guide*.
 
         :param repository_name: The name to use for the repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry to
-        create the repository.
-        :param tags: The metadata that you apply to the repository to help you categorize and
-        organize them.
+        :param registry_id: The Amazon Web Services account ID associated with the registry to create the repository.
+        :param tags: The metadata that you apply to the repository to help you categorize and organize them.
         :param image_tag_mutability: The tag mutability setting for the repository.
-        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from
-        the repository's image tag mutability setting.
-        :param image_scanning_configuration: The ``imageScanningConfiguration`` parameter is being deprecated, in
-        favor of specifying the image scanning configuration at the registry
-        level.
+        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from the repository's image tag mutability setting.
+        :param image_scanning_configuration: The ``imageScanningConfiguration`` parameter is being deprecated, in favor of specifying the image scanning configuration at the registry level.
         :param encryption_configuration: The encryption configuration for the repository.
         :returns: CreateRepositoryResponse
         :raises ServerException:
@@ -2388,18 +2371,13 @@ class EcrApi:
         in the *Amazon Elastic Container Registry User Guide*.
 
         :param prefix: The repository namespace prefix to associate with the template.
-        :param applied_for: A list of enumerable strings representing the Amazon ECR repository
-        creation scenarios that this template will apply towards.
+        :param applied_for: A list of enumerable strings representing the Amazon ECR repository creation scenarios that this template will apply towards.
         :param description: A description for the repository creation template.
-        :param encryption_configuration: The encryption configuration to use for repositories created using the
-        template.
-        :param resource_tags: The metadata to apply to the repository to help you categorize and
-        organize.
+        :param encryption_configuration: The encryption configuration to use for repositories created using the template.
+        :param resource_tags: The metadata to apply to the repository to help you categorize and organize.
         :param image_tag_mutability: The tag mutability setting for the repository.
-        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from
-        the repository creation template's image tag mutability setting.
-        :param repository_policy: The repository policy to apply to repositories created using the
-        template.
+        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from the repository creation template's image tag mutability setting.
+        :param repository_policy: The repository policy to apply to repositories created using the template.
         :param lifecycle_policy: The lifecycle policy to use for repositories created using the template.
         :param custom_role_arn: The ARN of the role to be assumed by Amazon ECR.
         :returns: CreateRepositoryCreationTemplateResponse
@@ -2422,8 +2400,7 @@ class EcrApi:
         """Deletes the lifecycle policy associated with the specified repository.
 
         :param repository_name: The name of the repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository.
         :returns: DeleteLifecyclePolicyResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2443,10 +2420,8 @@ class EcrApi:
     ) -> DeletePullThroughCacheRuleResponse:
         """Deletes a pull through cache rule.
 
-        :param ecr_repository_prefix: The Amazon ECR repository prefix associated with the pull through cache
-        rule to delete.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the pull through cache rule.
+        :param ecr_repository_prefix: The Amazon ECR repository prefix associated with the pull through cache rule to delete.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the pull through cache rule.
         :returns: DeletePullThroughCacheRuleResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2484,10 +2459,8 @@ class EcrApi:
         your behalf.
 
         :param repository_name: The name of the repository to delete.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository to delete.
-        :param force: If true, deleting the repository force deletes the contents of the
-        repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository to delete.
+        :param force: If true, deleting the repository force deletes the contents of the repository.
         :returns: DeleteRepositoryResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2503,8 +2476,7 @@ class EcrApi:
     ) -> DeleteRepositoryCreationTemplateResponse:
         """Deletes a repository creation template.
 
-        :param prefix: The repository namespace prefix associated with the repository creation
-        template.
+        :param prefix: The repository namespace prefix associated with the repository creation template.
         :returns: DeleteRepositoryCreationTemplateResponse
         :raises ServerException:
         :raises ValidationException:
@@ -2523,10 +2495,8 @@ class EcrApi:
     ) -> DeleteRepositoryPolicyResponse:
         """Deletes the repository policy associated with the specified repository.
 
-        :param repository_name: The name of the repository that is associated with the repository policy
-        to delete.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository policy to delete.
+        :param repository_name: The name of the repository that is associated with the repository policy to delete.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository policy to delete.
         :returns: DeleteRepositoryPolicyResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2565,8 +2535,7 @@ class EcrApi:
         registry. Once removed, Amazon ECR will resume updating the pull time if
         the specified principal pulls an image.
 
-        :param principal_arn: The ARN of the IAM principal to remove from the pull time update
-        exclusion list.
+        :param principal_arn: The ARN of the IAM principal to remove from the pull time update exclusion list.
         :returns: DeregisterPullTimeUpdateExclusionResponse
         :raises InvalidParameterException:
         :raises ExclusionNotFoundException:
@@ -2588,8 +2557,7 @@ class EcrApi:
         """Returns the replication status for a specified image.
 
         :param repository_name: The name of the repository that the image is in.
-        :param image_id: An object with identifying information for an image in an Amazon ECR
-        repository.
+        :param image_id: An object with identifying information for an image in an Amazon ECR repository.
         :param registry_id: The Amazon Web Services account ID associated with the registry.
         :returns: DescribeImageReplicationStatusResponse
         :raises ServerException:
@@ -2614,16 +2582,10 @@ class EcrApi:
         """Returns the scan findings for the specified image.
 
         :param repository_name: The repository for the image for which to describe the scan findings.
-        :param image_id: An object with identifying information for an image in an Amazon ECR
-        repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository in which to describe the image scan findings
-        for.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeImageScanFindings`` request where ``maxResults`` was used and
-        the results exceeded the value of that parameter.
-        :param max_results: The maximum number of image scan results returned by
-        ``DescribeImageScanFindings`` in paginated output.
+        :param image_id: An object with identifying information for an image in an Amazon ECR repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository in which to describe the image scan findings for.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeImageScanFindings`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of image scan results returned by ``DescribeImageScanFindings`` in paginated output.
         :returns: DescribeImageScanFindingsResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2653,8 +2615,7 @@ class EcrApi:
 
         :param repository_name: The name of the repository that contains the image.
         :param image_id: An object containing identifying information for an image.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository.
         :returns: DescribeImageSigningStatusResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2693,16 +2654,11 @@ class EcrApi:
         ECR <https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html>`__.
 
         :param repository_name: The repository that contains the images to describe.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository in which to describe images.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository in which to describe images.
         :param image_ids: The list of image IDs for the requested repository.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeImages`` request where ``maxResults`` was used and the results
-        exceeded the value of that parameter.
-        :param max_results: The maximum number of repository results returned by ``DescribeImages``
-        in paginated output.
-        :param filter: The filter key and value with which to filter your ``DescribeImages``
-        results.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeImages`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of repository results returned by ``DescribeImages`` in paginated output.
+        :param filter: The filter key and value with which to filter your ``DescribeImages`` results.
         :returns: DescribeImagesResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2723,15 +2679,10 @@ class EcrApi:
     ) -> DescribePullThroughCacheRulesResponse:
         """Returns the pull through cache rules for a registry.
 
-        :param registry_id: The Amazon Web Services account ID associated with the registry to
-        return the pull through cache rules for.
-        :param ecr_repository_prefixes: The Amazon ECR repository prefixes associated with the pull through
-        cache rules to return.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribePullThroughCacheRulesRequest`` request where ``maxResults``
-        was used and the results exceeded the value of that parameter.
-        :param max_results: The maximum number of pull through cache rules returned by
-        ``DescribePullThroughCacheRulesRequest`` in paginated output.
+        :param registry_id: The Amazon Web Services account ID associated with the registry to return the pull through cache rules for.
+        :param ecr_repository_prefixes: The Amazon ECR repository prefixes associated with the pull through cache rules to return.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribePullThroughCacheRulesRequest`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of pull through cache rules returned by ``DescribePullThroughCacheRulesRequest`` in paginated output.
         :returns: DescribePullThroughCacheRulesResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2765,14 +2716,10 @@ class EcrApi:
     ) -> DescribeRepositoriesResponse:
         """Describes image repositories in a registry.
 
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repositories to be described.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repositories to be described.
         :param repository_names: A list of repositories to describe.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeRepositories`` request where ``maxResults`` was used and the
-        results exceeded the value of that parameter.
-        :param max_results: The maximum number of repository results returned by
-        ``DescribeRepositories`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeRepositories`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of repository results returned by ``DescribeRepositories`` in paginated output.
         :returns: DescribeRepositoriesResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2793,13 +2740,9 @@ class EcrApi:
         The ``prefixes`` request parameter can be used to return the details for
         a specific repository creation template.
 
-        :param prefixes: The repository namespace prefixes associated with the repository
-        creation templates to describe.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``DescribeRepositoryCreationTemplates`` request where ``maxResults`` was
-        used and the results exceeded the value of that parameter.
-        :param max_results: The maximum number of repository results returned by
-        ``DescribeRepositoryCreationTemplatesRequest`` in paginated output.
+        :param prefixes: The repository namespace prefixes associated with the repository creation templates to describe.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``DescribeRepositoryCreationTemplates`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of repository results returned by ``DescribeRepositoryCreationTemplatesRequest`` in paginated output.
         :returns: DescribeRepositoryCreationTemplatesResponse
         :raises ServerException:
         :raises ValidationException:
@@ -2813,8 +2756,7 @@ class EcrApi:
     ) -> GetAccountSettingResponse:
         """Retrieves the account setting value for the specified setting name.
 
-        :param name: The name of the account setting, such as ``BASIC_SCAN_TYPE_VERSION``,
-        ``REGISTRY_POLICY_SCOPE``, or ``BLOB_MOUNTING``.
+        :param name: The name of the account setting, such as ``BASIC_SCAN_TYPE_VERSION``, ``REGISTRY_POLICY_SCOPE``, or ``BLOB_MOUNTING``.
         :returns: GetAccountSettingResponse
         :raises ServerException:
         :raises ValidationException:
@@ -2841,8 +2783,7 @@ class EcrApi:
         authentication <https://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html#registry_auth>`__
         in the *Amazon Elastic Container Registry User Guide*.
 
-        :param registry_ids: A list of Amazon Web Services account IDs that are associated with the
-        registries for which to get AuthorizationData objects.
+        :param registry_ids: A list of Amazon Web Services account IDs that are associated with the registries for which to get AuthorizationData objects.
         :returns: GetAuthorizationTokenResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2869,11 +2810,9 @@ class EcrApi:
         by customers for pulling and pushing images. In most cases, you should
         use the ``docker`` CLI to pull, tag, and push images.
 
-        :param repository_name: The name of the repository that is associated with the image layer to
-        download.
+        :param repository_name: The name of the repository that is associated with the image layer to download.
         :param layer_digest: The digest of the image layer to download.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the image layer to download.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the image layer to download.
         :returns: GetDownloadUrlForLayerResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2895,8 +2834,7 @@ class EcrApi:
         """Retrieves the lifecycle policy for the specified repository.
 
         :param repository_name: The name of the repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository.
         :returns: GetLifecyclePolicyResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2922,16 +2860,11 @@ class EcrApi:
         specified repository.
 
         :param repository_name: The name of the repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository.
         :param image_ids: The list of imageIDs to be included.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``GetLifecyclePolicyPreviewRequest`` request where ``maxResults`` was
-        used and the  results exceeded the value of that parameter.
-        :param max_results: The maximum number of repository results returned by
-        ``GetLifecyclePolicyPreviewRequest`` in  paginated output.
-        :param filter: An optional parameter that filters results based on image tag status and
-        all tags, if tagged.
+        :param next_token: The ``nextToken`` value returned from a previous paginated  ``GetLifecyclePolicyPreviewRequest`` request where ``maxResults`` was used and the  results exceeded the value of that parameter.
+        :param max_results: The maximum number of repository results returned by ``GetLifecyclePolicyPreviewRequest`` in  paginated output.
+        :param filter: An optional parameter that filters results based on image tag status and all tags, if tagged.
         :returns: GetLifecyclePolicyPreviewResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2977,8 +2910,7 @@ class EcrApi:
         """Retrieves the repository policy for the specified repository.
 
         :param repository_name: The name of the repository with the policy to retrieve.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository.
         :returns: GetRepositoryPolicyResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3026,8 +2958,7 @@ class EcrApi:
         use the ``docker`` CLI to pull, tag, and push images.
 
         :param repository_name: The name of the repository to which you intend to upload layers.
-        :param registry_id: The Amazon Web Services account ID associated with the registry to which
-        you intend to upload layers.
+        :param registry_id: The Amazon Web Services account ID associated with the registry to which you intend to upload layers.
         :returns: InitiateLayerUploadResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3054,17 +2985,11 @@ class EcrApi:
         ``ecr:BatchGetImage`` permission.
 
         :param repository_name: The name of the repository that contains the subject image.
-        :param subject_id: An object containing the image digest of the subject image for which to
-        retrieve associated artifacts.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository in which to list image referrers.
-        :param filter: The filter key and value with which to filter your
-        ``ListImageReferrers`` results.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListImageReferrers`` request where ``maxResults`` was used and the
-        results exceeded the value of that parameter.
-        :param max_results: The maximum number of image referrer results returned by
-        ``ListImageReferrers`` in paginated output.
+        :param subject_id: An object containing the image digest of the subject image for which to retrieve associated artifacts.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository in which to list image referrers.
+        :param filter: The filter key and value with which to filter your ``ListImageReferrers`` results.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListImageReferrers`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of image referrer results returned by ``ListImageReferrers`` in paginated output.
         :returns: ListImageReferrersResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3094,15 +3019,10 @@ class EcrApi:
         ``TAGGED`` images to list all of the tags in your repository.
 
         :param repository_name: The repository with image IDs to be listed.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository in which to list images.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListImages`` request where ``maxResults`` was used and the results
-        exceeded the value of that parameter.
-        :param max_results: The maximum number of image results returned by ``ListImages`` in
-        paginated output.
-        :param filter: The filter key and value with which to filter your ``ListImages``
-        results.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository in which to list images.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListImages`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of image results returned by ``ListImages`` in paginated output.
+        :param filter: The filter key and value with which to filter your ``ListImages`` results.
         :returns: ListImagesResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3121,11 +3041,8 @@ class EcrApi:
         """Lists the IAM principals that are excluded from having their image pull
         times recorded.
 
-        :param max_results: The maximum number of pull time update exclusion results returned by
-        ``ListPullTimeUpdateExclusions`` in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListPullTimeUpdateExclusions`` request where ``maxResults`` was used
-        and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of pull time update exclusion results returned by ``ListPullTimeUpdateExclusions`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListPullTimeUpdateExclusions`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListPullTimeUpdateExclusionsResponse
         :raises InvalidParameterException:
         :raises ValidationException:
@@ -3140,8 +3057,7 @@ class EcrApi:
     ) -> ListTagsForResourceResponse:
         """List the tags for an Amazon ECR resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource for which to
-        list the tags.
+        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource for which to list the tags.
         :returns: ListTagsForResourceResponse
         :raises InvalidParameterException:
         :raises RepositoryNotFoundException:
@@ -3160,8 +3076,7 @@ class EcrApi:
         """Allows you to change the basic scan type version or registry policy
         scope.
 
-        :param name: The name of the account setting, such as ``BASIC_SCAN_TYPE_VERSION``,
-        ``REGISTRY_POLICY_SCOPE``, or ``BLOB_MOUNTING``.
+        :param name: The name of the account setting, such as ``BASIC_SCAN_TYPE_VERSION``, ``REGISTRY_POLICY_SCOPE``, or ``BLOB_MOUNTING``.
         :param value: Setting value that is specified.
         :returns: PutAccountSettingResponse
         :raises ServerException:
@@ -3195,8 +3110,7 @@ class EcrApi:
 
         :param repository_name: The name of the repository in which to put the image.
         :param image_manifest: The image manifest corresponding to the image to be uploaded.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository in which to put the image.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository in which to put the image.
         :param image_manifest_media_type: The media type of the image manifest.
         :param image_tag: The tag to associate with the image.
         :param image_digest: The image digest of the image manifest corresponding to the image.
@@ -3229,12 +3143,9 @@ class EcrApi:
 
         Updates the image scanning configuration for the specified repository.
 
-        :param repository_name: The name of the repository in which to update the image scanning
-        configuration setting.
+        :param repository_name: The name of the repository in which to update the image scanning configuration setting.
         :param image_scanning_configuration: The image scanning configuration for the repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository in which to update the image scanning
-        configuration setting.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository in which to update the image scanning configuration setting.
         :returns: PutImageScanningConfigurationResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3258,14 +3169,10 @@ class EcrApi:
         mutability <https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-tag-mutability.html>`__
         in the *Amazon Elastic Container Registry User Guide*.
 
-        :param repository_name: The name of the repository in which to update the image tag mutability
-        settings.
+        :param repository_name: The name of the repository in which to update the image tag mutability settings.
         :param image_tag_mutability: The tag mutability setting for the repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository in which to update the image tag mutability
-        settings.
-        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from
-        the image tag mutability setting being applied.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository in which to update the image tag mutability settings.
+        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from the image tag mutability setting being applied.
         :returns: PutImageTagMutabilityResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3288,8 +3195,7 @@ class EcrApi:
 
         :param repository_name: The name of the repository to receive the policy.
         :param lifecycle_policy_text: The JSON repository policy text to apply to the repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository.
         :returns: PutLifecyclePolicyResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3398,8 +3304,7 @@ class EcrApi:
         registry. Amazon ECR will not record the pull time if an excluded
         principal pulls an image.
 
-        :param principal_arn: The ARN of the IAM principal to exclude from having image pull times
-        recorded.
+        :param principal_arn: The ARN of the IAM principal to exclude from having image pull times recorded.
         :returns: RegisterPullTimeUpdateExclusionResponse
         :raises InvalidParameterException:
         :raises ExclusionAlreadyExistsException:
@@ -3426,11 +3331,8 @@ class EcrApi:
 
         :param repository_name: The name of the repository to receive the policy.
         :param policy_text: The JSON repository policy text to apply to the repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository.
-        :param force: If the policy you are attempting to set on a repository policy would
-        prevent you from setting another policy in the future, you must force
-        the SetRepositoryPolicy operation.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository.
+        :param force: If the policy you are attempting to set on a repository policy would prevent you from setting another policy in the future, you must force the SetRepositoryPolicy operation.
         :returns: SetRepositoryPolicyResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3458,10 +3360,8 @@ class EcrApi:
         in the *Amazon Elastic Container Registry User Guide*.
 
         :param repository_name: The name of the repository that contains the images to scan.
-        :param image_id: An object with identifying information for an image in an Amazon ECR
-        repository.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository in which to start an image scan request.
+        :param image_id: An object with identifying information for an image in an Amazon ECR repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository in which to start an image scan request.
         :returns: StartImageScanResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3488,8 +3388,7 @@ class EcrApi:
         policy with the repository.
 
         :param repository_name: The name of the repository to be evaluated.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the repository.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the repository.
         :param lifecycle_policy_text: The policy to be evaluated against.
         :returns: StartLifecyclePolicyPreviewResponse
         :raises ServerException:
@@ -3526,8 +3425,7 @@ class EcrApi:
     ) -> UntagResourceResponse:
         """Deletes specified tags from a resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource from which to remove
-        tags.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource from which to remove tags.
         :param tag_keys: The keys of the tags to be removed.
         :returns: UntagResourceResponse
         :raises InvalidParameterException:
@@ -3554,11 +3452,9 @@ class EcrApi:
         ECR standard.
 
         :param repository_name: The name of the repository that contains the image to transition.
-        :param image_id: An object with identifying information for an image in an Amazon ECR
-        repository.
+        :param image_id: An object with identifying information for an image in an Amazon ECR repository.
         :param target_storage_class: The target storage class for the image.
-        :param registry_id: The Amazon Web Services account ID associated with the registry that
-        contains the image to transition.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that contains the image to transition.
         :returns: UpdateImageStorageClassResponse
         :raises InvalidParameterException:
         :raises ImageNotFoundException:
@@ -3581,15 +3477,10 @@ class EcrApi:
     ) -> UpdatePullThroughCacheRuleResponse:
         """Updates an existing pull through cache rule.
 
-        :param ecr_repository_prefix: The repository name prefix to use when caching images from the source
-        registry.
-        :param registry_id: The Amazon Web Services account ID associated with the registry
-        associated with the pull through cache rule.
-        :param credential_arn: The Amazon Resource Name (ARN) of the Amazon Web Services Secrets
-        Manager secret that identifies the credentials to authenticate to the
-        upstream registry.
-        :param custom_role_arn: Amazon Resource Name (ARN) of the IAM role to be assumed by Amazon ECR
-        to authenticate to the ECR upstream registry.
+        :param ecr_repository_prefix: The repository name prefix to use when caching images from the source registry.
+        :param registry_id: The Amazon Web Services account ID associated with the registry associated with the pull through cache rule.
+        :param credential_arn: The Amazon Resource Name (ARN) of the Amazon Web Services Secrets Manager secret that identifies the credentials to authenticate to the upstream registry.
+        :param custom_role_arn: Amazon Resource Name (ARN) of the IAM role to be assumed by Amazon ECR to authenticate to the ECR upstream registry.
         :returns: UpdatePullThroughCacheRuleResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -3620,21 +3511,15 @@ class EcrApi:
     ) -> UpdateRepositoryCreationTemplateResponse:
         """Updates an existing repository creation template.
 
-        :param prefix: The repository namespace prefix that matches an existing repository
-        creation template in the registry.
+        :param prefix: The repository namespace prefix that matches an existing repository creation template in the registry.
         :param description: A description for the repository creation template.
-        :param encryption_configuration: The encryption configuration to associate with the repository creation
-        template.
-        :param resource_tags: The metadata to apply to the repository to help you categorize and
-        organize.
+        :param encryption_configuration: The encryption configuration to associate with the repository creation template.
+        :param resource_tags: The metadata to apply to the repository to help you categorize and organize.
         :param image_tag_mutability: Updates the tag mutability setting for the repository.
-        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from
-        the repository creation template's image tag mutability setting.
+        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from the repository creation template's image tag mutability setting.
         :param repository_policy: Updates the repository policy created using the template.
-        :param lifecycle_policy: Updates the lifecycle policy associated with the specified repository
-        creation template.
-        :param applied_for: Updates the list of enumerable strings representing the Amazon ECR
-        repository creation scenarios that this template will apply towards.
+        :param lifecycle_policy: Updates the lifecycle policy associated with the specified repository creation template.
+        :param applied_for: Updates the list of enumerable strings representing the Amazon ECR repository creation scenarios that this template will apply towards.
         :param custom_role_arn: The ARN of the role to be assumed by Amazon ECR.
         :returns: UpdateRepositoryCreationTemplateResponse
         :raises ServerException:
@@ -3668,15 +3553,11 @@ class EcrApi:
         use the ``docker`` CLI to pull, tag, and push images.
 
         :param repository_name: The name of the repository to which you are uploading layer parts.
-        :param upload_id: The upload ID from a previous InitiateLayerUpload operation to associate
-        with the layer part upload.
-        :param part_first_byte: The position of the first byte of the layer part witin the overall image
-        layer.
-        :param part_last_byte: The position of the last byte of the layer part within the overall image
-        layer.
+        :param upload_id: The upload ID from a previous InitiateLayerUpload operation to associate with the layer part upload.
+        :param part_first_byte: The position of the first byte of the layer part witin the overall image layer.
+        :param part_last_byte: The position of the last byte of the layer part within the overall image layer.
         :param layer_part_blob: The base64-encoded layer part payload.
-        :param registry_id: The Amazon Web Services account ID associated with the registry to which
-        you are uploading layer parts.
+        :param registry_id: The Amazon Web Services account ID associated with the registry to which you are uploading layer parts.
         :returns: UploadLayerPartResponse
         :raises ServerException:
         :raises InvalidParameterException:

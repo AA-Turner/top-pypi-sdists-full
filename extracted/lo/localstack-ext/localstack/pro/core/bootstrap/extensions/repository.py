@@ -1,11 +1,10 @@
-_L='Summary'
-_K='--disable-pip-version-check'
-_J='--no-color'
-_I='--no-input'
-_H='extension'
-_G='name'
-_F='pip'
-_E=None
+_K='Summary'
+_J='--disable-pip-version-check'
+_I='--no-color'
+_H='--no-input'
+_G='extension'
+_F='name'
+_E='pip'
 _D='log'
 _C='status'
 _B='message'
@@ -36,47 +35,47 @@ def list_plugin_distribution_data(plugin_manager:PluginManager)->list[dict]:
 		except ValueError:continue
 		except Exception as F:LOG.error('Error while resolving distribution for plugin %s: %s. This probably means that the package was removed or otherwise changed after the plugin was loaded. Restarting LocalStack should fix the issue.',A.name,F);continue
 		if not D:continue
-		E=A.plugin_spec;B=inspect.getmodule(A.plugin_spec.factory);G={'namespace':E.namespace,_G:A.name,'factory':{'module':str(B.__name__),'code':f"{B.__name__}.{E.factory.__name__}",'file':str(B.__file__)},'distribution':D.metadata.json};C.append(G)
+		E=A.plugin_spec;B=inspect.getmodule(A.plugin_spec.factory);G={'namespace':E.namespace,_F:A.name,'factory':{'module':str(B.__name__),'code':f"{B.__name__}.{E.factory.__name__}",'file':str(B.__file__)},'distribution':D.metadata.json};C.append(G)
 	return C
-class InstallerEvent(TypedDict,total=False):event:Literal[_C,_D,'error','exception',_F,_H];message:str;extra:dict[str,Any]|_E
+class InstallerEvent(TypedDict,total=False):event:Literal[_C,_D,'error','exception',_E,_G];message:str;extra:dict[str,Any]|None
 class ExtensionsRepository:
 	venv:VirtualEnvironment
-	def __init__(A,venv:VirtualEnvironment=_E):A.venv=venv or get_extensions_venv();A.venv.inject_to_sys_path()
+	def __init__(A,venv:VirtualEnvironment=None):A.venv=venv or get_extensions_venv();A.venv.inject_to_sys_path()
 	@property
 	def pip(self)->Path:
-		A=self.venv.venv_dir/'bin'/_F
+		A=self.venv.venv_dir/'bin'/_E
 		if not A.exists():raise FileNotFoundError(f"pip is not available at {self.pip}")
 		return A
-	def pip_show(A,package:str)->dict|_E:
+	def pip_show(A,package:str)->dict|None:
 		B=[A.pip,'show',package]
 		try:C=subprocess.check_output(B,stderr=subprocess.STDOUT,text=True);return dict(A.split(': ',maxsplit=1)for A in C.splitlines())
 		except subprocess.CalledProcessError as D:
 			if'not found'in D.output:return
 			raise
-	def run_install(C,name_or_url:str)->Generator[InstallerEvent,_E,_E]:
-		B=name_or_url;G=[C.pip,_I,_J,_K,'install',B];yield{_A:_C,_B:'Checking installed extensions'};A=C.pip_show(B)
-		if A:H=A['Name'];I=A[_L];J=A['Author'];yield{_A:_D,_B:f"Extension {H} ({I} by {J}) already installed"};return
-		_clear_plugin_cache();K={A[_G]:A for A in list_extension_metadata()};yield{_A:_C,_B:'Installing extension'};D=False
+	def run_install(C,name_or_url:str)->Generator[InstallerEvent]:
+		B=name_or_url;G=[C.pip,_H,_I,_J,'install',B];yield{_A:_C,_B:'Checking installed extensions'};A=C.pip_show(B)
+		if A:H=A['Name'];I=A[_K];J=A['Author'];yield{_A:_D,_B:f"Extension {H} ({I} by {J}) already installed"};return
+		_clear_plugin_cache();K={A[_F]:A for A in list_extension_metadata()};yield{_A:_C,_B:'Installing extension'};D=False
 		try:
 			with SubprocessLineStream.open(G)as L:
 				for E in L:
-					yield{_A:_F,_B:E}
+					yield{_A:_E,_B:E}
 					if'No matching distribution found for'in E:D=True;yield{_A:'error',_B:f"Could not resolve package {B}, please check the URL or that the package exists in pypi."}
 		except subprocess.CalledProcessError:
 			if D:return
 			raise
-		_clear_plugin_cache();M={A[_G]:A for A in list_extension_metadata()};F=[B for(A,B)in M.items()if A not in K]
+		_clear_plugin_cache();M={A[_F]:A for A in list_extension_metadata()};F=[B for(A,B)in M.items()if A not in K]
 		if F:
 			yield{_A:_D,_B:'Extension successfully installed'}
-			for N in F:yield{_A:_H,_B:'','extra':N}
+			for N in F:yield{_A:_G,_B:'','extra':N}
 		else:yield{_A:_D,_B:'No change'}
 		yield{_A:_C,_B:'Extension installation completed'}
-	def run_uninstall(C,package:str)->Generator[InstallerEvent,_E,_E]:
-		A=package;D=[C.pip,_I,_J,_K,'uninstall','-y',A];yield{_A:_C,_B:'Checking extensions'};B=C.pip_show(A)
+	def run_uninstall(C,package:str)->Generator[InstallerEvent]:
+		A=package;D=[C.pip,_H,_I,_J,'uninstall','-y',A];yield{_A:_C,_B:'Checking extensions'};B=C.pip_show(A)
 		if not B:yield{_A:_D,_B:f"Extension {A} is not installed"};return
-		E=B['Name'];F=B[_L];yield{_A:_D,_B:f"Uninstalling extension {E} ({F})"};yield{_A:_C,_B:'Uninstalling extension'}
+		E=B['Name'];F=B[_K];yield{_A:_D,_B:f"Uninstalling extension {E} ({F})"};yield{_A:_C,_B:'Uninstalling extension'}
 		with SubprocessLineStream.open(D)as G:
-			for H in G:yield{_A:_F,_B:H}
+			for H in G:yield{_A:_E,_B:H}
 		yield{_A:_D,_B:'Extension successfully uninstalled'};_clear_plugin_cache();yield{_A:_C,_B:'Extension uninstall completed'}
 class SubprocessLineStream:
 	default_timeout:int=5

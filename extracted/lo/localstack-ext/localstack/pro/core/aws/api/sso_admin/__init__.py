@@ -1639,10 +1639,8 @@ class SsoAdminApi:
 
         -  `ListRegions <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_ListRegions.html>`__
 
-        :param instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance to
-        replicate to the target Region.
-        :param region_name: The name of the Amazon Web Services Region to add to the IAM Identity
-        Center instance.
+        :param instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance to replicate to the target Region.
+        :param region_name: The name of the Amazon Web Services Region to add to the IAM Identity Center instance.
         :returns: AddRegionResponse
         :raises ServiceQuotaExceededException:
         :raises ThrottlingException:
@@ -1665,8 +1663,7 @@ class SsoAdminApi:
         """Attaches the specified customer managed policy to the specified
         PermissionSet.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the ``PermissionSet``.
         :param customer_managed_policy_reference: Specifies the name and path of a customer managed policy.
         :returns: AttachCustomerManagedPolicyReferenceToPermissionSetResponse
@@ -1696,12 +1693,9 @@ class SsoAdminApi:
         operation. Calling ``ProvisionPermissionSet`` applies the corresponding
         IAM policy updates to all assigned accounts.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
-        :param permission_set_arn: The ARN of the PermissionSet that the managed policy should be attached
-        to.
-        :param managed_policy_arn: The Amazon Web Services managed policy ARN to be attached to a
-        permission set.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param permission_set_arn: The ARN of the PermissionSet that the managed policy should be attached to.
+        :param managed_policy_arn: The Amazon Web Services managed policy ARN to be attached to a permission set.
         :returns: AttachManagedPolicyToPermissionSetResponse
         :raises ServiceQuotaExceededException:
         :raises ThrottlingException:
@@ -1743,16 +1737,12 @@ class SsoAdminApi:
         ``DescribeAccountAssignmentCreationStatus`` to describe the status of an
         assignment creation request.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
-        :param target_id: TargetID is an Amazon Web Services account identifier, (For example,
-        123456789012).
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param target_id: TargetID is an Amazon Web Services account identifier, (For example, 123456789012).
         :param target_type: The entity type for which the assignment will be created.
-        :param permission_set_arn: The ARN of the permission set that the admin wants to grant the
-        principal access to.
+        :param permission_set_arn: The ARN of the permission set that the admin wants to grant the principal access to.
         :param principal_type: The entity type for which the assignment will be created.
-        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or
-        group.
+        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or group.
         :returns: CreateAccountAssignmentResponse
         :raises ServiceQuotaExceededException:
         :raises ThrottlingException:
@@ -1792,17 +1782,14 @@ class SsoAdminApi:
         Services managed
         applications <https://docs.aws.amazon.com/singlesignon/latest/userguide/awsapps.html>`__.
 
-        :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation
-        will run.
+        :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation will run.
         :param application_provider_arn: The ARN of the application provider under which the operation will run.
         :param name: The name of the .
         :param description: The description of the .
-        :param portal_options: A structure that describes the options for the portal associated with an
-        application.
+        :param portal_options: A structure that describes the options for the portal associated with an application.
         :param tags: Specifies tags to be attached to the application.
         :param status: Specifies whether the application is enabled or disabled.
-        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the
-        idempotency of the request.
+        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the idempotency of the request.
         :returns: CreateApplicationResponse
         :raises ServiceQuotaExceededException:
         :raises ThrottlingException:
@@ -1826,8 +1813,7 @@ class SsoAdminApi:
         """Grant application access to a user or group.
 
         :param application_arn: The ARN of the application for which the assignment is created.
-        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or
-        group.
+        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or group.
         :param principal_type: The entity type for which the assignment will be created.
         :returns: CreateApplicationAssignmentResponse
         :raises ServiceQuotaExceededException:
@@ -1861,8 +1847,7 @@ class SsoAdminApi:
         -  An instance already exists in the same account.
 
         :param name: The name of the instance of IAM Identity Center.
-        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the
-        idempotency of the request.
+        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the idempotency of the request.
         :param tags: Specifies tags to be attached to the instance of IAM Identity Center.
         :returns: CreateInstanceResponse
         :raises ServiceQuotaExceededException:
@@ -1893,10 +1878,8 @@ class SsoAdminApi:
         ``DescribeInstanceAccessControlAttributeConfiguration`` to validate that
         ``InstanceAccessControlAttributeConfiguration`` was created.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
-        :param instance_access_control_attribute_configuration: Specifies the IAM Identity Center identity store attributes to add to
-        your ABAC configuration.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param instance_access_control_attribute_configuration: Specifies the IAM Identity Center identity store attributes to add to your ABAC configuration.
         :returns: CreateInstanceAccessControlAttributeConfigurationResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -1926,13 +1909,10 @@ class SsoAdminApi:
         resources, use ``CreateAccountAssignment``.
 
         :param name: The name of the PermissionSet.
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param description: The description of the PermissionSet.
-        :param session_duration: The length of time that the application user sessions are valid in the
-        ISO-8601 standard.
-        :param relay_state: Used to redirect users within the application during the federation
-        authentication process.
+        :param session_duration: The length of time that the application user sessions are valid in the ISO-8601 standard.
+        :param relay_state: Used to redirect users within the application during the federation authentication process.
         :param tags: The tags to attach to the new PermissionSet.
         :returns: CreatePermissionSetResponse
         :raises ServiceQuotaExceededException:
@@ -1967,16 +1947,12 @@ class SsoAdminApi:
         a user. Applications enabled for IAM Identity Center can use these
         tokens for authentication.
 
-        :param instance_arn: Specifies the ARN of the instance of IAM Identity Center to contain the
-        new trusted token issuer configuration.
+        :param instance_arn: Specifies the ARN of the instance of IAM Identity Center to contain the new trusted token issuer configuration.
         :param name: Specifies the name of the new trusted token issuer configuration.
         :param trusted_token_issuer_type: Specifies the type of the new trusted token issuer.
-        :param trusted_token_issuer_configuration: Specifies settings that apply to the new trusted token issuer
-        configuration.
-        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the
-        idempotency of the request.
-        :param tags: Specifies tags to be attached to the new trusted token issuer
-        configuration.
+        :param trusted_token_issuer_configuration: Specifies settings that apply to the new trusted token issuer configuration.
+        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the idempotency of the request.
+        :param tags: Specifies tags to be attached to the new trusted token issuer configuration.
         :returns: CreateTrustedTokenIssuerResponse
         :raises ServiceQuotaExceededException:
         :raises ThrottlingException:
@@ -2006,15 +1982,12 @@ class SsoAdminApi:
         ``DescribeAccountAssignmentDeletionStatus`` to describe the status of an
         assignment deletion request.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
-        :param target_id: TargetID is an Amazon Web Services account identifier, (For example,
-        123456789012).
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param target_id: TargetID is an Amazon Web Services account identifier, (For example, 123456789012).
         :param target_type: The entity type for which the assignment will be deleted.
         :param permission_set_arn: The ARN of the permission set that will be used to remove access.
         :param principal_type: The entity type for which the assignment will be deleted.
-        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or
-        group.
+        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or group.
         :returns: DeleteAccountAssignmentResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2073,8 +2046,7 @@ class SsoAdminApi:
         assignments for a user or group.
 
         :param application_arn: Specifies the ARN of the application.
-        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or
-        group.
+        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or group.
         :param principal_type: The entity type for which the assignment will be deleted.
         :returns: DeleteApplicationAssignmentResponse
         :raises ThrottlingException:
@@ -2096,8 +2068,7 @@ class SsoAdminApi:
     ) -> None:
         """Deletes an authentication method from an application.
 
-        :param application_arn: Specifies the ARN of the application with the authentication method to
-        delete.
+        :param application_arn: Specifies the ARN of the application with the authentication method to delete.
         :param authentication_method_type: Specifies the authentication method type to delete from the application.
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2139,8 +2110,7 @@ class SsoAdminApi:
     ) -> DeleteInlinePolicyFromPermissionSetResponse:
         """Deletes the inline policy from a specified permission set.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the permission set that will be used to remove access.
         :returns: DeleteInlinePolicyFromPermissionSetResponse
         :raises ThrottlingException:
@@ -2161,8 +2131,7 @@ class SsoAdminApi:
         member account can delete the organization instance, but those roles can
         delete their own instance.
 
-        :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation
-        will run.
+        :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation will run.
         :returns: DeleteInstanceResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2185,8 +2154,7 @@ class SsoAdminApi:
         Control </singlesignon/latest/userguide/abac.html>`__ in the *IAM
         Identity Center User Guide*.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :returns: DeleteInstanceAccessControlAttributeConfigurationResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2207,8 +2175,7 @@ class SsoAdminApi:
     ) -> DeletePermissionSetResponse:
         """Deletes the specified permission set.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the permission set that should be deleted.
         :returns: DeletePermissionSetResponse
         :raises ThrottlingException:
@@ -2230,8 +2197,7 @@ class SsoAdminApi:
     ) -> DeletePermissionsBoundaryFromPermissionSetResponse:
         """Deletes the permissions boundary from a specified PermissionSet.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the ``PermissionSet``.
         :returns: DeletePermissionsBoundaryFromPermissionSetResponse
         :raises ThrottlingException:
@@ -2275,8 +2241,7 @@ class SsoAdminApi:
     ) -> DescribeAccountAssignmentCreationStatusResponse:
         """Describes the status of the assignment creation request.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param account_assignment_creation_request_id: The identifier that is used to track the request operation progress.
         :returns: DescribeAccountAssignmentCreationStatusResponse
         :raises ThrottlingException:
@@ -2297,8 +2262,7 @@ class SsoAdminApi:
     ) -> DescribeAccountAssignmentDeletionStatusResponse:
         """Describes the status of the assignment deletion request.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param account_assignment_deletion_request_id: The identifier that is used to track the request operation progress.
         :returns: DescribeAccountAssignmentDeletionStatusResponse
         :raises ThrottlingException:
@@ -2342,8 +2306,7 @@ class SsoAdminApi:
         use ListApplicationAssignmentsForPrincipal.
 
         :param application_arn: Specifies the ARN of the application.
-        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or
-        group.
+        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or group.
         :param principal_type: The entity type for which the assignment will be created.
         :returns: DescribeApplicationAssignmentResponse
         :raises ThrottlingException:
@@ -2362,8 +2325,7 @@ class SsoAdminApi:
         Web Services managed application or customer managed application to IAM
         Identity Center.
 
-        :param application_provider_arn: Specifies the ARN of the application provider for which you want
-        details.
+        :param application_provider_arn: Specifies the ARN of the application provider for which you want details.
         :returns: DescribeApplicationProviderResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2391,8 +2353,7 @@ class SsoAdminApi:
 
         -  ``ACTIVE`` - The instance is active.
 
-        :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation
-        will run.
+        :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation will run.
         :returns: DescribeInstanceResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2413,8 +2374,7 @@ class SsoAdminApi:
         Control </singlesignon/latest/userguide/abac.html>`__ in the *IAM
         Identity Center User Guide*.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :returns: DescribeInstanceAccessControlAttributeConfigurationResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2434,8 +2394,7 @@ class SsoAdminApi:
     ) -> DescribePermissionSetResponse:
         """Gets the details of the permission set.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the permission set.
         :returns: DescribePermissionSetResponse
         :raises ThrottlingException:
@@ -2456,10 +2415,8 @@ class SsoAdminApi:
     ) -> DescribePermissionSetProvisioningStatusResponse:
         """Describes the status for the given permission set provisioning request.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
-        :param provision_permission_set_request_id: The identifier that is provided by the ProvisionPermissionSet call to
-        retrieve the current status of the provisioning workflow.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param provision_permission_set_request_id: The identifier that is provided by the ProvisionPermissionSet call to retrieve the current status of the provisioning workflow.
         :returns: DescribePermissionSetProvisioningStatusResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2488,8 +2445,7 @@ class SsoAdminApi:
         -  `ListRegions <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_ListRegions.html>`__
 
         :param instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance.
-        :param region_name: The name of the Amazon Web Services Region to retrieve information
-        about.
+        :param region_name: The name of the Amazon Web Services Region to retrieve information about.
         :returns: DescribeRegionResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2509,8 +2465,7 @@ class SsoAdminApi:
         attribute and the destination attribute for a trusted token issuer
         configuration.
 
-        :param trusted_token_issuer_arn: Specifies the ARN of the trusted token issuer configuration that you
-        want details about.
+        :param trusted_token_issuer_arn: Specifies the ARN of the trusted token issuer configuration that you want details about.
         :returns: DescribeTrustedTokenIssuerResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2532,8 +2487,7 @@ class SsoAdminApi:
         """Detaches the specified customer managed policy from the specified
         PermissionSet.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the ``PermissionSet``.
         :param customer_managed_policy_reference: Specifies the name and path of a customer managed policy.
         :returns: DetachCustomerManagedPolicyReferenceFromPermissionSetResponse
@@ -2558,11 +2512,9 @@ class SsoAdminApi:
         """Detaches the attached Amazon Web Services managed policy ARN from the
         specified permission set.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the PermissionSet from which the policy should be detached.
-        :param managed_policy_arn: The Amazon Web Services managed policy ARN to be detached from a
-        permission set.
+        :param managed_policy_arn: The Amazon Web Services managed policy ARN to be detached from a permission set.
         :returns: DetachManagedPolicyFromPermissionSetResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2580,10 +2532,8 @@ class SsoAdminApi:
         """Retrieves the authorized targets for an IAM Identity Center access scope
         for an application.
 
-        :param application_arn: Specifies the ARN of the application with the access scope that you want
-        to retrieve.
-        :param scope: Specifies the name of the access scope for which you want the authorized
-        targets.
+        :param application_arn: Specifies the ARN of the application with the access scope that you want to retrieve.
+        :param scope: Specifies the name of the access scope for which you want the authorized targets.
         :returns: GetApplicationAccessScopeResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2664,8 +2614,7 @@ class SsoAdminApi:
         Amazon Web Services managed application without having to remain signed
         in to an active session while the job runs.
 
-        :param application_arn: The Amazon Resource Name (ARN) of the application for which to retrieve
-        the session configuration.
+        :param application_arn: The Amazon Resource Name (ARN) of the application for which to retrieve the session configuration.
         :returns: GetApplicationSessionConfigurationResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2685,8 +2634,7 @@ class SsoAdminApi:
     ) -> GetInlinePolicyForPermissionSetResponse:
         """Obtains the inline policy assigned to the permission set.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the permission set.
         :returns: GetInlinePolicyForPermissionSetResponse
         :raises ThrottlingException:
@@ -2707,8 +2655,7 @@ class SsoAdminApi:
     ) -> GetPermissionsBoundaryForPermissionSetResponse:
         """Obtains the permissions boundary for a specified PermissionSet.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the ``PermissionSet``.
         :returns: GetPermissionsBoundaryForPermissionSetResponse
         :raises ThrottlingException:
@@ -2732,8 +2679,7 @@ class SsoAdminApi:
         """Lists the status of the Amazon Web Services account assignment creation
         requests for a specified IAM Identity Center instance.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param max_results: The maximum number of results to display for the assignment.
         :param next_token: The pagination token for the list API.
         :param filter: Filters results based on the passed attribute value.
@@ -2759,8 +2705,7 @@ class SsoAdminApi:
         """Lists the status of the Amazon Web Services account assignment deletion
         requests for a specified IAM Identity Center instance.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param max_results: The maximum number of results to display for the assignment.
         :param next_token: The pagination token for the list API.
         :param filter: Filters results based on the passed attribute value.
@@ -2787,10 +2732,8 @@ class SsoAdminApi:
         """Lists the assignee of the specified Amazon Web Services account with the
         specified permission set.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
-        :param account_id: The identifier of the Amazon Web Services account from which to list the
-        assignments.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param account_id: The identifier of the Amazon Web Services account from which to list the assignments.
         :param permission_set_arn: The ARN of the permission set from which to list assignments.
         :param max_results: The maximum number of results to display for the assignment.
         :param next_token: The pagination token for the list API.
@@ -2821,15 +2764,12 @@ class SsoAdminApi:
         of IAM Identity Center. This action is not valid for account instances
         of IAM Identity Center.
 
-        :param instance_arn: Specifies the ARN of the instance of IAM Identity Center that contains
-        the principal.
-        :param principal_id: Specifies the principal for which you want to retrieve the list of
-        account assignments.
+        :param instance_arn: Specifies the ARN of the instance of IAM Identity Center that contains the principal.
+        :param principal_id: Specifies the principal for which you want to retrieve the list of account assignments.
         :param principal_type: Specifies the type of the principal.
         :param filter: Specifies an Amazon Web Services account ID number.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :returns: ListAccountAssignmentsForPrincipalResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2853,12 +2793,9 @@ class SsoAdminApi:
         """Lists all the Amazon Web Services accounts where the specified
         permission set is provisioned.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
-        :param permission_set_arn: The ARN of the PermissionSet from which the associated Amazon Web
-        Services accounts will be listed.
-        :param provisioning_status: The permission set provisioning status for an Amazon Web Services
-        account.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param permission_set_arn: The ARN of the PermissionSet from which the associated Amazon Web Services accounts will be listed.
+        :param provisioning_status: The permission set provisioning status for an Amazon Web Services account.
         :param max_results: The maximum number of results to display for the PermissionSet.
         :param next_token: The pagination token for the list API.
         :returns: ListAccountsForProvisionedPermissionSetResponse
@@ -2883,8 +2820,7 @@ class SsoAdminApi:
         application.
 
         :param application_arn: Specifies the ARN of the application.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :param next_token: Specifies that you want to receive the next page of results.
         :returns: ListApplicationAccessScopesResponse
         :raises ThrottlingException:
@@ -2908,8 +2844,7 @@ class SsoAdminApi:
         application.
 
         :param application_arn: Specifies the ARN of the application.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :param next_token: Specifies that you want to receive the next page of results.
         :returns: ListApplicationAssignmentsResponse
         :raises ThrottlingException:
@@ -2939,17 +2874,12 @@ class SsoAdminApi:
         organization instance of IAM Identity Center, or from a member account
         against an account instance of IAM Identity Center in the same account.
 
-        :param instance_arn: Specifies the instance of IAM Identity Center that contains principal
-        and applications.
-        :param principal_id: Specifies the unique identifier of the principal for which you want to
-        retrieve its assignments.
-        :param principal_type: Specifies the type of the principal for which you want to retrieve its
-        assignments.
-        :param filter: Filters the output to include only assignments associated with the
-        application that has the specified ARN.
+        :param instance_arn: Specifies the instance of IAM Identity Center that contains principal and applications.
+        :param principal_id: Specifies the unique identifier of the principal for which you want to retrieve its assignments.
+        :param principal_type: Specifies the type of the principal for which you want to retrieve its assignments.
+        :param filter: Filters the output to include only assignments associated with the application that has the specified ARN.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :returns: ListApplicationAssignmentsForPrincipalResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -2970,8 +2900,7 @@ class SsoAdminApi:
         """Lists all of the authentication methods supported by the specified
         application.
 
-        :param application_arn: Specifies the ARN of the application with the authentication methods you
-        want to list.
+        :param application_arn: Specifies the ARN of the application with the authentication methods you want to list.
         :param next_token: Specifies that you want to receive the next page of results.
         :returns: ListApplicationAuthenticationMethodsResponse
         :raises ThrottlingException:
@@ -3014,8 +2943,7 @@ class SsoAdminApi:
         """Lists the application providers configured in the IAM Identity Center
         identity store.
 
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :param next_token: Specifies that you want to receive the next page of results.
         :returns: ListApplicationProvidersResponse
         :raises ThrottlingException:
@@ -3042,10 +2970,8 @@ class SsoAdminApi:
         account. When listing applications for an account instance in the same
         member account, a filter is not required.
 
-        :param instance_arn: The ARN of the IAM Identity Center application under which the operation
-        will run.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param instance_arn: The ARN of the IAM Identity Center application under which the operation will run.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :param next_token: Specifies that you want to receive the next page of results.
         :param filter: Filters response results.
         :returns: ListApplicationsResponse
@@ -3069,8 +2995,7 @@ class SsoAdminApi:
         """Lists all customer managed policies attached to a specified
         PermissionSet.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the ``PermissionSet``.
         :param max_results: The maximum number of results to display for the list call.
         :param next_token: The pagination token for the list API.
@@ -3118,8 +3043,7 @@ class SsoAdminApi:
         """Lists the Amazon Web Services managed policy that is attached to a
         specified permission set.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the PermissionSet whose managed policies will be listed.
         :param max_results: The maximum number of results to display for the PermissionSet.
         :param next_token: The pagination token for the list API.
@@ -3145,8 +3069,7 @@ class SsoAdminApi:
         """Lists the status of the permission set provisioning requests for a
         specified IAM Identity Center instance.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param max_results: The maximum number of results to display for the assignment.
         :param next_token: The pagination token for the list API.
         :param filter: Filters results based on the passed attribute value.
@@ -3170,8 +3093,7 @@ class SsoAdminApi:
     ) -> ListPermissionSetsResponse:
         """Lists the PermissionSets in an IAM Identity Center instance.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param next_token: The pagination token for the list API.
         :param max_results: The maximum number of results to display for the assignment.
         :returns: ListPermissionSetsResponse
@@ -3197,10 +3119,8 @@ class SsoAdminApi:
         """Lists all the permission sets that are provisioned to a specified Amazon
         Web Services account.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
-        :param account_id: The identifier of the Amazon Web Services account from which to list the
-        assignments.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param account_id: The identifier of the Amazon Web Services account from which to list the assignments.
         :param provisioning_status: The status object for the permission set provisioning operation.
         :param max_results: The maximum number of results to display for the assignment.
         :param next_token: The pagination token for the list API.
@@ -3257,8 +3177,7 @@ class SsoAdminApi:
         """Lists the tags that are attached to a specified resource.
 
         :param resource_arn: The ARN of the resource with the tags to be listed.
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param next_token: The pagination token for the list API.
         :returns: ListTagsForResourceResponse
         :raises ThrottlingException:
@@ -3281,10 +3200,8 @@ class SsoAdminApi:
         """Lists all the trusted token issuers configured in an instance of IAM
         Identity Center.
 
-        :param instance_arn: Specifies the ARN of the instance of IAM Identity Center with the
-        trusted token issuer configurations that you want to list.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param instance_arn: Specifies the ARN of the instance of IAM Identity Center with the trusted token issuer configurations that you want to list.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :param next_token: Specifies that you want to receive the next page of results.
         :returns: ListTrustedTokenIssuersResponse
         :raises ThrottlingException:
@@ -3307,12 +3224,10 @@ class SsoAdminApi:
         """The process by which a specified permission set is provisioned to the
         specified target.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the permission set.
         :param target_type: The entity type for which the assignment will be created.
-        :param target_id: TargetID is an Amazon Web Services account identifier, (For example,
-        123456789012).
+        :param target_id: TargetID is an Amazon Web Services account identifier, (For example, 123456789012).
         :returns: ProvisionPermissionSetResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -3335,12 +3250,9 @@ class SsoAdminApi:
         """Adds or updates the list of authorized targets for an IAM Identity
         Center access scope for an application.
 
-        :param scope: Specifies the name of the access scope to be associated with the
-        specified targets.
-        :param application_arn: Specifies the ARN of the application with the access scope with the
-        targets to add or update.
-        :param authorized_targets: Specifies an array list of ARNs that represent the authorized targets
-        for this access scope.
+        :param scope: Specifies the name of the access scope to be associated with the specified targets.
+        :param application_arn: Specifies the ARN of the application with the access scope with the targets to add or update.
+        :param authorized_targets: Specifies an array list of ARNs that represent the authorized targets for this access scope.
         :raises ThrottlingException:
         :raises InternalServerException:
         :raises ResourceNotFoundException:
@@ -3369,10 +3281,7 @@ class SsoAdminApi:
         the user retains access if ``AssignmentsRequired`` is set to ``true``.
 
         :param application_arn: Specifies the ARN of the application.
-        :param assignment_required: If ``AssignmentsRequired`` is ``true`` (default value), users don’t have
-        access to the application unless an assignment is created using the
-        `CreateApplicationAssignment
-        API <https://docs.
+        :param assignment_required: If ``AssignmentsRequired`` is ``true`` (default value), users don’t have access to the application unless an assignment is created using the `CreateApplicationAssignment API <https://docs.
         :returns: PutApplicationAssignmentConfigurationResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -3394,12 +3303,9 @@ class SsoAdminApi:
     ) -> None:
         """Adds or updates an authentication method for an application.
 
-        :param application_arn: Specifies the ARN of the application with the authentication method to
-        add or update.
-        :param authentication_method_type: Specifies the type of the authentication method that you want to add or
-        update.
-        :param authentication_method: Specifies a structure that describes the authentication method to add or
-        update.
+        :param application_arn: Specifies the ARN of the application with the authentication method to add or update.
+        :param authentication_method_type: Specifies the type of the authentication method that you want to add or update.
+        :param authentication_method: Specifies a structure that describes the authentication method to add or update.
         :raises ThrottlingException:
         :raises InternalServerException:
         :raises ResourceNotFoundException:
@@ -3503,8 +3409,7 @@ class SsoAdminApi:
         Amazon Web Services managed application without having to remain signed
         in to an active session while the job runs.
 
-        :param application_arn: The Amazon Resource Name (ARN) of the application for which to update
-        the session configuration.
+        :param application_arn: The Amazon Resource Name (ARN) of the application for which to update the session configuration.
         :param user_background_session_application_status: The status of user background sessions for the application.
         :returns: PutApplicationSessionConfigurationResponse
         :raises ThrottlingException:
@@ -3532,8 +3437,7 @@ class SsoAdminApi:
         action to apply the corresponding IAM policy updates to all assigned
         accounts.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the permission set.
         :param inline_policy: The inline policy to attach to a PermissionSet.
         :returns: PutInlinePolicyToPermissionSetResponse
@@ -3559,8 +3463,7 @@ class SsoAdminApi:
         """Attaches an Amazon Web Services managed or customer managed policy to
         the specified PermissionSet as a permissions boundary.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the ``PermissionSet``.
         :param permissions_boundary: The permissions boundary that you want to attach to a ``PermissionSet``.
         :returns: PutPermissionsBoundaryToPermissionSetResponse
@@ -3594,8 +3497,7 @@ class SsoAdminApi:
         -  `ListRegions <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_ListRegions.html>`__
 
         :param instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance.
-        :param region_name: The name of the Amazon Web Services Region to remove from the IAM
-        Identity Center instance.
+        :param region_name: The name of the Amazon Web Services Region to remove from the IAM Identity Center instance.
         :returns: RemoveRegionResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -3619,8 +3521,7 @@ class SsoAdminApi:
 
         :param resource_arn: The ARN of the resource with the tags to be listed.
         :param tags: A set of key-value pairs that are used to manage the resource.
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :returns: TagResourceResponse
         :raises ServiceQuotaExceededException:
         :raises ThrottlingException:
@@ -3645,8 +3546,7 @@ class SsoAdminApi:
 
         :param resource_arn: The ARN of the resource with the tags to be listed.
         :param tag_keys: The keys of tags that are attached to the resource.
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :returns: UntagResourceResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -3674,8 +3574,7 @@ class SsoAdminApi:
         :param name: Specifies the updated name for the application.
         :param description: The description of the .
         :param status: Specifies whether the application is enabled or disabled.
-        :param portal_options: A structure that describes the options for the portal associated with an
-        application.
+        :param portal_options: A structure that describes the options for the portal associated with an application.
         :returns: UpdateApplicationResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -3698,11 +3597,9 @@ class SsoAdminApi:
         """Update the details for the instance of IAM Identity Center that is owned
         by the Amazon Web Services account.
 
-        :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation
-        will run.
+        :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation will run.
         :param name: Updates the instance name.
-        :param encryption_configuration: Specifies the encryption configuration for your IAM Identity Center
-        instance.
+        :param encryption_configuration: Specifies the encryption configuration for your IAM Identity Center instance.
         :returns: UpdateInstanceResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -3733,8 +3630,7 @@ class SsoAdminApi:
         Control </singlesignon/latest/userguide/abac.html>`__ in the *IAM
         Identity Center User Guide*.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param instance_access_control_attribute_configuration: Updates the attributes for your ABAC configuration.
         :returns: UpdateInstanceAccessControlAttributeConfigurationResponse
         :raises ThrottlingException:
@@ -3759,14 +3655,11 @@ class SsoAdminApi:
     ) -> UpdatePermissionSetResponse:
         """Updates an existing permission set.
 
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation
-        will be executed.
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
         :param permission_set_arn: The ARN of the permission set.
         :param description: The description of the PermissionSet.
-        :param session_duration: The length of time that the application user sessions are valid for in
-        the ISO-8601 standard.
-        :param relay_state: Used to redirect users within the application during the federation
-        authentication process.
+        :param session_duration: The length of time that the application user sessions are valid for in the ISO-8601 standard.
+        :param relay_state: Used to redirect users within the application during the federation authentication process.
         :returns: UpdatePermissionSetResponse
         :raises ThrottlingException:
         :raises InternalServerException:
@@ -3794,12 +3687,9 @@ class SsoAdminApi:
         lose access to any applications that are configured to use the trusted
         token issuer.
 
-        :param trusted_token_issuer_arn: Specifies the ARN of the trusted token issuer configuration that you
-        want to update.
-        :param name: Specifies the updated name to be applied to the trusted token issuer
-        configuration.
-        :param trusted_token_issuer_configuration: Specifies a structure with settings to apply to the specified trusted
-        token issuer.
+        :param trusted_token_issuer_arn: Specifies the ARN of the trusted token issuer configuration that you want to update.
+        :param name: Specifies the updated name to be applied to the trusted token issuer configuration.
+        :param trusted_token_issuer_configuration: Specifies a structure with settings to apply to the specified trusted token issuer.
         :returns: UpdateTrustedTokenIssuerResponse
         :raises ThrottlingException:
         :raises InternalServerException:

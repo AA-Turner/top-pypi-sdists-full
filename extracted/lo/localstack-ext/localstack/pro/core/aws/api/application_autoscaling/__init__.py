@@ -1032,8 +1032,7 @@ class ApplicationAutoscalingApi:
         in the *Application Auto Scaling User Guide*.
 
         :param policy_name: The name of the scaling policy.
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param resource_id: The identifier of the resource associated with the scalable target.
         :param scalable_dimension: The scalable dimension.
         :returns: DeleteScalingPolicyResponse
@@ -1061,8 +1060,7 @@ class ApplicationAutoscalingApi:
         action <https://docs.aws.amazon.com/autoscaling/application/userguide/scheduled-scaling-additional-cli-commands.html#delete-scheduled-action>`__
         in the *Application Auto Scaling User Guide*.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param scheduled_action_name: The name of the scheduled action.
         :param resource_id: The identifier of the resource associated with the scheduled action.
         :param scalable_dimension: The scalable dimension.
@@ -1090,8 +1088,7 @@ class ApplicationAutoscalingApi:
         Deregistering a scalable target deletes the scaling policies and the
         scheduled actions that are associated with it.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param resource_id: The identifier of the resource associated with the scalable target.
         :param scalable_dimension: The scalable dimension associated with the scalable target.
         :returns: DeregisterScalableTargetResponse
@@ -1118,8 +1115,7 @@ class ApplicationAutoscalingApi:
         You can filter the results using ``ResourceIds`` and
         ``ScalableDimension``.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param resource_ids: The identifier of the resource associated with the scalable target.
         :param scalable_dimension: The scalable dimension associated with the scalable target.
         :param max_results: The maximum number of scalable targets.
@@ -1154,14 +1150,12 @@ class ApplicationAutoscalingApi:
         Services CLI, see `Scaling activities for Application Auto
         Scaling <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-scaling-activities.html>`__.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param resource_id: The identifier of the resource associated with the scaling activity.
         :param scalable_dimension: The scalable dimension.
         :param max_results: The maximum number of scalable targets.
         :param next_token: The token for the next set of results.
-        :param include_not_scaled_activities: Specifies whether to include activities that aren't scaled (*not scaled
-        activities*) in the response.
+        :param include_not_scaled_activities: Specifies whether to include activities that aren't scaled (*not scaled activities*) in the response.
         :returns: DescribeScalingActivitiesResponse
         :raises ValidationException:
         :raises InvalidNextTokenException:
@@ -1194,8 +1188,7 @@ class ApplicationAutoscalingApi:
         policies <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-step-scaling-policies.html>`__
         in the *Application Auto Scaling User Guide*.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param policy_names: The names of the scaling policies to describe.
         :param resource_id: The identifier of the resource associated with the scaling policy.
         :param scalable_dimension: The scalable dimension.
@@ -1232,8 +1225,7 @@ class ApplicationAutoscalingApi:
         scaling <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-scheduled-scaling.html>`__
         in the *Application Auto Scaling User Guide*.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param scheduled_action_names: The names of the scheduled actions to describe.
         :param resource_id: The identifier of the resource associated with the scheduled action.
         :param scalable_dimension: The scalable dimension.
@@ -1271,8 +1263,7 @@ class ApplicationAutoscalingApi:
         forecasts. However, having a full 14 days of historical data results in
         more accurate forecasts.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param resource_id: The identifier of the resource.
         :param scalable_dimension: The scalable dimension.
         :param policy_name: The name of the policy.
@@ -1357,8 +1348,7 @@ class ApplicationAutoscalingApi:
         specified for the scalable target are deleted.
 
         :param policy_name: The name of the scaling policy.
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param resource_id: The identifier of the resource associated with the scaling policy.
         :param scalable_dimension: The scalable dimension.
         :param policy_type: The scaling policy type.
@@ -1415,14 +1405,12 @@ class ApplicationAutoscalingApi:
         available to run scheduled actions. Any scheduled actions that were
         specified for the scalable target are deleted.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
         :param scheduled_action_name: The name of the scheduled action.
         :param resource_id: The identifier of the resource associated with the scheduled action.
         :param scalable_dimension: The scalable dimension.
         :param schedule: The schedule for this action.
-        :param timezone: Specifies the time zone used when setting a scheduled action by using an
-        at or cron expression.
+        :param timezone: Specifies the time zone used when setting a scheduled action by using an at or cron expression.
         :param start_time: The date and time for this scheduled action to start, in UTC.
         :param end_time: The date and time for the recurring schedule to end, in UTC.
         :param scalable_target_action: The new minimum and maximum capacity.
@@ -1497,19 +1485,13 @@ class ApplicationAutoscalingApi:
         the scalable target to place it within these bounds, even if you don't
         include the ``MinCapacity`` or ``MaxCapacity`` request parameters.
 
-        :param service_namespace: The namespace of the Amazon Web Services service that provides the
-        resource.
-        :param resource_id: The identifier of the resource that is associated with the scalable
-        target.
+        :param service_namespace: The namespace of the Amazon Web Services service that provides the resource.
+        :param resource_id: The identifier of the resource that is associated with the scalable target.
         :param scalable_dimension: The scalable dimension associated with the scalable target.
         :param min_capacity: The minimum value that you plan to scale in to.
         :param max_capacity: The maximum value that you plan to scale out to.
-        :param role_arn: This parameter is required for services that do not support
-        service-linked roles (such as Amazon EMR), and it must specify the ARN
-        of an IAM role that allows Application Auto Scaling to modify the
-        scalable target on your behalf.
-        :param suspended_state: An embedded object that contains attributes and attribute values that
-        are used to suspend and resume automatic scaling.
+        :param role_arn: This parameter is required for services that do not support service-linked roles (such as Amazon EMR), and it must specify the ARN of an IAM role that allows Application Auto Scaling to modify the scalable target on your behalf.
+        :param suspended_state: An embedded object that contains attributes and attribute values that are used to suspend and resume automatic scaling.
         :param tags: Assigns one or more tags to the scalable target.
         :returns: RegisterScalableTargetResponse
         :raises ValidationException:
@@ -1545,8 +1527,7 @@ class ApplicationAutoscalingApi:
         Scaling <https://docs.aws.amazon.com/autoscaling/application/userguide/resource-tagging-support.html>`__
         in the *Application Auto Scaling User Guide*.
 
-        :param resource_arn: Identifies the Application Auto Scaling scalable target that you want to
-        apply tags to.
+        :param resource_arn: Identifies the Application Auto Scaling scalable target that you want to apply tags to.
         :param tags: The tags assigned to the resource.
         :returns: TagResourceResponse
         :raises ResourceNotFoundException:
@@ -1567,8 +1548,7 @@ class ApplicationAutoscalingApi:
         a tag, specify the tag key and the Application Auto Scaling scalable
         target.
 
-        :param resource_arn: Identifies the Application Auto Scaling scalable target from which to
-        remove tags.
+        :param resource_arn: Identifies the Application Auto Scaling scalable target from which to remove tags.
         :param tag_keys: One or more tag keys.
         :returns: UntagResourceResponse
         :raises ResourceNotFoundException:

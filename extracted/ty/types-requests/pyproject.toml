@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-requests"
-version = "2.32.4.20260107"
+version = "2.32.4.20260324"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for requests"
@@ -27,17 +27,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`a68aa254d9e6641f58a7c4f45ab20782226fbfc2`](https://github.com/python/typeshed/commit/a68aa254d9e6641f58a7c4f45ab20782226fbfc2).
+[`26380ee31c279c7cbb9deb75190491dc2d31d2d7`](https://github.com/python/typeshed/commit/26380ee31c279c7cbb9deb75190491dc2d31d2d7).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['urllib3>=2']
 
 [project.urls]
@@ -50,3 +50,6 @@ dependencies = ['urllib3>=2']
 [tool.setuptools]
 packages = ['requests-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'requests-stubs' = ['__init__.pyi', '__version__.pyi', 'adapters.pyi', 'api.pyi', 'auth.pyi', 'certs.pyi', 'compat.pyi', 'cookies.pyi', 'exceptions.pyi', 'help.pyi', 'hooks.pyi', 'models.pyi', 'packages.pyi', 'sessions.pyi', 'status_codes.pyi', 'structures.pyi', 'utils.pyi', 'METADATA.toml', 'py.typed']

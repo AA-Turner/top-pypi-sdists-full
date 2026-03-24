@@ -42,6 +42,7 @@ AutoMLMaxResults = int
 AutoMLMaxResultsForTrials = int
 AutoMLNameContains = str
 AvailabilityZone = str
+AvailabilityZoneId = str
 AvailableInstanceCount = int
 AvailableSpareInstanceCount = int
 BacktestResultsLocation = str
@@ -622,6 +623,8 @@ TrainingJobArn = str
 TrainingJobName = str
 TrainingJobStatusCounter = int
 TrainingPlanArn = str
+TrainingPlanExtensionDurationHours = int
+TrainingPlanExtensionOfferingId = str
 TrainingPlanName = str
 TrainingPlanOfferingId = str
 TrainingPlanStatusMessage = str
@@ -2906,6 +2909,7 @@ class ProductionVariantInferenceAmiVersion(StrEnum):
     al2_ami_sagemaker_inference_gpu_2_1 = "al2-ami-sagemaker-inference-gpu-2-1"
     al2_ami_sagemaker_inference_gpu_3_1 = "al2-ami-sagemaker-inference-gpu-3-1"
     al2_ami_sagemaker_inference_neuron_2 = "al2-ami-sagemaker-inference-neuron-2"
+    al2023_ami_sagemaker_inference_gpu_4_1 = "al2023-ami-sagemaker-inference-gpu-4-1"
 
 
 class ProductionVariantInstanceType(StrEnum):
@@ -3037,6 +3041,12 @@ class ProductionVariantInstanceType(StrEnum):
     ml_g6e_16xlarge = "ml.g6e.16xlarge"
     ml_g6e_24xlarge = "ml.g6e.24xlarge"
     ml_g6e_48xlarge = "ml.g6e.48xlarge"
+    ml_g7e_2xlarge = "ml.g7e.2xlarge"
+    ml_g7e_4xlarge = "ml.g7e.4xlarge"
+    ml_g7e_8xlarge = "ml.g7e.8xlarge"
+    ml_g7e_12xlarge = "ml.g7e.12xlarge"
+    ml_g7e_24xlarge = "ml.g7e.24xlarge"
+    ml_g7e_48xlarge = "ml.g7e.48xlarge"
     ml_p4d_24xlarge = "ml.p4d.24xlarge"
     ml_c7g_large = "ml.c7g.large"
     ml_c7g_xlarge = "ml.c7g.xlarge"
@@ -3171,6 +3181,7 @@ class ProductionVariantInstanceType(StrEnum):
     ml_c6in_24xlarge = "ml.c6in.24xlarge"
     ml_c6in_32xlarge = "ml.c6in.32xlarge"
     ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
+    ml_p6_b300_48xlarge = "ml.p6-b300.48xlarge"
     ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
     ml_p5_4xlarge = "ml.p5.4xlarge"
 
@@ -9594,6 +9605,8 @@ class CreateMlflowTrackingServerRequest(ServiceRequest):
     AutomaticModelRegistration: Boolean | None
     WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
     Tags: TagList | None
+    S3BucketOwnerAccountId: AccountId | None
+    S3BucketOwnerVerification: Boolean | None
 
 
 class CreateMlflowTrackingServerResponse(TypedDict, total=False):
@@ -12994,6 +13007,8 @@ class DescribeMlflowTrackingServerResponse(TypedDict, total=False):
     CreatedBy: UserContext | None
     LastModifiedTime: Timestamp | None
     LastModifiedBy: UserContext | None
+    S3BucketOwnerAccountId: AccountId | None
+    S3BucketOwnerVerification: Boolean | None
 
 
 class DescribeModelBiasJobDefinitionRequest(ServiceRequest):
@@ -13695,6 +13710,38 @@ class DescribeTrainingJobResponse(TypedDict, total=False):
     OutputModelPackageArn: ModelPackageArn | None
 
 
+class DescribeTrainingPlanExtensionHistoryRequest(ServiceRequest):
+    TrainingPlanArn: TrainingPlanArn
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+
+
+class TrainingPlanExtension(TypedDict, total=False):
+    """Details about an extension to a training plan, including the offering
+    ID, dates, status, and cost information.
+    """
+
+    TrainingPlanExtensionOfferingId: TrainingPlanExtensionOfferingId
+    ExtendedAt: Timestamp | None
+    StartDate: Timestamp | None
+    EndDate: Timestamp | None
+    Status: String256 | None
+    PaymentStatus: String256 | None
+    AvailabilityZone: String256 | None
+    AvailabilityZoneId: AvailabilityZoneId | None
+    DurationHours: TrainingPlanExtensionDurationHours | None
+    UpfrontFee: String256 | None
+    CurrencyCode: CurrencyCode | None
+
+
+TrainingPlanExtensions = list[TrainingPlanExtension]
+
+
+class DescribeTrainingPlanExtensionHistoryResponse(TypedDict, total=False):
+    TrainingPlanExtensions: TrainingPlanExtensions
+    NextToken: NextToken | None
+
+
 class DescribeTrainingPlanRequest(ServiceRequest):
     TrainingPlanName: TrainingPlanName
 
@@ -14355,6 +14402,14 @@ class ExperimentSummary(TypedDict, total=False):
 
 
 ExperimentSummaries = list[ExperimentSummary]
+
+
+class ExtendTrainingPlanRequest(ServiceRequest):
+    TrainingPlanExtensionOfferingId: TrainingPlanExtensionOfferingId
+
+
+class ExtendTrainingPlanResponse(TypedDict, total=False):
+    TrainingPlanExtensions: TrainingPlanExtensions
 
 
 class FailStepMetadata(TypedDict, total=False):
@@ -17479,6 +17534,8 @@ class ReservedCapacityOffering(TypedDict, total=False):
     DurationMinutes: ReservedCapacityDurationMinutes | None
     StartTime: Timestamp | None
     EndTime: Timestamp | None
+    ExtensionStartTime: Timestamp | None
+    ExtensionEndTime: Timestamp | None
 
 
 ReservedCapacityOfferings = list[ReservedCapacityOffering]
@@ -17740,6 +17797,25 @@ class SearchTrainingPlanOfferingsRequest(ServiceRequest):
     EndTimeBefore: Timestamp | None
     DurationHours: TrainingPlanDurationHoursInput | None
     TargetResources: SageMakerResourceNames | None
+    TrainingPlanArn: String | None
+
+
+class TrainingPlanExtensionOffering(TypedDict, total=False):
+    """Details about an available extension offering for a training plan. Use
+    the offering ID with the ``ExtendTrainingPlan`` API to extend a training
+    plan.
+    """
+
+    TrainingPlanExtensionOfferingId: TrainingPlanExtensionOfferingId
+    AvailabilityZone: String256 | None
+    StartDate: Timestamp | None
+    EndDate: Timestamp | None
+    DurationHours: TrainingPlanExtensionDurationHours | None
+    UpfrontFee: String256 | None
+    CurrencyCode: CurrencyCode | None
+
+
+TrainingPlanExtensionOfferings = list[TrainingPlanExtensionOffering]
 
 
 class TrainingPlanOffering(TypedDict, total=False):
@@ -17766,6 +17842,7 @@ TrainingPlanOfferings = list[TrainingPlanOffering]
 
 class SearchTrainingPlanOfferingsResponse(TypedDict, total=False):
     TrainingPlanOfferings: TrainingPlanOfferings
+    TrainingPlanExtensionOfferings: TrainingPlanExtensionOfferings | None
 
 
 class SendPipelineExecutionStepFailureRequest(ServiceRequest):
@@ -18289,6 +18366,8 @@ class UpdateMlflowTrackingServerRequest(ServiceRequest):
     TrackingServerSize: TrackingServerSize | None
     AutomaticModelRegistration: Boolean | None
     WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
+    S3BucketOwnerAccountId: AccountId | None
+    S3BucketOwnerVerification: Boolean | None
 
 
 class UpdateMlflowTrackingServerResponse(TypedDict, total=False):
@@ -18647,10 +18726,8 @@ class SagemakerApi:
         Container Storage Interface (CSI) driver to manage the lifecycle of
         persistent storage in your HyperPod EKS clusters.
 
-        :param cluster_arn: The Amazon Resource Name (ARN) of your SageMaker HyperPod cluster
-        containing the target node.
-        :param node_id: The unique identifier of the cluster node to which you want to attach
-        the volume.
+        :param cluster_arn: The Amazon Resource Name (ARN) of your SageMaker HyperPod cluster containing the target node.
+        :param node_id: The unique identifier of the cluster node to which you want to attach the volume.
         :param volume_id: The unique identifier of your EBS volume to attach.
         :returns: AttachClusterNodeVolumeResponse
         :raises ResourceNotFound:
@@ -18678,8 +18755,7 @@ class SagemakerApi:
 
         :param cluster_name: The name of the HyperPod cluster to which you want to add nodes.
         :param nodes_to_add: A list of instance groups and the number of nodes to add to each.
-        :param client_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: BatchAddClusterNodesResponse
         :raises ResourceNotFound:
         :raises ResourceLimitExceeded:
@@ -18713,8 +18789,7 @@ class SagemakerApi:
            SageMaker HyperPod platform software of a
            cluster <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-operate-cli-command.html#sagemaker-hyperpod-operate-cli-command-update-cluster-software>`__.
 
-        :param cluster_name: The name of the SageMaker HyperPod cluster from which to delete the
-        specified nodes.
+        :param cluster_name: The name of the SageMaker HyperPod cluster from which to delete the specified nodes.
         :param node_ids: A list of node IDs to be deleted from the specified cluster.
         :param node_logical_ids: A list of ``NodeLogicalIds`` identifying the nodes to be deleted.
         :returns: BatchDeleteClusterNodesResponse
@@ -18760,8 +18835,7 @@ class SagemakerApi:
         -  For SageMaker HyperPod clusters using the Slurm workload manager,
            ensure rebooting nodes will not disrupt critical cluster operations.
 
-        :param cluster_name: The name or Amazon Resource Name (ARN) of the SageMaker HyperPod cluster
-        containing the nodes to reboot.
+        :param cluster_name: The name or Amazon Resource Name (ARN) of the SageMaker HyperPod cluster containing the nodes to reboot.
         :param node_ids: A list of EC2 instance IDs to reboot using soft recovery.
         :param node_logical_ids: A list of logical node IDs to reboot using soft recovery.
         :returns: BatchRebootClusterNodesResponse
@@ -18807,8 +18881,7 @@ class SagemakerApi:
 
         -  You can replace up to 25 nodes in a single request.
 
-        :param cluster_name: The name or Amazon Resource Name (ARN) of the SageMaker HyperPod cluster
-        containing the nodes to replace.
+        :param cluster_name: The name or Amazon Resource Name (ARN) of the SageMaker HyperPod cluster containing the nodes to replace.
         :param node_ids: A list of EC2 instance IDs to replace with new hardware.
         :param node_logical_ids: A list of logical node IDs to replace with new hardware.
         :returns: BatchReplaceClusterNodesResponse
@@ -18866,23 +18939,11 @@ class SagemakerApi:
         list in the Amazon Web Services Marketplace.
 
         :param algorithm_name: The name of the algorithm.
-        :param training_specification: Specifies details about training jobs run by this algorithm, including
-        the following:
-
-        -  The Amazon ECR path of the container and the version digest of the
-           algorithm.
+        :param training_specification: Specifies details about training jobs run by this algorithm, including the following:  -  The Amazon ECR path of the container and the version digest of the    algorithm.
         :param algorithm_description: A description of the algorithm.
-        :param inference_specification: Specifies details about inference jobs that the algorithm runs,
-        including the following:
-
-        -  The Amazon ECR paths of containers that contain the inference code
-           and model artifacts.
-        :param validation_specification: Specifies configurations for one or more training jobs and that
-        SageMaker runs to test the algorithm's training code and, optionally,
-        one or more batch transform jobs that SageMaker runs to test the
-        algorithm's inference code.
-        :param certify_for_marketplace: Whether to certify the algorithm so that it can be listed in Amazon Web
-        Services Marketplace.
+        :param inference_specification: Specifies details about inference jobs that the algorithm runs, including the following:  -  The Amazon ECR paths of containers that contain the inference code    and model artifacts.
+        :param validation_specification: Specifies configurations for one or more training jobs and that SageMaker runs to test the algorithm's training code and, optionally, one or more batch transform jobs that SageMaker runs to test the algorithm's inference code.
+        :param certify_for_marketplace: Whether to certify the algorithm so that it can be listed in Amazon Web Services Marketplace.
         :param tags: An array of key-value pairs.
         :returns: CreateAlgorithmOutput
         """
@@ -18913,8 +18974,7 @@ class SagemakerApi:
         :param user_profile_name: The user profile name.
         :param space_name: The name of the space.
         :param tags: Each tag consists of a key and an optional value.
-        :param resource_spec: The instance type and the Amazon Resource Name (ARN) of the SageMaker AI
-        image created on the instance.
+        :param resource_spec: The instance type and the Amazon Resource Name (ARN) of the SageMaker AI image created on the instance.
         :param recovery_mode: Indicates whether the application is launched in recovery mode.
         :returns: CreateAppResponse
         :raises ResourceInUse:
@@ -19036,19 +19096,15 @@ class SagemakerApi:
         `DescribeAutoMLJob <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DescribeAutoMLJob.html>`__.
 
         :param auto_ml_job_name: Identifies an Autopilot job.
-        :param input_data_config: An array of channel objects that describes the input data and its
-        location.
-        :param output_data_config: Provides information about encryption and the Amazon S3 output path
-        needed to store artifacts from an AutoML job.
+        :param input_data_config: An array of channel objects that describes the input data and its location.
+        :param output_data_config: Provides information about encryption and the Amazon S3 output path needed to store artifacts from an AutoML job.
         :param role_arn: The ARN of the role that is used to access the data.
-        :param problem_type: Defines the type of supervised learning problem available for the
-        candidates.
+        :param problem_type: Defines the type of supervised learning problem available for the candidates.
         :param auto_ml_job_objective: Specifies a metric to minimize or maximize as the objective of a job.
         :param auto_ml_job_config: A collection of settings used to configure an AutoML job.
         :param generate_candidate_definitions_only: Generates possible candidates without training the models.
         :param tags: An array of key-value pairs.
-        :param model_deploy_config: Specifies how to generate the endpoint name for an automatic one-click
-        Autopilot model deployment.
+        :param model_deploy_config: Specifies how to generate the endpoint name for an automatic one-click Autopilot model deployment.
         :returns: CreateAutoMLJobResponse
         :raises ResourceInUse:
         :raises ResourceLimitExceeded:
@@ -19125,21 +19181,15 @@ class SagemakerApi:
         `DescribeAutoMLJobV2 <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DescribeAutoMLJobV2.html>`__.
 
         :param auto_ml_job_name: Identifies an Autopilot job.
-        :param auto_ml_job_input_data_config: An array of channel objects describing the input data and their
-        location.
-        :param output_data_config: Provides information about encryption and the Amazon S3 output path
-        needed to store artifacts from an AutoML job.
-        :param auto_ml_problem_type_config: Defines the configuration settings of one of the supported problem
-        types.
+        :param auto_ml_job_input_data_config: An array of channel objects describing the input data and their location.
+        :param output_data_config: Provides information about encryption and the Amazon S3 output path needed to store artifacts from an AutoML job.
+        :param auto_ml_problem_type_config: Defines the configuration settings of one of the supported problem types.
         :param role_arn: The ARN of the role that is used to access the data.
         :param tags: An array of key-value pairs.
-        :param security_config: The security configuration for traffic encryption or Amazon VPC
-        settings.
+        :param security_config: The security configuration for traffic encryption or Amazon VPC settings.
         :param auto_ml_job_objective: Specifies a metric to minimize or maximize as the objective of a job.
-        :param model_deploy_config: Specifies how to generate the endpoint name for an automatic one-click
-        Autopilot model deployment.
-        :param data_split_config: This structure specifies how to split the data into train and validation
-        datasets.
+        :param model_deploy_config: Specifies how to generate the endpoint name for an automatic one-click Autopilot model deployment.
+        :param data_split_config: This structure specifies how to split the data into train and validation datasets.
         :param auto_ml_compute_config: Specifies the compute configuration for the AutoML job V2.
         :returns: CreateAutoMLJobV2Response
         :raises ResourceInUse:
@@ -19173,19 +19223,14 @@ class SagemakerApi:
 
         :param cluster_name: The name for the new SageMaker HyperPod cluster.
         :param instance_groups: The instance groups to be created in the SageMaker HyperPod cluster.
-        :param restricted_instance_groups: The specialized instance groups for training models like Amazon Nova to
-        be created in the SageMaker HyperPod cluster.
-        :param vpc_config: Specifies the Amazon Virtual Private Cloud (VPC) that is associated with
-        the Amazon SageMaker HyperPod cluster.
-        :param tags: Custom tags for managing the SageMaker HyperPod cluster as an Amazon Web
-        Services resource.
+        :param restricted_instance_groups: The specialized instance groups for training models like Amazon Nova to be created in the SageMaker HyperPod cluster.
+        :param vpc_config: Specifies the Amazon Virtual Private Cloud (VPC) that is associated with the Amazon SageMaker HyperPod cluster.
+        :param tags: Custom tags for managing the SageMaker HyperPod cluster as an Amazon Web Services resource.
         :param orchestrator: The type of orchestrator to use for the SageMaker HyperPod cluster.
         :param node_recovery: The node recovery mode for the SageMaker HyperPod cluster.
-        :param tiered_storage_config: The configuration for managed tier checkpointing on the HyperPod
-        cluster.
+        :param tiered_storage_config: The configuration for managed tier checkpointing on the HyperPod cluster.
         :param node_provisioning_mode: The mode for provisioning nodes in the cluster.
-        :param cluster_role: The Amazon Resource Name (ARN) of the IAM role that HyperPod assumes to
-        perform cluster autoscaling operations.
+        :param cluster_role: The Amazon Resource Name (ARN) of the IAM role that HyperPod assumes to perform cluster autoscaling operations.
         :param auto_scaling: The autoscaling configuration for the cluster.
         :returns: CreateClusterResponse
         :raises ResourceInUse:
@@ -19241,9 +19286,7 @@ class SagemakerApi:
         or in any other Git repository.
 
         :param code_repository_name: The name of the Git repository.
-        :param git_config: Specifies details about the repository, including the URL where the
-        repository is located, the default branch, and credentials to use to
-        access the repository.
+        :param git_config: Specifies details about the repository, including the URL where the repository is located, the default branch, and credentials to use to access the repository.
         :param tags: An array of key-value pairs.
         :returns: CreateCodeRepositoryOutput
         """
@@ -19296,17 +19339,12 @@ class SagemakerApi:
         `ListCompilationJobs <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListCompilationJobs.html>`__.
 
         :param compilation_job_name: A name for the model compilation job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that enables Amazon
-        SageMaker AI to perform tasks on your behalf.
-        :param output_config: Provides information about the output location for the compiled model
-        and the target device the model runs on.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that enables Amazon SageMaker AI to perform tasks on your behalf.
+        :param output_config: Provides information about the output location for the compiled model and the target device the model runs on.
         :param stopping_condition: Specifies a limit to how long a model compilation job can run.
         :param model_package_version_arn: The Amazon Resource Name (ARN) of a versioned model package.
-        :param input_config: Provides information about the location of input model artifacts, the
-        name and shape of the expected data inputs, and the framework in which
-        the model was trained.
-        :param vpc_config: A
-        `VpcConfig <https://docs.
+        :param input_config: Provides information about the location of input model artifacts, the name and shape of the expected data inputs, and the framework in which the model was trained.
+        :param vpc_config: A `VpcConfig <https://docs.
         :param tags: An array of key-value pairs.
         :returns: CreateCompilationJobResponse
         :raises ResourceInUse:
@@ -19399,12 +19437,10 @@ class SagemakerApi:
         :param data_quality_job_input: A list of inputs for the monitoring job.
         :param data_quality_job_output_config: The output configuration for monitoring jobs.
         :param job_resources: Identifies the resources to deploy for a monitoring job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI
-        can assume to perform tasks on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform tasks on your behalf.
         :param data_quality_baseline_config: Configures the constraints and baselines for the monitoring job.
         :param network_config: Specifies networking configuration for the monitoring job.
-        :param stopping_condition: A time limit for how long the monitoring job is allowed to run before
-        stopping.
+        :param stopping_condition: A time limit for how long the monitoring job is allowed to run before stopping.
         :param tags: (Optional) An array of key-value pairs.
         :returns: CreateDataQualityJobDefinitionResponse
         :raises ResourceInUse:
@@ -19428,12 +19464,10 @@ class SagemakerApi:
 
         :param device_fleet_name: The name of the fleet that the device belongs to.
         :param output_config: The output configuration for storing sample data collected by the fleet.
-        :param role_arn: The Amazon Resource Name (ARN) that has access to Amazon Web Services
-        Internet of Things (IoT).
+        :param role_arn: The Amazon Resource Name (ARN) that has access to Amazon Web Services Internet of Things (IoT).
         :param description: A description of the fleet.
         :param tags: Creates tags for the specified fleet.
-        :param enable_iot_role_alias: Whether to create an Amazon Web Services IoT Role Alias during device
-        fleet creation.
+        :param enable_iot_role_alias: Whether to create an Amazon Web Services IoT Role Alias during device fleet creation.
         :raises ResourceInUse:
         :raises ResourceLimitExceeded:
         """
@@ -19508,21 +19542,15 @@ class SagemakerApi:
 
         :param domain_name: A name for the domain.
         :param auth_mode: The mode of authentication that members use to access the domain.
-        :param default_user_settings: The default settings to use to create a user profile when
-        ``UserSettings`` isn't specified in the call to the
-        ``CreateUserProfile`` API.
+        :param default_user_settings: The default settings to use to create a user profile when ``UserSettings`` isn't specified in the call to the ``CreateUserProfile`` API.
         :param domain_settings: A collection of ``Domain`` settings.
         :param subnet_ids: The VPC subnets that the domain uses for communication.
-        :param vpc_id: The ID of the Amazon Virtual Private Cloud (VPC) that the domain uses
-        for communication.
+        :param vpc_id: The ID of the Amazon Virtual Private Cloud (VPC) that the domain uses for communication.
         :param tags: Tags to associated with the Domain.
         :param app_network_access_type: Specifies the VPC used for non-EFS traffic.
         :param home_efs_file_system_kms_key_id: Use ``KmsKeyId``.
-        :param kms_key_id: SageMaker AI uses Amazon Web Services KMS to encrypt EFS and EBS volumes
-        attached to the domain with an Amazon Web Services managed key by
-        default.
-        :param app_security_group_management: The entity that creates and manages the required security groups for
-        inter-app communication in ``VPCOnly`` mode.
+        :param kms_key_id: SageMaker AI uses Amazon Web Services KMS to encrypt EFS and EBS volumes attached to the domain with an Amazon Web Services managed key by default.
+        :param app_security_group_management: The entity that creates and manages the required security groups for inter-app communication in ``VPCOnly`` mode.
         :param tag_propagation: Indicates whether custom tag propagation is supported for the domain.
         :param default_space_settings: The default settings for shared spaces that users create in the domain.
         :returns: CreateDomainResponse
@@ -19591,16 +19619,12 @@ class SagemakerApi:
         saves the resulting artifacts to an S3 bucket that you specify.
 
         :param edge_packaging_job_name: The name of the edge packaging job.
-        :param compilation_job_name: The name of the SageMaker Neo compilation job that will be used to
-        locate model artifacts for packaging.
+        :param compilation_job_name: The name of the SageMaker Neo compilation job that will be used to locate model artifacts for packaging.
         :param model_name: The name of the model.
         :param model_version: The version of the model.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that enables Amazon
-        SageMaker to download and upload the model, and to contact SageMaker
-        Neo.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that enables Amazon SageMaker to download and upload the model, and to contact SageMaker Neo.
         :param output_config: Provides information about the output location for the packaged model.
-        :param resource_key: The Amazon Web Services KMS key to use when encrypting the EBS volume
-        the edge packaging job runs on.
+        :param resource_key: The Amazon Web Services KMS key to use when encrypting the EBS volume the edge packaging job runs on.
         :param tags: Creates tags for the packaging job.
         :raises ResourceLimitExceeded:
         """
@@ -19703,8 +19727,7 @@ class SagemakerApi:
 
         :param endpoint_name: The name of the endpoint.
         :param endpoint_config_name: The name of an endpoint configuration.
-        :param deployment_config: The deployment configuration for an endpoint, which contains the desired
-        deployment strategy and rollback configurations.
+        :param deployment_config: The deployment configuration for an endpoint, which contains the desired deployment strategy and rollback configurations.
         :param tags: An array of key-value pairs.
         :returns: CreateEndpointOutput
         :raises ResourceLimitExceeded:
@@ -19770,23 +19793,15 @@ class SagemakerApi:
         read.
 
         :param endpoint_config_name: The name of the endpoint configuration.
-        :param production_variants: An array of ``ProductionVariant`` objects, one for each model that you
-        want to host at this endpoint.
+        :param production_variants: An array of ``ProductionVariant`` objects, one for each model that you want to host at this endpoint.
         :param data_capture_config: Configuration to control how SageMaker AI captures inference data.
         :param tags: An array of key-value pairs.
-        :param kms_key_id: The Amazon Resource Name (ARN) of a Amazon Web Services Key Management
-        Service key that SageMaker uses to encrypt data on the storage volume
-        attached to the ML compute instance that hosts the endpoint.
-        :param async_inference_config: Specifies configuration for how an endpoint performs asynchronous
-        inference.
+        :param kms_key_id: The Amazon Resource Name (ARN) of a Amazon Web Services Key Management Service key that SageMaker uses to encrypt data on the storage volume attached to the ML compute instance that hosts the endpoint.
+        :param async_inference_config: Specifies configuration for how an endpoint performs asynchronous inference.
         :param explainer_config: A member of ``CreateEndpointConfig`` that enables explainers.
-        :param shadow_production_variants: An array of ``ProductionVariant`` objects, one for each model that you
-        want to host at this endpoint in shadow mode with production traffic
-        replicated from the model specified on ``ProductionVariants``.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI
-        can assume to perform actions on your behalf.
-        :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker
-        jobs, hosted models, and compute resources have access to.
+        :param shadow_production_variants: An array of ``ProductionVariant`` objects, one for each model that you want to host at this endpoint in shadow mode with production traffic replicated from the model specified on ``ProductionVariants``.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform actions on your behalf.
+        :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to.
         :param enable_network_isolation: Sets whether all model containers deployed to the endpoint are isolated.
         :param metrics_config: The configuration parameters for utilization metrics.
         :returns: CreateEndpointConfigOutput
@@ -19888,17 +19903,13 @@ class SagemakerApi:
         ``OfflineStoreConfig`` to create a ``FeatureGroup``.
 
         :param feature_group_name: The name of the ``FeatureGroup``.
-        :param record_identifier_feature_name: The name of the ``Feature`` whose value uniquely identifies a ``Record``
-        defined in the ``FeatureStore``.
-        :param event_time_feature_name: The name of the feature that stores the ``EventTime`` of a ``Record`` in
-        a ``FeatureGroup``.
+        :param record_identifier_feature_name: The name of the ``Feature`` whose value uniquely identifies a ``Record`` defined in the ``FeatureStore``.
+        :param event_time_feature_name: The name of the feature that stores the ``EventTime`` of a ``Record`` in a ``FeatureGroup``.
         :param feature_definitions: A list of ``Feature`` names and types.
-        :param online_store_config: You can turn the ``OnlineStore`` on or off by specifying ``True`` for
-        the ``EnableOnlineStore`` flag in ``OnlineStoreConfig``.
+        :param online_store_config: You can turn the ``OnlineStore`` on or off by specifying ``True`` for the ``EnableOnlineStore`` flag in ``OnlineStoreConfig``.
         :param offline_store_config: Use this to configure an ``OfflineFeatureStore``.
         :param throughput_config: Used to set feature group throughput configuration.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM execution role used to persist
-        data into the ``OfflineStore`` if an ``OfflineStoreConfig`` is provided.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM execution role used to persist data into the ``OfflineStore`` if an ``OfflineStoreConfig`` is provided.
         :param description: A free-form description of a ``FeatureGroup``.
         :param tags: Tags used to identify ``Features`` in each ``FeatureGroup``.
         :returns: CreateFeatureGroupResponse
@@ -19923,17 +19934,12 @@ class SagemakerApi:
         """Creates a flow definition.
 
         :param flow_definition_name: The name of your flow definition.
-        :param output_config: An object containing information about where the human review results
-        will be uploaded.
-        :param role_arn: The Amazon Resource Name (ARN) of the role needed to call other services
-        on your behalf.
+        :param output_config: An object containing information about where the human review results will be uploaded.
+        :param role_arn: The Amazon Resource Name (ARN) of the role needed to call other services on your behalf.
         :param human_loop_request_source: Container for configuring the source of human task requests.
-        :param human_loop_activation_config: An object containing information about the events that trigger a human
-        workflow.
-        :param human_loop_config: An object containing information about the tasks the human reviewers
-        will perform.
-        :param tags: An array of key-value pairs that contain metadata to help you categorize
-        and organize a flow definition.
+        :param human_loop_activation_config: An object containing information about the events that trigger a human workflow.
+        :param human_loop_config: An object containing information about the tasks the human reviewers will perform.
+        :param tags: An array of key-value pairs that contain metadata to help you categorize and organize a flow definition.
         :returns: CreateFlowDefinitionResponse
         :raises ResourceInUse:
         :raises ResourceLimitExceeded:
@@ -19985,14 +19991,11 @@ class SagemakerApi:
         content, including gated models that require end-user license agreement
         acceptance.
 
-        :param hub_name: The name or Amazon Resource Name (ARN) of the hub that contains the
-        content.
+        :param hub_name: The name or Amazon Resource Name (ARN) of the hub that contains the content.
         :param hub_content_type: The type of hub content to access.
         :param hub_content_name: The name of the hub content for which to generate presigned URLs.
         :param hub_content_version: The version of the hub content.
-        :param access_config: Configuration settings for accessing the hub content, including end-user
-        license agreement acceptance for gated models and expected S3 URL
-        validation.
+        :param access_config: Configuration settings for accessing the hub content, including end-user license agreement acceptance for gated models and expected S3 URL validation.
         :param max_results: The maximum number of presigned URLs to return in the response.
         :param next_token: A token for pagination.
         :returns: CreateHubContentPresignedUrlsResponse
@@ -20040,8 +20043,7 @@ class SagemakerApi:
 
         :param human_task_ui_name: The name of the user interface you are creating.
         :param ui_template: The Liquid template for the worker user interface.
-        :param tags: An array of key-value pairs that contain metadata to help you categorize
-        and organize a human review workflow user interface.
+        :param tags: An array of key-value pairs that contain metadata to help you categorize and organize a human review workflow user interface.
         :returns: CreateHumanTaskUiResponse
         :raises ResourceInUse:
         :raises ResourceLimitExceeded:
@@ -20082,19 +20084,12 @@ class SagemakerApi:
         hyperparameter variable or plain text fields..
 
         :param hyper_parameter_tuning_job_name: The name of the tuning job.
-        :param hyper_parameter_tuning_job_config: The
-        `HyperParameterTuningJobConfig <https://docs.
-        :param training_job_definition: The
-        `HyperParameterTrainingJobDefinition <https://docs.
-        :param training_job_definitions: A list of the
-        `HyperParameterTrainingJobDefinition <https://docs.
-        :param warm_start_config: Specifies the configuration for starting the hyperparameter tuning job
-        using one or more previous tuning jobs as a starting point.
+        :param hyper_parameter_tuning_job_config: The `HyperParameterTuningJobConfig <https://docs.
+        :param training_job_definition: The `HyperParameterTrainingJobDefinition <https://docs.
+        :param training_job_definitions: A list of the `HyperParameterTrainingJobDefinition <https://docs.
+        :param warm_start_config: Specifies the configuration for starting the hyperparameter tuning job using one or more previous tuning jobs as a starting point.
         :param tags: An array of key-value pairs.
-        :param autotune: Configures SageMaker Automatic model tuning (AMT) to automatically find
-        optimal parameters for the following fields:
-
-        -  `ParameterRanges <https://docs.
+        :param autotune: Configures SageMaker Automatic model tuning (AMT) to automatically find optimal parameters for the following fields:  -  `ParameterRanges <https://docs.
         :returns: CreateHyperParameterTuningJobResponse
         :raises ResourceInUse:
         :raises ResourceLimitExceeded:
@@ -20118,8 +20113,7 @@ class SagemakerApi:
         image <https://docs.aws.amazon.com/sagemaker/latest/dg/studio-byoi.html>`__.
 
         :param image_name: The name of the image.
-        :param role_arn: The ARN of an IAM role that enables Amazon SageMaker AI to perform tasks
-        on your behalf.
+        :param role_arn: The ARN of an IAM role that enables Amazon SageMaker AI to perform tasks on your behalf.
         :param description: The description of the image.
         :param display_name: The display name of the image.
         :param tags: A list of tags to apply to the image.
@@ -20150,8 +20144,7 @@ class SagemakerApi:
         The version represents the Amazon ECR container image specified by
         ``BaseImage``.
 
-        :param base_image: The registry path of the container image to use as the starting point
-        for this version.
+        :param base_image: The registry path of the container image to use as the starting point for this version.
         :param client_token: A unique ID.
         :param image_name: The ``ImageName`` of the ``Image`` to create a version of.
         :param aliases: A list of aliases created with the image version.
@@ -20195,12 +20188,9 @@ class SagemakerApi:
 
         :param inference_component_name: A unique name to assign to the inference component.
         :param endpoint_name: The name of an existing endpoint where you host the inference component.
-        :param specification: Details about the resources to deploy with this inference component,
-        including the model, container, and compute resources.
-        :param variant_name: The name of an existing production variant where you host the inference
-        component.
-        :param runtime_config: Runtime settings for a model that is deployed with an inference
-        component.
+        :param specification: Details about the resources to deploy with this inference component, including the model, container, and compute resources.
+        :param variant_name: The name of an existing production variant where you host the inference component.
+        :param runtime_config: Runtime settings for a model that is deployed with an inference component.
         :param tags: A list of key-value pairs associated with the model.
         :returns: CreateInferenceComponentOutput
         :raises ResourceLimitExceeded:
@@ -20230,20 +20220,14 @@ class SagemakerApi:
 
         :param name: The name for the inference experiment.
         :param type: The type of the inference experiment that you want to run.
-        :param role_arn: The ARN of the IAM role that Amazon SageMaker can assume to access model
-        artifacts and container images, and manage Amazon SageMaker Inference
-        endpoints for model deployment.
-        :param endpoint_name: The name of the Amazon SageMaker endpoint on which you want to run the
-        inference experiment.
+        :param role_arn: The ARN of the IAM role that Amazon SageMaker can assume to access model artifacts and container images, and manage Amazon SageMaker Inference endpoints for model deployment.
+        :param endpoint_name: The name of the Amazon SageMaker endpoint on which you want to run the inference experiment.
         :param model_variants: An array of ``ModelVariantConfig`` objects.
         :param shadow_mode_config: The configuration of ``ShadowMode`` inference experiment type.
         :param schedule: The duration for which you want the inference experiment to run.
         :param description: A description for the inference experiment.
-        :param data_storage_config: The Amazon S3 location and configuration for storing inference request
-        and response data.
-        :param kms_key: The Amazon Web Services Key Management Service (Amazon Web Services KMS)
-        key that Amazon SageMaker uses to encrypt data on the storage volume
-        attached to the ML compute instance that hosts the endpoint.
+        :param data_storage_config: The Amazon S3 location and configuration for storing inference request and response data.
+        :param kms_key: The Amazon Web Services Key Management Service (Amazon Web Services KMS) key that Amazon SageMaker uses to encrypt data on the storage volume attached to the ML compute instance that hosts the endpoint.
         :param tags: Array of key-value pairs.
         :returns: CreateInferenceExperimentResponse
         :raises ResourceInUse:
@@ -20270,16 +20254,12 @@ class SagemakerApi:
 
         :param job_name: A name for the recommendation job.
         :param job_type: Defines the type of recommendation job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that enables Amazon
-        SageMaker to perform tasks on your behalf.
-        :param input_config: Provides information about the versioned model package Amazon Resource
-        Name (ARN), the traffic pattern, and endpoint configurations.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that enables Amazon SageMaker to perform tasks on your behalf.
+        :param input_config: Provides information about the versioned model package Amazon Resource Name (ARN), the traffic pattern, and endpoint configurations.
         :param job_description: Description of the recommendation job.
         :param stopping_conditions: A set of conditions for stopping a recommendation job.
-        :param output_config: Provides information about the output artifacts and the KMS key to use
-        for Amazon S3 server-side encryption.
-        :param tags: The metadata that you apply to Amazon Web Services resources to help you
-        categorize and organize them.
+        :param output_config: Provides information about the output artifacts and the KMS key to use for Amazon S3 server-side encryption.
+        :param tags: The metadata that you apply to Amazon Web Services resources to help you categorize and organize them.
         :returns: CreateInferenceRecommendationsJobResponse
         :raises ResourceInUse:
         :raises ResourceLimitExceeded:
@@ -20348,19 +20328,11 @@ class SagemakerApi:
 
         :param labeling_job_name: The name of the labeling job.
         :param label_attribute_name: The attribute name to use for the label in the output manifest file.
-        :param input_config: Input data for the labeling job, such as the Amazon S3 location of the
-        data objects and the location of the manifest file that describes the
-        data objects.
-        :param output_config: The location of the output data and the Amazon Web Services Key
-        Management Service key ID for the key used to encrypt the output data,
-        if any.
-        :param role_arn: The Amazon Resource Number (ARN) that Amazon SageMaker assumes to
-        perform tasks on your behalf during data labeling.
-        :param human_task_config: Configures the labeling task and how it is presented to workers;
-        including, but not limited to price, keywords, and batch size (task
-        count).
-        :param label_category_config_s3_uri: The S3 URI of the file, referred to as a *label category configuration
-        file*, that defines the categories used to label the data objects.
+        :param input_config: Input data for the labeling job, such as the Amazon S3 location of the data objects and the location of the manifest file that describes the data objects.
+        :param output_config: The location of the output data and the Amazon Web Services Key Management Service key ID for the key used to encrypt the output data, if any.
+        :param role_arn: The Amazon Resource Number (ARN) that Amazon SageMaker assumes to perform tasks on your behalf during data labeling.
+        :param human_task_config: Configures the labeling task and how it is presented to workers; including, but not limited to price, keywords, and batch size (task count).
+        :param label_category_config_s3_uri: The S3 URI of the file, referred to as a *label category configuration file*, that defines the categories used to label the data objects.
         :param stopping_conditions: A set of conditions for stopping the labeling job.
         :param labeling_job_algorithms_config: Configures the information required to perform automated data labeling.
         :param tags: An array of key/value pairs.
@@ -20388,19 +20360,13 @@ class SagemakerApi:
         bucket as the artifact store.
 
         :param name: A string identifying the MLflow app name.
-        :param artifact_store_uri: The S3 URI for a general purpose bucket to use as the MLflow App
-        artifact store.
-        :param role_arn: The Amazon Resource Name (ARN) for an IAM role in your account that the
-        MLflow App uses to access the artifact store in Amazon S3.
-        :param model_registration_mode: Whether to enable or disable automatic registration of new MLflow models
-        to the SageMaker Model Registry.
-        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour
-        standard time that weekly maintenance updates are scheduled.
+        :param artifact_store_uri: The S3 URI for a general purpose bucket to use as the MLflow App artifact store.
+        :param role_arn: The Amazon Resource Name (ARN) for an IAM role in your account that the MLflow App uses to access the artifact store in Amazon S3.
+        :param model_registration_mode: Whether to enable or disable automatic registration of new MLflow models to the SageMaker Model Registry.
+        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour standard time that weekly maintenance updates are scheduled.
         :param account_default_status: Indicates whether this MLflow app is the default for the entire account.
-        :param default_domain_id_list: List of SageMaker domain IDs for which this MLflow App is used as the
-        default.
-        :param tags: Tags consisting of key-value pairs used to manage metadata for the
-        MLflow App.
+        :param default_domain_id_list: List of SageMaker domain IDs for which this MLflow App is used as the default.
+        :param tags: Tags consisting of key-value pairs used to manage metadata for the MLflow App.
         :returns: CreateMlflowAppResponse
         :raises ResourceLimitExceeded:
         """
@@ -20418,6 +20384,8 @@ class SagemakerApi:
         automatic_model_registration: Boolean | None = None,
         weekly_maintenance_window_start: WeeklyMaintenanceWindowStart | None = None,
         tags: TagList | None = None,
+        s3_bucket_owner_account_id: AccountId | None = None,
+        s3_bucket_owner_verification: Boolean | None = None,
         **kwargs,
     ) -> CreateMlflowTrackingServerResponse:
         """Creates an MLflow Tracking Server using a general purpose Amazon S3
@@ -20426,18 +20394,15 @@ class SagemakerApi:
         Server <https://docs.aws.amazon.com/sagemaker/latest/dg/mlflow-create-tracking-server.html>`__.
 
         :param tracking_server_name: A unique string identifying the tracking server name.
-        :param artifact_store_uri: The S3 URI for a general purpose bucket to use as the MLflow Tracking
-        Server artifact store.
-        :param role_arn: The Amazon Resource Name (ARN) for an IAM role in your account that the
-        MLflow Tracking Server uses to access the artifact store in Amazon S3.
+        :param artifact_store_uri: The S3 URI for a general purpose bucket to use as the MLflow Tracking Server artifact store.
+        :param role_arn: The Amazon Resource Name (ARN) for an IAM role in your account that the MLflow Tracking Server uses to access the artifact store in Amazon S3.
         :param tracking_server_size: The size of the tracking server you want to create.
         :param mlflow_version: The version of MLflow that the tracking server uses.
-        :param automatic_model_registration: Whether to enable or disable automatic registration of new MLflow models
-        to the SageMaker Model Registry.
-        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour
-        standard time that weekly maintenance updates are scheduled.
-        :param tags: Tags consisting of key-value pairs used to manage metadata for the
-        tracking server.
+        :param automatic_model_registration: Whether to enable or disable automatic registration of new MLflow models to the SageMaker Model Registry.
+        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour standard time that weekly maintenance updates are scheduled.
+        :param tags: Tags consisting of key-value pairs used to manage metadata for the tracking server.
+        :param s3_bucket_owner_account_id: Expected Amazon Web Services account ID that owns the Amazon S3 bucket for artifact storage.
+        :param s3_bucket_owner_verification: Enable Amazon S3 Ownership checks when interacting with Amazon S3 buckets from a SageMaker Managed MLflow Tracking Server.
         :returns: CreateMlflowTrackingServerResponse
         :raises ResourceLimitExceeded:
         """
@@ -20483,18 +20448,12 @@ class SagemakerApi:
         resources, you grant necessary permissions via this role.
 
         :param model_name: The name of the new model.
-        :param primary_container: The location of the primary docker image containing inference code,
-        associated artifacts, and custom environment map that the inference code
-        uses when the model is deployed for predictions.
+        :param primary_container: The location of the primary docker image containing inference code, associated artifacts, and custom environment map that the inference code uses when the model is deployed for predictions.
         :param containers: Specifies the containers in the inference pipeline.
-        :param inference_execution_config: Specifies details of how containers in a multi-container endpoint are
-        called.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the IAM role that SageMaker can assume
-        to access model artifacts and docker image for deployment on ML compute
-        instances or for batch transform jobs.
+        :param inference_execution_config: Specifies details of how containers in a multi-container endpoint are called.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the IAM role that SageMaker can assume to access model artifacts and docker image for deployment on ML compute instances or for batch transform jobs.
         :param tags: An array of key-value pairs.
-        :param vpc_config: A
-        `VpcConfig <https://docs.
+        :param vpc_config: A `VpcConfig <https://docs.
         :param enable_network_isolation: Isolates the model container.
         :returns: CreateModelOutput
         :raises ResourceLimitExceeded:
@@ -20524,12 +20483,10 @@ class SagemakerApi:
         :param model_bias_job_input: Inputs for the model bias job.
         :param model_bias_job_output_config: The output configuration for monitoring jobs.
         :param job_resources: Identifies the resources to deploy for a monitoring job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI
-        can assume to perform tasks on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform tasks on your behalf.
         :param model_bias_baseline_config: The baseline configuration for a model bias job.
         :param network_config: Networking options for a model bias job.
-        :param stopping_condition: A time limit for how long the monitoring job is allowed to run before
-        stopping.
+        :param stopping_condition: A time limit for how long the monitoring job is allowed to run before stopping.
         :param tags: (Optional) An array of key-value pairs.
         :returns: CreateModelBiasJobDefinitionResponse
         :raises ResourceInUse:
@@ -20557,9 +20514,7 @@ class SagemakerApi:
         :param model_card_name: The unique name of the model card.
         :param content: The content of the model card.
         :param model_card_status: The approval status of the model card within your organization.
-        :param security_config: An optional Key Management Service key to encrypt, decrypt, and
-        re-encrypt model card content for regulated workloads with highly
-        sensitive data.
+        :param security_config: An optional Key Management Service key to encrypt, decrypt, and re-encrypt model card content for regulated workloads with highly sensitive data.
         :param tags: Key-value pairs used to manage metadata for model cards.
         :returns: CreateModelCardResponse
         :raises ConflictException:
@@ -20581,8 +20536,7 @@ class SagemakerApi:
 
         :param model_card_name: The name or Amazon Resource Name (ARN) of the model card to export.
         :param model_card_export_job_name: The name of the model card export job.
-        :param output_config: The model card output configuration that specifies the Amazon S3 path
-        for exporting.
+        :param output_config: The model card output configuration that specifies the Amazon S3 path for exporting.
         :param model_card_version: The version of the model card to export.
         :returns: CreateModelCardExportJobResponse
         :raises ConflictException:
@@ -20610,17 +20564,14 @@ class SagemakerApi:
         """Creates the definition for a model explainability job.
 
         :param job_definition_name: The name of the model explainability job definition.
-        :param model_explainability_app_specification: Configures the model explainability job to run a specified Docker
-        container image.
+        :param model_explainability_app_specification: Configures the model explainability job to run a specified Docker container image.
         :param model_explainability_job_input: Inputs for the model explainability job.
         :param model_explainability_job_output_config: The output configuration for monitoring jobs.
         :param job_resources: Identifies the resources to deploy for a monitoring job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI
-        can assume to perform tasks on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform tasks on your behalf.
         :param model_explainability_baseline_config: The baseline configuration for a model explainability job.
         :param network_config: Networking options for a model explainability job.
-        :param stopping_condition: A time limit for how long the monitoring job is allowed to run before
-        stopping.
+        :param stopping_condition: A time limit for how long the monitoring job is allowed to run before stopping.
         :param tags: (Optional) An array of key-value pairs.
         :returns: CreateModelExplainabilityJobDefinitionResponse
         :raises ResourceInUse:
@@ -20678,20 +20629,13 @@ class SagemakerApi:
         -  Unversioned - a model package that is not part of a model group.
 
         :param model_package_name: The name of the model package.
-        :param model_package_group_name: The name or Amazon Resource Name (ARN) of the model package group that
-        this model version belongs to.
+        :param model_package_group_name: The name or Amazon Resource Name (ARN) of the model package group that this model version belongs to.
         :param model_package_description: A description of the model package.
         :param model_package_registration_type: The package registration type of the model package input.
-        :param inference_specification: Specifies details about inference jobs that you can run with models
-        based on this model package, including the following information:
-
-        -  The Amazon ECR paths of containers that contain the inference code
-           and model artifacts.
-        :param validation_specification: Specifies configurations for one or more transform jobs that SageMaker
-        runs to test the model package.
+        :param inference_specification: Specifies details about inference jobs that you can run with models based on this model package, including the following information:  -  The Amazon ECR paths of containers that contain the inference code    and model artifacts.
+        :param validation_specification: Specifies configurations for one or more transform jobs that SageMaker runs to test the model package.
         :param source_algorithm_specification: Details about the algorithm that was used to create the model package.
-        :param certify_for_marketplace: Whether to certify the model package for listing on Amazon Web Services
-        Marketplace.
+        :param certify_for_marketplace: Whether to certify the model package for listing on Amazon Web Services Marketplace.
         :param tags: A list of key value pairs associated with the model.
         :param model_approval_status: Whether the model is approved for deployment.
         :param metadata_properties: Metadata properties of the tracking entity, trial, or trial component.
@@ -20699,16 +20643,13 @@ class SagemakerApi:
         :param client_token: A unique token that guarantees that the call to this API is idempotent.
         :param domain: The machine learning domain of your model package and its components.
         :param task: The machine learning task your model package accomplishes.
-        :param sample_payload_url: The Amazon Simple Storage Service (Amazon S3) path where the sample
-        payload is stored.
+        :param sample_payload_url: The Amazon Simple Storage Service (Amazon S3) path where the sample payload is stored.
         :param customer_metadata_properties: The metadata properties associated with the model package versions.
-        :param drift_check_baselines: Represents the drift check baselines that can be used when the model
-        monitor is set using the model package.
+        :param drift_check_baselines: Represents the drift check baselines that can be used when the model monitor is set using the model package.
         :param additional_inference_specifications: An array of additional Inference Specification objects.
         :param skip_model_validation: Indicates if you want to skip model validation.
         :param source_uri: The URI of the source for the model package.
-        :param security_config: The KMS Key ID (``KMSKeyId``) used for encryption of model package
-        information.
+        :param security_config: The KMS Key ID (``KMSKeyId``) used for encryption of model package information.
         :param model_card: The model card associated with the model package.
         :param model_life_cycle: A structure describing the current state of the model in its life cycle.
         :returns: CreateModelPackageOutput
@@ -20761,12 +20702,10 @@ class SagemakerApi:
         :param model_quality_job_input: A list of the inputs that are monitored.
         :param model_quality_job_output_config: The output configuration for monitoring jobs.
         :param job_resources: Identifies the resources to deploy for a monitoring job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI
-        can assume to perform tasks on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker AI can assume to perform tasks on your behalf.
         :param model_quality_baseline_config: Specifies the constraints and baselines for the monitoring job.
         :param network_config: Specifies the network configuration for the monitoring job.
-        :param stopping_condition: A time limit for how long the monitoring job is allowed to run before
-        stopping.
+        :param stopping_condition: A time limit for how long the monitoring job is allowed to run before stopping.
         :param tags: (Optional) An array of key-value pairs.
         :returns: CreateModelQualityJobDefinitionResponse
         :raises ResourceInUse:
@@ -20787,8 +20726,7 @@ class SagemakerApi:
         Jobs to monitor the data captured for an Amazon SageMaker AI Endpoint.
 
         :param monitoring_schedule_name: The name of the monitoring schedule.
-        :param monitoring_schedule_config: The configuration object that specifies the monitoring schedule and
-        defines the monitoring job.
+        :param monitoring_schedule_config: The configuration object that specifies the monitoring schedule and defines the monitoring job.
         :param tags: (Optional) An array of key-value pairs.
         :returns: CreateMonitoringScheduleResponse
         :raises ResourceInUse:
@@ -20863,30 +20801,19 @@ class SagemakerApi:
 
         :param notebook_instance_name: The name of the new notebook instance.
         :param instance_type: The type of ML compute instance to launch for the notebook instance.
-        :param role_arn: When you send any requests to Amazon Web Services resources from the
-        notebook instance, SageMaker AI assumes this role to perform tasks on
-        your behalf.
-        :param subnet_id: The ID of the subnet in a VPC to which you would like to have a
-        connectivity from your ML compute instance.
+        :param role_arn: When you send any requests to Amazon Web Services resources from the notebook instance, SageMaker AI assumes this role to perform tasks on your behalf.
+        :param subnet_id: The ID of the subnet in a VPC to which you would like to have a connectivity from your ML compute instance.
         :param security_group_ids: The VPC security group IDs, in the form sg-xxxxxxxx.
         :param ip_address_type: The IP address type for the notebook instance.
-        :param kms_key_id: The Amazon Resource Name (ARN) of a Amazon Web Services Key Management
-        Service key that SageMaker AI uses to encrypt data on the storage volume
-        attached to your notebook instance.
+        :param kms_key_id: The Amazon Resource Name (ARN) of a Amazon Web Services Key Management Service key that SageMaker AI uses to encrypt data on the storage volume attached to your notebook instance.
         :param tags: An array of key-value pairs.
-        :param lifecycle_config_name: The name of a lifecycle configuration to associate with the notebook
-        instance.
-        :param direct_internet_access: Sets whether SageMaker AI provides internet access to the notebook
-        instance.
-        :param volume_size_in_gb: The size, in GB, of the ML storage volume to attach to the notebook
-        instance.
+        :param lifecycle_config_name: The name of a lifecycle configuration to associate with the notebook instance.
+        :param direct_internet_access: Sets whether SageMaker AI provides internet access to the notebook instance.
+        :param volume_size_in_gb: The size, in GB, of the ML storage volume to attach to the notebook instance.
         :param accelerator_types: This parameter is no longer supported.
-        :param default_code_repository: A Git repository to associate with the notebook instance as its default
-        code repository.
-        :param additional_code_repositories: An array of up to three Git repositories to associate with the notebook
-        instance.
-        :param root_access: Whether root access is enabled or disabled for users of the notebook
-        instance.
+        :param default_code_repository: A Git repository to associate with the notebook instance as its default code repository.
+        :param additional_code_repositories: An array of up to three Git repositories to associate with the notebook instance.
+        :param root_access: Whether root access is enabled or disabled for users of the notebook instance.
         :param platform_identifier: The platform identifier of the notebook instance runtime environment.
         :param instance_metadata_service_configuration: Information on the IMDS configuration of the notebook instance.
         :returns: CreateNotebookInstanceOutput
@@ -20934,8 +20861,7 @@ class SagemakerApi:
 
         :param notebook_instance_lifecycle_config_name: The name of the lifecycle configuration.
         :param on_create: A shell script that runs only once, when you create a notebook instance.
-        :param on_start: A shell script that runs every time you start a notebook instance,
-        including when you create the notebook instance.
+        :param on_start: A shell script that runs every time you start a notebook instance, including when you create the notebook instance.
         :param tags: An array of key-value pairs.
         :returns: CreateNotebookInstanceLifecycleConfigOutput
         :raises ResourceLimitExceeded:
@@ -20971,14 +20897,11 @@ class SagemakerApi:
         SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/model-optimize.html>`__.
 
         :param optimization_job_name: A custom name for the new optimization job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that enables Amazon
-        SageMaker AI to perform tasks on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that enables Amazon SageMaker AI to perform tasks on your behalf.
         :param model_source: The location of the source model to optimize with an optimization job.
-        :param deployment_instance_type: The type of instance that hosts the optimized model that you create with
-        the optimization job.
+        :param deployment_instance_type: The type of instance that hosts the optimized model that you create with the optimization job.
         :param optimization_configs: Settings for each of the optimization techniques that the job applies.
-        :param output_config: Details for where to store the optimized model that you create with the
-        optimization job.
+        :param output_config: Details for where to store the optimized model that you create with the optimization job.
         :param stopping_condition: Specifies a limit to how long a job can run.
         :param max_instance_count: The maximum number of instances to use for the optimization job.
         :param optimization_environment: The environment variables to set in the model container.
@@ -20999,20 +20922,13 @@ class SagemakerApi:
         :param name: The name to give the SageMaker Partner AI App.
         :param type: The type of SageMaker Partner AI App to create.
         :param execution_role_arn: The ARN of the IAM role that the partner application uses.
-        :param tier: Indicates the instance type and size of the cluster attached to the
-        SageMaker Partner AI App.
-        :param auth_type: The authorization type that users use to access the SageMaker Partner AI
-        App.
-        :param kms_key_id: SageMaker Partner AI Apps uses Amazon Web Services KMS to encrypt data
-        at rest using an Amazon Web Services managed key by default.
+        :param tier: Indicates the instance type and size of the cluster attached to the SageMaker Partner AI App.
+        :param auth_type: The authorization type that users use to access the SageMaker Partner AI App.
+        :param kms_key_id: SageMaker Partner AI Apps uses Amazon Web Services KMS to encrypt data at rest using an Amazon Web Services managed key by default.
         :param maintenance_config: Maintenance configuration settings for the SageMaker Partner AI App.
         :param application_config: Configuration settings for the SageMaker Partner AI App.
-        :param enable_iam_session_based_identity: When set to ``TRUE``, the SageMaker Partner AI App sets the Amazon Web
-        Services IAM session name or the authenticated IAM user as the identity
-        of the SageMaker Partner AI App user.
-        :param enable_auto_minor_version_upgrade: When set to ``TRUE``, the SageMaker Partner AI App is automatically
-        upgraded to the latest minor version during the next scheduled
-        maintenance window, if one is available.
+        :param enable_iam_session_based_identity: When set to ``TRUE``, the SageMaker Partner AI App sets the Amazon Web Services IAM session name or the authenticated IAM user as the identity of the SageMaker Partner AI App user.
+        :param enable_auto_minor_version_upgrade: When set to ``TRUE``, the SageMaker Partner AI App is automatically upgraded to the latest minor version during the next scheduled maintenance window, if one is available.
         :param client_token: A unique token that guarantees that the call to this API is idempotent.
         :param tags: Each tag consists of a key and an optional value.
         :returns: CreatePartnerAppResponse
@@ -21034,8 +20950,7 @@ class SagemakerApi:
 
         :param arn: The ARN of the SageMaker Partner AI App to create the presigned URL for.
         :param expires_in_seconds: The time that will pass before the presigned URL expires.
-        :param session_expiration_duration_in_seconds: Indicates how long the Amazon SageMaker Partner AI App session can be
-        accessed for after logging in.
+        :param session_expiration_duration_in_seconds: Indicates how long the Amazon SageMaker Partner AI App session can be accessed for after logging in.
         :returns: CreatePartnerAppPresignedUrlResponse
         :raises ResourceNotFound:
         """
@@ -21059,13 +20974,10 @@ class SagemakerApi:
         """Creates a pipeline using a JSON pipeline definition.
 
         :param pipeline_name: The name of the pipeline.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
-        :param role_arn: The Amazon Resource Name (ARN) of the role used by the pipeline to
-        access and create resources.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
+        :param role_arn: The Amazon Resource Name (ARN) of the role used by the pipeline to access and create resources.
         :param pipeline_display_name: The display name of the pipeline.
-        :param pipeline_definition: The `JSON pipeline
-        definition <https://aws-sagemaker-mlops.
+        :param pipeline_definition: The `JSON pipeline definition <https://aws-sagemaker-mlops.
         :param pipeline_definition_s3_location: The location of the pipeline definition stored in Amazon S3.
         :param pipeline_description: A description of the pipeline.
         :param tags: A list of tags to apply to the created pipeline.
@@ -21122,8 +21034,7 @@ class SagemakerApi:
         :param session_expiration_duration_in_seconds: The session expiration duration in seconds.
         :param expires_in_seconds: The number of seconds until the pre-signed URL expires.
         :param space_name: The name of the space.
-        :param landing_uri: The landing page that the user is directed to when accessing the
-        presigned URL.
+        :param landing_uri: The landing page that the user is directed to when accessing the presigned URL.
         :returns: CreatePresignedDomainUrlResponse
         :raises ResourceNotFound:
         """
@@ -21233,23 +21144,16 @@ class SagemakerApi:
         """Creates a processing job.
 
         :param processing_job_name: The name of the processing job.
-        :param processing_resources: Identifies the resources, ML compute instances, and ML storage volumes
-        to deploy for a processing job.
+        :param processing_resources: Identifies the resources, ML compute instances, and ML storage volumes to deploy for a processing job.
         :param app_specification: Configures the processing job to run a specified Docker container image.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker can
-        assume to perform tasks on your behalf.
-        :param processing_inputs: An array of inputs configuring the data to download into the processing
-        container.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that Amazon SageMaker can assume to perform tasks on your behalf.
+        :param processing_inputs: An array of inputs configuring the data to download into the processing container.
         :param processing_output_config: Output configuration for the processing job.
         :param stopping_condition: The time limit for how long the processing job is allowed to run.
         :param environment: The environment variables to set in the Docker container.
-        :param network_config: Networking options for a processing job, such as whether to allow
-        inbound and outbound network calls to and from processing containers,
-        and the VPC subnets and security groups to use for VPC-enabled
-        processing jobs.
+        :param network_config: Networking options for a processing job, such as whether to allow inbound and outbound network calls to and from processing containers, and the VPC subnets and security groups to use for VPC-enabled processing jobs.
         :param tags: (Optional) An array of key-value pairs.
-        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and
-        trial.
+        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and trial.
         :returns: CreateProcessingJobResponse
         :raises ResourceNotFound:
         :raises ResourceInUse:
@@ -21274,12 +21178,9 @@ class SagemakerApi:
 
         :param project_name: The name of the project.
         :param project_description: A description for the project.
-        :param service_catalog_provisioning_details: The product ID and provisioning artifact ID to provision a service
-        catalog.
-        :param tags: An array of key-value pairs that you want to use to organize and track
-        your Amazon Web Services resource costs.
-        :param template_providers: An array of template provider configurations for creating infrastructure
-        resources for the project.
+        :param service_catalog_provisioning_details: The product ID and provisioning artifact ID to provision a service catalog.
+        :param tags: An array of key-value pairs that you want to use to organize and track your Amazon Web Services resource costs.
+        :param template_providers: An array of template provider configurations for creating infrastructure resources for the project.
         :returns: CreateProjectOutput
         :raises ResourceLimitExceeded:
         """
@@ -21326,10 +21227,8 @@ class SagemakerApi:
     ) -> CreateStudioLifecycleConfigResponse:
         """Creates a new Amazon SageMaker AI Studio Lifecycle Configuration.
 
-        :param studio_lifecycle_config_name: The name of the Amazon SageMaker AI Studio Lifecycle Configuration to
-        create.
-        :param studio_lifecycle_config_content: The content of your Amazon SageMaker AI Studio Lifecycle Configuration
-        script.
+        :param studio_lifecycle_config_name: The name of the Amazon SageMaker AI Studio Lifecycle Configuration to create.
+        :param studio_lifecycle_config_content: The content of your Amazon SageMaker AI Studio Lifecycle Configuration script.
         :param studio_lifecycle_config_app_type: The App type that the Lifecycle Configuration is attached to.
         :param tags: Tags to be associated with the Lifecycle Configuration.
         :returns: CreateStudioLifecycleConfigResponse
@@ -21440,46 +21339,30 @@ class SagemakerApi:
         Works <https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works.html>`__.
 
         :param training_job_name: The name of the training job.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that SageMaker can assume
-        to perform tasks on your behalf.
-        :param output_data_config: Specifies the path to the S3 location where you want to store model
-        artifacts.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that SageMaker can assume to perform tasks on your behalf.
+        :param output_data_config: Specifies the path to the S3 location where you want to store model artifacts.
         :param hyper_parameters: Algorithm-specific parameters that influence the quality of the model.
-        :param algorithm_specification: The registry path of the Docker image that contains the training
-        algorithm and algorithm-specific metadata, including the input mode.
+        :param algorithm_specification: The registry path of the Docker image that contains the training algorithm and algorithm-specific metadata, including the input mode.
         :param input_data_config: An array of ``Channel`` objects.
-        :param resource_config: The resources, including the ML compute instances and ML storage
-        volumes, to use for model training.
-        :param vpc_config: A
-        `VpcConfig <https://docs.
+        :param resource_config: The resources, including the ML compute instances and ML storage volumes, to use for model training.
+        :param vpc_config: A `VpcConfig <https://docs.
         :param stopping_condition: Specifies a limit to how long a model training job can run.
         :param tags: An array of key-value pairs.
         :param enable_network_isolation: Isolates the training container.
-        :param enable_inter_container_traffic_encryption: To encrypt all communications between ML compute instances in
-        distributed training, choose ``True``.
+        :param enable_inter_container_traffic_encryption: To encrypt all communications between ML compute instances in distributed training, choose ``True``.
         :param enable_managed_spot_training: To train models using managed spot training, choose ``True``.
-        :param checkpoint_config: Contains information about the output location for managed spot training
-        checkpoint data.
-        :param debug_hook_config: Configuration information for the Amazon SageMaker Debugger hook
-        parameters, metric and tensor collections, and storage paths.
-        :param debug_rule_configurations: Configuration information for Amazon SageMaker Debugger rules for
-        debugging output tensors.
-        :param tensor_board_output_config: Configuration of storage locations for the Amazon SageMaker Debugger
-        TensorBoard output data.
-        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and
-        trial.
-        :param profiler_config: Configuration information for Amazon SageMaker Debugger system
-        monitoring, framework profiling, and storage paths.
-        :param profiler_rule_configurations: Configuration information for Amazon SageMaker Debugger rules for
-        profiling system and framework metrics.
+        :param checkpoint_config: Contains information about the output location for managed spot training checkpoint data.
+        :param debug_hook_config: Configuration information for the Amazon SageMaker Debugger hook parameters, metric and tensor collections, and storage paths.
+        :param debug_rule_configurations: Configuration information for Amazon SageMaker Debugger rules for debugging output tensors.
+        :param tensor_board_output_config: Configuration of storage locations for the Amazon SageMaker Debugger TensorBoard output data.
+        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and trial.
+        :param profiler_config: Configuration information for Amazon SageMaker Debugger system monitoring, framework profiling, and storage paths.
+        :param profiler_rule_configurations: Configuration information for Amazon SageMaker Debugger rules for profiling system and framework metrics.
         :param environment: The environment variables to set in the Docker container.
-        :param retry_strategy: The number of times to retry the job when the job fails due to an
-        ``InternalServerError``.
+        :param retry_strategy: The number of times to retry the job when the job fails due to an ``InternalServerError``.
         :param remote_debug_config: Configuration for remote debugging.
-        :param infra_check_config: Contains information about the infrastructure health check configuration
-        for the training job.
-        :param session_chaining_config: Contains information about attribute-based access control (ABAC) for the
-        training job.
+        :param infra_check_config: Contains information about the infrastructure health check configuration for the training job.
+        :param session_chaining_config: Contains information about attribute-based access control (ABAC) for the training job.
         :param serverless_job_config: The configuration for serverless training jobs.
         :param mlflow_config: The MLflow configuration using SageMaker managed MLflow.
         :param model_package_config: The configuration for the model package.
@@ -21548,10 +21431,8 @@ class SagemakerApi:
         ``ReservedCapacitySummary``.
 
         :param training_plan_name: The name of the training plan to create.
-        :param training_plan_offering_id: The unique identifier of the training plan offering to use for creating
-        this plan.
-        :param spare_instance_count_per_ultra_server: Number of spare instances to reserve per UltraServer for enhanced
-        resiliency.
+        :param training_plan_offering_id: The unique identifier of the training plan offering to use for creating this plan.
+        :param spare_instance_count_per_ultra_server: Number of spare instances to reserve per UltraServer for enhanced resiliency.
         :param tags: An array of key-value pairs to apply to this training plan.
         :returns: CreateTrainingPlanResponse
         :raises ResourceNotFound:
@@ -21615,23 +21496,16 @@ class SagemakerApi:
         :param model_name: The name of the model that you want to use for the transform job.
         :param transform_input: Describes the input source and the way the transform job consumes it.
         :param transform_output: Describes the results of the transform job.
-        :param transform_resources: Describes the resources, including ML instance types and ML instance
-        count, to use for the transform job.
-        :param max_concurrent_transforms: The maximum number of parallel requests that can be sent to each
-        instance in a transform job.
-        :param model_client_config: Configures the timeout and maximum number of retries for processing a
-        transform job invocation.
+        :param transform_resources: Describes the resources, including ML instance types and ML instance count, to use for the transform job.
+        :param max_concurrent_transforms: The maximum number of parallel requests that can be sent to each instance in a transform job.
+        :param model_client_config: Configures the timeout and maximum number of retries for processing a transform job invocation.
         :param max_payload_in_mb: The maximum allowed size of the payload, in MB.
-        :param batch_strategy: Specifies the number of records to include in a mini-batch for an HTTP
-        inference request.
+        :param batch_strategy: Specifies the number of records to include in a mini-batch for an HTTP inference request.
         :param environment: The environment variables to set in the Docker container.
         :param data_capture_config: Configuration to control how SageMaker captures inference data.
-        :param data_processing: The data structure used to specify the data to be used for inference in
-        a batch transform job and to associate the data that is relevant to the
-        prediction results in the output.
+        :param data_processing: The data structure used to specify the data to be used for inference in a batch transform job and to associate the data that is relevant to the prediction results in the output.
         :param tags: (Optional) An array of key-value pairs.
-        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and
-        trial.
+        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and trial.
         :returns: CreateTransformJobResponse
         :raises ResourceNotFound:
         :raises ResourceInUse:
@@ -21753,8 +21627,7 @@ class SagemakerApi:
         :param domain_id: The ID of the associated Domain.
         :param user_profile_name: A name for the UserProfile.
         :param single_sign_on_user_identifier: A specifier for the type of value specified in SingleSignOnUserValue.
-        :param single_sign_on_user_value: The username of the associated Amazon Web Services Single Sign-On User
-        for this UserProfile.
+        :param single_sign_on_user_value: The username of the associated Amazon Web Services Single Sign-On User for this UserProfile.
         :param tags: Each tag consists of a key and an optional value.
         :param user_settings: A collection of settings.
         :returns: CreateUserProfileResponse
@@ -21802,16 +21675,11 @@ class SagemakerApi:
 
         :param workforce_name: The name of the private workforce.
         :param cognito_config: Use this parameter to configure an Amazon Cognito private workforce.
-        :param oidc_config: Use this parameter to configure a private workforce using your own OIDC
-        Identity Provider.
-        :param source_ip_config: A list of IP address ranges
-        (`CIDRs <https://docs.
-        :param tags: An array of key-value pairs that contain metadata to help you categorize
-        and organize our workforce.
+        :param oidc_config: Use this parameter to configure a private workforce using your own OIDC Identity Provider.
+        :param source_ip_config: A list of IP address ranges (`CIDRs <https://docs.
+        :param tags: An array of key-value pairs that contain metadata to help you categorize and organize our workforce.
         :param workforce_vpc_config: Use this parameter to configure a workforce using VPC.
-        :param ip_address_type: Use this parameter to specify whether you want ``IPv4`` only or
-        ``dualstack`` (``IPv4`` and ``IPv6``) to support your labeling
-        workforce.
+        :param ip_address_type: Use this parameter to specify whether you want ``IPv4`` only or ``dualstack`` (``IPv4`` and ``IPv6``) to support your labeling workforce.
         :returns: CreateWorkforceResponse
         """
         raise NotImplementedError
@@ -21836,14 +21704,11 @@ class SagemakerApi:
         You cannot create more than 25 work teams in an account and region.
 
         :param workteam_name: The name of the work team.
-        :param member_definitions: A list of ``MemberDefinition`` objects that contains objects that
-        identify the workers that make up the work team.
+        :param member_definitions: A list of ``MemberDefinition`` objects that contains objects that identify the workers that make up the work team.
         :param description: A description of the work team.
         :param workforce_name: The name of the workforce.
-        :param notification_configuration: Configures notification of workers regarding available or expiring work
-        items.
-        :param worker_access_configuration: Use this optional parameter to constrain access to an Amazon S3 resource
-        based on the IP address using supported IAM global condition keys.
+        :param notification_configuration: Configures notification of workers regarding available or expiring work items.
+        :param worker_access_configuration: Use this optional parameter to constrain access to an Amazon S3 resource based on the IP address using supported IAM global condition keys.
         :param tags: An array of key-value pairs.
         :returns: CreateWorkteamResponse
         :raises ResourceInUse:
@@ -21949,8 +21814,7 @@ class SagemakerApi:
     ) -> DeleteClusterResponse:
         """Delete a SageMaker HyperPod cluster.
 
-        :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker
-        HyperPod cluster to delete.
+        :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker HyperPod cluster to delete.
         :returns: DeleteClusterResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -22060,8 +21924,7 @@ class SagemakerApi:
         EFS volume, including data, notebooks, and other artifacts.
 
         :param domain_id: The domain ID.
-        :param retention_policy: The retention policy for this domain, which specifies whether resources
-        will be retained after the Domain is deleted.
+        :param retention_policy: The retention policy for this domain, which specifies whether resources will be retained after the Domain is deleted.
         :raises ResourceNotFound:
         :raises ResourceInUse:
         """
@@ -22090,8 +21953,7 @@ class SagemakerApi:
         """Delete a stage in an edge deployment plan if (and only if) the stage is
         inactive.
 
-        :param edge_deployment_plan_name: The name of the edge deployment plan from which the stage will be
-        deleted.
+        :param edge_deployment_plan_name: The name of the edge deployment plan from which the stage will be deleted.
         :param stage_name: The name of the stage.
         :raises ResourceInUse:
         """
@@ -22249,8 +22111,7 @@ class SagemakerApi:
         When you delete a worker task template, it no longer appears when you
         call ``ListHumanTaskUis``.
 
-        :param human_task_ui_name: The name of the human task user interface (work task template) you want
-        to delete.
+        :param human_task_ui_name: The name of the human task user interface (work task template) you want to delete.
         :returns: DeleteHumanTaskUiResponse
         :raises ResourceNotFound:
         """
@@ -22537,8 +22398,7 @@ class SagemakerApi:
         instances of the pipeline are deleted.
 
         :param pipeline_name: The name of the pipeline to delete.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :returns: DeletePipelineResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -22598,8 +22458,7 @@ class SagemakerApi:
         using the Lifecycle Configuration. You must also remove the Lifecycle
         Configuration from UserSettings in all Domains and UserProfiles.
 
-        :param studio_lifecycle_config_name: The name of the Amazon SageMaker AI Studio Lifecycle Configuration to
-        delete.
+        :param studio_lifecycle_config_name: The name of the Amazon SageMaker AI Studio Lifecycle Configuration to delete.
         :raises ResourceNotFound:
         :raises ResourceInUse:
         """
@@ -22621,8 +22480,7 @@ class SagemakerApi:
         Profile, the deleted tags are not removed from Apps that the SageMaker
         Domain or User Profile launched before you called this API.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource whose tags you want to
-        delete.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource whose tags you want to delete.
         :param tag_keys: An array or one or more tag keys to delete.
         :returns: DeleteTagsOutput
         """
@@ -22857,8 +22715,7 @@ class SagemakerApi:
     ) -> DescribeClusterResponse:
         """Retrieves information of a SageMaker HyperPod cluster.
 
-        :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker
-        HyperPod cluster.
+        :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker HyperPod cluster.
         :returns: DescribeClusterResponse
         :raises ResourceNotFound:
         """
@@ -22873,8 +22730,7 @@ class SagemakerApi:
         ``NodeProvisioningMode`` is set to ``Continuous``.
 
         :param event_id: The unique identifier (UUID) of the event to describe.
-        :param cluster_name: The name or Amazon Resource Name (ARN) of the HyperPod cluster
-        associated with the event.
+        :param cluster_name: The name or Amazon Resource Name (ARN) of the HyperPod cluster associated with the event.
         :returns: DescribeClusterEventResponse
         :raises ResourceNotFound:
         """
@@ -22892,8 +22748,7 @@ class SagemakerApi:
         """Retrieves information of a node (also called a *instance*
         interchangeably) of a SageMaker HyperPod cluster.
 
-        :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker
-        HyperPod cluster in which the node is.
+        :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker HyperPod cluster in which the node is.
         :param node_id: The ID of the SageMaker HyperPod cluster node.
         :param node_logical_id: The logical identifier of the node to describe.
         :returns: DescribeClusterNodeResponse
@@ -23044,8 +22899,7 @@ class SagemakerApi:
         """Describes an edge deployment plan with deployment status per stage.
 
         :param edge_deployment_plan_name: The name of the deployment plan to describe.
-        :param next_token: If the edge deployment plan has enough stages to require tokening, then
-        this is the response from the last list of stages returned.
+        :param next_token: If the edge deployment plan has enough stages to require tokening, then this is the response from the last list of stages returned.
         :param max_results: The maximum number of results to select (50 by default).
         :returns: DescribeEdgeDeploymentPlanResponse
         :raises ResourceNotFound:
@@ -23111,10 +22965,8 @@ class SagemakerApi:
         information on the creation time, ``FeatureGroup`` name, the unique
         identifier for each ``FeatureGroup``, and more.
 
-        :param feature_group_name: The name or Amazon Resource Name (ARN) of the ``FeatureGroup`` you want
-        described.
-        :param next_token: A token to resume pagination of the list of ``Features``
-        (``FeatureDefinitions``).
+        :param feature_group_name: The name or Amazon Resource Name (ARN) of the ``FeatureGroup`` you want described.
+        :param next_token: A token to resume pagination of the list of ``Features`` (``FeatureDefinitions``).
         :returns: DescribeFeatureGroupResponse
         :raises ResourceNotFound:
         """
@@ -23130,8 +22982,7 @@ class SagemakerApi:
     ) -> DescribeFeatureMetadataResponse:
         """Shows the metadata for a feature within a feature group.
 
-        :param feature_group_name: The name or Amazon Resource Name (ARN) of the feature group containing
-        the feature.
+        :param feature_group_name: The name or Amazon Resource Name (ARN) of the feature group containing the feature.
         :param feature_name: The name of the feature.
         :returns: DescribeFeatureMetadataResponse
         :raises ResourceNotFound:
@@ -23190,8 +23041,7 @@ class SagemakerApi:
         """Returns information about the requested human task user interface
         (worker task template).
 
-        :param human_task_ui_name: The name of the human task user interface (worker task template) you
-        want information about.
+        :param human_task_ui_name: The name of the human task user interface (worker task template) you want information about.
         :returns: DescribeHumanTaskUiResponse
         :raises ResourceNotFound:
         """
@@ -23504,8 +23354,7 @@ class SagemakerApi:
         """Gets information about a SageMaker Partner AI App.
 
         :param arn: The ARN of the SageMaker Partner AI App to describe.
-        :param include_available_upgrade: When set to ``TRUE``, the response includes available upgrade
-        information for the SageMaker Partner AI App.
+        :param include_available_upgrade: When set to ``TRUE``, the response includes available upgrade information for the SageMaker Partner AI App.
         :returns: DescribePartnerAppResponse
         :raises ResourceNotFound:
         """
@@ -23609,8 +23458,7 @@ class SagemakerApi:
     ) -> DescribeStudioLifecycleConfigResponse:
         """Describes the Amazon SageMaker AI Studio Lifecycle Configuration.
 
-        :param studio_lifecycle_config_name: The name of the Amazon SageMaker AI Studio Lifecycle Configuration to
-        describe.
+        :param studio_lifecycle_config_name: The name of the Amazon SageMaker AI Studio Lifecycle Configuration to describe.
         :returns: DescribeStudioLifecycleConfigResponse
         :raises ResourceNotFound:
         """
@@ -23655,6 +23503,27 @@ class SagemakerApi:
 
         :param training_plan_name: The name of the training plan to describe.
         :returns: DescribeTrainingPlanResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeTrainingPlanExtensionHistory")
+    def describe_training_plan_extension_history(
+        self,
+        context: RequestContext,
+        training_plan_arn: TrainingPlanArn,
+        next_token: NextToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> DescribeTrainingPlanExtensionHistoryResponse:
+        """Retrieves the extension history for a specified training plan. The
+        response includes details about each extension, such as the offering ID,
+        start and end dates, status, payment status, and cost information.
+
+        :param training_plan_arn: The Amazon Resource Name (ARN); of the training plan to retrieve extension history for.
+        :param next_token: A token to continue pagination if more results are available.
+        :param max_results: The maximum number of extensions to return in the response.
+        :returns: DescribeTrainingPlanExtensionHistoryResponse
         :raises ResourceNotFound:
         """
         raise NotImplementedError
@@ -23760,10 +23629,8 @@ class SagemakerApi:
         Container Storage Interface (CSI) driver to manage the lifecycle of
         persistent storage in your HyperPod EKS clusters.
 
-        :param cluster_arn: The Amazon Resource Name (ARN) of your SageMaker HyperPod cluster
-        containing the target node.
-        :param node_id: The unique identifier of the cluster node from which you want to detach
-        the volume.
+        :param cluster_arn: The Amazon Resource Name (ARN) of your SageMaker HyperPod cluster containing the target node.
+        :param node_id: The unique identifier of the cluster node from which you want to detach the volume.
         :param volume_id: The unique identifier of your EBS volume that you want to detach.
         :returns: DetachClusterNodeVolumeResponse
         :raises ResourceNotFound:
@@ -23817,6 +23684,30 @@ class SagemakerApi:
         create SageMaker projects.
 
         :returns: EnableSagemakerServicecatalogPortfolioOutput
+        """
+        raise NotImplementedError
+
+    @handler("ExtendTrainingPlan")
+    def extend_training_plan(
+        self,
+        context: RequestContext,
+        training_plan_extension_offering_id: TrainingPlanExtensionOfferingId,
+        **kwargs,
+    ) -> ExtendTrainingPlanResponse:
+        """Extends an existing training plan by purchasing an extension offering.
+        This allows you to add additional compute capacity time to your training
+        plan without creating a new plan or reconfiguring your workloads.
+
+        To find available extension offerings, use the
+        ``SearchTrainingPlanOfferings`` API with the ``TrainingPlanArn``
+        parameter.
+
+        To view the history of extensions for a training plan, use the
+        ``DescribeTrainingPlanExtensionHistory`` API.
+
+        :param training_plan_extension_offering_id: The unique identifier of the extension offering to purchase.
+        :returns: ExtendTrainingPlanResponse
+        :raises ResourceNotFound:
         """
         raise NotImplementedError
 
@@ -23885,14 +23776,10 @@ class SagemakerApi:
         that you can apply to your SageMaker endpoint.
 
         :param inference_recommendations_job_name: The name of a previously completed Inference Recommender job.
-        :param recommendation_id: The recommendation ID of a previously completed inference
-        recommendation.
-        :param endpoint_name: The name of an endpoint benchmarked during a previously completed
-        inference recommendation job.
-        :param target_cpu_utilization_per_core: The percentage of how much utilization you want an instance to use
-        before autoscaling.
-        :param scaling_policy_objective: An object where you specify the anticipated traffic pattern for an
-        endpoint.
+        :param recommendation_id: The recommendation ID of a previously completed inference recommendation.
+        :param endpoint_name: The name of an endpoint benchmarked during a previously completed inference recommendation job.
+        :param target_cpu_utilization_per_core: The percentage of how much utilization you want an instance to use before autoscaling.
+        :param scaling_policy_objective: An object where you specify the anticipated traffic pattern for an endpoint.
         :returns: GetScalingConfigurationRecommendationResponse
         :raises ResourceNotFound:
         """
@@ -23941,8 +23828,7 @@ class SagemakerApi:
         :param hub_content_type: The type of hub content to import.
         :param document_schema_version: The version of the hub content schema to import.
         :param hub_name: The name of the hub to import content into.
-        :param hub_content_document: The hub content document that describes information about the hub
-        content such as type, associated containers, scripts, and more.
+        :param hub_content_document: The hub content document that describes information about the hub content such as type, associated containers, scripts, and more.
         :param hub_content_version: The version of the hub content to import.
         :param hub_content_display_name: The display name of the hub content to import.
         :param hub_content_description: A description of the hub content to import.
@@ -23975,14 +23861,11 @@ class SagemakerApi:
 
         :param source_uri: A filter that returns only actions with the specified source URI.
         :param action_type: A filter that returns only actions of the specified type.
-        :param created_after: A filter that returns only actions created on or after the specified
-        time.
-        :param created_before: A filter that returns only actions created on or before the specified
-        time.
+        :param created_after: A filter that returns only actions created on or after the specified time.
+        :param created_before: A filter that returns only actions created on or before the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
-        :param next_token: If the previous call to ``ListActions`` didn't return the full set of
-        actions, the call returns a token for getting the next set of actions.
+        :param next_token: If the previous call to ``ListActions`` didn't return the full set of actions, the call returns a token for getting the next set of actions.
         :param max_results: The maximum number of actions to return in the response.
         :returns: ListActionsResponse
         :raises ResourceNotFound:
@@ -24004,14 +23887,11 @@ class SagemakerApi:
     ) -> ListAlgorithmsOutput:
         """Lists the machine learning algorithms that have been created.
 
-        :param creation_time_after: A filter that returns only algorithms created after the specified time
-        (timestamp).
-        :param creation_time_before: A filter that returns only algorithms created before the specified time
-        (timestamp).
+        :param creation_time_after: A filter that returns only algorithms created after the specified time (timestamp).
+        :param creation_time_before: A filter that returns only algorithms created before the specified time (timestamp).
         :param max_results: The maximum number of algorithms to return in the response.
         :param name_contains: A string in the algorithm name.
-        :param next_token: If the response to a previous ``ListAlgorithms`` request was truncated,
-        the response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListAlgorithms`` request was truncated, the response includes a ``NextToken``.
         :param sort_by: The parameter by which to sort the results.
         :param sort_order: The sort order for the results.
         :returns: ListAlgorithmsOutput
@@ -24035,9 +23915,7 @@ class SagemakerApi:
         :param alias: The alias of the image version.
         :param version: The version of the image.
         :param max_results: The maximum number of aliases to return.
-        :param next_token: If the previous call to ``ListAliases`` didn't return the full set of
-        aliases, the call returns a token for retrieving the next set of
-        aliases.
+        :param next_token: If the previous call to ``ListAliases`` didn't return the full set of aliases, the call returns a token for retrieving the next set of aliases.
         :returns: ListAliasesResponse
         :raises ResourceNotFound:
         """
@@ -24063,19 +23941,12 @@ class SagemakerApi:
         AppImageConfig name contains a specified string.
 
         :param max_results: The total number of items to return in the response.
-        :param next_token: If the previous call to ``ListImages`` didn't return the full set of
-        AppImageConfigs, the call returns a token for getting the next set of
-        AppImageConfigs.
-        :param name_contains: A filter that returns only AppImageConfigs whose name contains the
-        specified string.
-        :param creation_time_before: A filter that returns only AppImageConfigs created on or before the
-        specified time.
-        :param creation_time_after: A filter that returns only AppImageConfigs created on or after the
-        specified time.
-        :param modified_time_before: A filter that returns only AppImageConfigs modified on or before the
-        specified time.
-        :param modified_time_after: A filter that returns only AppImageConfigs modified on or after the
-        specified time.
+        :param next_token: If the previous call to ``ListImages`` didn't return the full set of AppImageConfigs, the call returns a token for getting the next set of AppImageConfigs.
+        :param name_contains: A filter that returns only AppImageConfigs whose name contains the specified string.
+        :param creation_time_before: A filter that returns only AppImageConfigs created on or before the specified time.
+        :param creation_time_after: A filter that returns only AppImageConfigs created on or after the specified time.
+        :param modified_time_before: A filter that returns only AppImageConfigs modified on or before the specified time.
+        :param modified_time_after: A filter that returns only AppImageConfigs modified on or after the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
         :returns: ListAppImageConfigsResponse
@@ -24098,8 +23969,7 @@ class SagemakerApi:
         """Lists apps.
 
         :param next_token: If the previous response was truncated, you will receive this token.
-        :param max_results: This parameter defines the maximum number of results that can be return
-        in a single response.
+        :param max_results: This parameter defines the maximum number of results that can be return in a single response.
         :param sort_order: The sort order for the results.
         :param sort_by: The parameter by which to sort the results.
         :param domain_id_equals: A parameter to search for the domain ID.
@@ -24127,15 +23997,11 @@ class SagemakerApi:
 
         :param source_uri: A filter that returns only artifacts with the specified source URI.
         :param artifact_type: A filter that returns only artifacts of the specified type.
-        :param created_after: A filter that returns only artifacts created on or after the specified
-        time.
-        :param created_before: A filter that returns only artifacts created on or before the specified
-        time.
+        :param created_after: A filter that returns only artifacts created on or after the specified time.
+        :param created_before: A filter that returns only artifacts created on or before the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
-        :param next_token: If the previous call to ``ListArtifacts`` didn't return the full set of
-        artifacts, the call returns a token for getting the next set of
-        artifacts.
+        :param next_token: If the previous call to ``ListArtifacts`` didn't return the full set of artifacts, the call returns a token for getting the next set of artifacts.
         :param max_results: The maximum number of artifacts to return in the response.
         :returns: ListArtifactsResponse
         :raises ResourceNotFound:
@@ -24162,21 +24028,15 @@ class SagemakerApi:
         """Lists the associations in your account and their properties.
 
         :param source_arn: A filter that returns only associations with the specified source ARN.
-        :param destination_arn: A filter that returns only associations with the specified destination
-        Amazon Resource Name (ARN).
+        :param destination_arn: A filter that returns only associations with the specified destination Amazon Resource Name (ARN).
         :param source_type: A filter that returns only associations with the specified source type.
-        :param destination_type: A filter that returns only associations with the specified destination
-        type.
+        :param destination_type: A filter that returns only associations with the specified destination type.
         :param association_type: A filter that returns only associations of the specified type.
-        :param created_after: A filter that returns only associations created on or after the
-        specified time.
-        :param created_before: A filter that returns only associations created on or before the
-        specified time.
+        :param created_after: A filter that returns only associations created on or after the specified time.
+        :param created_before: A filter that returns only associations created on or before the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
-        :param next_token: If the previous call to ``ListAssociations`` didn't return the full set
-        of associations, the call returns a token for getting the next set of
-        associations.
+        :param next_token: If the previous call to ``ListAssociations`` didn't return the full set of associations, the call returns a token for getting the next set of associations.
         :param max_results: The maximum number of associations to return in the response.
         :returns: ListAssociationsResponse
         :raises ResourceNotFound:
@@ -24263,8 +24123,7 @@ class SagemakerApi:
         This functionality is only supported when the ``NodeProvisioningMode``
         is set to ``Continuous``.
 
-        :param cluster_name: The name or Amazon Resource Name (ARN) of the HyperPod cluster for which
-        to list events.
+        :param cluster_name: The name or Amazon Resource Name (ARN) of the HyperPod cluster for which to list events.
         :param instance_group_name: The name of the instance group to filter events.
         :param node_id: The EC2 instance ID to filter events.
         :param event_time_after: The start of the time range for filtering events.
@@ -24297,21 +24156,15 @@ class SagemakerApi:
         """Retrieves the list of instances (also called *nodes* interchangeably) in
         a SageMaker HyperPod cluster.
 
-        :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker
-        HyperPod cluster in which you want to retrieve the list of nodes.
-        :param creation_time_after: A filter that returns nodes in a SageMaker HyperPod cluster created
-        after the specified time.
-        :param creation_time_before: A filter that returns nodes in a SageMaker HyperPod cluster created
-        before the specified time.
-        :param instance_group_name_contains: A filter that returns the instance groups whose name contain a specified
-        string.
+        :param cluster_name: The string name or the Amazon Resource Name (ARN) of the SageMaker HyperPod cluster in which you want to retrieve the list of nodes.
+        :param creation_time_after: A filter that returns nodes in a SageMaker HyperPod cluster created after the specified time.
+        :param creation_time_before: A filter that returns nodes in a SageMaker HyperPod cluster created before the specified time.
+        :param instance_group_name_contains: A filter that returns the instance groups whose name contain a specified string.
         :param max_results: The maximum number of nodes to return in the response.
-        :param next_token: If the result of the previous ``ListClusterNodes`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListClusterNodes`` request was truncated, the response includes a ``NextToken``.
         :param sort_by: The field by which to sort results.
         :param sort_order: The sort order for results.
-        :param include_node_logical_ids: Specifies whether to include nodes that are still being provisioned in
-        the response.
+        :param include_node_logical_ids: Specifies whether to include nodes that are still being provisioned in the response.
         :returns: ListClusterNodesResponse
         :raises ResourceNotFound:
         """
@@ -24363,18 +24216,14 @@ class SagemakerApi:
     ) -> ListClustersResponse:
         """Retrieves the list of SageMaker HyperPod clusters.
 
-        :param creation_time_after: Set a start time for the time range during which you want to list
-        SageMaker HyperPod clusters.
-        :param creation_time_before: Set an end time for the time range during which you want to list
-        SageMaker HyperPod clusters.
-        :param max_results: Specifies the maximum number of clusters to evaluate for the operation
-        (not necessarily the number of matching items).
+        :param creation_time_after: Set a start time for the time range during which you want to list SageMaker HyperPod clusters.
+        :param creation_time_before: Set an end time for the time range during which you want to list SageMaker HyperPod clusters.
+        :param max_results: Specifies the maximum number of clusters to evaluate for the operation (not necessarily the number of matching items).
         :param name_contains: Set the maximum number of instances to print in the list.
         :param next_token: Set the next token to retrieve the list of SageMaker HyperPod clusters.
         :param sort_by: The field by which to sort results.
         :param sort_order: The sort order for results.
-        :param training_plan_arn: The Amazon Resource Name (ARN); of the training plan to filter clusters
-        by.
+        :param training_plan_arn: The Amazon Resource Name (ARN); of the training plan to filter clusters by.
         :returns: ListClustersResponse
         """
         raise NotImplementedError
@@ -24396,18 +24245,13 @@ class SagemakerApi:
     ) -> ListCodeRepositoriesOutput:
         """Gets a list of the Git repositories in your account.
 
-        :param creation_time_after: A filter that returns only Git repositories that were created after the
-        specified time.
-        :param creation_time_before: A filter that returns only Git repositories that were created before the
-        specified time.
-        :param last_modified_time_after: A filter that returns only Git repositories that were last modified
-        after the specified time.
-        :param last_modified_time_before: A filter that returns only Git repositories that were last modified
-        before the specified time.
+        :param creation_time_after: A filter that returns only Git repositories that were created after the specified time.
+        :param creation_time_before: A filter that returns only Git repositories that were created before the specified time.
+        :param last_modified_time_after: A filter that returns only Git repositories that were last modified after the specified time.
+        :param last_modified_time_before: A filter that returns only Git repositories that were last modified before the specified time.
         :param max_results: The maximum number of Git repositories to return in the response.
         :param name_contains: A string in the Git repositories name.
-        :param next_token: If the result of a ``ListCodeRepositoriesOutput`` request was truncated,
-        the response includes a ``NextToken``.
+        :param next_token: If the result of a ``ListCodeRepositoriesOutput`` request was truncated, the response includes a ``NextToken``.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
         :returns: ListCodeRepositoriesOutput
@@ -24438,21 +24282,14 @@ class SagemakerApi:
         created, use
         `DescribeCompilationJob <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DescribeCompilationJob.html>`__.
 
-        :param next_token: If the result of the previous ``ListCompilationJobs`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListCompilationJobs`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of model compilation jobs to return in the response.
-        :param creation_time_after: A filter that returns the model compilation jobs that were created after
-        a specified time.
-        :param creation_time_before: A filter that returns the model compilation jobs that were created
-        before a specified time.
-        :param last_modified_time_after: A filter that returns the model compilation jobs that were modified
-        after a specified time.
-        :param last_modified_time_before: A filter that returns the model compilation jobs that were modified
-        before a specified time.
-        :param name_contains: A filter that returns the model compilation jobs whose name contains a
-        specified string.
-        :param status_equals: A filter that retrieves model compilation jobs with a specific
-        ``CompilationJobStatus`` status.
+        :param creation_time_after: A filter that returns the model compilation jobs that were created after a specified time.
+        :param creation_time_before: A filter that returns the model compilation jobs that were created before a specified time.
+        :param last_modified_time_after: A filter that returns the model compilation jobs that were modified after a specified time.
+        :param last_modified_time_before: A filter that returns the model compilation jobs that were modified before a specified time.
+        :param name_contains: A filter that returns the model compilation jobs whose name contains a specified string.
+        :param status_equals: A filter that retrieves model compilation jobs with a specific ``CompilationJobStatus`` status.
         :param sort_by: The field by which to sort results.
         :param sort_order: The sort order for results.
         :returns: ListCompilationJobsResponse
@@ -24507,14 +24344,11 @@ class SagemakerApi:
 
         :param source_uri: A filter that returns only contexts with the specified source URI.
         :param context_type: A filter that returns only contexts of the specified type.
-        :param created_after: A filter that returns only contexts created on or after the specified
-        time.
-        :param created_before: A filter that returns only contexts created on or before the specified
-        time.
+        :param created_after: A filter that returns only contexts created on or after the specified time.
+        :param created_before: A filter that returns only contexts created on or before the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
-        :param next_token: If the previous call to ``ListContexts`` didn't return the full set of
-        contexts, the call returns a token for getting the next set of contexts.
+        :param next_token: If the previous call to ``ListContexts`` didn't return the full set of contexts, the call returns a token for getting the next set of contexts.
         :param max_results: The maximum number of contexts to return in the response.
         :returns: ListContextsResponse
         :raises ResourceNotFound:
@@ -24537,19 +24371,14 @@ class SagemakerApi:
     ) -> ListDataQualityJobDefinitionsResponse:
         """Lists the data quality job definitions in your account.
 
-        :param endpoint_name: A filter that lists the data quality job definitions associated with the
-        specified endpoint.
+        :param endpoint_name: A filter that lists the data quality job definitions associated with the specified endpoint.
         :param sort_by: The field to sort results by.
         :param sort_order: Whether to sort the results in ``Ascending`` or ``Descending`` order.
-        :param next_token: If the result of the previous ``ListDataQualityJobDefinitions`` request
-        was truncated, the response includes a ``NextToken``.
-        :param max_results: The maximum number of data quality monitoring job definitions to return
-        in the response.
+        :param next_token: If the result of the previous ``ListDataQualityJobDefinitions`` request was truncated, the response includes a ``NextToken``.
+        :param max_results: The maximum number of data quality monitoring job definitions to return in the response.
         :param name_contains: A string in the data quality monitoring job definition name.
-        :param creation_time_before: A filter that returns only data quality monitoring job definitions
-        created before the specified time.
-        :param creation_time_after: A filter that returns only data quality monitoring job definitions
-        created after the specified time.
+        :param creation_time_before: A filter that returns only data quality monitoring job definitions created before the specified time.
+        :param creation_time_after: A filter that returns only data quality monitoring job definitions created after the specified time.
         :returns: ListDataQualityJobDefinitionsResponse
         """
         raise NotImplementedError
@@ -24571,12 +24400,10 @@ class SagemakerApi:
     ) -> ListDeviceFleetsResponse:
         """Returns a list of devices in the fleet.
 
-        :param next_token: The response from the last list when returning a list large enough to
-        need tokening.
+        :param next_token: The response from the last list when returning a list large enough to need tokening.
         :param max_results: The maximum number of results to select.
         :param creation_time_after: Filter fleets where packaging job was created after specified time.
-        :param creation_time_before: Filter fleets where the edge packaging job was created before specified
-        time.
+        :param creation_time_before: Filter fleets where the edge packaging job was created before specified time.
         :param last_modified_time_after: Select fleets where the job was updated after X.
         :param last_modified_time_before: Select fleets where the job was updated before X.
         :param name_contains: Filter for fleets containing this name in their fleet device name.
@@ -24599,12 +24426,10 @@ class SagemakerApi:
     ) -> ListDevicesResponse:
         """A list of devices.
 
-        :param next_token: The response from the last list when returning a list large enough to
-        need tokening.
+        :param next_token: The response from the last list when returning a list large enough to need tokening.
         :param max_results: Maximum number of results to select.
         :param latest_heartbeat_after: Select fleets where the job was updated after X.
-        :param model_name: A filter that searches devices that contains this name in any of their
-        models.
+        :param model_name: A filter that searches devices that contains this name in any of their models.
         :param device_fleet_name: Filter for fleets containing this name in their device fleet name.
         :returns: ListDevicesResponse
         """
@@ -24621,8 +24446,7 @@ class SagemakerApi:
         """Lists the domains.
 
         :param next_token: If the previous response was truncated, you will receive this token.
-        :param max_results: This parameter defines the maximum number of results that can be return
-        in a single response.
+        :param max_results: This parameter defines the maximum number of results that can be return in a single response.
         :returns: ListDomainsResponse
         """
         raise NotImplementedError
@@ -24645,16 +24469,14 @@ class SagemakerApi:
     ) -> ListEdgeDeploymentPlansResponse:
         """Lists all edge deployment plans.
 
-        :param next_token: The response from the last list when returning a list large enough to
-        need tokening.
+        :param next_token: The response from the last list when returning a list large enough to need tokening.
         :param max_results: The maximum number of results to select (50 by default).
         :param creation_time_after: Selects edge deployment plans created after this time.
         :param creation_time_before: Selects edge deployment plans created before this time.
         :param last_modified_time_after: Selects edge deployment plans that were last updated after this time.
         :param last_modified_time_before: Selects edge deployment plans that were last updated before this time.
         :param name_contains: Selects edge deployment plans with names containing this name.
-        :param device_fleet_name_contains: Selects edge deployment plans with a device fleet name containing this
-        name.
+        :param device_fleet_name_contains: Selects edge deployment plans with a device fleet name containing this name.
         :param sort_by: The column by which to sort the edge deployment plans.
         :param sort_order: The direction of the sorting (ascending or descending).
         :returns: ListEdgeDeploymentPlansResponse
@@ -24680,8 +24502,7 @@ class SagemakerApi:
     ) -> ListEdgePackagingJobsResponse:
         """Returns a list of edge packaging jobs.
 
-        :param next_token: The response from the last list when returning a list large enough to
-        need tokening.
+        :param next_token: The response from the last list when returning a list large enough to need tokening.
         :param max_results: Maximum number of results to select.
         :param creation_time_after: Select jobs where the job was created after specified time.
         :param creation_time_before: Select jobs where the job was created before specified time.
@@ -24713,14 +24534,11 @@ class SagemakerApi:
 
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
-        :param next_token: If the result of the previous ``ListEndpointConfig`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListEndpointConfig`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of training jobs to return in the response.
         :param name_contains: A string in the endpoint configuration name.
-        :param creation_time_before: A filter that returns only endpoint configurations created before the
-        specified time (timestamp).
-        :param creation_time_after: A filter that returns only endpoint configurations with a creation time
-        greater than or equal to the specified time (timestamp).
+        :param creation_time_before: A filter that returns only endpoint configurations created before the specified time (timestamp).
+        :param creation_time_after: A filter that returns only endpoint configurations with a creation time greater than or equal to the specified time (timestamp).
         :returns: ListEndpointConfigsOutput
         """
         raise NotImplementedError
@@ -24745,18 +24563,13 @@ class SagemakerApi:
 
         :param sort_by: Sorts the list of results.
         :param sort_order: The sort order for results.
-        :param next_token: If the result of a ``ListEndpoints`` request was truncated, the response
-        includes a ``NextToken``.
+        :param next_token: If the result of a ``ListEndpoints`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of endpoints to return in the response.
         :param name_contains: A string in endpoint names.
-        :param creation_time_before: A filter that returns only endpoints that were created before the
-        specified time (timestamp).
-        :param creation_time_after: A filter that returns only endpoints with a creation time greater than
-        or equal to the specified time (timestamp).
-        :param last_modified_time_before: A filter that returns only endpoints that were modified before the
-        specified timestamp.
-        :param last_modified_time_after: A filter that returns only endpoints that were modified after the
-        specified timestamp.
+        :param creation_time_before: A filter that returns only endpoints that were created before the specified time (timestamp).
+        :param creation_time_after: A filter that returns only endpoints with a creation time greater than or equal to the specified time (timestamp).
+        :param last_modified_time_before: A filter that returns only endpoints that were modified before the specified timestamp.
+        :param last_modified_time_after: A filter that returns only endpoints that were modified after the specified timestamp.
         :param status_equals: A filter that returns only endpoints with the specified status.
         :returns: ListEndpointsOutput
         """
@@ -24779,13 +24592,10 @@ class SagemakerApi:
         list can be sorted by experiment name or creation time.
 
         :param created_after: A filter that returns only experiments created after the specified time.
-        :param created_before: A filter that returns only experiments created before the specified
-        time.
+        :param created_before: A filter that returns only experiments created before the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
-        :param next_token: If the previous call to ``ListExperiments`` didn't return the full set
-        of experiments, the call returns a token for getting the next set of
-        experiments.
+        :param next_token: If the previous call to ``ListExperiments`` didn't return the full set of experiments, the call returns a token for getting the next set of experiments.
         :param max_results: The maximum number of experiments to return in the response.
         :returns: ListExperimentsResponse
         """
@@ -24811,10 +24621,8 @@ class SagemakerApi:
         :param name_contains: A string that partially matches one or more ``FeatureGroup`` s names.
         :param feature_group_status_equals: A ``FeatureGroup`` status.
         :param offline_store_status_equals: An ``OfflineStore`` status.
-        :param creation_time_after: Use this parameter to search for ``FeatureGroups`` s created after a
-        specific date and time.
-        :param creation_time_before: Use this parameter to search for ``FeatureGroups`` s created before a
-        specific date and time.
+        :param creation_time_after: Use this parameter to search for ``FeatureGroups`` s created after a specific date and time.
+        :param creation_time_before: Use this parameter to search for ``FeatureGroups`` s created before a specific date and time.
         :param sort_order: The order in which feature groups are listed.
         :param sort_by: The value on which the feature group list is sorted.
         :param max_results: The maximum number of results returned by ``ListFeatureGroups``.
@@ -24836,12 +24644,9 @@ class SagemakerApi:
     ) -> ListFlowDefinitionsResponse:
         """Returns information about the flow definitions in your account.
 
-        :param creation_time_after: A filter that returns only flow definitions with a creation time greater
-        than or equal to the specified timestamp.
-        :param creation_time_before: A filter that returns only flow definitions that were created before the
-        specified timestamp.
-        :param sort_order: An optional value that specifies whether you want the results sorted in
-        ``Ascending`` or ``Descending`` order.
+        :param creation_time_after: A filter that returns only flow definitions with a creation time greater than or equal to the specified timestamp.
+        :param creation_time_before: A filter that returns only flow definitions that were created before the specified timestamp.
+        :param sort_order: An optional value that specifies whether you want the results sorted in ``Ascending`` or ``Descending`` order.
         :param next_token: A token to resume pagination.
         :param max_results: The total number of items to return.
         :returns: ListFlowDefinitionsResponse
@@ -24872,15 +24677,12 @@ class SagemakerApi:
         :param hub_content_name: The name of the hub content.
         :param min_version: The lower bound of the hub content versions to list.
         :param max_schema_version: The upper bound of the hub content schema version.
-        :param creation_time_before: Only list hub content versions that were created before the time
-        specified.
-        :param creation_time_after: Only list hub content versions that were created after the time
-        specified.
+        :param creation_time_before: Only list hub content versions that were created before the time specified.
+        :param creation_time_after: Only list hub content versions that were created after the time specified.
         :param sort_by: Sort hub content versions by either name or creation time.
         :param sort_order: Sort hub content versions by ascending or descending order.
         :param max_results: The maximum number of hub content versions to list.
-        :param next_token: If the response to a previous ``ListHubContentVersions`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListHubContentVersions`` request was truncated, the response includes a ``NextToken``.
         :returns: ListHubContentVersionsResponse
         :raises ResourceNotFound:
         """
@@ -24913,8 +24715,7 @@ class SagemakerApi:
         :param sort_by: Sort hub content versions by either name or creation time.
         :param sort_order: Sort hubs by ascending or descending order.
         :param max_results: The maximum amount of hub content to list.
-        :param next_token: If the response to a previous ``ListHubContents`` request was truncated,
-        the response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListHubContents`` request was truncated, the response includes a ``NextToken``.
         :returns: ListHubContentsResponse
         :raises ResourceNotFound:
         """
@@ -24945,8 +24746,7 @@ class SagemakerApi:
         :param sort_by: Sort hubs by either name or creation time.
         :param sort_order: Sort hubs by ascending or descending order.
         :param max_results: The maximum number of hubs to list.
-        :param next_token: If the response to a previous ``ListHubs`` request was truncated, the
-        response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListHubs`` request was truncated, the response includes a ``NextToken``.
         :returns: ListHubsResponse
         """
         raise NotImplementedError
@@ -24965,12 +24765,9 @@ class SagemakerApi:
         """Returns information about the human task user interfaces in your
         account.
 
-        :param creation_time_after: A filter that returns only human task user interfaces with a creation
-        time greater than or equal to the specified timestamp.
-        :param creation_time_before: A filter that returns only human task user interfaces that were created
-        before the specified timestamp.
-        :param sort_order: An optional value that specifies whether you want the results sorted in
-        ``Ascending`` or ``Descending`` order.
+        :param creation_time_after: A filter that returns only human task user interfaces with a creation time greater than or equal to the specified timestamp.
+        :param creation_time_before: A filter that returns only human task user interfaces that were created before the specified timestamp.
+        :param sort_order: An optional value that specifies whether you want the results sorted in ``Ascending`` or ``Descending`` order.
         :param next_token: A token to resume pagination.
         :param max_results: The total number of items to return.
         :returns: ListHumanTaskUisResponse
@@ -24998,20 +24795,15 @@ class SagemakerApi:
         objects that describe the hyperparameter tuning jobs launched in your
         account.
 
-        :param next_token: If the result of the previous ``ListHyperParameterTuningJobs`` request
-        was truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListHyperParameterTuningJobs`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of tuning jobs to return.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
         :param name_contains: A string in the tuning job name.
-        :param creation_time_after: A filter that returns only tuning jobs that were created after the
-        specified time.
-        :param creation_time_before: A filter that returns only tuning jobs that were created before the
-        specified time.
-        :param last_modified_time_after: A filter that returns only tuning jobs that were modified after the
-        specified time.
-        :param last_modified_time_before: A filter that returns only tuning jobs that were modified before the
-        specified time.
+        :param creation_time_after: A filter that returns only tuning jobs that were created after the specified time.
+        :param creation_time_before: A filter that returns only tuning jobs that were created before the specified time.
+        :param last_modified_time_after: A filter that returns only tuning jobs that were modified after the specified time.
+        :param last_modified_time_before: A filter that returns only tuning jobs that were modified before the specified time.
         :param status_equals: A filter that returns only tuning jobs with the specified status.
         :returns: ListHyperParameterTuningJobsResponse
         """
@@ -25036,18 +24828,12 @@ class SagemakerApi:
         can be filtered by creation time or modified time.
 
         :param image_name: The name of the image to list the versions of.
-        :param creation_time_after: A filter that returns only versions created on or after the specified
-        time.
-        :param creation_time_before: A filter that returns only versions created on or before the specified
-        time.
-        :param last_modified_time_after: A filter that returns only versions modified on or after the specified
-        time.
-        :param last_modified_time_before: A filter that returns only versions modified on or before the specified
-        time.
+        :param creation_time_after: A filter that returns only versions created on or after the specified time.
+        :param creation_time_before: A filter that returns only versions created on or before the specified time.
+        :param last_modified_time_after: A filter that returns only versions modified on or after the specified time.
+        :param last_modified_time_before: A filter that returns only versions modified on or before the specified time.
         :param max_results: The maximum number of versions to return in the response.
-        :param next_token: If the previous call to ``ListImageVersions`` didn't return the full set
-        of versions, the call returns a token for getting the next set of
-        versions.
+        :param next_token: If the previous call to ``ListImageVersions`` didn't return the full set of versions, the call returns a token for getting the next set of versions.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
         :returns: ListImageVersionsResponse
@@ -25074,19 +24860,13 @@ class SagemakerApi:
         filtered by creation time or modified time, and whether the image name
         contains a specified string.
 
-        :param creation_time_after: A filter that returns only images created on or after the specified
-        time.
-        :param creation_time_before: A filter that returns only images created on or before the specified
-        time.
-        :param last_modified_time_after: A filter that returns only images modified on or after the specified
-        time.
-        :param last_modified_time_before: A filter that returns only images modified on or before the specified
-        time.
+        :param creation_time_after: A filter that returns only images created on or after the specified time.
+        :param creation_time_before: A filter that returns only images created on or before the specified time.
+        :param last_modified_time_after: A filter that returns only images modified on or after the specified time.
+        :param last_modified_time_before: A filter that returns only images modified on or before the specified time.
         :param max_results: The maximum number of images to return in the response.
-        :param name_contains: A filter that returns only images whose name contains the specified
-        string.
-        :param next_token: If the previous call to ``ListImages`` didn't return the full set of
-        images, the call returns a token for getting the next set of images.
+        :param name_contains: A filter that returns only images whose name contains the specified string.
+        :param next_token: If the previous call to ``ListImages`` didn't return the full set of images, the call returns a token for getting the next set of images.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
         :returns: ListImagesResponse
@@ -25115,21 +24895,14 @@ class SagemakerApi:
 
         :param sort_by: The field by which to sort the inference components in the response.
         :param sort_order: The sort order for results.
-        :param next_token: A token that you use to get the next set of results following a
-        truncated response.
+        :param next_token: A token that you use to get the next set of results following a truncated response.
         :param max_results: The maximum number of inference components to return in the response.
-        :param name_contains: Filters the results to only those inference components with a name that
-        contains the specified string.
-        :param creation_time_before: Filters the results to only those inference components that were created
-        before the specified time.
-        :param creation_time_after: Filters the results to only those inference components that were created
-        after the specified time.
-        :param last_modified_time_before: Filters the results to only those inference components that were updated
-        before the specified time.
-        :param last_modified_time_after: Filters the results to only those inference components that were updated
-        after the specified time.
-        :param status_equals: Filters the results to only those inference components with the
-        specified status.
+        :param name_contains: Filters the results to only those inference components with a name that contains the specified string.
+        :param creation_time_before: Filters the results to only those inference components that were created before the specified time.
+        :param creation_time_after: Filters the results to only those inference components that were created after the specified time.
+        :param last_modified_time_before: Filters the results to only those inference components that were updated before the specified time.
+        :param last_modified_time_after: Filters the results to only those inference components that were updated after the specified time.
+        :param status_equals: Filters the results to only those inference components with the specified status.
         :param endpoint_name_equals: An endpoint name to filter the listed inference components.
         :param variant_name_equals: A production variant name to filter the listed inference components.
         :returns: ListInferenceComponentsOutput
@@ -25147,14 +24920,11 @@ class SagemakerApi:
         :param status_equals: Selects inference experiments which are in this status.
         :param creation_time_after: Selects inference experiments which were created after this timestamp.
         :param creation_time_before: Selects inference experiments which were created before this timestamp.
-        :param last_modified_time_after: Selects inference experiments which were last modified after this
-        timestamp.
-        :param last_modified_time_before: Selects inference experiments which were last modified before this
-        timestamp.
+        :param last_modified_time_after: Selects inference experiments which were last modified after this timestamp.
+        :param last_modified_time_before: Selects inference experiments which were last modified before this timestamp.
         :param sort_by: The column by which to sort the listed inference experiments.
         :param sort_order: The direction of sorting (ascending or descending).
-        :param next_token: The response from the last list when returning a list large enough to
-        need tokening.
+        :param next_token: The response from the last list when returning a list large enough to need tokening.
         :param max_results: The maximum number of results to select.
         :returns: ListInferenceExperimentsResponse
         """
@@ -25206,26 +24976,18 @@ class SagemakerApi:
     ) -> ListInferenceRecommendationsJobsResponse:
         """Lists recommendation jobs that satisfy various filters.
 
-        :param creation_time_after: A filter that returns only jobs created after the specified time
-        (timestamp).
-        :param creation_time_before: A filter that returns only jobs created before the specified time
-        (timestamp).
-        :param last_modified_time_after: A filter that returns only jobs that were last modified after the
-        specified time (timestamp).
-        :param last_modified_time_before: A filter that returns only jobs that were last modified before the
-        specified time (timestamp).
+        :param creation_time_after: A filter that returns only jobs created after the specified time (timestamp).
+        :param creation_time_before: A filter that returns only jobs created before the specified time (timestamp).
+        :param last_modified_time_after: A filter that returns only jobs that were last modified after the specified time (timestamp).
+        :param last_modified_time_before: A filter that returns only jobs that were last modified before the specified time (timestamp).
         :param name_contains: A string in the job name.
-        :param status_equals: A filter that retrieves only inference recommendations jobs with a
-        specific status.
+        :param status_equals: A filter that retrieves only inference recommendations jobs with a specific status.
         :param sort_by: The parameter by which to sort the results.
         :param sort_order: The sort order for the results.
-        :param next_token: If the response to a previous
-        ``ListInferenceRecommendationsJobsRequest`` request was truncated, the
-        response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListInferenceRecommendationsJobsRequest`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of recommendations to return in the response.
         :param model_name_equals: A filter that returns only jobs that were created for this model.
-        :param model_package_version_arn_equals: A filter that returns only jobs that were created for this versioned
-        model package.
+        :param model_package_version_arn_equals: A filter that returns only jobs that were created for this versioned model package.
         :returns: ListInferenceRecommendationsJobsResponse
         """
         raise NotImplementedError
@@ -25248,18 +25010,12 @@ class SagemakerApi:
     ) -> ListLabelingJobsResponse:
         """Gets a list of labeling jobs.
 
-        :param creation_time_after: A filter that returns only labeling jobs created after the specified
-        time (timestamp).
-        :param creation_time_before: A filter that returns only labeling jobs created before the specified
-        time (timestamp).
-        :param last_modified_time_after: A filter that returns only labeling jobs modified after the specified
-        time (timestamp).
-        :param last_modified_time_before: A filter that returns only labeling jobs modified before the specified
-        time (timestamp).
-        :param max_results: The maximum number of labeling jobs to return in each page of the
-        response.
-        :param next_token: If the result of the previous ``ListLabelingJobs`` request was
-        truncated, the response includes a ``NextToken``.
+        :param creation_time_after: A filter that returns only labeling jobs created after the specified time (timestamp).
+        :param creation_time_before: A filter that returns only labeling jobs created before the specified time (timestamp).
+        :param last_modified_time_after: A filter that returns only labeling jobs modified after the specified time (timestamp).
+        :param last_modified_time_before: A filter that returns only labeling jobs modified before the specified time (timestamp).
+        :param max_results: The maximum number of labeling jobs to return in each page of the response.
+        :param next_token: If the result of the previous ``ListLabelingJobs`` request was truncated, the response includes a ``NextToken``.
         :param name_contains: A string in the labeling job name.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
@@ -25284,18 +25040,12 @@ class SagemakerApi:
     ) -> ListLabelingJobsForWorkteamResponse:
         """Gets a list of labeling jobs assigned to a specified work team.
 
-        :param workteam_arn: The Amazon Resource Name (ARN) of the work team for which you want to
-        see labeling jobs for.
-        :param max_results: The maximum number of labeling jobs to return in each page of the
-        response.
-        :param next_token: If the result of the previous ``ListLabelingJobsForWorkteam`` request
-        was truncated, the response includes a ``NextToken``.
-        :param creation_time_after: A filter that returns only labeling jobs created after the specified
-        time (timestamp).
-        :param creation_time_before: A filter that returns only labeling jobs created before the specified
-        time (timestamp).
-        :param job_reference_code_contains: A filter the limits jobs to only the ones whose job reference code
-        contains the specified string.
+        :param workteam_arn: The Amazon Resource Name (ARN) of the work team for which you want to see labeling jobs for.
+        :param max_results: The maximum number of labeling jobs to return in each page of the response.
+        :param next_token: If the result of the previous ``ListLabelingJobsForWorkteam`` request was truncated, the response includes a ``NextToken``.
+        :param creation_time_after: A filter that returns only labeling jobs created after the specified time (timestamp).
+        :param creation_time_before: A filter that returns only labeling jobs created before the specified time (timestamp).
+        :param job_reference_code_contains: A filter the limits jobs to only the ones whose job reference code contains the specified string.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
         :returns: ListLabelingJobsForWorkteamResponse
@@ -25320,10 +25070,8 @@ class SagemakerApi:
         Tracking <https://docs.aws.amazon.com/sagemaker/latest/dg/xaccount-lineage-tracking.html>`__
         in the *Amazon SageMaker Developer Guide*.
 
-        :param created_after: A timestamp to filter against lineage groups created after a certain
-        point in time.
-        :param created_before: A timestamp to filter against lineage groups created before a certain
-        point in time.
+        :param created_after: A timestamp to filter against lineage groups created after a certain point in time.
+        :param created_before: A timestamp to filter against lineage groups created before a certain point in time.
         :param sort_by: The parameter by which to sort the results.
         :param sort_order: The sort order for the results.
         :param next_token: If the response is truncated, SageMaker returns this token.
@@ -25350,19 +25098,15 @@ class SagemakerApi:
     ) -> ListMlflowAppsResponse:
         """Lists all MLflow Apps
 
-        :param created_after: Use the ``CreatedAfter`` filter to only list MLflow Apps created after a
-        specific date and time.
-        :param created_before: Use the ``CreatedBefore`` filter to only list MLflow Apps created before
-        a specific date and time.
+        :param created_after: Use the ``CreatedAfter`` filter to only list MLflow Apps created after a specific date and time.
+        :param created_before: Use the ``CreatedBefore`` filter to only list MLflow Apps created before a specific date and time.
         :param status: Filter for Mlflow apps with a specific creation status.
         :param mlflow_version: Filter for Mlflow Apps with the specified version.
         :param default_for_domain_id: Filter for MLflow Apps with the specified default SageMaker Domain ID.
         :param account_default_status: Filter for MLflow Apps with the specified ``AccountDefaultStatus``.
-        :param sort_by: Filter for MLflow Apps sorting by name, creation time, or creation
-        status.
+        :param sort_by: Filter for MLflow Apps sorting by name, creation time, or creation status.
         :param sort_order: Change the order of the listed MLflow Apps.
-        :param next_token: If the previous response was truncated, use this token in your next
-        request to receive the next set of results.
+        :param next_token: If the previous response was truncated, use this token in your next request to receive the next set of results.
         :param max_results: The maximum number of MLflow Apps to list.
         :returns: ListMlflowAppsResponse
         """
@@ -25384,14 +25128,11 @@ class SagemakerApi:
     ) -> ListMlflowTrackingServersResponse:
         """Lists all MLflow Tracking Servers.
 
-        :param created_after: Use the ``CreatedAfter`` filter to only list tracking servers created
-        after a specific date and time.
-        :param created_before: Use the ``CreatedBefore`` filter to only list tracking servers created
-        before a specific date and time.
+        :param created_after: Use the ``CreatedAfter`` filter to only list tracking servers created after a specific date and time.
+        :param created_before: Use the ``CreatedBefore`` filter to only list tracking servers created before a specific date and time.
         :param tracking_server_status: Filter for tracking servers with a specified creation status.
         :param mlflow_version: Filter for tracking servers using the specified MLflow version.
-        :param sort_by: Filter for trackings servers sorting by name, creation time, or creation
-        status.
+        :param sort_by: Filter for trackings servers sorting by name, creation time, or creation status.
         :param sort_order: Change the order of the listed tracking servers.
         :param next_token: If the previous response was truncated, you will receive this token.
         :param max_results: The maximum number of tracking servers to list.
@@ -25421,10 +25162,8 @@ class SagemakerApi:
         :param next_token: The token returned if the response is truncated.
         :param max_results: The maximum number of model bias jobs to return in the response.
         :param name_contains: Filter for model bias jobs whose name contains a specified string.
-        :param creation_time_before: A filter that returns only model bias jobs created before a specified
-        time.
-        :param creation_time_after: A filter that returns only model bias jobs created after a specified
-        time.
+        :param creation_time_before: A filter that returns only model bias jobs created before a specified time.
+        :param creation_time_after: A filter that returns only model bias jobs created after a specified time.
         :returns: ListModelBiasJobDefinitionsResponse
         """
         raise NotImplementedError
@@ -25449,17 +25188,13 @@ class SagemakerApi:
 
         :param model_card_name: List export jobs for the model card with the specified name.
         :param model_card_version: List export jobs for the model card with the specified version.
-        :param creation_time_after: Only list model card export jobs that were created after the time
-        specified.
-        :param creation_time_before: Only list model card export jobs that were created before the time
-        specified.
-        :param model_card_export_job_name_contains: Only list model card export jobs with names that contain the specified
-        string.
+        :param creation_time_after: Only list model card export jobs that were created after the time specified.
+        :param creation_time_before: Only list model card export jobs that were created before the time specified.
+        :param model_card_export_job_name_contains: Only list model card export jobs with names that contain the specified string.
         :param status_equals: Only list model card export jobs with the specified status.
         :param sort_by: Sort model card export jobs by either name or creation time.
         :param sort_order: Sort model card export jobs by ascending or descending order.
-        :param next_token: If the response to a previous ``ListModelCardExportJobs`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListModelCardExportJobs`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of model card export jobs to list.
         :returns: ListModelCardExportJobsResponse
         """
@@ -25481,16 +25216,12 @@ class SagemakerApi:
     ) -> ListModelCardVersionsResponse:
         """List existing versions of an Amazon SageMaker Model Card.
 
-        :param model_card_name: List model card versions for the model card with the specified name or
-        Amazon Resource Name (ARN).
-        :param creation_time_after: Only list model card versions that were created after the time
-        specified.
-        :param creation_time_before: Only list model card versions that were created before the time
-        specified.
+        :param model_card_name: List model card versions for the model card with the specified name or Amazon Resource Name (ARN).
+        :param creation_time_after: Only list model card versions that were created after the time specified.
+        :param creation_time_before: Only list model card versions that were created before the time specified.
         :param max_results: The maximum number of model card versions to list.
         :param model_card_status: Only list model card versions with the specified approval status.
-        :param next_token: If the response to a previous ``ListModelCardVersions`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListModelCardVersions`` request was truncated, the response includes a ``NextToken``.
         :param sort_by: Sort listed model card versions by version.
         :param sort_order: Sort model card versions by ascending or descending order.
         :returns: ListModelCardVersionsResponse
@@ -25519,8 +25250,7 @@ class SagemakerApi:
         :param max_results: The maximum number of model cards to list.
         :param name_contains: Only list model cards with names that contain the specified string.
         :param model_card_status: Only list model cards with the specified approval status.
-        :param next_token: If the response to a previous ``ListModelCards`` request was truncated,
-        the response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListModelCards`` request was truncated, the response includes a ``NextToken``.
         :param sort_by: Sort model cards by either name or creation time.
         :param sort_order: Sort model cards by ascending or descending order.
         :returns: ListModelCardsResponse
@@ -25548,12 +25278,9 @@ class SagemakerApi:
         :param sort_order: Whether to sort the results in ``Ascending`` or ``Descending`` order.
         :param next_token: The token returned if the response is truncated.
         :param max_results: The maximum number of jobs to return in the response.
-        :param name_contains: Filter for model explainability jobs whose name contains a specified
-        string.
-        :param creation_time_before: A filter that returns only model explainability jobs created before a
-        specified time.
-        :param creation_time_after: A filter that returns only model explainability jobs created after a
-        specified time.
+        :param name_contains: Filter for model explainability jobs whose name contains a specified string.
+        :param creation_time_before: A filter that returns only model explainability jobs created before a specified time.
+        :param creation_time_after: A filter that returns only model explainability jobs created after a specified time.
         :returns: ListModelExplainabilityJobDefinitionsResponse
         """
         raise NotImplementedError
@@ -25570,10 +25297,8 @@ class SagemakerApi:
         """Lists the domain, framework, task, and model name of standard machine
         learning models found in common model zoos.
 
-        :param search_expression: One or more filters that searches for the specified resource or
-        resources in a search.
-        :param next_token: If the response to a previous ``ListModelMetadataResponse`` request was
-        truncated, the response includes a NextToken.
+        :param search_expression: One or more filters that searches for the specified resource or resources in a search.
+        :param next_token: If the response to a previous ``ListModelMetadataResponse`` request was truncated, the response includes a NextToken.
         :param max_results: The maximum number of models to return in the response.
         :returns: ListModelMetadataResponse
         """
@@ -25595,18 +25320,14 @@ class SagemakerApi:
     ) -> ListModelPackageGroupsOutput:
         """Gets a list of the model groups in your Amazon Web Services account.
 
-        :param creation_time_after: A filter that returns only model groups created after the specified
-        time.
-        :param creation_time_before: A filter that returns only model groups created before the specified
-        time.
+        :param creation_time_after: A filter that returns only model groups created after the specified time.
+        :param creation_time_before: A filter that returns only model groups created before the specified time.
         :param max_results: The maximum number of results to return in the response.
         :param name_contains: A string in the model group name.
-        :param next_token: If the result of the previous ``ListModelPackageGroups`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListModelPackageGroups`` request was truncated, the response includes a ``NextToken``.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
-        :param cross_account_filter_option: A filter that returns either model groups shared with you or model
-        groups in your own account.
+        :param cross_account_filter_option: A filter that returns either model groups shared with you or model groups in your own account.
         :returns: ListModelPackageGroupsOutput
         """
         raise NotImplementedError
@@ -25629,19 +25350,14 @@ class SagemakerApi:
     ) -> ListModelPackagesOutput:
         """Lists the model packages that have been created.
 
-        :param creation_time_after: A filter that returns only model packages created after the specified
-        time (timestamp).
-        :param creation_time_before: A filter that returns only model packages created before the specified
-        time (timestamp).
+        :param creation_time_after: A filter that returns only model packages created after the specified time (timestamp).
+        :param creation_time_before: A filter that returns only model packages created before the specified time (timestamp).
         :param max_results: The maximum number of model packages to return in the response.
         :param name_contains: A string in the model package name.
-        :param model_approval_status: A filter that returns only the model packages with the specified
-        approval status.
-        :param model_package_group_name: A filter that returns only model versions that belong to the specified
-        model group.
+        :param model_approval_status: A filter that returns only the model packages with the specified approval status.
+        :param model_package_group_name: A filter that returns only model versions that belong to the specified model group.
         :param model_package_type: A filter that returns only the model packages of the specified type.
-        :param next_token: If the response to a previous ``ListModelPackages`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListModelPackages`` request was truncated, the response includes a ``NextToken``.
         :param sort_by: The parameter by which to sort the results.
         :param sort_order: The sort order for the results.
         :returns: ListModelPackagesOutput
@@ -25664,19 +25380,14 @@ class SagemakerApi:
     ) -> ListModelQualityJobDefinitionsResponse:
         """Gets a list of model quality monitoring job definitions in your account.
 
-        :param endpoint_name: A filter that returns only model quality monitoring job definitions that
-        are associated with the specified endpoint.
+        :param endpoint_name: A filter that returns only model quality monitoring job definitions that are associated with the specified endpoint.
         :param sort_by: The field to sort results by.
         :param sort_order: Whether to sort the results in ``Ascending`` or ``Descending`` order.
-        :param next_token: If the result of the previous ``ListModelQualityJobDefinitions`` request
-        was truncated, the response includes a ``NextToken``.
-        :param max_results: The maximum number of results to return in a call to
-        ``ListModelQualityJobDefinitions``.
+        :param next_token: If the result of the previous ``ListModelQualityJobDefinitions`` request was truncated, the response includes a ``NextToken``.
+        :param max_results: The maximum number of results to return in a call to ``ListModelQualityJobDefinitions``.
         :param name_contains: A string in the transform job name.
-        :param creation_time_before: A filter that returns only model quality monitoring job definitions
-        created before the specified time.
-        :param creation_time_after: A filter that returns only model quality monitoring job definitions
-        created after the specified time.
+        :param creation_time_before: A filter that returns only model quality monitoring job definitions created before the specified time.
+        :param creation_time_after: A filter that returns only model quality monitoring job definitions created after the specified time.
         :returns: ListModelQualityJobDefinitionsResponse
         """
         raise NotImplementedError
@@ -25698,14 +25409,11 @@ class SagemakerApi:
 
         :param sort_by: Sorts the list of results.
         :param sort_order: The sort order for results.
-        :param next_token: If the response to a previous ``ListModels`` request was truncated, the
-        response includes a ``NextToken``.
+        :param next_token: If the response to a previous ``ListModels`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of models to return in the response.
         :param name_contains: A string in the model name.
-        :param creation_time_before: A filter that returns only models created before the specified time
-        (timestamp).
-        :param creation_time_after: A filter that returns only models with a creation time greater than or
-        equal to the specified time (timestamp).
+        :param creation_time_before: A filter that returns only models created before the specified time (timestamp).
+        :param creation_time_after: A filter that returns only models with a creation time greater than or equal to the specified time (timestamp).
         :returns: ListModelsOutput
         """
         raise NotImplementedError
@@ -25730,15 +25438,11 @@ class SagemakerApi:
         :param monitoring_schedule_name: The name of a monitoring schedule.
         :param monitoring_alert_name: The name of a monitoring alert.
         :param sort_by: The field used to sort results.
-        :param sort_order: The sort order, whether ``Ascending`` or ``Descending``, of the alert
-        history.
-        :param next_token: If the result of the previous ``ListMonitoringAlertHistory`` request was
-        truncated, the response includes a ``NextToken``.
+        :param sort_order: The sort order, whether ``Ascending`` or ``Descending``, of the alert history.
+        :param next_token: If the result of the previous ``ListMonitoringAlertHistory`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of results to display.
-        :param creation_time_before: A filter that returns only alerts created on or before the specified
-        time.
-        :param creation_time_after: A filter that returns only alerts created on or after the specified
-        time.
+        :param creation_time_before: A filter that returns only alerts created on or before the specified time.
+        :param creation_time_after: A filter that returns only alerts created on or after the specified time.
         :param status_equals: A filter that retrieves only alerts with a specific status.
         :returns: ListMonitoringAlertHistoryResponse
         :raises ResourceNotFound:
@@ -25757,8 +25461,7 @@ class SagemakerApi:
         """Gets the alerts for a single monitoring schedule.
 
         :param monitoring_schedule_name: The name of a monitoring schedule.
-        :param next_token: If the result of the previous ``ListMonitoringAlerts`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListMonitoringAlerts`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of results to display.
         :returns: ListMonitoringAlertsResponse
         :raises ResourceNotFound:
@@ -25790,8 +25493,7 @@ class SagemakerApi:
 
         :param monitoring_schedule_name: Name of a specific schedule to fetch jobs for.
         :param endpoint_name: Name of a specific endpoint to fetch jobs for.
-        :param sort_by: Whether to sort the results by the ``Status``, ``CreationTime``, or
-        ``ScheduledTime`` field.
+        :param sort_by: Whether to sort the results by the ``Status``, ``CreationTime``, or ``ScheduledTime`` field.
         :param sort_order: Whether to sort the results in ``Ascending`` or ``Descending`` order.
         :param next_token: The token returned if the response is truncated.
         :param max_results: The maximum number of jobs to return in the response.
@@ -25802,10 +25504,8 @@ class SagemakerApi:
         :param last_modified_time_before: A filter that returns only jobs modified after a specified time.
         :param last_modified_time_after: A filter that returns only jobs modified before a specified time.
         :param status_equals: A filter that retrieves only jobs with a specific status.
-        :param monitoring_job_definition_name: Gets a list of the monitoring job runs of the specified monitoring job
-        definitions.
-        :param monitoring_type_equals: A filter that returns only the monitoring job runs of the specified
-        monitoring type.
+        :param monitoring_job_definition_name: Gets a list of the monitoring job runs of the specified monitoring job definitions.
+        :param monitoring_type_equals: A filter that returns only the monitoring job runs of the specified monitoring type.
         :returns: ListMonitoringExecutionsResponse
         """
         raise NotImplementedError
@@ -25832,26 +25532,18 @@ class SagemakerApi:
         """Returns list of all monitoring schedules.
 
         :param endpoint_name: Name of a specific endpoint to fetch schedules for.
-        :param sort_by: Whether to sort the results by the ``Status``, ``CreationTime``, or
-        ``ScheduledTime`` field.
+        :param sort_by: Whether to sort the results by the ``Status``, ``CreationTime``, or ``ScheduledTime`` field.
         :param sort_order: Whether to sort the results in ``Ascending`` or ``Descending`` order.
         :param next_token: The token returned if the response is truncated.
         :param max_results: The maximum number of jobs to return in the response.
         :param name_contains: Filter for monitoring schedules whose name contains a specified string.
-        :param creation_time_before: A filter that returns only monitoring schedules created before a
-        specified time.
-        :param creation_time_after: A filter that returns only monitoring schedules created after a
-        specified time.
-        :param last_modified_time_before: A filter that returns only monitoring schedules modified before a
-        specified time.
-        :param last_modified_time_after: A filter that returns only monitoring schedules modified after a
-        specified time.
-        :param status_equals: A filter that returns only monitoring schedules modified before a
-        specified time.
-        :param monitoring_job_definition_name: Gets a list of the monitoring schedules for the specified monitoring job
-        definition.
-        :param monitoring_type_equals: A filter that returns only the monitoring schedules for the specified
-        monitoring type.
+        :param creation_time_before: A filter that returns only monitoring schedules created before a specified time.
+        :param creation_time_after: A filter that returns only monitoring schedules created after a specified time.
+        :param last_modified_time_before: A filter that returns only monitoring schedules modified before a specified time.
+        :param last_modified_time_after: A filter that returns only monitoring schedules modified after a specified time.
+        :param status_equals: A filter that returns only monitoring schedules modified before a specified time.
+        :param monitoring_job_definition_name: Gets a list of the monitoring schedules for the specified monitoring job definition.
+        :param monitoring_type_equals: A filter that returns only the monitoring schedules for the specified monitoring type.
         :returns: ListMonitoringSchedulesResponse
         """
         raise NotImplementedError
@@ -25875,21 +25567,15 @@ class SagemakerApi:
         `CreateNotebookInstanceLifecycleConfig <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateNotebookInstanceLifecycleConfig.html>`__
         API.
 
-        :param next_token: If the result of a ``ListNotebookInstanceLifecycleConfigs`` request was
-        truncated, the response includes a ``NextToken``.
-        :param max_results: The maximum number of lifecycle configurations to return in the
-        response.
+        :param next_token: If the result of a ``ListNotebookInstanceLifecycleConfigs`` request was truncated, the response includes a ``NextToken``.
+        :param max_results: The maximum number of lifecycle configurations to return in the response.
         :param sort_by: Sorts the list of results.
         :param sort_order: The sort order for results.
         :param name_contains: A string in the lifecycle configuration name.
-        :param creation_time_before: A filter that returns only lifecycle configurations that were created
-        before the specified time (timestamp).
-        :param creation_time_after: A filter that returns only lifecycle configurations that were created
-        after the specified time (timestamp).
-        :param last_modified_time_before: A filter that returns only lifecycle configurations that were modified
-        before the specified time (timestamp).
-        :param last_modified_time_after: A filter that returns only lifecycle configurations that were modified
-        after the specified time (timestamp).
+        :param creation_time_before: A filter that returns only lifecycle configurations that were created before the specified time (timestamp).
+        :param creation_time_after: A filter that returns only lifecycle configurations that were created after the specified time (timestamp).
+        :param last_modified_time_before: A filter that returns only lifecycle configurations that were modified before the specified time (timestamp).
+        :param last_modified_time_after: A filter that returns only lifecycle configurations that were modified after the specified time (timestamp).
         :returns: ListNotebookInstanceLifecycleConfigsOutput
         """
         raise NotImplementedError
@@ -25917,27 +25603,19 @@ class SagemakerApi:
         """Returns a list of the SageMaker AI notebook instances in the requester's
         account in an Amazon Web Services Region.
 
-        :param next_token: If the previous call to the ``ListNotebookInstances`` is truncated, the
-        response includes a ``NextToken``.
+        :param next_token: If the previous call to the ``ListNotebookInstances`` is truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of notebook instances to return.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
         :param name_contains: A string in the notebook instances' name.
-        :param creation_time_before: A filter that returns only notebook instances that were created before
-        the specified time (timestamp).
-        :param creation_time_after: A filter that returns only notebook instances that were created after
-        the specified time (timestamp).
-        :param last_modified_time_before: A filter that returns only notebook instances that were modified before
-        the specified time (timestamp).
-        :param last_modified_time_after: A filter that returns only notebook instances that were modified after
-        the specified time (timestamp).
+        :param creation_time_before: A filter that returns only notebook instances that were created before the specified time (timestamp).
+        :param creation_time_after: A filter that returns only notebook instances that were created after the specified time (timestamp).
+        :param last_modified_time_before: A filter that returns only notebook instances that were modified before the specified time (timestamp).
+        :param last_modified_time_after: A filter that returns only notebook instances that were modified after the specified time (timestamp).
         :param status_equals: A filter that returns only notebook instances with the specified status.
-        :param notebook_instance_lifecycle_config_name_contains: A string in the name of a notebook instances lifecycle configuration
-        associated with this notebook instance.
-        :param default_code_repository_contains: A string in the name or URL of a Git repository associated with this
-        notebook instance.
-        :param additional_code_repository_equals: A filter that returns only notebook instances with associated with the
-        specified git repository.
+        :param notebook_instance_lifecycle_config_name_contains: A string in the name of a notebook instances lifecycle configuration associated with this notebook instance.
+        :param default_code_repository_contains: A string in the name or URL of a Git repository associated with this notebook instance.
+        :param additional_code_repository_equals: A filter that returns only notebook instances with associated with the specified git repository.
         :returns: ListNotebookInstancesOutput
         """
         raise NotImplementedError
@@ -25961,23 +25639,15 @@ class SagemakerApi:
     ) -> ListOptimizationJobsResponse:
         """Lists the optimization jobs in your account and their properties.
 
-        :param next_token: A token that you use to get the next set of results following a
-        truncated response.
+        :param next_token: A token that you use to get the next set of results following a truncated response.
         :param max_results: The maximum number of optimization jobs to return in the response.
-        :param creation_time_after: Filters the results to only those optimization jobs that were created
-        after the specified time.
-        :param creation_time_before: Filters the results to only those optimization jobs that were created
-        before the specified time.
-        :param last_modified_time_after: Filters the results to only those optimization jobs that were updated
-        after the specified time.
-        :param last_modified_time_before: Filters the results to only those optimization jobs that were updated
-        before the specified time.
-        :param optimization_contains: Filters the results to only those optimization jobs that apply the
-        specified optimization techniques.
-        :param name_contains: Filters the results to only those optimization jobs with a name that
-        contains the specified string.
-        :param status_equals: Filters the results to only those optimization jobs with the specified
-        status.
+        :param creation_time_after: Filters the results to only those optimization jobs that were created after the specified time.
+        :param creation_time_before: Filters the results to only those optimization jobs that were created before the specified time.
+        :param last_modified_time_after: Filters the results to only those optimization jobs that were updated after the specified time.
+        :param last_modified_time_before: Filters the results to only those optimization jobs that were updated before the specified time.
+        :param optimization_contains: Filters the results to only those optimization jobs that apply the specified optimization techniques.
+        :param name_contains: Filters the results to only those optimization jobs with a name that contains the specified string.
+        :param status_equals: Filters the results to only those optimization jobs with the specified status.
         :param sort_by: The field by which to sort the optimization jobs in the response.
         :param sort_order: The sort order for results.
         :returns: ListOptimizationJobsResponse
@@ -25994,8 +25664,7 @@ class SagemakerApi:
     ) -> ListPartnerAppsResponse:
         """Lists all of the SageMaker Partner AI Apps in an account.
 
-        :param max_results: This parameter defines the maximum number of results that can be
-        returned in a single response.
+        :param max_results: This parameter defines the maximum number of results that can be returned in a single response.
         :param next_token: If the previous response was truncated, you will receive this token.
         :returns: ListPartnerAppsResponse
         """
@@ -26014,10 +25683,8 @@ class SagemakerApi:
         """Gets a list of ``PipeLineExecutionStep`` objects.
 
         :param pipeline_execution_arn: The Amazon Resource Name (ARN) of the pipeline execution.
-        :param next_token: If the result of the previous ``ListPipelineExecutionSteps`` request was
-        truncated, the response includes a ``NextToken``.
-        :param max_results: The maximum number of pipeline execution steps to return in the
-        response.
+        :param next_token: If the result of the previous ``ListPipelineExecutionSteps`` request was truncated, the response includes a ``NextToken``.
+        :param max_results: The maximum number of pipeline execution steps to return in the response.
         :param sort_order: The field by which to sort results.
         :returns: ListPipelineExecutionStepsResponse
         :raises ResourceNotFound:
@@ -26040,14 +25707,11 @@ class SagemakerApi:
         """Gets a list of the pipeline executions.
 
         :param pipeline_name: The name or Amazon Resource Name (ARN) of the pipeline.
-        :param created_after: A filter that returns the pipeline executions that were created after a
-        specified time.
-        :param created_before: A filter that returns the pipeline executions that were created before a
-        specified time.
+        :param created_after: A filter that returns the pipeline executions that were created after a specified time.
+        :param created_before: A filter that returns the pipeline executions that were created before a specified time.
         :param sort_by: The field by which to sort results.
         :param sort_order: The sort order for results.
-        :param next_token: If the result of the previous ``ListPipelineExecutions`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListPipelineExecutions`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of pipeline executions to return in the response.
         :returns: ListPipelineExecutionsResponse
         :raises ResourceNotFound:
@@ -26066,8 +25730,7 @@ class SagemakerApi:
         """Gets a list of parameters for a pipeline execution.
 
         :param pipeline_execution_arn: The Amazon Resource Name (ARN) of the pipeline execution.
-        :param next_token: If the result of the previous ``ListPipelineParametersForExecution``
-        request was truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListPipelineParametersForExecution`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of parameters to return in the response.
         :returns: ListPipelineParametersForExecutionResponse
         :raises ResourceNotFound:
@@ -26089,13 +25752,10 @@ class SagemakerApi:
         """Gets a list of all versions of the pipeline.
 
         :param pipeline_name: The Amazon Resource Name (ARN) of the pipeline.
-        :param created_after: A filter that returns the pipeline versions that were created after a
-        specified time.
-        :param created_before: A filter that returns the pipeline versions that were created before a
-        specified time.
+        :param created_after: A filter that returns the pipeline versions that were created after a specified time.
+        :param created_before: A filter that returns the pipeline versions that were created before a specified time.
         :param sort_order: The sort order for the results.
-        :param next_token: If the result of the previous ``ListPipelineVersions`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListPipelineVersions`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of pipeline versions to return in the response.
         :returns: ListPipelineVersionsResponse
         :raises ResourceNotFound:
@@ -26118,14 +25778,11 @@ class SagemakerApi:
         """Gets a list of pipelines.
 
         :param pipeline_name_prefix: The prefix of the pipeline name.
-        :param created_after: A filter that returns the pipelines that were created after a specified
-        time.
-        :param created_before: A filter that returns the pipelines that were created before a specified
-        time.
+        :param created_after: A filter that returns the pipelines that were created after a specified time.
+        :param created_before: A filter that returns the pipelines that were created before a specified time.
         :param sort_by: The field by which to sort results.
         :param sort_order: The sort order for results.
-        :param next_token: If the result of the previous ``ListPipelines`` request was truncated,
-        the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListPipelines`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of pipelines to return in the response.
         :returns: ListPipelinesResponse
         """
@@ -26149,20 +25806,15 @@ class SagemakerApi:
     ) -> ListProcessingJobsResponse:
         """Lists processing jobs that satisfy various filters.
 
-        :param creation_time_after: A filter that returns only processing jobs created after the specified
-        time.
-        :param creation_time_before: A filter that returns only processing jobs created after the specified
-        time.
-        :param last_modified_time_after: A filter that returns only processing jobs modified after the specified
-        time.
-        :param last_modified_time_before: A filter that returns only processing jobs modified before the specified
-        time.
+        :param creation_time_after: A filter that returns only processing jobs created after the specified time.
+        :param creation_time_before: A filter that returns only processing jobs created after the specified time.
+        :param last_modified_time_after: A filter that returns only processing jobs modified after the specified time.
+        :param last_modified_time_before: A filter that returns only processing jobs modified before the specified time.
         :param name_contains: A string in the processing job name.
         :param status_equals: A filter that retrieves only processing jobs with a specific status.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
-        :param next_token: If the result of the previous ``ListProcessingJobs`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListProcessingJobs`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of processing jobs to return in the response.
         :returns: ListProcessingJobsResponse
         """
@@ -26183,15 +25835,11 @@ class SagemakerApi:
     ) -> ListProjectsOutput:
         """Gets a list of the projects in an Amazon Web Services account.
 
-        :param creation_time_after: A filter that returns the projects that were created after a specified
-        time.
-        :param creation_time_before: A filter that returns the projects that were created before a specified
-        time.
+        :param creation_time_after: A filter that returns the projects that were created after a specified time.
+        :param creation_time_before: A filter that returns the projects that were created before a specified time.
         :param max_results: The maximum number of projects to return in the response.
-        :param name_contains: A filter that returns the projects whose name contains a specified
-        string.
-        :param next_token: If the result of the previous ``ListProjects`` request was truncated,
-        the response includes a ``NextToken``.
+        :param name_contains: A filter that returns the projects whose name contains a specified string.
+        :param next_token: If the result of the previous ``ListProjects`` request was truncated, the response includes a ``NextToken``.
         :param sort_by: The field by which to sort results.
         :param sort_order: The sort order for results.
         :returns: ListProjectsOutput
@@ -26214,12 +25862,9 @@ class SagemakerApi:
         """Lists Amazon SageMaker Catalogs based on given filters and orders. The
         maximum number of ``ResourceCatalog`` s viewable is 1000.
 
-        :param name_contains: A string that partially matches one or more ``ResourceCatalog`` s
-        names.
-        :param creation_time_after: Use this parameter to search for ``ResourceCatalog`` s created after a
-        specific date and time.
-        :param creation_time_before: Use this parameter to search for ``ResourceCatalog`` s created before a
-        specific date and time.
+        :param name_contains: A string that partially matches one or more ``ResourceCatalog`` s names.
+        :param creation_time_after: Use this parameter to search for ``ResourceCatalog`` s created after a specific date and time.
+        :param creation_time_before: Use this parameter to search for ``ResourceCatalog`` s created before a specific date and time.
         :param sort_order: The order in which the resource catalogs are listed.
         :param sort_by: The value on which the resource catalog list is sorted.
         :param max_results: The maximum number of results returned by ``ListResourceCatalogs``.
@@ -26243,8 +25888,7 @@ class SagemakerApi:
         """Lists spaces.
 
         :param next_token: If the previous response was truncated, you will receive this token.
-        :param max_results: This parameter defines the maximum number of results that can be return
-        in a single response.
+        :param max_results: This parameter defines the maximum number of results that can be return in a single response.
         :param sort_order: The sort order for the results.
         :param sort_by: The parameter by which to sort the results.
         :param domain_id_equals: A parameter to search for the domain ID.
@@ -26269,8 +25913,7 @@ class SagemakerApi:
 
         :param edge_deployment_plan_name: The name of the edge deployment plan.
         :param stage_name: The name of the stage in the deployment.
-        :param next_token: The response from the last list when returning a list large enough to
-        neeed tokening.
+        :param next_token: The response from the last list when returning a list large enough to neeed tokening.
         :param max_results: The maximum number of requests to select.
         :param exclude_devices_deployed_in_other_stage: Toggle for excluding devices deployed in other stages.
         :returns: ListStageDevicesResponse
@@ -26297,20 +25940,13 @@ class SagemakerApi:
         Amazon Web Services Account.
 
         :param max_results: The total number of items to return in the response.
-        :param next_token: If the previous call to ListStudioLifecycleConfigs didn't return the
-        full set of Lifecycle Configurations, the call returns a token for
-        getting the next set of Lifecycle Configurations.
+        :param next_token: If the previous call to ListStudioLifecycleConfigs didn't return the full set of Lifecycle Configurations, the call returns a token for getting the next set of Lifecycle Configurations.
         :param name_contains: A string in the Lifecycle Configuration name.
-        :param app_type_equals: A parameter to search for the App Type to which the Lifecycle
-        Configuration is attached.
-        :param creation_time_before: A filter that returns only Lifecycle Configurations created on or before
-        the specified time.
-        :param creation_time_after: A filter that returns only Lifecycle Configurations created on or after
-        the specified time.
-        :param modified_time_before: A filter that returns only Lifecycle Configurations modified before the
-        specified time.
-        :param modified_time_after: A filter that returns only Lifecycle Configurations modified after the
-        specified time.
+        :param app_type_equals: A parameter to search for the App Type to which the Lifecycle Configuration is attached.
+        :param creation_time_before: A filter that returns only Lifecycle Configurations created on or before the specified time.
+        :param creation_time_after: A filter that returns only Lifecycle Configurations created on or after the specified time.
+        :param modified_time_before: A filter that returns only Lifecycle Configurations modified before the specified time.
+        :param modified_time_after: A filter that returns only Lifecycle Configurations modified after the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
         :returns: ListStudioLifecycleConfigsResponse
@@ -26332,8 +25968,7 @@ class SagemakerApi:
         satisfies the filter specified in the ``NameContains`` parameter.
 
         :param name_contains: A string in the work team name.
-        :param next_token: If the result of the previous ``ListSubscribedWorkteams`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListSubscribedWorkteams`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of work teams to return in each page of the response.
         :returns: ListSubscribedWorkteamsResponse
         """
@@ -26350,10 +25985,8 @@ class SagemakerApi:
     ) -> ListTagsOutput:
         """Returns the tags for the specified SageMaker resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource whose tags you want to
-        retrieve.
-        :param next_token: If the response to the previous ``ListTags`` request is truncated,
-        SageMaker returns this token.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource whose tags you want to retrieve.
+        :param next_token: If the response to the previous ``ListTags`` request is truncated, SageMaker returns this token.
         :param max_results: Maximum number of tags to return.
         :returns: ListTagsOutput
         """
@@ -26399,25 +26032,18 @@ class SagemakerApi:
 
         ``aws sagemaker list-training-jobs --max-results 100 --status-equals InProgress``
 
-        :param next_token: If the result of the previous ``ListTrainingJobs`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListTrainingJobs`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of training jobs to return in the response.
-        :param creation_time_after: A filter that returns only training jobs created after the specified
-        time (timestamp).
-        :param creation_time_before: A filter that returns only training jobs created before the specified
-        time (timestamp).
-        :param last_modified_time_after: A filter that returns only training jobs modified after the specified
-        time (timestamp).
-        :param last_modified_time_before: A filter that returns only training jobs modified before the specified
-        time (timestamp).
+        :param creation_time_after: A filter that returns only training jobs created after the specified time (timestamp).
+        :param creation_time_before: A filter that returns only training jobs created before the specified time (timestamp).
+        :param last_modified_time_after: A filter that returns only training jobs modified after the specified time (timestamp).
+        :param last_modified_time_before: A filter that returns only training jobs modified before the specified time (timestamp).
         :param name_contains: A string in the training job name.
         :param status_equals: A filter that retrieves only training jobs with a specific status.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
-        :param warm_pool_status_equals: A filter that retrieves only training jobs with a specific warm pool
-        status.
-        :param training_plan_arn_equals: The Amazon Resource Name (ARN); of the training plan to filter training
-        jobs by.
+        :param warm_pool_status_equals: A filter that retrieves only training jobs with a specific warm pool status.
+        :param training_plan_arn_equals: The Amazon Resource Name (ARN); of the training plan to filter training jobs by.
         :returns: ListTrainingJobsResponse
         """
         raise NotImplementedError
@@ -26440,9 +26066,7 @@ class SagemakerApi:
         launched.
 
         :param hyper_parameter_tuning_job_name: The name of the tuning job whose training jobs you want to list.
-        :param next_token: If the result of the previous
-        ``ListTrainingJobsForHyperParameterTuningJob`` request was truncated,
-        the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListTrainingJobsForHyperParameterTuningJob`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of training jobs to return.
         :param status_equals: A filter that returns only training jobs with the specified status.
         :param sort_by: The field to sort results by.
@@ -26469,10 +26093,8 @@ class SagemakerApi:
 
         :param next_token: A token to continue pagination if more results are available.
         :param max_results: The maximum number of results to return in the response.
-        :param start_time_after: Filter to list only training plans with an actual start time after this
-        date.
-        :param start_time_before: Filter to list only training plans with an actual start time before this
-        date.
+        :param start_time_after: Filter to list only training plans with an actual start time after this date.
+        :param start_time_before: Filter to list only training plans with an actual start time before this date.
         :param sort_by: The training plan field to sort the results by (e.
         :param sort_order: The order to sort the results (Ascending or Descending).
         :param filters: Additional filters to apply to the list of training plans.
@@ -26498,20 +26120,15 @@ class SagemakerApi:
     ) -> ListTransformJobsResponse:
         """Lists transform jobs.
 
-        :param creation_time_after: A filter that returns only transform jobs created after the specified
-        time.
-        :param creation_time_before: A filter that returns only transform jobs created before the specified
-        time.
-        :param last_modified_time_after: A filter that returns only transform jobs modified after the specified
-        time.
-        :param last_modified_time_before: A filter that returns only transform jobs modified before the specified
-        time.
+        :param creation_time_after: A filter that returns only transform jobs created after the specified time.
+        :param creation_time_before: A filter that returns only transform jobs created before the specified time.
+        :param last_modified_time_after: A filter that returns only transform jobs modified after the specified time.
+        :param last_modified_time_before: A filter that returns only transform jobs modified before the specified time.
         :param name_contains: A string in the transform job name.
         :param status_equals: A filter that retrieves only transform jobs with a specific status.
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
-        :param next_token: If the result of the previous ``ListTransformJobs`` request was
-        truncated, the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListTransformJobs`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of transform jobs to return in the response.
         :returns: ListTransformJobsResponse
         """
@@ -26543,20 +26160,15 @@ class SagemakerApi:
 
         -  ``TrialName``
 
-        :param experiment_name: A filter that returns only components that are part of the specified
-        experiment.
-        :param trial_name: A filter that returns only components that are part of the specified
-        trial.
-        :param source_arn: A filter that returns only components that have the specified source
-        Amazon Resource Name (ARN).
+        :param experiment_name: A filter that returns only components that are part of the specified experiment.
+        :param trial_name: A filter that returns only components that are part of the specified trial.
+        :param source_arn: A filter that returns only components that have the specified source Amazon Resource Name (ARN).
         :param created_after: A filter that returns only components created after the specified time.
         :param created_before: A filter that returns only components created before the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
         :param max_results: The maximum number of components to return in the response.
-        :param next_token: If the previous call to ``ListTrialComponents`` didn't return the full
-        set of components, the call returns a token for getting the next set of
-        components.
+        :param next_token: If the previous call to ``ListTrialComponents`` didn't return the full set of components, the call returns a token for getting the next set of components.
         :returns: ListTrialComponentsResponse
         :raises ResourceNotFound:
         """
@@ -26583,17 +26195,14 @@ class SagemakerApi:
         created in a specific time range. The list can be sorted by trial name
         or creation time.
 
-        :param experiment_name: A filter that returns only trials that are part of the specified
-        experiment.
-        :param trial_component_name: A filter that returns only trials that are associated with the specified
-        trial component.
+        :param experiment_name: A filter that returns only trials that are part of the specified experiment.
+        :param trial_component_name: A filter that returns only trials that are associated with the specified trial component.
         :param created_after: A filter that returns only trials created after the specified time.
         :param created_before: A filter that returns only trials created before the specified time.
         :param sort_by: The property used to sort results.
         :param sort_order: The sort order.
         :param max_results: The maximum number of trials to return in the response.
-        :param next_token: If the previous call to ``ListTrials`` didn't return the full set of
-        trials, the call returns a token for getting the next set of trials.
+        :param next_token: If the previous call to ``ListTrials`` didn't return the full set of trials, the call returns a token for getting the next set of trials.
         :returns: ListTrialsResponse
         :raises ResourceNotFound:
         """
@@ -26633,8 +26242,7 @@ class SagemakerApi:
         """Lists user profiles.
 
         :param next_token: If the previous response was truncated, you will receive this token.
-        :param max_results: This parameter defines the maximum number of results that can be return
-        in a single response.
+        :param max_results: This parameter defines the maximum number of results that can be return in a single response.
         :param sort_order: The sort order for the results.
         :param sort_by: The parameter by which to sort the results.
         :param domain_id_equals: A parameter by which to filter the results.
@@ -26660,8 +26268,7 @@ class SagemakerApi:
 
         :param sort_by: Sort workforces using the workforce name or creation date.
         :param sort_order: Sort workforces in ascending or descending order.
-        :param name_contains: A filter you can use to search for workforces using part of the
-        workforce name.
+        :param name_contains: A filter you can use to search for workforces using part of the workforce name.
         :param next_token: A token to resume pagination.
         :param max_results: The maximum number of workforces returned in the response.
         :returns: ListWorkforcesResponse
@@ -26686,8 +26293,7 @@ class SagemakerApi:
         :param sort_by: The field to sort results by.
         :param sort_order: The sort order for results.
         :param name_contains: A string in the work team's name.
-        :param next_token: If the result of the previous ``ListWorkteams`` request was truncated,
-        the response includes a ``NextToken``.
+        :param next_token: If the result of the previous ``ListWorkteams`` request was truncated, the response includes a ``NextToken``.
         :param max_results: The maximum number of work teams to return in each page of the response.
         :returns: ListWorkteamsResponse
         """
@@ -26732,16 +26338,11 @@ class SagemakerApi:
         Entities <https://docs.aws.amazon.com/sagemaker/latest/dg/querying-lineage-entities.html>`__
         in the *Amazon SageMaker Developer Guide*.
 
-        :param start_arns: A list of resource Amazon Resource Name (ARN) that represent the
-        starting point for your lineage query.
+        :param start_arns: A list of resource Amazon Resource Name (ARN) that represent the starting point for your lineage query.
         :param direction: Associations between lineage entities have a direction.
-        :param include_edges: Setting this value to ``True`` retrieves not only the entities of
-        interest but also the
-        `Associations <https://docs.
-        :param filters: A set of filtering parameters that allow you to specify which entities
-        should be returned.
-        :param max_depth: The maximum depth in lineage relationships from the ``StartArns`` that
-        are traversed.
+        :param include_edges: Setting this value to ``True`` retrieves not only the entities of interest but also the `Associations <https://docs.
+        :param filters: A set of filtering parameters that allow you to specify which entities should be returned.
+        :param max_depth: The maximum depth in lineage relationships from the ``StartArns`` that are traversed.
         :param max_results: Limits the number of vertices in the results.
         :param next_token: Limits the number of vertices in the request.
         :returns: QueryLineageResponse
@@ -26780,8 +26381,7 @@ class SagemakerApi:
         """Renders the UI template so that you can preview the worker's experience.
 
         :param task: A ``RenderableTask`` object containing a representative task to render.
-        :param role_arn: The Amazon Resource Name (ARN) that has access to the S3 objects that
-        are used by the template.
+        :param role_arn: The Amazon Resource Name (ARN) that has access to the S3 objects that are used by the template.
         :param ui_template: A ``Template`` object containing the worker UI template to render.
         :param human_task_ui_arn: The ``HumanTaskUiArn`` of the worker UI that you want to render.
         :returns: RenderUiTemplateResponse
@@ -26801,10 +26401,8 @@ class SagemakerApi:
         """Retry the execution of the pipeline.
 
         :param pipeline_execution_arn: The Amazon Resource Name (ARN) of the pipeline execution.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
-        :param parallelism_configuration: This configuration, if specified, overrides the parallelism
-        configuration of the parent pipeline.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
+        :param parallelism_configuration: This configuration, if specified, overrides the parallelism configuration of the parent pipeline.
         :returns: RetryPipelineExecutionResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -26843,12 +26441,10 @@ class SagemakerApi:
         :param search_expression: A Boolean conditional statement.
         :param sort_by: The name of the resource property used to sort the ``SearchResults``.
         :param sort_order: How ``SearchResults`` are ordered.
-        :param next_token: If more than ``MaxResults`` resources match the specified
-        ``SearchExpression``, the response includes a ``NextToken``.
+        :param next_token: If more than ``MaxResults`` resources match the specified ``SearchExpression``, the response includes a ``NextToken``.
         :param max_results: The maximum number of results to return.
         :param cross_account_filter_option: A cross account filter option.
-        :param visibility_conditions: Limits the results of your search request to the resources that you can
-        access.
+        :param visibility_conditions: Limits the results of your search request to the resources that you can access.
         :returns: SearchResponse
         """
         raise NotImplementedError
@@ -26865,6 +26461,7 @@ class SagemakerApi:
         end_time_before: Timestamp | None = None,
         duration_hours: TrainingPlanDurationHoursInput | None = None,
         target_resources: SageMakerResourceNames | None = None,
+        training_plan_arn: String | None = None,
         **kwargs,
     ) -> SearchTrainingPlanOfferingsResponse:
         """Searches for available training plan offerings based on specified
@@ -26880,18 +26477,15 @@ class SagemakerApi:
         SageMaker training jobs or SageMaker HyperPod clusters using Amazon
         SageMaker Training Plan , see ``CreateTrainingPlan``.
 
-        :param instance_type: The type of instance you want to search for in the available training
-        plan offerings.
-        :param instance_count: The number of instances you want to reserve in the training plan
-        offerings.
+        :param instance_type: The type of instance you want to search for in the available training plan offerings.
+        :param instance_count: The number of instances you want to reserve in the training plan offerings.
         :param ultra_server_type: The type of UltraServer to search for, such as ml.
         :param ultra_server_count: The number of UltraServers to search for.
-        :param start_time_after: A filter to search for training plan offerings with a start time after a
-        specified date.
-        :param end_time_before: A filter to search for reserved capacity offerings with an end time
-        before a specified date.
+        :param start_time_after: A filter to search for training plan offerings with a start time after a specified date.
+        :param end_time_before: A filter to search for reserved capacity offerings with an end time before a specified date.
         :param duration_hours: The desired duration in hours for the training plan offerings.
         :param target_resources: The target resources (e.
+        :param training_plan_arn: The Amazon Resource Name (ARN); of an existing training plan to search for extension offerings.
         :returns: SearchTrainingPlanOfferingsResponse
         :raises ResourceLimitExceeded:
         """
@@ -26913,8 +26507,7 @@ class SagemakerApi:
 
         :param callback_token: The pipeline generated token from the Amazon SQS queue.
         :param failure_reason: A message describing why the step failed.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :returns: SendPipelineExecutionStepFailureResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -26938,8 +26531,7 @@ class SagemakerApi:
 
         :param callback_token: The pipeline generated token from the Amazon SQS queue.
         :param output_parameters: A list of the output parameters of the callback step.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :returns: SendPipelineExecutionStepSuccessResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -27035,13 +26627,11 @@ class SagemakerApi:
         """Starts a pipeline execution.
 
         :param pipeline_name: The name or Amazon Resource Name (ARN) of the pipeline.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :param pipeline_execution_display_name: The display name of the pipeline execution.
         :param pipeline_parameters: Contains a list of pipeline parameters.
         :param pipeline_execution_description: The description of the pipeline execution.
-        :param parallelism_configuration: This configuration, if specified, overrides the parallelism
-        configuration of the parent pipeline for this specific run.
+        :param parallelism_configuration: This configuration, if specified, overrides the parallelism configuration of the parent pipeline for this specific run.
         :param selective_execution_config: The selective execution configuration applied to the pipeline run.
         :param pipeline_version_id: The ID of the pipeline version to start execution from.
         :param mlflow_experiment_name: The MLflow experiment name of the pipeline execution.
@@ -27059,8 +26649,7 @@ class SagemakerApi:
         """Initiates a remote connection session between a local integrated
         development environments (IDEs) and a remote SageMaker space.
 
-        :param resource_identifier: The Amazon Resource Name (ARN) of the resource to which the remote
-        connection will be established.
+        :param resource_identifier: The Amazon Resource Name (ARN) of the resource to which the remote connection will be established.
         :returns: StartSessionResponse
         :raises ResourceNotFound:
         :raises ResourceLimitExceeded:
@@ -27283,8 +26872,7 @@ class SagemakerApi:
         If the timeout is hit the pipeline execution status is ``Failed``.
 
         :param pipeline_execution_arn: The Amazon Resource Name (ARN) of the pipeline execution.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the operation.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the operation.
         :returns: StopPipelineExecutionResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -27424,16 +27012,12 @@ class SagemakerApi:
 
         :param cluster_name: Specify the name of the SageMaker HyperPod cluster you want to update.
         :param instance_groups: Specify the instance groups to update.
-        :param restricted_instance_groups: The specialized instance groups for training models like Amazon Nova to
-        be created in the SageMaker HyperPod cluster.
-        :param tiered_storage_config: Updates the configuration for managed tier checkpointing on the HyperPod
-        cluster.
+        :param restricted_instance_groups: The specialized instance groups for training models like Amazon Nova to be created in the SageMaker HyperPod cluster.
+        :param tiered_storage_config: Updates the configuration for managed tier checkpointing on the HyperPod cluster.
         :param node_recovery: The node recovery mode to be applied to the SageMaker HyperPod cluster.
         :param instance_groups_to_delete: Specify the names of the instance groups to delete.
-        :param node_provisioning_mode: Determines how instance provisioning is handled during cluster
-        operations.
-        :param cluster_role: The Amazon Resource Name (ARN) of the IAM role that HyperPod assumes for
-        cluster autoscaling operations.
+        :param node_provisioning_mode: Determines how instance provisioning is handled during cluster operations.
+        :param cluster_role: The Amazon Resource Name (ARN) of the IAM role that HyperPod assumes for cluster autoscaling operations.
         :param auto_scaling: Updates the autoscaling configuration for the cluster.
         :param orchestrator: The type of orchestrator used for the SageMaker HyperPod cluster.
         :returns: UpdateClusterResponse
@@ -27485,23 +27069,10 @@ class SagemakerApi:
         HyperPod cluster uptime and availability. Plan accordingly to mitigate
         potential disruptions to your workloads.
 
-        :param cluster_name: Specify the name or the Amazon Resource Name (ARN) of the SageMaker
-        HyperPod cluster you want to update for security patching.
+        :param cluster_name: Specify the name or the Amazon Resource Name (ARN) of the SageMaker HyperPod cluster you want to update for security patching.
         :param instance_groups: The array of instance groups for which to update AMI versions.
         :param deployment_config: The configuration to use when updating the AMI versions.
-        :param image_id: When configuring your HyperPod cluster, you can specify an image ID
-        using one of the following options:
-
-        -  ``HyperPodPublicAmiId``: Use a HyperPod public AMI
-
-        -  ``CustomAmiId``: Use your custom AMI
-
-        -  ``default``: Use the default latest system image
-
-        If you choose to use a custom AMI (``CustomAmiId``), ensure it meets the
-        following requirements:
-
-        -  Encryption: The custom AMI must be unencrypted.
+        :param image_id: When configuring your HyperPod cluster, you can specify an image ID using one of the following options:  -  ``HyperPodPublicAmiId``: Use a HyperPod public AMI  -  ``CustomAmiId``: Use your custom AMI  -  ``default``: Use the default latest system image  If you choose to use a custom AMI (``CustomAmiId``), ensure it meets the following requirements:  -  Encryption: The custom AMI must be unencrypted.
         :returns: UpdateClusterSoftwareResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -27519,9 +27090,7 @@ class SagemakerApi:
         """Updates the specified Git repository with the specified values.
 
         :param code_repository_name: The name of the Git repository to update.
-        :param git_config: The configuration of the git repository, including the URL and the
-        Amazon Resource Name (ARN) of the Amazon Web Services Secrets Manager
-        secret that contains the credentials used to access the repository.
+        :param git_config: The configuration of the git repository, including the URL and the Amazon Resource Name (ARN) of the Amazon Web Services Secrets Manager secret that contains the credentials used to access the repository.
         :returns: UpdateCodeRepositoryOutput
         :raises ConflictException:
         """
@@ -27593,8 +27162,7 @@ class SagemakerApi:
         :param output_config: Output configuration for storing sample data collected by the fleet.
         :param role_arn: The Amazon Resource Name (ARN) of the device.
         :param description: Description of the fleet.
-        :param enable_iot_role_alias: Whether to create an Amazon Web Services IoT Role Alias during device
-        fleet creation.
+        :param enable_iot_role_alias: Whether to create an Amazon Web Services IoT Role Alias during device fleet creation.
         :raises ResourceInUse:
         """
         raise NotImplementedError
@@ -27630,8 +27198,7 @@ class SagemakerApi:
         :param domain_id: The ID of the domain to be updated.
         :param default_user_settings: A collection of settings.
         :param domain_settings_for_update: A collection of ``DomainSettings`` configuration values to update.
-        :param app_security_group_management: The entity that creates and manages the required security groups for
-        inter-app communication in ``VPCOnly`` mode.
+        :param app_security_group_management: The entity that creates and manages the required security groups for inter-app communication in ``VPCOnly`` mode.
         :param default_space_settings: The default settings for shared spaces that users create in the domain.
         :param subnet_ids: The VPC subnets that Studio uses for communication.
         :param app_network_access_type: Specifies the VPC used for non-EFS traffic.
@@ -27682,15 +27249,9 @@ class SagemakerApi:
 
         :param endpoint_name: The name of the endpoint whose configuration you want to update.
         :param endpoint_config_name: The name of the new endpoint configuration.
-        :param retain_all_variant_properties: When updating endpoint resources, enables or disables the retention of
-        `variant
-        properties <https://docs.
-        :param exclude_retained_variant_properties: When you are updating endpoint resources with
-        ``RetainAllVariantProperties``, whose value is set to ``true``,
-        ``ExcludeRetainedVariantProperties`` specifies the list of type
-        `VariantProperty <https://docs.
-        :param deployment_config: The deployment configuration for an endpoint, which contains the desired
-        deployment strategy and rollback configurations.
+        :param retain_all_variant_properties: When updating endpoint resources, enables or disables the retention of `variant properties <https://docs.
+        :param exclude_retained_variant_properties: When you are updating endpoint resources with ``RetainAllVariantProperties``, whose value is set to ``true``, ``ExcludeRetainedVariantProperties`` specifies the list of type `VariantProperty <https://docs.
+        :param deployment_config: The deployment configuration for an endpoint, which contains the desired deployment strategy and rollback configurations.
         :param retain_deployment_config: Specifies whether to reuse the last deployment configuration.
         :returns: UpdateEndpointOutput
         :raises ResourceLimitExceeded:
@@ -27769,8 +27330,7 @@ class SagemakerApi:
         existing feature group, use the ``UpdateFeatureGroup`` API and set the
         ``TtlDuration`` ``Unit`` and ``Value`` to ``null``.
 
-        :param feature_group_name: The name or Amazon Resource Name (ARN) of the feature group that you're
-        updating.
+        :param feature_group_name: The name or Amazon Resource Name (ARN) of the feature group that you're updating.
         :param feature_additions: Updates the feature group.
         :param online_store_config: Updates the feature group online store configuration.
         :param throughput_config: The new throughput configuration for the feature group.
@@ -27793,14 +27353,11 @@ class SagemakerApi:
     ) -> None:
         """Updates the description and parameters of the feature group.
 
-        :param feature_group_name: The name or Amazon Resource Name (ARN) of the feature group containing
-        the feature that you're updating.
+        :param feature_group_name: The name or Amazon Resource Name (ARN) of the feature group containing the feature that you're updating.
         :param feature_name: The name of the feature that you're updating.
         :param description: A description that you can write to better describe the feature.
-        :param parameter_additions: A list of key-value pairs that you can add to better describe the
-        feature.
-        :param parameter_removals: A list of parameter keys that you can specify to remove parameters that
-        describe your feature.
+        :param parameter_additions: A list of key-value pairs that you can add to better describe the feature.
+        :param parameter_removals: A list of parameter keys that you can specify to remove parameters that describe your feature.
         :raises ResourceNotFound:
         """
         raise NotImplementedError
@@ -27865,8 +27422,7 @@ class SagemakerApi:
         If you want to update a ``ModelReference`` resource in your hub, use the
         ``UpdateHubContentResource`` API instead.
 
-        :param hub_name: The name of the SageMaker hub that contains the hub content you want to
-        update.
+        :param hub_name: The name of the SageMaker hub that contains the hub content you want to update.
         :param hub_content_name: The name of the hub content resource that you want to update.
         :param hub_content_type: The content type of the resource that you want to update.
         :param hub_content_version: The hub content version that you want to update.
@@ -27907,12 +27463,10 @@ class SagemakerApi:
         models to a private
         hub <https://docs.aws.amazon.com/sagemaker/latest/dg/jumpstart-curated-hubs-admin-guide-add-models.html>`__.
 
-        :param hub_name: The name of the SageMaker hub that contains the hub content you want to
-        update.
+        :param hub_name: The name of the SageMaker hub that contains the hub content you want to update.
         :param hub_content_name: The name of the hub content resource that you want to update.
         :param hub_content_type: The content type of the resource that you want to update.
-        :param min_version: The minimum hub content version of the referenced model that you want to
-        use.
+        :param min_version: The minimum hub content version of the referenced model that you want to use.
         :returns: UpdateHubContentReferenceResponse
         :raises ResourceNotFound:
         :raises ResourceInUse:
@@ -27941,8 +27495,7 @@ class SagemakerApi:
         :param delete_properties: A list of properties to delete.
         :param description: The new description for the image.
         :param display_name: The new display name for the image.
-        :param role_arn: The new ARN for the IAM role that enables Amazon SageMaker AI to perform
-        tasks on your behalf.
+        :param role_arn: The new ARN for the IAM role that enables Amazon SageMaker AI to perform tasks on your behalf.
         :returns: UpdateImageResponse
         :raises ResourceNotFound:
         :raises ResourceInUse:
@@ -28000,10 +27553,8 @@ class SagemakerApi:
         """Updates an inference component.
 
         :param inference_component_name: The name of the inference component.
-        :param specification: Details about the resources to deploy with this inference component,
-        including the model, container, and compute resources.
-        :param runtime_config: Runtime settings for a model that is deployed with an inference
-        component.
+        :param specification: Details about the resources to deploy with this inference component, including the model, container, and compute resources.
+        :param runtime_config: Runtime settings for a model that is deployed with an inference component.
         :param deployment_config: The deployment configuration for the inference component.
         :returns: UpdateInferenceComponentOutput
         :raises ResourceLimitExceeded:
@@ -28022,8 +27573,7 @@ class SagemakerApi:
         component.
 
         :param inference_component_name: The name of the inference component to update.
-        :param desired_runtime_config: Runtime settings for a model that is deployed with an inference
-        component.
+        :param desired_runtime_config: Runtime settings for a model that is deployed with an inference component.
         :returns: UpdateInferenceComponentRuntimeConfigOutput
         :raises ResourceLimitExceeded:
         """
@@ -28050,8 +27600,7 @@ class SagemakerApi:
         :param schedule: The duration for which the inference experiment will run.
         :param description: The description of the inference experiment.
         :param model_variants: An array of ``ModelVariantConfig`` objects.
-        :param data_storage_config: The Amazon S3 location and configuration for storing inference request
-        and response data.
+        :param data_storage_config: The Amazon S3 location and configuration for storing inference request and response data.
         :param shadow_mode_config: The configuration of ``ShadowMode`` inference experiment type.
         :returns: UpdateInferenceExperimentResponse
         :raises ConflictException:
@@ -28076,10 +27625,8 @@ class SagemakerApi:
 
         :param arn: The ARN of the MLflow App to update.
         :param name: The name of the MLflow App to update.
-        :param artifact_store_uri: The new S3 URI for the general purpose bucket to use as the artifact
-        store for the MLflow App.
-        :param model_registration_mode: Whether to enable or disable automatic registration of new MLflow models
-        to the SageMaker Model Registry.
+        :param artifact_store_uri: The new S3 URI for the general purpose bucket to use as the artifact store for the MLflow App.
+        :param model_registration_mode: Whether to enable or disable automatic registration of new MLflow models to the SageMaker Model Registry.
         :param weekly_maintenance_window_start: The new weekly maintenance window start day and time to update.
         :param default_domain_id_list: List of SageMaker Domain IDs for which this MLflow App is the default.
         :param account_default_status: Indicates whether this this MLflow App is the default for the account.
@@ -28098,17 +27645,19 @@ class SagemakerApi:
         tracking_server_size: TrackingServerSize | None = None,
         automatic_model_registration: Boolean | None = None,
         weekly_maintenance_window_start: WeeklyMaintenanceWindowStart | None = None,
+        s3_bucket_owner_account_id: AccountId | None = None,
+        s3_bucket_owner_verification: Boolean | None = None,
         **kwargs,
     ) -> UpdateMlflowTrackingServerResponse:
         """Updates properties of an existing MLflow Tracking Server.
 
         :param tracking_server_name: The name of the MLflow Tracking Server to update.
-        :param artifact_store_uri: The new S3 URI for the general purpose bucket to use as the artifact
-        store for the MLflow Tracking Server.
+        :param artifact_store_uri: The new S3 URI for the general purpose bucket to use as the artifact store for the MLflow Tracking Server.
         :param tracking_server_size: The new size for the MLflow Tracking Server.
-        :param automatic_model_registration: Whether to enable or disable automatic registration of new MLflow models
-        to the SageMaker Model Registry.
+        :param automatic_model_registration: Whether to enable or disable automatic registration of new MLflow models to the SageMaker Model Registry.
         :param weekly_maintenance_window_start: The new weekly maintenance window start day and time to update.
+        :param s3_bucket_owner_account_id: The new expected Amazon Web Services account ID that owns the Amazon S3 bucket for artifact storage.
+        :param s3_bucket_owner_verification: Whether to enable or disable Amazon S3 Bucket Owenrship Verifaction whenever the MLflow Tracking Server interacts with Amazon Amazon S3.
         :returns: UpdateMlflowTrackingServerResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -28165,15 +27714,9 @@ class SagemakerApi:
         :param model_package_registration_type: The package registration type of the model package input.
         :param approval_description: A description for the approval status of the model.
         :param customer_metadata_properties: The metadata properties associated with the model package versions.
-        :param customer_metadata_properties_to_remove: The metadata properties associated with the model package versions to
-        remove.
-        :param additional_inference_specifications_to_add: An array of additional Inference Specification objects to be added to
-        the existing array additional Inference Specification.
-        :param inference_specification: Specifies details about inference jobs that you can run with models
-        based on this model package, including the following information:
-
-        -  The Amazon ECR paths of containers that contain the inference code
-           and model artifacts.
+        :param customer_metadata_properties_to_remove: The metadata properties associated with the model package versions to remove.
+        :param additional_inference_specifications_to_add: An array of additional Inference Specification objects to be added to the existing array additional Inference Specification.
+        :param inference_specification: Specifies details about inference jobs that you can run with models based on this model package, including the following information:  -  The Amazon ECR paths of containers that contain the inference code    and model artifacts.
         :param source_uri: The URI of the source for the model package.
         :param model_card: The model card associated with the model package.
         :param model_life_cycle: A structure describing the current state of the model in its life cycle.
@@ -28197,10 +27740,8 @@ class SagemakerApi:
 
         :param monitoring_schedule_name: The name of a monitoring schedule.
         :param monitoring_alert_name: The name of a monitoring alert.
-        :param datapoints_to_alert: Within ``EvaluationPeriod``, how many execution failures will raise an
-        alert.
-        :param evaluation_period: The number of most recent monitoring executions to consider when
-        evaluating alert status.
+        :param datapoints_to_alert: Within ``EvaluationPeriod``, how many execution failures will raise an alert.
+        :param evaluation_period: The number of most recent monitoring executions to consider when evaluating alert status.
         :returns: UpdateMonitoringAlertResponse
         :raises ResourceNotFound:
         :raises ResourceLimitExceeded:
@@ -28218,8 +27759,7 @@ class SagemakerApi:
         """Updates a previously created schedule.
 
         :param monitoring_schedule_name: The name of the monitoring schedule.
-        :param monitoring_schedule_config: The configuration object that specifies the monitoring schedule and
-        defines the monitoring job.
+        :param monitoring_schedule_config: The configuration object that specifies the monitoring schedule and defines the monitoring job.
         :returns: UpdateMonitoringScheduleResponse
         :raises ResourceNotFound:
         :raises ResourceLimitExceeded:
@@ -28266,26 +27806,17 @@ class SagemakerApi:
         :param instance_type: The Amazon ML compute instance type.
         :param ip_address_type: The IP address type for the notebook instance.
         :param platform_identifier: The platform identifier of the notebook instance runtime environment.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that SageMaker AI can
-        assume to access the notebook instance.
-        :param lifecycle_config_name: The name of a lifecycle configuration to associate with the notebook
-        instance.
-        :param disassociate_lifecycle_config: Set to ``true`` to remove the notebook instance lifecycle configuration
-        currently associated with the notebook instance.
-        :param volume_size_in_gb: The size, in GB, of the ML storage volume to attach to the notebook
-        instance.
-        :param default_code_repository: The Git repository to associate with the notebook instance as its
-        default code repository.
-        :param additional_code_repositories: An array of up to three Git repositories to associate with the notebook
-        instance.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that SageMaker AI can assume to access the notebook instance.
+        :param lifecycle_config_name: The name of a lifecycle configuration to associate with the notebook instance.
+        :param disassociate_lifecycle_config: Set to ``true`` to remove the notebook instance lifecycle configuration currently associated with the notebook instance.
+        :param volume_size_in_gb: The size, in GB, of the ML storage volume to attach to the notebook instance.
+        :param default_code_repository: The Git repository to associate with the notebook instance as its default code repository.
+        :param additional_code_repositories: An array of up to three Git repositories to associate with the notebook instance.
         :param accelerator_types: This parameter is no longer supported.
         :param disassociate_accelerator_types: This parameter is no longer supported.
-        :param disassociate_default_code_repository: The name or URL of the default Git repository to remove from this
-        notebook instance.
-        :param disassociate_additional_code_repositories: A list of names or URLs of the default Git repositories to remove from
-        this notebook instance.
-        :param root_access: Whether root access is enabled or disabled for users of the notebook
-        instance.
+        :param disassociate_default_code_repository: The name or URL of the default Git repository to remove from this notebook instance.
+        :param disassociate_additional_code_repositories: A list of names or URLs of the default Git repositories to remove from this notebook instance.
+        :param root_access: Whether root access is enabled or disabled for users of the notebook instance.
         :param instance_metadata_service_configuration: Information on the IMDS configuration of the notebook instance.
         :returns: UpdateNotebookInstanceOutput
         :raises ResourceLimitExceeded:
@@ -28315,10 +27846,8 @@ class SagemakerApi:
         for security best practices.
 
         :param notebook_instance_lifecycle_config_name: The name of the lifecycle configuration.
-        :param on_create: The shell script that runs only once, when you create a notebook
-        instance.
-        :param on_start: The shell script that runs every time you start a notebook instance,
-        including when you create the notebook instance.
+        :param on_create: The shell script that runs only once, when you create a notebook instance.
+        :param on_start: The shell script that runs every time you start a notebook instance, including when you create the notebook instance.
         :returns: UpdateNotebookInstanceLifecycleConfigOutput
         :raises ResourceLimitExceeded:
         """
@@ -28343,15 +27872,10 @@ class SagemakerApi:
 
         :param arn: The ARN of the SageMaker Partner AI App to update.
         :param maintenance_config: Maintenance configuration settings for the SageMaker Partner AI App.
-        :param tier: Indicates the instance type and size of the cluster attached to the
-        SageMaker Partner AI App.
+        :param tier: Indicates the instance type and size of the cluster attached to the SageMaker Partner AI App.
         :param application_config: Configuration settings for the SageMaker Partner AI App.
-        :param enable_iam_session_based_identity: When set to ``TRUE``, the SageMaker Partner AI App sets the Amazon Web
-        Services IAM session name or the authenticated IAM user as the identity
-        of the SageMaker Partner AI App user.
-        :param enable_auto_minor_version_upgrade: When set to ``TRUE``, the SageMaker Partner AI App is automatically
-        upgraded to the latest minor version during the next scheduled
-        maintenance window, if one is available.
+        :param enable_iam_session_based_identity: When set to ``TRUE``, the SageMaker Partner AI App sets the Amazon Web Services IAM session name or the authenticated IAM user as the identity of the SageMaker Partner AI App user.
+        :param enable_auto_minor_version_upgrade: When set to ``TRUE``, the SageMaker Partner AI App is automatically upgraded to the latest minor version during the next scheduled maintenance window, if one is available.
         :param app_version: The semantic version to upgrade the SageMaker Partner AI App to.
         :param client_token: A unique token that guarantees that the call to this API is idempotent.
         :param tags: Each tag consists of a key and an optional value.
@@ -28404,8 +27928,7 @@ class SagemakerApi:
         :param pipeline_execution_arn: The Amazon Resource Name (ARN) of the pipeline execution.
         :param pipeline_execution_description: The description of the pipeline execution.
         :param pipeline_execution_display_name: The display name of the pipeline execution.
-        :param parallelism_configuration: This configuration, if specified, overrides the parallelism
-        configuration of the parent pipeline for this specific run.
+        :param parallelism_configuration: This configuration, if specified, overrides the parallelism configuration of the parent pipeline for this specific run.
         :returns: UpdatePipelineExecutionResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -28457,8 +27980,7 @@ class SagemakerApi:
 
         :param project_name: The name of the project.
         :param project_description: The description for the project.
-        :param service_catalog_provisioning_update_details: The product ID and provisioning artifact ID to provision a service
-        catalog.
+        :param service_catalog_provisioning_update_details: The product ID and provisioning artifact ID to provision a service catalog.
         :param tags: An array of key-value pairs.
         :param template_providers_to_update: The template providers to update in the project.
         :returns: UpdateProjectOutput
@@ -28505,14 +28027,10 @@ class SagemakerApi:
         """Update a model training job to request a new Debugger profiling
         configuration or to change warm pool retention length.
 
-        :param training_job_name: The name of a training job to update the Debugger profiling
-        configuration.
-        :param profiler_config: Configuration information for Amazon SageMaker Debugger system
-        monitoring, framework profiling, and storage paths.
-        :param profiler_rule_configurations: Configuration information for Amazon SageMaker Debugger rules for
-        profiling system and framework metrics.
-        :param resource_config: The training job ``ResourceConfig`` to update warm pool retention
-        length.
+        :param training_job_name: The name of a training job to update the Debugger profiling configuration.
+        :param profiler_config: Configuration information for Amazon SageMaker Debugger system monitoring, framework profiling, and storage paths.
+        :param profiler_rule_configurations: Configuration information for Amazon SageMaker Debugger rules for profiling system and framework metrics.
+        :param resource_config: The training job ``ResourceConfig`` to update warm pool retention length.
         :param remote_debug_config: Configuration for remote debugging while the training job is running.
         :returns: UpdateTrainingJobResponse
         :raises ResourceNotFound:
@@ -28562,14 +28080,11 @@ class SagemakerApi:
         :param status: The new status of the component.
         :param start_time: When the component started.
         :param end_time: When the component ended.
-        :param parameters: Replaces all of the component's hyperparameters with the specified
-        hyperparameters or add new hyperparameters.
+        :param parameters: Replaces all of the component's hyperparameters with the specified hyperparameters or add new hyperparameters.
         :param parameters_to_remove: The hyperparameters to remove from the component.
-        :param input_artifacts: Replaces all of the component's input artifacts with the specified
-        artifacts or adds new input artifacts.
+        :param input_artifacts: Replaces all of the component's input artifacts with the specified artifacts or adds new input artifacts.
         :param input_artifacts_to_remove: The input artifacts to remove from the component.
-        :param output_artifacts: Replaces all of the component's output artifacts with the specified
-        artifacts or adds new output artifacts.
+        :param output_artifacts: Replaces all of the component's output artifacts with the specified artifacts or adds new output artifacts.
         :param output_artifacts_to_remove: The output artifacts to remove from the component.
         :returns: UpdateTrialComponentResponse
         :raises ConflictException:
@@ -28655,14 +28170,10 @@ class SagemakerApi:
         This operation only applies to private workforces.
 
         :param workforce_name: The name of the private workforce that you want to update.
-        :param source_ip_config: A list of one to ten worker IP address ranges
-        (`CIDRs <https://docs.
-        :param oidc_config: Use this parameter to update your OIDC Identity Provider (IdP)
-        configuration for a workforce made using your own IdP.
+        :param source_ip_config: A list of one to ten worker IP address ranges (`CIDRs <https://docs.
+        :param oidc_config: Use this parameter to update your OIDC Identity Provider (IdP) configuration for a workforce made using your own IdP.
         :param workforce_vpc_config: Use this parameter to update your VPC configuration for a workforce.
-        :param ip_address_type: Use this parameter to specify whether you want ``IPv4`` only or
-        ``dualstack`` (``IPv4`` and ``IPv6``) to support your labeling
-        workforce.
+        :param ip_address_type: Use this parameter to specify whether you want ``IPv4`` only or ``dualstack`` (``IPv4`` and ``IPv6``) to support your labeling workforce.
         :returns: UpdateWorkforceResponse
         :raises ConflictException:
         """
@@ -28683,12 +28194,10 @@ class SagemakerApi:
         description.
 
         :param workteam_name: The name of the work team to update.
-        :param member_definitions: A list of ``MemberDefinition`` objects that contains objects that
-        identify the workers that make up the work team.
+        :param member_definitions: A list of ``MemberDefinition`` objects that contains objects that identify the workers that make up the work team.
         :param description: An updated description for the work team.
         :param notification_configuration: Configures SNS topic notifications for available or expiring work items.
-        :param worker_access_configuration: Use this optional parameter to constrain access to an Amazon S3 resource
-        based on the IP address using supported IAM global condition keys.
+        :param worker_access_configuration: Use this optional parameter to constrain access to an Amazon S3 resource based on the IP address using supported IAM global condition keys.
         :returns: UpdateWorkteamResponse
         :raises ResourceLimitExceeded:
         """

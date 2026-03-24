@@ -4,8 +4,6 @@ __all__ = ["RDTObservable"]
 
 from functools import partial
 
-import numpy as np
-
 from .observables import Need, ElementObservable
 from ..lattice import Refpts
 from ..physics import RDTType
@@ -29,6 +27,19 @@ RDT_names = {
         "h00400",
     ),
     RDTType.TUNESHIFT: ("dnux_dJx", "dnux_dJy", "dnuy_dJy"),
+    RDTType.CHROMATIC2: (
+        "h21001",
+        "h30001",
+        "h10021",
+        "h10111",
+        "h10201",
+        "h11002",
+        "h20002",
+        "h00112",
+        "h00202",
+        "h10003",
+        "h00004",
+    ),
 }
 RDT_code = {nm: code for code, names in RDT_names.items() for nm in names}
 
@@ -49,9 +60,11 @@ class RDTObservable(ElementObservable):
         self,
         refpts: Refpts,
         param: str,
+        *,
         name: str | None = None,
+        label: str | None = None,
         second_order: bool = False,
-        **kwargs,
+        **eval_kw,
     ):
         # noinspection PyUnresolvedReferences
         r"""Args:
@@ -61,7 +74,7 @@ class RDTObservable(ElementObservable):
             name:           Observable name. If :py:obj:`None`, an explicit
               name will be generated
             second_order:   Compute second order terms. Computation is significantly
-              longer using this method
+              longer using this method.
 
         Keyword Args:
             procfun:        Post-processing function. It can be any numpy ufunc or a
@@ -79,6 +92,16 @@ class RDTObservable(ElementObservable):
 
         The *target*, *weight* and *bounds* inputs must be broadcastable to the
         shape of *value*.
+
+        .. rubric:: Evaluation keywords
+
+        These values must be provided to the :py:meth:`~.ObservableList.evaluate`
+        method. Default values may be given at instantiation.
+
+        * **ring**:         Lattice description,
+        * **use_mp**:       Activate parallel calculation. Default: :py:obj:`False`
+        * **pool_size**:    Number of processes used for parallelization.
+          Default: :py:obj:`None`
 
         .. _rdt_param:
         .. rubric:: RDT parameter names
@@ -117,6 +140,18 @@ class RDTObservable(ElementObservable):
         **dnux_dJy**
         **dnuy_dJy**
 
+        **h21001**          at.RDTType.CHROMATIC2
+        **h30001**
+        **h10021**
+        **h10111**
+        **h10201**
+        **h11002**
+        **h20002**
+        **h00112**
+        **h00202**
+        **h10003**
+        **h00004**
+
         Examples:
 
             >>> obs = RDTObservable(at.Monitor, "h20000")
@@ -130,5 +165,9 @@ class RDTObservable(ElementObservable):
         name = self._set_name(name, param, None)
         fun = partial(_rdt_access, param)
 
-        super().__init__(fun, refpts, needs=needs, name=name, **kwargs)
+        super().__init__(
+            fun, refpts, needs=needs, name=name, axis_label="RDT", **eval_kw
+        )
         self._rdt_type = RDT_code[param]
+        if label:
+            self.label = label

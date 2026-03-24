@@ -2,6 +2,7 @@ _C='pickle'
 _B=True
 _A=None
 import dataclasses,os,traceback,typing as t
+from contextlib import contextmanager
 from functools import singledispatchmethod
 import pytest
 from _pytest.config import Config
@@ -103,13 +104,22 @@ class LocalstackStateContainerCollector(StateVisitor):
 	def __init__(A)->_A:A._stores={};A._backends={}
 	@staticmethod
 	def get_collector()->'LocalstackStateContainerCollector':return LocalstackStateContainerCollector()
-	def _collect_all_state_containers(F):
-		os.environ[ENV_PRO_ACTIVATED]='1';from localstack.pro.core import config as A;from localstack.services.plugins import SERVICE_PLUGINS as B;G=A.ENABLE_DMS;A.ENABLE_DMS=_B
-		for(C,H)in sorted(B.api_provider_specs.items()):
-			if'pro'in H:D=f"{C}:pro"
-			else:D=f"{C}:default"
-			E=B.plugin_manager.load(D);E.service.accept_state_visitor(F);E.service.stop()
-		A.ENABLE_DMS=G
+	@contextmanager
+	def _activate_pro(self):
+		from localstack.pro.core import config as A;B=os.environ.get(ENV_PRO_ACTIVATED);C=A.ENABLE_DMS;os.environ[ENV_PRO_ACTIVATED]='1';A.ENABLE_DMS=_B
+		try:yield
+		finally:
+			A.ENABLE_DMS=C
+			if B:os.environ[ENV_PRO_ACTIVATED]=B
+	def _collect_service(B,service_name:str,providers:list[str]):
+		A=service_name
+		if A in B._stores or A in B._backends:return
+		if'pro'in providers:C=f"{A}:pro"
+		else:C=f"{A}:default"
+		D=SERVICE_PLUGINS.plugin_manager.load(C);D.service.accept_state_visitor(B);D.service.stop()
+	def _collect_all_state_containers(A):
+		with A._activate_pro():
+			for(B,C)in sorted(SERVICE_PLUGINS.api_provider_specs.items()):A._collect_service(B,C)
 	@singledispatchmethod
 	def visit(self,state_container:t.Any):0
 	@visit.register(AccountRegionBundle)
@@ -130,3 +140,11 @@ class LocalstackStateContainerCollector(StateVisitor):
 		A=LocalstackStateContainerCollector.get_collector()
 		if not A._backends:A._collect_all_state_containers()
 		return A._backends
+	@staticmethod
+	def get_store_for_service(service_name:str)->type[BaseStore]|_A:
+		A=service_name;B=LocalstackStateContainerCollector.get_collector()
+		if B._stores and A in B._stores:return B._stores[A]
+		if A not in SERVICE_PLUGINS.api_provider_specs:raise Exception(f"{A} is not a recognized and supported service")
+		C=SERVICE_PLUGINS.api_provider_specs[A]
+		with B._activate_pro():B._collect_service(A,C)
+		return B._stores.get(A)

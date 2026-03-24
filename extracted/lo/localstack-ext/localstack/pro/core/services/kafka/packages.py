@@ -1,12 +1,13 @@
-_H='4.0.x.kraft'
-_G='3.7.x.kraft'
-_F='3.9.x.kraft'
-_E='3.8.x.kraft'
-_D='3.9.1'
+_I='4.0.x.kraft'
+_H='3.7.x.kraft'
+_G='3.9.x.kraft'
+_F='3.8.x.kraft'
+_E='4.1.x.kraft'
+_D='3.6.0.1'
 _C='3.7.2'
 _B='3.5.1'
 _A=None
-import functools,logging,os
+import copy,functools,logging,os
 from localstack.packages import Package,PackageInstaller
 from localstack.packages.core import InstallTarget
 from localstack.packages.java import JavaInstallerMixin
@@ -16,10 +17,12 @@ LOG=logging.getLogger(__name__)
 KAFKA_SERVER_URL_MIRROR='https://mirror.lyrahosting.com/apache/kafka/{version}/kafka_{scala_version}-{version}.tgz'
 KAFKA_SERVER_URL_ARCHIVE='https://archive.apache.org/dist/kafka/{version}/kafka_{scala_version}-{version}.tgz'
 KAFKA_SERVER_URL_DLCDN='https://dlcdn.apache.org/kafka/{version}/kafka_{scala_version}-{version}.tgz'
+KAFKA_CONTAINER_IMAGE_NAME='confluentinc/cp-kafka'
 DEFAULT_VERSION=os.getenv('MSK_DEFAULT_KAFKA_VERSION','').strip()or _B
-DEPRECATED_MSK_VERSIONS={'1.1.1','2.1.0','2.2.1','2.3.1','2.4.1','2.4.1.1','2.5.1','2.6.0','2.6.1','2.6.2','2.6.3','2.7.0','2.7.1','2.7.2','2.8.0','2.8.1','2.8.2.tiered','3.1.1','3.2.0','3.3.1','3.3.2','3.6.0.1'}
-ACTIVE_MSK_VERSIONS=['3.7.x','3.8.x',_E,_B,'3.6.0',_F,'3.9.x',_G,'3.4.0',_H]
-KAFKA_VERSION_MAPPING:dict[str,str]={'3.4.1':'3.4.1',_B:'3.5.2','3.6.0':'3.6.2','3.7.x':_C,_G:_C,'3.8.x':'3.8.1',_E:'3.8.1','3.9.x':_D,_F:_D,_H:_D}
+DEPRECATED_MSK_VERSIONS={'1.1.1','2.1.0','2.2.1','2.3.1','2.4.1','2.4.1.1','2.5.1','2.6.0','2.6.1','2.6.2','2.6.3','2.7.0','2.7.1','2.7.2','2.8.0','2.8.1','2.8.2.tiered','3.1.1','3.2.0','3.3.1','3.3.2','3.4.0',_D,'3.8.link','3.9.x+deprecated'}
+ACTIVE_MSK_VERSIONS=[_E,'3.7.x','3.8.x',_F,_B,'3.6.0',_G,'3.9.x',_H,_I]
+KAFKA_VERSION_MAPPING:dict[str,str]={'3.4.1':'3.4.1',_B:'3.5.2','3.6.0':'3.6.2','3.7.x':_C,_H:_C,'3.8.x':'3.8.1',_F:'3.8.1','3.9.x':'3.9.1',_G:'3.9.1',_I:'4.0.1',_E:'4.1.1',_D:'3.6.2'}
+def clean_version(version:str)->str:return version.removesuffix('+deprecated')
 MSK_VERSIONS:set[str]=set(ACTIVE_MSK_VERSIONS)|DEPRECATED_MSK_VERSIONS
 KAFKA_VERSIONS:set[str]=MSK_VERSIONS-set(KAFKA_VERSION_MAPPING.keys())|set(KAFKA_VERSION_MAPPING.values())
 class KafkaPackage(Package):
@@ -28,7 +31,7 @@ class KafkaPackage(Package):
 	@functools.lru_cache
 	def get_installer(self,version:str|_A=_A)->'KafkaPackageInstaller':
 		A=version;B=_A
-		if A:B=_get_kafka_version(A)
+		if A:B=get_kafka_version(A)
 		return super().get_installer(B)
 	def _get_installer(A,version:str)->PackageInstaller:return KafkaPackageInstaller('kafka',version)
 class KafkaPackageInstaller(JavaInstallerMixin,MirrorArchiveInstaller):
@@ -41,17 +44,28 @@ class KafkaPackageInstaller(JavaInstallerMixin,MirrorArchiveInstaller):
 	def kafka_download_url(self)->str:
 		if Version(self.version)>=Version(_C):return KAFKA_SERVER_URL_DLCDN
 		return KAFKA_SERVER_URL_ARCHIVE
+	@property
+	def java_version(self)->str:
+		if Version(self.version)>=Version('4'):return'17'
+		return'11'
+	def get_java_home(A)->str|_A:from localstack.packages.java import java_package as B;return B.get_installer(A.java_version).get_java_home()
 	def _get_archive_subdir(A)->str|_A:return f"kafka_{A.scala_version}-{A.version}"
 	def _get_install_marker_path(A,install_dir:str)->str:return os.path.join(install_dir,f"kafka_{A.scala_version}-{A.version}",'bin')
 	def _get_primary_url(A)->str:return A.kafka_download_url.format(version=A.version,scala_version=A.scala_version)
 	def _get_mirror_url(A)->str:return KAFKA_SERVER_URL_MIRROR.format(version=A.version,scala_version=A.scala_version)
 	def _get_checksum_url(A):B=A._get_primary_url();return f"{B}.sha512"
 	def _setup_existing_installation(A,target:InstallTarget)->_A:A._prepare_installation(target)
-def _get_kafka_version(requested_version:str)->str:
+	def _prepare_installation(A,target:InstallTarget)->_A:from localstack.packages.java import java_package as B;B.install(version=A.java_version,target=target)
+def get_kafka_version(requested_version:str)->str:
 	A=requested_version
+	if A in KAFKA_VERSIONS:return A
 	if(B:=KAFKA_VERSION_MAPPING.get(A)):LOG.debug('The specified MSK version %s is being mapped to Apache Kafka %s. Note, that tiered storage is currently unsupported.',A,B);A=B
 	if A in KAFKA_VERSIONS:return A
 	if A:LOG.info("Unable to install Kafka version '%s', falling back to default '%s'",A,DEFAULT_VERSION)
 	return DEFAULT_VERSION
 def is_kraft_mode(version:str)->bool:A=version;return A in ACTIVE_MSK_VERSIONS and A.endswith('.kraft')
+def get_container_tag_for_version(msk_version:str|_A=_A)->str:
+	A=msk_version
+	if not A:A=DEFAULT_VERSION
+	C=get_kafka_version(A);B=Version(C);D=4;E=copy.replace(B,release=(B.major+D,)+B.release[1:]);return str(E)
 kafka_package=KafkaPackage()

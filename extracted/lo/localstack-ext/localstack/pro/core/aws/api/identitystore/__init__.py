@@ -724,12 +724,9 @@ class IdentitystoreApi:
         :param display_name: A string containing the name of the user.
         :param nick_name: A string containing an alternate name for the user.
         :param profile_url: A string containing a URL that might be associated with the user.
-        :param emails: A list of ``Email`` objects containing email addresses associated with
-        the user.
-        :param addresses: A list of ``Address`` objects containing addresses associated with the
-        user.
-        :param phone_numbers: A list of ``PhoneNumber`` objects containing phone numbers associated
-        with the user.
+        :param emails: A list of ``Email`` objects containing email addresses associated with the user.
+        :param addresses: A list of ``Address`` objects containing addresses associated with the user.
+        :param phone_numbers: A list of ``PhoneNumber`` objects containing phone numbers associated with the user.
         :param user_type: A string indicating the type of user.
         :param title: A string containing the title of the user.
         :param preferred_language: A string containing the preferred language of the user.
@@ -834,8 +831,7 @@ class IdentitystoreApi:
         accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
         in the *IAM Identity Center User Guide*.
 
-        :param identity_store_id: The globally unique identifier for the identity store, such as
-        ``d-1234567890``.
+        :param identity_store_id: The globally unique identifier for the identity store, such as ``d-1234567890``.
         :param group_id: The identifier for a group in the identity store.
         :returns: DescribeGroupResponse
         :raises ResourceNotFoundException:
@@ -892,11 +888,9 @@ class IdentitystoreApi:
         accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
         in the *IAM Identity Center User Guide*.
 
-        :param identity_store_id: The globally unique identifier for the identity store, such as
-        ``d-1234567890``.
+        :param identity_store_id: The globally unique identifier for the identity store, such as ``d-1234567890``.
         :param user_id: The identifier for a user in the identity store.
-        :param extensions: A collection of extension names indicating what extensions the service
-        should retrieve alongside other user attributes.
+        :param extensions: A collection of extension names indicating what extensions the service should retrieve alongside other user attributes.
         :returns: DescribeUserResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -923,8 +917,7 @@ class IdentitystoreApi:
         in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
-        :param alternate_identifier: A unique identifier for a user or group that is not the primary
-        identifier.
+        :param alternate_identifier: A unique identifier for a user or group that is not the primary identifier.
         :returns: GetGroupIdResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -980,8 +973,7 @@ class IdentitystoreApi:
         in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
-        :param alternate_identifier: A unique identifier for a user or group that is not the primary
-        identifier.
+        :param alternate_identifier: A unique identifier for a user or group that is not the primary identifier.
         :returns: GetUserIdResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -1044,8 +1036,7 @@ class IdentitystoreApi:
         :param identity_store_id: The globally unique identifier for the identity store.
         :param group_id: The identifier for a group in the identity store.
         :param max_results: The maximum number of results to be returned per request.
-        :param next_token: The pagination token used for the ``ListUsers``, ``ListGroups`` and
-        ``ListGroupMemberships`` API operations.
+        :param next_token: The pagination token used for the ``ListUsers``, ``ListGroups`` and ``ListGroupMemberships`` API operations.
         :returns: ListGroupMembershipsResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -1078,8 +1069,7 @@ class IdentitystoreApi:
         :param identity_store_id: The globally unique identifier for the identity store.
         :param member_id: An object that contains the identifier of a group member.
         :param max_results: The maximum number of results to be returned per request.
-        :param next_token: The pagination token used for the ``ListUsers``, ``ListGroups``, and
-        ``ListGroupMemberships`` API operations.
+        :param next_token: The pagination token used for the ``ListUsers``, ``ListGroups``, and ``ListGroupMemberships`` API operations.
         :returns: ListGroupMembershipsForMemberResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -1110,13 +1100,10 @@ class IdentitystoreApi:
         accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
         in the *IAM Identity Center User Guide*.
 
-        :param identity_store_id: The globally unique identifier for the identity store, such as
-        ``d-1234567890``.
+        :param identity_store_id: The globally unique identifier for the identity store, such as ``d-1234567890``.
         :param max_results: The maximum number of results to be returned per request.
-        :param next_token: The pagination token used for the ``ListUsers`` and ``ListGroups`` API
-        operations.
-        :param filters: A list of ``Filter`` objects, which is used in the ``ListUsers`` and
-        ``ListGroups`` requests.
+        :param next_token: The pagination token used for the ``ListUsers`` and ``ListGroups`` API operations.
+        :param filters: A list of ``Filter`` objects, which is used in the ``ListUsers`` and ``ListGroups`` requests.
         :returns: ListGroupsResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -1147,15 +1134,11 @@ class IdentitystoreApi:
         accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
         in the *IAM Identity Center User Guide*.
 
-        :param identity_store_id: The globally unique identifier for the identity store, such as
-        ``d-1234567890``.
-        :param extensions: A collection of extension names indicating what extensions the service
-        should retrieve alongside other user attributes.
+        :param identity_store_id: The globally unique identifier for the identity store, such as ``d-1234567890``.
+        :param extensions: A collection of extension names indicating what extensions the service should retrieve alongside other user attributes.
         :param max_results: The maximum number of results to be returned per request.
-        :param next_token: The pagination token used for the ``ListUsers`` and ``ListGroups`` API
-        operations.
-        :param filters: A list of ``Filter`` objects, which is used in the ``ListUsers`` and
-        ``ListGroups`` requests.
+        :param next_token: The pagination token used for the ``ListUsers`` and ``ListGroups`` API operations.
+        :param filters: A list of ``Filter`` objects, which is used in the ``ListUsers`` and ``ListGroups`` requests.
         :returns: ListUsersResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -1179,8 +1162,7 @@ class IdentitystoreApi:
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param group_id: The identifier for a group in the identity store.
-        :param operations: A list of ``AttributeOperation`` objects to apply to the requested
-        group.
+        :param operations: A list of ``AttributeOperation`` objects to apply to the requested group.
         :returns: UpdateGroupResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:

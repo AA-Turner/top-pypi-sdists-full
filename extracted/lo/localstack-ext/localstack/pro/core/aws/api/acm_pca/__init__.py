@@ -1049,20 +1049,13 @@ class AcmPcaApi:
         be protected with encryption. For more information, see `Encrypting Your
         CRLs <https://docs.aws.amazon.com/privateca/latest/userguide/crl-planning.html#crl-encryption>`__.
 
-        :param certificate_authority_configuration: Name and bit size of the private key algorithm, the name of the signing
-        algorithm, and X.
+        :param certificate_authority_configuration: Name and bit size of the private key algorithm, the name of the signing algorithm, and X.
         :param certificate_authority_type: The type of the certificate authority.
-        :param revocation_configuration: Contains information to enable support for Online Certificate Status
-        Protocol (OCSP), certificate revocation list (CRL), both protocols, or
-        neither.
-        :param idempotency_token: Custom string that can be used to distinguish between calls to the
-        **CreateCertificateAuthority** action.
-        :param key_storage_security_standard: Specifies a cryptographic key management compliance standard for
-        handling and protecting CA keys.
+        :param revocation_configuration: Contains information to enable support for Online Certificate Status Protocol (OCSP), certificate revocation list (CRL), both protocols, or neither.
+        :param idempotency_token: Custom string that can be used to distinguish between calls to the **CreateCertificateAuthority** action.
+        :param key_storage_security_standard: Specifies a cryptographic key management compliance standard for handling and protecting CA keys.
         :param tags: Key-value pairs that will be attached to the new private CA.
-        :param usage_mode: Specifies whether the CA issues general-purpose certificates that
-        typically require a revocation mechanism, or short-lived certificates
-        that may optionally omit revocation because they expire quickly.
+        :param usage_mode: Specifies whether the CA issues general-purpose certificates that typically require a revocation mechanism, or short-lived certificates that may optionally omit revocation because they expire quickly.
         :returns: CreateCertificateAuthorityResponse
         :raises LimitExceededException:
         :raises InvalidArgsException:
@@ -1153,10 +1146,8 @@ class AcmPcaApi:
            CA <https://docs.aws.amazon.com/privateca/latest/userguide/pca-rbp.html>`__.
 
         :param certificate_authority_arn: The Amazon Resource Name (ARN) of the CA that grants the permissions.
-        :param principal: The Amazon Web Services service or identity that receives the
-        permission.
-        :param actions: The actions that the specified Amazon Web Services service principal can
-        use.
+        :param principal: The Amazon Web Services service or identity that receives the permission.
+        :param actions: The actions that the specified Amazon Web Services service principal can use.
         :param source_account: The ID of the calling account.
         :raises LimitExceededException:
         :raises PermissionAlreadyExistsException:
@@ -1219,8 +1210,7 @@ class AcmPcaApi:
         A private CA deleted in the ``CREATING`` or ``FAILED`` state has no
         assigned restoration period and cannot be restored.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called
-        `CreateCertificateAuthority <https://docs.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateCertificateAuthority <https://docs.
         :param permanent_deletion_time_in_days: The number of days to make a CA restorable after it has been deleted.
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1270,10 +1260,8 @@ class AcmPcaApi:
            Web Services Private
            CA <https://docs.aws.amazon.com/privateca/latest/userguide/pca-rbp.html>`__.
 
-        :param certificate_authority_arn: The Amazon Resource Number (ARN) of the private CA that issued the
-        permissions.
-        :param principal: The Amazon Web Services service or identity that will have its CA
-        permissions revoked.
+        :param certificate_authority_arn: The Amazon Resource Number (ARN) of the private CA that issued the permissions.
+        :param principal: The Amazon Web Services service or identity that will have its CA permissions revoked.
         :param source_account: The Amazon Web Services account that calls this action.
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1324,8 +1312,7 @@ class AcmPcaApi:
            Cross-Account
            Access <https://docs.aws.amazon.com/privateca/latest/userguide/pca-ram.html>`__.
 
-        :param resource_arn: The Amazon Resource Number (ARN) of the private CA that will have its
-        policy deleted.
+        :param resource_arn: The Amazon Resource Number (ARN) of the private CA that will have its policy deleted.
         :raises LockoutPreventedException:
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1367,8 +1354,7 @@ class AcmPcaApi:
            which it is permanently deleted. The length of time remaining in the
            CA's restoration period is also included in this action's output.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called
-        `CreateCertificateAuthority <https://docs.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateCertificateAuthority <https://docs.
         :returns: DescribeCertificateAuthorityResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1394,8 +1380,7 @@ class AcmPcaApi:
         action.
 
         :param certificate_authority_arn: The Amazon Resource Name (ARN) of the private CA.
-        :param audit_report_id: The report ID returned by calling the
-        `CreateCertificateAuthorityAuditReport <https://docs.
+        :param audit_report_id: The report ID returned by calling the `CreateCertificateAuthorityAuditReport <https://docs.
         :returns: DescribeCertificateAuthorityAuditReportResponse
         :raises ResourceNotFoundException:
         :raises InvalidArgsException:
@@ -1422,8 +1407,7 @@ class AcmPcaApi:
         action to create a report that contains information about all of the
         certificates issued and revoked by your private CA.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called
-        `CreateCertificateAuthority <https://docs.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateCertificateAuthority <https://docs.
         :param certificate_arn: The ARN of the issued certificate.
         :returns: GetCertificateResponse
         :raises ResourceNotFoundException:
@@ -1465,8 +1449,7 @@ class AcmPcaApi:
         `ImportCertificateAuthorityCertificate <https://docs.aws.amazon.com/privateca/latest/APIReference/API_ImportCertificateAuthorityCertificate.html>`__
         action. The CSR is returned as a base64 PEM-encoded string.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called the
-        `CreateCertificateAuthority <https://docs.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called the `CreateCertificateAuthority <https://docs.
         :returns: GetCertificateAuthorityCsrResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1511,8 +1494,7 @@ class AcmPcaApi:
            Cross-Account
            Access <https://docs.aws.amazon.com/privateca/latest/userguide/pca-ram.html>`__.
 
-        :param resource_arn: The Amazon Resource Number (ARN) of the private CA that will have its
-        policy retrieved.
+        :param resource_arn: The Amazon Resource Number (ARN) of the private CA that will have its policy retrieved.
         :returns: GetPolicyResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1629,11 +1611,9 @@ class AcmPcaApi:
         other extension marked as critical not contained on the preceding list
         of allowed extensions.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called
-        `CreateCertificateAuthority <https://docs.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateCertificateAuthority <https://docs.
         :param certificate: The PEM-encoded certificate for a private CA.
-        :param certificate_chain: A PEM-encoded file that contains all of your certificates, other than
-        the certificate you're importing, chaining up to your root CA.
+        :param certificate_chain: A PEM-encoded file that contains all of your certificates, other than the certificate you're importing, chaining up to your root CA.
         :raises CertificateMismatchException:
         :raises MalformedCertificateException:
         :raises ResourceNotFoundException:
@@ -1671,21 +1651,14 @@ class AcmPcaApi:
         the ARNs of the certificates that you issue by using Amazon Web Services
         Private CA.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called
-        `CreateCertificateAuthority <https://docs.
-        :param csr: The certificate signing request (CSR) for the certificate you want to
-        issue.
-        :param signing_algorithm: The name of the algorithm that will be used to sign the certificate to
-        be issued.
-        :param validity: Information describing the end of the validity period of the
-        certificate.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateCertificateAuthority <https://docs.
+        :param csr: The certificate signing request (CSR) for the certificate you want to issue.
+        :param signing_algorithm: The name of the algorithm that will be used to sign the certificate to be issued.
+        :param validity: Information describing the end of the validity period of the certificate.
         :param api_passthrough: Specifies X.
-        :param template_arn: Specifies a custom configuration template to use when issuing a
-        certificate.
-        :param validity_not_before: Information describing the start of the validity period of the
-        certificate.
-        :param idempotency_token: Alphanumeric string that can be used to distinguish between calls to the
-        **IssueCertificate** action.
+        :param template_arn: Specifies a custom configuration template to use when issuing a certificate.
+        :param validity_not_before: Information describing the start of the validity period of the certificate.
+        :param idempotency_token: Alphanumeric string that can be used to distinguish between calls to the **IssueCertificate** action.
         :returns: IssueCertificateResponse
         :raises LimitExceededException:
         :raises ResourceNotFoundException:
@@ -1709,12 +1682,9 @@ class AcmPcaApi:
         `CreateCertificateAuthority <https://docs.aws.amazon.com/privateca/latest/APIReference/API_CreateCertificateAuthority.html>`__
         action.
 
-        :param max_results: Use this parameter when paginating results to specify the maximum number
-        of items to return in the response on each page.
-        :param next_token: Use this parameter when paginating results in a subsequent request after
-        you receive a response with truncated results.
-        :param resource_owner: Use this parameter to filter the returned set of certificate authorities
-        based on their owner.
+        :param max_results: Use this parameter when paginating results to specify the maximum number of items to return in the response on each page.
+        :param next_token: Use this parameter when paginating results in a subsequent request after you receive a response with truncated results.
+        :param resource_owner: Use this parameter to filter the returned set of certificate authorities based on their owner.
         :returns: ListCertificateAuthoritiesResponse
         :raises InvalidNextTokenException:
         """
@@ -1760,10 +1730,8 @@ class AcmPcaApi:
            CA <https://docs.aws.amazon.com/privateca/latest/userguide/pca-rbp.html>`__.
 
         :param certificate_authority_arn: The Amazon Resource Number (ARN) of the private CA to inspect.
-        :param max_results: When paginating results, use this parameter to specify the maximum
-        number of items to return in the response.
-        :param next_token: When paginating results, use this parameter in a subsequent request
-        after you receive a response with truncated results.
+        :param max_results: When paginating results, use this parameter to specify the maximum number of items to return in the response.
+        :param next_token: When paginating results, use this parameter in a subsequent request after you receive a response with truncated results.
         :returns: ListPermissionsResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1791,12 +1759,9 @@ class AcmPcaApi:
         `UntagCertificateAuthority <https://docs.aws.amazon.com/privateca/latest/APIReference/API_UntagCertificateAuthority.html>`__
         action to remove tags.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called the
-        `CreateCertificateAuthority <https://docs.
-        :param max_results: Use this parameter when paginating results to specify the maximum number
-        of items to return in the response.
-        :param next_token: Use this parameter when paginating results in a subsequent request after
-        you receive a response with truncated results.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called the `CreateCertificateAuthority <https://docs.
+        :param max_results: Use this parameter when paginating results to specify the maximum number of items to return in the response.
+        :param next_token: Use this parameter when paginating results in a subsequent request after you receive a response with truncated results.
         :returns: ListTagsResponse
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1845,10 +1810,8 @@ class AcmPcaApi:
            Cross-Account
            Access <https://docs.aws.amazon.com/privateca/latest/userguide/pca-ram.html>`__.
 
-        :param resource_arn: The Amazon Resource Number (ARN) of the private CA to associate with the
-        policy.
-        :param policy: The path and file name of a JSON-formatted IAM policy to attach to the
-        specified private CA resource.
+        :param resource_arn: The Amazon Resource Number (ARN) of the private CA to associate with the policy.
+        :param policy: The path and file name of a JSON-formatted IAM policy to attach to the specified private CA resource.
         :raises LockoutPreventedException:
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1886,8 +1849,7 @@ class AcmPcaApi:
         can be activated. You cannot restore a CA after the restoration period
         has ended.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called the
-        `CreateCertificateAuthority <https://docs.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called the `CreateCertificateAuthority <https://docs.
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
         :raises InvalidStateException:
@@ -1928,8 +1890,7 @@ class AcmPcaApi:
 
         You cannot revoke a root CA self-signed certificate.
 
-        :param certificate_authority_arn: Amazon Resource Name (ARN) of the private CA that issued the certificate
-        to be revoked.
+        :param certificate_authority_arn: Amazon Resource Name (ARN) of the private CA that issued the certificate to be revoked.
         :param certificate_serial: Serial number of the certificate to be revoked.
         :param revocation_reason: Specifies why you revoked the certificate.
         :raises RequestAlreadyProcessedException:
@@ -1967,8 +1928,7 @@ class AcmPcaApi:
         more information, see `Attaching tags to a CA at the time of
         creation <https://docs.aws.amazon.com/privateca/latest/userguide/auth-InlinePolicies.html#policy-tag-ca>`__.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called
-        `CreateCertificateAuthority <https://docs.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateCertificateAuthority <https://docs.
         :param tags: List of tags to be associated with the CA.
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -1992,8 +1952,7 @@ class AcmPcaApi:
         `ListTags <https://docs.aws.amazon.com/privateca/latest/APIReference/API_ListTags.html>`__
         action to see what tags are associated with your CA.
 
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called
-        `CreateCertificateAuthority <https://docs.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateCertificateAuthority <https://docs.
         :param tags: List of tags to be removed from the CA.
         :raises ResourceNotFoundException:
         :raises InvalidArnException:
@@ -2024,11 +1983,8 @@ class AcmPcaApi:
         policies for CRLs in Amazon
         S3 <https://docs.aws.amazon.com/privateca/latest/userguide/crl-planning.html#s3-policies>`__.
 
-        :param certificate_authority_arn: Amazon Resource Name (ARN) of the private CA that issued the certificate
-        to be revoked.
-        :param revocation_configuration: Contains information to enable support for Online Certificate Status
-        Protocol (OCSP), certificate revocation list (CRL), both protocols, or
-        neither.
+        :param certificate_authority_arn: Amazon Resource Name (ARN) of the private CA that issued the certificate to be revoked.
+        :param revocation_configuration: Contains information to enable support for Online Certificate Status Protocol (OCSP), certificate revocation list (CRL), both protocols, or neither.
         :param status: Status of your private CA.
         :raises ResourceNotFoundException:
         :raises InvalidArgsException:

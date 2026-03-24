@@ -1750,15 +1750,10 @@ class LakeformationApi:
 
         -  lakeformation:GetDataAccess
 
-        :param saml_assertion: A SAML assertion consisting of an assertion statement for the user who
-        needs temporary credentials.
-        :param role_arn: The role that represents an IAM principal whose scope down policy allows
-        it to call credential vending APIs such as
-        ``GetTemporaryTableCredentials``.
-        :param principal_arn: The Amazon Resource Name (ARN) of the SAML provider in IAM that
-        describes the IdP.
-        :param duration_seconds: The time period, between 900 and 43,200 seconds, for the timeout of the
-        temporary credentials.
+        :param saml_assertion: A SAML assertion consisting of an assertion statement for the user who needs temporary credentials.
+        :param role_arn: The role that represents an IAM principal whose scope down policy allows it to call credential vending APIs such as ``GetTemporaryTableCredentials``.
+        :param principal_arn: The Amazon Resource Name (ARN) of the SAML provider in IAM that describes the IdP.
+        :param duration_seconds: The time period, between 900 and 43,200 seconds, for the timeout of the temporary credentials.
         :returns: AssumeDecoratedRoleWithSAMLResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -1778,8 +1773,7 @@ class LakeformationApi:
     ) -> BatchGrantPermissionsResponse:
         """Batch operation to grant permissions to the principal.
 
-        :param entries: A list of up to 20 entries for resource permissions to be granted by
-        batch operation to the principal.
+        :param entries: A list of up to 20 entries for resource permissions to be granted by batch operation to the principal.
         :param catalog_id: The identifier for the Data Catalog.
         :returns: BatchGrantPermissionsResponse
         :raises InvalidInputException:
@@ -1797,8 +1791,7 @@ class LakeformationApi:
     ) -> BatchRevokePermissionsResponse:
         """Batch operation to revoke permissions from the principal.
 
-        :param entries: A list of up to 20 entries for resource permissions to be revoked by
-        batch operation to the principal.
+        :param entries: A list of up to 20 entries for resource permissions to be revoked by batch operation to the principal.
         :param catalog_id: The identifier for the Data Catalog.
         :returns: BatchRevokePermissionsResponse
         :raises InvalidInputException:
@@ -1851,8 +1844,7 @@ class LakeformationApi:
         """Creates a data cell filter to allow one to grant access to certain
         columns on certain rows.
 
-        :param table_data: A ``DataCellsFilter`` structure containing information about the data
-        cells filter.
+        :param table_data: A ``DataCellsFilter`` structure containing information about the data cells filter.
         :returns: CreateDataCellsFilterResponse
         :raises AlreadyExistsException:
         :raises InvalidInputException:
@@ -1938,15 +1930,10 @@ class LakeformationApi:
         IAM Identity Center users and groups to access Data Catalog resources.
 
         :param catalog_id: The identifier for the Data Catalog.
-        :param instance_arn: The ARN of the IAM Identity Center instance for which the operation will
-        be executed.
-        :param external_filtering: A list of the account IDs of Amazon Web Services accounts of third-party
-        applications that are allowed to access data managed by Lake Formation.
-        :param share_recipients: A list of Amazon Web Services account IDs and/or Amazon Web Services
-        organization/organizational unit ARNs that are allowed to access data
-        managed by Lake Formation.
-        :param service_integrations: A list of service integrations for enabling trusted identity propagation
-        with external services such as Redshift.
+        :param instance_arn: The ARN of the IAM Identity Center instance for which the operation will be executed.
+        :param external_filtering: A list of the account IDs of Amazon Web Services accounts of third-party applications that are allowed to access data managed by Lake Formation.
+        :param share_recipients: A list of Amazon Web Services account IDs and/or Amazon Web Services organization/organizational unit ARNs that are allowed to access data managed by Lake Formation.
+        :param service_integrations: A list of service integrations for enabling trusted identity propagation with external services such as Redshift.
         :returns: CreateLakeFormationIdentityCenterConfigurationResponse
         :raises InvalidInputException:
         :raises AlreadyExistsException:
@@ -1971,8 +1958,7 @@ class LakeformationApi:
 
         :param principal: The Lake Formation principal.
         :param resource: A structure for the resource.
-        :param condition: A Lake Formation condition, which applies to permissions and opt-ins
-        that contain an expression.
+        :param condition: A Lake Formation condition, which applies to permissions and opt-ins that contain an expression.
         :returns: CreateLakeFormationOptInResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2091,8 +2077,7 @@ class LakeformationApi:
 
         :param principal: The Lake Formation principal.
         :param resource: A structure for the resource.
-        :param condition: A Lake Formation condition, which applies to permissions and opt-ins
-        that contain an expression.
+        :param condition: A Lake Formation condition, which applies to permissions and opt-ins that contain an expression.
         :returns: DeleteLakeFormationOptInResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2128,8 +2113,7 @@ class LakeformationApi:
         :param database_name: The database that contains the governed table.
         :param table_name: The name of the governed table.
         :param transaction_id: ID of the transaction that the writes occur in.
-        :param objects: A list of VirtualObject structures, which indicates the Amazon S3
-        objects to be deleted if the transaction cancels.
+        :param objects: A list of VirtualObject structures, which indicates the Amazon S3 objects to be deleted if the transaction cancels.
         :param catalog_id: The Glue data catalog that contains the governed table.
         :returns: DeleteObjectsOnCancelResponse
         :raises InternalServiceException:
@@ -2152,8 +2136,7 @@ class LakeformationApi:
         When you deregister a path, Lake Formation removes the path from the
         inline policy attached to your service-linked role.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to
-        deregister.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to deregister.
         :returns: DeregisterResourceResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2299,11 +2282,9 @@ class LakeformationApi:
         ``GetEffectivePermissionsForPath`` will not return databases and tables
         if the catalog is encrypted.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want to get
-        permissions.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want to get permissions.
         :param catalog_id: The identifier for the Data Catalog.
-        :param next_token: A continuation token, if this is not the first call to retrieve this
-        list.
+        :param next_token: A continuation token, if this is not the first call to retrieve this list.
         :param max_results: The maximum number of results to return.
         :returns: GetEffectivePermissionsForPathResponse
         :raises InvalidInputException:
@@ -2402,8 +2383,7 @@ class LakeformationApi:
     ) -> GetResourceLFTagsResponse:
         """Returns the LF-tags applied to a resource.
 
-        :param resource: The database, table, or column resource for which you want to return
-        LF-tags.
+        :param resource: The database, table, or column resource for which you want to return LF-tags.
         :param catalog_id: The identifier for the Data Catalog.
         :param show_assigned_lf_tags: Indicates whether to show the assigned LF-tags.
         :returns: GetResourceLFTagsResponse
@@ -2439,11 +2419,9 @@ class LakeformationApi:
         :param catalog_id: The catalog containing the governed table.
         :param transaction_id: The transaction ID at which to read the governed table contents.
         :param query_as_of_time: The time as of when to read the governed table contents.
-        :param partition_predicate: A predicate to filter the objects returned based on the partition keys
-        defined in the governed table.
+        :param partition_predicate: A predicate to filter the objects returned based on the partition keys defined in the governed table.
         :param max_results: Specifies how many values to return in a page.
-        :param next_token: A continuation token if this is not the first call to retrieve these
-        objects.
+        :param next_token: A continuation token if this is not the first call to retrieve these objects.
         :returns: GetTableObjectsResponse
         :raises EntityNotFoundException:
         :raises InternalServiceException:
@@ -2489,12 +2467,10 @@ class LakeformationApi:
            credentials for a data location. Lake Formation only supports Amazon
            S3 paths registered within the same Region as the API call.
 
-        :param duration_seconds: The time period, between 900 and 43,200 seconds, for the timeout of the
-        temporary credentials.
+        :param duration_seconds: The time period, between 900 and 43,200 seconds, for the timeout of the temporary credentials.
         :param audit_context: A structure used to include auditing information on the privileged API.
         :param data_locations: The Amazon S3 data location that you want to access.
-        :param credentials_scope: The credential scope is determined by the caller's Lake Formation
-        permission on the associated table.
+        :param credentials_scope: The credential scope is determined by the caller's Lake Formation permission on the associated table.
         :returns: GetTemporaryDataLocationCredentialsResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2526,12 +2502,9 @@ class LakeformationApi:
 
         :param table_arn: The ARN of the partitions' table.
         :param partition: A list of partition values identifying a single partition.
-        :param permissions: Filters the request based on the user having been granted a list of
-        specified permissions on the requested resource(s).
-        :param duration_seconds: The time period, between 900 and 21,600 seconds, for the timeout of the
-        temporary credentials.
-        :param audit_context: A structure representing context to access a resource (column names,
-        query ID, etc).
+        :param permissions: Filters the request based on the user having been granted a list of specified permissions on the requested resource(s).
+        :param duration_seconds: The time period, between 900 and 21,600 seconds, for the timeout of the temporary credentials.
+        :param audit_context: A structure representing context to access a resource (column names, query ID, etc).
         :param supported_permission_types: A list of supported permission types for the partition.
         :returns: GetTemporaryGluePartitionCredentialsResponse
         :raises InvalidInputException:
@@ -2565,18 +2538,13 @@ class LakeformationApi:
         To call this API, the role that the service assumes must have
         ``lakeformation:GetDataAccess`` permission on the resource.
 
-        :param table_arn: The ARN identifying a table in the Data Catalog for the temporary
-        credentials request.
-        :param permissions: Filters the request based on the user having been granted a list of
-        specified permissions on the requested resource(s).
-        :param duration_seconds: The time period, between 900 and 21,600 seconds, for the timeout of the
-        temporary credentials.
-        :param audit_context: A structure representing context to access a resource (column names,
-        query ID, etc).
+        :param table_arn: The ARN identifying a table in the Data Catalog for the temporary credentials request.
+        :param permissions: Filters the request based on the user having been granted a list of specified permissions on the requested resource(s).
+        :param duration_seconds: The time period, between 900 and 21,600 seconds, for the timeout of the temporary credentials.
+        :param audit_context: A structure representing context to access a resource (column names, query ID, etc).
         :param supported_permission_types: A list of supported permission types for the table.
         :param s3_path: The Amazon S3 path for the table.
-        :param query_session_context: A structure used as a protocol between query engines and Lake Formation
-        or Glue.
+        :param query_session_context: A structure used as a protocol between query engines and Lake Formation or Glue.
         :returns: GetTemporaryGlueTableCredentialsResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2658,10 +2626,8 @@ class LakeformationApi:
         :param resource: The resource to which permissions are to be granted.
         :param permissions: The permissions granted to the principal on the resource.
         :param catalog_id: The identifier for the Data Catalog.
-        :param condition: A Lake Formation condition, which applies to permissions and opt-ins
-        that contain an expression.
-        :param permissions_with_grant_option: Indicates a list of the granted permissions that the principal may pass
-        to other users.
+        :param condition: A Lake Formation condition, which applies to permissions and opt-ins that contain an expression.
+        :param permissions_with_grant_option: Indicates a list of the granted permissions that the principal may pass to other users.
         :returns: GrantPermissionsResponse
         :raises ConcurrentModificationException:
         :raises EntityNotFoundException:
@@ -2707,8 +2673,7 @@ class LakeformationApi:
 
         :param catalog_id: The identifier for the Data Catalog.
         :param max_results: The maximum number of results to return.
-        :param next_token: A continuation token, if this is not the first call to retrieve this
-        list.
+        :param next_token: A continuation token, if this is not the first call to retrieve this list.
         :returns: ListLFTagExpressionsResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -2731,11 +2696,9 @@ class LakeformationApi:
         """Lists LF-tags that the requester has permission to view.
 
         :param catalog_id: The identifier for the Data Catalog.
-        :param resource_share_type: If resource share type is ``ALL``, returns both in-account LF-tags and
-        shared LF-tags that the requester has permission to view.
+        :param resource_share_type: If resource share type is ``ALL``, returns both in-account LF-tags and shared LF-tags that the requester has permission to view.
         :param max_results: The maximum number of results to return.
-        :param next_token: A continuation token, if this is not the first call to retrieve this
-        list.
+        :param next_token: A continuation token, if this is not the first call to retrieve this list.
         :returns: ListLFTagsResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:
@@ -2761,8 +2724,7 @@ class LakeformationApi:
         :param principal: The Lake Formation principal.
         :param resource: A structure for the resource.
         :param max_results: The maximum number of results to return.
-        :param next_token: A continuation token, if this is not the first call to retrieve this
-        list.
+        :param next_token: A continuation token, if this is not the first call to retrieve this list.
         :returns: ListLakeFormationOptInsResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2802,11 +2764,9 @@ class LakeformationApi:
         :param principal: Specifies a principal to filter the permissions returned.
         :param resource_type: Specifies a resource type to filter the permissions returned.
         :param resource: A resource where you will get a list of the principal permissions.
-        :param next_token: A continuation token, if this is not the first call to retrieve this
-        list.
+        :param next_token: A continuation token, if this is not the first call to retrieve this list.
         :param max_results: The maximum number of results to return.
-        :param include_related: Indicates that related permissions should be included in the results
-        when listing permissions on a table resource.
+        :param include_related: Indicates that related permissions should be included in the results when listing permissions on a table resource.
         :returns: ListPermissionsResponse
         :raises InvalidInputException:
         :raises OperationTimeoutException:
@@ -2825,11 +2785,9 @@ class LakeformationApi:
     ) -> ListResourcesResponse:
         """Lists the resources registered to be managed by the Data Catalog.
 
-        :param filter_condition_list: Any applicable row-level and/or column-level filtering conditions for
-        the resources.
+        :param filter_condition_list: Any applicable row-level and/or column-level filtering conditions for the resources.
         :param max_results: The maximum number of resource results.
-        :param next_token: A continuation token, if this is not the first call to retrieve these
-        resources.
+        :param next_token: A continuation token, if this is not the first call to retrieve these resources.
         :returns: ListResourcesResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2886,8 +2844,7 @@ class LakeformationApi:
         :param catalog_id: The catalog for which to list transactions.
         :param status_filter: A filter indicating the status of transactions to return.
         :param max_results: The maximum number of transactions to return in a single call.
-        :param next_token: A continuation token if this is not the first call to retrieve
-        transactions.
+        :param next_token: A continuation token if this is not the first call to retrieve transactions.
         :returns: ListTransactionsResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2912,8 +2869,7 @@ class LakeformationApi:
         being passed. To add an admin, fetch the current list and add the new
         admin to that list and pass that list in this API.
 
-        :param data_lake_settings: A structure representing a list of Lake Formation principals designated
-        as data lake administrators.
+        :param data_lake_settings: A structure representing a list of Lake Formation principals designated as data lake administrators.
         :param catalog_id: The identifier for the Data Catalog.
         :returns: PutDataLakeSettingsResponse
         :raises InternalServiceException:
@@ -2955,19 +2911,13 @@ class LakeformationApi:
 
         ``arn:aws:iam::12345:role/my-data-access-role``
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to
-        register.
-        :param use_service_linked_role: Designates an Identity and Access Management (IAM) service-linked role
-        by registering this role with the Data Catalog.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to register.
+        :param use_service_linked_role: Designates an Identity and Access Management (IAM) service-linked role by registering this role with the Data Catalog.
         :param role_arn: The identifier for the role that registers the resource.
         :param with_federation: Whether or not the resource is a federated resource.
-        :param hybrid_access_enabled: Specifies whether the data access of tables pointing to the location can
-        be managed by both Lake Formation permissions as well as Amazon S3
-        bucket policies.
-        :param with_privileged_access: Grants the calling principal the permissions to perform all supported
-        Lake Formation operations on the registered data location.
-        :param expected_resource_owner_account: The Amazon Web Services account that owns the Glue tables associated
-        with specific Amazon S3 locations.
+        :param hybrid_access_enabled: Specifies whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.
+        :param with_privileged_access: Grants the calling principal the permissions to perform all supported Lake Formation operations on the registered data location.
+        :param expected_resource_owner_account: The Amazon Web Services account that owns the Glue tables associated with specific Amazon S3 locations.
         :returns: RegisterResourceResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -2992,8 +2942,7 @@ class LakeformationApi:
         tableWithColumns resource are allowed. To tag columns, use the column
         inclusion list in ``tableWithColumns`` to specify column input.
 
-        :param resource: The database, table, or column resource where you want to remove an
-        LF-tag.
+        :param resource: The database, table, or column resource where you want to remove an LF-tag.
         :param lf_tags: The LF-tags to be removed from the resource.
         :param catalog_id: The identifier for the Data Catalog.
         :returns: RemoveLFTagsFromResourceResponse
@@ -3026,10 +2975,8 @@ class LakeformationApi:
         :param resource: The resource to which permissions are to be revoked.
         :param permissions: The permissions revoked to the principal on the resource.
         :param catalog_id: The identifier for the Data Catalog.
-        :param condition: A Lake Formation condition, which applies to permissions and opt-ins
-        that contain an expression.
-        :param permissions_with_grant_option: Indicates a list of permissions for which to revoke the grant option
-        allowing the principal to pass permissions to other principals.
+        :param condition: A Lake Formation condition, which applies to permissions and opt-ins that contain an expression.
+        :param permissions_with_grant_option: Indicates a list of permissions for which to revoke the grant option allowing the principal to pass permissions to other principals.
         :returns: RevokePermissionsResponse
         :raises ConcurrentModificationException:
         :raises EntityNotFoundException:
@@ -3054,10 +3001,8 @@ class LakeformationApi:
         the given ``TagConditions`` are valid to verify whether the returned
         resources can be shared.
 
-        :param expression: A list of conditions (``LFTag`` structures) to search for in database
-        resources.
-        :param next_token: A continuation token, if this is not the first call to retrieve this
-        list.
+        :param expression: A list of conditions (``LFTag`` structures) to search for in database resources.
+        :param next_token: A continuation token, if this is not the first call to retrieve this list.
         :param max_results: The maximum number of results to return.
         :param catalog_id: The identifier for the Data Catalog.
         :returns: SearchDatabasesByLFTagsResponse
@@ -3087,10 +3032,8 @@ class LakeformationApi:
         ``LFTag`` s are valid to verify whether the returned resources can be
         shared.
 
-        :param expression: A list of conditions (``LFTag`` structures) to search for in table
-        resources.
-        :param next_token: A continuation token, if this is not the first call to retrieve this
-        list.
+        :param expression: A list of conditions (``LFTag`` structures) to search for in table resources.
+        :param next_token: A continuation token, if this is not the first call to retrieve this list.
         :param max_results: The maximum number of results to return.
         :param catalog_id: The identifier for the Data Catalog.
         :returns: SearchTablesByLFTagsResponse
@@ -3134,8 +3077,7 @@ class LakeformationApi:
         """Starts a new transaction and returns its transaction ID. Transaction IDs
         are opaque objects that you can use to identify a transaction.
 
-        :param transaction_type: Indicates whether this transaction should be read only or read and
-        write.
+        :param transaction_type: Indicates whether this transaction should be read only or read and write.
         :returns: StartTransactionResponse
         :raises InternalServiceException:
         :raises OperationTimeoutException:
@@ -3148,8 +3090,7 @@ class LakeformationApi:
     ) -> UpdateDataCellsFilterResponse:
         """Updates a data cell filter.
 
-        :param table_data: A ``DataCellsFilter`` structure containing information about the data
-        cells filter.
+        :param table_data: A ``DataCellsFilter`` structure containing information about the data cells filter.
         :returns: UpdateDataCellsFilterResponse
         :raises ConcurrentModificationException:
         :raises InvalidInputException:
@@ -3234,14 +3175,10 @@ class LakeformationApi:
         """Updates the IAM Identity Center connection parameters.
 
         :param catalog_id: The identifier for the Data Catalog.
-        :param share_recipients: A list of Amazon Web Services account IDs or Amazon Web Services
-        organization/organizational unit ARNs that are allowed to access to
-        access data managed by Lake Formation.
-        :param service_integrations: A list of service integrations for enabling trusted identity propagation
-        with external services such as Redshift.
+        :param share_recipients: A list of Amazon Web Services account IDs or Amazon Web Services organization/organizational unit ARNs that are allowed to access to access data managed by Lake Formation.
+        :param service_integrations: A list of service integrations for enabling trusted identity propagation with external services such as Redshift.
         :param application_status: Allows to enable or disable the IAM Identity Center connection.
-        :param external_filtering: A list of the account IDs of Amazon Web Services accounts of third-party
-        applications that are allowed to access data managed by Lake Formation.
+        :param external_filtering: A list of the account IDs of Amazon Web Services accounts of third-party applications that are allowed to access data managed by Lake Formation.
         :returns: UpdateLakeFormationIdentityCenterConfigurationResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -3269,11 +3206,8 @@ class LakeformationApi:
         :param role_arn: The new role to use for the given resource registered in Lake Formation.
         :param resource_arn: The resource ARN.
         :param with_federation: Whether or not the resource is a federated resource.
-        :param hybrid_access_enabled: Specifies whether the data access of tables pointing to the location can
-        be managed by both Lake Formation permissions as well as Amazon S3
-        bucket policies.
-        :param expected_resource_owner_account: The Amazon Web Services account that owns the Glue tables associated
-        with specific Amazon S3 locations.
+        :param hybrid_access_enabled: Specifies whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.
+        :param expected_resource_owner_account: The Amazon Web Services account that owns the Glue tables associated with specific Amazon S3 locations.
         :returns: UpdateResourceResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -3298,8 +3232,7 @@ class LakeformationApi:
 
         :param database_name: The database containing the governed table to update.
         :param table_name: The governed table to update.
-        :param write_operations: A list of ``WriteOperation`` objects that define an object to add to or
-        delete from the manifest for a governed table.
+        :param write_operations: A list of ``WriteOperation`` objects that define an object to add to or delete from the manifest for a governed table.
         :param catalog_id: The catalog containing the governed table to update.
         :param transaction_id: The transaction at which to do the write.
         :returns: UpdateTableObjectsResponse

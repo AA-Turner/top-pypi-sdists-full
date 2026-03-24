@@ -153,30 +153,6 @@ class TestCliContainerLifecycle:
         output = container_client.exec_in_container(config.MAIN_CONTAINER_NAME, ["ps", "-fu", user])
         assert "localstack-supervisor" in to_str(output[0])
 
-    @pytest.mark.skip(reason="Test assumes localstack module name, not localstack_cli")
-    def test_start_cli_within_container(self, runner, container_client):
-        output = container_client.run_container(
-            # CAVEAT: Updates to the Docker image are not immediately reflected when using the latest image from
-            # DockerHub in the CI.
-            # Re-build the Docker image locally with `bin/docker-helper.sh build` in community for local testing.
-            "localstack/localstack",
-            remove=True,
-            entrypoint="",
-            command=["bin/localstack", "start", "-d"],
-            volumes=[
-                ("/var/run/docker.sock", "/var/run/docker.sock"),
-                (MODULE_MAIN_PATH, "/opt/code/localstack/localstack"),
-            ],
-            env_vars={"LOCALSTACK_VOLUME_DIR": "/tmp/ls-volume"},
-        )
-        stdout = to_str(output[0])
-        assert "starting LocalStack" in stdout
-        assert "detaching" in stdout
-
-        # assert that container is running
-        runner.invoke(cli, ["wait", "-t", "180"])
-
-
 @pytest.mark.skip(reason="TODO: fix test setup - extensions tests need investigation")
 class TestExtensionsCli:
     def test_extensions_install_with_IMAGE_NAME_installs_correct_venv_version(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack-ext
-Version: 4.14.0
+Version: 2026.3.0
 Summary: Extensions for LocalStack
 Author-email: LocalStack Team <info@localstack.cloud>
 License-Expression: LicenseRef-All-Rights-Reserved
@@ -12,12 +12,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Emulators
-Requires-Python: >=3.10
+Requires-Python: <3.14,>=3.13
 Requires-Dist: click>=7.1
 Requires-Dist: cryptography
 Requires-Dist: packaging
 Requires-Dist: plux>=1.14.0
-Requires-Dist: localstack-core==4.14.0
+Requires-Dist: localstack-core==2026.3.0
 Requires-Dist: pyotp>=2.9.0
 Requires-Dist: PyJWT[crypto]>=1.7.0
 Requires-Dist: requests>=2.20.0
@@ -25,122 +25,75 @@ Requires-Dist: rich>=12.3.0
 Requires-Dist: python-dateutil>=2.8
 Requires-Dist: tabulate
 Requires-Dist: pyyaml>=5.1
-Requires-Dist: windows-curses; platform_system == "Windows"
-Provides-Extra: runtime
-Requires-Dist: airspeed-ext>=0.6.9; extra == "runtime"
-Requires-Dist: alembic>=1.16.0; extra == "runtime"
-Requires-Dist: avro>=1.11.0; extra == "runtime"
-Requires-Dist: botocore; extra == "runtime"
-Requires-Dist: boto3; extra == "runtime"
-Requires-Dist: aws-encryption-sdk>=3.1.0; extra == "runtime"
-Requires-Dist: aws-json-term-matcher>=0.1.5; extra == "runtime"
-Requires-Dist: aws-sam-translator>=1.105.0; extra == "runtime"
-Requires-Dist: cachetools>=5.5.2; extra == "runtime"
-Requires-Dist: cedarpy>=4.1.0; extra == "runtime"
-Requires-Dist: distro; extra == "runtime"
-Requires-Dist: python-dxf>=12.1.1; extra == "runtime"
-Requires-Dist: dulwich>=0.19.16; extra == "runtime"
-Requires-Dist: fastavro>=1.12.0; extra == "runtime"
-Requires-Dist: graphql-core>=3.0.3; extra == "runtime"
-Requires-Dist: hypercorn>=0.14.4; extra == "runtime"
-Requires-Dist: janus>=0.5.0; extra == "runtime"
-Requires-Dist: javascript; extra == "runtime"
-Requires-Dist: jinja2>=3.1.6; extra == "runtime"
-Requires-Dist: jsonpatch>=1.32; extra == "runtime"
-Requires-Dist: jsonpath-ng>=1.7.0; extra == "runtime"
-Requires-Dist: jsonschema>=4.25.1; extra == "runtime"
-Requires-Dist: confluent-kafka; extra == "runtime"
-Requires-Dist: kubernetes<34,>=21.7.0; extra == "runtime"
-Requires-Dist: libvirt-python; extra == "runtime"
-Requires-Dist: localstack-core[runtime]==4.14.0; extra == "runtime"
-Requires-Dist: localstack-py-avro-schema==3.9.14; extra == "runtime"
-Requires-Dist: opentelemetry-api; extra == "runtime"
-Requires-Dist: opentelemetry-sdk; extra == "runtime"
-Requires-Dist: opentelemetry-propagator-aws-xray; extra == "runtime"
-Requires-Dist: orjson; extra == "runtime"
-Requires-Dist: paho-mqtt>=1.5; extra == "runtime"
-Requires-Dist: parquet[snappy]>=1.3.1; extra == "runtime"
-Requires-Dist: parse>=1.19.0; extra == "runtime"
-Requires-Dist: pg8000>=1.10; extra == "runtime"
-Requires-Dist: postgres>=2.2.2; extra == "runtime"
-Requires-Dist: postgresql-proxy>=0.2.0; extra == "runtime"
-Requires-Dist: trino>=0.328.0; extra == "runtime"
-Requires-Dist: psutil>=7.1.0; extra == "runtime"
-Requires-Dist: psycopg2-binary>=2.9.10; extra == "runtime"
-Requires-Dist: pycdlib>=1.14.0; extra == "runtime"
-Requires-Dist: pydantic>=2.11.9; extra == "runtime"
-Requires-Dist: pyftpdlib>=1.5.6; extra == "runtime"
-Requires-Dist: pyhive[hive_pure_sasl]>=0.7.0; extra == "runtime"
-Requires-Dist: pyiceberg>=0.9.0; extra == "runtime"
-Requires-Dist: pydantic<2.12; extra == "runtime"
-Requires-Dist: pyopenssl>=25.3.0; extra == "runtime"
-Requires-Dist: pyparsing>=3.2.5; extra == "runtime"
-Requires-Dist: pymysql; extra == "runtime"
-Requires-Dist: mysql-replication; extra == "runtime"
-Requires-Dist: readerwriterlock>=1.0.7; extra == "runtime"
-Requires-Dist: redis<6.0,>=5.0; extra == "runtime"
-Requires-Dist: rolo; extra == "runtime"
-Requires-Dist: rsa>=4.0; extra == "runtime"
-Requires-Dist: semver>=3.0.4; extra == "runtime"
-Requires-Dist: setuptools; extra == "runtime"
-Requires-Dist: sql-metadata>=2.6.0; extra == "runtime"
-Requires-Dist: sqlglot[rs]; extra == "runtime"
-Requires-Dist: srp-ext>=1.0.7.1; extra == "runtime"
-Requires-Dist: sqlalchemy>=2.0.0; extra == "runtime"
-Requires-Dist: testing.common.database>=1.1.0; extra == "runtime"
-Requires-Dist: typing-extensions>=4.15.0; extra == "runtime"
-Requires-Dist: urllib3>=2.5.0; extra == "runtime"
-Requires-Dist: pycognito>=2024.5.1; extra == "runtime"
-Requires-Dist: websockets<14,>=8.1; extra == "runtime"
-Requires-Dist: websocket-client>=1.8.0; extra == "runtime"
-Requires-Dist: werkzeug>=3.1.3; extra == "runtime"
-Requires-Dist: Whoosh>=2.7.4; extra == "runtime"
-Requires-Dist: xmltodict>=1.0.2; extra == "runtime"
-Provides-Extra: test
-Requires-Dist: localstack-ext[runtime]; extra == "test"
-Requires-Dist: pypandoc; extra == "test"
-Requires-Dist: pytest-httpserver>=1.0.1; extra == "test"
-Requires-Dist: aiohttp; extra == "test"
-Requires-Dist: async-timeout; extra == "test"
-Requires-Dist: awsiotsdk; extra == "test"
-Requires-Dist: awswrangler>=3.5.2; extra == "test"
-Requires-Dist: aws_xray_sdk>=2.4.2; extra == "test"
-Requires-Dist: coverage[toml]>=5.0.0; extra == "test"
-Requires-Dist: deepdiff>=5.5.0; extra == "test"
-Requires-Dist: deptry>=0.13.0; extra == "test"
-Requires-Dist: dnslib>=0.9.10; extra == "test"
-Requires-Dist: dnspython>=1.16.0; extra == "test"
-Requires-Dist: gremlinpython<3.8.0; extra == "test"
-Requires-Dist: jws>=0.1.3; extra == "test"
-Requires-Dist: kafka-python; extra == "test"
-Requires-Dist: localstack-core[test]==4.14.0; extra == "test"
-Requires-Dist: msal; extra == "test"
-Requires-Dist: msal-extensions; extra == "test"
-Requires-Dist: msrest; extra == "test"
-Requires-Dist: neo4j; extra == "test"
-Requires-Dist: nest-asyncio>=1.4.1; extra == "test"
-Requires-Dist: paramiko; extra == "test"
-Requires-Dist: portalocker; extra == "test"
-Requires-Dist: pre-commit>=3.5.0; extra == "test"
-Requires-Dist: pyarrow; extra == "test"
-Requires-Dist: PyAthena[Pandas]; extra == "test"
-Requires-Dist: pymongo; extra == "test"
-Requires-Dist: pymssql>=2.2.8; extra == "test"
-Requires-Dist: pytest-instafail>=0.4.2; extra == "test"
-Requires-Dist: pytest-mock>=3.14.0; extra == "test"
-Requires-Dist: uefivars>=1.2; extra == "test"
-Requires-Dist: ruff>=0.1.0; extra == "test"
-Requires-Dist: redshift_connector; extra == "test"
-Requires-Dist: stomp.py>=8.0.1; extra == "test"
-Requires-Dist: mysql-connector-python; extra == "test"
-Requires-Dist: python-terraform; extra == "test"
-Requires-Dist: aws-cdk-lib>=2.88.0; extra == "test"
-Requires-Dist: aws_cdk.aws_neptune_alpha; extra == "test"
-Requires-Dist: aws_cdk.aws_redshift_alpha; extra == "test"
-Requires-Dist: awsiotsdk; extra == "test"
-Requires-Dist: aws-cdk.aws-cognito-identitypool-alpha; extra == "test"
-Requires-Dist: playwright; extra == "test"
-Requires-Dist: pytest-playwright; extra == "test"
-Provides-Extra: typehint
-Requires-Dist: localstack-ext[test]; extra == "typehint"
-Requires-Dist: boto3-stubs[acm,amplify,apigateway,apigatewayv2,appconfig,appsync,athena,autoscaling,backup,batch,bedrock,bedrock-runtime,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codecommit,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,iot,iot-data,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,mediaconvert,mq,mwaa,neptune,opensearch,organizations,pi,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,s3tables,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,xray]; extra == "typehint"
+Requires-Dist: windows_curses; platform_system == "Windows"
+Requires-Dist: airspeed-ext>=0.6.9
+Requires-Dist: alembic>=1.16.0
+Requires-Dist: avro>=1.11.0
+Requires-Dist: botocore
+Requires-Dist: boto3
+Requires-Dist: aws-encryption-sdk>=3.1.0
+Requires-Dist: aws-json-term-matcher>=0.1.5
+Requires-Dist: aws-sam-translator>=1.105.0
+Requires-Dist: cachetools>=5.5.2
+Requires-Dist: cedarpy>=4.1.0
+Requires-Dist: distro
+Requires-Dist: python-dxf>=12.1.1
+Requires-Dist: dulwich>=0.19.16
+Requires-Dist: fastavro>=1.12.0
+Requires-Dist: graphql-core>=3.0.3
+Requires-Dist: hypercorn>=0.14.4
+Requires-Dist: janus>=0.5.0
+Requires-Dist: javascript
+Requires-Dist: jinja2>=3.1.6
+Requires-Dist: jsonpatch>=1.32
+Requires-Dist: jsonschema>=4.25.1
+Requires-Dist: confluent-kafka
+Requires-Dist: kubernetes<34,>=21.7.0
+Requires-Dist: libvirt-python
+Requires-Dist: localstack-core[runtime]==2026.3.0
+Requires-Dist: localstack-py-avro-schema==3.9.16
+Requires-Dist: opentelemetry-api
+Requires-Dist: opentelemetry-sdk
+Requires-Dist: opentelemetry-propagator-aws-xray
+Requires-Dist: oras
+Requires-Dist: orjson
+Requires-Dist: paho-mqtt>=1.5
+Requires-Dist: parquet[snappy]>=1.3.1
+Requires-Dist: parse>=1.19.0
+Requires-Dist: pg8000>=1.10
+Requires-Dist: postgres>=2.2.2
+Requires-Dist: postgresql-proxy>=0.2.0
+Requires-Dist: trino>=0.328.0
+Requires-Dist: psutil>=7.1.0
+Requires-Dist: psycopg2-binary>=2.9.10
+Requires-Dist: pycdlib>=1.14.0
+Requires-Dist: pydantic>=2.11.9
+Requires-Dist: pyftpdlib>=1.5.6
+Requires-Dist: pyhive[hive_pure_sasl]>=0.7.0
+Requires-Dist: pyiceberg>=0.9.0
+Requires-Dist: pydantic<2.12
+Requires-Dist: pyopenssl>=25.3.0
+Requires-Dist: pyparsing>=3.2.5
+Requires-Dist: pymysql
+Requires-Dist: mysql-replication
+Requires-Dist: readerwriterlock>=1.0.7
+Requires-Dist: redis<6.0,>=5.0
+Requires-Dist: rolo
+Requires-Dist: rsa>=4.0
+Requires-Dist: semver>=3.0.4
+Requires-Dist: setuptools
+Requires-Dist: sql-metadata>=2.6.0
+Requires-Dist: sqlglot<30
+Requires-Dist: sqlglotc<30
+Requires-Dist: srp-ext>=1.0.7.1
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: testing.common.database>=1.1.0
+Requires-Dist: typing-extensions>=4.15.0
+Requires-Dist: urllib3>=2.5.0
+Requires-Dist: pycognito>=2024.5.1
+Requires-Dist: websockets<14,>=8.1
+Requires-Dist: websocket-client>=1.8.0
+Requires-Dist: werkzeug>=3.1.3
+Requires-Dist: Whoosh>=2.7.4
+Requires-Dist: xmltodict>=1.0.2
+Requires-Dist: pip

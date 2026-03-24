@@ -1247,13 +1247,11 @@ class FisApi:
         templates <https://docs.aws.amazon.com/fis/latest/userguide/experiment-templates.html>`__
         in the *Fault Injection Service User Guide*.
 
-        :param client_token: Unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_token: Unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param description: A description for the experiment template.
         :param stop_conditions: The stop conditions.
         :param actions: The actions for the experiment.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that grants the FIS
-        service permission to perform service actions on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that grants the FIS service permission to perform service actions on your behalf.
         :param targets: The targets for the experiment.
         :param tags: The tags to apply to the experiment template.
         :param log_configuration: The configuration for experiment logging.
@@ -1288,8 +1286,7 @@ class FisApi:
         :param experiment_template_id: The experiment template ID.
         :param account_id: The Amazon Web Services account ID of the target account.
         :param role_arn: The Amazon Resource Name (ARN) of an IAM role for the target account.
-        :param client_token: Unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_token: Unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param description: The description of the target account.
         :returns: CreateTargetAccountConfigurationResponse
         :raises ValidationException:
@@ -1585,8 +1582,7 @@ class FisApi:
     ) -> StartExperimentResponse:
         """Starts running an experiment from the specified experiment template.
 
-        :param client_token: Unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_token: Unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param experiment_template_id: The ID of the experiment template.
         :param experiment_options: The experiment options for running the experiment.
         :param tags: The tags to apply to the experiment.
@@ -1662,8 +1658,7 @@ class FisApi:
         :param stop_conditions: The stop conditions for the experiment.
         :param targets: The targets for the experiment.
         :param actions: The actions for the experiment.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that grants the FIS
-        service permission to perform service actions on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that grants the FIS service permission to perform service actions on your behalf.
         :param log_configuration: The configuration for experiment logging.
         :param experiment_options: The experiment options for the experiment template.
         :param experiment_report_configuration: The experiment report configuration for the experiment template.

@@ -523,16 +523,6 @@ def cmd_start(
         print_app()
         console.line()
 
-    # check if we are about to activate Pro, if not raise a warning about the upcoming changes
-    # LOCALSTACK_ACTIVATE_PRO is set by the Pro config if the auth token is cached or explicitly set in the env
-    if not config.is_env_true("LOCALSTACK_ACTIVATE_PRO"):
-        console.log(
-            "Warning: You are starting LocalStack without an auth token. "
-            "Starting in March 2026, LocalStack will require an auth token. "
-            "Go to this page for more infos: https://localstack.cloud/2026-updates",
-            style="bold red",
-        )
-
     from localstack_cli.utils import bootstrap
 
     if not no_banner:

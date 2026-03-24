@@ -25,6 +25,7 @@ from botocore.response import StreamingBody
 
 from .literals import (
     AnnotationTypeType,
+    BatchStatusType,
     CacheBehaviorType,
     CreationTypeType,
     ETagAlgorithmFamilyType,
@@ -59,6 +60,7 @@ from .literals import (
     StoreFormatType,
     StoreStatusType,
     StoreTypeType,
+    SubmissionStatusType,
     TaskStatusType,
     VersionStatusType,
     WorkflowEngineType,
@@ -87,8 +89,11 @@ __all__ = (
     "AnnotationStoreVersionItemTypeDef",
     "BatchDeleteReadSetRequestTypeDef",
     "BatchDeleteReadSetResponseTypeDef",
+    "BatchListItemTypeDef",
+    "BatchRunSettingsTypeDef",
     "BlobTypeDef",
     "CancelAnnotationImportRequestTypeDef",
+    "CancelRunBatchRequestTypeDef",
     "CancelRunRequestTypeDef",
     "CancelVariantImportRequestTypeDef",
     "CompleteMultipartReadSetUploadRequestTypeDef",
@@ -119,14 +124,19 @@ __all__ = (
     "CreateWorkflowResponseTypeDef",
     "CreateWorkflowVersionRequestTypeDef",
     "CreateWorkflowVersionResponseTypeDef",
+    "DefaultRunSettingOutputTypeDef",
+    "DefaultRunSettingTypeDef",
+    "DefaultRunSettingUnionTypeDef",
     "DefinitionRepositoryDetailsTypeDef",
     "DefinitionRepositoryTypeDef",
     "DeleteAnnotationStoreRequestTypeDef",
     "DeleteAnnotationStoreResponseTypeDef",
     "DeleteAnnotationStoreVersionsRequestTypeDef",
     "DeleteAnnotationStoreVersionsResponseTypeDef",
+    "DeleteBatchRequestTypeDef",
     "DeleteReferenceRequestTypeDef",
     "DeleteReferenceStoreRequestTypeDef",
+    "DeleteRunBatchRequestTypeDef",
     "DeleteRunCacheRequestTypeDef",
     "DeleteRunGroupRequestTypeDef",
     "DeleteRunRequestTypeDef",
@@ -158,6 +168,8 @@ __all__ = (
     "GetAnnotationStoreVersionRequestWaitExtraTypeDef",
     "GetAnnotationStoreVersionRequestWaitTypeDef",
     "GetAnnotationStoreVersionResponseTypeDef",
+    "GetBatchRequestTypeDef",
+    "GetBatchResponseTypeDef",
     "GetReadSetActivationJobRequestTypeDef",
     "GetReadSetActivationJobRequestWaitTypeDef",
     "GetReadSetActivationJobResponseTypeDef",
@@ -219,6 +231,7 @@ __all__ = (
     "ImportReferenceFilterTypeDef",
     "ImportReferenceJobItemTypeDef",
     "ImportReferenceSourceItemTypeDef",
+    "InlineSettingTypeDef",
     "ListAnnotationImportJobsFilterTypeDef",
     "ListAnnotationImportJobsRequestPaginateTypeDef",
     "ListAnnotationImportJobsRequestTypeDef",
@@ -231,6 +244,9 @@ __all__ = (
     "ListAnnotationStoresRequestPaginateTypeDef",
     "ListAnnotationStoresRequestTypeDef",
     "ListAnnotationStoresResponseTypeDef",
+    "ListBatchRequestPaginateTypeDef",
+    "ListBatchRequestTypeDef",
+    "ListBatchResponseTypeDef",
     "ListMultipartReadSetUploadsRequestPaginateTypeDef",
     "ListMultipartReadSetUploadsRequestTypeDef",
     "ListMultipartReadSetUploadsResponseTypeDef",
@@ -267,6 +283,9 @@ __all__ = (
     "ListRunTasksRequestPaginateTypeDef",
     "ListRunTasksRequestTypeDef",
     "ListRunTasksResponseTypeDef",
+    "ListRunsInBatchRequestPaginateTypeDef",
+    "ListRunsInBatchRequestTypeDef",
+    "ListRunsInBatchResponseTypeDef",
     "ListRunsRequestPaginateTypeDef",
     "ListRunsRequestTypeDef",
     "ListRunsResponseTypeDef",
@@ -312,10 +331,12 @@ __all__ = (
     "ReferenceStoreFilterTypeDef",
     "RegistryMappingTypeDef",
     "ResponseMetadataTypeDef",
+    "RunBatchListItemTypeDef",
     "RunCacheListItemTypeDef",
     "RunGroupListItemTypeDef",
     "RunListItemTypeDef",
     "RunLogLocationTypeDef",
+    "RunSummaryTypeDef",
     "S3AccessConfigTypeDef",
     "SequenceInformationTypeDef",
     "SequenceStoreDetailTypeDef",
@@ -338,6 +359,8 @@ __all__ = (
     "StartReferenceImportJobRequestTypeDef",
     "StartReferenceImportJobResponseTypeDef",
     "StartReferenceImportJobSourceItemTypeDef",
+    "StartRunBatchRequestTypeDef",
+    "StartRunBatchResponseTypeDef",
     "StartRunRequestTypeDef",
     "StartRunResponseTypeDef",
     "StartVariantImportRequestTypeDef",
@@ -345,6 +368,7 @@ __all__ = (
     "StoreOptionsOutputTypeDef",
     "StoreOptionsTypeDef",
     "StoreOptionsUnionTypeDef",
+    "SubmissionSummaryTypeDef",
     "TagResourceRequestTypeDef",
     "TaskListItemTypeDef",
     "TimestampTypeDef",
@@ -488,11 +512,38 @@ ReadSetBatchErrorTypeDef = TypedDict(
         "message": str,
     },
 )
+BatchListItemTypeDef = TypedDict(
+    "BatchListItemTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "status": NotRequired[BatchStatusType],
+        "createdAt": NotRequired[datetime],
+        "totalRuns": NotRequired[int],
+        "workflowId": NotRequired[str],
+    },
+)
+
+
+class InlineSettingTypeDef(TypedDict):
+    runSettingId: str
+    name: NotRequired[str]
+    outputUri: NotRequired[str]
+    priority: NotRequired[int]
+    parameters: NotRequired[Mapping[str, Any]]
+    outputBucketOwnerId: NotRequired[str]
+    runTags: NotRequired[Mapping[str, str]]
+
+
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 
 class CancelAnnotationImportRequestTypeDef(TypedDict):
     jobId: str
+
+
+class CancelRunBatchRequestTypeDef(TypedDict):
+    batchId: str
 
 
 CancelRunRequestTypeDef = TypedDict(
@@ -579,6 +630,48 @@ class WorkflowParameterTypeDef(TypedDict):
     optional: NotRequired[bool]
 
 
+class DefaultRunSettingOutputTypeDef(TypedDict):
+    workflowId: str
+    roleArn: str
+    workflowType: NotRequired[WorkflowTypeType]
+    name: NotRequired[str]
+    cacheId: NotRequired[str]
+    cacheBehavior: NotRequired[CacheBehaviorType]
+    runGroupId: NotRequired[str]
+    priority: NotRequired[int]
+    parameters: NotRequired[dict[str, Any]]
+    storageCapacity: NotRequired[int]
+    outputUri: NotRequired[str]
+    logLevel: NotRequired[RunLogLevelType]
+    runTags: NotRequired[dict[str, str]]
+    retentionMode: NotRequired[RunRetentionModeType]
+    storageType: NotRequired[StorageTypeType]
+    workflowOwnerId: NotRequired[str]
+    outputBucketOwnerId: NotRequired[str]
+    workflowVersionName: NotRequired[str]
+
+
+class DefaultRunSettingTypeDef(TypedDict):
+    workflowId: str
+    roleArn: str
+    workflowType: NotRequired[WorkflowTypeType]
+    name: NotRequired[str]
+    cacheId: NotRequired[str]
+    cacheBehavior: NotRequired[CacheBehaviorType]
+    runGroupId: NotRequired[str]
+    priority: NotRequired[int]
+    parameters: NotRequired[Mapping[str, Any]]
+    storageCapacity: NotRequired[int]
+    outputUri: NotRequired[str]
+    logLevel: NotRequired[RunLogLevelType]
+    runTags: NotRequired[Mapping[str, str]]
+    retentionMode: NotRequired[RunRetentionModeType]
+    storageType: NotRequired[StorageTypeType]
+    workflowOwnerId: NotRequired[str]
+    outputBucketOwnerId: NotRequired[str]
+    workflowVersionName: NotRequired[str]
+
+
 SourceReferenceTypeDef = TypedDict(
     "SourceReferenceTypeDef",
     {
@@ -604,6 +697,10 @@ class VersionDeleteErrorTypeDef(TypedDict):
     message: str
 
 
+class DeleteBatchRequestTypeDef(TypedDict):
+    batchId: str
+
+
 DeleteReferenceRequestTypeDef = TypedDict(
     "DeleteReferenceRequestTypeDef",
     {
@@ -617,6 +714,12 @@ DeleteReferenceStoreRequestTypeDef = TypedDict(
         "id": str,
     },
 )
+
+
+class DeleteRunBatchRequestTypeDef(TypedDict):
+    batchId: str
+
+
 DeleteRunCacheRequestTypeDef = TypedDict(
     "DeleteRunCacheRequestTypeDef",
     {
@@ -737,6 +840,31 @@ class GetAnnotationStoreRequestTypeDef(TypedDict):
 class GetAnnotationStoreVersionRequestTypeDef(TypedDict):
     name: str
     versionName: str
+
+
+class GetBatchRequestTypeDef(TypedDict):
+    batchId: str
+
+
+class RunSummaryTypeDef(TypedDict):
+    pendingRunCount: NotRequired[int]
+    startingRunCount: NotRequired[int]
+    runningRunCount: NotRequired[int]
+    stoppingRunCount: NotRequired[int]
+    completedRunCount: NotRequired[int]
+    deletedRunCount: NotRequired[int]
+    failedRunCount: NotRequired[int]
+    cancelledRunCount: NotRequired[int]
+
+
+class SubmissionSummaryTypeDef(TypedDict):
+    successfulStartSubmissionCount: NotRequired[int]
+    failedStartSubmissionCount: NotRequired[int]
+    pendingStartSubmissionCount: NotRequired[int]
+    successfulCancelSubmissionCount: NotRequired[int]
+    failedCancelSubmissionCount: NotRequired[int]
+    successfulDeleteSubmissionCount: NotRequired[int]
+    failedDeleteSubmissionCount: NotRequired[int]
 
 
 GetReadSetActivationJobRequestTypeDef = TypedDict(
@@ -980,6 +1108,14 @@ class ListAnnotationStoresFilterTypeDef(TypedDict):
     status: NotRequired[StoreStatusType]
 
 
+class ListBatchRequestTypeDef(TypedDict):
+    maxItems: NotRequired[int]
+    startingToken: NotRequired[str]
+    status: NotRequired[BatchStatusType]
+    name: NotRequired[str]
+    runGroupId: NotRequired[str]
+
+
 class ListMultipartReadSetUploadsRequestTypeDef(TypedDict):
     sequenceStoreId: str
     maxResults: NotRequired[int]
@@ -1089,9 +1225,29 @@ class TaskListItemTypeDef(TypedDict):
     instanceType: NotRequired[str]
 
 
+class ListRunsInBatchRequestTypeDef(TypedDict):
+    batchId: str
+    maxItems: NotRequired[int]
+    startingToken: NotRequired[str]
+    submissionStatus: NotRequired[SubmissionStatusType]
+    runSettingId: NotRequired[str]
+    runId: NotRequired[str]
+
+
+class RunBatchListItemTypeDef(TypedDict):
+    runSettingId: NotRequired[str]
+    runId: NotRequired[str]
+    runInternalUuid: NotRequired[str]
+    runArn: NotRequired[str]
+    submissionStatus: NotRequired[SubmissionStatusType]
+    submissionFailureReason: NotRequired[str]
+    submissionFailureMessage: NotRequired[str]
+
+
 class ListRunsRequestTypeDef(TypedDict):
     name: NotRequired[str]
     runGroupId: NotRequired[str]
+    batchId: NotRequired[str]
     startingToken: NotRequired[str]
     maxResults: NotRequired[int]
     status: NotRequired[RunStatusType]
@@ -1104,6 +1260,7 @@ RunListItemTypeDef = TypedDict(
         "id": NotRequired[str],
         "status": NotRequired[RunStatusType],
         "workflowId": NotRequired[str],
+        "batchId": NotRequired[str],
         "name": NotRequired[str],
         "priority": NotRequired[int],
         "storageCapacity": NotRequired[int],
@@ -1548,6 +1705,17 @@ StartReferenceImportJobResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+StartRunBatchResponseTypeDef = TypedDict(
+    "StartRunBatchResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "status": BatchStatusType,
+        "uuid": str,
+        "tags": dict[str, str],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 StartRunResponseTypeDef = TypedDict(
     "StartRunResponseTypeDef",
     {
@@ -1837,6 +2005,17 @@ class BatchDeleteReadSetResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListBatchResponseTypeDef(TypedDict):
+    items: list[BatchListItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class BatchRunSettingsTypeDef(TypedDict):
+    inlineSettings: NotRequired[Sequence[InlineSettingTypeDef]]
+    s3UriSettings: NotRequired[str]
+
+
 class UploadReadSetPartRequestTypeDef(TypedDict):
     sequenceStoreId: str
     uploadId: str
@@ -1941,6 +2120,7 @@ UpdateSequenceStoreResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+DefaultRunSettingUnionTypeDef = Union[DefaultRunSettingTypeDef, DefaultRunSettingOutputTypeDef]
 
 
 class DefinitionRepositoryDetailsTypeDef(TypedDict):
@@ -2140,6 +2320,27 @@ GetWorkflowVersionRequestWaitTypeDef = TypedDict(
         "WaiterConfig": NotRequired[WaiterConfigTypeDef],
     },
 )
+GetBatchResponseTypeDef = TypedDict(
+    "GetBatchResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "uuid": str,
+        "name": str,
+        "status": BatchStatusType,
+        "tags": dict[str, str],
+        "totalRuns": int,
+        "defaultRunSetting": DefaultRunSettingOutputTypeDef,
+        "submissionSummary": SubmissionSummaryTypeDef,
+        "runSummary": RunSummaryTypeDef,
+        "creationTime": datetime,
+        "submittedTime": datetime,
+        "processedTime": datetime,
+        "failedTime": datetime,
+        "failureReason": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 ReadSetListItemTypeDef = TypedDict(
     "ReadSetListItemTypeDef",
     {
@@ -2189,6 +2390,7 @@ GetRunResponseTypeDef = TypedDict(
         "roleArn": str,
         "name": str,
         "runGroupId": str,
+        "batchId": str,
         "priority": int,
         "definition": str,
         "digest": str,
@@ -2326,6 +2528,13 @@ ListAnnotationImportJobsRequestPaginateTypeDef = TypedDict(
 )
 
 
+class ListBatchRequestPaginateTypeDef(TypedDict):
+    status: NotRequired[BatchStatusType]
+    name: NotRequired[str]
+    runGroupId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListMultipartReadSetUploadsRequestPaginateTypeDef(TypedDict):
     sequenceStoreId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -2350,9 +2559,18 @@ ListRunTasksRequestPaginateTypeDef = TypedDict(
 )
 
 
+class ListRunsInBatchRequestPaginateTypeDef(TypedDict):
+    batchId: str
+    submissionStatus: NotRequired[SubmissionStatusType]
+    runSettingId: NotRequired[str]
+    runId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListRunsRequestPaginateTypeDef(TypedDict):
     name: NotRequired[str]
     runGroupId: NotRequired[str]
+    batchId: NotRequired[str]
     status: NotRequired[RunStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -2450,6 +2668,12 @@ class ListRunGroupsResponseTypeDef(TypedDict):
 
 class ListRunTasksResponseTypeDef(TypedDict):
     items: list[TaskListItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListRunsInBatchResponseTypeDef(TypedDict):
+    runs: list[RunBatchListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2739,6 +2963,16 @@ class ListVariantStoresResponseTypeDef(TypedDict):
 ContainerRegistryMapUnionTypeDef = Union[
     ContainerRegistryMapTypeDef, ContainerRegistryMapOutputTypeDef
 ]
+
+
+class StartRunBatchRequestTypeDef(TypedDict):
+    requestId: str
+    defaultRunSetting: DefaultRunSettingUnionTypeDef
+    batchRunSettings: BatchRunSettingsTypeDef
+    batchName: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
 GetWorkflowResponseTypeDef = TypedDict(
     "GetWorkflowResponseTypeDef",
     {

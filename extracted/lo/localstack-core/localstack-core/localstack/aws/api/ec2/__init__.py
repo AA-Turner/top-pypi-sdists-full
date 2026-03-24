@@ -60,6 +60,9 @@ DedicatedHostFlag = bool
 DedicatedHostId = str
 DefaultEnaQueueCountPerInterface = int
 DefaultNetworkCardIndex = int
+DefaultTcpEstablishedTimeout = int
+DefaultUdpStreamTimeout = int
+DefaultUdpTimeout = int
 DefaultingDhcpOptionsId = str
 DescribeAddressTransfersMaxResults = int
 DescribeByoipCidrsMaxResults = int
@@ -967,6 +970,12 @@ class DatafeedSubscriptionState(StrEnum):
     Inactive = "Inactive"
 
 
+class DefaultHttpTokensEnforcedState(StrEnum):
+    disabled = "disabled"
+    enabled = "enabled"
+    no_preference = "no-preference"
+
+
 class DefaultInstanceMetadataEndpointState(StrEnum):
     disabled = "disabled"
     enabled = "enabled"
@@ -993,6 +1002,7 @@ class DefaultTargetCapacityType(StrEnum):
     spot = "spot"
     on_demand = "on-demand"
     capacity_block = "capacity-block"
+    reserved_capacity = "reserved-capacity"
 
 
 class DeleteFleetErrorCode(StrEnum):
@@ -1266,6 +1276,10 @@ class FleetReplacementStrategy(StrEnum):
     launch_before_terminate = "launch-before-terminate"
 
 
+class FleetReservationType(StrEnum):
+    interruptible_capacity_reservation = "interruptible-capacity-reservation"
+
+
 class FleetStateCode(StrEnum):
     submitted = "submitted"
     active = "active"
@@ -1367,6 +1381,11 @@ class HostTenancy(StrEnum):
 class HostnameType(StrEnum):
     ip_name = "ip-name"
     resource_name = "resource-name"
+
+
+class HttpTokensEnforcedState(StrEnum):
+    disabled = "disabled"
+    enabled = "enabled"
 
 
 class HttpTokensState(StrEnum):
@@ -1522,6 +1541,7 @@ class InstanceInterruptionBehavior(StrEnum):
 class InstanceLifecycle(StrEnum):
     spot = "spot"
     on_demand = "on-demand"
+    interruptible_capacity_reservation = "interruptible-capacity-reservation"
 
 
 class InstanceLifecycleType(StrEnum):
@@ -2761,6 +2781,33 @@ class InstanceType(StrEnum):
     r8id_96xlarge = "r8id.96xlarge"
     r8id_metal_48xl = "r8id.metal-48xl"
     r8id_metal_96xl = "r8id.metal-96xl"
+    c8id_large = "c8id.large"
+    c8id_xlarge = "c8id.xlarge"
+    c8id_2xlarge = "c8id.2xlarge"
+    c8id_4xlarge = "c8id.4xlarge"
+    c8id_8xlarge = "c8id.8xlarge"
+    c8id_12xlarge = "c8id.12xlarge"
+    c8id_16xlarge = "c8id.16xlarge"
+    c8id_24xlarge = "c8id.24xlarge"
+    c8id_32xlarge = "c8id.32xlarge"
+    c8id_48xlarge = "c8id.48xlarge"
+    c8id_96xlarge = "c8id.96xlarge"
+    c8id_metal_48xl = "c8id.metal-48xl"
+    c8id_metal_96xl = "c8id.metal-96xl"
+    m8id_large = "m8id.large"
+    m8id_xlarge = "m8id.xlarge"
+    m8id_2xlarge = "m8id.2xlarge"
+    m8id_4xlarge = "m8id.4xlarge"
+    m8id_8xlarge = "m8id.8xlarge"
+    m8id_12xlarge = "m8id.12xlarge"
+    m8id_16xlarge = "m8id.16xlarge"
+    m8id_24xlarge = "m8id.24xlarge"
+    m8id_32xlarge = "m8id.32xlarge"
+    m8id_48xlarge = "m8id.48xlarge"
+    m8id_96xlarge = "m8id.96xlarge"
+    m8id_metal_48xl = "m8id.metal-48xl"
+    m8id_metal_96xl = "m8id.metal-96xl"
+    hpc8a_96xlarge = "hpc8a.96xlarge"
 
 
 class InstanceTypeHypervisor(StrEnum):
@@ -5470,7 +5517,7 @@ class AllocateHostsRequest(ServiceRequest):
     ClientToken: String | None
     InstanceType: String | None
     Quantity: Integer | None
-    AvailabilityZone: String | None
+    AvailabilityZone: AvailabilityZoneName | None
 
 
 ResponseHostIdList = list[String]
@@ -6784,9 +6831,18 @@ class CancelSpotInstanceRequestsResult(TypedDict, total=False):
     CancelledSpotInstanceRequests: CancelledSpotInstanceRequestList | None
 
 
+class CapacityAllocationMetadataEntry(TypedDict, total=False):
+    Key: String | None
+    Value: String | None
+
+
+CapacityAllocationMetadataList = list[CapacityAllocationMetadataEntry]
+
+
 class CapacityAllocation(TypedDict, total=False):
     AllocationType: AllocationType | None
     Count: Integer | None
+    AllocationMetadata: CapacityAllocationMetadataList | None
 
 
 CapacityAllocations = list[CapacityAllocation]
@@ -6820,6 +6876,7 @@ class CapacityBlockExtension(TypedDict, total=False):
     CapacityBlockExtensionEndDate: MillisecondDateTime | None
     UpfrontFee: String | None
     CurrencyCode: String | None
+    ZoneType: String | None
 
 
 class CapacityBlockExtensionOffering(TypedDict, total=False):
@@ -6835,6 +6892,7 @@ class CapacityBlockExtensionOffering(TypedDict, total=False):
     UpfrontFee: String | None
     CurrencyCode: String | None
     Tenancy: CapacityReservationTenancy | None
+    ZoneType: String | None
 
 
 CapacityBlockExtensionOfferingSet = list[CapacityBlockExtensionOffering]
@@ -6856,6 +6914,7 @@ class CapacityBlockOffering(TypedDict, total=False):
     UltraserverType: String | None
     UltraserverCount: BoxedInteger | None
     CapacityBlockDurationMinutes: Integer | None
+    ZoneType: String | None
 
 
 CapacityBlockOfferingSet = list[CapacityBlockOffering]
@@ -8263,6 +8322,11 @@ class FleetLaunchTemplateConfigRequest(TypedDict, total=False):
 
 
 FleetLaunchTemplateConfigListRequest = list[FleetLaunchTemplateConfigRequest]
+ReservationTypeListRequest = list[FleetReservationType]
+
+
+class ReservedCapacityOptionsRequest(TypedDict, total=False):
+    ReservationTypes: ReservationTypeListRequest | None
 
 
 class OnDemandOptionsRequest(TypedDict, total=False):
@@ -8299,6 +8363,7 @@ class CreateFleetRequest(ServiceRequest):
     ClientToken: String | None
     SpotOptions: SpotOptionsRequest | None
     OnDemandOptions: OnDemandOptionsRequest | None
+    ReservedCapacityOptions: ReservedCapacityOptionsRequest | None
     ExcessCapacityTerminationPolicy: FleetExcessCapacityTerminationPolicy | None
     LaunchTemplateConfigs: FleetLaunchTemplateConfigListRequest
     TargetCapacitySpecification: TargetCapacitySpecificationRequest
@@ -11986,6 +12051,12 @@ class DeclarativePoliciesReport(TypedDict, total=False):
 DeclarativePoliciesReportList = list[DeclarativePoliciesReport]
 
 
+class DefaultConnectionTrackingConfiguration(TypedDict, total=False):
+    DefaultTcpEstablishedTimeout: DefaultTcpEstablishedTimeout | None
+    DefaultUdpTimeout: DefaultUdpTimeout | None
+    DefaultUdpStreamTimeout: DefaultUdpStreamTimeout | None
+
+
 class DeleteCapacityManagerDataExportRequest(ServiceRequest):
     CapacityManagerDataExportId: CapacityManagerDataExportId
     DryRun: Boolean | None
@@ -13180,6 +13251,7 @@ class DescribeCapacityBlockOfferingsRequest(ServiceRequest):
     MaxResults: DescribeCapacityBlockOfferingsMaxResults | None
     UltraserverType: String | None
     UltraserverCount: Integer | None
+    AllAvailabilityZones: Boolean | None
 
 
 class DescribeCapacityBlockOfferingsResult(TypedDict, total=False):
@@ -13704,6 +13776,13 @@ class DescribeFleetsRequest(ServiceRequest):
     Filters: FilterList | None
 
 
+ReservationTypeList = list[FleetReservationType]
+
+
+class ReservedCapacityOptions(TypedDict, total=False):
+    ReservationTypes: ReservationTypeList | None
+
+
 class OnDemandOptions(TypedDict, total=False):
     AllocationStrategy: FleetOnDemandAllocationStrategy | None
     CapacityReservationOptions: CapacityReservationOptions | None
@@ -13770,6 +13849,7 @@ class FleetData(TypedDict, total=False):
     ReplaceUnhealthyInstances: Boolean | None
     SpotOptions: SpotOptions | None
     OnDemandOptions: OnDemandOptions | None
+    ReservedCapacityOptions: ReservedCapacityOptions | None
     Tags: TagList | None
     Errors: DescribeFleetsErrorSet | None
     Instances: DescribeFleetsInstancesSet | None
@@ -14816,6 +14896,7 @@ class NetworkInfo(TypedDict, total=False):
     EnaSrdSupported: EnaSrdSupported | None
     BandwidthWeightings: BandwidthWeightingTypeList | None
     FlexibleEnaQueuesSupport: FlexibleEnaQueuesSupport | None
+    ConnectionTrackingConfiguration: DefaultConnectionTrackingConfiguration | None
     SecondaryNetworkSupported: SecondaryNetworkSupportedFlag | None
     MaximumSecondaryNetworkInterfaces: MaximumSecondaryNetworkInterfaces | None
     Ipv4AddressesPerSecondaryInterface: Ipv4AddressesPerSecondaryInterface | None
@@ -19446,6 +19527,7 @@ class InstanceMetadataDefaultsResponse(TypedDict, total=False):
     InstanceMetadataTags: InstanceMetadataTagsState | None
     ManagedBy: ManagedBy | None
     ManagedExceptionMessage: String | None
+    HttpTokensEnforced: HttpTokensEnforcedState | None
 
 
 class GetInstanceMetadataDefaultsResult(TypedDict, total=False):
@@ -21210,6 +21292,7 @@ class ModifyInstanceMetadataDefaultsRequest(ServiceRequest):
     HttpEndpoint: DefaultInstanceMetadataEndpointState | None
     InstanceMetadataTags: DefaultInstanceMetadataTagsState | None
     DryRun: Boolean | None
+    HttpTokensEnforced: DefaultHttpTokensEnforcedState | None
 
 
 class ModifyInstanceMetadataDefaultsResult(TypedDict, total=False):
@@ -23370,7 +23453,7 @@ class Ec2Api:
         client_token: String | None = None,
         instance_type: String | None = None,
         quantity: Integer | None = None,
-        availability_zone: String | None = None,
+        availability_zone: AvailabilityZoneName | None = None,
         **kwargs,
     ) -> AllocateHostsResult:
         raise NotImplementedError
@@ -26670,6 +26753,7 @@ class Ec2Api:
         max_results: DescribeCapacityBlockOfferingsMaxResults | None = None,
         ultraserver_type: String | None = None,
         ultraserver_count: Integer | None = None,
+        all_availability_zones: Boolean | None = None,
         **kwargs,
     ) -> DescribeCapacityBlockOfferingsResult:
         raise NotImplementedError
@@ -30824,6 +30908,7 @@ class Ec2Api:
         http_endpoint: DefaultInstanceMetadataEndpointState | None = None,
         instance_metadata_tags: DefaultInstanceMetadataTagsState | None = None,
         dry_run: Boolean | None = None,
+        http_tokens_enforced: DefaultHttpTokensEnforcedState | None = None,
         **kwargs,
     ) -> ModifyInstanceMetadataDefaultsResult:
         raise NotImplementedError

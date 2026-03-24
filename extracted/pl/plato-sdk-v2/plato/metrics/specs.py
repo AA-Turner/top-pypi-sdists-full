@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -50,13 +50,11 @@ class SessionResultField(BaseModel):
     """Extract a numeric field from ChronosSession.result JSON by dot path."""
 
     type: Literal["session_result_field"] = "session_result_field"
-    field_path: str = Field(
-        description="Dot-separated path into session.result, e.g. 'cua_verification.pass_rate'"
-    )
+    field_path: str = Field(description="Dot-separated path into session.result, e.g. 'cua_verification.pass_rate'")
 
 
 MetricSpec = Annotated[
-    Union[VerifierPassRate, VerifierScore, HumanAgreement, LLMComparison, SessionResultField],
+    VerifierPassRate | VerifierScore | HumanAgreement | LLMComparison | SessionResultField,
     Field(discriminator="type"),
 ]
 

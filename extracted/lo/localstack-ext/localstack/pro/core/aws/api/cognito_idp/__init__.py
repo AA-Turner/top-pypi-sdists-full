@@ -19,6 +19,7 @@ CSSVersionType = str
 ClientIdType = str
 ClientNameType = str
 ClientPermissionType = str
+ClientSecretIdType = str
 ClientSecretType = str
 CompletionMessageType = str
 ConfirmationCodeType = str
@@ -444,6 +445,16 @@ class VerifySoftwareTokenResponseType(StrEnum):
     ERROR = "ERROR"
 
 
+class AccessDeniedException(ServiceException):
+    """This exception is thrown when you don't have sufficient permissions to
+    perform the requested operation.
+    """
+
+    code: str = "AccessDeniedException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
 class AliasExistsException(ServiceException):
     """This exception is thrown when a user tries to confirm the account with
     an email address or phone number that has already been supplied as an
@@ -563,6 +574,16 @@ class InternalErrorException(ServiceException):
     """
 
     code: str = "InternalErrorException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class InternalServerException(ServiceException):
+    """This exception is thrown when Amazon Cognito encounters an internal
+    server error.
+    """
+
+    code: str = "InternalServerException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -1120,6 +1141,33 @@ class AddCustomAttributesResponse(TypedDict, total=False):
     pass
 
 
+class AddUserPoolClientSecretRequest(ServiceRequest):
+    """The request to create a new client secret for a user pool app client."""
+
+    UserPoolId: UserPoolIdType
+    ClientId: ClientIdType
+    ClientSecret: ClientSecretType | None
+
+
+DateType = datetime
+
+
+class ClientSecretDescriptorType(TypedDict, total=False):
+    """Contains information about a client secret, including its unique
+    identifier, value, and creation timestamp.
+    """
+
+    ClientSecretId: ClientSecretIdType | None
+    ClientSecretValue: ClientSecretType | None
+    ClientSecretCreateDate: DateType | None
+
+
+class AddUserPoolClientSecretResponse(TypedDict, total=False):
+    """The response from creating a new client secret."""
+
+    ClientSecretDescriptor: ClientSecretDescriptorType | None
+
+
 class AdminAddUserToGroupRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     Username: UsernameType
@@ -1203,7 +1251,6 @@ class MFAOptionType(TypedDict, total=False):
 
 
 MFAOptionListType = list[MFAOptionType]
-DateType = datetime
 
 
 class UserType(TypedDict, total=False):
@@ -1964,6 +2011,7 @@ class ChangePasswordResponse(TypedDict, total=False):
 
 
 ClientPermissionListType = list[ClientPermissionType]
+ClientSecretDescriptorListType = list[ClientSecretDescriptorType]
 
 
 class CloudWatchLogsConfigurationType(TypedDict, total=False):
@@ -2320,6 +2368,7 @@ class CreateUserPoolClientRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     ClientName: ClientNameType
     GenerateSecret: GenerateSecret | None
+    ClientSecret: ClientSecretType | None
     RefreshTokenValidity: RefreshTokenValidityType | None
     AccessTokenValidity: AccessTokenValidityType | None
     IdTokenValidity: IdTokenValidityType | None
@@ -2699,6 +2748,22 @@ class DeleteUserPoolClientRequest(ServiceRequest):
 
     UserPoolId: UserPoolIdType
     ClientId: ClientIdType
+
+
+class DeleteUserPoolClientSecretRequest(ServiceRequest):
+    """The request to delete a specific client secret from a user pool app
+    client.
+    """
+
+    UserPoolId: UserPoolIdType
+    ClientId: ClientIdType
+    ClientSecretId: ClientSecretIdType
+
+
+class DeleteUserPoolClientSecretResponse(TypedDict, total=False):
+    """The response from deleting a client secret."""
+
+    pass
 
 
 class DeleteUserPoolDomainRequest(ServiceRequest):
@@ -3311,6 +3376,24 @@ class ListUserImportJobsResponse(TypedDict, total=False):
     PaginationToken: PaginationKeyType | None
 
 
+class ListUserPoolClientSecretsRequest(ServiceRequest):
+    """The request to list client secrets for a user pool app client."""
+
+    UserPoolId: UserPoolIdType
+    ClientId: ClientIdType
+    NextToken: PaginationKey | None
+
+
+class ListUserPoolClientSecretsResponse(TypedDict, total=False):
+    """The response containing the list of client secret metadata. This
+    response does not include a NextToken field as all secrets are returned
+    in a single response.
+    """
+
+    ClientSecrets: ClientSecretDescriptorListType | None
+    NextToken: PaginationKey | None
+
+
 class ListUserPoolClientsRequest(ServiceRequest):
     """Represents the request to list the user pool clients."""
 
@@ -3893,6 +3976,32 @@ class CognitoIdpApi:
         """
         raise NotImplementedError
 
+    @handler("AddUserPoolClientSecret")
+    def add_user_pool_client_secret(
+        self,
+        context: RequestContext,
+        user_pool_id: UserPoolIdType,
+        client_id: ClientIdType,
+        client_secret: ClientSecretType | None = None,
+        **kwargs,
+    ) -> AddUserPoolClientSecretResponse:
+        """Creates a new client secret for an existing confidential user pool app
+        client. Supports up to 2 active secrets per app client for zero-downtime
+        credential rotation workflows.
+
+        :param user_pool_id: The ID of the user pool that contains the app client.
+        :param client_id: The ID of the app client for which you want to create a new secret.
+        :param client_secret: The client secret value you want to use.
+        :returns: AddUserPoolClientSecretResponse
+        :raises InvalidParameterException:
+        :raises InternalServerException:
+        :raises TooManyRequestsException:
+        :raises LimitExceededException:
+        :raises AccessDeniedException:
+        :raises ResourceNotFoundException:
+        """
+        raise NotImplementedError
+
     @handler("AdminAddUserToGroup")
     def admin_add_user_to_group(
         self,
@@ -3919,8 +4028,7 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool that contains the group that you want to add the
-        user to.
+        :param user_pool_id: The ID of the user pool that contains the group that you want to add the user to.
         :param username: The name of the user that you want to query or modify.
         :param group_name: The name of the group that you want to add your user to.
         :raises InvalidParameterException:
@@ -3967,11 +4075,9 @@ class CognitoIdpApi:
         users, set ``AllowAdminCreateUserOnly`` to ``true`` in a
         ``CreateUserPool`` or ``UpdateUserPool`` request.
 
-        :param user_pool_id: The ID of the user pool where you want to confirm a user's sign-up
-        request.
+        :param user_pool_id: The ID of the user pool where you want to confirm a user's sign-up request.
         :param username: The name of the user that you want to query or modify.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: AdminConfirmSignUpResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -4059,19 +4165,13 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool where you want to create a user.
         :param username: The value that you want to set as the username sign-in attribute.
-        :param user_attributes: An array of name-value pairs that contain user attributes and attribute
-        values to be set for the user to be created.
-        :param validation_data: Temporary user attributes that contribute to the outcomes of your pre
-        sign-up Lambda trigger.
+        :param user_attributes: An array of name-value pairs that contain user attributes and attribute values to be set for the user to be created.
+        :param validation_data: Temporary user attributes that contribute to the outcomes of your pre sign-up Lambda trigger.
         :param temporary_password: The user's temporary password.
-        :param force_alias_creation: This parameter is used only if the ``phone_number_verified`` or
-        ``email_verified`` attribute is set to ``True``.
-        :param message_action: Set to ``RESEND`` to resend the invitation message to a user that
-        already exists, and to reset the temporary-password duration with a new
-        temporary password.
+        :param force_alias_creation: This parameter is used only if the ``phone_number_verified`` or ``email_verified`` attribute is set to ``True``.
+        :param message_action: Set to ``RESEND`` to resend the invitation message to a user that already exists, and to reset the temporary-password duration with a new temporary password.
         :param desired_delivery_mediums: Specify ``EMAIL`` if email will be used to send the welcome message.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: AdminCreateUserResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -4154,8 +4254,7 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool where you want to delete user attributes.
         :param username: The name of the user that you want to query or modify.
-        :param user_attribute_names: An array of strings representing the user attribute names you want to
-        delete.
+        :param user_attribute_names: An array of strings representing the user attribute names you want to delete.
         :returns: AdminDeleteUserAttributesResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -4217,8 +4316,7 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool where you want to delete the user's linked
-        identities.
+        :param user_pool_id: The ID of the user pool where you want to delete the user's linked identities.
         :param user: The user profile that you want to delete a linked identity from.
         :returns: AdminDisableProviderForUserResponse
         :raises ResourceNotFoundException:
@@ -4411,8 +4509,7 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool where you want to get information about the
-        user.
+        :param user_pool_id: The ID of the user pool where you want to get information about the user.
         :param username: The name of the user that you want to query or modify.
         :returns: AdminGetUserResponse
         :raises ResourceNotFoundException:
@@ -4482,12 +4579,9 @@ class CognitoIdpApi:
         :param client_id: The ID of the app client where the user wants to sign in.
         :param auth_flow: The authentication flow that you want to initiate.
         :param auth_parameters: The authentication parameters.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for
-        certain custom workflows that this action triggers.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
         :param session: The optional session ID from a ``ConfirmSignUp`` API request.
         :returns: AdminInitiateAuthResponse
         :raises ResourceNotFoundException:
@@ -4551,10 +4645,8 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param user_pool_id: The ID of the user pool where you want to link a federated identity.
-        :param destination_user: The existing user in the user pool that you want to assign to the
-        external IdP user account.
-        :param source_user: An external IdP account for a user who doesn't exist yet in the user
-        pool.
+        :param destination_user: The existing user in the user pool that you want to assign to the external IdP user account.
+        :param source_user: An external IdP account for a user who doesn't exist yet in the user pool.
         :returns: AdminLinkProviderForUserResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -4599,8 +4691,7 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool where the device owner is a user.
         :param username: The name of the user that you want to query or modify.
-        :param limit: The maximum number of devices that you want Amazon Cognito to return in
-        the response.
+        :param limit: The maximum number of devices that you want Amazon Cognito to return in the response.
         :param pagination_token: This API operation returns a limited number of results.
         :returns: AdminListDevicesResponse
         :raises InvalidParameterException:
@@ -4643,8 +4734,7 @@ class CognitoIdpApi:
 
         :param username: The name of the user that you want to query or modify.
         :param user_pool_id: The ID of the user pool where you want to view a user's groups.
-        :param limit: The maximum number of groups that you want Amazon Cognito to return in
-        the response.
+        :param limit: The maximum number of groups that you want Amazon Cognito to return in the response.
         :param next_token: This API operation returns a limited number of results.
         :returns: AdminListGroupsForUserResponse
         :raises InvalidParameterException:
@@ -4684,8 +4774,7 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The Id of the user pool that contains the user profile with the logged
-        events.
+        :param user_pool_id: The Id of the user pool that contains the user profile with the logged events.
         :param username: The name of the user that you want to query or modify.
         :param max_results: The maximum number of authentication events to return.
         :param next_token: This API operation returns a limited number of results.
@@ -4728,11 +4817,9 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool that contains the group and the user that you
-        want to remove.
+        :param user_pool_id: The ID of the user pool that contains the group and the user that you want to remove.
         :param username: The name of the user that you want to query or modify.
-        :param group_name: The name of the group that you want to remove the user from, for example
-        ``MyTestGroup``.
+        :param group_name: The name of the group that you want to remove the user from, for example ``MyTestGroup``.
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
         :raises TooManyRequestsException:
@@ -4796,8 +4883,7 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool where you want to reset the user's password.
         :param username: The name of the user that you want to query or modify.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: AdminResetUserPasswordResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -4873,20 +4959,14 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool where you want to respond to an authentication
-        challenge.
+        :param user_pool_id: The ID of the user pool where you want to respond to an authentication challenge.
         :param client_id: The ID of the app client where you initiated sign-in.
         :param challenge_name: The name of the challenge that you are responding to.
-        :param challenge_responses: The responses to the challenge that you received in the previous
-        request.
-        :param session: The session identifier that maintains the state of authentication
-        requests and challenge responses.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param challenge_responses: The responses to the challenge that you received in the previous request.
+        :param session: The session identifier that maintains the state of authentication requests and challenge responses.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: AdminRespondToAuthChallengeResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -5018,10 +5098,8 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool where you want to set the user's password.
         :param username: The name of the user that you want to query or modify.
-        :param password: The new temporary or permanent password that you want to set for the
-        user.
-        :param permanent: Set to ``true`` to set a password that the user can immediately sign in
-        with.
+        :param password: The new temporary or permanent password that you want to set for the user.
+        :param permanent: Set to ``true`` to set a password that the user can immediately sign in with.
         :returns: AdminSetUserPasswordResponse
         :raises ResourceNotFoundException:
         :raises NotAuthorizedException:
@@ -5060,11 +5138,9 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool that contains the user whose options you're
-        setting.
+        :param user_pool_id: The ID of the user pool that contains the user whose options you're setting.
         :param username: The name of the user that you want to query or modify.
-        :param mfa_options: You can use this parameter only to set an SMS configuration that uses
-        SMS for delivery.
+        :param mfa_options: You can use this parameter only to set an SMS configuration that uses SMS for delivery.
         :returns: AdminSetUserSettingsResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -5111,11 +5187,9 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool where you want to submit authentication-event
-        feedback.
+        :param user_pool_id: The ID of the user pool where you want to submit authentication-event feedback.
         :param username: The name of the user that you want to query or modify.
-        :param event_id: The ID of the threat protection authentication event that you want to
-        update.
+        :param event_id: The ID of the threat protection authentication event that you want to update.
         :param feedback_value: Your feedback to the authentication event.
         :returns: AdminUpdateAuthEventFeedbackResponse
         :raises InvalidParameterException:
@@ -5162,10 +5236,8 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool where you want to change a user's device status.
         :param username: The name of the user that you want to query or modify.
-        :param device_key: The unique identifier, or device key, of the device that you want to
-        update the status for.
-        :param device_remembered_status: To enable device authentication with the specified device, set to
-        ``remembered``.
+        :param device_key: The unique identifier, or device key, of the device that you want to update the status for.
+        :param device_remembered_status: To enable device authentication with the specified device, set to ``remembered``.
         :returns: AdminUpdateDeviceStatusResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -5234,8 +5306,7 @@ class CognitoIdpApi:
         :param user_pool_id: The ID of the user pool where you want to update user attributes.
         :param username: The name of the user that you want to query or modify.
         :param user_attributes: An array of name-value pairs representing user attributes.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: AdminUpdateUserAttributesResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -5345,10 +5416,8 @@ class CognitoIdpApi:
         Authorize this action with a signed-in user's access token. It must
         include the scope ``aws.cognito.signin.user.admin``.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
-        :param session: The session identifier that maintains the state of authentication
-        requests and challenge responses.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
+        :param session: The session identifier that maintains the state of authentication requests and challenge responses.
         :returns: AssociateSoftwareTokenResponse
         :raises ConcurrentModificationException:
         :raises InvalidParameterException:
@@ -5383,8 +5452,7 @@ class CognitoIdpApi:
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
         :param proposed_password: A new password that you prompted the user to enter in your application.
-        :param access_token: A valid access token that Amazon Cognito issued to the user whose
-        password you want to change.
+        :param access_token: A valid access token that Amazon Cognito issued to the user whose password you want to change.
         :param previous_password: The user's previous password.
         :returns: ChangePasswordResponse
         :raises ResourceNotFoundException:
@@ -5412,10 +5480,8 @@ class CognitoIdpApi:
         Authorize this action with a signed-in user's access token. It must
         include the scope ``aws.cognito.signin.user.admin``.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
-        :param credential: A
-        `RegistrationResponseJSON <https://www.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
+        :param credential: A `RegistrationResponseJSON <https://www.
         :returns: CompleteWebAuthnRegistrationResponse
         :raises ForbiddenException:
         :raises InternalErrorException:
@@ -5428,6 +5494,7 @@ class CognitoIdpApi:
         :raises WebAuthnRelyingPartyMismatchException:
         :raises WebAuthnClientMismatchException:
         :raises WebAuthnOriginNotAllowedException:
+        :raises PasswordResetRequiredException:
         :raises WebAuthnCredentialNotSupportedException:
         """
         raise NotImplementedError
@@ -5460,10 +5527,8 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
-        :param device_key: The unique identifier, or device key, of the device that you want to
-        update the status for.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
+        :param device_key: The unique identifier, or device key, of the device that you want to update the status for.
         :param device_secret_verifier_config: The configuration of the device secret verifier.
         :param device_name: A friendly name for the device, for example ``MyMobilePhone``.
         :returns: ConfirmDeviceResponse
@@ -5511,18 +5576,12 @@ class CognitoIdpApi:
 
         :param client_id: The ID of the app client where the user wants to reset their password.
         :param username: The name of the user that you want to query or modify.
-        :param confirmation_code: The confirmation code that your user pool delivered when your user
-        requested to reset their password.
+        :param confirmation_code: The confirmation code that your user pool delivered when your user requested to reset their password.
         :param password: The new password that your user wants to set.
-        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the
-        secret key of a user pool client and username plus the client ID in the
-        message.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param user_context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the secret key of a user pool client and username plus the client ID in the message.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param user_context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: ConfirmForgotPasswordResponse
         :raises ResourceNotFoundException:
         :raises UnexpectedLambdaException:
@@ -5581,18 +5640,12 @@ class CognitoIdpApi:
 
         :param client_id: The ID of the app client associated with the user pool.
         :param username: The name of the user that you want to query or modify.
-        :param confirmation_code: The confirmation code that your user pool sent in response to the
-        ``SignUp`` request.
-        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the
-        secret key of a user pool client and username plus the client ID in the
-        message.
+        :param confirmation_code: The confirmation code that your user pool sent in response to the ``SignUp`` request.
+        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the secret key of a user pool client and username plus the client ID in the message.
         :param force_alias_creation: When ``true``, forces user confirmation despite any existing aliases.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param user_context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param user_context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :param session: The optional session ID from a ``SignUp`` API request.
         :returns: ConfirmSignUpResponse
         :raises ResourceNotFoundException:
@@ -5644,10 +5697,8 @@ class CognitoIdpApi:
         :param group_name: A name for the group.
         :param user_pool_id: The ID of the user pool where you want to create a user group.
         :param description: A description of the group that you're creating.
-        :param role_arn: The Amazon Resource Name (ARN) for the IAM role that you want to
-        associate with the group.
-        :param precedence: A non-negative integer value that specifies the precedence of this group
-        relative to the other groups that a user can belong to in the user pool.
+        :param role_arn: The Amazon Resource Name (ARN) for the IAM role that you want to associate with the group.
+        :param precedence: A non-negative integer value that specifies the precedence of this group relative to the other groups that a user can belong to in the user pool.
         :returns: CreateGroupResponse
         :raises InvalidParameterException:
         :raises GroupExistsException:
@@ -5695,8 +5746,7 @@ class CognitoIdpApi:
         :param provider_type: The type of IdP that you want to add.
         :param provider_details: The scopes, URLs, and identifiers for your external identity provider.
         :param attribute_mapping: A mapping of IdP attributes to standard and custom user pool attributes.
-        :param idp_identifiers: An array of IdP identifiers, for example
-        ``"IdPIdentifiers": [ "MyIdP", "MyIdP2" ]``.
+        :param idp_identifiers: An array of IdP identifiers, for example ``"IdPIdentifiers": [ "MyIdP", "MyIdP2" ]``.
         :returns: CreateIdentityProviderResponse
         :raises InvalidParameterException:
         :raises DuplicateProviderException:
@@ -5753,10 +5803,8 @@ class CognitoIdpApi:
         :param user_pool_id: The ID of the user pool where you want to create a new branding style.
         :param client_id: The app client that you want to create the branding style for.
         :param use_cognito_provided_values: When true, applies the default branding style options.
-        :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that
-        you want to apply to your style.
-        :param assets: An array of image files that you want to apply to functions like
-        backgrounds, logos, and icons.
+        :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.
+        :param assets: An array of image files that you want to apply to functions like backgrounds, logos, and icons.
         :returns: CreateManagedLoginBrandingResponse
         :raises ResourceNotFoundException:
         :raises ConcurrentModificationException:
@@ -5859,12 +5907,9 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool where you want to create terms documents.
         :param client_id: The ID of the app client where you want to create terms documents.
-        :param terms_name: A friendly name for the document that you want to create in the current
-        request.
-        :param terms_source: This parameter is reserved for future use and currently accepts only one
-        value.
-        :param enforcement: This parameter is reserved for future use and currently accepts only one
-        value.
+        :param terms_name: A friendly name for the document that you want to create in the current request.
+        :param terms_source: This parameter is reserved for future use and currently accepts only one value.
+        :param enforcement: This parameter is reserved for future use and currently accepts only one value.
         :param links: A map of URLs to languages.
         :returns: CreateTermsResponse
         :raises ResourceNotFoundException:
@@ -5906,8 +5951,7 @@ class CognitoIdpApi:
 
         :param job_name: A friendly name for the user import job.
         :param user_pool_id: The ID of the user pool that you want to import users into.
-        :param cloud_watch_logs_role_arn: You must specify an IAM role that has permission to log import-job
-        results to Amazon CloudWatch Logs.
+        :param cloud_watch_logs_role_arn: You must specify an IAM role that has permission to log import-job results to Amazon CloudWatch Logs.
         :returns: CreateUserImportJobResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -5990,36 +6034,28 @@ class CognitoIdpApi:
 
         :param pool_name: A friendly name for your user pool.
         :param policies: The password policy and sign-in policy in the user pool.
-        :param deletion_protection: When active, ``DeletionProtection`` prevents accidental deletion of your
-        user pool.
+        :param deletion_protection: When active, ``DeletionProtection`` prevents accidental deletion of your user pool.
         :param lambda_config: A collection of user pool Lambda triggers.
         :param auto_verified_attributes: The attributes that you want your user pool to automatically verify.
         :param alias_attributes: Attributes supported as an alias for this user pool.
-        :param username_attributes: Specifies whether a user can use an email address or phone number as a
-        username when they sign up.
+        :param username_attributes: Specifies whether a user can use an email address or phone number as a username when they sign up.
         :param sms_verification_message: This parameter is no longer used.
         :param email_verification_message: This parameter is no longer used.
         :param email_verification_subject: This parameter is no longer used.
-        :param verification_message_template: The template for the verification message that your user pool delivers
-        to users who set an email address or phone number attribute.
-        :param sms_authentication_message: The contents of the SMS message that your user pool sends to users in
-        SMS OTP and MFA authentication.
+        :param verification_message_template: The template for the verification message that your user pool delivers to users who set an email address or phone number attribute.
+        :param sms_authentication_message: The contents of the SMS message that your user pool sends to users in SMS OTP and MFA authentication.
         :param mfa_configuration: Sets multi-factor authentication (MFA) to be on, off, or optional.
         :param user_attribute_update_settings: The settings for updates to user attributes.
         :param device_configuration: The device-remembering configuration for a user pool.
         :param email_configuration: The email configuration of your user pool.
-        :param sms_configuration: The settings for your Amazon Cognito user pool to send SMS messages with
-        Amazon Simple Notification Service.
+        :param sms_configuration: The settings for your Amazon Cognito user pool to send SMS messages with Amazon Simple Notification Service.
         :param user_pool_tags: The tag keys and values to assign to the user pool.
         :param admin_create_user_config: The configuration for administrative creation of users.
         :param schema: An array of attributes for the new user pool.
-        :param user_pool_add_ons: Contains settings for activation of threat protection, including the
-        operating mode and additional authentication types.
+        :param user_pool_add_ons: Contains settings for activation of threat protection, including the operating mode and additional authentication types.
         :param username_configuration: Sets the case sensitivity option for sign-in usernames.
-        :param account_recovery_setting: The available verified method a user can use to recover their password
-        when they call ``ForgotPassword``.
-        :param user_pool_tier: The user pool `feature
-        plan <https://docs.
+        :param account_recovery_setting: The available verified method a user can use to recover their password when they call ``ForgotPassword``.
+        :param user_pool_tier: The user pool `feature plan <https://docs.
         :returns: CreateUserPoolResponse
         :raises InvalidParameterException:
         :raises TooManyRequestsException:
@@ -6042,6 +6078,7 @@ class CognitoIdpApi:
         user_pool_id: UserPoolIdType,
         client_name: ClientNameType,
         generate_secret: GenerateSecret | None = None,
+        client_secret: ClientSecretType | None = None,
         refresh_token_validity: RefreshTokenValidityType | None = None,
         access_token_validity: AccessTokenValidityType | None = None,
         id_token_validity: IdTokenValidityType | None = None,
@@ -6091,37 +6128,26 @@ class CognitoIdpApi:
         :param user_pool_id: The ID of the user pool where you want to create an app client.
         :param client_name: A friendly name for the app client that you want to create.
         :param generate_secret: When ``true``, generates a client secret for the app client.
+        :param client_secret: A custom client secret that you want to use for the app client.
         :param refresh_token_validity: The refresh token time limit.
         :param access_token_validity: The access token time limit.
         :param id_token_validity: The ID token time limit.
         :param token_validity_units: The units that validity times are represented in.
-        :param read_attributes: The list of user attributes that you want your app client to have read
-        access to.
-        :param write_attributes: The list of user attributes that you want your app client to have write
-        access to.
-        :param explicit_auth_flows: The `authentication
-        flows <https://docs.
-        :param supported_identity_providers: A list of provider names for the identity providers (IdPs) that are
-        supported on this client.
-        :param callback_urls: A list of allowed redirect, or callback, URLs for managed login
-        authentication.
+        :param read_attributes: The list of user attributes that you want your app client to have read access to.
+        :param write_attributes: The list of user attributes that you want your app client to have write access to.
+        :param explicit_auth_flows: The `authentication flows <https://docs.
+        :param supported_identity_providers: A list of provider names for the identity providers (IdPs) that are supported on this client.
+        :param callback_urls: A list of allowed redirect, or callback, URLs for managed login authentication.
         :param logout_urls: A list of allowed logout URLs for managed login authentication.
         :param default_redirect_uri: The default redirect URI.
-        :param allowed_o_auth_flows: The OAuth grant types that you want your app client to generate for
-        clients in managed login authentication.
-        :param allowed_o_auth_scopes: The OAuth, OpenID Connect (OIDC), and custom scopes that you want to
-        permit your app client to authorize access with.
+        :param allowed_o_auth_flows: The OAuth grant types that you want your app client to generate for clients in managed login authentication.
+        :param allowed_o_auth_scopes: The OAuth, OpenID Connect (OIDC), and custom scopes that you want to permit your app client to authorize access with.
         :param allowed_o_auth_flows_user_pool_client: Set to ``true`` to use OAuth 2.
-        :param analytics_configuration: The user pool analytics configuration for collecting metrics and sending
-        them to your Amazon Pinpoint campaign.
-        :param prevent_user_existence_errors: When ``ENABLED``, suppresses messages that might indicate a valid user
-        exists when someone attempts sign-in.
-        :param enable_token_revocation: Activates or deactivates `token
-        revocation <https://docs.
-        :param enable_propagate_additional_user_context_data: When ``true``, your application can include additional
-        ``UserContextData`` in authentication requests.
-        :param auth_session_validity: Amazon Cognito creates a session token for each API request in an
-        authentication flow.
+        :param analytics_configuration: The user pool analytics configuration for collecting metrics and sending them to your Amazon Pinpoint campaign.
+        :param prevent_user_existence_errors: When ``ENABLED``, suppresses messages that might indicate a valid user exists when someone attempts sign-in.
+        :param enable_token_revocation: Activates or deactivates `token revocation <https://docs.
+        :param enable_propagate_additional_user_context_data: When ``true``, your application can include additional ``UserContextData`` in authentication requests.
+        :param auth_session_validity: Amazon Cognito creates a session token for each API request in an authentication flow.
         :param refresh_token_rotation: The configuration of your app client for refresh token rotation.
         :returns: CreateUserPoolClientResponse
         :raises InvalidParameterException:
@@ -6177,8 +6203,7 @@ class CognitoIdpApi:
 
         :param domain: The domain string.
         :param user_pool_id: The ID of the user pool where you want to add a domain.
-        :param managed_login_version: The version of managed login branding that you want to apply to your
-        domain.
+        :param managed_login_version: The version of managed login branding that you want to apply to your domain.
         :param custom_domain_config: The configuration for a custom domain.
         :returns: CreateUserPoolDomainResponse
         :raises InvalidParameterException:
@@ -6295,8 +6320,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param managed_login_branding_id: The ID of the managed login branding style that you want to delete.
-        :param user_pool_id: The ID of the user pool that contains the managed login branding style
-        that you want to delete.
+        :param user_pool_id: The ID of the user pool that contains the managed login branding style that you want to delete.
         :raises ResourceNotFoundException:
         :raises ConcurrentModificationException:
         :raises InvalidParameterException:
@@ -6366,8 +6390,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param terms_id: The ID of the terms documents that you want to delete.
-        :param user_pool_id: The ID of the user pool that contains the terms documents that you want
-        to delete.
+        :param user_pool_id: The ID of the user pool that contains the terms documents that you want to delete.
         :raises ResourceNotFoundException:
         :raises ConcurrentModificationException:
         :raises InvalidParameterException:
@@ -6393,8 +6416,7 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
         :raises NotAuthorizedException:
@@ -6430,10 +6452,8 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param user_attribute_names: An array of strings representing the user attribute names you want to
-        delete.
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param user_attribute_names: An array of strings representing the user attribute names you want to delete.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :returns: DeleteUserAttributesResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -6498,6 +6518,30 @@ class CognitoIdpApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteUserPoolClientSecret")
+    def delete_user_pool_client_secret(
+        self,
+        context: RequestContext,
+        user_pool_id: UserPoolIdType,
+        client_id: ClientIdType,
+        client_secret_id: ClientSecretIdType,
+        **kwargs,
+    ) -> DeleteUserPoolClientSecretResponse:
+        """Deletes a specific client secret from a user pool app client. You cannot
+        delete the last remaining secret for an app client.
+
+        :param user_pool_id: The ID of the user pool that contains the app client.
+        :param client_id: The ID of the app client from which you want to delete the secret.
+        :param client_secret_id: The unique identifier of the client secret you want to delete.
+        :returns: DeleteUserPoolClientSecretResponse
+        :raises InvalidParameterException:
+        :raises InternalServerException:
+        :raises TooManyRequestsException:
+        :raises LimitExceededException:
+        :raises ResourceNotFoundException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteUserPoolDomain")
     def delete_user_pool_domain(
         self, context: RequestContext, domain: DomainType, user_pool_id: UserPoolIdType, **kwargs
@@ -6539,8 +6583,7 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :param credential_id: The unique identifier of the passkey that you want to delete.
         :returns: DeleteWebAuthnCredentialResponse
         :raises ForbiddenException:
@@ -6548,6 +6591,7 @@ class CognitoIdpApi:
         :raises InvalidParameterException:
         :raises TooManyRequestsException:
         :raises LimitExceededException:
+        :raises PasswordResetRequiredException:
         :raises NotAuthorizedException:
         :raises ResourceNotFoundException:
         """
@@ -6587,12 +6631,9 @@ class CognitoIdpApi:
         """Given the ID of a managed login branding style, returns detailed
         information about the style.
 
-        :param user_pool_id: The ID of the user pool that contains the managed login branding style
-        that you want to get information about.
-        :param managed_login_branding_id: The ID of the managed login branding style that you want to get more
-        information about.
-        :param return_merged_resources: When ``true``, returns values for branding options that are unchanged
-        from Amazon Cognito defaults.
+        :param user_pool_id: The ID of the user pool that contains the managed login branding style that you want to get information about.
+        :param managed_login_branding_id: The ID of the managed login branding style that you want to get more information about.
+        :param return_merged_resources: When ``true``, returns values for branding options that are unchanged from Amazon Cognito defaults.
         :returns: DescribeManagedLoginBrandingResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -6614,12 +6655,9 @@ class CognitoIdpApi:
         """Given the ID of a user pool app client, returns detailed information
         about the style assigned to the app client.
 
-        :param user_pool_id: The ID of the user pool that contains the app client where you want more
-        information about the managed login branding style.
-        :param client_id: The app client that's assigned to the branding style that you want more
-        information about.
-        :param return_merged_resources: When ``true``, returns values for branding options that are unchanged
-        from Amazon Cognito defaults.
+        :param user_pool_id: The ID of the user pool that contains the app client where you want more information about the managed login branding style.
+        :param client_id: The app client that's assigned to the branding style that you want more information about.
+        :param return_merged_resources: When ``true``, returns values for branding options that are unchanged from Amazon Cognito defaults.
         :returns: DescribeManagedLoginBrandingByClientResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -6667,10 +6705,8 @@ class CognitoIdpApi:
         protection, see `Threat
         protection <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-settings-threat-protection.html>`__.
 
-        :param user_pool_id: The ID of the user pool with the risk configuration that you want to
-        inspect.
-        :param client_id: The ID of the app client with the risk configuration that you want to
-        inspect.
+        :param user_pool_id: The ID of the user pool with the risk configuration that you want to inspect.
+        :param client_id: The ID of the app client with the risk configuration that you want to inspect.
         :returns: DescribeRiskConfigurationResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -6703,8 +6739,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param terms_id: The ID of the terms documents that you want to describe.
-        :param user_pool_id: The ID of the user pool that contains the terms documents that you want
-        to describe.
+        :param user_pool_id: The ID of the user pool that contains the terms documents that you want to describe.
         :returns: DescribeTermsResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -6796,8 +6831,7 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool that contains the app client you want to
-        describe.
+        :param user_pool_id: The ID of the user pool that contains the app client you want to describe.
         :param client_id: The ID of the app client that you want to describe.
         :returns: DescribeUserPoolClientResponse
         :raises ResourceNotFoundException:
@@ -6861,10 +6895,8 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param device_key: The unique identifier, or device key, of the device that the user wants
-        to forget.
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param device_key: The unique identifier, or device key, of the device that the user wants to forget.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
         :raises NotAuthorizedException:
@@ -6931,18 +6963,12 @@ class CognitoIdpApi:
         pools <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-sms-settings.html>`__
         in the *Amazon Cognito Developer Guide*.
 
-        :param client_id: The ID of the user pool app client associated with the current signed-in
-        user.
+        :param client_id: The ID of the user pool app client associated with the current signed-in user.
         :param username: The name of the user that you want to query or modify.
-        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the
-        secret key of a user pool client and username plus the client ID in the
-        message.
-        :param user_context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the secret key of a user pool client and username plus the client ID in the message.
+        :param user_context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: ForgotPasswordResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -7023,8 +7049,7 @@ class CognitoIdpApi:
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
         :param device_key: The key of the device that you want to get information about.
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :returns: GetDeviceResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -7125,8 +7150,7 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool that has the logging configuration that you want
-        to view.
+        :param user_pool_id: The ID of the user pool that has the logging configuration that you want to view.
         :returns: GetLogDeliveryConfigurationResponse
         :raises InvalidParameterException:
         :raises InternalErrorException:
@@ -7191,15 +7215,10 @@ class CognitoIdpApi:
         token rotation is disabled, issues new ID and access tokens only.
 
         :param refresh_token: A valid refresh token that can authorize the request for new tokens.
-        :param client_id: The app client that issued the refresh token to the user who wants to
-        request new tokens.
-        :param client_secret: The client secret of the requested app client, if the client has a
-        secret.
-        :param device_key: When you enable device remembering, Amazon Cognito issues a device key
-        that you can use for device authentication that bypasses multi-factor
-        authentication (MFA).
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for
-        certain custom workflows that this action triggers.
+        :param client_id: The app client that issued the refresh token to the user who wants to request new tokens.
+        :param client_secret: The client secret of the requested app client, if the client has a secret.
+        :param device_key: When you enable device remembering, Amazon Cognito issues a device key that you can use for device authentication that bypasses multi-factor authentication (MFA).
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: GetTokensFromRefreshTokenResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -7260,8 +7279,7 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :returns: GetUserResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -7318,12 +7336,9 @@ class CognitoIdpApi:
         pools <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-sms-settings.html>`__
         in the *Amazon Cognito Developer Guide*.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
-        :param attribute_name: The name of the attribute that the user wants to verify, for example
-        ``email``.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
+        :param attribute_name: The name of the attribute that the user wants to verify, for example ``email``.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: GetUserAttributeVerificationCodeResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -7368,8 +7383,7 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :returns: GetUserAuthFactorsResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -7414,8 +7428,7 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool where you want to query WebAuthn and MFA
-        configuration.
+        :param user_pool_id: The ID of the user pool where you want to query WebAuthn and MFA configuration.
         :returns: GetUserPoolMfaConfigResponse
         :raises InvalidParameterException:
         :raises TooManyRequestsException:
@@ -7472,8 +7485,7 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :returns: GlobalSignOutResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -7537,12 +7549,9 @@ class CognitoIdpApi:
         :param auth_flow: The authentication flow that you want to initiate.
         :param client_id: The ID of the app client that your user wants to sign in to.
         :param auth_parameters: The authentication parameters.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for
-        certain custom workflows that this action triggers.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param user_context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param user_context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
         :param session: The optional session ID from a ``ConfirmSignUp`` API request.
         :returns: InitiateAuthResponse
         :raises UnsupportedOperationException:
@@ -7590,10 +7599,8 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
-        :param limit: The maximum number of devices that you want Amazon Cognito to return in
-        the response.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
+        :param limit: The maximum number of devices that you want Amazon Cognito to return in the response.
         :param pagination_token: This API operation returns a limited number of results.
         :returns: ListDevicesResponse
         :raises InvalidParameterException:
@@ -7634,8 +7641,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param user_pool_id: The ID of the user pool where you want to list user groups.
-        :param limit: The maximum number of groups that you want Amazon Cognito to return in
-        the response.
+        :param limit: The maximum number of groups that you want Amazon Cognito to return in the response.
         :param next_token: This API operation returns a limited number of results.
         :returns: ListGroupsResponse
         :raises InvalidParameterException:
@@ -7673,8 +7679,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param user_pool_id: The ID of the user pool where you want to list IdPs.
-        :param max_results: The maximum number of IdPs that you want Amazon Cognito to return in the
-        response.
+        :param max_results: The maximum number of IdPs that you want Amazon Cognito to return in the response.
         :param next_token: This API operation returns a limited number of results.
         :returns: ListIdentityProvidersResponse
         :raises InvalidParameterException:
@@ -7713,8 +7718,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param user_pool_id: The ID of the user pool where you want to list resource servers.
-        :param max_results: The maximum number of resource servers that you want Amazon Cognito to
-        return in the response.
+        :param max_results: The maximum number of resource servers that you want Amazon Cognito to return in the response.
         :param next_token: This API operation returns a limited number of results.
         :returns: ListResourceServersResponse
         :raises InvalidParameterException:
@@ -7733,8 +7737,7 @@ class CognitoIdpApi:
         more information, see `Tagging
         resources <https://docs.aws.amazon.com/cognito/latest/developerguide/tagging.html>`__.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the user pool that the tags are
-        assigned to.
+        :param resource_arn: The Amazon Resource Name (ARN) of the user pool that the tags are assigned to.
         :returns: ListTagsForResourceResponse
         :raises ResourceNotFoundException:
         :raises NotAuthorizedException:
@@ -7769,8 +7772,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param user_pool_id: The ID of the user pool where you want to list terms documents.
-        :param max_results: The maximum number of terms documents that you want Amazon Cognito to
-        return in the response.
+        :param max_results: The maximum number of terms documents that you want Amazon Cognito to return in the response.
         :param next_token: This API operation returns a limited number of results.
         :returns: ListTermsResponse
         :raises ResourceNotFoundException:
@@ -7810,8 +7812,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param user_pool_id: The ID of the user pool where you want to list import jobs.
-        :param max_results: The maximum number of import jobs that you want Amazon Cognito to return
-        in the response.
+        :param max_results: The maximum number of import jobs that you want Amazon Cognito to return in the response.
         :param pagination_token: This API operation returns a limited number of results.
         :returns: ListUserImportJobsResponse
         :raises ResourceNotFoundException:
@@ -7819,6 +7820,33 @@ class CognitoIdpApi:
         :raises TooManyRequestsException:
         :raises NotAuthorizedException:
         :raises InternalErrorException:
+        """
+        raise NotImplementedError
+
+    @handler("ListUserPoolClientSecrets")
+    def list_user_pool_client_secrets(
+        self,
+        context: RequestContext,
+        user_pool_id: UserPoolIdType,
+        client_id: ClientIdType,
+        next_token: PaginationKey | None = None,
+        **kwargs,
+    ) -> ListUserPoolClientSecretsResponse:
+        """Lists all client secrets associated with a user pool app client. Returns
+        metadata about the secrets. The response does not include pagination
+        tokens as there are only 2 secrets at any given time and we return both
+        with every ListUserPoolClientSecrets call. For security reasons, the
+        response never reveals the actual secret value in ClientSecretValue.
+
+        :param user_pool_id: The ID of the user pool that contains the app client.
+        :param client_id: The ID of the app client whose secrets you want to list.
+        :param next_token: This API operation returns a limited number of results.
+        :returns: ListUserPoolClientSecretsResponse
+        :raises InvalidParameterException:
+        :raises InternalServerException:
+        :raises TooManyRequestsException:
+        :raises LimitExceededException:
+        :raises ResourceNotFoundException:
         """
         raise NotImplementedError
 
@@ -7850,8 +7878,7 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param user_pool_id: The ID of the user pool where you want to list user pool clients.
-        :param max_results: The maximum number of app clients that you want Amazon Cognito to return
-        in the response.
+        :param max_results: The maximum number of app clients that you want Amazon Cognito to return in the response.
         :param next_token: This API operation returns a limited number of results.
         :returns: ListUserPoolClientsResponse
         :raises InvalidParameterException:
@@ -7886,8 +7913,7 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param max_results: The maximum number of user pools that you want Amazon Cognito to return
-        in the response.
+        :param max_results: The maximum number of user pools that you want Amazon Cognito to return in the response.
         :param next_token: This API operation returns a limited number of results.
         :returns: ListUserPoolsResponse
         :raises InvalidParameterException:
@@ -7911,6 +7937,10 @@ class CognitoIdpApi:
         """Given a user pool ID, returns a list of users and their basic details in
         a user pool.
 
+        This operation is eventually consistent. You might experience a delay
+        before results are up-to-date. To validate the existence or
+        configuration of an individual user, use ``AdminGetUser``.
+
         Amazon Cognito evaluates Identity and Access Management (IAM) policies
         in requests for this API operation. For this operation, you must use IAM
         credentials to authorize requests, and you must grant yourself the
@@ -7925,13 +7955,10 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param user_pool_id: The ID of the user pool where you want to display or search for users.
-        :param attributes_to_get: A JSON array of user attribute names, for example ``given_name``, that
-        you want Amazon Cognito to include in the response for each user.
-        :param limit: The maximum number of users that you want Amazon Cognito to return in
-        the response.
+        :param attributes_to_get: A JSON array of user attribute names, for example ``given_name``, that you want Amazon Cognito to include in the response for each user.
+        :param limit: The maximum number of users that you want Amazon Cognito to return in the response.
         :param pagination_token: This API operation returns a limited number of results.
-        :param filter: A filter string of the form
-        ``"AttributeName Filter-Type "AttributeValue"``.
+        :param filter: A filter string of the form ``"AttributeName Filter-Type "AttributeValue"``.
         :returns: ListUsersResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -7969,11 +7996,9 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool where you want to view the membership of the
-        requested group.
+        :param user_pool_id: The ID of the user pool where you want to view the membership of the requested group.
         :param group_name: The name of the group that you want to query for user membership.
-        :param limit: The maximum number of groups that you want Amazon Cognito to return in
-        the response.
+        :param limit: The maximum number of groups that you want Amazon Cognito to return in the response.
         :param next_token: This API operation returns a limited number of results.
         :returns: ListUsersInGroupResponse
         :raises InvalidParameterException:
@@ -8007,17 +8032,16 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :param next_token: This API operation returns a limited number of results.
-        :param max_results: The maximum number of the user's passkey credentials that you want to
-        return.
+        :param max_results: The maximum number of the user's passkey credentials that you want to return.
         :returns: ListWebAuthnCredentialsResponse
         :raises ForbiddenException:
         :raises InternalErrorException:
         :raises InvalidParameterException:
         :raises TooManyRequestsException:
         :raises LimitExceededException:
+        :raises PasswordResetRequiredException:
         :raises NotAuthorizedException:
         """
         raise NotImplementedError
@@ -8070,15 +8094,10 @@ class CognitoIdpApi:
 
         :param client_id: The ID of the user pool app client where the user signed up.
         :param username: The name of the user that you want to query or modify.
-        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the
-        secret key of a user pool client and username plus the client ID in the
-        message.
-        :param user_context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the secret key of a user pool client and username plus the client ID in the message.
+        :param user_context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: ResendConfirmationCodeResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -8152,16 +8171,11 @@ class CognitoIdpApi:
 
         :param client_id: The ID of the app client where the user is signing in.
         :param challenge_name: The name of the challenge that you are responding to.
-        :param session: The session identifier that maintains the state of authentication
-        requests and challenge responses.
-        :param challenge_responses: The responses to the challenge that you received in the previous
-        request.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param user_context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param session: The session identifier that maintains the state of authentication requests and challenge responses.
+        :param challenge_responses: The responses to the challenge that you received in the previous request.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param user_context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: RespondToAuthChallengeResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -8212,10 +8226,8 @@ class CognitoIdpApi:
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
         :param token: The refresh token that you want to revoke.
-        :param client_id: The ID of the app client where the token that you want to revoke was
-        issued.
-        :param client_secret: The client secret of the requested app client, if the client has a
-        secret.
+        :param client_id: The ID of the app client where the token that you want to revoke was issued.
+        :param client_secret: The client secret of the requested app client, if the client has a secret.
         :returns: RevokeTokenResponse
         :raises TooManyRequestsException:
         :raises InternalErrorException:
@@ -8287,10 +8299,8 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool where you want to set a risk configuration.
         :param client_id: The ID of the app client where you want to set a risk configuration.
-        :param compromised_credentials_risk_configuration: The configuration of automated reactions to detected compromised
-        credentials.
-        :param account_takeover_risk_configuration: The settings for automated responses and notification templates for
-        adaptive authentication with threat protection.
+        :param compromised_credentials_risk_configuration: The configuration of automated reactions to detected compromised credentials.
+        :param account_takeover_risk_configuration: The settings for automated responses and notification templates for adaptive authentication with threat protection.
         :param risk_exception_configuration: A set of IP-address overrides to threat protection.
         :returns: SetRiskConfigurationResponse
         :raises ResourceNotFoundException:
@@ -8336,13 +8346,10 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool where you want to apply branding to the classic
-        hosted UI.
+        :param user_pool_id: The ID of the user pool where you want to apply branding to the classic hosted UI.
         :param client_id: The ID of the app client that you want to customize.
-        :param css: A plaintext CSS file that contains the custom fields that you want to
-        apply to your user pool or app client.
-        :param image_file: The image that you want to set as your login in the classic hosted UI,
-        as a Base64-formatted binary object.
+        :param css: A plaintext CSS file that contains the custom fields that you want to apply to your user pool or app client.
+        :param image_file: The image that you want to set as your login in the classic hosted UI, as a Base64-formatted binary object.
         :returns: SetUICustomizationResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -8385,8 +8392,7 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :param sms_mfa_settings: User preferences for SMS message MFA.
         :param software_token_mfa_settings: User preferences for time-based one-time password (TOTP) MFA.
         :param email_mfa_settings: User preferences for email message MFA.
@@ -8443,11 +8449,9 @@ class CognitoIdpApi:
         :param user_pool_id: The user pool ID.
         :param sms_mfa_configuration: Configures user pool SMS messages for MFA.
         :param software_token_mfa_configuration: Configures a user pool for time-based one-time password (TOTP) MFA.
-        :param email_mfa_configuration: Sets configuration for user pool email message MFA and sign-in with
-        one-time passwords (OTPs).
+        :param email_mfa_configuration: Sets configuration for user pool email message MFA and sign-in with one-time passwords (OTPs).
         :param mfa_configuration: Sets multi-factor authentication (MFA) to be on, off, or optional.
-        :param web_authn_configuration: The configuration of your user pool for passkey, or WebAuthn,
-        authentication and registration.
+        :param web_authn_configuration: The configuration of your user pool for passkey, or WebAuthn, authentication and registration.
         :returns: SetUserPoolMfaConfigResponse
         :raises InvalidParameterException:
         :raises TooManyRequestsException:
@@ -8484,10 +8488,8 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
-        :param mfa_options: You can use this parameter only to set an SMS configuration that uses
-        SMS for delivery.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
+        :param mfa_options: You can use this parameter only to set an SMS configuration that uses SMS for delivery.
         :returns: SetUserSettingsResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -8554,19 +8556,13 @@ class CognitoIdpApi:
 
         :param client_id: The ID of the app client where the user wants to sign up.
         :param username: The username of the user that you want to sign up.
-        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the
-        secret key of a user pool client and username plus the client ID in the
-        message.
+        :param secret_hash: A keyed-hash message authentication code (HMAC) calculated using the secret key of a user pool client and username plus the client ID in the message.
         :param password: The user's proposed password.
         :param user_attributes: An array of name-value pairs representing user attributes.
-        :param validation_data: Temporary user attributes that contribute to the outcomes of your pre
-        sign-up Lambda trigger.
-        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint,
-        including the user's endpoint ID.
-        :param user_context_data: Contextual data about your user session like the device fingerprint, IP
-        address, or location.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action triggers.
+        :param validation_data: Temporary user attributes that contribute to the outcomes of your pre sign-up Lambda trigger.
+        :param analytics_metadata: Information that supports analytics outcomes with Amazon Pinpoint, including the user's endpoint ID.
+        :param user_context_data: Contextual data about your user session like the device fingerprint, IP address, or location.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: SignUpResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -8625,8 +8621,7 @@ class CognitoIdpApi:
         Authorize this action with a signed-in user's access token. It must
         include the scope ``aws.cognito.signin.user.admin``.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :returns: StartWebAuthnRegistrationResponse
         :raises ForbiddenException:
         :raises InternalErrorException:
@@ -8635,6 +8630,7 @@ class CognitoIdpApi:
         :raises NotAuthorizedException:
         :raises TooManyRequestsException:
         :raises WebAuthnNotEnabledException:
+        :raises PasswordResetRequiredException:
         :raises WebAuthnConfigurationMissingException:
         """
         raise NotImplementedError
@@ -8690,8 +8686,7 @@ class CognitoIdpApi:
         pool can have as many as 50 tags.
 
         :param resource_arn: The Amazon Resource Name (ARN) of the user pool to assign the tags to.
-        :param tags: An array of tag keys and values that you want to assign to the user
-        pool.
+        :param tags: An array of tag keys and values that you want to assign to the user pool.
         :returns: TagResourceResponse
         :raises ResourceNotFoundException:
         :raises NotAuthorizedException:
@@ -8711,8 +8706,7 @@ class CognitoIdpApi:
     ) -> UntagResourceResponse:
         """Given tag IDs that you previously assigned to a user pool, removes them.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the user pool that the tags are
-        assigned to.
+        :param resource_arn: The Amazon Resource Name (ARN) of the user pool that the tags are assigned to.
         :param tag_keys: An array of tag keys that you want to remove from the user pool.
         :returns: UntagResourceResponse
         :raises ResourceNotFoundException:
@@ -8762,8 +8756,7 @@ class CognitoIdpApi:
         :param user_pool_id: The ID of the user pool where you want to update auth event feedback.
         :param username: The name of the user that you want to query or modify.
         :param event_id: The ID of the authentication event that you want to submit feedback for.
-        :param feedback_token: The feedback token, an encrypted object generated by Amazon Cognito and
-        passed to your user in the notification email message from the event.
+        :param feedback_token: The feedback token, an encrypted object generated by Amazon Cognito and passed to your user in the notification email message from the event.
         :param feedback_value: Your feedback to the authentication event.
         :returns: UpdateAuthEventFeedbackResponse
         :raises InvalidParameterException:
@@ -8805,12 +8798,9 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
-        :param device_key: The device key of the device you want to update, for example
-        ``us-west-2_a1b2c3d4-5678-90ab-cdef-EXAMPLE11111``.
-        :param device_remembered_status: To enable device authentication with the specified device, set to
-        ``remembered``.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
+        :param device_key: The device key of the device you want to update, for example ``us-west-2_a1b2c3d4-5678-90ab-cdef-EXAMPLE11111``.
+        :param device_remembered_status: To enable device authentication with the specified device, set to ``remembered``.
         :returns: UpdateDeviceStatusResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -8857,10 +8847,8 @@ class CognitoIdpApi:
         :param group_name: The name of the group that you want to update.
         :param user_pool_id: The ID of the user pool that contains the group you want to update.
         :param description: A new description of the existing group.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that you want to associate
-        with the group.
-        :param precedence: A non-negative integer value that specifies the precedence of this group
-        relative to the other groups that a user can belong to in the user pool.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role that you want to associate with the group.
+        :param precedence: A non-negative integer value that specifies the precedence of this group relative to the other groups that a user can belong to in the user pool.
         :returns: UpdateGroupResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -8904,8 +8892,7 @@ class CognitoIdpApi:
         :param provider_name: The name of the IdP that you want to update.
         :param provider_details: The scopes, URLs, and identifiers for your external identity provider.
         :param attribute_mapping: A mapping of IdP attributes to standard and custom user pool attributes.
-        :param idp_identifiers: An array of IdP identifiers, for example
-        ``"IdPIdentifiers": [ "MyIdP", "MyIdP2" ]``.
+        :param idp_identifiers: An array of IdP identifiers, for example ``"IdPIdentifiers": [ "MyIdP", "MyIdP2" ]``.
         :returns: UpdateIdentityProviderResponse
         :raises InvalidParameterException:
         :raises UnsupportedIdentityProviderException:
@@ -8955,14 +8942,11 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool that contains the managed login branding style
-        that you want to update.
+        :param user_pool_id: The ID of the user pool that contains the managed login branding style that you want to update.
         :param managed_login_branding_id: The ID of the managed login branding style that you want to update.
         :param use_cognito_provided_values: When ``true``, applies the default branding style options.
-        :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that
-        you want to apply to your style.
-        :param assets: An array of image files that you want to apply to roles like
-        backgrounds, logos, and icons.
+        :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.
+        :param assets: An array of image files that you want to apply to roles like backgrounds, logos, and icons.
         :returns: UpdateManagedLoginBrandingResponse
         :raises ResourceNotFoundException:
         :raises ConcurrentModificationException:
@@ -9004,12 +8988,10 @@ class CognitoIdpApi:
         -  `Using the Amazon Cognito user pools API and user pool
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
-        :param user_pool_id: The ID of the user pool that contains the resource server that you want
-        to update.
+        :param user_pool_id: The ID of the user pool that contains the resource server that you want to update.
         :param identifier: A unique resource server identifier for the resource server.
         :param name: The updated name of the resource server.
-        :param scopes: An array of updated custom scope names and descriptions that you want to
-        associate with your resource server.
+        :param scopes: An array of updated custom scope names and descriptions that you want to associate with your resource server.
         :returns: UpdateResourceServerResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -9067,10 +9049,8 @@ class CognitoIdpApi:
         :param terms_id: The ID of the terms document that you want to update.
         :param user_pool_id: The ID of the user pool that contains the terms that you want to update.
         :param terms_name: The new name that you want to apply to the requested terms documents.
-        :param terms_source: This parameter is reserved for future use and currently accepts only one
-        value.
-        :param enforcement: This parameter is reserved for future use and currently accepts only one
-        value.
+        :param terms_source: This parameter is reserved for future use and currently accepts only one value.
+        :param enforcement: This parameter is reserved for future use and currently accepts only one value.
         :param links: A map of URLs to languages.
         :returns: UpdateTermsResponse
         :raises ResourceNotFoundException:
@@ -9131,10 +9111,8 @@ class CognitoIdpApi:
         in the *Amazon Cognito Developer Guide*.
 
         :param user_attributes: An array of name-value pairs representing user attributes.
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
-        :param client_metadata: A map of custom key-value pairs that you can provide as input for any
-        custom workflows that this action initiates.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
         :returns: UpdateUserAttributesResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -9190,8 +9168,8 @@ class CognitoIdpApi:
         configuration of your user pool, modified to include the changes that
         you want to make.
 
-        If you don't provide a value for an attribute, Amazon Cognito sets it to
-        its default value.
+        With the exception of ``UserPoolTier``, if you don't provide a value for
+        an attribute, Amazon Cognito sets it to its default value.
 
         This action might generate an SMS text message. Starting June 1, 2021,
         US telecom carriers require you to register an origination phone number
@@ -9228,32 +9206,25 @@ class CognitoIdpApi:
 
         :param user_pool_id: The ID of the user pool you want to update.
         :param policies: The password policy and sign-in policy in the user pool.
-        :param deletion_protection: When active, ``DeletionProtection`` prevents accidental deletion of your
-        user pool.
+        :param deletion_protection: When active, ``DeletionProtection`` prevents accidental deletion of your user pool.
         :param lambda_config: A collection of user pool Lambda triggers.
         :param auto_verified_attributes: The attributes that you want your user pool to automatically verify.
         :param sms_verification_message: This parameter is no longer used.
         :param email_verification_message: This parameter is no longer used.
         :param email_verification_subject: This parameter is no longer used.
-        :param verification_message_template: The template for the verification message that your user pool delivers
-        to users who set an email address or phone number attribute.
-        :param sms_authentication_message: The contents of the SMS message that your user pool sends to users in
-        SMS authentication.
+        :param verification_message_template: The template for the verification message that your user pool delivers to users who set an email address or phone number attribute.
+        :param sms_authentication_message: The contents of the SMS message that your user pool sends to users in SMS authentication.
         :param user_attribute_update_settings: The settings for updates to user attributes.
         :param mfa_configuration: Sets multi-factor authentication (MFA) to be on, off, or optional.
         :param device_configuration: The device-remembering configuration for a user pool.
         :param email_configuration: The email configuration of your user pool.
-        :param sms_configuration: The SMS configuration with the settings for your Amazon Cognito user
-        pool to send SMS message with Amazon Simple Notification Service.
+        :param sms_configuration: The SMS configuration with the settings for your Amazon Cognito user pool to send SMS message with Amazon Simple Notification Service.
         :param user_pool_tags: The tag keys and values to assign to the user pool.
         :param admin_create_user_config: The configuration for administrative creation of users.
-        :param user_pool_add_ons: Contains settings for activation of threat protection, including the
-        operating mode and additional authentication types.
-        :param account_recovery_setting: The available verified method a user can use to recover their password
-        when they call ``ForgotPassword``.
+        :param user_pool_add_ons: Contains settings for activation of threat protection, including the operating mode and additional authentication types.
+        :param account_recovery_setting: The available verified method a user can use to recover their password when they call ``ForgotPassword``.
         :param pool_name: The updated name of your user pool.
-        :param user_pool_tier: The user pool `feature
-        plan <https://docs.
+        :param user_pool_tier: The user pool `feature plan <https://docs.
         :returns: UpdateUserPoolResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -9333,32 +9304,21 @@ class CognitoIdpApi:
         :param access_token_validity: The access token time limit.
         :param id_token_validity: The ID token time limit.
         :param token_validity_units: The units that validity times are represented in.
-        :param read_attributes: The list of user attributes that you want your app client to have read
-        access to.
-        :param write_attributes: The list of user attributes that you want your app client to have write
-        access to.
-        :param explicit_auth_flows: The `authentication
-        flows <https://docs.
-        :param supported_identity_providers: A list of provider names for the identity providers (IdPs) that are
-        supported on this client.
-        :param callback_urls: A list of allowed redirect, or callback, URLs for managed login
-        authentication.
+        :param read_attributes: The list of user attributes that you want your app client to have read access to.
+        :param write_attributes: The list of user attributes that you want your app client to have write access to.
+        :param explicit_auth_flows: The `authentication flows <https://docs.
+        :param supported_identity_providers: A list of provider names for the identity providers (IdPs) that are supported on this client.
+        :param callback_urls: A list of allowed redirect, or callback, URLs for managed login authentication.
         :param logout_urls: A list of allowed logout URLs for managed login authentication.
         :param default_redirect_uri: The default redirect URI.
         :param allowed_o_auth_flows: The OAuth grant types that you want your app client to generate.
-        :param allowed_o_auth_scopes: The OAuth, OpenID Connect (OIDC), and custom scopes that you want to
-        permit your app client to authorize access with.
+        :param allowed_o_auth_scopes: The OAuth, OpenID Connect (OIDC), and custom scopes that you want to permit your app client to authorize access with.
         :param allowed_o_auth_flows_user_pool_client: Set to ``true`` to use OAuth 2.
-        :param analytics_configuration: The user pool analytics configuration for collecting metrics and sending
-        them to your Amazon Pinpoint campaign.
-        :param prevent_user_existence_errors: When ``ENABLED``, suppresses messages that might indicate a valid user
-        exists when someone attempts sign-in.
-        :param enable_token_revocation: Activates or deactivates `token
-        revocation <https://docs.
-        :param enable_propagate_additional_user_context_data: When ``true``, your application can include additional
-        ``UserContextData`` in authentication requests.
-        :param auth_session_validity: Amazon Cognito creates a session token for each API request in an
-        authentication flow.
+        :param analytics_configuration: The user pool analytics configuration for collecting metrics and sending them to your Amazon Pinpoint campaign.
+        :param prevent_user_existence_errors: When ``ENABLED``, suppresses messages that might indicate a valid user exists when someone attempts sign-in.
+        :param enable_token_revocation: Activates or deactivates `token revocation <https://docs.
+        :param enable_propagate_additional_user_context_data: When ``true``, your application can include additional ``UserContextData`` in authentication requests.
+        :param auth_session_validity: Amazon Cognito creates a session token for each API request in an authentication flow.
         :param refresh_token_rotation: The configuration of your app client for refresh token rotation.
         :returns: UpdateUserPoolClientResponse
         :raises ResourceNotFoundException:
@@ -9425,12 +9385,9 @@ class CognitoIdpApi:
            endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__
 
         :param domain: The name of the domain that you want to update.
-        :param user_pool_id: The ID of the user pool that is associated with the domain you're
-        updating.
-        :param managed_login_version: A version number that indicates the state of managed login for your
-        domain.
-        :param custom_domain_config: The configuration for a custom domain that hosts managed login for your
-        application.
+        :param user_pool_id: The ID of the user pool that is associated with the domain you're updating.
+        :param managed_login_version: A version number that indicates the state of managed login for your domain.
+        :param custom_domain_config: The configuration for a custom domain that hosts managed login for your application.
         :returns: UpdateUserPoolDomainResponse
         :raises InvalidParameterException:
         :raises NotAuthorizedException:
@@ -9467,8 +9424,7 @@ class CognitoIdpApi:
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
         :param user_code: A TOTP that the user generated in their configured authenticator app.
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :param session: The session ID from an ``AssociateSoftwareToken`` request.
         :param friendly_device_name: A friendly name for the device that's running the TOTP authenticator.
         :returns: VerifySoftwareTokenResponse
@@ -9518,11 +9474,9 @@ class CognitoIdpApi:
         pool
         endpoints <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pools-API-operations.html>`__.
 
-        :param access_token: A valid access token that Amazon Cognito issued to the currently
-        signed-in user.
+        :param access_token: A valid access token that Amazon Cognito issued to the currently signed-in user.
         :param attribute_name: The name of the attribute that you want to verify.
-        :param code: The verification code that your user pool sent to the added or changed
-        attribute, for example the user's email address.
+        :param code: The verification code that your user pool sent to the added or changed attribute, for example the user's email address.
         :returns: VerifyUserAttributeResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:

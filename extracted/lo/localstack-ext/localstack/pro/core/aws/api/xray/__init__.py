@@ -1554,8 +1554,7 @@ class XrayApi:
         :param group_name: The case-sensitive name of the new group.
         :param filter_expression: The filter expression defining criteria by which to group traces.
         :param insights_configuration: The structure containing configurations related to insights.
-        :param tags: A map that contains one or more tag keys and tag values to attach to an
-        X-Ray group.
+        :param tags: A map that contains one or more tag keys and tag values to attach to an X-Ray group.
         :returns: CreateGroupResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -1583,8 +1582,7 @@ class XrayApi:
         reservoir.
 
         :param sampling_rule: The rule definition.
-        :param tags: A map that contains one or more tag keys and tag values to attach to an
-        X-Ray sampling rule.
+        :param tags: A map that contains one or more tag keys and tag values to attach to an X-Ray sampling rule.
         :returns: CreateSamplingRuleResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -1699,8 +1697,7 @@ class XrayApi:
         X-Ray. For more information, see `Transaction
         Search <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Transaction-Search.html>`__.
 
-        :param next_token: Specify the pagination token returned by a previous request to retrieve
-        the next page of indexes.
+        :param next_token: Specify the pagination token returned by a previous request to retrieve the next page of indexes.
         :returns: GetIndexingRulesResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -1738,8 +1735,7 @@ class XrayApi:
 
         :param insight_id: The insight's unique identifier.
         :param max_results: Used to retrieve at most the specified value of events.
-        :param next_token: Specify the pagination token returned by a previous request to retrieve
-        the next page of events.
+        :param next_token: Specify the pagination token returned by a previous request to retrieve the next page of events.
         :returns: GetInsightEventsResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -1763,8 +1759,7 @@ class XrayApi:
         :param insight_id: The insight's unique identifier.
         :param start_time: The estimated start time of the insight, in Unix time seconds.
         :param end_time: The estimated end time of the insight, in Unix time seconds.
-        :param next_token: Specify the pagination token returned by a previous request to retrieve
-        the next page of results.
+        :param next_token: Specify the pagination token returned by a previous request to retrieve the next page of results.
         :returns: GetInsightImpactGraphResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -1831,8 +1826,7 @@ class XrayApi:
         `GetTraceGraph <https://docs.aws.amazon.com/xray/latest/api/API_GetTraceGraph.html>`__.
 
         :param retrieval_token: Retrieval token.
-        :param next_token: Specify the pagination token returned by a previous request to retrieve
-        the next page of indexes.
+        :param next_token: Specify the pagination token returned by a previous request to retrieve the next page of indexes.
         :returns: GetRetrievedTracesGraphResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -1879,8 +1873,7 @@ class XrayApi:
         requests.
 
         :param sampling_statistics_documents: Information about rules that the service is using to sample requests.
-        :param sampling_boost_statistics_documents: Information about rules that the service is using to boost sampling
-        rate.
+        :param sampling_boost_statistics_documents: Information about rules that the service is using to boost sampling rate.
         :returns: GetSamplingTargetsResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -1909,8 +1902,7 @@ class XrayApi:
         :param start_time: The start of the time frame for which to generate a graph.
         :param end_time: The end of the timeframe for which to generate a graph.
         :param group_name: The name of a group based on which you want to generate a graph.
-        :param group_arn: The Amazon Resource Name (ARN) of a group based on which you want to
-        generate a graph.
+        :param group_arn: The Amazon Resource Name (ARN) of a group based on which you want to generate a graph.
         :param next_token: Pagination token.
         :returns: GetServiceGraphResult
         :raises InvalidRequestException:
@@ -1938,10 +1930,8 @@ class XrayApi:
         :param start_time: The start of the time frame for which to aggregate statistics.
         :param end_time: The end of the time frame for which to aggregate statistics.
         :param group_name: The case-sensitive name of the group for which to pull statistics from.
-        :param group_arn: The Amazon Resource Name (ARN) of the group for which to pull statistics
-        from.
-        :param entity_selector_expression: A filter expression defining entities that will be aggregated for
-        statistics.
+        :param group_arn: The Amazon Resource Name (ARN) of the group for which to pull statistics from.
+        :param entity_selector_expression: A filter expression defining entities that will be aggregated for statistics.
         :param period: Aggregation period in seconds.
         :param forecast_statistics: The forecasted high and low fault count values.
         :param next_token: Pagination token.
@@ -2023,14 +2013,11 @@ class XrayApi:
 
         :param start_time: The start of the time frame for which to retrieve traces.
         :param end_time: The end of the time frame for which to retrieve traces.
-        :param time_range_type: Query trace summaries by TraceId (trace start time), Event (trace update
-        time), or Service (trace segment end time).
+        :param time_range_type: Query trace summaries by TraceId (trace start time), Event (trace update time), or Service (trace segment end time).
         :param sampling: Set to ``true`` to get summaries for only a subset of available traces.
         :param sampling_strategy: A parameter to indicate whether to enable sampling on trace summaries.
-        :param filter_expression: Specify a filter expression to retrieve trace summaries for services or
-        requests that meet certain requirements.
-        :param next_token: Specify the pagination token returned by a previous request to retrieve
-        the next page of results.
+        :param filter_expression: Specify a filter expression to retrieve trace summaries for services or requests that meet certain requirements.
+        :param next_token: Specify the pagination token returned by a previous request to retrieve the next page of results.
         :returns: GetTraceSummariesResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -2084,8 +2071,7 @@ class XrayApi:
 
         :param retrieval_token: Retrieval token.
         :param trace_format: Format of the requested traces.
-        :param next_token: Specify the pagination token returned by a previous request to retrieve
-        the next page of indexes.
+        :param next_token: Specify the pagination token returned by a previous request to retrieve the next page of indexes.
         :returns: ListRetrievedTracesResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -2120,9 +2106,7 @@ class XrayApi:
         """Updates the encryption configuration for X-Ray data.
 
         :param type: The type of encryption.
-        :param key_id: An Amazon Web Services KMS key in one of the following formats:
-
-        -  **Alias** - The name of the key.
+        :param key_id: An Amazon Web Services KMS key in one of the following formats:  -  **Alias** - The name of the key.
         :returns: PutEncryptionConfigResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -2148,10 +2132,8 @@ class XrayApi:
 
         :param policy_name: The name of the resource policy.
         :param policy_document: The resource policy document, which can be up to 5kb in size.
-        :param policy_revision_id: Specifies a specific policy revision, to ensure an atomic create
-        operation.
-        :param bypass_policy_lockout_check: A flag to indicate whether to bypass the resource policy lockout safety
-        check.
+        :param policy_revision_id: Specifies a specific policy revision, to ensure an atomic create operation.
+        :param bypass_policy_lockout_check: A flag to indicate whether to bypass the resource policy lockout safety check.
         :returns: PutResourcePolicyResult
         :raises MalformedPolicyDocumentException:
         :raises LockoutPreventionException:
@@ -2247,8 +2229,7 @@ class XrayApi:
         X-Ray. While X-Ray trace IDs include the original request timestamp in
         Unix epoch time, this is not required or validated.
 
-        :param trace_segment_documents: A string containing a JSON document defining one or more segments or
-        subsegments.
+        :param trace_segment_documents: A string containing a JSON document defining one or more segments or subsegments.
         :returns: PutTraceSegmentsResult
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -2302,8 +2283,7 @@ class XrayApi:
         rule.
 
         :param resource_arn: The Amazon Resource Number (ARN) of an X-Ray group or sampling rule.
-        :param tags: A map that contains one or more tag keys and tag values to attach to an
-        X-Ray group or sampling rule.
+        :param tags: A map that contains one or more tag keys and tag values to attach to an X-Ray group or sampling rule.
         :returns: TagResourceResponse
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -2324,8 +2304,7 @@ class XrayApi:
         You cannot edit or delete system tags (those with an ``aws:`` prefix).
 
         :param resource_arn: The Amazon Resource Number (ARN) of an X-Ray group or sampling rule.
-        :param tag_keys: Keys for one or more tags that you want to remove from an X-Ray group or
-        sampling rule.
+        :param tag_keys: Keys for one or more tags that you want to remove from an X-Ray group or sampling rule.
         :returns: UntagResourceResponse
         :raises InvalidRequestException:
         :raises ThrottledException:
@@ -2347,8 +2326,7 @@ class XrayApi:
 
         :param group_name: The case-sensitive name of the group.
         :param group_arn: The ARN that was generated upon creation.
-        :param filter_expression: The updated filter expression defining criteria by which to group
-        traces.
+        :param filter_expression: The updated filter expression defining criteria by which to group traces.
         :param insights_configuration: The structure containing configurations related to insights.
         :returns: UpdateGroupResult
         :raises InvalidRequestException:

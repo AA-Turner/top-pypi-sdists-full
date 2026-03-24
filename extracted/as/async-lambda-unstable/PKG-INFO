@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: async-lambda-unstable
-Version: 0.6.7
+Version: 0.6.10
 Summary: A framework for creating AWS Lambda Async Workflows. - Unstable Branch
 Author-email: "Nuclei, Inc" <engineering@nuclei.ai>
 Requires-Dist: click>=8.0.0

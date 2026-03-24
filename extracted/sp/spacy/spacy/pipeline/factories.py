@@ -14,9 +14,10 @@ from ..pipeline.edit_tree_lemmatizer import (
 )
 
 # Import factory default configurations
-from ..pipeline.entity_linker import DEFAULT_NEL_MODEL, EntityLinker, EntityLinker_v1
+from ..pipeline.entity_linker import DEFAULT_NEL_MODEL, EntityLinker
 from ..pipeline.entityruler import DEFAULT_ENT_ID_SEP, EntityRuler
 from ..pipeline.functions import DocCleaner, TokenSplitter
+from ..pipeline.legacy import EntityLinker_v1
 from ..pipeline.lemmatizer import Lemmatizer
 from ..pipeline.morphologizer import DEFAULT_MORPH_MODEL, Morphologizer
 from ..pipeline.multitask import DEFAULT_MT_MODEL, MultitaskObjective
@@ -24,8 +25,8 @@ from ..pipeline.ner import DEFAULT_NER_MODEL, EntityRecognizer
 from ..pipeline.sentencizer import Sentencizer
 from ..pipeline.senter import DEFAULT_SENTER_MODEL, SentenceRecognizer
 from ..pipeline.span_finder import DEFAULT_SPAN_FINDER_MODEL, SpanFinder
-from ..pipeline.span_ruler import DEFAULT_SPANS_KEY as SPAN_RULER_DEFAULT_SPANS_KEY
 from ..pipeline.span_ruler import (
+    DEFAULT_SPANS_KEY as SPAN_RULER_DEFAULT_SPANS_KEY,
     SpanRuler,
     prioritize_existing_ents_filter,
     prioritize_new_ents_filter,

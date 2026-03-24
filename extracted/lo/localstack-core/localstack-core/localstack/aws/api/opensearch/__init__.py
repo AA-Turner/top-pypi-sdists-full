@@ -198,6 +198,11 @@ class DeploymentStatus(StrEnum):
     ELIGIBLE = "ELIGIBLE"
 
 
+class DeploymentStrategy(StrEnum):
+    Default = "Default"
+    CapacityOptimized = "CapacityOptimized"
+
+
 class DescribePackagesFilterName(StrEnum):
     PackageID = "PackageID"
     PackageName = "PackageName"
@@ -827,6 +832,7 @@ class AddDirectQueryDataSourceRequest(ServiceRequest):
     DataSourceType: DirectQueryDataSourceType
     Description: DirectQueryDataSourceDescription | None
     OpenSearchArns: DirectQueryOpenSearchARNList
+    DataSourceAccessPolicy: PolicyDocument | None
     TagList: TagList | None
 
 
@@ -1290,6 +1296,7 @@ class IamIdentityCenterOptionsInput(TypedDict, total=False):
 class DataSource(TypedDict, total=False):
     dataSourceArn: ARN | None
     dataSourceDescription: DataSourceDescription | None
+    iamRoleForDataSourceArn: RoleArn | None
 
 
 DataSources = list[DataSource]
@@ -1322,6 +1329,10 @@ class CreateApplicationResponse(TypedDict, total=False):
     tagList: TagList | None
     createdAt: Timestamp | None
     kmsKeyArn: KmsKeyArn | None
+
+
+class DeploymentStrategyOptions(TypedDict, total=False):
+    DeploymentStrategy: DeploymentStrategy
 
 
 class SoftwareUpdateOptions(TypedDict, total=False):
@@ -1417,6 +1428,7 @@ class CreateDomainRequest(ServiceRequest):
     OffPeakWindowOptions: OffPeakWindowOptions | None
     SoftwareUpdateOptions: SoftwareUpdateOptions | None
     AIMLOptions: AIMLOptionsInput | None
+    DeploymentStrategyOptions: DeploymentStrategyOptions | None
 
 
 class ModifyingProperties(TypedDict, total=False):
@@ -1483,6 +1495,7 @@ class DomainStatus(TypedDict, total=False):
     DomainProcessingStatus: DomainProcessingStatusType | None
     ModifyingProperties: ModifyingPropertiesList | None
     AIMLOptions: AIMLOptionsOutput | None
+    DeploymentStrategyOptions: DeploymentStrategyOptions | None
 
 
 class CreateDomainResponse(TypedDict, total=False):
@@ -1712,6 +1725,11 @@ class DeleteVpcEndpointResponse(TypedDict, total=False):
     VpcEndpointSummary: VpcEndpointSummary
 
 
+class DeploymentStrategyOptionsStatus(TypedDict, total=False):
+    Options: DeploymentStrategyOptions
+    Status: OptionStatus
+
+
 class DescribeDomainAutoTunesRequest(ServiceRequest):
     DomainName: DomainName
     MaxResults: MaxResults | None
@@ -1818,6 +1836,7 @@ class DomainConfig(TypedDict, total=False):
     SoftwareUpdateOptions: SoftwareUpdateOptionsStatus | None
     ModifyingProperties: ModifyingPropertiesList | None
     AIMLOptions: AIMLOptionsStatus | None
+    DeploymentStrategyOptions: DeploymentStrategyOptionsStatus | None
 
 
 class DescribeDomainConfigResponse(TypedDict, total=False):
@@ -2230,6 +2249,7 @@ class GetDirectQueryDataSourceResponse(TypedDict, total=False):
     DataSourceType: DirectQueryDataSourceType | None
     Description: DirectQueryDataSourceDescription | None
     OpenSearchArns: DirectQueryOpenSearchARNList | None
+    DataSourceAccessPolicy: PolicyDocument | None
     DataSourceArn: String | None
 
 
@@ -2599,6 +2619,7 @@ class UpdateDirectQueryDataSourceRequest(ServiceRequest):
     DataSourceType: DirectQueryDataSourceType
     Description: DirectQueryDataSourceDescription | None
     OpenSearchArns: DirectQueryOpenSearchARNList
+    DataSourceAccessPolicy: PolicyDocument | None
 
 
 class UpdateDirectQueryDataSourceResponse(TypedDict, total=False):
@@ -2627,6 +2648,7 @@ class UpdateDomainConfigRequest(ServiceRequest):
     OffPeakWindowOptions: OffPeakWindowOptions | None
     SoftwareUpdateOptions: SoftwareUpdateOptions | None
     AIMLOptions: AIMLOptionsInput | None
+    DeploymentStrategyOptions: DeploymentStrategyOptions | None
 
 
 class UpdateDomainConfigResponse(TypedDict, total=False):
@@ -2737,6 +2759,7 @@ class OpensearchApi:
         data_source_type: DirectQueryDataSourceType,
         open_search_arns: DirectQueryOpenSearchARNList,
         description: DirectQueryDataSourceDescription | None = None,
+        data_source_access_policy: PolicyDocument | None = None,
         tag_list: TagList | None = None,
         **kwargs,
     ) -> AddDirectQueryDataSourceResponse:
@@ -2835,6 +2858,7 @@ class OpensearchApi:
         off_peak_window_options: OffPeakWindowOptions | None = None,
         software_update_options: SoftwareUpdateOptions | None = None,
         aiml_options: AIMLOptionsInput | None = None,
+        deployment_strategy_options: DeploymentStrategyOptions | None = None,
         **kwargs,
     ) -> CreateDomainResponse:
         raise NotImplementedError
@@ -3385,6 +3409,7 @@ class OpensearchApi:
         data_source_type: DirectQueryDataSourceType,
         open_search_arns: DirectQueryOpenSearchARNList,
         description: DirectQueryDataSourceDescription | None = None,
+        data_source_access_policy: PolicyDocument | None = None,
         **kwargs,
     ) -> UpdateDirectQueryDataSourceResponse:
         raise NotImplementedError
@@ -3414,6 +3439,7 @@ class OpensearchApi:
         off_peak_window_options: OffPeakWindowOptions | None = None,
         software_update_options: SoftwareUpdateOptions | None = None,
         aiml_options: AIMLOptionsInput | None = None,
+        deployment_strategy_options: DeploymentStrategyOptions | None = None,
         **kwargs,
     ) -> UpdateDomainConfigResponse:
         raise NotImplementedError

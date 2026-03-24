@@ -2681,10 +2681,8 @@ class CodedeployApi:
         """Gets information about one or more application revisions. The maximum
         number of application revisions that can be returned is 25.
 
-        :param application_name: The name of an CodeDeploy application about which to get revision
-        information.
-        :param revisions: An array of ``RevisionLocation`` objects that specify information to get
-        about the application revisions, including type and location.
+        :param application_name: The name of an CodeDeploy application about which to get revision information.
+        :param revisions: An array of ``RevisionLocation`` objects that specify information to get about the application revisions, including type and location.
         :returns: BatchGetApplicationRevisionsOutput
         :raises ApplicationDoesNotExistException:
         :raises ApplicationNameRequiredException:
@@ -2721,8 +2719,7 @@ class CodedeployApi:
     ) -> BatchGetDeploymentGroupsOutput:
         """Gets information about one or more deployment groups.
 
-        :param application_name: The name of an CodeDeploy application associated with the applicable
-        user or Amazon Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the applicable user or Amazon Web Services account.
         :param deployment_group_names: The names of the deployment groups.
         :returns: BatchGetDeploymentGroupsOutput
         :raises ApplicationNameRequiredException:
@@ -2849,8 +2846,7 @@ class CodedeployApi:
         in the replacement environment with the load balancer, can start as soon
         as all instances have a status of Ready.)
 
-        :param deployment_id: The unique ID of a blue/green deployment for which you want to start
-        rerouting traffic to the replacement environment.
+        :param deployment_id: The unique ID of a blue/green deployment for which you want to start rerouting traffic to the replacement environment.
         :param deployment_wait_type: The status of the deployment's waiting period.
         :raises DeploymentIdRequiredException:
         :raises DeploymentDoesNotExistException:
@@ -2875,10 +2871,8 @@ class CodedeployApi:
         """Creates an application.
 
         :param application_name: The name of the application.
-        :param compute_platform: The destination platform type for the deployment (``Lambda``,
-        ``Server``, or ``ECS``).
-        :param tags: The metadata that you apply to CodeDeploy applications to help you
-        organize and categorize them.
+        :param compute_platform: The destination platform type for the deployment (``Lambda``, ``Server``, or ``ECS``).
+        :param tags: The metadata that you apply to CodeDeploy applications to help you organize and categorize them.
         :returns: CreateApplicationOutput
         :raises ApplicationNameRequiredException:
         :raises InvalidApplicationNameException:
@@ -2908,27 +2902,17 @@ class CodedeployApi:
     ) -> CreateDeploymentOutput:
         """Deploys an application revision through the specified deployment group.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
         :param deployment_group_name: The name of the deployment group.
         :param revision: The type and location of the revision to deploy.
-        :param deployment_config_name: The name of a deployment configuration associated with the user or
-        Amazon Web Services account.
+        :param deployment_config_name: The name of a deployment configuration associated with the user or Amazon Web Services account.
         :param description: A comment about the deployment.
-        :param ignore_application_stop_failures: If true, then if an ``ApplicationStop``, ``BeforeBlockTraffic``, or
-        ``AfterBlockTraffic`` deployment lifecycle event to an instance fails,
-        then the deployment continues to the next deployment lifecycle event.
-        :param target_instances: Information about the instances that belong to the replacement
-        environment in a blue/green deployment.
-        :param auto_rollback_configuration: Configuration information for an automatic rollback that is added when a
-        deployment is created.
-        :param update_outdated_instances_only: Indicates whether to deploy to all instances or only to instances that
-        are not running the latest application revision.
-        :param file_exists_behavior: Information about how CodeDeploy handles files that already exist in a
-        deployment target location but weren't part of the previous successful
-        deployment.
-        :param override_alarm_configuration: Allows you to specify information about alarms associated with a
-        deployment.
+        :param ignore_application_stop_failures: If true, then if an ``ApplicationStop``, ``BeforeBlockTraffic``, or ``AfterBlockTraffic`` deployment lifecycle event to an instance fails, then the deployment continues to the next deployment lifecycle event.
+        :param target_instances: Information about the instances that belong to the replacement environment in a blue/green deployment.
+        :param auto_rollback_configuration: Configuration information for an automatic rollback that is added when a deployment is created.
+        :param update_outdated_instances_only: Indicates whether to deploy to all instances or only to instances that are not running the latest application revision.
+        :param file_exists_behavior: Information about how CodeDeploy handles files that already exist in a deployment target location but weren't part of the previous successful deployment.
+        :param override_alarm_configuration: Allows you to specify information about alarms associated with a deployment.
         :returns: CreateDeploymentOutput
         :raises ApplicationNameRequiredException:
         :raises InvalidApplicationNameException:
@@ -2973,14 +2957,10 @@ class CodedeployApi:
         """Creates a deployment configuration.
 
         :param deployment_config_name: The name of the deployment configuration to create.
-        :param minimum_healthy_hosts: The minimum number of healthy instances that should be available at any
-        time during the deployment.
+        :param minimum_healthy_hosts: The minimum number of healthy instances that should be available at any time during the deployment.
         :param traffic_routing_config: The configuration that specifies how the deployment traffic is routed.
-        :param compute_platform: The destination platform type for the deployment (``Lambda``,
-        ``Server``, or ``ECS``).
-        :param zonal_config: Configure the ``ZonalConfig`` object if you want CodeDeploy to deploy
-        your application to one `Availability
-        Zone <https://docs.
+        :param compute_platform: The destination platform type for the deployment (``Lambda``, ``Server``, or ``ECS``).
+        :param zonal_config: Configure the ``ZonalConfig`` object if you want CodeDeploy to deploy your application to one `Availability Zone <https://docs.
         :returns: CreateDeploymentConfigOutput
         :raises InvalidDeploymentConfigNameException:
         :raises DeploymentConfigNameRequiredException:
@@ -3020,38 +3000,25 @@ class CodedeployApi:
     ) -> CreateDeploymentGroupOutput:
         """Creates a deployment group to which application revisions are deployed.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
         :param deployment_group_name: The name of a new deployment group for the specified application.
-        :param service_role_arn: A service role Amazon Resource Name (ARN) that allows CodeDeploy to act
-        on the user's behalf when interacting with Amazon Web Services services.
-        :param deployment_config_name: If specified, the deployment configuration name can be either one of the
-        predefined configurations provided with CodeDeploy or a custom
-        deployment configuration that you create by calling the create
-        deployment configuration operation.
+        :param service_role_arn: A service role Amazon Resource Name (ARN) that allows CodeDeploy to act on the user's behalf when interacting with Amazon Web Services services.
+        :param deployment_config_name: If specified, the deployment configuration name can be either one of the predefined configurations provided with CodeDeploy or a custom deployment configuration that you create by calling the create deployment configuration operation.
         :param ec2_tag_filters: The Amazon EC2 tags on which to filter.
         :param on_premises_instance_tag_filters: The on-premises instance tags on which to filter.
         :param auto_scaling_groups: A list of associated Amazon EC2 Auto Scaling groups.
-        :param trigger_configurations: Information about triggers to create when the deployment group is
-        created.
-        :param alarm_configuration: Information to add about Amazon CloudWatch alarms when the deployment
-        group is created.
-        :param auto_rollback_configuration: Configuration information for an automatic rollback that is added when a
-        deployment group is created.
-        :param outdated_instances_strategy: Indicates what happens when new Amazon EC2 instances are launched
-        mid-deployment and do not receive the deployed application revision.
-        :param deployment_style: Information about the type of deployment, in-place or blue/green, that
-        you want to run and whether to route deployment traffic behind a load
-        balancer.
+        :param trigger_configurations: Information about triggers to create when the deployment group is created.
+        :param alarm_configuration: Information to add about Amazon CloudWatch alarms when the deployment group is created.
+        :param auto_rollback_configuration: Configuration information for an automatic rollback that is added when a deployment group is created.
+        :param outdated_instances_strategy: Indicates what happens when new Amazon EC2 instances are launched mid-deployment and do not receive the deployed application revision.
+        :param deployment_style: Information about the type of deployment, in-place or blue/green, that you want to run and whether to route deployment traffic behind a load balancer.
         :param blue_green_deployment_configuration: Information about blue/green deployment options for a deployment group.
         :param load_balancer_info: Information about the load balancer used in a deployment.
         :param ec2_tag_set: Information about groups of tags applied to Amazon EC2 instances.
         :param ecs_services: The target Amazon ECS services in the deployment group.
         :param on_premises_tag_set: Information about groups of tags applied to on-premises instances.
-        :param tags: The metadata that you apply to CodeDeploy deployment groups to help you
-        organize and categorize them.
-        :param termination_hook_enabled: This parameter only applies if you are using CodeDeploy with Amazon EC2
-        Auto Scaling.
+        :param tags: The metadata that you apply to CodeDeploy deployment groups to help you organize and categorize them.
+        :param termination_hook_enabled: This parameter only applies if you are using CodeDeploy with Amazon EC2 Auto Scaling.
         :returns: CreateDeploymentGroupOutput
         :raises ApplicationNameRequiredException:
         :raises InvalidApplicationNameException:
@@ -3095,8 +3062,7 @@ class CodedeployApi:
     ) -> None:
         """Deletes an application.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
         :raises ApplicationNameRequiredException:
         :raises InvalidApplicationNameException:
         :raises InvalidRoleException:
@@ -3112,8 +3078,7 @@ class CodedeployApi:
         A deployment configuration cannot be deleted if it is currently in use.
         Predefined configurations cannot be deleted.
 
-        :param deployment_config_name: The name of a deployment configuration associated with the user or
-        Amazon Web Services account.
+        :param deployment_config_name: The name of a deployment configuration associated with the user or Amazon Web Services account.
         :raises InvalidDeploymentConfigNameException:
         :raises DeploymentConfigNameRequiredException:
         :raises DeploymentConfigInUseException:
@@ -3131,8 +3096,7 @@ class CodedeployApi:
     ) -> DeleteDeploymentGroupOutput:
         """Deletes a deployment group.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
         :param deployment_group_name: The name of a deployment group for the specified application.
         :returns: DeleteDeploymentGroupOutput
         :raises ApplicationNameRequiredException:
@@ -3171,8 +3135,7 @@ class CodedeployApi:
         is offered publicly in case you need to delete resources to comply with
         General Data Protection Regulation (GDPR) requirements.
 
-        :param external_id: The unique ID of an external resource (for example, a CloudFormation
-        stack ID) that is linked to one or more CodeDeploy resources.
+        :param external_id: The unique ID of an external resource (for example, a CloudFormation stack ID) that is linked to one or more CodeDeploy resources.
         :returns: DeleteResourcesByExternalIdOutput
         """
         raise NotImplementedError
@@ -3195,8 +3158,7 @@ class CodedeployApi:
     ) -> GetApplicationOutput:
         """Gets information about an application.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
         :returns: GetApplicationOutput
         :raises ApplicationNameRequiredException:
         :raises InvalidApplicationNameException:
@@ -3215,8 +3177,7 @@ class CodedeployApi:
         """Gets information about an application revision.
 
         :param application_name: The name of the application that corresponds to the revision.
-        :param revision: Information about the application revision to get, including type and
-        location.
+        :param revision: Information about the application revision to get, including type and location.
         :returns: GetApplicationRevisionOutput
         :raises ApplicationDoesNotExistException:
         :raises ApplicationNameRequiredException:
@@ -3238,8 +3199,7 @@ class CodedeployApi:
         ``sha256`` property of the returned ``appSpecContent`` object to get the
         content of the deployment’s AppSpec file.
 
-        :param deployment_id: The unique ID of a deployment associated with the user or Amazon Web
-        Services account.
+        :param deployment_id: The unique ID of a deployment associated with the user or Amazon Web Services account.
         :returns: GetDeploymentOutput
         :raises DeploymentIdRequiredException:
         :raises InvalidDeploymentIdException:
@@ -3253,8 +3213,7 @@ class CodedeployApi:
     ) -> GetDeploymentConfigOutput:
         """Gets information about a deployment configuration.
 
-        :param deployment_config_name: The name of a deployment configuration associated with the user or
-        Amazon Web Services account.
+        :param deployment_config_name: The name of a deployment configuration associated with the user or Amazon Web Services account.
         :returns: GetDeploymentConfigOutput
         :raises InvalidDeploymentConfigNameException:
         :raises DeploymentConfigNameRequiredException:
@@ -3273,8 +3232,7 @@ class CodedeployApi:
     ) -> GetDeploymentGroupOutput:
         """Gets information about a deployment group.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
         :param deployment_group_name: The name of a deployment group for the specified application.
         :returns: GetDeploymentGroupOutput
         :raises ApplicationNameRequiredException:
@@ -3359,25 +3317,13 @@ class CodedeployApi:
     ) -> ListApplicationRevisionsOutput:
         """Lists information about revisions for an application.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
-        :param sort_by: The column name to use to sort the list results:
-
-        -  ``registerTime``: Sort by the time the revisions were registered with
-           CodeDeploy.
-        :param sort_order: The order in which to sort the list results:
-
-        -  ``ascending``: ascending order.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
+        :param sort_by: The column name to use to sort the list results:  -  ``registerTime``: Sort by the time the revisions were registered with    CodeDeploy.
+        :param sort_order: The order in which to sort the list results:  -  ``ascending``: ascending order.
         :param s3_bucket: An Amazon S3 bucket name to limit the search for revisions.
-        :param s3_key_prefix: A key prefix for the set of Amazon S3 objects to limit the search for
-        revisions.
-        :param deployed: Whether to list revisions based on whether the revision is the target
-        revision of a deployment group:
-
-        -  ``include``: List revisions that are target revisions of a deployment
-           group.
-        :param next_token: An identifier returned from the previous ``ListApplicationRevisions``
-        call.
+        :param s3_key_prefix: A key prefix for the set of Amazon S3 objects to limit the search for revisions.
+        :param deployed: Whether to list revisions based on whether the revision is the target revision of a deployment group:  -  ``include``: List revisions that are target revisions of a deployment    group.
+        :param next_token: An identifier returned from the previous ``ListApplicationRevisions`` call.
         :returns: ListApplicationRevisionsOutput
         :raises ApplicationDoesNotExistException:
         :raises ApplicationNameRequiredException:
@@ -3429,8 +3375,7 @@ class CodedeployApi:
         """Lists the deployment groups for an application registered with the
         Amazon Web Services user or Amazon Web Services account.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
         :param next_token: An identifier returned from the previous list deployment groups call.
         :returns: ListDeploymentGroupsOutput
         :raises ApplicationNameRequiredException:
@@ -3460,12 +3405,8 @@ class CodedeployApi:
 
         :param deployment_id: The unique ID of a deployment.
         :param next_token: An identifier returned from the previous list deployment instances call.
-        :param instance_status_filter: A subset of instances to list by status:
-
-        -  ``Pending``: Include those instances with pending deployments.
-        :param instance_type_filter: The set of instances in a blue/green deployment, either those in the
-        original environment ("BLUE") or those in the replacement environment
-        ("GREEN"), for which you want to view instance information.
+        :param instance_status_filter: A subset of instances to list by status:  -  ``Pending``: Include those instances with pending deployments.
+        :param instance_type_filter: The set of instances in a blue/green deployment, either those in the original environment ("BLUE") or those in the replacement environment ("GREEN"), for which you want to view instance information.
         :returns: ListDeploymentInstancesOutput
         :raises DeploymentIdRequiredException:
         :raises DeploymentDoesNotExistException:
@@ -3492,8 +3433,7 @@ class CodedeployApi:
         """Returns an array of target IDs that are associated a deployment.
 
         :param deployment_id: The unique ID of a deployment.
-        :param next_token: A token identifier returned from the previous ``ListDeploymentTargets``
-        call.
+        :param next_token: A token identifier returned from the previous ``ListDeploymentTargets`` call.
         :param target_filters: A key used to filter the returned targets.
         :returns: ListDeploymentTargetsOutput
         :raises DeploymentIdRequiredException:
@@ -3523,16 +3463,11 @@ class CodedeployApi:
         """Lists the deployments in a deployment group for an application
         registered with the user or Amazon Web Services account.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
         :param deployment_group_name: The name of a deployment group for the specified application.
-        :param external_id: The unique ID of an external resource for returning deployments linked
-        to the external resource.
-        :param include_only_statuses: A subset of deployments to list by status:
-
-        -  ``Created``: Include created deployments in the resulting list.
-        :param create_time_range: A time range (start and end) for returning a subset of the list of
-        deployments.
+        :param external_id: The unique ID of an external resource for returning deployments linked to the external resource.
+        :param include_only_statuses: A subset of deployments to list by status:  -  ``Created``: Include created deployments in the resulting list.
+        :param create_time_range: A time range (start and end) for returning a subset of the list of deployments.
         :param next_token: An identifier returned from the previous list deployments call.
         :returns: ListDeploymentsOutput
         :raises ApplicationNameRequiredException:
@@ -3555,8 +3490,7 @@ class CodedeployApi:
     ) -> ListGitHubAccountTokenNamesOutput:
         """Lists the names of stored connections to GitHub accounts.
 
-        :param next_token: An identifier returned from the previous ``ListGitHubAccountTokenNames``
-        call.
+        :param next_token: An identifier returned from the previous ``ListGitHubAccountTokenNames`` call.
         :returns: ListGitHubAccountTokenNamesOutput
         :raises InvalidNextTokenException:
         :raises ResourceValidationException:
@@ -3579,14 +3513,9 @@ class CodedeployApi:
         instance names are listed. To list only registered or deregistered
         on-premises instance names, use the registration status parameter.
 
-        :param registration_status: The registration status of the on-premises instances:
-
-        -  ``Deregistered``: Include deregistered on-premises instances in the
-           resulting list.
-        :param tag_filters: The on-premises instance tags that are used to restrict the on-premises
-        instance names returned.
-        :param next_token: An identifier returned from the previous list on-premises instances
-        call.
+        :param registration_status: The registration status of the on-premises instances:  -  ``Deregistered``: Include deregistered on-premises instances in the    resulting list.
+        :param tag_filters: The on-premises instance tags that are used to restrict the on-premises instance names returned.
+        :param next_token: An identifier returned from the previous list on-premises instances call.
         :returns: ListOnPremisesInstancesOutput
         :raises InvalidRegistrationStatusException:
         :raises InvalidTagFilterException:
@@ -3639,8 +3568,7 @@ class CodedeployApi:
 
         :param deployment_id: The unique ID of a deployment.
         :param lifecycle_event_hook_execution_id: The execution ID of a deployment's lifecycle hook.
-        :param status: The result of a Lambda function that validates a deployment lifecycle
-        event.
+        :param status: The result of a Lambda function that validates a deployment lifecycle event.
         :returns: PutLifecycleEventHookExecutionStatusOutput
         :raises InvalidLifecycleEventHookExecutionStatusException:
         :raises InvalidLifecycleEventHookExecutionIdException:
@@ -3663,10 +3591,8 @@ class CodedeployApi:
     ) -> None:
         """Registers with CodeDeploy a revision for the specified application.
 
-        :param application_name: The name of an CodeDeploy application associated with the user or Amazon
-        Web Services account.
-        :param revision: Information about the application revision to register, including type
-        and location.
+        :param application_name: The name of an CodeDeploy application associated with the user or Amazon Web Services account.
+        :param revision: Information about the application revision to register, including type and location.
         :param description: A comment about the revision.
         :raises ApplicationDoesNotExistException:
         :raises ApplicationNameRequiredException:
@@ -3732,8 +3658,7 @@ class CodedeployApi:
         """In a blue/green deployment, overrides any specified wait time and starts
         terminating instances immediately after the traffic routing is complete.
 
-        :param deployment_id: The unique ID of a blue/green deployment for which you want to skip the
-        instance termination wait time.
+        :param deployment_id: The unique ID of a blue/green deployment for which you want to skip the instance termination wait time.
         :raises DeploymentIdRequiredException:
         :raises DeploymentDoesNotExistException:
         :raises DeploymentAlreadyCompletedException:
@@ -3754,9 +3679,7 @@ class CodedeployApi:
         """Attempts to stop an ongoing deployment.
 
         :param deployment_id: The unique ID of a deployment.
-        :param auto_rollback_enabled: Indicates, when a deployment is stopped, whether instances that have
-        been updated should be rolled back to the previous version of the
-        application revision.
+        :param auto_rollback_enabled: Indicates, when a deployment is stopped, whether instances that have been updated should be rolled back to the previous version of the application revision.
         :returns: StopDeploymentOutput
         :raises DeploymentIdRequiredException:
         :raises DeploymentDoesNotExistException:
@@ -3774,8 +3697,7 @@ class CodedeployApi:
         """Associates the list of tags in the input ``Tags`` parameter with the
         resource identified by the ``ResourceArn`` input parameter.
 
-        :param resource_arn: The ARN of a resource, such as a CodeDeploy application or deployment
-        group.
+        :param resource_arn: The ARN of a resource, such as a CodeDeploy application or deployment group.
         :param tags: A list of tags that ``TagResource`` associates with a resource.
         :returns: TagResourceOutput
         :raises ResourceArnRequiredException:
@@ -3797,8 +3719,7 @@ class CodedeployApi:
         by the ``ResourceArn`` input parameter. The tags are identified by the
         list of keys in the ``TagKeys`` input parameter.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that specifies from which resource to
-        disassociate the tags with the keys in the ``TagKeys`` input parameter.
+        :param resource_arn: The Amazon Resource Name (ARN) that specifies from which resource to disassociate the tags with the keys in the ``TagKeys`` input parameter.
         :param tag_keys: A list of keys of ``Tag`` objects.
         :returns: UntagResourceOutput
         :raises ResourceArnRequiredException:
@@ -3861,33 +3782,22 @@ class CodedeployApi:
         :param application_name: The application name that corresponds to the deployment group to update.
         :param current_deployment_group_name: The current name of the deployment group.
         :param new_deployment_group_name: The new name of the deployment group, if you want to change it.
-        :param deployment_config_name: The replacement deployment configuration name to use, if you want to
-        change it.
-        :param ec2_tag_filters: The replacement set of Amazon EC2 tags on which to filter, if you want
-        to change them.
-        :param on_premises_instance_tag_filters: The replacement set of on-premises instance tags on which to filter, if
-        you want to change them.
-        :param auto_scaling_groups: The replacement list of Auto Scaling groups to be included in the
-        deployment group, if you want to change them.
+        :param deployment_config_name: The replacement deployment configuration name to use, if you want to change it.
+        :param ec2_tag_filters: The replacement set of Amazon EC2 tags on which to filter, if you want to change them.
+        :param on_premises_instance_tag_filters: The replacement set of on-premises instance tags on which to filter, if you want to change them.
+        :param auto_scaling_groups: The replacement list of Auto Scaling groups to be included in the deployment group, if you want to change them.
         :param service_role_arn: A replacement ARN for the service role, if you want to change it.
-        :param trigger_configurations: Information about triggers to change when the deployment group is
-        updated.
-        :param alarm_configuration: Information to add or change about Amazon CloudWatch alarms when the
-        deployment group is updated.
-        :param auto_rollback_configuration: Information for an automatic rollback configuration that is added or
-        changed when a deployment group is updated.
-        :param outdated_instances_strategy: Indicates what happens when new Amazon EC2 instances are launched
-        mid-deployment and do not receive the deployed application revision.
-        :param deployment_style: Information about the type of deployment, either in-place or blue/green,
-        you want to run and whether to route deployment traffic behind a load
-        balancer.
+        :param trigger_configurations: Information about triggers to change when the deployment group is updated.
+        :param alarm_configuration: Information to add or change about Amazon CloudWatch alarms when the deployment group is updated.
+        :param auto_rollback_configuration: Information for an automatic rollback configuration that is added or changed when a deployment group is updated.
+        :param outdated_instances_strategy: Indicates what happens when new Amazon EC2 instances are launched mid-deployment and do not receive the deployed application revision.
+        :param deployment_style: Information about the type of deployment, either in-place or blue/green, you want to run and whether to route deployment traffic behind a load balancer.
         :param blue_green_deployment_configuration: Information about blue/green deployment options for a deployment group.
         :param load_balancer_info: Information about the load balancer used in a deployment.
         :param ec2_tag_set: Information about groups of tags applied to on-premises instances.
         :param ecs_services: The target Amazon ECS services in the deployment group.
         :param on_premises_tag_set: Information about an on-premises instance tag set.
-        :param termination_hook_enabled: This parameter only applies if you are using CodeDeploy with Amazon EC2
-        Auto Scaling.
+        :param termination_hook_enabled: This parameter only applies if you are using CodeDeploy with Amazon EC2 Auto Scaling.
         :returns: UpdateDeploymentGroupOutput
         :raises ApplicationNameRequiredException:
         :raises InvalidApplicationNameException:

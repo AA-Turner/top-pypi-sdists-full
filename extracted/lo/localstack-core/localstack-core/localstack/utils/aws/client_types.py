@@ -1,4 +1,5 @@
 import abc
+from enum import StrEnum
 from typing import TYPE_CHECKING, Union
 
 """
@@ -287,3 +288,18 @@ class ServicePrincipal(str):
     sns = "sns"
     sqs = "sqs"
     states = "states"
+
+
+class TraceVisibility(StrEnum):
+    """
+    Provides an indication of how visible an API operation should be to the user.
+    """
+
+    # Call is part of LocalStack's internal implementation. Not interesting to users.
+    LOCALSTACK = "localstack"
+
+    # Call is part of an advanced feature of AWS's mechanism (e.g. Lambda ESM)
+    AWS = "aws"
+
+    # Call is an application-level operation. Always interesting to users.
+    APPLICATION = "application"

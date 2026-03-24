@@ -6630,11 +6630,8 @@ class RdsApi:
         cluster.
 
         :param db_cluster_identifier: The name of the DB cluster to associate the IAM role with.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the
-        Aurora DB cluster, for example
-        ``arn:aws:iam::123456789012:role/AuroraAccessRole``.
-        :param feature_name: The name of the feature for the DB cluster that the IAM role is to be
-        associated with.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the Aurora DB cluster, for example ``arn:aws:iam::123456789012:role/AuroraAccessRole``.
+        :param feature_name: The name of the feature for the DB cluster that the IAM role is to be associated with.
         :raises DBClusterRoleQuotaExceededFault:
         :raises InvalidDBClusterStateFault:
         :raises DBClusterRoleAlreadyExistsFault:
@@ -6660,10 +6657,8 @@ class RdsApi:
         This command doesn't apply to RDS Custom.
 
         :param db_instance_identifier: The name of the DB instance to associate the IAM role with.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the DB
-        instance, for example ``arn:aws:iam::123456789012:role/AccessRole``.
-        :param feature_name: The name of the feature for the DB instance that the IAM role is to be
-        associated with.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the DB instance, for example ``arn:aws:iam::123456789012:role/AccessRole``.
+        :param feature_name: The name of the feature for the DB instance that the IAM role is to be associated with.
         :raises DBInstanceRoleQuotaExceededFault:
         :raises DBInstanceNotFoundFault:
         :raises InvalidDBInstanceStateFault:
@@ -6682,8 +6677,7 @@ class RdsApi:
         """Adds a source identifier to an existing RDS event notification
         subscription.
 
-        :param subscription_name: The name of the RDS event notification subscription you want to add a
-        source identifier to.
+        :param subscription_name: The name of the RDS event notification subscription you want to add a source identifier to.
         :param source_identifier: The identifier of the event source to be added.
         :returns: AddSourceIdentifierToSubscriptionResult
         :raises SourceNotFoundFault:
@@ -6737,11 +6731,9 @@ class RdsApi:
         """Applies a pending maintenance action to a resource (for example, to a DB
         instance).
 
-        :param resource_identifier: The RDS Amazon Resource Name (ARN) of the resource that the pending
-        maintenance action applies to.
+        :param resource_identifier: The RDS Amazon Resource Name (ARN) of the resource that the pending maintenance action applies to.
         :param apply_action: The pending maintenance action to apply to this resource.
-        :param opt_in_type: A value that specifies the type of opt-in request, or undoes an opt-in
-        request.
+        :param opt_in_type: A value that specifies the type of opt-in request, or undoes an opt-in request.
         :returns: ApplyPendingMaintenanceActionResult
         :raises ResourceNotFoundFault:
         :raises InvalidDBClusterStateFault:
@@ -6792,8 +6784,7 @@ class RdsApi:
         :param cidrip: The IP range to authorize.
         :param ec2_security_group_name: Name of the EC2 security group to authorize.
         :param ec2_security_group_id: Id of the EC2 security group to authorize.
-        :param ec2_security_group_owner_id: Amazon Web Services account number of the owner of the EC2 security
-        group specified in the ``EC2SecurityGroupName`` parameter.
+        :param ec2_security_group_owner_id: Amazon Web Services account number of the owner of the EC2 security group specified in the ``EC2SecurityGroupName`` parameter.
         :returns: AuthorizeDBSecurityGroupIngressResult
         :raises InvalidDBSecurityGroupStateFault:
         :raises AuthorizationQuotaExceededFault:
@@ -6822,13 +6813,9 @@ class RdsApi:
         This action applies only to Aurora MySQL DB clusters.
 
         :param db_cluster_identifier: The DB cluster identifier of the DB cluster to be backtracked.
-        :param backtrack_to: The timestamp of the time to backtrack the DB cluster to, specified in
-        ISO 8601 format.
-        :param force: Specifies whether to force the DB cluster to backtrack when binary
-        logging is enabled.
-        :param use_earliest_time_on_point_in_time_unavailable: Specifies whether to backtrack the DB cluster to the earliest possible
-        backtrack time when *BacktrackTo* is set to a timestamp earlier than the
-        earliest backtrack time.
+        :param backtrack_to: The timestamp of the time to backtrack the DB cluster to, specified in ISO 8601 format.
+        :param force: Specifies whether to force the DB cluster to backtrack when binary logging is enabled.
+        :param use_earliest_time_on_point_in_time_unavailable: Specifies whether to backtrack the DB cluster to the earliest possible backtrack time when *BacktrackTo* is set to a timestamp earlier than the earliest backtrack time.
         :returns: DBClusterBacktrack
         :raises InvalidDBClusterStateFault:
         :raises DBClusterNotFoundFault:
@@ -6867,8 +6854,7 @@ class RdsApi:
         parameters and values for the specified DB cluster parameter group
         family.
 
-        :param source_db_cluster_parameter_group_identifier: The identifier or Amazon Resource Name (ARN) for the source DB cluster
-        parameter group.
+        :param source_db_cluster_parameter_group_identifier: The identifier or Amazon Resource Name (ARN) for the source DB cluster parameter group.
         :param target_db_cluster_parameter_group_identifier: The identifier for the copied DB cluster parameter group.
         :param target_db_cluster_parameter_group_description: A description for the copied DB cluster parameter group.
         :param tags: A list of tags.
@@ -6938,17 +6924,10 @@ class RdsApi:
         in the *Amazon RDS User Guide*.
 
         :param source_db_cluster_snapshot_identifier: The identifier of the DB cluster snapshot to copy.
-        :param target_db_cluster_snapshot_identifier: The identifier of the new DB cluster snapshot to create from the source
-        DB cluster snapshot.
-        :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted DB cluster
-        snapshot.
-        :param pre_signed_url: When you are copying a DB cluster snapshot from one Amazon Web Services
-        GovCloud (US) Region to another, the URL that contains a Signature
-        Version 4 signed request for the ``CopyDBClusterSnapshot`` API operation
-        in the Amazon Web Services Region that contains the source DB cluster
-        snapshot to copy.
-        :param copy_tags: Specifies whether to copy all tags from the source DB cluster snapshot
-        to the target DB cluster snapshot.
+        :param target_db_cluster_snapshot_identifier: The identifier of the new DB cluster snapshot to create from the source DB cluster snapshot.
+        :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted DB cluster snapshot.
+        :param pre_signed_url: When you are copying a DB cluster snapshot from one Amazon Web Services GovCloud (US) Region to another, the URL that contains a Signature Version 4 signed request for the ``CopyDBClusterSnapshot`` API operation in the Amazon Web Services Region that contains the source DB cluster snapshot to copy.
+        :param copy_tags: Specifies whether to copy all tags from the source DB cluster snapshot to the target DB cluster snapshot.
         :param tags: A list of tags.
         :param source_region: The ID of the region that contains the snapshot to be copied.
         :returns: CopyDBClusterSnapshotResult
@@ -7024,21 +7003,13 @@ class RdsApi:
         :param target_db_snapshot_identifier: The identifier for the copy of the snapshot.
         :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted DB snapshot.
         :param tags: A list of tags.
-        :param copy_tags: Specifies whether to copy all tags from the source DB snapshot to the
-        target DB snapshot.
-        :param pre_signed_url: When you are copying a snapshot from one Amazon Web Services GovCloud
-        (US) Region to another, the URL that contains a Signature Version 4
-        signed request for the ``CopyDBSnapshot`` API operation in the source
-        Amazon Web Services Region that contains the source DB snapshot to copy.
+        :param copy_tags: Specifies whether to copy all tags from the source DB snapshot to the target DB snapshot.
+        :param pre_signed_url: When you are copying a snapshot from one Amazon Web Services GovCloud (US) Region to another, the URL that contains a Signature Version 4 signed request for the ``CopyDBSnapshot`` API operation in the source Amazon Web Services Region that contains the source DB snapshot to copy.
         :param option_group_name: The name of an option group to associate with the copy of the snapshot.
-        :param target_custom_availability_zone: The external custom Availability Zone (CAZ) identifier for the target
-        CAZ.
+        :param target_custom_availability_zone: The external custom Availability Zone (CAZ) identifier for the target CAZ.
         :param snapshot_target: Configures the location where RDS will store copied snapshots.
-        :param copy_option_group: Specifies whether to copy the DB option group associated with the source
-        DB snapshot to the target Amazon Web Services account and associate with
-        the target DB snapshot.
-        :param snapshot_availability_zone: Specifies the name of the Availability Zone where RDS stores the DB
-        snapshot.
+        :param copy_option_group: Specifies whether to copy the DB option group associated with the source DB snapshot to the target Amazon Web Services account and associate with the target DB snapshot.
+        :param snapshot_availability_zone: Specifies the name of the Availability Zone where RDS stores the DB snapshot.
         :param source_region: The ID of the region that contains the snapshot to be copied.
         :returns: CopyDBSnapshotResult
         :raises SnapshotQuotaExceededFault:
@@ -7118,20 +7089,14 @@ class RdsApi:
         :param blue_green_deployment_name: The name of the blue/green deployment.
         :param source: The Amazon Resource Name (ARN) of the source production database.
         :param target_engine_version: The engine version of the database in the green environment.
-        :param target_db_parameter_group_name: The DB parameter group associated with the DB instance in the green
-        environment.
-        :param target_db_cluster_parameter_group_name: The DB cluster parameter group associated with the Aurora DB cluster in
-        the green environment.
+        :param target_db_parameter_group_name: The DB parameter group associated with the DB instance in the green environment.
+        :param target_db_cluster_parameter_group_name: The DB cluster parameter group associated with the Aurora DB cluster in the green environment.
         :param tags: Tags to assign to the blue/green deployment.
-        :param target_db_instance_class: Specify the DB instance class for the databases in the green
-        environment.
-        :param upgrade_target_storage_config: Whether to upgrade the storage file system configuration on the green
-        database.
-        :param target_iops: The amount of Provisioned IOPS (input/output operations per second) to
-        allocate for the green DB instance.
+        :param target_db_instance_class: Specify the DB instance class for the databases in the green environment.
+        :param upgrade_target_storage_config: Whether to upgrade the storage file system configuration on the green database.
+        :param target_iops: The amount of Provisioned IOPS (input/output operations per second) to allocate for the green DB instance.
         :param target_storage_type: The storage type to associate with the green DB instance.
-        :param target_allocated_storage: The amount of storage in gibibytes (GiB) to allocate for the green DB
-        instance.
+        :param target_allocated_storage: The amount of storage in gibibytes (GiB) to allocate for the green DB instance.
         :param target_storage_throughput: The storage throughput value for the green DB instance.
         :returns: CreateBlueGreenDeploymentResponse
         :raises StorageQuotaExceededFault:
@@ -7171,20 +7136,15 @@ class RdsApi:
 
         :param engine: The database engine.
         :param engine_version: The name of your custom engine version (CEV).
-        :param database_installation_files_s3_bucket_name: The name of an Amazon S3 bucket that contains database installation
-        files for your CEV.
-        :param database_installation_files_s3_prefix: The Amazon S3 directory that contains the database installation files
-        for your CEV.
-        :param database_installation_files: The database installation files (ISO and EXE) uploaded to Amazon S3 for
-        your database engine version to import to Amazon RDS.
+        :param database_installation_files_s3_bucket_name: The name of an Amazon S3 bucket that contains database installation files for your CEV.
+        :param database_installation_files_s3_prefix: The Amazon S3 directory that contains the database installation files for your CEV.
+        :param database_installation_files: The database installation files (ISO and EXE) uploaded to Amazon S3 for your database engine version to import to Amazon RDS.
         :param image_id: The ID of the Amazon Machine Image (AMI).
         :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted CEV.
         :param source_custom_db_engine_version_identifier: The ARN of a CEV to use as a source for creating a new CEV.
-        :param use_aws_provided_latest_image: Specifies whether to use the latest service-provided Amazon Machine
-        Image (AMI) for the CEV.
+        :param use_aws_provided_latest_image: Specifies whether to use the latest service-provided Amazon Machine Image (AMI) for the CEV.
         :param description: An optional description of your CEV.
-        :param manifest: The CEV manifest, which is a JSON document that describes the
-        installation .
+        :param manifest: The CEV manifest, which is a JSON document that describes the installation .
         :param tags: A list of tags.
         :returns: DBEngineVersion
         :raises CustomDBEngineVersionNotFoundFault:
@@ -7288,91 +7248,59 @@ class RdsApi:
 
         :param db_cluster_identifier: The identifier for this DB cluster.
         :param engine: The database engine to use for this DB cluster.
-        :param availability_zones: A list of Availability Zones (AZs) where you specifically want to create
-        DB instances in the DB cluster.
+        :param availability_zones: A list of Availability Zones (AZs) where you specifically want to create DB instances in the DB cluster.
         :param backup_retention_period: The number of days for which automated backups are retained.
-        :param character_set_name: The name of the character set (``CharacterSet``) to associate the DB
-        cluster with.
+        :param character_set_name: The name of the character set (``CharacterSet``) to associate the DB cluster with.
         :param database_name: The name for your database of up to 64 alphanumeric characters.
-        :param db_cluster_parameter_group_name: The name of the DB cluster parameter group to associate with this DB
-        cluster.
+        :param db_cluster_parameter_group_name: The name of the DB cluster parameter group to associate with this DB cluster.
         :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB cluster.
         :param db_subnet_group_name: A DB subnet group to associate with this DB cluster.
         :param engine_version: The version number of the database engine to use.
-        :param port: The port number on which the instances in the DB cluster accept
-        connections.
+        :param port: The port number on which the instances in the DB cluster accept connections.
         :param master_username: The name of the master user for the DB cluster.
         :param master_user_password: The password for the master database user.
         :param option_group_name: The option group to associate the DB cluster with.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled using the ``BackupRetentionPeriod``
-        parameter.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled using the ``BackupRetentionPeriod`` parameter.
         :param preferred_maintenance_window: The weekly time range during which system maintenance can occur.
-        :param replication_source_identifier: The Amazon Resource Name (ARN) of the source DB instance or DB cluster
-        if this DB cluster is created as a read replica.
+        :param replication_source_identifier: The Amazon Resource Name (ARN) of the source DB instance or DB cluster if this DB cluster is created as a read replica.
         :param tags: Tags to assign to the DB cluster.
         :param storage_encrypted: Specifies whether the DB cluster is encrypted.
         :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted DB cluster.
-        :param pre_signed_url: When you are replicating a DB cluster from one Amazon Web Services
-        GovCloud (US) Region to another, an URL that contains a Signature
-        Version 4 signed request for the ``CreateDBCluster`` operation to be
-        called in the source Amazon Web Services Region where the DB cluster is
-        replicated from.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
+        :param pre_signed_url: When you are replicating a DB cluster from one Amazon Web Services GovCloud (US) Region to another, an URL that contains a Signature Version 4 signed request for the ``CreateDBCluster`` operation to be called in the source Amazon Web Services Region where the DB cluster is replicated from.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
         :param backtrack_window: The target backtrack window, in seconds.
-        :param enable_cloudwatch_logs_exports: The list of log types that need to be enabled for exporting to
-        CloudWatch Logs.
-        :param engine_mode: The DB engine mode of the DB cluster, either ``provisioned`` or
-        ``serverless``.
-        :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties
-        of the DB cluster.
+        :param enable_cloudwatch_logs_exports: The list of log types that need to be enabled for exporting to CloudWatch Logs.
+        :param engine_mode: The DB engine mode of the DB cluster, either ``provisioned`` or ``serverless``.
+        :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties of the DB cluster.
         :param rds_custom_cluster_configuration: Reserved for future use.
-        :param db_cluster_instance_class: The compute and memory capacity of each DB instance in the Multi-AZ DB
-        cluster, for example ``db.
-        :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate to each DB instance
-        in the Multi-AZ DB cluster.
+        :param db_cluster_instance_class: The compute and memory capacity of each DB instance in the Multi-AZ DB cluster, for example ``db.
+        :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate to each DB instance in the Multi-AZ DB cluster.
         :param storage_type: The storage type to associate with the DB cluster.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        be initially allocated for each DB instance in the Multi-AZ DB cluster.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to be initially allocated for each DB instance in the Multi-AZ DB cluster.
         :param publicly_accessible: Specifies whether the DB cluster is publicly accessible.
-        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the
-        DB cluster during the maintenance window.
+        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the DB cluster during the maintenance window.
         :param deletion_protection: Specifies whether the DB cluster has deletion protection enabled.
-        :param global_cluster_identifier: The global cluster ID of an Aurora cluster that becomes the primary
-        cluster in the new global database cluster.
+        :param global_cluster_identifier: The global cluster ID of an Aurora cluster that becomes the primary cluster in the new global database cluster.
         :param enable_http_endpoint: Specifies whether to enable the HTTP endpoint for the DB cluster.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB cluster to snapshots of
-        the DB cluster.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB cluster to snapshots of the DB cluster.
         :param domain: The Active Directory directory ID to create the DB cluster in.
-        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory
-        Service.
-        :param enable_global_write_forwarding: Specifies whether to enable this DB cluster to forward write operations
-        to the primary cluster of a global cluster (Aurora global database).
+        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory Service.
+        :param enable_global_write_forwarding: Specifies whether to enable this DB cluster to forward write operations to the primary cluster of a global cluster (Aurora global database).
         :param network_type: The network type of the DB cluster.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
-        cluster.
-        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
-        metrics are collected for the DB cluster.
-        :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send
-        Enhanced Monitoring metrics to Amazon CloudWatch Logs.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB cluster.
+        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB cluster.
+        :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send Enhanced Monitoring metrics to Amazon CloudWatch Logs.
         :param database_insights_mode: The mode of Database Insights to enable for the DB cluster.
         :param enable_performance_insights: Specifies whether to turn on Performance Insights for the DB cluster.
-        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
-        Insights data.
+        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
         :param enable_limitless_database: Specifies whether to enable Aurora Limitless Database.
         :param cluster_scalability_type: Specifies the scalability mode of the Aurora DB cluster.
         :param db_system_id: Reserved for future use.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager.
-        :param enable_local_write_forwarding: Specifies whether read replicas can forward write operations to the
-        writer DB instance in the DB cluster.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the DB cluster's server
-        certificate.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.
+        :param enable_local_write_forwarding: Specifies whether read replicas can forward write operations to the writer DB instance in the DB cluster.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the DB cluster's server certificate.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
         :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :param master_user_authentication_type: Specifies the authentication type for the master user.
@@ -7422,14 +7350,11 @@ class RdsApi:
 
         This action applies only to Aurora DB clusters.
 
-        :param db_cluster_identifier: The DB cluster identifier of the DB cluster associated with the
-        endpoint.
+        :param db_cluster_identifier: The DB cluster identifier of the DB cluster associated with the endpoint.
         :param db_cluster_endpoint_identifier: The identifier to use for the new endpoint.
         :param endpoint_type: The type of the endpoint, one of: ``READER``, ``WRITER``, ``ANY``.
-        :param static_members: List of DB instance identifiers that are part of the custom endpoint
-        group.
-        :param excluded_members: List of DB instance identifiers that aren't part of the custom endpoint
-        group.
+        :param static_members: List of DB instance identifiers that are part of the custom endpoint group.
+        :param excluded_members: List of DB instance identifiers that aren't part of the custom endpoint group.
         :param tags: The tags to be assigned to the Amazon RDS resource.
         :returns: DBClusterEndpoint
         :raises DBClusterEndpointAlreadyExistsFault:
@@ -7625,100 +7550,68 @@ class RdsApi:
         in the *Amazon Aurora User Guide*.
 
         :param db_instance_identifier: The identifier for this DB instance.
-        :param db_instance_class: The compute and memory capacity of the DB instance, for example
-        ``db.
+        :param db_instance_class: The compute and memory capacity of the DB instance, for example ``db.
         :param engine: The database engine to use for this DB instance.
-        :param db_name: The meaning of this parameter differs according to the database engine
-        you use.
-        :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate for the DB
-        instance.
+        :param db_name: The meaning of this parameter differs according to the database engine you use.
+        :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate for the DB instance.
         :param master_username: The name for the master user.
         :param master_user_password: The password for the master user.
         :param db_security_groups: A list of DB security groups to associate with this DB instance.
-        :param vpc_security_group_ids: A list of Amazon EC2 VPC security groups to associate with this DB
-        instance.
+        :param vpc_security_group_ids: A list of Amazon EC2 VPC security groups to associate with this DB instance.
         :param availability_zone: The Availability Zone (AZ) where the database will be created.
         :param db_subnet_group_name: A DB subnet group to associate with this DB instance.
         :param preferred_maintenance_window: The time range each week during which system maintenance can occur.
         :param db_parameter_group_name: The name of the DB parameter group to associate with this DB instance.
         :param backup_retention_period: The number of days for which automated backups are retained.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled, using the ``BackupRetentionPeriod``
-        parameter.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled, using the ``BackupRetentionPeriod`` parameter.
         :param port: The port number on which the database accepts connections.
         :param multi_az: Specifies whether the DB instance is a Multi-AZ deployment.
         :param engine_version: The version number of the database engine to use.
-        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the
-        DB instance during the maintenance window.
+        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the DB instance during the maintenance window.
         :param license_model: The license model information for this DB instance.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        initially allocate for the DB instance.
-        :param storage_throughput: The storage throughput value, in mebibyte per second (MiBps), for the DB
-        instance.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to initially allocate for the DB instance.
+        :param storage_throughput: The storage throughput value, in mebibyte per second (MiBps), for the DB instance.
         :param option_group_name: The option group to associate the DB instance with.
-        :param character_set_name: For supported engines, the character set (``CharacterSet``) to associate
-        the DB instance with.
+        :param character_set_name: For supported engines, the character set (``CharacterSet``) to associate the DB instance with.
         :param nchar_character_set_name: The name of the NCHAR character set for the Oracle DB instance.
         :param publicly_accessible: Specifies whether the DB instance is publicly accessible.
         :param tags: Tags to assign to the DB instance.
         :param db_cluster_identifier: The identifier of the DB cluster that this DB instance will belong to.
         :param storage_type: The storage type to associate with the DB instance.
-        :param tde_credential_arn: The ARN from the key store with which to associate the instance for TDE
-        encryption.
-        :param tde_credential_password: The password for the given ARN from the key store in order to access the
-        device.
+        :param tde_credential_arn: The ARN from the key store with which to associate the instance for TDE encryption.
+        :param tde_credential_password: The password for the given ARN from the key store in order to access the device.
         :param storage_encrypted: Specifes whether the DB instance is encrypted.
         :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted DB instance.
         :param domain: The Active Directory directory ID to create the DB instance in.
         :param domain_fqdn: The fully qualified domain name (FQDN) of an Active Directory domain.
         :param domain_ou: The Active Directory organizational unit for your DB instance to join.
-        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user
-        joining the domain.
-        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory
-        domain controllers.
-        :param copy_tags_to_snapshot: Specifies whether to copy tags from the DB instance to snapshots of the
-        DB instance.
-        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
-        metrics are collected for the DB instance.
-        :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring
-        metrics to Amazon CloudWatch Logs.
-        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory
-        Service.
-        :param promotion_tier: The order of priority in which an Aurora Replica is promoted to the
-        primary instance after a failure of the existing primary instance.
+        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user joining the domain.
+        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory domain controllers.
+        :param copy_tags_to_snapshot: Specifies whether to copy tags from the DB instance to snapshots of the DB instance.
+        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB instance.
+        :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring metrics to Amazon CloudWatch Logs.
+        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory Service.
+        :param promotion_tier: The order of priority in which an Aurora Replica is promoted to the primary instance after a failure of the existing primary instance.
         :param timezone: The time zone of the DB instance.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
         :param database_insights_mode: The mode of Database Insights to enable for the DB instance.
         :param enable_performance_insights: Specifies whether to enable Performance Insights for the DB instance.
-        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
-        Insights data.
+        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
         :param enable_cloudwatch_logs_exports: The list of log types to enable for exporting to CloudWatch Logs.
-        :param processor_features: The number of CPU cores and the number of threads per core for the DB
-        instance class of the DB instance.
+        :param processor_features: The number of CPU cores and the number of threads per core for the DB instance class of the DB instance.
         :param deletion_protection: Specifies whether the DB instance has deletion protection enabled.
-        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
-        scale the storage of the DB instance.
-        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
-        RDS on Outposts DB instance.
+        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically scale the storage of the DB instance.
+        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an RDS on Outposts DB instance.
         :param network_type: The network type of the DB instance.
         :param backup_target: The location for storing automated backups and manual snapshots.
-        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
-        of an RDS Custom DB instance.
-        :param db_system_id: The Oracle system identifier (SID), which is the name of the Oracle
-        database instance that manages your database files.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
-        certificate.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
-        :param multi_tenant: Specifies whether to use the multi-tenant configuration or the
-        single-tenant configuration (default).
-        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
-        enabled.
+        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance of an RDS Custom DB instance.
+        :param db_system_id: The Oracle system identifier (SID), which is the name of the Oracle database instance that manages your database files.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server certificate.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
+        :param multi_tenant: Specifies whether to use the multi-tenant configuration or the single-tenant configuration (default).
+        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV) enabled.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
         :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
         :param tag_specifications: Tags to assign to resources associated with the DB instance.
@@ -7827,82 +7720,52 @@ class RdsApi:
         Your source DB instance or cluster must have backup retention enabled.
 
         :param db_instance_identifier: The DB instance identifier of the read replica.
-        :param source_db_instance_identifier: The identifier of the DB instance that will act as the source for the
-        read replica.
-        :param db_instance_class: The compute and memory capacity of the read replica, for example
-        db.
+        :param source_db_instance_identifier: The identifier of the DB instance that will act as the source for the read replica.
+        :param db_instance_class: The compute and memory capacity of the read replica, for example db.
         :param availability_zone: The Availability Zone (AZ) where the read replica will be created.
         :param port: The port number that the DB instance uses for connections.
         :param multi_az: Specifies whether the read replica is in a Multi-AZ deployment.
-        :param auto_minor_version_upgrade: Specifies whether to automatically apply minor engine upgrades to the
-        read replica during the maintenance window.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        initially allocate for the DB instance.
+        :param auto_minor_version_upgrade: Specifies whether to automatically apply minor engine upgrades to the read replica during the maintenance window.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to initially allocate for the DB instance.
         :param storage_throughput: Specifies the storage throughput value for the read replica.
         :param option_group_name: The option group to associate the DB instance with.
-        :param db_parameter_group_name: The name of the DB parameter group to associate with this read replica
-        DB instance.
+        :param db_parameter_group_name: The name of the DB parameter group to associate with this read replica DB instance.
         :param publicly_accessible: Specifies whether the DB instance is publicly accessible.
         :param tags: A list of tags.
         :param db_subnet_group_name: A DB subnet group for the DB instance.
-        :param vpc_security_group_ids: A list of Amazon EC2 VPC security groups to associate with the read
-        replica.
+        :param vpc_security_group_ids: A list of Amazon EC2 VPC security groups to associate with the read replica.
         :param storage_type: The storage type to associate with the read replica.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the read replica to snapshots of
-        the read replica.
-        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
-        metrics are collected for the read replica.
-        :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring
-        metrics to Amazon CloudWatch Logs.
-        :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted read
-        replica.
-        :param pre_signed_url: When you are creating a read replica from one Amazon Web Services
-        GovCloud (US) Region to another or from one China Amazon Web Services
-        Region to another, the URL that contains a Signature Version 4 signed
-        request for the ``CreateDBInstanceReadReplica`` API operation in the
-        source Amazon Web Services Region that contains the source DB instance.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the read replica to snapshots of the read replica.
+        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the read replica.
+        :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring metrics to Amazon CloudWatch Logs.
+        :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted read replica.
+        :param pre_signed_url: When you are creating a read replica from one Amazon Web Services GovCloud (US) Region to another or from one China Amazon Web Services Region to another, the URL that contains a Signature Version 4 signed request for the ``CreateDBInstanceReadReplica`` API operation in the source Amazon Web Services Region that contains the source DB instance.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
         :param database_insights_mode: The mode of Database Insights to enable for the read replica.
         :param enable_performance_insights: Specifies whether to enable Performance Insights for the read replica.
-        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
-        Insights data.
+        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
-        :param enable_cloudwatch_logs_exports: The list of logs that the new DB instance is to export to CloudWatch
-        Logs.
-        :param processor_features: The number of CPU cores and the number of threads per core for the DB
-        instance class of the DB instance.
-        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its
-        default processor features.
+        :param enable_cloudwatch_logs_exports: The list of logs that the new DB instance is to export to CloudWatch Logs.
+        :param processor_features: The number of CPU cores and the number of threads per core for the DB instance class of the DB instance.
+        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its default processor features.
         :param deletion_protection: Specifies whether to enable deletion protection for the DB instance.
         :param domain: The Active Directory directory ID to create the DB instance in.
-        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory
-        Service.
+        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory Service.
         :param domain_fqdn: The fully qualified domain name (FQDN) of an Active Directory domain.
         :param domain_ou: The Active Directory organizational unit for your DB instance to join.
-        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user
-        joining the domain.
-        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory
-        domain controllers.
+        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user joining the domain.
+        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory domain controllers.
         :param replica_mode: The open mode of the replica database.
-        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
-        RDS on Outposts read replica.
+        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an RDS on Outposts read replica.
         :param network_type: The network type of the DB instance.
-        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
-        scale the storage of the DB instance.
+        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically scale the storage of the DB instance.
         :param backup_target: The location where RDS stores automated backups and manual snapshots.
-        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
-        of an RDS Custom DB instance.
-        :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the read
-        replica.
-        :param source_db_cluster_identifier: The identifier of the Multi-AZ DB cluster that will act as the source
-        for the read replica.
-        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
-        enabled.
-        :param upgrade_storage_config: Whether to upgrade the storage file system configuration on the read
-        replica.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the read replica's server
-        certificate.
+        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance of an RDS Custom DB instance.
+        :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the read replica.
+        :param source_db_cluster_identifier: The identifier of the Multi-AZ DB cluster that will act as the source for the read replica.
+        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV) enabled.
+        :param upgrade_storage_config: Whether to upgrade the storage file system configuration on the read replica.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the read replica's server certificate.
         :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
         :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :param source_region: The ID of the region that contains the source for the read replica.
@@ -7991,22 +7854,15 @@ class RdsApi:
 
         :param db_proxy_name: The identifier for the proxy.
         :param engine_family: The kinds of databases that the proxy can connect to.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the proxy uses to
-        access secrets in Amazon Web Services Secrets Manager.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the proxy uses to access secrets in Amazon Web Services Secrets Manager.
         :param vpc_subnet_ids: One or more VPC subnet IDs to associate with the new proxy.
-        :param default_auth_scheme: The default authentication scheme that the proxy uses for client
-        connections to the proxy and connections from the proxy to the
-        underlying database.
+        :param default_auth_scheme: The default authentication scheme that the proxy uses for client connections to the proxy and connections from the proxy to the underlying database.
         :param auth: The authorization mechanism that the proxy uses.
         :param vpc_security_group_ids: One or more VPC security group IDs to associate with the new proxy.
-        :param require_tls: Specifies whether Transport Layer Security (TLS) encryption is required
-        for connections to the proxy.
-        :param idle_client_timeout: The number of seconds that a connection to the proxy can be inactive
-        before the proxy disconnects it.
-        :param debug_logging: Specifies whether the proxy logs detailed connection and query
-        information.
-        :param tags: An optional set of key-value pairs to associate arbitrary data of your
-        choosing with the proxy.
+        :param require_tls: Specifies whether Transport Layer Security (TLS) encryption is required for connections to the proxy.
+        :param idle_client_timeout: The number of seconds that a connection to the proxy can be inactive before the proxy disconnects it.
+        :param debug_logging: Specifies whether the proxy logs detailed connection and query information.
+        :param tags: An optional set of key-value pairs to associate arbitrary data of your choosing with the proxy.
         :param endpoint_network_type: The network type of the DB proxy endpoint.
         :param target_connection_network_type: The network type that the proxy uses to connect to the target database.
         :returns: CreateDBProxyResponse
@@ -8035,8 +7891,7 @@ class RdsApi:
         use DB proxy endpoints to access a DB proxy through a different VPC than
         the proxy's default VPC.
 
-        :param db_proxy_name: The name of the DB proxy associated with the DB proxy endpoint that you
-        create.
+        :param db_proxy_name: The name of the DB proxy associated with the DB proxy endpoint that you create.
         :param db_proxy_endpoint_name: The name of the DB proxy endpoint to create.
         :param vpc_subnet_ids: The VPC subnet IDs for the DB proxy endpoint that you create.
         :param vpc_security_group_ids: The VPC security group IDs for the DB proxy endpoint that you create.
@@ -8108,12 +7963,9 @@ class RdsApi:
 
         :param db_shard_group_identifier: The name of the DB shard group.
         :param db_cluster_identifier: The name of the primary DB cluster for the DB shard group.
-        :param max_acu: The maximum capacity of the DB shard group in Aurora capacity units
-        (ACUs).
-        :param compute_redundancy: Specifies whether to create standby standby DB data access shard for the
-        DB shard group.
-        :param min_acu: The minimum capacity of the DB shard group in Aurora capacity units
-        (ACUs).
+        :param max_acu: The maximum capacity of the DB shard group in Aurora capacity units (ACUs).
+        :param compute_redundancy: Specifies whether to create standby standby DB data access shard for the DB shard group.
+        :param min_acu: The minimum capacity of the DB shard group in Aurora capacity units (ACUs).
         :param publicly_accessible: Specifies whether the DB shard group is publicly accessible.
         :param tags: A list of tags.
         :returns: DBShardGroup
@@ -8140,8 +7992,7 @@ class RdsApi:
         the ``available`` or ``storage-optimization`` state.
 
         :param db_snapshot_identifier: The identifier for the DB snapshot.
-        :param db_instance_identifier: The identifier of the DB instance that you want to create the snapshot
-        of.
+        :param db_instance_identifier: The identifier of the DB instance that you want to create the snapshot of.
         :param tags: A list of tags.
         :returns: CreateDBSnapshotResult
         :raises DBInstanceNotFoundFault:
@@ -8224,13 +8075,10 @@ class RdsApi:
         in the *Amazon Aurora User Guide*.
 
         :param subscription_name: The name of the subscription.
-        :param sns_topic_arn: The Amazon Resource Name (ARN) of the SNS topic created for event
-        notification.
+        :param sns_topic_arn: The Amazon Resource Name (ARN) of the SNS topic created for event notification.
         :param source_type: The type of source that is generating the events.
-        :param event_categories: A list of event categories for a particular source type (``SourceType``)
-        that you want to subscribe to.
-        :param source_ids: The list of identifiers of the event sources for which events are
-        returned.
+        :param event_categories: A list of event categories for a particular source type (``SourceType``) that you want to subscribe to.
+        :param source_ids: The list of identifiers of the event sources for which events are returned.
         :param enabled: Specifies whether to activate the subscription.
         :param tags: A list of tags.
         :returns: CreateEventSubscriptionResult
@@ -8273,16 +8121,13 @@ class RdsApi:
         This operation applies only to Aurora DB clusters.
 
         :param global_cluster_identifier: The cluster identifier for this global database cluster.
-        :param source_db_cluster_identifier: The Amazon Resource Name (ARN) to use as the primary cluster of the
-        global database.
+        :param source_db_cluster_identifier: The Amazon Resource Name (ARN) to use as the primary cluster of the global database.
         :param engine: The database engine to use for this global database cluster.
         :param engine_version: The engine version to use for this global database cluster.
         :param engine_lifecycle_support: The life cycle type for this global database cluster.
-        :param deletion_protection: Specifies whether to enable deletion protection for the new global
-        database cluster.
+        :param deletion_protection: Specifies whether to enable deletion protection for the new global database cluster.
         :param database_name: The name for your database of up to 64 alphanumeric characters.
-        :param storage_encrypted: Specifies whether to enable storage encryption for the new global
-        database cluster.
+        :param storage_encrypted: Specifies whether to enable storage encryption for the new global database cluster.
         :param tags: Tags to assign to the global cluster.
         :returns: CreateGlobalClusterResult
         :raises ResourceNotFoundFault:
@@ -8310,15 +8155,11 @@ class RdsApi:
     ) -> Integration:
         """Creates a zero-ETL integration with Amazon Redshift.
 
-        :param source_arn: The Amazon Resource Name (ARN) of the database to use as the source for
-        replication.
-        :param target_arn: The ARN of the Redshift data warehouse to use as the target for
-        replication.
+        :param source_arn: The Amazon Resource Name (ARN) of the database to use as the source for replication.
+        :param target_arn: The ARN of the Redshift data warehouse to use as the target for replication.
         :param integration_name: The name of the integration.
-        :param kms_key_id: The Amazon Web Services Key Management System (Amazon Web Services KMS)
-        key identifier for the key to use to encrypt the integration.
-        :param additional_encryption_context: An optional set of non-secret key–value pairs that contains additional
-        contextual information about the data.
+        :param kms_key_id: The Amazon Web Services Key Management System (Amazon Web Services KMS) key identifier for the key to use to encrypt the integration.
+        :param additional_encryption_context: An optional set of non-secret key–value pairs that contains additional contextual information about the data.
         :param tags: A list of tags.
         :param data_filter: Data filtering options for the integration.
         :param description: A description of the integration.
@@ -8349,8 +8190,7 @@ class RdsApi:
 
         :param option_group_name: Specifies the name of the option group to be created.
         :param engine_name: The name of the engine to associate this option group with.
-        :param major_engine_version: Specifies the major version of the engine that this option group should
-        be associated with.
+        :param major_engine_version: Specifies the major version of the engine that this option group should be associated with.
         :param option_group_description: The description of the option group.
         :param tags: Tags to assign to the option group.
         :returns: CreateOptionGroupResult
@@ -8379,17 +8219,13 @@ class RdsApi:
         are supported.
 
         :param db_instance_identifier: The user-supplied DB instance identifier.
-        :param tenant_db_name: The user-supplied name of the tenant database that you want to create in
-        your DB instance.
+        :param tenant_db_name: The user-supplied name of the tenant database that you want to create in your DB instance.
         :param master_username: The name for the master user account in your tenant database.
         :param master_user_password: The password for the master user in your tenant database.
         :param character_set_name: The character set for your tenant database.
         :param nchar_character_set_name: The ``NCHAR`` value for the tenant database.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
         :param tags: A list of tags.
         :returns: CreateTenantDatabaseResult
         :raises DBInstanceNotFoundFault:
@@ -8494,12 +8330,9 @@ class RdsApi:
         in the *Amazon RDS User Guide*.
 
         :param db_cluster_identifier: The DB cluster identifier for the DB cluster to be deleted.
-        :param skip_final_snapshot: Specifies whether to skip the creation of a final DB cluster snapshot
-        before RDS deletes the DB cluster.
-        :param final_db_snapshot_identifier: The DB cluster snapshot identifier of the new DB cluster snapshot
-        created when ``SkipFinalSnapshot`` is disabled.
-        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB
-        cluster is deleted.
+        :param skip_final_snapshot: Specifies whether to skip the creation of a final DB cluster snapshot before RDS deletes the DB cluster.
+        :param final_db_snapshot_identifier: The DB cluster snapshot identifier of the new DB cluster snapshot created when ``SkipFinalSnapshot`` is disabled.
+        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted.
         :returns: DeleteDBClusterResult
         :raises InvalidDBClusterSnapshotStateFault:
         :raises InvalidDBClusterStateFault:
@@ -8520,8 +8353,7 @@ class RdsApi:
         source DB cluster or the Amazon Resource Name (ARN) of the automated
         backups.
 
-        :param db_cluster_resource_id: The identifier for the source DB cluster, which can't be changed and
-        which is unique to an Amazon Web Services Region.
+        :param db_cluster_resource_id: The identifier for the source DB cluster, which can't be changed and which is unique to an Amazon Web Services Region.
         :returns: DeleteDBClusterAutomatedBackupResult
         :raises DBClusterAutomatedBackupNotFoundFault:
         :raises InvalidDBClusterAutomatedBackupStateFault:
@@ -8637,12 +8469,9 @@ class RdsApi:
         snapshot might fail.
 
         :param db_instance_identifier: The DB instance identifier for the DB instance to be deleted.
-        :param skip_final_snapshot: Specifies whether to skip the creation of a final DB snapshot before
-        deleting the instance.
-        :param final_db_snapshot_identifier: The ``DBSnapshotIdentifier`` of the new ``DBSnapshot`` created when the
-        ``SkipFinalSnapshot`` parameter is disabled.
-        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB
-        instance is deleted.
+        :param skip_final_snapshot: Specifies whether to skip the creation of a final DB snapshot before deleting the instance.
+        :param final_db_snapshot_identifier: The ``DBSnapshotIdentifier`` of the new ``DBSnapshot`` created when the ``SkipFinalSnapshot`` parameter is disabled.
+        :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB instance is deleted.
         :returns: DeleteDBInstanceResult
         :raises DBInstanceAutomatedBackupQuotaExceededFault:
         :raises DBInstanceNotFoundFault:
@@ -8666,11 +8495,8 @@ class RdsApi:
         source DB instance or the Amazon Resource Name (ARN) of the automated
         backups.
 
-        :param dbi_resource_id: The identifier for the source DB instance, which can't be changed and
-        which is unique to an Amazon Web Services Region.
-        :param db_instance_automated_backups_arn: The Amazon Resource Name (ARN) of the automated backups to delete, for
-        example,
-        ``arn:aws:rds:us-east-1:123456789012:auto-backup:ab-L2IJCEXJP7XQ7HOJ4SIEXAMPLE``.
+        :param dbi_resource_id: The identifier for the source DB instance, which can't be changed and which is unique to an Amazon Web Services Region.
+        :param db_instance_automated_backups_arn: The Amazon Resource Name (ARN) of the automated backups to delete, for example, ``arn:aws:rds:us-east-1:123456789012:auto-backup:ab-L2IJCEXJP7XQ7HOJ4SIEXAMPLE``.
         :returns: DeleteDBInstanceAutomatedBackupResult
         :raises InvalidDBInstanceAutomatedBackupStateFault:
         :raises DBInstanceAutomatedBackupNotFoundFault:
@@ -8862,14 +8688,10 @@ class RdsApi:
         You can't delete a tenant database when it is the only tenant in the DB
         instance.
 
-        :param db_instance_identifier: The user-supplied identifier for the DB instance that contains the
-        tenant database that you want to delete.
-        :param tenant_db_name: The user-supplied name of the tenant database that you want to remove
-        from your DB instance.
-        :param skip_final_snapshot: Specifies whether to skip the creation of a final DB snapshot before
-        removing the tenant database from your DB instance.
-        :param final_db_snapshot_identifier: The ``DBSnapshotIdentifier`` of the new ``DBSnapshot`` created when the
-        ``SkipFinalSnapshot`` parameter is disabled.
+        :param db_instance_identifier: The user-supplied identifier for the DB instance that contains the tenant database that you want to delete.
+        :param tenant_db_name: The user-supplied name of the tenant database that you want to remove from your DB instance.
+        :param skip_final_snapshot: Specifies whether to skip the creation of a final DB snapshot before removing the tenant database from your DB instance.
+        :param final_db_snapshot_identifier: The ``DBSnapshotIdentifier`` of the new ``DBSnapshot`` created when the ``SkipFinalSnapshot`` parameter is disabled.
         :returns: DeleteTenantDatabaseResult
         :raises TenantDatabaseNotFoundFault:
         :raises DBInstanceNotFoundFault:
@@ -8891,8 +8713,7 @@ class RdsApi:
         """Remove the association between one or more ``DBProxyTarget`` data
         structures and a ``DBProxyTargetGroup``.
 
-        :param db_proxy_name: The identifier of the ``DBProxy`` that is associated with the
-        ``DBProxyTargetGroup``.
+        :param db_proxy_name: The identifier of the ``DBProxy`` that is associated with the ``DBProxyTargetGroup``.
         :param target_group_name: The identifier of the ``DBProxyTargetGroup``.
         :param db_instance_identifiers: One or more DB instance identifiers.
         :param db_cluster_identifiers: One or more DB cluster identifiers.
@@ -8941,8 +8762,7 @@ class RdsApi:
 
         :param blue_green_deployment_identifier: The blue/green deployment identifier.
         :param filters: A filter that specifies one or more blue/green deployments to describe.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeBlueGreenDeployments`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeBlueGreenDeployments`` request.
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeBlueGreenDeploymentsResponse
         :raises BlueGreenDeploymentNotFoundFault:
@@ -8972,8 +8792,7 @@ class RdsApi:
         :param certificate_identifier: The user-supplied certificate identifier.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeCertificates`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeCertificates`` request.
         :returns: CertificateMessage
         :raises CertificateNotFoundFault:
         """
@@ -8998,8 +8817,7 @@ class RdsApi:
 
         All parameters are optional.
 
-        :param db_cluster_resource_id: The resource ID of the DB cluster that is the source of the automated
-        backup.
+        :param db_cluster_resource_id: The resource ID of the DB cluster that is the source of the automated backup.
         :param db_cluster_identifier: (Optional) The user-supplied DB cluster identifier.
         :param filters: A filter that specifies which resources to return based on status.
         :param max_records: The maximum number of records to include in the response.
@@ -9029,12 +8847,10 @@ class RdsApi:
         This action only applies to Aurora MySQL DB clusters.
 
         :param db_cluster_identifier: The DB cluster identifier of the DB cluster to be described.
-        :param backtrack_identifier: If specified, this value is the backtrack identifier of the backtrack to
-        be described.
+        :param backtrack_identifier: If specified, this value is the backtrack identifier of the backtrack to be described.
         :param filters: A filter that specifies one or more DB clusters to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBClusterBacktracks`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBClusterBacktracks`` request.
         :returns: DBClusterBacktrackMessage
         :raises DBClusterBacktrackNotFoundFault:
         :raises DBClusterNotFoundFault:
@@ -9056,14 +8872,11 @@ class RdsApi:
 
         This action only applies to Aurora DB clusters.
 
-        :param db_cluster_identifier: The DB cluster identifier of the DB cluster associated with the
-        endpoint.
+        :param db_cluster_identifier: The DB cluster identifier of the DB cluster associated with the endpoint.
         :param db_cluster_endpoint_identifier: The identifier of the endpoint to describe.
-        :param filters: A set of name-value pairs that define which endpoints to include in the
-        output.
+        :param filters: A set of name-value pairs that define which endpoints to include in the output.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBClusterEndpoints`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBClusterEndpoints`` request.
         :returns: DBClusterEndpointMessage
         :raises DBClusterNotFoundFault:
         """
@@ -9095,8 +8908,7 @@ class RdsApi:
         :param db_cluster_parameter_group_name: The name of a specific DB cluster parameter group to return details for.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBClusterParameterGroups`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBClusterParameterGroups`` request.
         :returns: DBClusterParameterGroupsMessage
         :raises DBParameterGroupNotFoundFault:
         """
@@ -9124,13 +8936,11 @@ class RdsApi:
         deployments <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html>`__
         in the *Amazon RDS User Guide*.
 
-        :param db_cluster_parameter_group_name: The name of a specific DB cluster parameter group to return parameter
-        details for.
+        :param db_cluster_parameter_group_name: The name of a specific DB cluster parameter group to return parameter details for.
         :param source: A specific source to return parameters for.
         :param filters: A filter that specifies one or more DB cluster parameters to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBClusterParameters`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBClusterParameters`` request.
         :returns: DBClusterParameterGroupDetails
         :raises DBParameterGroupNotFoundFault:
         """
@@ -9156,8 +8966,7 @@ class RdsApi:
         snapshot public or private, use the ``ModifyDBClusterSnapshotAttribute``
         API action.
 
-        :param db_cluster_snapshot_identifier: The identifier for the DB cluster snapshot to describe the attributes
-        for.
+        :param db_cluster_snapshot_identifier: The identifier for the DB cluster snapshot to describe the attributes for.
         :returns: DescribeDBClusterSnapshotAttributesResult
         :raises DBClusterSnapshotNotFoundFault:
         """
@@ -9189,19 +8998,14 @@ class RdsApi:
         deployments <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html>`__
         in the *Amazon RDS User Guide*.
 
-        :param db_cluster_identifier: The ID of the DB cluster to retrieve the list of DB cluster snapshots
-        for.
+        :param db_cluster_identifier: The ID of the DB cluster to retrieve the list of DB cluster snapshots for.
         :param db_cluster_snapshot_identifier: A specific DB cluster snapshot identifier to describe.
         :param snapshot_type: The type of DB cluster snapshots to be returned.
         :param filters: A filter that specifies one or more DB cluster snapshots to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBClusterSnapshots`` request.
-        :param include_shared: Specifies whether to include shared manual DB cluster snapshots from
-        other Amazon Web Services accounts that this Amazon Web Services account
-        has been given permission to copy or restore.
-        :param include_public: Specifies whether to include manual DB cluster snapshots that are public
-        and can be copied or restored by any Amazon Web Services account.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBClusterSnapshots`` request.
+        :param include_shared: Specifies whether to include shared manual DB cluster snapshots from other Amazon Web Services accounts that this Amazon Web Services account has been given permission to copy or restore.
+        :param include_public: Specifies whether to include manual DB cluster snapshots that are public and can be copied or restored by any Amazon Web Services account.
         :param db_cluster_resource_id: A specific DB cluster resource ID to describe.
         :returns: DBClusterSnapshotMessage
         :raises DBClusterSnapshotNotFoundFault:
@@ -9233,14 +9037,11 @@ class RdsApi:
         This operation can also return information for Amazon Neptune DB
         instances and Amazon DocumentDB instances.
 
-        :param db_cluster_identifier: The user-supplied DB cluster identifier or the Amazon Resource Name
-        (ARN) of the DB cluster.
+        :param db_cluster_identifier: The user-supplied DB cluster identifier or the Amazon Resource Name (ARN) of the DB cluster.
         :param filters: A filter that specifies one or more DB clusters to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBClusters`` request.
-        :param include_shared: Specifies whether the output includes information about clusters shared
-        from other Amazon Web Services accounts.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBClusters`` request.
+        :param include_shared: Specifies whether the output includes information about clusters shared from other Amazon Web Services accounts.
         :returns: DBClusterMessage
         :raises DBClusterNotFoundFault:
         """
@@ -9270,14 +9071,10 @@ class RdsApi:
         :param filters: A filter that specifies one or more DB engine versions to describe.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional pagination token provided by a previous request.
-        :param default_only: Specifies whether to return only the default version of the specified
-        engine or the engine and major version combination.
-        :param list_supported_character_sets: Specifies whether to list the supported character sets for each engine
-        version.
-        :param list_supported_timezones: Specifies whether to list the supported time zones for each engine
-        version.
-        :param include_all: Specifies whether to also list the engine versions that aren't
-        available.
+        :param default_only: Specifies whether to return only the default version of the specified engine or the engine and major version combination.
+        :param list_supported_character_sets: Specifies whether to list the supported character sets for each engine version.
+        :param list_supported_timezones: Specifies whether to list the supported time zones for each engine version.
+        :param include_all: Specifies whether to also list the engine versions that aren't available.
         :returns: DBEngineVersionMessage
         """
         raise NotImplementedError
@@ -9303,15 +9100,12 @@ class RdsApi:
 
         All parameters are optional.
 
-        :param dbi_resource_id: The resource ID of the DB instance that is the source of the automated
-        backup.
+        :param dbi_resource_id: The resource ID of the DB instance that is the source of the automated backup.
         :param db_instance_identifier: (Optional) The user-supplied instance identifier.
         :param filters: A filter that specifies which resources to return based on status.
         :param max_records: The maximum number of records to include in the response.
         :param marker: The pagination token provided in the previous request.
-        :param db_instance_automated_backups_arn: The Amazon Resource Name (ARN) of the replicated automated backups, for
-        example,
-        ``arn:aws:rds:us-east-1:123456789012:auto-backup:ab-L2IJCEXJP7XQ7HOJ4SIEXAMPLE``.
+        :param db_instance_automated_backups_arn: The Amazon Resource Name (ARN) of the replicated automated backups, for example, ``arn:aws:rds:us-east-1:123456789012:auto-backup:ab-L2IJCEXJP7XQ7HOJ4SIEXAMPLE``.
         :returns: DBInstanceAutomatedBackupMessage
         :raises DBInstanceAutomatedBackupNotFoundFault:
         """
@@ -9332,12 +9126,10 @@ class RdsApi:
         This operation can also return information for Amazon Neptune DB
         instances and Amazon DocumentDB instances.
 
-        :param db_instance_identifier: The user-supplied instance identifier or the Amazon Resource Name (ARN)
-        of the DB instance.
+        :param db_instance_identifier: The user-supplied instance identifier or the Amazon Resource Name (ARN) of the DB instance.
         :param filters: A filter that specifies one or more DB instances to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBInstances`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBInstances`` request.
         :returns: DBInstanceMessage
         :raises DBInstanceNotFoundFault:
         """
@@ -9360,14 +9152,10 @@ class RdsApi:
 
         This command doesn't apply to RDS Custom.
 
-        :param db_instance_identifier: The customer-assigned name of the DB instance that contains the log
-        files you want to list.
-        :param filename_contains: Filters the available log files for log file names that contain the
-        specified string.
-        :param file_last_written: Filters the available log files for files written since the specified
-        date, in POSIX timestamp format with milliseconds.
-        :param file_size: Filters the available log files for files larger than the specified
-        size.
+        :param db_instance_identifier: The customer-assigned name of the DB instance that contains the log files you want to list.
+        :param filename_contains: Filters the available log files for log file names that contain the specified string.
+        :param file_last_written: Filters the available log files for files written since the specified date, in POSIX timestamp format with milliseconds.
+        :param file_size: Filters the available log files for files larger than the specified size.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
         :param marker: The pagination token provided in the previous request.
@@ -9414,8 +9202,7 @@ class RdsApi:
         :param db_parameter_group_name: The name of a specific DB parameter group to return details for.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBParameterGroups`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBParameterGroups`` request.
         :returns: DBParameterGroupsMessage
         :raises DBParameterGroupNotFoundFault:
         """
@@ -9438,8 +9225,7 @@ class RdsApi:
         :param source: The parameter types to return.
         :param filters: A filter that specifies one or more DB parameters to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBParameters`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBParameters`` request.
         :returns: DBParameterGroupDetails
         :raises DBParameterGroupNotFoundFault:
         """
@@ -9558,15 +9344,12 @@ class RdsApi:
         """Describes the recommendations to resolve the issues for your DB
         instances, DB clusters, and DB parameter groups.
 
-        :param last_updated_after: A filter to include only the recommendations that were updated after
-        this specified time.
-        :param last_updated_before: A filter to include only the recommendations that were updated before
-        this specified time.
+        :param last_updated_after: A filter to include only the recommendations that were updated after this specified time.
+        :param last_updated_before: A filter to include only the recommendations that were updated before this specified time.
         :param locale: The language that you choose to return the list of recommendations.
         :param filters: A filter that specifies one or more recommendations to describe.
         :param max_records: The maximum number of recommendations to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBRecommendations`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBRecommendations`` request.
         :returns: DBRecommendationsMessage
         """
         raise NotImplementedError
@@ -9599,8 +9382,7 @@ class RdsApi:
         :param db_security_group_name: The name of the DB security group to return details for.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBSecurityGroups`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBSecurityGroups`` request.
         :returns: DBSecurityGroupMessage
         :raises DBSecurityGroupNotFoundFault:
         """
@@ -9620,8 +9402,7 @@ class RdsApi:
 
         :param db_shard_group_identifier: The user-supplied DB shard group identifier.
         :param filters: A filter that specifies one or more DB shard groups to describe.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBShardGroups`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBShardGroups`` request.
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeDBShardGroupsResponse
         :raises DBShardGroupNotFoundFault:
@@ -9682,8 +9463,7 @@ class RdsApi:
         :param snapshot_type: The type of DB snapshots to be returned.
         :param filters: A filter that specifies one or more tenant databases to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBSnapshotTenantDatabases`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBSnapshotTenantDatabases`` request.
         :param dbi_resource_id: A specific DB resource identifier to describe.
         :returns: DBSnapshotTenantDatabasesMessage
         :raises DBSnapshotNotFoundFault:
@@ -9713,13 +9493,9 @@ class RdsApi:
         :param snapshot_type: The type of snapshots to be returned.
         :param filters: A filter that specifies one or more DB snapshots to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeDBSnapshots`` request.
-        :param include_shared: Specifies whether to include shared manual DB cluster snapshots from
-        other Amazon Web Services accounts that this Amazon Web Services account
-        has been given permission to copy or restore.
-        :param include_public: Specifies whether to include manual DB cluster snapshots that are public
-        and can be copied or restored by any Amazon Web Services account.
+        :param marker: An optional pagination token provided by a previous ``DescribeDBSnapshots`` request.
+        :param include_shared: Specifies whether to include shared manual DB cluster snapshots from other Amazon Web Services accounts that this Amazon Web Services account has been given permission to copy or restore.
+        :param include_public: Specifies whether to include manual DB cluster snapshots that are public and can be copied or restored by any Amazon Web Services account.
         :param dbi_resource_id: A specific DB resource ID to describe.
         :returns: DBSnapshotMessage
         :raises DBSnapshotNotFoundFault:
@@ -9746,8 +9522,7 @@ class RdsApi:
         :param db_subnet_group_name: The name of the DB subnet group to return details for.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        DescribeDBSubnetGroups request.
+        :param marker: An optional pagination token provided by a previous DescribeDBSubnetGroups request.
         :returns: DBSubnetGroupMessage
         :raises DBSubnetGroupNotFoundFault:
         """
@@ -9770,12 +9545,10 @@ class RdsApi:
         Aurora? <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/CHAP_AuroraOverview.html>`__
         in the *Amazon Aurora User Guide*.
 
-        :param db_parameter_group_family: The name of the DB cluster parameter group family to return engine
-        parameter information for.
+        :param db_parameter_group_family: The name of the DB cluster parameter group family to return engine parameter information for.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeEngineDefaultClusterParameters`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeEngineDefaultClusterParameters`` request.
         :returns: DescribeEngineDefaultClusterParametersResult
         """
         raise NotImplementedError
@@ -9796,8 +9569,7 @@ class RdsApi:
         :param db_parameter_group_family: The name of the DB parameter group family.
         :param filters: A filter that specifies one or more parameters to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeEngineDefaultParameters`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeEngineDefaultParameters`` request.
         :returns: DescribeEngineDefaultParametersResult
         """
         raise NotImplementedError
@@ -9843,12 +9615,10 @@ class RdsApi:
         If you specify a ``SubscriptionName``, lists the description for that
         subscription.
 
-        :param subscription_name: The name of the RDS event notification subscription you want to
-        describe.
+        :param subscription_name: The name of the RDS event notification subscription you want to describe.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        DescribeOrderableDBInstanceOptions request.
+        :param marker: An optional pagination token provided by a previous DescribeOrderableDBInstanceOptions request.
         :returns: EventSubscriptionsMessage
         :raises SubscriptionNotFoundFault:
         """
@@ -9886,17 +9656,13 @@ class RdsApi:
 
         :param source_identifier: The identifier of the event source for which events are returned.
         :param source_type: The event source to retrieve events for.
-        :param start_time: The beginning of the time interval to retrieve events for, specified in
-        ISO 8601 format.
-        :param end_time: The end of the time interval for which to retrieve events, specified in
-        ISO 8601 format.
+        :param start_time: The beginning of the time interval to retrieve events for, specified in ISO 8601 format.
+        :param end_time: The end of the time interval for which to retrieve events, specified in ISO 8601 format.
         :param duration: The number of minutes to retrieve events for.
-        :param event_categories: A list of event categories that trigger notifications for a event
-        notification subscription.
+        :param event_categories: A list of event categories that trigger notifications for a event notification subscription.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous DescribeEvents
-        request.
+        :param marker: An optional pagination token provided by a previous DescribeEvents request.
         :returns: EventsMessage
         """
         raise NotImplementedError
@@ -9917,11 +9683,9 @@ class RdsApi:
         This API operation supports pagination.
 
         :param export_task_identifier: The identifier of the snapshot or cluster export task to be described.
-        :param source_arn: The Amazon Resource Name (ARN) of the snapshot or cluster exported to
-        Amazon S3.
+        :param source_arn: The Amazon Resource Name (ARN) of the snapshot or cluster exported to Amazon S3.
         :param filters: Filters specify one or more snapshot or cluster exports to describe.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeExportTasks`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeExportTasks`` request.
         :param max_records: The maximum number of records to include in the response.
         :param source_type: The type of source for the export.
         :returns: ExportTasksMessage
@@ -9949,11 +9713,9 @@ class RdsApi:
         This action only applies to Aurora DB clusters.
 
         :param global_cluster_identifier: The user-supplied DB cluster identifier.
-        :param filters: A filter that specifies one or more global database clusters to
-        describe.
+        :param filters: A filter that specifies one or more global database clusters to describe.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeGlobalClusters`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeGlobalClusters`` request.
         :returns: GlobalClustersMessage
         :raises GlobalClusterNotFoundFault:
         """
@@ -9974,8 +9736,7 @@ class RdsApi:
         :param integration_identifier: The unique identifier of the integration.
         :param filters: A filter that specifies one or more resources to return.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeIntegrations`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeIntegrations`` request.
         :returns: DescribeIntegrationsResponse
         :raises IntegrationNotFoundFault:
         """
@@ -9995,8 +9756,7 @@ class RdsApi:
         """Describes all available options for the specified engine.
 
         :param engine_name: The name of the engine to describe options for.
-        :param major_engine_version: If specified, filters the results to include only options for the
-        specified major engine version.
+        :param major_engine_version: If specified, filters the results to include only options for the specified major engine version.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional pagination token provided by a previous request.
@@ -10020,13 +9780,10 @@ class RdsApi:
 
         :param option_group_name: The name of the option group to describe.
         :param filters: This parameter isn't currently supported.
-        :param marker: An optional pagination token provided by a previous DescribeOptionGroups
-        request.
+        :param marker: An optional pagination token provided by a previous DescribeOptionGroups request.
         :param max_records: The maximum number of records to include in the response.
-        :param engine_name: A filter to only include option groups associated with this database
-        engine.
-        :param major_engine_version: Filters the list of option groups to only include groups associated with
-        a specific database engine version.
+        :param engine_name: A filter to only include option groups associated with this database engine.
+        :param major_engine_version: Filters the list of option groups to only include groups associated with a specific database engine version.
         :returns: OptionGroups
         :raises OptionGroupNotFoundFault:
         """
@@ -10050,18 +9807,14 @@ class RdsApi:
         """Describes the orderable DB instance options for a specified DB engine.
 
         :param engine: The name of the database engine to describe DB instance options for.
-        :param engine_version: A filter to include only the available options for the specified engine
-        version.
-        :param db_instance_class: A filter to include only the available options for the specified DB
-        instance class.
-        :param license_model: A filter to include only the available options for the specified license
-        model.
+        :param engine_version: A filter to include only the available options for the specified engine version.
+        :param db_instance_class: A filter to include only the available options for the specified DB instance class.
+        :param license_model: A filter to include only the available options for the specified license model.
         :param availability_zone_group: The Availability Zone group associated with a Local Zone.
         :param vpc: Specifies whether to show only VPC or non-VPC offerings.
         :param filters: This parameter isn't currently supported.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        DescribeOrderableDBInstanceOptions request.
+        :param marker: An optional pagination token provided by a previous DescribeOrderableDBInstanceOptions request.
         :returns: OrderableDBInstanceOptionsMessage
         """
         raise NotImplementedError
@@ -10086,10 +9839,8 @@ class RdsApi:
         using a previous API command such as ``ApplyPendingMaintenanceActions``.
 
         :param resource_identifier: The ARN of a resource to return pending maintenance actions for.
-        :param filters: A filter that specifies one or more resources to return pending
-        maintenance actions for.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribePendingMaintenanceActions`` request.
+        :param filters: A filter that specifies one or more resources to return pending maintenance actions for.
+        :param marker: An optional pagination token provided by a previous ``DescribePendingMaintenanceActions`` request.
         :param max_records: The maximum number of records to include in the response.
         :returns: PendingMaintenanceActionsMessage
         :raises ResourceNotFoundFault:
@@ -10189,8 +9940,7 @@ class RdsApi:
 
         :param region_name: The source Amazon Web Services Region name.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeSourceRegions`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeSourceRegions`` request.
         :param filters: This parameter isn't currently supported.
         :returns: SourceRegionMessage
         """
@@ -10211,15 +9961,10 @@ class RdsApi:
         multi-tenant configuration. Only RDS for Oracle CDB instances are
         supported.
 
-        :param db_instance_identifier: The user-supplied DB instance identifier, which must match the
-        identifier of an existing instance owned by the Amazon Web Services
-        account.
-        :param tenant_db_name: The user-supplied tenant database name, which must match the name of an
-        existing tenant database on the specified DB instance owned by your
-        Amazon Web Services account.
+        :param db_instance_identifier: The user-supplied DB instance identifier, which must match the identifier of an existing instance owned by the Amazon Web Services account.
+        :param tenant_db_name: The user-supplied tenant database name, which must match the name of an existing tenant database on the specified DB instance owned by your Amazon Web Services account.
         :param filters: A filter that specifies one or more database tenants to describe.
-        :param marker: An optional pagination token provided by a previous
-        ``DescribeTenantDatabases`` request.
+        :param marker: An optional pagination token provided by a previous ``DescribeTenantDatabases`` request.
         :param max_records: The maximum number of records to include in the response.
         :returns: TenantDatabasesMessage
         :raises DBInstanceNotFoundFault:
@@ -10287,8 +10032,7 @@ class RdsApi:
         `GetLogEvents <https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_GetLogEvents.html>`__
         in the *Amazon CloudWatch Logs API Reference*.
 
-        :param db_instance_identifier: The customer-assigned name of the DB instance that contains the log
-        files you want to list.
+        :param db_instance_identifier: The customer-assigned name of the DB instance that contains the log files you want to list.
         :param log_file_name: The name of the log file to be downloaded.
         :param marker: The pagination token provided in the previous request or "0".
         :param number_of_lines: The number of lines to download.
@@ -10432,12 +10176,9 @@ class RdsApi:
            databases <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html#aurora-global-database-disaster-recovery.managed-failover>`__
            in the *Amazon Aurora User Guide*.
 
-        :param global_cluster_identifier: The identifier of the global database cluster (Aurora global database)
-        this operation should apply to.
-        :param target_db_cluster_identifier: The identifier of the secondary Aurora DB cluster that you want to
-        promote to the primary for the global database cluster.
-        :param allow_data_loss: Specifies whether to allow data loss for this global database cluster
-        operation.
+        :param global_cluster_identifier: The identifier of the global database cluster (Aurora global database) this operation should apply to.
+        :param target_db_cluster_identifier: The identifier of the secondary Aurora DB cluster that you want to promote to the primary for the global database cluster.
+        :param allow_data_loss: Specifies whether to allow data loss for this global database cluster operation.
         :param switchover: Specifies whether to switch over this global database cluster.
         :returns: FailoverGlobalClusterResult
         :raises InvalidDBClusterStateFault:
@@ -10500,8 +10241,7 @@ class RdsApi:
 
         This operation is supported for RDS for Oracle and Microsoft SQL Server.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the RDS for Oracle or Microsoft SQL
-        Server DB instance.
+        :param resource_arn: The Amazon Resource Name (ARN) of the RDS for Oracle or Microsoft SQL Server DB instance.
         :param audit_policy_state: The audit policy state.
         :returns: ModifyActivityStreamResponse
         :raises ResourceNotFoundFault:
@@ -10596,11 +10336,8 @@ class RdsApi:
 
         :param db_cluster_identifier: The DB cluster identifier for the cluster being modified.
         :param capacity: The DB cluster capacity.
-        :param seconds_before_timeout: The amount of time, in seconds, that Aurora Serverless v1 tries to find
-        a scaling point to perform seamless scaling before enforcing the timeout
-        action.
-        :param timeout_action: The action to take when the timeout is reached, either
-        ``ForceApplyCapacityChange`` or ``RollbackCapacityChange``.
+        :param seconds_before_timeout: The amount of time, in seconds, that Aurora Serverless v1 tries to find a scaling point to perform seamless scaling before enforcing the timeout action.
+        :param timeout_action: The action to take when the timeout is reached, either ``ForceApplyCapacityChange`` or ``RollbackCapacityChange``.
         :returns: DBClusterCapacityInfo
         :raises InvalidDBClusterCapacityFault:
         :raises InvalidDBClusterStateFault:
@@ -10709,81 +10446,51 @@ class RdsApi:
         in the *Amazon RDS User Guide*.
 
         :param db_cluster_identifier: The DB cluster identifier for the cluster being modified.
-        :param new_db_cluster_identifier: The new DB cluster identifier for the DB cluster when renaming a DB
-        cluster.
-        :param apply_immediately: Specifies whether the modifications in this request are asynchronously
-        applied as soon as possible, regardless of the
-        ``PreferredMaintenanceWindow`` setting for the DB cluster.
+        :param new_db_cluster_identifier: The new DB cluster identifier for the DB cluster when renaming a DB cluster.
+        :param apply_immediately: Specifies whether the modifications in this request are asynchronously applied as soon as possible, regardless of the ``PreferredMaintenanceWindow`` setting for the DB cluster.
         :param backup_retention_period: The number of days for which automated backups are retained.
         :param db_cluster_parameter_group_name: The name of the DB cluster parameter group to use for the DB cluster.
         :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB cluster.
         :param port: The port number on which the DB cluster accepts connections.
         :param master_user_password: The new password for the master database user.
         :param option_group_name: The option group to associate the DB cluster with.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled, using the ``BackupRetentionPeriod``
-        parameter.
-        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in
-        Universal Coordinated Time (UTC).
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled, using the ``BackupRetentionPeriod`` parameter.
+        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC).
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
         :param backtrack_window: The target backtrack window, in seconds.
-        :param cloudwatch_logs_export_configuration: The configuration setting for the log types to be enabled for export to
-        CloudWatch Logs for a specific DB cluster.
+        :param cloudwatch_logs_export_configuration: The configuration setting for the log types to be enabled for export to CloudWatch Logs for a specific DB cluster.
         :param engine_version: The version number of the database engine to which you want to upgrade.
         :param allow_major_version_upgrade: Specifies whether major version upgrades are allowed.
-        :param db_instance_parameter_group_name: The name of the DB parameter group to apply to all instances of the DB
-        cluster.
+        :param db_instance_parameter_group_name: The name of the DB parameter group to apply to all instances of the DB cluster.
         :param domain: The Active Directory directory ID to move the DB cluster to.
-        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory
-        Service.
+        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory Service.
         :param scaling_configuration: The scaling properties of the DB cluster.
         :param deletion_protection: Specifies whether the DB cluster has deletion protection enabled.
-        :param enable_http_endpoint: Specifies whether to enable the HTTP endpoint for an Aurora Serverless
-        v1 DB cluster.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB cluster to snapshots of
-        the DB cluster.
-        :param enable_global_write_forwarding: Specifies whether to enable this DB cluster to forward write operations
-        to the primary cluster of a global cluster (Aurora global database).
-        :param db_cluster_instance_class: The compute and memory capacity of each DB instance in the Multi-AZ DB
-        cluster, for example ``db.
-        :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate to each DB instance
-        in the Multi-AZ DB cluster.
+        :param enable_http_endpoint: Specifies whether to enable the HTTP endpoint for an Aurora Serverless v1 DB cluster.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB cluster to snapshots of the DB cluster.
+        :param enable_global_write_forwarding: Specifies whether to enable this DB cluster to forward write operations to the primary cluster of a global cluster (Aurora global database).
+        :param db_cluster_instance_class: The compute and memory capacity of each DB instance in the Multi-AZ DB cluster, for example ``db.
+        :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate to each DB instance in the Multi-AZ DB cluster.
         :param storage_type: The storage type to associate with the DB cluster.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        be initially allocated for each DB instance in the Multi-AZ DB cluster.
-        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the
-        DB cluster during the maintenance window.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to be initially allocated for each DB instance in the Multi-AZ DB cluster.
+        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the DB cluster during the maintenance window.
         :param network_type: The network type of the DB cluster.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
-        cluster.
-        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
-        metrics are collected for the DB cluster.
-        :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send
-        Enhanced Monitoring metrics to Amazon CloudWatch Logs.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB cluster.
+        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB cluster.
+        :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send Enhanced Monitoring metrics to Amazon CloudWatch Logs.
         :param database_insights_mode: Specifies the mode of Database Insights to enable for the DB cluster.
         :param enable_performance_insights: Specifies whether to turn on Performance Insights for the DB cluster.
-        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
-        Insights data.
+        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager.
-        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services
-        Secrets Manager for the master user password.
-        :param enable_local_write_forwarding: Specifies whether read replicas can forward write operations to the
-        writer DB instance in the DB cluster.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
-        :param engine_mode: The DB engine mode of the DB cluster, either ``provisioned`` or
-        ``serverless``.
-        :param allow_engine_mode_change: Specifies whether engine mode changes from ``serverless`` to
-        ``provisioned`` are allowed.
-        :param aws_backup_recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point in Amazon Web
-        Services Backup.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.
+        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password.
+        :param enable_local_write_forwarding: Specifies whether read replicas can forward write operations to the writer DB instance in the DB cluster.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
+        :param engine_mode: The DB engine mode of the DB cluster, either ``provisioned`` or ``serverless``.
+        :param allow_engine_mode_change: Specifies whether engine mode changes from ``serverless`` to ``provisioned`` are allowed.
+        :param aws_backup_recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point in Amazon Web Services Backup.
         :param enable_limitless_database: Specifies whether to enable Aurora Limitless Database.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the DB cluster's server
-        certificate.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the DB cluster's server certificate.
         :param master_user_authentication_type: Specifies the authentication type for the master user.
         :returns: ModifyDBClusterResult
         :raises StorageQuotaExceededFault:
@@ -10826,10 +10533,8 @@ class RdsApi:
 
         :param db_cluster_endpoint_identifier: The identifier of the endpoint to modify.
         :param endpoint_type: The type of the endpoint.
-        :param static_members: List of DB instance identifiers that are part of the custom endpoint
-        group.
-        :param excluded_members: List of DB instance identifiers that aren't part of the custom endpoint
-        group.
+        :param static_members: List of DB instance identifiers that are part of the custom endpoint group.
+        :param excluded_members: List of DB instance identifiers that aren't part of the custom endpoint group.
         :returns: DBClusterEndpoint
         :raises DBClusterEndpointNotFoundFault:
         :raises DBInstanceNotFoundFault:
@@ -10915,10 +10620,8 @@ class RdsApi:
 
         :param db_cluster_snapshot_identifier: The identifier for the DB cluster snapshot to modify the attributes for.
         :param attribute_name: The name of the DB cluster snapshot attribute to modify.
-        :param values_to_add: A list of DB cluster snapshot attributes to add to the attribute
-        specified by ``AttributeName``.
-        :param values_to_remove: A list of DB cluster snapshot attributes to remove from the attribute
-        specified by ``AttributeName``.
+        :param values_to_add: A list of DB cluster snapshot attributes to add to the attribute specified by ``AttributeName``.
+        :param values_to_remove: A list of DB cluster snapshot attributes to remove from the attribute specified by ``AttributeName``.
         :returns: ModifyDBClusterSnapshotAttributeResult
         :raises DBClusterSnapshotNotFoundFault:
         :raises SharedSnapshotQuotaExceededFault:
@@ -11003,104 +10706,67 @@ class RdsApi:
         call ``ModifyDBInstance``.
 
         :param db_instance_identifier: The identifier of DB instance to modify.
-        :param allocated_storage: The new amount of storage in gibibytes (GiB) to allocate for the DB
-        instance.
-        :param db_instance_class: The new compute and memory capacity of the DB instance, for example
-        ``db.
+        :param allocated_storage: The new amount of storage in gibibytes (GiB) to allocate for the DB instance.
+        :param db_instance_class: The new compute and memory capacity of the DB instance, for example ``db.
         :param db_subnet_group_name: The new DB subnet group for the DB instance.
         :param db_security_groups: A list of DB security groups to authorize on this DB instance.
-        :param vpc_security_group_ids: A list of Amazon EC2 VPC security groups to associate with this DB
-        instance.
-        :param apply_immediately: Specifies whether the modifications in this request and any pending
-        modifications are asynchronously applied as soon as possible, regardless
-        of the ``PreferredMaintenanceWindow`` setting for the DB instance.
+        :param vpc_security_group_ids: A list of Amazon EC2 VPC security groups to associate with this DB instance.
+        :param apply_immediately: Specifies whether the modifications in this request and any pending modifications are asynchronously applied as soon as possible, regardless of the ``PreferredMaintenanceWindow`` setting for the DB instance.
         :param master_user_password: The new password for the master user.
         :param db_parameter_group_name: The name of the DB parameter group to apply to the DB instance.
         :param backup_retention_period: The number of days to retain automated backups.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled, as determined by the
-        ``BackupRetentionPeriod`` parameter.
-        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, which
-        might result in an outage.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled, as determined by the ``BackupRetentionPeriod`` parameter.
+        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, which might result in an outage.
         :param multi_az: Specifies whether the DB instance is a Multi-AZ deployment.
         :param engine_version: The version number of the database engine to upgrade to.
         :param allow_major_version_upgrade: Specifies whether major version upgrades are allowed.
-        :param auto_minor_version_upgrade: Specifies whether minor version upgrades are applied automatically to
-        the DB instance during the maintenance window.
+        :param auto_minor_version_upgrade: Specifies whether minor version upgrades are applied automatically to the DB instance during the maintenance window.
         :param license_model: The license model for the DB instance.
-        :param iops: The new Provisioned IOPS (I/O operations per second) value for the RDS
-        instance.
+        :param iops: The new Provisioned IOPS (I/O operations per second) value for the RDS instance.
         :param storage_throughput: The storage throughput value for the DB instance.
         :param option_group_name: The option group to associate the DB instance with.
         :param new_db_instance_identifier: The new identifier for the DB instance when renaming a DB instance.
         :param storage_type: The storage type to associate with the DB instance.
-        :param tde_credential_arn: The ARN from the key store with which to associate the instance for TDE
-        encryption.
-        :param tde_credential_password: The password for the given ARN from the key store in order to access the
-        device.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
-        certificate.
+        :param tde_credential_arn: The ARN from the key store with which to associate the instance for TDE encryption.
+        :param tde_credential_password: The password for the given ARN from the key store in order to access the device.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server certificate.
         :param domain: The Active Directory directory ID to move the DB instance to.
         :param domain_fqdn: The fully qualified domain name (FQDN) of an Active Directory domain.
         :param domain_ou: The Active Directory organizational unit for your DB instance to join.
-        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user
-        joining the domain.
-        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory
-        domain controllers.
-        :param disable_domain: Specifies whether to remove the DB instance from the Active Directory
-        domain.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB instance to snapshots of
-        the DB instance.
-        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
-        metrics are collected for the DB instance.
+        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user joining the domain.
+        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory domain controllers.
+        :param disable_domain: Specifies whether to remove the DB instance from the Active Directory domain.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB instance to snapshots of the DB instance.
+        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB instance.
         :param db_port_number: The port number on which the database accepts connections.
         :param publicly_accessible: Specifies whether the DB instance is publicly accessible.
-        :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring
-        metrics to Amazon CloudWatch Logs.
-        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory
-        Service.
-        :param promotion_tier: The order of priority in which an Aurora Replica is promoted to the
-        primary instance after a failure of the existing primary instance.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
+        :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring metrics to Amazon CloudWatch Logs.
+        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory Service.
+        :param promotion_tier: The order of priority in which an Aurora Replica is promoted to the primary instance after a failure of the existing primary instance.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
         :param database_insights_mode: Specifies the mode of Database Insights to enable for the DB instance.
         :param enable_performance_insights: Specifies whether to enable Performance Insights for the DB instance.
-        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
-        Insights data.
+        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
-        :param cloudwatch_logs_export_configuration: The log types to be enabled for export to CloudWatch Logs for a specific
-        DB instance.
-        :param processor_features: The number of CPU cores and the number of threads per core for the DB
-        instance class of the DB instance.
-        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its
-        default processor features.
+        :param cloudwatch_logs_export_configuration: The log types to be enabled for export to CloudWatch Logs for a specific DB instance.
+        :param processor_features: The number of CPU cores and the number of threads per core for the DB instance class of the DB instance.
+        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its default processor features.
         :param deletion_protection: Specifies whether the DB instance has deletion protection enabled.
-        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
-        scale the storage of the DB instance.
-        :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your
-        SSL/TLS certificate.
+        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically scale the storage of the DB instance.
+        :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate.
         :param replica_mode: The open mode of a replica database.
         :param automation_mode: The automation mode of the RDS Custom DB instance.
         :param resume_full_automation_mode_minutes: The number of minutes to pause the automation.
-        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
-        RDS on Outposts DB instance.
+        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an RDS on Outposts DB instance.
         :param network_type: The network type of the DB instance.
-        :param aws_backup_recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point in Amazon Web
-        Services Backup.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager.
-        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services
-        Secrets Manager for the master user password.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
-        :param multi_tenant: Specifies whether the to convert your DB instance from the single-tenant
-        conﬁguration to the multi-tenant conﬁguration.
-        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
-        enabled.
+        :param aws_backup_recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point in Amazon Web Services Backup.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.
+        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
+        :param multi_tenant: Specifies whether the to convert your DB instance from the single-tenant conﬁguration to the multi-tenant conﬁguration.
+        :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV) enabled.
         :param engine: The target Oracle DB engine when you convert a non-CDB to a CDB.
-        :param additional_storage_volumes: A list of additional storage volumes to modify or delete for the DB
-        instance.
+        :param additional_storage_volumes: A list of additional storage volumes to modify or delete for the DB instance.
         :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :param master_user_authentication_type: Specifies the authentication type for the master user.
         :returns: ModifyDBInstanceResult
@@ -11156,8 +10822,7 @@ class RdsApi:
         has been created or modified.
 
         :param db_parameter_group_name: The name of the DB parameter group.
-        :param parameters: An array of parameter names, values, and the application methods for the
-        parameter update.
+        :param parameters: An array of parameter names, values, and the application methods for the parameter update.
         :returns: DBParameterGroupNameMessage
         :raises DBParameterGroupNotFoundFault:
         :raises InvalidDBParameterGroupStateFault:
@@ -11183,18 +10848,12 @@ class RdsApi:
 
         :param db_proxy_name: The identifier for the ``DBProxy`` to modify.
         :param new_db_proxy_name: The new identifier for the ``DBProxy``.
-        :param default_auth_scheme: The default authentication scheme that the proxy uses for client
-        connections to the proxy and connections from the proxy to the
-        underlying database.
+        :param default_auth_scheme: The default authentication scheme that the proxy uses for client connections to the proxy and connections from the proxy to the underlying database.
         :param auth: The new authentication settings for the ``DBProxy``.
-        :param require_tls: Whether Transport Layer Security (TLS) encryption is required for
-        connections to the proxy.
-        :param idle_client_timeout: The number of seconds that a connection to the proxy can be inactive
-        before the proxy disconnects it.
-        :param debug_logging: Specifies whether the proxy logs detailed connection and query
-        information.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the proxy uses to
-        access secrets in Amazon Web Services Secrets Manager.
+        :param require_tls: Whether Transport Layer Security (TLS) encryption is required for connections to the proxy.
+        :param idle_client_timeout: The number of seconds that a connection to the proxy can be inactive before the proxy disconnects it.
+        :param debug_logging: Specifies whether the proxy logs detailed connection and query information.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the proxy uses to access secrets in Amazon Web Services Secrets Manager.
         :param security_groups: The new list of security groups for the ``DBProxy``.
         :returns: ModifyDBProxyResponse
         :raises DBProxyNotFoundFault:
@@ -11214,8 +10873,7 @@ class RdsApi:
     ) -> ModifyDBProxyEndpointResponse:
         """Changes the settings for an existing DB proxy endpoint.
 
-        :param db_proxy_endpoint_name: The name of the DB proxy sociated with the DB proxy endpoint that you
-        want to modify.
+        :param db_proxy_endpoint_name: The name of the DB proxy sociated with the DB proxy endpoint that you want to modify.
         :param new_db_proxy_endpoint_name: The new identifier for the ``DBProxyEndpoint``.
         :param vpc_security_group_ids: The VPC security group IDs for the DB proxy endpoint.
         :returns: ModifyDBProxyEndpointResponse
@@ -11240,8 +10898,7 @@ class RdsApi:
 
         :param target_group_name: The name of the target group to modify.
         :param db_proxy_name: The name of the proxy.
-        :param connection_pool_config: The settings that determine the size and behavior of the connection pool
-        for the target group.
+        :param connection_pool_config: The settings that determine the size and behavior of the connection pool for the target group.
         :param new_name: The new name for the modified ``DBProxyTarget``.
         :returns: ModifyDBProxyTargetGroupResponse
         :raises DBProxyNotFoundFault:
@@ -11286,12 +10943,9 @@ class RdsApi:
         the new values in the request.
 
         :param db_shard_group_identifier: The name of the DB shard group to modify.
-        :param max_acu: The maximum capacity of the DB shard group in Aurora capacity units
-        (ACUs).
-        :param min_acu: The minimum capacity of the DB shard group in Aurora capacity units
-        (ACUs).
-        :param compute_redundancy: Specifies whether to create standby DB shard groups for the DB shard
-        group.
+        :param max_acu: The maximum capacity of the DB shard group in Aurora capacity units (ACUs).
+        :param min_acu: The minimum capacity of the DB shard group in Aurora capacity units (ACUs).
+        :param compute_redundancy: Specifies whether to create standby DB shard groups for the DB shard group.
         :returns: DBShardGroup
         :raises DBShardGroupAlreadyExistsFault:
         :raises InvalidDBClusterStateFault:
@@ -11361,10 +11015,8 @@ class RdsApi:
 
         :param db_snapshot_identifier: The identifier for the DB snapshot to modify the attributes for.
         :param attribute_name: The name of the DB snapshot attribute to modify.
-        :param values_to_add: A list of DB snapshot attributes to add to the attribute specified by
-        ``AttributeName``.
-        :param values_to_remove: A list of DB snapshot attributes to remove from the attribute specified
-        by ``AttributeName``.
+        :param values_to_add: A list of DB snapshot attributes to add to the attribute specified by ``AttributeName``.
+        :param values_to_remove: A list of DB snapshot attributes to remove from the attribute specified by ``AttributeName``.
         :returns: ModifyDBSnapshotAttributeResult
         :raises SharedSnapshotQuotaExceededFault:
         :raises DBSnapshotNotFoundFault:
@@ -11421,11 +11073,9 @@ class RdsApi:
         ``DescribeEventCategories`` operation.
 
         :param subscription_name: The name of the RDS event notification subscription.
-        :param sns_topic_arn: The Amazon Resource Name (ARN) of the SNS topic created for event
-        notification.
+        :param sns_topic_arn: The Amazon Resource Name (ARN) of the SNS topic created for event notification.
         :param source_type: The type of source that is generating the events.
-        :param event_categories: A list of event categories for a source type (``SourceType``) that you
-        want to subscribe to.
+        :param event_categories: A list of event categories for a source type (``SourceType``) that you want to subscribe to.
         :param enabled: Specifies whether to activate the subscription.
         :returns: ModifyEventSubscriptionResult
         :raises SNSTopicArnNotFoundFault:
@@ -11459,8 +11109,7 @@ class RdsApi:
 
         :param global_cluster_identifier: The cluster identifier for the global cluster to modify.
         :param new_global_cluster_identifier: The new cluster identifier for the global database cluster.
-        :param deletion_protection: Specifies whether to enable deletion protection for the global database
-        cluster.
+        :param deletion_protection: Specifies whether to enable deletion protection for the global database cluster.
         :param engine_version: The version number of the database engine to which you want to upgrade.
         :param allow_major_version_upgrade: Specifies whether to allow major version upgrades.
         :returns: ModifyGlobalClusterResult
@@ -11508,12 +11157,9 @@ class RdsApi:
         """Modifies an existing option group.
 
         :param option_group_name: The name of the option group to be modified.
-        :param options_to_include: Options in this list are added to the option group or, if already
-        present, the specified configuration is used to update the existing
-        configuration.
+        :param options_to_include: Options in this list are added to the option group or, if already present, the specified configuration is used to update the existing configuration.
         :param options_to_remove: Options in this list are removed from the option group.
-        :param apply_immediately: Specifies whether to apply the change immediately or during the next
-        maintenance window for each instance associated with the option group.
+        :param apply_immediately: Specifies whether to apply the change immediately or during the next maintenance window for each instance associated with the option group.
         :returns: ModifyOptionGroupResult
         :raises OptionGroupNotFoundFault:
         :raises InvalidOptionGroupStateFault:
@@ -11538,19 +11184,13 @@ class RdsApi:
         supported only for RDS for Oracle CDB instances using the multi-tenant
         configuration.
 
-        :param db_instance_identifier: The identifier of the DB instance that contains the tenant database that
-        you are modifying.
+        :param db_instance_identifier: The identifier of the DB instance that contains the tenant database that you are modifying.
         :param tenant_db_name: The user-supplied name of the tenant database that you want to modify.
-        :param master_user_password: The new password for the master user of the specified tenant database in
-        your DB instance.
+        :param master_user_password: The new password for the master user of the specified tenant database in your DB instance.
         :param new_tenant_db_name: The new name of the tenant database when renaming a tenant database.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager.
-        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services
-        Secrets Manager for the master user password.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.
+        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
         :returns: ModifyTenantDatabaseResult
         :raises TenantDatabaseNotFoundFault:
         :raises DBInstanceNotFoundFault:
@@ -11586,9 +11226,7 @@ class RdsApi:
 
         :param db_instance_identifier: The DB instance identifier.
         :param backup_retention_period: The number of days for which automated backups are retained.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled, using the ``BackupRetentionPeriod``
-        parameter.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled, using the ``BackupRetentionPeriod`` parameter.
         :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :returns: PromoteReadReplicaResult
         :raises DBInstanceNotFoundFault:
@@ -11725,8 +11363,7 @@ class RdsApi:
         """Associate one or more ``DBProxyTarget`` data structures with a
         ``DBProxyTargetGroup``.
 
-        :param db_proxy_name: The identifier of the ``DBProxy`` that is associated with the
-        ``DBProxyTargetGroup``.
+        :param db_proxy_name: The identifier of the ``DBProxy`` that is associated with the ``DBProxyTargetGroup``.
         :param target_group_name: The identifier of the ``DBProxyTargetGroup``.
         :param db_instance_identifiers: One or more DB instance identifiers.
         :param db_cluster_identifiers: One or more DB cluster identifiers.
@@ -11758,10 +11395,8 @@ class RdsApi:
 
         This operation only applies to Aurora DB clusters.
 
-        :param global_cluster_identifier: The cluster identifier to detach from the Aurora global database
-        cluster.
-        :param db_cluster_identifier: The Amazon Resource Name (ARN) identifying the cluster that was detached
-        from the Aurora global database cluster.
+        :param global_cluster_identifier: The cluster identifier to detach from the Aurora global database cluster.
+        :param db_cluster_identifier: The Amazon Resource Name (ARN) identifying the cluster that was detached from the Aurora global database cluster.
         :returns: RemoveFromGlobalClusterResult
         :raises InvalidDBClusterStateFault:
         :raises InvalidGlobalClusterStateFault:
@@ -11791,11 +11426,8 @@ class RdsApi:
         in the *Amazon RDS User Guide.*
 
         :param db_cluster_identifier: The name of the DB cluster to disassociate the IAM role from.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to disassociate from the
-        Aurora DB cluster, for example
-        ``arn:aws:iam::123456789012:role/AuroraAccessRole``.
-        :param feature_name: The name of the feature for the DB cluster that the IAM role is to be
-        disassociated from.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to disassociate from the Aurora DB cluster, for example ``arn:aws:iam::123456789012:role/AuroraAccessRole``.
+        :param feature_name: The name of the feature for the DB cluster that the IAM role is to be disassociated from.
         :raises InvalidDBClusterStateFault:
         :raises DBClusterRoleNotFoundFault:
         :raises DBClusterNotFoundFault:
@@ -11815,10 +11447,8 @@ class RdsApi:
         (IAM) role from a DB instance.
 
         :param db_instance_identifier: The name of the DB instance to disassociate the IAM role from.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to disassociate from the
-        DB instance, for example, ``arn:aws:iam::123456789012:role/AccessRole``.
-        :param feature_name: The name of the feature for the DB instance that the IAM role is to be
-        disassociated from.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to disassociate from the DB instance, for example, ``arn:aws:iam::123456789012:role/AccessRole``.
+        :param feature_name: The name of the feature for the DB instance that the IAM role is to be disassociated from.
         :raises DBInstanceNotFoundFault:
         :raises DBInstanceRoleNotFoundFault:
         :raises InvalidDBInstanceStateFault:
@@ -11836,11 +11466,8 @@ class RdsApi:
         """Removes a source identifier from an existing RDS event notification
         subscription.
 
-        :param subscription_name: The name of the RDS event notification subscription you want to remove a
-        source identifier from.
-        :param source_identifier: The source identifier to be removed from the subscription, such as the
-        **DB instance identifier** for a DB instance or the name of a security
-        group.
+        :param subscription_name: The name of the RDS event notification subscription you want to remove a source identifier from.
+        :param source_identifier: The source identifier to be removed from the subscription, such as the **DB instance identifier** for a DB instance or the name of a security group.
         :returns: RemoveSourceIdentifierFromSubscriptionResult
         :raises SourceNotFoundFault:
         :raises SubscriptionNotFoundFault:
@@ -11909,10 +11536,8 @@ class RdsApi:
         in the *Amazon RDS User Guide.*
 
         :param db_cluster_parameter_group_name: The name of the DB cluster parameter group to reset.
-        :param reset_all_parameters: Specifies whether to reset all parameters in the DB cluster parameter
-        group to their default values.
-        :param parameters: A list of parameter names in the DB cluster parameter group to reset to
-        the default values.
+        :param reset_all_parameters: Specifies whether to reset all parameters in the DB cluster parameter group to their default values.
+        :param parameters: A list of parameter names in the DB cluster parameter group to reset to the default values.
         :returns: DBClusterParameterGroupNameMessage
         :raises DBParameterGroupNotFoundFault:
         :raises InvalidDBParameterGroupStateFault:
@@ -11938,10 +11563,8 @@ class RdsApi:
         ``RebootDBInstance`` request.
 
         :param db_parameter_group_name: The name of the DB parameter group.
-        :param reset_all_parameters: Specifies whether to reset all parameters in the DB parameter group to
-        default values.
-        :param parameters: To reset the entire DB parameter group, specify the ``DBParameterGroup``
-        name and ``ResetAllParameters`` parameters.
+        :param reset_all_parameters: Specifies whether to reset all parameters in the DB parameter group to default values.
+        :param parameters: To reset the entire DB parameter group, specify the ``DBParameterGroup`` name and ``ResetAllParameters`` parameters.
         :returns: DBParameterGroupNameMessage
         :raises DBParameterGroupNotFoundFault:
         :raises InvalidDBParameterGroupStateFault:
@@ -12013,66 +11636,42 @@ class RdsApi:
         This operation only applies to Aurora DB clusters. The source DB engine
         must be MySQL.
 
-        :param db_cluster_identifier: The name of the DB cluster to create from the source data in the Amazon
-        S3 bucket.
+        :param db_cluster_identifier: The name of the DB cluster to create from the source data in the Amazon S3 bucket.
         :param engine: The name of the database engine to be used for this DB cluster.
         :param master_username: The name of the master user for the restored DB cluster.
-        :param source_engine: The identifier for the database engine that was backed up to create the
-        files stored in the Amazon S3 bucket.
+        :param source_engine: The identifier for the database engine that was backed up to create the files stored in the Amazon S3 bucket.
         :param source_engine_version: The version of the database that the backup files were created from.
-        :param s3_bucket_name: The name of the Amazon S3 bucket that contains the data used to create
-        the Amazon Aurora DB cluster.
-        :param s3_ingestion_role_arn: The Amazon Resource Name (ARN) of the Amazon Web Services Identity and
-        Access Management (IAM) role that authorizes Amazon RDS to access the
-        Amazon S3 bucket on your behalf.
-        :param availability_zones: A list of Availability Zones (AZs) where instances in the restored DB
-        cluster can be created.
-        :param backup_retention_period: The number of days for which automated backups of the restored DB
-        cluster are retained.
-        :param character_set_name: A value that indicates that the restored DB cluster should be associated
-        with the specified CharacterSet.
+        :param s3_bucket_name: The name of the Amazon S3 bucket that contains the data used to create the Amazon Aurora DB cluster.
+        :param s3_ingestion_role_arn: The Amazon Resource Name (ARN) of the Amazon Web Services Identity and Access Management (IAM) role that authorizes Amazon RDS to access the Amazon S3 bucket on your behalf.
+        :param availability_zones: A list of Availability Zones (AZs) where instances in the restored DB cluster can be created.
+        :param backup_retention_period: The number of days for which automated backups of the restored DB cluster are retained.
+        :param character_set_name: A value that indicates that the restored DB cluster should be associated with the specified CharacterSet.
         :param database_name: The database name for the restored DB cluster.
-        :param db_cluster_parameter_group_name: The name of the DB cluster parameter group to associate with the
-        restored DB cluster.
-        :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with the restored DB
-        cluster.
+        :param db_cluster_parameter_group_name: The name of the DB cluster parameter group to associate with the restored DB cluster.
+        :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with the restored DB cluster.
         :param db_subnet_group_name: A DB subnet group to associate with the restored DB cluster.
         :param engine_version: The version number of the database engine to use.
-        :param port: The port number on which the instances in the restored DB cluster accept
-        connections.
+        :param port: The port number on which the instances in the restored DB cluster accept connections.
         :param master_user_password: The password for the master database user.
-        :param option_group_name: A value that indicates that the restored DB cluster should be associated
-        with the specified option group.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled using the ``BackupRetentionPeriod``
-        parameter.
-        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in
-        Universal Coordinated Time (UTC).
+        :param option_group_name: A value that indicates that the restored DB cluster should be associated with the specified option group.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled using the ``BackupRetentionPeriod`` parameter.
+        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC).
         :param tags: A list of tags.
         :param storage_encrypted: Specifies whether the restored DB cluster is encrypted.
         :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted DB cluster.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
-        :param s3_prefix: The prefix for all of the file names that contain the data used to
-        create the Amazon Aurora DB cluster.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
+        :param s3_prefix: The prefix for all of the file names that contain the data used to create the Amazon Aurora DB cluster.
         :param backtrack_window: The target backtrack window, in seconds.
-        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB cluster is to export to CloudWatch
-        Logs.
+        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB cluster is to export to CloudWatch Logs.
         :param deletion_protection: Specifies whether to enable deletion protection for the DB cluster.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB cluster to
-        snapshots of the restored DB cluster.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB cluster to snapshots of the restored DB cluster.
         :param domain: Specify the Active Directory directory ID to restore the DB cluster in.
-        :param domain_iam_role_name: Specify the name of the IAM role to be used when making API calls to the
-        Directory Service.
+        :param domain_iam_role_name: Specify the name of the IAM role to be used when making API calls to the Directory Service.
         :param storage_type: Specifies the storage type to be associated with the DB cluster.
         :param network_type: The network type of the DB cluster.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
-        cluster.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB cluster.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
         :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :returns: RestoreDBClusterFromS3Result
@@ -12160,13 +11759,10 @@ class RdsApi:
         deployments <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html>`__
         in the *Amazon RDS User Guide.*
 
-        :param db_cluster_identifier: The name of the DB cluster to create from the DB snapshot or DB cluster
-        snapshot.
-        :param snapshot_identifier: The identifier for the DB snapshot or DB cluster snapshot to restore
-        from.
+        :param db_cluster_identifier: The name of the DB cluster to create from the DB snapshot or DB cluster snapshot.
+        :param snapshot_identifier: The identifier for the DB snapshot or DB cluster snapshot to restore from.
         :param engine: The database engine to use for the new DB cluster.
-        :param availability_zones: Provides the list of Availability Zones (AZs) where instances in the
-        restored DB cluster can be created.
+        :param availability_zones: Provides the list of Availability Zones (AZs) where instances in the restored DB cluster can be created.
         :param engine_version: The version of the database engine to use for the new DB cluster.
         :param port: The port number on which the new DB cluster accepts connections.
         :param db_subnet_group_name: The name of the DB subnet group to use for the new DB cluster.
@@ -12174,47 +11770,31 @@ class RdsApi:
         :param option_group_name: The name of the option group to use for the restored DB cluster.
         :param vpc_security_group_ids: A list of VPC security groups that the new DB cluster will belong to.
         :param tags: The tags to be assigned to the restored DB cluster.
-        :param kms_key_id: The Amazon Web Services KMS key identifier to use when restoring an
-        encrypted DB cluster from a DB snapshot or DB cluster snapshot.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
+        :param kms_key_id: The Amazon Web Services KMS key identifier to use when restoring an encrypted DB cluster from a DB snapshot or DB cluster snapshot.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
         :param backtrack_window: The target backtrack window, in seconds.
-        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB cluster is to export to Amazon
-        CloudWatch Logs.
-        :param engine_mode: The DB engine mode of the DB cluster, either ``provisioned`` or
-        ``serverless``.
-        :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties
-        of the DB cluster.
-        :param db_cluster_parameter_group_name: The name of the DB cluster parameter group to associate with this DB
-        cluster.
+        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB cluster is to export to Amazon CloudWatch Logs.
+        :param engine_mode: The DB engine mode of the DB cluster, either ``provisioned`` or ``serverless``.
+        :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties of the DB cluster.
+        :param db_cluster_parameter_group_name: The name of the DB cluster parameter group to associate with this DB cluster.
         :param deletion_protection: Specifies whether to enable deletion protection for the DB cluster.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB cluster to
-        snapshots of the restored DB cluster.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB cluster to snapshots of the restored DB cluster.
         :param domain: The Active Directory directory ID to restore the DB cluster in.
-        :param domain_iam_role_name: The name of the IAM role to be used when making API calls to the
-        Directory Service.
-        :param db_cluster_instance_class: The compute and memory capacity of the each DB instance in the Multi-AZ
-        DB cluster, for example db.
+        :param domain_iam_role_name: The name of the IAM role to be used when making API calls to the Directory Service.
+        :param db_cluster_instance_class: The compute and memory capacity of the each DB instance in the Multi-AZ DB cluster, for example db.
         :param storage_type: Specifies the storage type to be associated with the DB cluster.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        be initially allocated for each DB instance in the Multi-AZ DB cluster.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to be initially allocated for each DB instance in the Multi-AZ DB cluster.
         :param publicly_accessible: Specifies whether the DB cluster is publicly accessible.
         :param network_type: The network type of the DB cluster.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
-        cluster.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB cluster.
         :param rds_custom_cluster_configuration: Reserved for future use.
-        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
-        metrics are collected for the DB cluster.
-        :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send
-        Enhanced Monitoring metrics to Amazon CloudWatch Logs.
+        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB cluster.
+        :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send Enhanced Monitoring metrics to Amazon CloudWatch Logs.
         :param enable_performance_insights: Specifies whether to turn on Performance Insights for the DB cluster.
-        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
-        Insights data.
+        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
         :param backup_retention_period: The number of days for which automated backups are retained.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled, using the ``BackupRetentionPeriod``
-        parameter.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled, using the ``BackupRetentionPeriod`` parameter.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
         :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :returns: RestoreDBClusterFromSnapshotResult
@@ -12318,54 +11898,38 @@ class RdsApi:
         :param restore_type: The type of restore to be performed.
         :param source_db_cluster_identifier: The identifier of the source DB cluster from which to restore.
         :param restore_to_time: The date and time to restore the DB cluster to.
-        :param use_latest_restorable_time: Specifies whether to restore the DB cluster to the latest restorable
-        backup time.
+        :param use_latest_restorable_time: Specifies whether to restore the DB cluster to the latest restorable backup time.
         :param port: The port number on which the new DB cluster accepts connections.
         :param db_subnet_group_name: The DB subnet group name to use for the new DB cluster.
         :param option_group_name: The name of the option group for the new DB cluster.
         :param vpc_security_group_ids: A list of VPC security groups that the new DB cluster belongs to.
         :param tags: A list of tags.
-        :param kms_key_id: The Amazon Web Services KMS key identifier to use when restoring an
-        encrypted DB cluster from an encrypted DB cluster.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
+        :param kms_key_id: The Amazon Web Services KMS key identifier to use when restoring an encrypted DB cluster from an encrypted DB cluster.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
         :param backtrack_window: The target backtrack window, in seconds.
-        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB cluster is to export to CloudWatch
-        Logs.
-        :param db_cluster_parameter_group_name: The name of the custom DB cluster parameter group to associate with this
-        DB cluster.
+        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB cluster is to export to CloudWatch Logs.
+        :param db_cluster_parameter_group_name: The name of the custom DB cluster parameter group to associate with this DB cluster.
         :param deletion_protection: Specifies whether to enable deletion protection for the DB cluster.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB cluster to
-        snapshots of the restored DB cluster.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB cluster to snapshots of the restored DB cluster.
         :param domain: The Active Directory directory ID to restore the DB cluster in.
-        :param domain_iam_role_name: The name of the IAM role to be used when making API calls to the
-        Directory Service.
-        :param db_cluster_instance_class: The compute and memory capacity of the each DB instance in the Multi-AZ
-        DB cluster, for example db.
+        :param domain_iam_role_name: The name of the IAM role to be used when making API calls to the Directory Service.
+        :param db_cluster_instance_class: The compute and memory capacity of the each DB instance in the Multi-AZ DB cluster, for example db.
         :param storage_type: Specifies the storage type to be associated with the DB cluster.
         :param publicly_accessible: Specifies whether the DB cluster is publicly accessible.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        be initially allocated for each DB instance in the Multi-AZ DB cluster.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to be initially allocated for each DB instance in the Multi-AZ DB cluster.
         :param network_type: The network type of the DB cluster.
         :param source_db_cluster_resource_id: The resource ID of the source DB cluster from which to restore.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB
-        cluster.
-        :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties
-        of the DB cluster.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Aurora Serverless v2 DB cluster.
+        :param scaling_configuration: For DB clusters in ``serverless`` DB engine mode, the scaling properties of the DB cluster.
         :param engine_mode: The engine mode of the new cluster.
         :param rds_custom_cluster_configuration: Reserved for future use.
-        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
-        metrics are collected for the DB cluster.
-        :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send
-        Enhanced Monitoring metrics to Amazon CloudWatch Logs.
+        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB cluster.
+        :param monitoring_role_arn: The Amazon Resource Name (ARN) for the IAM role that permits RDS to send Enhanced Monitoring metrics to Amazon CloudWatch Logs.
         :param enable_performance_insights: Specifies whether to turn on Performance Insights for the DB cluster.
-        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
-        Insights data.
+        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
         :param backup_retention_period: The number of days for which automated backups are retained.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled, using the ``BackupRetentionPeriod``
-        parameter.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled, using the ``BackupRetentionPeriod`` parameter.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
         :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :returns: RestoreDBClusterToPointInTimeResult
@@ -12484,76 +12048,52 @@ class RdsApi:
 
         :param db_instance_identifier: The name of the DB instance to create from the DB snapshot.
         :param db_snapshot_identifier: The identifier for the DB snapshot to restore from.
-        :param db_instance_class: The compute and memory capacity of the Amazon RDS DB instance, for
-        example db.
+        :param db_instance_class: The compute and memory capacity of the Amazon RDS DB instance, for example db.
         :param port: The port number on which the database accepts connections.
         :param availability_zone: The Availability Zone (AZ) where the DB instance will be created.
         :param db_subnet_group_name: The name of the DB subnet group to use for the new instance.
         :param multi_az: Specifies whether the DB instance is a Multi-AZ deployment.
         :param publicly_accessible: Specifies whether the DB instance is publicly accessible.
-        :param auto_minor_version_upgrade: Specifies whether to automatically apply minor version upgrades to the
-        DB instance during the maintenance window.
+        :param auto_minor_version_upgrade: Specifies whether to automatically apply minor version upgrades to the DB instance during the maintenance window.
         :param license_model: License model information for the restored DB instance.
         :param db_name: The name of the database for the restored DB instance.
         :param engine: The database engine to use for the new instance.
-        :param iops: Specifies the amount of provisioned IOPS for the DB instance, expressed
-        in I/O operations per second.
+        :param iops: Specifies the amount of provisioned IOPS for the DB instance, expressed in I/O operations per second.
         :param storage_throughput: Specifies the storage throughput value for the DB instance.
         :param option_group_name: The name of the option group to be used for the restored DB instance.
         :param tags: A list of tags.
         :param storage_type: Specifies the storage type to be associated with the DB instance.
-        :param tde_credential_arn: The ARN from the key store with which to associate the instance for TDE
-        encryption.
-        :param tde_credential_password: The password for the given ARN from the key store in order to access the
-        device.
+        :param tde_credential_arn: The ARN from the key store with which to associate the instance for TDE encryption.
+        :param tde_credential_password: The password for the given ARN from the key store in order to access the device.
         :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB instance.
         :param domain: The Active Directory directory ID to restore the DB instance in.
         :param domain_fqdn: The fully qualified domain name (FQDN) of an Active Directory domain.
         :param domain_ou: The Active Directory organizational unit for your DB instance to join.
-        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user
-        joining the domain.
-        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory
-        domain controllers.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB instance to
-        snapshots of the DB instance.
-        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory
-        Service.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
-        :param enable_cloudwatch_logs_exports: The list of logs for the restored DB instance to export to CloudWatch
-        Logs.
-        :param processor_features: The number of CPU cores and the number of threads per core for the DB
-        instance class of the DB instance.
-        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its
-        default processor features.
+        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user joining the domain.
+        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory domain controllers.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB instance to snapshots of the DB instance.
+        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory Service.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
+        :param enable_cloudwatch_logs_exports: The list of logs for the restored DB instance to export to CloudWatch Logs.
+        :param processor_features: The number of CPU cores and the number of threads per core for the DB instance class of the DB instance.
+        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its default processor features.
         :param db_parameter_group_name: The name of the DB parameter group to associate with this DB instance.
         :param deletion_protection: Specifies whether to enable deletion protection for the DB instance.
-        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
-        RDS on Outposts DB instance.
+        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an RDS on Outposts DB instance.
         :param network_type: The network type of the DB instance.
-        :param backup_target: Specifies where automated backups and manual snapshots are stored for
-        the restored DB instance.
-        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
-        of an RDS Custom DB instance.
-        :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB
-        instance.
+        :param backup_target: Specifies where automated backups and manual snapshots are stored for the restored DB instance.
+        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance of an RDS Custom DB instance.
+        :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB instance.
         :param db_cluster_snapshot_identifier: The identifier for the Multi-AZ DB cluster snapshot to restore from.
         :param backup_retention_period: The number of days to retain automated backups.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled, as determined by the
-        ``BackupRetentionPeriod`` parameter.
-        :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB
-        instance.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
-        certificate.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled, as determined by the ``BackupRetentionPeriod`` parameter.
+        :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB instance.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server certificate.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
         :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
         :param tag_specifications: Tags to assign to resources associated with the DB instance.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager in the restored DB instance.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager in the restored DB instance.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
         :returns: RestoreDBInstanceFromDBSnapshotResult
         :raises AuthorizationNotFoundFault:
         :raises DBClusterSnapshotNotFoundFault:
@@ -12655,39 +12195,30 @@ class RdsApi:
         This operation doesn't apply to RDS Custom.
 
         :param db_instance_identifier: The DB instance identifier.
-        :param db_instance_class: The compute and memory capacity of the DB instance, for example
-        db.
+        :param db_instance_class: The compute and memory capacity of the DB instance, for example db.
         :param engine: The name of the database engine to be used for this instance.
         :param source_engine: The name of the engine of your source database.
         :param source_engine_version: The version of the database that the backup files were created from.
-        :param s3_bucket_name: The name of your Amazon S3 bucket that contains your database backup
-        file.
-        :param s3_ingestion_role_arn: An Amazon Web Services Identity and Access Management (IAM) role with a
-        trust policy and a permissions policy that allows Amazon RDS to access
-        your Amazon S3 bucket.
+        :param s3_bucket_name: The name of your Amazon S3 bucket that contains your database backup file.
+        :param s3_ingestion_role_arn: An Amazon Web Services Identity and Access Management (IAM) role with a trust policy and a permissions policy that allows Amazon RDS to access your Amazon S3 bucket.
         :param db_name: The name of the database to create when the DB instance is created.
-        :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB
-        instance.
+        :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB instance.
         :param master_username: The name for the master user.
         :param master_user_password: The password for the master user.
         :param db_security_groups: A list of DB security groups to associate with this DB instance.
         :param vpc_security_group_ids: A list of VPC security groups to associate with this DB instance.
         :param availability_zone: The Availability Zone that the DB instance is created in.
         :param db_subnet_group_name: A DB subnet group to associate with this DB instance.
-        :param preferred_maintenance_window: The time range each week during which system maintenance can occur, in
-        Universal Coordinated Time (UTC).
+        :param preferred_maintenance_window: The time range each week during which system maintenance can occur, in Universal Coordinated Time (UTC).
         :param db_parameter_group_name: The name of the DB parameter group to associate with this DB instance.
         :param backup_retention_period: The number of days for which automated backups are retained.
-        :param preferred_backup_window: The time range each day during which automated backups are created if
-        automated backups are enabled.
+        :param preferred_backup_window: The time range each day during which automated backups are created if automated backups are enabled.
         :param port: The port number on which the database accepts connections.
         :param multi_az: Specifies whether the DB instance is a Multi-AZ deployment.
         :param engine_version: The version number of the database engine to use.
-        :param auto_minor_version_upgrade: Specifies whether to automatically apply minor engine upgrades to the DB
-        instance during the maintenance window.
+        :param auto_minor_version_upgrade: Specifies whether to automatically apply minor engine upgrades to the DB instance during the maintenance window.
         :param license_model: The license model for this DB instance.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        allocate initially for the DB instance.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to allocate initially for the DB instance.
         :param storage_throughput: Specifies the storage throughput value for the DB instance.
         :param option_group_name: The name of the option group to associate with this DB instance.
         :param publicly_accessible: Specifies whether the DB instance is publicly accessible.
@@ -12695,42 +12226,27 @@ class RdsApi:
         :param storage_type: Specifies the storage type to be associated with the DB instance.
         :param storage_encrypted: Specifies whether the new DB instance is encrypted or not.
         :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted DB instance.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB instance to snapshots of
-        the DB instance.
-        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring
-        metrics are collected for the DB instance.
-        :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring
-        metrics to Amazon CloudWatch Logs.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the DB instance to snapshots of the DB instance.
+        :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB instance.
+        :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring metrics to Amazon CloudWatch Logs.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
         :param s3_prefix: The prefix of your Amazon S3 bucket.
         :param database_insights_mode: Specifies the mode of Database Insights to enable for the DB instance.
         :param enable_performance_insights: Specifies whether to enable Performance Insights for the DB instance.
-        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
-        Insights data.
+        :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
-        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB instance is to export to
-        CloudWatch Logs.
-        :param processor_features: The number of CPU cores and the number of threads per core for the DB
-        instance class of the DB instance.
-        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its
-        default processor features.
+        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB instance is to export to CloudWatch Logs.
+        :param processor_features: The number of CPU cores and the number of threads per core for the DB instance class of the DB instance.
+        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its default processor features.
         :param deletion_protection: Specifies whether to enable deletion protection for the DB instance.
-        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
-        scale the storage of the DB instance.
+        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically scale the storage of the DB instance.
         :param network_type: The network type of the DB instance.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
-        :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB
-        instance.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
-        certificate.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
+        :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB instance.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server certificate.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
-        :param additional_storage_volumes: A list of additional storage volumes to modify or delete for the DB
-        instance.
+        :param additional_storage_volumes: A list of additional storage volumes to modify or delete for the DB instance.
         :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :returns: RestoreDBInstanceFromS3Result
         :raises AuthorizationNotFoundFault:
@@ -12833,83 +12349,55 @@ class RdsApi:
         :param target_db_instance_identifier: The name of the new DB instance to create.
         :param source_db_instance_identifier: The identifier of the source DB instance from which to restore.
         :param restore_time: The date and time to restore from.
-        :param use_latest_restorable_time: Specifies whether the DB instance is restored from the latest backup
-        time.
-        :param db_instance_class: The compute and memory capacity of the Amazon RDS DB instance, for
-        example db.
+        :param use_latest_restorable_time: Specifies whether the DB instance is restored from the latest backup time.
+        :param db_instance_class: The compute and memory capacity of the Amazon RDS DB instance, for example db.
         :param port: The port number on which the database accepts connections.
         :param availability_zone: The Availability Zone (AZ) where the DB instance will be created.
         :param db_subnet_group_name: The DB subnet group name to use for the new instance.
         :param multi_az: Secifies whether the DB instance is a Multi-AZ deployment.
         :param publicly_accessible: Specifies whether the DB instance is publicly accessible.
-        :param auto_minor_version_upgrade: Specifies whether minor version upgrades are applied automatically to
-        the DB instance during the maintenance window.
+        :param auto_minor_version_upgrade: Specifies whether minor version upgrades are applied automatically to the DB instance during the maintenance window.
         :param license_model: The license model information for the restored DB instance.
         :param db_name: The database name for the restored DB instance.
         :param engine: The database engine to use for the new instance.
-        :param iops: The amount of Provisioned IOPS (input/output operations per second) to
-        initially allocate for the DB instance.
+        :param iops: The amount of Provisioned IOPS (input/output operations per second) to initially allocate for the DB instance.
         :param storage_throughput: The storage throughput value for the DB instance.
         :param option_group_name: The name of the option group to use for the restored DB instance.
-        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB instance to
-        snapshots of the DB instance.
+        :param copy_tags_to_snapshot: Specifies whether to copy all tags from the restored DB instance to snapshots of the DB instance.
         :param tags: A list of tags.
         :param storage_type: The storage type to associate with the DB instance.
-        :param tde_credential_arn: The ARN from the key store with which to associate the instance for TDE
-        encryption.
-        :param tde_credential_password: The password for the given ARN from the key store in order to access the
-        device.
+        :param tde_credential_arn: The ARN from the key store with which to associate the instance for TDE encryption.
+        :param tde_credential_password: The password for the given ARN from the key store in order to access the device.
         :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB instance.
         :param domain: The Active Directory directory ID to restore the DB instance in.
-        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory
-        Service.
+        :param domain_iam_role_name: The name of the IAM role to use when making API calls to the Directory Service.
         :param domain_fqdn: The fully qualified domain name (FQDN) of an Active Directory domain.
         :param domain_ou: The Active Directory organizational unit for your DB instance to join.
-        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user
-        joining the domain.
-        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory
-        domain controllers.
-        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and
-        Access Management (IAM) accounts to database accounts.
-        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB instance is to export to
-        CloudWatch Logs.
-        :param processor_features: The number of CPU cores and the number of threads per core for the DB
-        instance class of the DB instance.
-        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its
-        default processor features.
+        :param domain_auth_secret_arn: The ARN for the Secrets Manager secret with the credentials for the user joining the domain.
+        :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory domain controllers.
+        :param enable_iam_database_authentication: Specifies whether to enable mapping of Amazon Web Services Identity and Access Management (IAM) accounts to database accounts.
+        :param enable_cloudwatch_logs_exports: The list of logs that the restored DB instance is to export to CloudWatch Logs.
+        :param processor_features: The number of CPU cores and the number of threads per core for the DB instance class of the DB instance.
+        :param use_default_processor_features: Specifies whether the DB instance class of the DB instance uses its default processor features.
         :param db_parameter_group_name: The name of the DB parameter group to associate with this DB instance.
         :param deletion_protection: Specifies whether the DB instance has deletion protection enabled.
         :param source_dbi_resource_id: The resource ID of the source DB instance from which to restore.
-        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
-        scale the storage of the DB instance.
-        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
-        RDS on Outposts DB instance.
+        :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically scale the storage of the DB instance.
+        :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an RDS on Outposts DB instance.
         :param network_type: The network type of the DB instance.
-        :param source_db_instance_automated_backups_arn: The Amazon Resource Name (ARN) of the replicated automated backups from
-        which to restore, for example,
-        ``arn:aws:rds:us-east-1:123456789012:auto-backup:ab-L2IJCEXJP7XQ7HOJ4SIEXAMPLE``.
-        :param backup_target: The location for storing automated backups and manual snapshots for the
-        restored DB instance.
-        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
-        of an RDS Custom DB instance.
-        :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB
-        instance.
+        :param source_db_instance_automated_backups_arn: The Amazon Resource Name (ARN) of the replicated automated backups from which to restore, for example, ``arn:aws:rds:us-east-1:123456789012:auto-backup:ab-L2IJCEXJP7XQ7HOJ4SIEXAMPLE``.
+        :param backup_target: The location for storing automated backups and manual snapshots for the restored DB instance.
+        :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance of an RDS Custom DB instance.
+        :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB instance.
         :param backup_retention_period: The number of days to retain automated backups.
-        :param preferred_backup_window: The daily time range during which automated backups are created if
-        automated backups are enabled, as determined by the
-        ``BackupRetentionPeriod`` parameter.
-        :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB
-        instance.
-        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
-        certificate.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled, as determined by the ``BackupRetentionPeriod`` parameter.
+        :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB instance.
+        :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server certificate.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
         :param additional_storage_volumes: A list of additional storage volumes to restore to the DB instance.
         :param tag_specifications: Tags to assign to resources associated with the DB instance.
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
-        Services Secrets Manager in the restored DB instance.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
-        automatically generated and managed in Amazon Web Services Secrets
-        Manager.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager in the restored DB instance.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.
         :returns: RestoreDBInstanceToPointInTimeResult
         :raises AuthorizationNotFoundFault:
         :raises DBParameterGroupNotFoundFault:
@@ -12972,8 +12460,7 @@ class RdsApi:
         :param cidrip: The IP range to revoke access from.
         :param ec2_security_group_name: The name of the EC2 security group to revoke access from.
         :param ec2_security_group_id: The id of the EC2 security group to revoke access from.
-        :param ec2_security_group_owner_id: The Amazon Web Services account number of the owner of the EC2 security
-        group specified in the ``EC2SecurityGroupName`` parameter.
+        :param ec2_security_group_owner_id: The Amazon Web Services account number of the owner of the EC2 security group specified in the ``EC2SecurityGroupName`` parameter.
         :returns: RevokeDBSecurityGroupIngressResult
         :raises InvalidDBSecurityGroupStateFault:
         :raises AuthorizationNotFoundFault:
@@ -13001,15 +12488,11 @@ class RdsApi:
         Streams <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/DBActivityStreams.html>`__
         in the *Amazon RDS User Guide*.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the DB cluster, for example,
-        ``arn:aws:rds:us-east-1:12345667890:cluster:das-cluster``.
+        :param resource_arn: The Amazon Resource Name (ARN) of the DB cluster, for example, ``arn:aws:rds:us-east-1:12345667890:cluster:das-cluster``.
         :param mode: Specifies the mode of the database activity stream.
-        :param kms_key_id: The Amazon Web Services KMS key identifier for encrypting messages in
-        the database activity stream.
-        :param apply_immediately: Specifies whether or not the database activity stream is to start as
-        soon as possible, regardless of the maintenance window for the database.
-        :param engine_native_audit_fields_included: Specifies whether the database activity stream includes engine-native
-        audit fields.
+        :param kms_key_id: The Amazon Web Services KMS key identifier for encrypting messages in the database activity stream.
+        :param apply_immediately: Specifies whether or not the database activity stream is to start as soon as possible, regardless of the maintenance window for the database.
+        :param engine_native_audit_fields_included: Specifies whether the database activity stream includes engine-native audit fields.
         :returns: StartActivityStreamResponse
         :raises ResourceNotFoundFault:
         :raises DBInstanceNotFoundFault:
@@ -13100,16 +12583,10 @@ class RdsApi:
         Region <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReplicateBackups.html>`__
         in the *Amazon RDS User Guide.*
 
-        :param source_db_instance_arn: The Amazon Resource Name (ARN) of the source DB instance for the
-        replicated automated backups, for example,
-        ``arn:aws:rds:us-west-2:123456789012:db:mydatabase``.
+        :param source_db_instance_arn: The Amazon Resource Name (ARN) of the source DB instance for the replicated automated backups, for example, ``arn:aws:rds:us-west-2:123456789012:db:mydatabase``.
         :param backup_retention_period: The retention period for the replicated automated backups.
-        :param kms_key_id: The Amazon Web Services KMS key identifier for encryption of the
-        replicated automated backups.
-        :param pre_signed_url: In an Amazon Web Services GovCloud (US) Region, an URL that contains a
-        Signature Version 4 signed request for the
-        ``StartDBInstanceAutomatedBackupsReplication`` operation to call in the
-        Amazon Web Services Region of the source DB instance.
+        :param kms_key_id: The Amazon Web Services KMS key identifier for encryption of the replicated automated backups.
+        :param pre_signed_url: In an Amazon Web Services GovCloud (US) Region, an URL that contains a Signature Version 4 signed request for the ``StartDBInstanceAutomatedBackupsReplication`` operation to call in the Amazon Web Services Region of the source DB instance.
         :param tags: A list of tags to associate with the replicated automated backups.
         :param source_region: The ID of the region that contains the source for the db instance.
         :returns: StartDBInstanceAutomatedBackupsReplicationResult
@@ -13157,16 +12634,11 @@ class RdsApi:
         in the *Amazon Aurora User Guide*.
 
         :param export_task_identifier: A unique identifier for the export task.
-        :param source_arn: The Amazon Resource Name (ARN) of the snapshot or cluster to export to
-        Amazon S3.
-        :param s3_bucket_name: The name of the Amazon S3 bucket to export the snapshot or cluster data
-        to.
-        :param iam_role_arn: The name of the IAM role to use for writing to the Amazon S3 bucket when
-        exporting a snapshot or cluster.
-        :param kms_key_id: The ID of the Amazon Web Services KMS key to use to encrypt the data
-        exported to Amazon S3.
-        :param s3_prefix: The Amazon S3 bucket prefix to use as the file name and path of the
-        exported data.
+        :param source_arn: The Amazon Resource Name (ARN) of the snapshot or cluster to export to Amazon S3.
+        :param s3_bucket_name: The name of the Amazon S3 bucket to export the snapshot or cluster data to.
+        :param iam_role_arn: The name of the IAM role to use for writing to the Amazon S3 bucket when exporting a snapshot or cluster.
+        :param kms_key_id: The ID of the Amazon Web Services KMS key to use to encrypt the data exported to Amazon S3.
+        :param s3_prefix: The Amazon S3 bucket prefix to use as the file name and path of the exported data.
         :param export_only: The data to be exported from the snapshot or cluster.
         :returns: ExportTask
         :raises DBClusterSnapshotNotFoundFault:
@@ -13202,10 +12674,8 @@ class RdsApi:
         Streams <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/DBActivityStreams.html>`__
         in the *Amazon RDS User Guide*.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the DB cluster for the database
-        activity stream.
-        :param apply_immediately: Specifies whether or not the database activity stream is to stop as soon
-        as possible, regardless of the maintenance window for the database.
+        :param resource_arn: The Amazon Resource Name (ARN) of the DB cluster for the database activity stream.
+        :param apply_immediately: Specifies whether or not the database activity stream is to stop as soon as possible, regardless of the maintenance window for the database.
         :returns: StopActivityStreamResponse
         :raises ResourceNotFoundFault:
         :raises DBInstanceNotFoundFault:
@@ -13261,8 +12731,7 @@ class RdsApi:
         PostgreSQL. For Aurora clusters, use ``StopDBCluster`` instead.
 
         :param db_instance_identifier: The user-supplied instance identifier.
-        :param db_snapshot_identifier: The user-supplied instance identifier of the DB Snapshot created
-        immediately before the DB instance is stopped.
+        :param db_snapshot_identifier: The user-supplied instance identifier of the DB Snapshot created immediately before the DB instance is stopped.
         :returns: StopDBInstanceResult
         :raises DBInstanceNotFoundFault:
         :raises InvalidDBClusterStateFault:
@@ -13286,9 +12755,7 @@ class RdsApi:
         Region <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReplicateBackups.html>`__
         in the *Amazon RDS User Guide.*
 
-        :param source_db_instance_arn: The Amazon Resource Name (ARN) of the source DB instance for which to
-        stop replicating automate backups, for example,
-        ``arn:aws:rds:us-west-2:123456789012:db:mydatabase``.
+        :param source_db_instance_arn: The Amazon Resource Name (ARN) of the source DB instance for which to stop replicating automate backups, for example, ``arn:aws:rds:us-west-2:123456789012:db:mydatabase``.
         :returns: StopDBInstanceAutomatedBackupsReplicationResult
         :raises DBInstanceNotFoundFault:
         :raises InvalidDBInstanceStateFault:
@@ -13355,8 +12822,7 @@ class RdsApi:
         after a global database failover.
 
         :param global_cluster_identifier: The identifier of the global database cluster to switch over.
-        :param target_db_cluster_identifier: The identifier of the secondary Aurora DB cluster to promote to the new
-        primary for the global database cluster.
+        :param target_db_cluster_identifier: The identifier of the secondary Aurora DB cluster to promote to the new primary for the global database cluster.
         :returns: SwitchoverGlobalClusterResult
         :raises InvalidDBClusterStateFault:
         :raises InvalidGlobalClusterStateFault:

@@ -2514,10 +2514,8 @@ class CodepipelineApi:
         """Returns information about a specified job and whether that job has been
         received by the job worker. Used for custom actions only.
 
-        :param job_id: The unique system-generated ID of the job for which you want to confirm
-        receipt.
-        :param nonce: A system-generated random number that CodePipeline uses to ensure that
-        the job is being worked on by only one job worker.
+        :param job_id: The unique system-generated ID of the job for which you want to confirm receipt.
+        :param nonce: A system-generated random number that CodePipeline uses to ensure that the job is being worked on by only one job worker.
         :returns: AcknowledgeJobOutput
         :raises ValidationException:
         :raises InvalidNonceException:
@@ -2538,11 +2536,8 @@ class CodepipelineApi:
         actions only.
 
         :param job_id: The unique system-generated ID of the job.
-        :param nonce: A system-generated random number that CodePipeline uses to ensure that
-        the job is being worked on by only one job worker.
-        :param client_token: The clientToken portion of the clientId and clientToken pair used to
-        verify that the calling entity is allowed access to the job and its
-        details.
+        :param nonce: A system-generated random number that CodePipeline uses to ensure that the job is being worked on by only one job worker.
+        :param client_token: The clientToken portion of the clientId and clientToken pair used to verify that the calling entity is allowed access to the job and its details.
         :returns: AcknowledgeThirdPartyJobOutput
         :raises ValidationException:
         :raises InvalidNonceException:
@@ -2568,10 +2563,8 @@ class CodepipelineApi:
         """Creates a new custom action that can be used in all pipelines associated
         with the Amazon Web Services account. Only used for custom actions.
 
-        :param category: The category of the custom action, such as a build action or a test
-        action.
-        :param provider: The provider of the service used in the custom action, such as
-        CodeDeploy.
+        :param category: The category of the custom action, such as a build action or a test action.
+        :param provider: The provider of the service used in the custom action, such as CodeDeploy.
         :param version: The version identifier of the custom action.
         :param input_artifact_details: The details of the input artifact for the action, such as its commit ID.
         :param output_artifact_details: The details of the output artifact of the action, such as its commit ID.
@@ -2602,8 +2595,7 @@ class CodepipelineApi:
         create a cross-region action in your pipeline, you must use
         ``artifactStores``.
 
-        :param pipeline: Represents the structure of actions and stages to be performed in the
-        pipeline.
+        :param pipeline: Represents the structure of actions and stages to be performed in the pipeline.
         :param tags: The tags for the pipeline.
         :returns: CreatePipelineOutput
         :raises ValidationException:
@@ -2638,10 +2630,8 @@ class CodepipelineApi:
         custom action, use a JSON file that is identical to the deleted action,
         including the original string in the version field.
 
-        :param category: The category of the custom action that you want to delete, such as
-        source or deploy.
-        :param provider: The provider of the service used in the custom action, such as
-        CodeDeploy.
+        :param category: The category of the custom action that you want to delete, such as source or deploy.
+        :param provider: The provider of the service used in the custom action, such as CodeDeploy.
         :param version: The version of the custom action to delete.
         :raises ValidationException:
         :raises ConcurrentModificationException:
@@ -2703,16 +2693,10 @@ class CodepipelineApi:
         """Prevents artifacts in a pipeline from transitioning to the next stage in
         the pipeline.
 
-        :param pipeline_name: The name of the pipeline in which you want to disable the flow of
-        artifacts from one stage to another.
-        :param stage_name: The name of the stage where you want to disable the inbound or outbound
-        transition of artifacts.
-        :param transition_type: Specifies whether artifacts are prevented from transitioning into the
-        stage and being processed by the actions in that stage (inbound), or
-        prevented from transitioning from the stage after they have been
-        processed by the actions in that stage (outbound).
-        :param reason: The reason given to the user that a stage is disabled, such as waiting
-        for manual approval or manual tests.
+        :param pipeline_name: The name of the pipeline in which you want to disable the flow of artifacts from one stage to another.
+        :param stage_name: The name of the stage where you want to disable the inbound or outbound transition of artifacts.
+        :param transition_type: Specifies whether artifacts are prevented from transitioning into the stage and being processed by the actions in that stage (inbound), or prevented from transitioning from the stage after they have been processed by the actions in that stage (outbound).
+        :param reason: The reason given to the user that a stage is disabled, such as waiting for manual approval or manual tests.
         :raises ValidationException:
         :raises PipelineNotFoundException:
         :raises StageNotFoundException:
@@ -2730,15 +2714,9 @@ class CodepipelineApi:
     ) -> None:
         """Enables artifacts in a pipeline to transition to a stage in a pipeline.
 
-        :param pipeline_name: The name of the pipeline in which you want to enable the flow of
-        artifacts from one stage to another.
-        :param stage_name: The name of the stage where you want to enable the transition of
-        artifacts, either into the stage (inbound) or from that stage to the
-        next stage (outbound).
-        :param transition_type: Specifies whether artifacts are allowed to enter the stage and be
-        processed by the actions in that stage (inbound) or whether already
-        processed artifacts are allowed to transition to the next stage
-        (outbound).
+        :param pipeline_name: The name of the pipeline in which you want to enable the flow of artifacts from one stage to another.
+        :param stage_name: The name of the stage where you want to enable the transition of artifacts, either into the stage (inbound) or from that stage to the next stage (outbound).
+        :param transition_type: Specifies whether artifacts are allowed to enter the stage and be processed by the actions in that stage (inbound) or whether already processed artifacts are allowed to transition to the next stage (outbound).
         :raises ValidationException:
         :raises PipelineNotFoundException:
         :raises StageNotFoundException:
@@ -2761,8 +2739,7 @@ class CodepipelineApi:
         model.
 
         :param category: Defines what kind of action can be taken in the stage.
-        :param owner: The creator of an action type that was created with any supported
-        integration model.
+        :param owner: The creator of an action type that was created with any supported integration model.
         :param provider: The provider of the action type being called.
         :param version: A string that describes the action type version.
         :returns: GetActionTypeOutput
@@ -2824,8 +2801,7 @@ class CodepipelineApi:
         status of the pipeline.
 
         :param pipeline_name: The name of the pipeline about which you want to get execution details.
-        :param pipeline_execution_id: The ID of the pipeline execution about which you want to get execution
-        details.
+        :param pipeline_execution_id: The ID of the pipeline execution about which you want to get execution details.
         :returns: GetPipelineExecutionOutput
         :raises ValidationException:
         :raises PipelineNotFoundException:
@@ -2864,9 +2840,7 @@ class CodepipelineApi:
         API also returns any secret values defined for the action.
 
         :param job_id: The unique system-generated ID used for identifying the job.
-        :param client_token: The clientToken portion of the clientId and clientToken pair used to
-        verify that the calling entity is allowed access to the job and its
-        details.
+        :param client_token: The clientToken portion of the clientId and clientToken pair used to verify that the calling entity is allowed access to the job and its details.
         :returns: GetThirdPartyJobDetailsOutput
         :raises JobNotFoundException:
         :raises ValidationException:
@@ -2887,13 +2861,10 @@ class CodepipelineApi:
     ) -> ListActionExecutionsOutput:
         """Lists the action executions that have occurred in a pipeline.
 
-        :param pipeline_name: The name of the pipeline for which you want to list action execution
-        history.
+        :param pipeline_name: The name of the pipeline for which you want to list action execution history.
         :param filter: Input information used to filter action execution history.
         :param max_results: The maximum number of results to return in a single call.
-        :param next_token: The token that was returned from the previous ``ListActionExecutions``
-        call, which can be used to return the next set of action executions in
-        the list.
+        :param next_token: The token that was returned from the previous ``ListActionExecutions`` call, which can be used to return the next set of action executions in the list.
         :returns: ListActionExecutionsOutput
         :raises ValidationException:
         :raises PipelineNotFoundException:
@@ -2915,9 +2886,7 @@ class CodepipelineApi:
         account.
 
         :param action_owner_filter: Filters the list of action types to those created by a specified entity.
-        :param next_token: An identifier that was returned from the previous list action types
-        call, which can be used to return the next set of action types in the
-        list.
+        :param next_token: An identifier that was returned from the previous list action types call, which can be used to return the next set of action types in the list.
         :param region_filter: The Region to filter on for the list of action types.
         :returns: ListActionTypesOutput
         :raises ValidationException:
@@ -2942,9 +2911,7 @@ class CodepipelineApi:
         :param pipeline_name: The name of the pipeline with the deploy action.
         :param filters: Filters the targets for a specified deploy action.
         :param max_results: The maximum number of results to return in a single call.
-        :param next_token: An identifier that was returned from the previous list action types
-        call, which can be used to return the next set of action types in the
-        list.
+        :param next_token: An identifier that was returned from the previous list action types call, which can be used to return the next set of action types in the list.
         :returns: ListDeployActionExecutionTargetsOutput
         :raises ValidationException:
         :raises PipelineNotFoundException:
@@ -2969,13 +2936,10 @@ class CodepipelineApi:
         the stage, the operation returns all executions in the current pipeline
         version beginning on February 1, 2024.
 
-        :param pipeline_name: The name of the pipeline for which you want to get execution summary
-        information.
+        :param pipeline_name: The name of the pipeline for which you want to get execution summary information.
         :param max_results: The maximum number of results to return in a single call.
         :param filter: The pipeline execution to filter on.
-        :param next_token: The token that was returned from the previous ``ListPipelineExecutions``
-        call, which can be used to return the next set of pipeline executions in
-        the list.
+        :param next_token: The token that was returned from the previous ``ListPipelineExecutions`` call, which can be used to return the next set of pipeline executions in the list.
         :returns: ListPipelineExecutionsOutput
         :raises ValidationException:
         :raises PipelineNotFoundException:
@@ -3014,13 +2978,10 @@ class CodepipelineApi:
         """Lists the rule executions that have occurred in a pipeline configured
         for conditions with rules.
 
-        :param pipeline_name: The name of the pipeline for which you want to get execution summary
-        information.
+        :param pipeline_name: The name of the pipeline for which you want to get execution summary information.
         :param filter: Input information used to filter rule execution history.
         :param max_results: The maximum number of results to return in a single call.
-        :param next_token: The token that was returned from the previous ``ListRuleExecutions``
-        call, which can be used to return the next set of rule executions in the
-        list.
+        :param next_token: The token that was returned from the previous ``ListRuleExecutions`` call, which can be used to return the next set of rule executions in the list.
         :returns: ListRuleExecutionsOutput
         :raises ValidationException:
         :raises PipelineNotFoundException:
@@ -3066,8 +3027,7 @@ class CodepipelineApi:
         resource.
 
         :param resource_arn: The Amazon Resource Name (ARN) of the resource to get tags for.
-        :param next_token: The token that was returned from the previous API call, which would be
-        used to return the next page of the list.
+        :param next_token: The token that was returned from the previous API call, which would be used to return the next page of the list.
         :param max_results: The maximum number of results to return in a single call.
         :returns: ListTagsForResourceOutput
         :raises ValidationException:
@@ -3091,8 +3051,7 @@ class CodepipelineApi:
 
         If a secret token was provided, it will be redacted in the response.
 
-        :param next_token: The token that was returned from the previous ListWebhooks call, which
-        can be used to return the next set of webhooks in the list.
+        :param next_token: The token that was returned from the previous ListWebhooks call, which can be used to return the next set of webhooks in the list.
         :param max_results: The maximum number of results to return in a single call.
         :returns: ListWebhooksOutput
         :raises ValidationException:
@@ -3116,12 +3075,10 @@ class CodepipelineApi:
         and `How do stage conditions
         work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`__.
 
-        :param pipeline_name: The name of the pipeline with the stage that will override the
-        condition.
+        :param pipeline_name: The name of the pipeline with the stage that will override the condition.
         :param stage_name: The name of the stage for the override.
         :param pipeline_execution_id: The ID of the pipeline execution for the override.
-        :param condition_type: The type of condition to override for the stage, such as entry
-        conditions, failure conditions, or success conditions.
+        :param condition_type: The type of condition to override for the stage, such as entry conditions, failure conditions, or success conditions.
         :raises ValidationException:
         :raises ConflictException:
         :raises PipelineNotFoundException:
@@ -3195,10 +3152,8 @@ class CodepipelineApi:
     ) -> PutActionRevisionOutput:
         """Provides information to CodePipeline about new revisions to a source.
 
-        :param pipeline_name: The name of the pipeline that starts processing the revision to the
-        source.
-        :param stage_name: The name of the stage that contains the action that acts on the
-        revision.
+        :param pipeline_name: The name of the pipeline that starts processing the revision to the source.
+        :param stage_name: The name of the stage that contains the action that acts on the revision.
         :param action_name: The name of the action that processes the revision.
         :param action_revision: Represents information about the version (or revision) of an action.
         :returns: PutActionRevisionOutput
@@ -3269,14 +3224,10 @@ class CodepipelineApi:
         worker. Used for custom actions only.
 
         :param job_id: The unique system-generated ID of the job that succeeded.
-        :param current_revision: The ID of the current revision of the artifact successfully worked on by
-        the job.
-        :param continuation_token: A token generated by a job worker, such as a CodeDeploy deployment ID,
-        that a successful job provides to identify a custom action in progress.
-        :param execution_details: The execution details of the successful job, such as the actions taken
-        by the job worker.
-        :param output_variables: Key-value pairs produced as output by a job worker that can be made
-        available to a downstream action configuration.
+        :param current_revision: The ID of the current revision of the artifact successfully worked on by the job.
+        :param continuation_token: A token generated by a job worker, such as a CodeDeploy deployment ID, that a successful job provides to identify a custom action in progress.
+        :param execution_details: The execution details of the successful job, such as the actions taken by the job worker.
+        :param output_variables: Key-value pairs produced as output by a job worker that can be made available to a downstream action configuration.
         :raises ValidationException:
         :raises JobNotFoundException:
         :raises InvalidJobStateException:
@@ -3297,9 +3248,7 @@ class CodepipelineApi:
         by a job worker. Used for partner actions only.
 
         :param job_id: The ID of the job that failed.
-        :param client_token: The clientToken portion of the clientId and clientToken pair used to
-        verify that the calling entity is allowed access to the job and its
-        details.
+        :param client_token: The clientToken portion of the clientId and clientToken pair used to verify that the calling entity is allowed access to the job and its details.
         :param failure_details: Represents information about failure details.
         :raises ValidationException:
         :raises JobNotFoundException:
@@ -3323,14 +3272,10 @@ class CodepipelineApi:
         by a job worker. Used for partner actions only.
 
         :param job_id: The ID of the job that successfully completed.
-        :param client_token: The clientToken portion of the clientId and clientToken pair used to
-        verify that the calling entity is allowed access to the job and its
-        details.
+        :param client_token: The clientToken portion of the clientId and clientToken pair used to verify that the calling entity is allowed access to the job and its details.
         :param current_revision: Represents information about a current revision.
-        :param continuation_token: A token generated by a job worker, such as a CodeDeploy deployment ID,
-        that a successful job provides to identify a partner action in progress.
-        :param execution_details: The details of the actions taken and results produced on an artifact as
-        it passes through stages in the pipeline.
+        :param continuation_token: A token generated by a job worker, such as a CodeDeploy deployment ID, that a successful job provides to identify a partner action in progress.
+        :param execution_details: The details of the actions taken and results produced on an artifact as it passes through stages in the pipeline.
         :raises ValidationException:
         :raises JobNotFoundException:
         :raises InvalidJobStateException:
@@ -3367,8 +3312,7 @@ class CodepipelineApi:
 
         If a secret token was provided, it will be redacted in the response.
 
-        :param webhook: The detail provided in an input file to create the webhook, such as the
-        webhook name, the pipeline name, and the action name.
+        :param webhook: The detail provided in an input file to create the webhook, such as the webhook name, the pipeline name, and the action name.
         :param tags: The tags for the webhook.
         :returns: PutWebhookOutput
         :raises ValidationException:
@@ -3389,8 +3333,7 @@ class CodepipelineApi:
         """Configures a connection between the webhook that was created and the
         external tool with events to be detected.
 
-        :param webhook_name: The name of an existing webhook created with PutWebhook to register with
-        a supported third party.
+        :param webhook_name: The name of an existing webhook created with PutWebhook to register with a supported third party.
         :returns: RegisterWebhookWithThirdPartyOutput
         :raises ValidationException:
         :raises WebhookNotFoundException:
@@ -3471,12 +3414,9 @@ class CodepipelineApi:
         latest commit to the source location specified as part of the pipeline.
 
         :param name: The name of the pipeline to start.
-        :param variables: A list that overrides pipeline variables for a pipeline execution that's
-        being started.
-        :param client_request_token: The system-generated unique ID used to identify a unique execution
-        request.
-        :param source_revisions: A list that allows you to specify, or override, the source revision for
-        a pipeline execution that's being started.
+        :param variables: A list that overrides pipeline variables for a pipeline execution that's being started.
+        :param client_request_token: The system-generated unique ID used to identify a unique execution request.
+        :param source_revisions: A list that allows you to specify, or override, the source revision for a pipeline execution that's being started.
         :returns: StartPipelineExecutionOutput
         :raises ValidationException:
         :raises ConflictException:
@@ -3504,10 +3444,8 @@ class CodepipelineApi:
 
         :param pipeline_name: The name of the pipeline to stop.
         :param pipeline_execution_id: The ID of the pipeline execution to be stopped in the current stage.
-        :param abandon: Use this option to stop the pipeline execution by abandoning, rather
-        than finishing, in-progress actions.
-        :param reason: Use this option to enter comments, such as the reason the pipeline was
-        stopped.
+        :param abandon: Use this option to stop the pipeline execution by abandoning, rather than finishing, in-progress actions.
+        :param reason: Use this option to enter comments, such as the reason the pipeline was stopped.
         :returns: StopPipelineExecutionOutput
         :raises ValidationException:
         :raises ConflictException:

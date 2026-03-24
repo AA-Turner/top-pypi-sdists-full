@@ -6328,10 +6328,8 @@ class CloudfrontApi:
         tenant <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html#alternate-domain-names-move>`__
         in the *Amazon CloudFront Developer Guide*.
 
-        :param target_distribution_id: The ID of the standard distribution that you're associating the alias
-        with.
-        :param alias: The alias (also known as a CNAME) to add to the target standard
-        distribution.
+        :param target_distribution_id: The ID of the standard distribution that you're associating the alias with.
+        :param alias: The alias (also known as a CNAME) to add to the target standard distribution.
         :raises NoSuchDistribution:
         :raises AccessDenied:
         :raises IllegalUpdate:
@@ -6377,8 +6375,7 @@ class CloudfrontApi:
 
         :param id: The ID of the distribution.
         :param web_acl_arn: The Amazon Resource Name (ARN) of the WAF web ACL to associate.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        distribution that you're associating with the WAF web ACL.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the distribution that you're associating with the WAF web ACL.
         :returns: AssociateDistributionWebACLResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -6418,15 +6415,11 @@ class CloudfrontApi:
 
         -  `CopyDistribution <https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CopyDistribution.html>`__
 
-        :param primary_distribution_id: The identifier of the primary distribution whose configuration you are
-        copying.
+        :param primary_distribution_id: The identifier of the primary distribution whose configuration you are copying.
         :param caller_reference: A value that uniquely identifies a request to create a resource.
-        :param staging: The type of distribution that your primary distribution will be copied
-        to.
-        :param if_match: The version identifier of the primary distribution whose configuration
-        you are copying.
-        :param enabled: A Boolean flag to specify the state of the staging distribution when
-        it's created.
+        :param staging: The type of distribution that your primary distribution will be copied to.
+        :param if_match: The version identifier of the primary distribution whose configuration you are copying.
+        :param enabled: A Boolean flag to specify the state of the staging distribution when it's created.
         :returns: CopyDistributionResult
         :raises AccessDenied:
         :raises TooManyDistributionsAssociatedToOriginAccessControl:
@@ -6509,12 +6502,10 @@ class CloudfrontApi:
         """Creates an Anycast static IP list.
 
         :param name: Name of the Anycast static IP list.
-        :param ip_count: The number of static IP addresses that are allocated to the Anycast
-        static IP list.
+        :param ip_count: The number of static IP addresses that are allocated to the Anycast static IP list.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
         :param ip_address_type: The IP address type for the Anycast static IP list.
-        :param ipam_cidr_configs: A list of IPAM CIDR configurations that specify the IP address ranges
-        and IPAM pool settings for creating the Anycast static IP list.
+        :param ipam_cidr_configs: A list of IPAM CIDR configurations that specify the IP address ranges and IPAM pool settings for creating the Anycast static IP list.
         :returns: CreateAnycastIpListResult
         :raises AccessDenied:
         :raises UnsupportedOperation:
@@ -6778,18 +6769,15 @@ class CloudfrontApi:
     ) -> CreateDistributionTenantResult:
         """Creates a distribution tenant.
 
-        :param distribution_id: The ID of the multi-tenant distribution to use for creating the
-        distribution tenant.
+        :param distribution_id: The ID of the multi-tenant distribution to use for creating the distribution tenant.
         :param name: The name of the distribution tenant.
         :param domains: The domains associated with the distribution tenant.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
         :param customizations: Customizations for the distribution tenant.
         :param parameters: A list of parameter values to add to the resource.
-        :param connection_group_id: The ID of the connection group to associate with the distribution
-        tenant.
+        :param connection_group_id: The ID of the connection group to associate with the distribution tenant.
         :param managed_certificate_request: The configuration for the CloudFront managed ACM certificate request.
-        :param enabled: Indicates whether the distribution tenant should be enabled when
-        created.
+        :param enabled: Indicates whether the distribution tenant should be enabled when created.
         :returns: CreateDistributionTenantResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -6957,8 +6945,7 @@ class CloudfrontApi:
         distribution's cache behavior, using the function's ARN.
 
         :param name: A name to identify the function.
-        :param function_config: Configuration information about the function, including an optional
-        comment and the function's runtime.
+        :param function_config: Configuration information about the function, including an optional comment and the function's runtime.
         :param function_code: The function code.
         :returns: CreateFunctionResult
         :raises FunctionAlreadyExists:
@@ -7212,8 +7199,7 @@ class CloudfrontApi:
         logs <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html>`__
         in the *Amazon CloudFront Developer Guide*.
 
-        :param end_points: Contains information about the Amazon Kinesis data stream where you are
-        sending real-time log data.
+        :param end_points: Contains information about the Amazon Kinesis data stream where you are sending real-time log data.
         :param fields: A list of fields to include in each real-time log record.
         :param name: A unique name to identify this real-time log configuration.
         :param sampling_rate: The sampling rate for this real-time log configuration.
@@ -7249,8 +7235,7 @@ class CloudfrontApi:
         responses <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/modifying-response-headers.html>`__
         in the *Amazon CloudFront Developer Guide*.
 
-        :param response_headers_policy_config: Contains metadata about the response headers policy, and a set of
-        configurations that specify the HTTP headers.
+        :param response_headers_policy_config: Contains metadata about the response headers policy, and a set of configurations that specify the HTTP headers.
         :returns: CreateResponseHeadersPolicyResult
         :raises AccessDenied:
         :raises TooManyCustomHeadersInResponseHeadersPolicy:
@@ -7380,8 +7365,7 @@ class CloudfrontApi:
         """Deletes an Anycast static IP list.
 
         :param id: The ID of the Anycast static IP list.
-        :param if_match: The current version (``ETag`` value) of the Anycast static IP list that
-        you are deleting.
+        :param if_match: The current version (``ETag`` value) of the Anycast static IP list that you are deleting.
         :raises CannotDeleteEntityWhileInUse:
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -7425,8 +7409,7 @@ class CloudfrontApi:
         """Delete an origin access identity.
 
         :param id: The origin access identity's ID.
-        :param if_match: The value of the ``ETag`` header you received from a previous ``GET`` or
-        ``PUT`` request.
+        :param if_match: The value of the ``ETag`` header you received from a previous ``GET`` or ``PUT`` request.
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises CloudFrontOriginAccessIdentityInUse:
@@ -7442,8 +7425,7 @@ class CloudfrontApi:
         """Deletes a connection function.
 
         :param id: The connection function's ID.
-        :param if_match: The current version (``ETag`` value) of the connection function you are
-        deleting.
+        :param if_match: The current version (``ETag`` value) of the connection function you are deleting.
         :raises CannotDeleteEntityWhileInUse:
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -7461,8 +7443,7 @@ class CloudfrontApi:
         """Deletes a connection group.
 
         :param id: The ID of the connection group to delete.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        connection group to delete.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the connection group to delete.
         :raises CannotDeleteEntityWhileInUse:
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -7482,10 +7463,8 @@ class CloudfrontApi:
         primary distribution. First update your distribution to remove the
         continuous deployment policy, then you can delete the policy.
 
-        :param id: The identifier of the continuous deployment policy that you are
-        deleting.
-        :param if_match: The current version (``ETag`` value) of the continuous deployment policy
-        that you are deleting.
+        :param id: The identifier of the continuous deployment policy that you are deleting.
+        :param if_match: The current version (``ETag`` value) of the continuous deployment policy that you are deleting.
         :raises ContinuousDeploymentPolicyInUse:
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -7506,8 +7485,7 @@ class CloudfrontApi:
         distribution cannot be recovered.
 
         :param id: The distribution ID.
-        :param if_match: The value of the ``ETag`` header that you received when you disabled the
-        distribution.
+        :param if_match: The value of the ``ETag`` header that you received when you disabled the distribution.
         :raises ResourceInUse:
         :raises NoSuchDistribution:
         :raises PreconditionFailed:
@@ -7528,8 +7506,7 @@ class CloudfrontApi:
         tenant by using the ``UpdateDistributionTenant`` API operation.
 
         :param id: The ID of the distribution tenant to delete.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        distribution tenant.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the distribution tenant.
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -7545,8 +7522,7 @@ class CloudfrontApi:
         """Remove a field-level encryption configuration.
 
         :param id: The ID of the configuration you want to delete from CloudFront.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        configuration identity to delete.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the configuration identity to delete.
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises FieldLevelEncryptionConfigInUse:
@@ -7562,8 +7538,7 @@ class CloudfrontApi:
         """Remove a field-level encryption profile.
 
         :param id: Request the ID of the profile you want to delete from CloudFront.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        profile to delete.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the profile to delete.
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises NoSuchFieldLevelEncryptionProfile:
@@ -7587,8 +7562,7 @@ class CloudfrontApi:
         ``DescribeFunction``.
 
         :param name: The name of the function that you are deleting.
-        :param if_match: The current version (``ETag`` value) of the function that you are
-        deleting, which you can get using ``DescribeFunction``.
+        :param if_match: The current version (``ETag`` value) of the function that you are deleting, which you can get using ``DescribeFunction``.
         :raises PreconditionFailed:
         :raises UnsupportedOperation:
         :raises FunctionInUse:
@@ -7663,10 +7637,8 @@ class CloudfrontApi:
         all distributions to remove the origin access control from all origins,
         then delete the origin access control.
 
-        :param id: The unique identifier of the origin access control that you are
-        deleting.
-        :param if_match: The current version (``ETag`` value) of the origin access control that
-        you are deleting.
+        :param id: The unique identifier of the origin access control that you are deleting.
+        :param if_match: The current version (``ETag`` value) of the origin access control that you are deleting.
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises OriginAccessControlInUse:
@@ -7689,8 +7661,7 @@ class CloudfrontApi:
         identifier and version. To get the identifier, you can use
         ``ListOriginRequestPolicies`` or ``GetOriginRequestPolicy``.
 
-        :param id: The unique identifier for the origin request policy that you are
-        deleting.
+        :param id: The unique identifier for the origin request policy that you are deleting.
         :param if_match: The version of the origin request policy that you are deleting.
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -7708,8 +7679,7 @@ class CloudfrontApi:
         """Remove a public key you previously added to CloudFront.
 
         :param id: The ID of the public key you want to remove from CloudFront.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        public key identity to delete.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the public key identity to delete.
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises NoSuchPublicKey:
@@ -7739,8 +7709,7 @@ class CloudfrontApi:
         the real-time log configuration to delete.
 
         :param name: The name of the real-time log configuration to delete.
-        :param arn: The Amazon Resource Name (ARN) of the real-time log configuration to
-        delete.
+        :param arn: The Amazon Resource Name (ARN) of the real-time log configuration to delete.
         :raises AccessDenied:
         :raises InvalidArgument:
         :raises NoSuchRealtimeLogConfig:
@@ -7754,8 +7723,7 @@ class CloudfrontApi:
     ) -> None:
         """Deletes the resource policy attached to the CloudFront resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource for which the
-        resource policy should be deleted.
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource for which the resource policy should be deleted.
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -7837,8 +7805,7 @@ class CloudfrontApi:
         in the *Amazon CloudFront Developer Guide*.
 
         :param id: The distribution ID.
-        :param if_match: The value of the ``ETag`` header that you received when you disabled the
-        streaming distribution.
+        :param if_match: The value of the ``ETag`` header that you received when you disabled the streaming distribution.
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises NoSuchStreamingDistribution:
@@ -7854,8 +7821,7 @@ class CloudfrontApi:
         """Deletes a trust store.
 
         :param id: The trust store's ID.
-        :param if_match: The current version (``ETag`` value) of the trust store you are
-        deleting.
+        :param if_match: The current version (``ETag`` value) of the trust store you are deleting.
         :raises CannotDeleteEntityWhileInUse:
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -7951,8 +7917,7 @@ class CloudfrontApi:
         """Disassociates a distribution tenant from the WAF web ACL.
 
         :param id: The ID of the distribution tenant.
-        :param if_match: The current version of the distribution tenant that you're
-        disassociating from the WAF web ACL.
+        :param if_match: The current version of the distribution tenant that you're disassociating from the WAF web ACL.
         :returns: DisassociateDistributionTenantWebACLResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -7969,8 +7934,7 @@ class CloudfrontApi:
         """Disassociates a distribution from the WAF web ACL.
 
         :param id: The ID of the distribution.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        distribution that you're disassociating from the WAF web ACL.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the distribution that you're disassociating from the WAF web ACL.
         :returns: DisassociateDistributionWebACLResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -8103,8 +8067,7 @@ class CloudfrontApi:
         """Gets information about a connection group by using the endpoint that you
         specify.
 
-        :param routing_endpoint: The routing endpoint for the target connection group, such as
-        d111111abcdef8.
+        :param routing_endpoint: The routing endpoint for the target connection group, such as d111111abcdef8.
         :returns: GetConnectionGroupByRoutingEndpointResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -8131,8 +8094,7 @@ class CloudfrontApi:
     ) -> GetContinuousDeploymentPolicyConfigResult:
         """Gets configuration information about a continuous deployment policy.
 
-        :param id: The identifier of the continuous deployment policy whose configuration
-        you are getting.
+        :param id: The identifier of the continuous deployment policy whose configuration you are getting.
         :returns: GetContinuousDeploymentPolicyConfigResult
         :raises AccessDenied:
         :raises NoSuchContinuousDeploymentPolicy:
@@ -8236,8 +8198,7 @@ class CloudfrontApi:
     ) -> GetFieldLevelEncryptionProfileConfigResult:
         """Get the field-level encryption profile configuration information.
 
-        :param id: Get the ID for the field-level encryption profile configuration
-        information.
+        :param id: Get the ID for the field-level encryption profile configuration information.
         :returns: GetFieldLevelEncryptionProfileConfigResult
         :raises AccessDenied:
         :raises NoSuchFieldLevelEncryptionProfile:
@@ -8273,8 +8234,7 @@ class CloudfrontApi:
         """Get the information about an invalidation.
 
         :param distribution_id: The distribution's ID.
-        :param id: The identifier for the invalidation request, for example,
-        ``IDFDVBD632BHDS5``.
+        :param id: The identifier for the invalidation request, for example, ``IDFDVBD632BHDS5``.
         :returns: GetInvalidationResult
         :raises NoSuchDistribution:
         :raises AccessDenied:
@@ -8474,8 +8434,7 @@ class CloudfrontApi:
         the real-time log configuration to get.
 
         :param name: The name of the real-time log configuration to get.
-        :param arn: The Amazon Resource Name (ARN) of the real-time log configuration to
-        get.
+        :param arn: The Amazon Resource Name (ARN) of the real-time log configuration to get.
         :returns: GetRealtimeLogConfigResult
         :raises AccessDenied:
         :raises InvalidArgument:
@@ -8490,8 +8449,7 @@ class CloudfrontApi:
         """Retrieves the resource policy for the specified CloudFront resource that
         you own and have shared.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource that is
-        associated with the resource policy.
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource that is associated with the resource policy.
         :returns: GetResourcePolicyResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -8605,10 +8563,8 @@ class CloudfrontApi:
     ) -> ListAnycastIpListsResult:
         """Lists your Anycast static IP lists.
 
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list.
-        :param max_items: The maximum number of Anycast static IP lists that you want returned in
-        the response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list.
+        :param max_items: The maximum number of Anycast static IP lists that you want returned in the response.
         :returns: ListAnycastIpListsResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -8635,8 +8591,7 @@ class CloudfrontApi:
         in the subsequent request.
 
         :param type: A filter to return only the specified kinds of cache policies.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of cache policies.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of cache policies.
         :param max_items: The maximum number of cache policies that you want in the response.
         :returns: ListCachePoliciesResult
         :raises NoSuchCachePolicy:
@@ -8655,10 +8610,8 @@ class CloudfrontApi:
     ) -> ListCloudFrontOriginAccessIdentitiesResult:
         """Lists origin access identities.
 
-        :param marker: Use this when paginating results to indicate where to begin in your list
-        of origin access identities.
-        :param max_items: The maximum number of origin access identities you want in the response
-        body.
+        :param marker: Use this when paginating results to indicate where to begin in your list of origin access identities.
+        :param max_items: The maximum number of origin access identities you want in the response body.
         :returns: ListCloudFrontOriginAccessIdentitiesResult
         :raises InvalidArgument:
         """
@@ -8716,11 +8669,9 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param distribution_id: The ID of a standard distribution in your account that has an attached
-        TLS certificate that includes the provided alias.
+        :param distribution_id: The ID of a standard distribution in your account that has an attached TLS certificate that includes the provided alias.
         :param alias: The alias (also called a CNAME) to search for conflicting aliases.
-        :param marker: Use this field when paginating results to indicate where to begin in the
-        list of conflicting aliases.
+        :param marker: Use this field when paginating results to indicate where to begin in the list of conflicting aliases.
         :param max_items: The maximum number of conflicting aliases that you want in the response.
         :returns: ListConflictingAliasesResult
         :raises NoSuchDistribution:
@@ -8739,10 +8690,8 @@ class CloudfrontApi:
     ) -> ListConnectionFunctionsResult:
         """Lists connection functions.
 
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list.
-        :param max_items: The maximum number of connection functions that you want returned in the
-        response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list.
+        :param max_items: The maximum number of connection functions that you want returned in the response.
         :param stage: The connection function's stage.
         :returns: ListConnectionFunctionsResult
         :raises AccessDenied:
@@ -8790,10 +8739,8 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of continuous deployment policies.
-        :param max_items: The maximum number of continuous deployment policies that you want
-        returned in the response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of continuous deployment policies.
+        :param max_items: The maximum number of continuous deployment policies that you want returned in the response.
         :returns: ListContinuousDeploymentPoliciesResult
         :raises AccessDenied:
         :raises InvalidArgument:
@@ -8840,8 +8787,7 @@ class CloudfrontApi:
         :param web_acl_arn: Filter by the ARN of the associated WAF web ACL.
         :param certificate_arn: Filter by the ARN of the associated ACM certificate.
         :param marker: The marker for the next set of results.
-        :param max_items: The maximum number of distribution tenants to return by the specified
-        customization.
+        :param max_items: The maximum number of distribution tenants to return by the specified customization.
         :returns: ListDistributionTenantsByCustomizationResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -8859,8 +8805,7 @@ class CloudfrontApi:
     ) -> ListDistributionsResult:
         """List CloudFront distributions.
 
-        :param marker: Use this when paginating results to indicate where to begin in your list
-        of distributions.
+        :param marker: Use this when paginating results to indicate where to begin in your list of distributions.
         :param max_items: The maximum number of distributions you want in the response body.
         :returns: ListDistributionsResult
         :raises InvalidArgument:
@@ -8880,10 +8825,8 @@ class CloudfrontApi:
         specified ``AnycastIpListId``.
 
         :param anycast_ip_list_id: The ID of the Anycast static IP list.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list.
-        :param max_items: The maximum number of distributions that you want returned in the
-        response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list.
+        :param max_items: The maximum number of distributions that you want returned in the response.
         :returns: ListDistributionsByAnycastIpListIdResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -8911,10 +8854,8 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param cache_policy_id: The ID of the cache policy whose associated distribution IDs you want to
-        list.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of distribution IDs.
+        :param cache_policy_id: The ID of the cache policy whose associated distribution IDs you want to list.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of distribution IDs.
         :param max_items: The maximum number of distribution IDs that you want in the response.
         :returns: ListDistributionsByCachePolicyIdResult
         :raises NoSuchCachePolicy:
@@ -8935,10 +8876,8 @@ class CloudfrontApi:
         """Lists distributions by connection function.
 
         :param connection_function_identifier: The distributions by connection function identifier.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list.
-        :param max_items: The maximum number of distributions that you want returned in the
-        response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list.
+        :param max_items: The maximum number of distributions that you want returned in the response.
         :returns: ListDistributionsByConnectionFunctionResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -8957,9 +8896,7 @@ class CloudfrontApi:
     ) -> ListDistributionsByConnectionModeResult:
         """Lists the distributions by the connection mode that you specify.
 
-        :param connection_mode: This field specifies whether the connection mode is through a standard
-        distribution (direct) or a multi-tenant distribution with distribution
-        tenants (tenant-only).
+        :param connection_mode: This field specifies whether the connection mode is through a standard distribution (direct) or a multi-tenant distribution with distribution tenants (tenant-only).
         :param marker: The marker for the next set of distributions to retrieve.
         :param max_items: The maximum number of distributions to return.
         :returns: ListDistributionsByConnectionModeResult
@@ -8987,10 +8924,8 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param key_group_id: The ID of the key group whose associated distribution IDs you are
-        listing.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of distribution IDs.
+        :param key_group_id: The ID of the key group whose associated distribution IDs you are listing.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of distribution IDs.
         :param max_items: The maximum number of distribution IDs that you want in the response.
         :returns: ListDistributionsByKeyGroupResult
         :raises InvalidArgument:
@@ -9017,10 +8952,8 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param origin_request_policy_id: The ID of the origin request policy whose associated distribution IDs
-        you want to list.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of distribution IDs.
+        :param origin_request_policy_id: The ID of the origin request policy whose associated distribution IDs you want to list.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of distribution IDs.
         :param max_items: The maximum number of distribution IDs that you want in the response.
         :returns: ListDistributionsByOriginRequestPolicyIdResult
         :raises AccessDenied:
@@ -9041,10 +8974,8 @@ class CloudfrontApi:
         """Lists the CloudFront distributions that are associated with the
         specified resource that you own.
 
-        :param resource_arn: The ARN of the CloudFront resource that you've shared with other Amazon
-        Web Services accounts.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of distributions.
+        :param resource_arn: The ARN of the CloudFront resource that you've shared with other Amazon Web Services accounts.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of distributions.
         :param max_items: The maximum number of distributions to return.
         :returns: ListDistributionsByOwnedResourceResult
         :raises AccessDenied:
@@ -9079,13 +9010,10 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of distributions.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of distributions.
         :param max_items: The maximum number of distributions that you want in the response.
-        :param realtime_log_config_name: The name of the real-time log configuration whose associated
-        distributions you want to list.
-        :param realtime_log_config_arn: The Amazon Resource Name (ARN) of the real-time log configuration whose
-        associated distributions you want to list.
+        :param realtime_log_config_name: The name of the real-time log configuration whose associated distributions you want to list.
+        :param realtime_log_config_arn: The Amazon Resource Name (ARN) of the real-time log configuration whose associated distributions you want to list.
         :returns: ListDistributionsByRealtimeLogConfigResult
         :raises InvalidArgument:
         """
@@ -9110,12 +9038,9 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param response_headers_policy_id: The ID of the response headers policy whose associated distribution IDs
-        you want to list.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of distribution IDs.
-        :param max_items: The maximum number of distribution IDs that you want to get in the
-        response.
+        :param response_headers_policy_id: The ID of the response headers policy whose associated distribution IDs you want to list.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of distribution IDs.
+        :param max_items: The maximum number of distribution IDs that you want to get in the response.
         :returns: ListDistributionsByResponseHeadersPolicyIdResult
         :raises AccessDenied:
         :raises NoSuchResponseHeadersPolicy:
@@ -9135,10 +9060,8 @@ class CloudfrontApi:
         """Lists distributions by trust store.
 
         :param trust_store_identifier: The distributions by trust store identifier.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list.
-        :param max_items: The maximum number of distributions that you want returned in the
-        response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list.
+        :param max_items: The maximum number of distributions that you want returned in the response.
         :returns: ListDistributionsByTrustStoreResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -9179,11 +9102,9 @@ class CloudfrontApi:
     ) -> ListDistributionsByWebACLIdResult:
         """List the distributions that are associated with a specified WAF web ACL.
 
-        :param web_acl_id: The ID of the WAF web ACL that you want to list the associated
-        distributions.
+        :param web_acl_id: The ID of the WAF web ACL that you want to list the associated distributions.
         :param marker: Use ``Marker`` and ``MaxItems`` to control pagination of results.
-        :param max_items: The maximum number of distributions that you want CloudFront to return
-        in the response body.
+        :param max_items: The maximum number of distributions that you want CloudFront to return in the response body.
         :returns: ListDistributionsByWebACLIdResult
         :raises InvalidWebACLId:
         :raises InvalidArgument:
@@ -9265,10 +9186,8 @@ class CloudfrontApi:
         """List all field-level encryption configurations that have been created in
         CloudFront for this account.
 
-        :param marker: Use this when paginating results to indicate where to begin in your list
-        of configurations.
-        :param max_items: The maximum number of field-level encryption configurations you want in
-        the response body.
+        :param marker: Use this when paginating results to indicate where to begin in your list of configurations.
+        :param max_items: The maximum number of field-level encryption configurations you want in the response body.
         :returns: ListFieldLevelEncryptionConfigsResult
         :raises InvalidArgument:
         """
@@ -9285,10 +9204,8 @@ class CloudfrontApi:
         """Request a list of field-level encryption profiles that have been created
         in CloudFront for this account.
 
-        :param marker: Use this when paginating results to indicate where to begin in your list
-        of profiles.
-        :param max_items: The maximum number of field-level encryption profiles you want in the
-        response body.
+        :param marker: Use this when paginating results to indicate where to begin in your list of profiles.
+        :param max_items: The maximum number of field-level encryption profiles you want in the response body.
         :returns: ListFieldLevelEncryptionProfilesResult
         :raises InvalidArgument:
         """
@@ -9316,11 +9233,9 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of functions.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of functions.
         :param max_items: The maximum number of functions that you want in the response.
-        :param stage: An optional filter to return only the functions that are in the
-        specified stage, either ``DEVELOPMENT`` or ``LIVE``.
+        :param stage: An optional filter to return only the functions that are in the specified stage, either ``DEVELOPMENT`` or ``LIVE``.
         :returns: ListFunctionsResult
         :raises UnsupportedOperation:
         :raises InvalidArgument:
@@ -9339,10 +9254,8 @@ class CloudfrontApi:
         """Lists invalidation batches.
 
         :param distribution_id: The distribution's ID.
-        :param marker: Use this parameter when paginating results to indicate where to begin in
-        your list of invalidation batches.
-        :param max_items: The maximum number of invalidation batches that you want in the response
-        body.
+        :param marker: Use this parameter when paginating results to indicate where to begin in your list of invalidation batches.
+        :param max_items: The maximum number of invalidation batches that you want in the response body.
         :returns: ListInvalidationsResult
         :raises NoSuchDistribution:
         :raises AccessDenied:
@@ -9362,10 +9275,8 @@ class CloudfrontApi:
         """Lists the invalidations for a distribution tenant.
 
         :param id: The ID of the distribution tenant.
-        :param marker: Use this parameter when paginating results to indicate where to begin in
-        your list of invalidation batches.
-        :param max_items: The maximum number of invalidations to return for the distribution
-        tenant.
+        :param marker: Use this parameter when paginating results to indicate where to begin in your list of invalidation batches.
+        :param max_items: The maximum number of invalidations to return for the distribution tenant.
         :returns: ListInvalidationsForDistributionTenantResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -9390,8 +9301,7 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of key groups.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of key groups.
         :param max_items: The maximum number of key groups that you want in the response.
         :returns: ListKeyGroupsResult
         :raises InvalidArgument:
@@ -9441,10 +9351,8 @@ class CloudfrontApi:
         account, the ``ListOriginAccessControls`` operation doesn't return the
         ``Items`` element in the response.
 
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of origin access controls.
-        :param max_items: The maximum number of origin access controls that you want in the
-        response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of origin access controls.
+        :param max_items: The maximum number of origin access controls that you want in the response.
         :returns: ListOriginAccessControlsResult
         :raises InvalidArgument:
         """
@@ -9468,10 +9376,8 @@ class CloudfrontApi:
         in the subsequent request.
 
         :param type: A filter to return only the specified kinds of origin request policies.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of origin request policies.
-        :param max_items: The maximum number of origin request policies that you want in the
-        response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of origin request policies.
+        :param max_items: The maximum number of origin request policies that you want in the response.
         :returns: ListOriginRequestPoliciesResult
         :raises AccessDenied:
         :raises NoSuchOriginRequestPolicy:
@@ -9490,8 +9396,7 @@ class CloudfrontApi:
         """List all public keys that have been added to CloudFront for this
         account.
 
-        :param marker: Use this when paginating results to indicate where to begin in your list
-        of public keys.
+        :param marker: Use this when paginating results to indicate where to begin in your list of public keys.
         :param max_items: The maximum number of public keys you want in the response body.
         :returns: ListPublicKeysResult
         :raises InvalidArgument:
@@ -9515,10 +9420,8 @@ class CloudfrontApi:
         ``NextMarker`` value from the current response as the ``Marker`` value
         in the subsequent request.
 
-        :param max_items: The maximum number of real-time log configurations that you want in the
-        response.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of real-time log configurations.
+        :param max_items: The maximum number of real-time log configurations that you want in the response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of real-time log configurations.
         :returns: ListRealtimeLogConfigsResult
         :raises AccessDenied:
         :raises InvalidArgument:
@@ -9544,10 +9447,8 @@ class CloudfrontApi:
         in the subsequent request.
 
         :param type: A filter to get only the specified kind of response headers policies.
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list of response headers policies.
-        :param max_items: The maximum number of response headers policies that you want to get in
-        the response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list of response headers policies.
+        :param max_items: The maximum number of response headers policies that you want to get in the response.
         :returns: ListResponseHeadersPoliciesResult
         :raises AccessDenied:
         :raises NoSuchResponseHeadersPolicy:
@@ -9600,10 +9501,8 @@ class CloudfrontApi:
     ) -> ListTrustStoresResult:
         """Lists trust stores.
 
-        :param marker: Use this field when paginating results to indicate where to begin in
-        your list.
-        :param max_items: The maximum number of trust stores that you want returned in the
-        response.
+        :param marker: Use this field when paginating results to indicate where to begin in your list.
+        :param max_items: The maximum number of trust stores that you want returned in the response.
         :returns: ListTrustStoresResult
         :raises AccessDenied:
         :raises EntityNotFound:
@@ -9667,8 +9566,7 @@ class CloudfrontApi:
         ``DescribeFunction``.
 
         :param name: The name of the function that you are publishing.
-        :param if_match: The current version (``ETag`` value) of the function that you are
-        publishing, which you can get using ``DescribeFunction``.
+        :param if_match: The current version (``ETag`` value) of the function that you are publishing, which you can get using ``DescribeFunction``.
         :returns: PublishFunctionResult
         :raises PreconditionFailed:
         :raises UnsupportedOperation:
@@ -9684,8 +9582,7 @@ class CloudfrontApi:
     ) -> PutResourcePolicyResult:
         """Creates a resource control policy for a given CloudFront resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource for which the
-        policy is being created.
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource for which the policy is being created.
         :param policy_document: The JSON-formatted resource policy to create.
         :returns: PutResourcePolicyResult
         :raises PreconditionFailed:
@@ -9767,11 +9664,9 @@ class CloudfrontApi:
         and version, you can use ``ListFunctions`` and ``DescribeFunction``.
 
         :param name: The name of the function that you are testing.
-        :param if_match: The current version (``ETag`` value) of the function that you are
-        testing, which you can get using ``DescribeFunction``.
+        :param if_match: The current version (``ETag`` value) of the function that you are testing, which you can get using ``DescribeFunction``.
         :param event_object: The event object to test the function with.
-        :param stage: The stage of the function that you are testing, either ``DEVELOPMENT``
-        or ``LIVE``.
+        :param stage: The stage of the function that you are testing, either ``DEVELOPMENT`` or ``LIVE``.
         :returns: TestFunctionResult
         :raises TestFunctionFailed:
         :raises UnsupportedOperation:
@@ -9811,8 +9706,7 @@ class CloudfrontApi:
         """Updates an Anycast static IP list.
 
         :param id: The ID of the Anycast static IP list.
-        :param if_match: The current version (ETag value) of the Anycast static IP list that you
-        are updating.
+        :param if_match: The current version (ETag value) of the Anycast static IP list that you are updating.
         :param ip_address_type: The IP address type for the Anycast static IP list.
         :returns: UpdateAnycastIpListResult
         :raises PreconditionFailed:
@@ -9884,8 +9778,7 @@ class CloudfrontApi:
 
         :param cloud_front_origin_access_identity_config: The identity's configuration information.
         :param id: The identity's id.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        identity's configuration.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the identity's configuration.
         :returns: UpdateCloudFrontOriginAccessIdentityResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -9911,8 +9804,7 @@ class CloudfrontApi:
         """Updates a connection function.
 
         :param id: The connection function ID.
-        :param if_match: The current version (``ETag`` value) of the connection function you are
-        updating.
+        :param if_match: The current version (``ETag`` value) of the connection function you are updating.
         :param connection_function_config: Contains configuration information about a CloudFront function.
         :param connection_function_code: The connection function code.
         :returns: UpdateConnectionFunctionResult
@@ -9940,8 +9832,7 @@ class CloudfrontApi:
         """Updates a connection group.
 
         :param id: The ID of the connection group.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        connection group that you're updating.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the connection group that you're updating.
         :param ipv6_enabled: Enable IPv6 for the connection group.
         :param anycast_ip_list_id: The ID of the Anycast static IP list.
         :param enabled: Whether the connection group is enabled.
@@ -9987,10 +9878,8 @@ class CloudfrontApi:
            you modified and those that you didn't.
 
         :param continuous_deployment_policy_config: The continuous deployment policy configuration.
-        :param id: The identifier of the continuous deployment policy that you are
-        updating.
-        :param if_match: The current version (``ETag`` value) of the continuous deployment policy
-        that you are updating.
+        :param id: The identifier of the continuous deployment policy that you are updating.
+        :param if_match: The current version (``ETag`` value) of the continuous deployment policy that you are updating.
         :returns: UpdateContinuousDeploymentPolicyResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -10040,8 +9929,7 @@ class CloudfrontApi:
 
         :param distribution_config: The distribution's configuration information.
         :param id: The distribution's id.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        distribution's configuration.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the distribution's configuration.
         :returns: UpdateDistributionResult
         :raises AccessDenied:
         :raises TooManyDistributionsAssociatedToOriginAccessControl:
@@ -10131,16 +10019,14 @@ class CloudfrontApi:
         """Updates a distribution tenant.
 
         :param id: The ID of the distribution tenant.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        distribution tenant to update.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the distribution tenant to update.
         :param distribution_id: The ID for the multi-tenant distribution.
         :param domains: The domains to update for the distribution tenant.
         :param customizations: Customizations for the distribution tenant.
         :param parameters: A list of parameter values to add to the resource.
         :param connection_group_id: The ID of the target connection group.
         :param managed_certificate_request: An object that contains the CloudFront managed ACM certificate request.
-        :param enabled: Indicates whether the distribution tenant should be updated to an
-        enabled state.
+        :param enabled: Indicates whether the distribution tenant should be updated to an enabled state.
         :returns: UpdateDistributionTenantResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -10184,12 +10070,9 @@ class CloudfrontApi:
 
         -  `UpdateDistribution <https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateDistribution.html>`__
 
-        :param id: The identifier of the primary distribution to which you are copying a
-        staging distribution's configuration.
-        :param staging_distribution_id: The identifier of the staging distribution whose configuration you are
-        copying to the primary distribution.
-        :param if_match: The current versions (``ETag`` values) of both primary and staging
-        distributions.
+        :param id: The identifier of the primary distribution to which you are copying a staging distribution's configuration.
+        :param staging_distribution_id: The identifier of the staging distribution whose configuration you are copying to the primary distribution.
+        :param if_match: The current versions (``ETag`` values) of both primary and staging distributions.
         :returns: UpdateDistributionWithStagingConfigResult
         :raises AccessDenied:
         :raises TooManyDistributionsAssociatedToOriginAccessControl:
@@ -10289,10 +10172,8 @@ class CloudfrontApi:
         in the *Amazon CloudFront Developer Guide*.
 
         :param domain: The domain to update.
-        :param target_resource: The target standard distribution or distribution tenant resource for the
-        domain.
-        :param if_match: The value of the ``ETag`` identifier for the standard distribution or
-        distribution tenant that will be associated with the domain.
+        :param target_resource: The target standard distribution or distribution tenant resource for the domain.
+        :param if_match: The value of the ``ETag`` identifier for the standard distribution or distribution tenant that will be associated with the domain.
         :returns: UpdateDomainAssociationResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -10316,8 +10197,7 @@ class CloudfrontApi:
 
         :param field_level_encryption_config: Request to update a field-level encryption configuration.
         :param id: The ID of the configuration you want to update.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        configuration identity to update.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the configuration identity to update.
         :returns: UpdateFieldLevelEncryptionConfigResult
         :raises PreconditionFailed:
         :raises QueryArgProfileEmpty:
@@ -10346,8 +10226,7 @@ class CloudfrontApi:
 
         :param field_level_encryption_profile_config: Request to update a field-level encryption profile.
         :param id: The ID of the field-level encryption profile request.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        profile identity to update.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the profile identity to update.
         :returns: UpdateFieldLevelEncryptionProfileResult
         :raises PreconditionFailed:
         :raises TooManyFieldLevelEncryptionFieldPatterns:
@@ -10384,8 +10263,7 @@ class CloudfrontApi:
         and version, you can use ``ListFunctions`` and ``DescribeFunction``.
 
         :param name: The name of the function that you are updating.
-        :param if_match: The current version (``ETag`` value) of the function that you are
-        updating, which you can get using ``DescribeFunction``.
+        :param if_match: The current version (``ETag`` value) of the function that you are updating, which you can get using ``DescribeFunction``.
         :param function_config: Configuration information about the function.
         :param function_code: The function code.
         :returns: UpdateFunctionResult
@@ -10471,10 +10349,8 @@ class CloudfrontApi:
         """Updates a CloudFront origin access control.
 
         :param origin_access_control_config: An origin access control.
-        :param id: The unique identifier of the origin access control that you are
-        updating.
-        :param if_match: The current version (``ETag`` value) of the origin access control that
-        you are updating.
+        :param id: The unique identifier of the origin access control that you are updating.
+        :param if_match: The current version (``ETag`` value) of the origin access control that you are updating.
         :returns: UpdateOriginAccessControlResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -10513,8 +10389,7 @@ class CloudfrontApi:
            and those that you didn't.
 
         :param origin_request_policy_config: An origin request policy configuration.
-        :param id: The unique identifier for the origin request policy that you are
-        updating.
+        :param id: The unique identifier for the origin request policy that you are updating.
         :param if_match: The version of the origin request policy that you are updating.
         :returns: UpdateOriginRequestPolicyResult
         :raises PreconditionFailed:
@@ -10545,8 +10420,7 @@ class CloudfrontApi:
 
         :param public_key_config: A public key configuration.
         :param id: The identifier of the public key that you are updating.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        public key to update.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the public key to update.
         :returns: UpdatePublicKeyResult
         :raises PreconditionFailed:
         :raises AccessDenied:
@@ -10588,8 +10462,7 @@ class CloudfrontApi:
 
         You cannot update a real-time log configuration's ``Name`` or ``ARN``.
 
-        :param end_points: Contains information about the Amazon Kinesis data stream where you are
-        sending real-time log data.
+        :param end_points: Contains information about the Amazon Kinesis data stream where you are sending real-time log data.
         :param fields: A list of fields to include in each real-time log record.
         :param name: The name for this real-time log configuration.
         :param arn: The Amazon Resource Name (ARN) for this real-time log configuration.
@@ -10657,8 +10530,7 @@ class CloudfrontApi:
 
         :param streaming_distribution_config: The streaming distribution's configuration information.
         :param id: The streaming distribution's id.
-        :param if_match: The value of the ``ETag`` header that you received when retrieving the
-        streaming distribution's configuration.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the streaming distribution's configuration.
         :returns: UpdateStreamingDistributionResult
         :raises AccessDenied:
         :raises InconsistentQuantities:
@@ -10690,8 +10562,7 @@ class CloudfrontApi:
 
         :param id: The trust store ID.
         :param ca_certificates_bundle_source: The CA certificates bundle source.
-        :param if_match: The current version (``ETag`` value) of the trust store you are
-        updating.
+        :param if_match: The current version (``ETag`` value) of the trust store you are updating.
         :returns: UpdateTrustStoreResult
         :raises PreconditionFailed:
         :raises AccessDenied:

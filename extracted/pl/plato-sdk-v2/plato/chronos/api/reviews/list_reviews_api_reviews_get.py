@@ -15,6 +15,7 @@ def _build_request_args(
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
     author_type: str | None = None,
+    analyzer_session_id: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -29,6 +30,8 @@ def _build_request_args(
         params["tags_mode"] = tags_mode
     if author_type is not None:
         params["author_type"] = author_type
+    if analyzer_session_id is not None:
+        params["analyzer_session_id"] = analyzer_session_id
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -48,6 +51,7 @@ def sync(
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
     author_type: str | None = None,
+    analyzer_session_id: str | None = None,
     x_api_key: str | None = None,
 ) -> ReviewListResponse:
     """List reviews, optionally filtered by session and/or tags."""
@@ -57,6 +61,7 @@ def sync(
         tags=tags,
         tags_mode=tags_mode,
         author_type=author_type,
+        analyzer_session_id=analyzer_session_id,
         x_api_key=x_api_key,
     )
 
@@ -71,6 +76,7 @@ async def asyncio(
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
     author_type: str | None = None,
+    analyzer_session_id: str | None = None,
     x_api_key: str | None = None,
 ) -> ReviewListResponse:
     """List reviews, optionally filtered by session and/or tags."""
@@ -80,6 +86,7 @@ async def asyncio(
         tags=tags,
         tags_mode=tags_mode,
         author_type=author_type,
+        analyzer_session_id=analyzer_session_id,
         x_api_key=x_api_key,
     )
 

@@ -20,6 +20,7 @@ from coredis.commands._key_spec import KeySpec
 from coredis.commands._routing import NodeExecution
 from coredis.commands._validators import mutually_inclusive_parameters
 from coredis.commands.constants import CommandName
+from coredis.commands.request import CommandRequest
 from coredis.connection._base import RedisSSLContext
 from coredis.connection._tcp import TCPLocation
 from coredis.credentials import AbstractCredentialProvider
@@ -29,19 +30,17 @@ from coredis.exceptions import (
     ClusterError,
     ConnectionError,
     MovedError,
+    RedisClusterError,
     RedisError,
     TryAgainError,
 )
 from coredis.globals import (
     CACHEABLE_COMMANDS,
     MODULE_GROUPS,
-    READONLY_COMMANDS,
-    ROUTING_STRATEGIES,
 )
 from coredis.patterns.cache import AbstractCache
 from coredis.patterns.pubsub import ClusterPubSub, ShardedPubSub, SubscriptionCallback
 from coredis.pool import ClusterConnectionPool
-from coredis.response._callbacks import NoopCallback
 from coredis.retry import (
     CompositeRetryPolicy,
     ConstantRetryPolicy,
@@ -55,7 +54,6 @@ from coredis.typing import (
     Awaitable,
     Callable,
     Coroutine,
-    ExecutionParameters,
     Iterable,
     Iterator,
     KeyT,
@@ -64,13 +62,10 @@ from coredis.typing import (
     Node,
     Parameters,
     ParamSpec,
-    RedisCommand,
-    RedisCommandP,
     Self,
     StringT,
     TypeAdapter,
     TypeVar,
-    Unpack,
 )
 
 P = ParamSpec("P")
@@ -109,7 +104,7 @@ class ClusterMeta(ABCMeta):
                         doc_addition = f"""
 .. admonition:: Cluster note
 
-   The command will be **{cmd.cluster.routing_strategy.description}**
+   The command will be routed to {cmd.cluster.routing_strategy.description}
    and return {cmd.cluster.routing_strategy.merge_callback.response_policy}.
 
                     """
@@ -119,33 +114,29 @@ class ClusterMeta(ABCMeta):
                                             """
             if doc_addition and not hasattr(method, "__cluster_docs") and cmd:
                 if not getattr(method, "__coredis_module", None):
-                    if not cmd.cluster.enabled:
 
-                        def __w(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
-                            @functools.wraps(func)
-                            def _w(*a: P.args, **k: P.kwargs) -> Awaitable[R]:
-                                raise NotImplementedError(
-                                    f"{func.__name__} is disabled for cluster client"
-                                )
+                    def __w(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+                        @functools.wraps(func)
+                        def _w(*a: P.args, **k: P.kwargs) -> Awaitable[R]:
+                            if cmd.cluster.enabled:
+                                return func(*a, **k)
+                            raise NotImplementedError(
+                                f"{func.__name__} is disabled for cluster client"
+                            )
 
-                            _w.__doc__ = f"""{textwrap.dedent(method.__doc__ or "")}
-    {doc_addition}
-                            """
-                            return _w
-
-                        wrapped = __w(method)
-                        setattr(wrapped, "__cluster_docs", doc_addition)
-                        setattr(kls, method_name, wrapped)
-                    else:
-                        setattr(method, "__cluster_docs", doc_addition)
-                        method.__doc__ = f"""{textwrap.dedent(method.__doc__ or "")}
-    {doc_addition}
+                        _w.__doc__ = f"""{textwrap.dedent(method.__doc__ or "")}
+{doc_addition}
                         """
+                        return _w
+
+                    wrapped = __w(method)
+                    setattr(wrapped, "__cluster_docs", doc_addition)
+                    setattr(kls, method_name, wrapped)
                 else:
+                    setattr(method, "__cluster_docs", doc_addition)
                     method.__doc__ = f"""{textwrap.dedent(method.__doc__ or "")}
 {doc_addition}
                     """
-                    setattr(method, "__cluster_docs", doc_addition)
         return kls
 
 
@@ -699,9 +690,7 @@ class RedisCluster(
 
     async def execute_command(
         self,
-        command: RedisCommandP,
-        callback: Callable[..., R] = NoopCallback(),
-        **kwargs: Unpack[ExecutionParameters],
+        command: CommandRequest[R],
     ) -> R:
         """
         Sends a command to one or many nodes in the cluster
@@ -709,90 +698,62 @@ class RedisCluster(
         """
 
         return await self.retry_policy.call_with_retries(
-            lambda: self._execute_command(command, callback=callback, **kwargs),
+            lambda: self._execute_command(command),
             failure_hook=self.on_retry_error,
         )
 
     async def _execute_command(
         self,
-        command: RedisCommandP,
-        callback: Callable[..., R] = NoopCallback(),
-        **kwargs: Unpack[ExecutionParameters],
+        command: CommandRequest[R],
     ) -> R:
         """
         Sends a command to one or many nodes in the cluster
         """
-        prefer_replica = (
-            command.name in READONLY_COMMANDS and self.connection_pool.read_from_replicas
-        )
-        affected_slots = len(
-            KeySpec.affected_slots(
-                command.name, *command.arguments, readonly_command=prefer_replica
-            )
-        )
-        if affected_slots == 1:
+        prefer_replica = command.readonly and self.connection_pool.read_from_replicas
+        try:
             node = self.connection_pool.cluster_layout.node_for_request(
-                command.name,
-                command.arguments,
+                command,
                 primary=not prefer_replica,
-                execution_parameters=kwargs,
             )
             return await self._execute_command_on_single_node(
                 node,
                 command,
-                callback=callback,
-                **kwargs,
             )
-        elif (routing_strategy := ROUTING_STRATEGIES.get(command.name)) and (
-            self.non_atomic_cross_slot or not routing_strategy.cross_slot
-        ):
-            node_executions = routing_strategy.distribute(
-                self.connection_pool.cluster_layout,
-                command.name,
-                command.arguments,
-                prefer_replica,
-                execution_parameters=kwargs,
-            )
-            node_command_executions: dict[NodeExecution[R], Coroutine[Any, Any, R]] = {}
-            for portion, execution in enumerate(node_executions):
-                node_command_executions[execution] = self._execute_command_on_single_node(
-                    execution.node,
-                    RedisCommand(command.name, execution.arguments),
-                    callback=callback,
-                    **kwargs,
+        except RedisClusterError:
+            if (routing_strategy := command.routing_strategy) and (
+                self.non_atomic_cross_slot or not routing_strategy.cross_slot
+            ):
+                node_executions = routing_strategy.distribute(
+                    self.connection_pool.cluster_layout,
+                    command,
+                    prefer_replica,
                 )
+                node_command_executions: dict[NodeExecution[R], Coroutine[Any, Any, R]] = {}
+                for execution in node_executions:
+                    node_command_executions[execution] = self._execute_command_on_single_node(
+                        execution.node, execution
+                    )
 
-            results = await gather(*node_command_executions.values(), return_exceptions=True)
-            if self.noreply:
-                return None  # type: ignore
+                results = await gather(*node_command_executions.values(), return_exceptions=True)
+                if self.noreply:
+                    return None  # type: ignore
+                else:
+                    for execution, result in zip(node_command_executions.keys(), results):
+                        execution.result = result
+                    return cast(R, routing_strategy.combine(node_executions=node_executions))
             else:
-                for execution, result in zip(node_command_executions.keys(), results):
-                    execution.result = result
-                return cast(
-                    R,
-                    routing_strategy.combine(node_executions=node_executions),
-                )
-        else:
-            return await self._execute_command_on_single_node(
-                self.connection_pool.cluster_layout.random_node(not prefer_replica),
-                command,
-                callback=callback,
-                **kwargs,
-            )
+                raise
 
     async def _execute_command_on_single_node(
         self,
         node: ClusterNodeLocation,
-        command: RedisCommandP,
-        callback: Callable[..., R] = NoopCallback(),
-        **kwargs: Unpack[ExecutionParameters],
+        command: CommandRequest[R],
     ) -> R:
         redirect_location = None
         asking = False
 
         remaining_attempts = int(self.MAX_RETRIES)
-        quick_release = self.should_quick_release(command)
-        should_block = not quick_release or self.requires_wait or self.requires_waitaof
+        should_block = command.blocking or self.requires_wait or self.requires_waitaof
         attempt_node: ClusterNodeLocation | None = node
         while remaining_attempts > 0:
             remaining_attempts -= 1
@@ -825,7 +786,7 @@ class RedisCluster(
                         await r.update_tracking_client(
                             True, self.connection_pool.cache.get_client_id(r)
                         )
-                    if command.name not in READONLY_COMMANDS:
+                    if not command.readonly:
                         self.connection_pool.cache.invalidate(*keys)
                     elif cacheable:
                         try:
@@ -849,7 +810,9 @@ class RedisCluster(
                         command.name,
                         *command.arguments,
                         noreply=self.noreply,
-                        decode=kwargs.get("decode", self._decodecontext.get()),
+                        decode=command.execution_parameters.get(
+                            "decode", self._decodecontext.get()
+                        ),
                         encoding=self._encodingcontext.get(),
                         disconnect_on_cancellation=should_block,
                     )
@@ -865,7 +828,7 @@ class RedisCluster(
                 if self.noreply:
                     return  # type: ignore
                 else:
-                    response = callback(
+                    response = command.callback(
                         cached_reply if cache_hit else reply,
                     )
                     if self.connection_pool.cache and cacheable:

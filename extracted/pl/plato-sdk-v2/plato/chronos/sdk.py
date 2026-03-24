@@ -35,6 +35,9 @@ from plato.chronos.api.reviews import (
 from plato.chronos.api.reviews import (
     list_annotations_api_annotations_get as list_annotations_api,
 )
+from plato.chronos.api.reviews import (
+    list_reviews_api_reviews_get as list_reviews_api,
+)
 from plato.chronos.api.sessions import (
     complete_session,
     get_session,
@@ -839,17 +842,41 @@ class AsyncChronos(_ChronosBase):
         name: str | None = None,
         description: str | None = None,
         tags: list[str] | None = None,
+        review_type: str | None = None,
         author_type: str = "agent",
+        analyzer_session_id: str | None = None,
     ) -> ReviewResponse:
         """Create a review on a session."""
+        from plato.chronos.models import ReviewType as _ReviewType
+
         body = CreateReviewRequest(
             session_id=session_id,
             name=name,
             description=description,
             tags=tags,
+            review_type=_ReviewType(review_type) if review_type else None,
             author_type=_AuthorType(author_type),
+            analyzer_session_id=analyzer_session_id,
         )
         return await create_review_api.asyncio(self._client, body=body)
+
+    async def list_reviews(
+        self,
+        session_id: str,
+        *,
+        tags: list[str] | None = None,
+        author_type: str | None = None,
+        analyzer_session_id: str | None = None,
+    ) -> list[ReviewResponse]:
+        """List reviews for a session."""
+        resp = await list_reviews_api.asyncio(
+            self._client,
+            session_id=session_id,
+            tags=tags,
+            author_type=author_type,
+            analyzer_session_id=analyzer_session_id,
+        )
+        return resp.reviews if hasattr(resp, "reviews") else []
 
     async def create_annotation(
         self,

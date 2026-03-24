@@ -8,7 +8,7 @@ import os
 import ssl
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import cast
+from typing import Any, cast
 
 from anyio import (
     TASK_STATUS_IGNORED,
@@ -29,9 +29,10 @@ import coredis
 from coredis._packer import Packer
 from coredis._utils import logger, nativestr
 from coredis.commands.constants import CommandName
+from coredis.commands.request import CommandRequest
 from coredis.constants.resp import DataType
 from coredis.credentials import AbstractCredentialProvider, UserPassCredentialProvider
-from coredis.exceptions import ConnectionError, UnknownCommandError
+from coredis.exceptions import AuthorizationError, ConnectionError, UnknownCommandError
 from coredis.parser import NotEnoughData, Parser
 from coredis.tokens import PureToken
 from coredis.typing import (
@@ -46,6 +47,7 @@ from coredis.typing import (
     RedisValueT,
     ResponseType,
     Self,
+    Sequence,
     TypedDict,
     TypeVar,
 )
@@ -155,14 +157,6 @@ class RedisSSLContext:
             self.context.check_hostname = self.check_hostname
             self.context.verify_mode = self.cert_reqs
         return self.context
-
-
-@dataclasses.dataclass
-class CommandInvocation:
-    command: bytes
-    args: tuple[RedisValueT, ...]
-    decode: bool | None
-    encoding: str | None
 
 
 class BaseConnection(ABC):
@@ -592,16 +586,21 @@ class BaseConnection(ABC):
             self.server_version = nativestr(resp3[b"version"])
             self.client_id = int(resp3[b"id"])
             if self.server_version >= "7.2":
-                await self.create_request(
-                    b"CLIENT SETINFO",
-                    b"LIB-NAME",
-                    b"coredis",
-                )
-                await self.create_request(
-                    b"CLIENT SETINFO",
-                    b"LIB-VER",
-                    coredis.__version__,
-                )
+                try:
+                    await self.create_request(
+                        b"CLIENT SETINFO",
+                        b"LIB-NAME",
+                        b"coredis",
+                    )
+                    await self.create_request(
+                        b"CLIENT SETINFO",
+                        b"LIB-VER",
+                        coredis.__version__,
+                    )
+                except AuthorizationError:
+                    logger.info(
+                        "Unable to set client info due to authorization error", exc_info=True
+                    )
 
             if self._db:
                 if await self.create_request(b"SELECT", self._db, decode=False) != b"OK":
@@ -735,7 +734,7 @@ class BaseConnection(ABC):
     @_ensure_usable
     def create_requests(
         self,
-        commands: list[CommandInvocation],
+        commands: Sequence[CommandRequest[Any]],
         raise_exceptions: bool = True,
         timeout: float | None = None,
         disconnect_on_cancellation: bool = False,
@@ -747,10 +746,10 @@ class BaseConnection(ABC):
         requests = [
             Request(
                 connection=self,
-                command=cmd.command,
-                args=cmd.args,
+                command=cmd.name,
+                args=cmd.arguments,
                 decode=bool(cmd.decode) if cmd.decode is not None else self._decode_responses,
-                encoding=cmd.encoding or self._encoding,
+                encoding=self._encoding,
                 raise_exceptions=raise_exceptions,
                 response_timeout=request_timeout,
                 disconnect_on_cancellation=disconnect_on_cancellation,

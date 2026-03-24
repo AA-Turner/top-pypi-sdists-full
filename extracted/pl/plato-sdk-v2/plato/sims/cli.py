@@ -1218,7 +1218,7 @@ def cmd_publish(
             dependencies = '["httpx>=0.25.0", "pydantic>=2.0.0"]'
             extra_config = ""
 
-        pyproject_content = f'''[project]
+        pyproject_content = f"""[project]
 name = "{package_name}"
 version = "{version}"
 description = "{description}"
@@ -1231,7 +1231,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/plato"]
-{extra_config}'''
+{extra_config}"""
         (build_dir / "pyproject.toml").write_text(pyproject_content)
 
         # Create README

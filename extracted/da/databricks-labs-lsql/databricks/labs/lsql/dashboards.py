@@ -1,3 +1,10 @@
+"""
+Deploy Lakeview dashboards from code.
+
+Docs:
+../../../../docs/dashboards.md
+"""
+
 import argparse
 import collections
 import csv
@@ -76,11 +83,13 @@ def _clean_resource_name(name: str) -> str:
 
     See :func:_is_valid_resource_name for the definition of a valid resource name.
     """
-    return _CLEAN_RESOURCE_NAME_PATTERN.sub("_", name)
+    return _CLEAN_RESOURCE_NAME_PATTERN.sub("", name)
 
 
 class BaseHandler:
     """Base file handler.
+
+    A handler is responsible for parsing the header of a file and splitting the header from the contents.
 
     Handlers are based on a Python implementation for FrontMatter.
 
@@ -94,6 +103,7 @@ class BaseHandler:
 
     @property
     def _content(self) -> str:
+        """The contents of the file."""
         if self._path is None:
             return ""
         return self._path.read_text()
@@ -104,6 +114,7 @@ class BaseHandler:
         return self._parse_header(header)
 
     def _parse_header(self, header: str) -> dict:
+        """Parse the header of the file. Hidden method to be overwritten by subclasses."""
         _ = self, header
         return {}
 
@@ -122,6 +133,7 @@ class QueryHandler(BaseHandler):
 
     @staticmethod
     def _get_arguments_parser() -> ArgumentParser:
+        """Get the argument parser to parse the query header with."""
         parser = ArgumentParser("TileMetadata", add_help=False, exit_on_error=False)
         parser.add_argument("--id", type=str)
         parser.add_argument("-o", "--order", type=int)
@@ -157,7 +169,7 @@ class QueryHandler(BaseHandler):
         return parser
 
     def _parse_header(self, header: str) -> dict:
-        """Header is an argparse string."""
+        """Parse header as an argparse string."""
         header_split = shlex.split(header)
         parser = self._get_arguments_parser()
         try:
@@ -193,12 +205,17 @@ class QueryHandler(BaseHandler):
 
 
 class MarkdownHandler(BaseHandler):
-    """Handle Markdown files."""
+    """Handle Markdown files.
+
+    Sources:
+        https://frontmatter.codes/docs/markdown
+    """
 
     _FRONT_MATTER_BOUNDARY = re.compile(r"^-{3,}\s*$", re.MULTILINE)
+    """The boundary to split the header from the content. A horizontal line marked with three dashes '---'."""
 
     def _parse_header(self, header: str) -> dict:
-        """Markdown configuration header is a YAML."""
+        """Parse the header as YAML."""
         _ = self
         return yaml.safe_load(header) or {}
 
@@ -220,6 +237,7 @@ class FilterHandler(BaseHandler):
     """Handle filter files."""
 
     def _parse_header(self, header: str) -> dict:
+        """Parse the header as YAML."""
         if not header:
             return {}
         metadata = yaml.safe_load(header) or {}
@@ -238,13 +256,20 @@ class FilterHandler(BaseHandler):
         return metadata
 
     def split(self) -> tuple[str, str]:
+        """Split the header from the contents.
+
+        The (current) filter definition only contains a header.
+        """
         trimmed_content = self._content.strip()
         return trimmed_content, ""
 
 
 @unique
 class WidgetType(str, Enum):
-    """The query widget type"""
+    """The query widget type.
+
+    A mapping from lsql supported widget types to Lakeview widget specs.
+    """
 
     AUTO = "AUTO"
     TABLE = "TABLE"
@@ -254,6 +279,7 @@ class WidgetType(str, Enum):
     DROPDOWN = "DROPDOWN"
 
     def as_widget_spec(self) -> type[WidgetSpec]:
+        """Convert a widget type to a widget spec."""
         widget_spec_mapping: dict[str, type[WidgetSpec]] = {
             "TABLE": TableV1Spec,
             "COUNTER": CounterSpec,
@@ -271,22 +297,43 @@ class TileMetadata:
     """The metadata defining a :class:Tile"""
 
     path: Path | None = None
+    """The path to the tile file."""
+
     order: int | None = None
+    """The order of the tile."""
+
     width: int = 0
+    """The width of the tile."""
+
     height: int = 0
+    """The height of the tile."""
+
     id: str = ""
+    """The unique id for the tile. 
+    
+    If not given, the stem of the path is used. Needs to adhere to :func:_is_valid_resource_name.
+    """
+
     title: str = ""
+    """The tile title."""
+
     description: str = ""
+    """The tile description."""
+
     widget_type: WidgetType = WidgetType.AUTO
+    """The widget type. If AUTO, the widget type is inferred from the query."""
+
     filters: list[str] = dataclasses.field(default_factory=list)
+    """The filters applied to the tile."""
+
     overrides: dict = dataclasses.field(default_factory=dict)
+    """The raw API overrides for the widget."""
 
     def __post_init__(self):
+        """Handle the tile metadata id."""
         if not self.id:
-            path_stem = "" if self.path is None else self.path.stem
-            if self.is_filter():  # To adhere to :func:_is_valid_resource_name
-                path_stem = path_stem.replace(".filter", "_filter")
-            self.id = path_stem
+            self.id = "" if self.path is None else self.path.stem
+        self.id = _clean_resource_name(self.id)
 
     def validate(self) -> None:
         """Validate the tile metadata.
@@ -330,16 +377,20 @@ class TileMetadata:
         return merged
 
     def is_markdown(self) -> bool:
+        """Check if the tile comes from a markdown file."""
         return self.path is not None and self.path.suffix == ".md"
 
     def is_query(self) -> bool:
+        """Check if the tile comes from a SQL file."""
         return self.path is not None and self.path.suffix == ".sql"
 
     def is_filter(self) -> bool:
+        """Check if the tile comes from a filter file."""
         return self.path is not None and self.path.name.endswith(".filter.yml")
 
     @property
     def handler(self) -> BaseHandler:
+        """Handler for parsing the tile file."""
         handler = BaseHandler
         if self.is_markdown():
             handler = MarkdownHandler
@@ -351,11 +402,13 @@ class TileMetadata:
 
     @classmethod
     def from_dict(cls, raw: dict) -> "TileMetadata":
+        """Create tile metadata from a dictionary."""
         path = raw.pop("path", None)
         path = Path(path) if path is not None else None
         return cls(path=path, **raw)
 
     def as_dict(self) -> dict:
+        """Convert tile metadata to a dictionary."""
         exclude_attributes = {
             "handler",  # Handler is inferred from file extension
             "path",  # Path is set explicitly below
@@ -380,6 +433,7 @@ class TileMetadata:
 
     @classmethod
     def from_path(cls, path: Path) -> "TileMetadata":
+        """Create tile metadata from a YAML file."""
         tile_metadata = cls(path=path)
         header = tile_metadata.handler.parse_header()
         header["path"] = path
@@ -394,12 +448,18 @@ class Tile:
     """A dashboard tile."""
 
     metadata: TileMetadata
+    """The tile metadata."""
 
     _content: str = ""
+    """The contents of the tile file. Hidden attribute that functions as a cache to read contents once."""
+
+    # Note: fields of _position are always filled.
     _position: Position = dataclasses.field(default_factory=lambda: Position(0, 0, 0, 0))
+    """The position of the tile in the dashboard. Hidden stateful attribute updated by the tiling logic."""
 
     @property
     def content(self) -> str:
+        """The content of the tile file."""
         if len(self._content) == 0:
             _, content = self.metadata.handler.split()
             self._content = content
@@ -407,6 +467,7 @@ class Tile:
 
     @property
     def position(self) -> Position:
+        """The position of the tile in the dashboard."""
         width = self.metadata.width or self._position.width
         height = self.metadata.height or self._position.height
         return Position(self._position.x, self._position.y, width, height)
@@ -435,13 +496,19 @@ class Tile:
         - `position.width < _MAXIMUM_DASHBOARD_WIDTH` : tiles in a single row should have the same size
         - `position.width == _MAXIMUM_DASHBOARD_WIDTH` : any height
         """
-        x = position.x + position.width
-        if x + self.position.width > _MAXIMUM_DASHBOARD_WIDTH:
+        if position.x is None or position.y is None or position.width is None or position.height is None:
+            logger.warning(f"Position unusable for placement: {position}")
+            return
+        x: int = position.x + position.width
+        my_position = self.position
+        assert my_position.width is not None
+        y: int
+        if x + my_position.width > _MAXIMUM_DASHBOARD_WIDTH:
             x = 0
             y = position.y + position.height
         else:
             y = position.y
-        self._position = dataclasses.replace(self.position, x=x, y=y)
+        self._position = dataclasses.replace(my_position, x=x, y=y)
 
     @classmethod
     def from_tile_metadata(cls, tile_metadata: TileMetadata) -> "Tile":
@@ -464,7 +531,10 @@ class Tile:
 
 @dataclass
 class MarkdownTile(Tile):
+    """A tile representing a markdown file."""
+
     _position: Position = dataclasses.field(default_factory=lambda: Position(0, 0, _MAXIMUM_DASHBOARD_WIDTH, 3))
+    """The position of the tile in the dashboard. Hidden stateful attribute updated by the tiling logic."""
 
     def validate(self) -> None:
         """Validate the tile
@@ -482,8 +552,13 @@ class QueryTile(Tile):
     """A tile based on a sql query."""
 
     query_transformer: Callable[[sqlglot.Expression], sqlglot.Expression] | None = None
+    """A sqlglot transformer to apply to the query before rendering the tile.
+    
+    Useful for templating SQL queries, like a dynamic catalor or database name.
+    """
 
     _FILTER_HEIGHT = 1
+    """The height of filter widgets. Hidden attribute as it is a static value."""
 
     def validate(self) -> None:
         """Validate the tile
@@ -539,6 +614,7 @@ class QueryTile(Tile):
         return formatted_query + ("\n" if has_eol else "")
 
     def _get_abstract_syntax_tree(self) -> sqlglot.Expression | None:
+        """Convert the contents to an abstract syntax tree."""
         try:
             return sqlglot.parse_one(self.content, dialect=_SQL_DIALECT)
         except sqlglot.ParseError as e:
@@ -675,12 +751,19 @@ class QueryTile(Tile):
         spec = self._get_query_widget_spec(fields, frame=frame)
         widget = Widget(name=f"{self.metadata.id}_widget", queries=[named_query], spec=spec)
         widget = self._merge_widget_with_overrides(widget)
-        height = self.position.height
-        if len(self.metadata.filters) > 0 and self.position.width > 0:
-            height -= self._FILTER_HEIGHT * math.ceil(len(self.metadata.filters) / self.position.width)
+        my_position = self.position
+        assert (
+            my_position.width is not None
+            and my_position.height is not None
+            and my_position.x is not None
+            and my_position.y is not None
+        )
+        height = my_position.height
+        if len(self.metadata.filters) > 0 and my_position.width > 0:
+            height -= self._FILTER_HEIGHT * math.ceil(len(self.metadata.filters) / my_position.width)
         height = max(height, 0)
-        y = self.position.y + self.position.height - height
-        position = dataclasses.replace(self.position, y=y, height=height)
+        y = my_position.y + my_position.height - height
+        position = dataclasses.replace(my_position, y=y, height=height)
         layout = Layout(widget=widget, position=position)
         yield layout
 
@@ -714,24 +797,31 @@ class QueryTile(Tile):
            ii) occupy an additional row if the previous one is filled completely.
         """
         filters_size = len(self.metadata.filters) * self._FILTER_HEIGHT
-        if filters_size > self.position.width * (self.position.height - 1):  # At least one row for the query widget
+        my_position = self.position
+        assert (
+            my_position.width is not None
+            and my_position.height is not None
+            and my_position.x is not None
+            and my_position.y is not None
+        )
+        if filters_size > my_position.width * (my_position.height - 1):  # At least one row for the query widget
             raise ValueError(f"Too many filters defined for {self}")
 
         # The bottom row requires bookkeeping to adjust the filters width to fill it completely
-        bottom_row_index = len(self.metadata.filters) // self.position.width
-        bottom_row_filter_count = len(self.metadata.filters) % self.position.width or self.position.width
-        bottom_row_filter_width = self.position.width // bottom_row_filter_count
-        bottom_row_remainder_width = self.position.width - bottom_row_filter_width * bottom_row_filter_count
+        bottom_row_index = len(self.metadata.filters) // my_position.width
+        bottom_row_filter_count = len(self.metadata.filters) % my_position.width or my_position.width
+        bottom_row_filter_width = my_position.width // bottom_row_filter_count
+        bottom_row_remainder_width = my_position.width - bottom_row_filter_width * bottom_row_filter_count
 
         for filter_index in range(len(self.metadata.filters)):
-            if filter_index % self.position.width == 0:
+            if filter_index % my_position.width == 0:
                 x_offset = 0  # Reset on new row
-            x = self.position.x + x_offset
-            y = self.position.y + self._FILTER_HEIGHT * (filter_index // self.position.width)
+            x = my_position.x + x_offset
+            y = my_position.y + self._FILTER_HEIGHT * (filter_index // my_position.width)
             width = 1
-            if filter_index // self.position.width == bottom_row_index:  # Reached bottom row
+            if filter_index // my_position.width == bottom_row_index:  # Reached bottom row
                 width = bottom_row_filter_width
-                if filter_index % self.position.width < bottom_row_remainder_width:
+                if filter_index % my_position.width < bottom_row_remainder_width:
                     width += 1  # Fills up the remainder width if self.position.width % bottom_row_filter_count != 0
             position = Position(x, y, width, self._FILTER_HEIGHT)
             yield position
@@ -781,15 +871,24 @@ class QueryTile(Tile):
 
 @dataclass
 class TableTile(QueryTile):
+    """A tile based on a sql query creating a table widget."""
+
     _position: Position = dataclasses.field(default_factory=lambda: Position(0, 0, 3, 6))
+    """The position of the tile in the dashboard. Hidden stateful attribute updated by the tiling logic."""
 
     @property
     def position(self) -> Position:
+        """The position of the tile in the dashboard.
+
+        If the width is not defined, we based the width on the number of fields while capping it with the maximum width.
+        """
         if self.metadata.width:
             width = self.metadata.width
         else:
             fields = self._find_fields()
-            width = max(self._position.width, len(fields) // 3)
+            my_width = self._position.width
+            assert my_width is not None
+            width = max(my_width, len(fields) // 3)
         width = min(width, _MAXIMUM_DASHBOARD_WIDTH)
         height = self.metadata.height or self._position.height
         return Position(self._position.x, self._position.y, width, height)
@@ -797,10 +896,14 @@ class TableTile(QueryTile):
 
 @dataclass
 class CounterTile(QueryTile):
+    """A tile based on a sql query creating a counter widget."""
+
     _position: Position = dataclasses.field(default_factory=lambda: Position(0, 0, 1, 3))
+    """The position of the tile in the dashboard. Hidden stateful attribute updated by the tiling logic."""
 
     @staticmethod
     def _get_query_widget_spec(fields: list[Field], *, frame: WidgetFrameSpec | None = None) -> CounterSpec:
+        """Get query widget spec."""
         counter_encodings = CounterFieldEncoding(field_name=fields[0].name, display_name=fields[0].name)
         spec = CounterSpec(CounterEncodingMap(value=counter_encodings), frame=frame)
         return spec
@@ -808,7 +911,10 @@ class CounterTile(QueryTile):
 
 @dataclass
 class FilterTile(Tile):
+    """A tile based on a filter file creating a filter widget."""
+
     _position: Position = dataclasses.field(default_factory=lambda: Position(0, 0, 3, 2))
+    """The position of the tile in the dashboard. Hidden stateful attribute updated by the tiling logic."""
 
     def validate(self) -> None:
         """Validate the tile
@@ -836,6 +942,7 @@ class FilterTile(Tile):
         yield layout
 
     def _create_widget(self, datasets: list[Dataset]) -> Widget:
+        """Create the filter widget."""
         dataset_columns = self._get_dataset_columns(datasets)
         # This method is called during get layouts.
         # Metadata validation is done before getting the layouts.
@@ -851,7 +958,11 @@ class FilterTile(Tile):
         """Get the filter column and dataset name pairs."""
         dataset_columns = set()
         for dataset in datasets:
+            if dataset.query is None:
+                continue
             for field in self._find_filter_fields(dataset.query):
+                if field.name is None or dataset.name is None:
+                    continue
                 dataset_columns.add((field.name, dataset.name))
         return dataset_columns
 
@@ -881,6 +992,7 @@ class FilterTile(Tile):
         dataset_columns: set[tuple[str, str]],
         spec_type,
     ) -> Widget:
+        """Create the filter widget."""
         frame = self._create_widget_frame()
         control_encodings, queries = self._generate_filter_encodings_and_queries(dataset_columns)
         control_encoding_map = ControlEncodingMap(control_encodings)
@@ -889,6 +1001,7 @@ class FilterTile(Tile):
         return widget
 
     def _create_widget_frame(self) -> WidgetFrameSpec:
+        """Create the widget frame."""
         return WidgetFrameSpec(
             title=self.metadata.title,
             show_title=len(self.metadata.title) > 0,
@@ -899,6 +1012,7 @@ class FilterTile(Tile):
     def _generate_filter_encodings_and_queries(
         self, dataset_columns: set[tuple[str, str]]
     ) -> tuple[list[ControlEncoding], list[NamedQuery]]:
+        """Generate the filter encodings and queries from the dataset columns."""
         encodings: list[ControlEncoding] = []
         queries = []
 
@@ -920,9 +1034,11 @@ class FilterTile(Tile):
 class DashboardMetadata:
     """The metadata defining a lakeview dashboard"""
 
-    display_name: str  # The dashboard display name
+    display_name: str
+    """The dashboard display name"""
 
-    _tiles: list[Tile] = dataclasses.field(default_factory=list)  # The dashboard tiles
+    _tiles: list[Tile] = dataclasses.field(default_factory=list)
+    """The dashboard tiles. Hidden attribute as this contains the unordered tiles."""
 
     @property
     def tiles(self) -> list[Tile]:
@@ -1016,6 +1132,7 @@ class DashboardMetadata:
 
     @classmethod
     def from_dict(cls, raw: dict) -> "DashboardMetadata":
+        """Create dashboard metadata from a dictionary."""
         display_name = raw["display_name"]  # Fail early if missing
         tiles, tiles_raw = [], raw.get("tiles", {})
         for tile_id, tile_raw in tiles_raw.items():
@@ -1039,6 +1156,7 @@ class DashboardMetadata:
         return cls(display_name=display_name, _tiles=tiles)
 
     def as_dict(self) -> dict:
+        """Convert dashboard metadata to a dictionary."""
         raw: dict = {"display_name": self.display_name}
         if self.tiles:
             raw["tiles"] = {tile.metadata.id: tile.metadata.as_dict() for tile in self.tiles}
@@ -1113,28 +1231,35 @@ class DashboardMetadata:
 
 
 class Dashboards:
+    """The API for Lakeview dashboards."""
+
     def __init__(self, ws: WorkspaceClient):
         self._ws = ws
 
     def get_dashboard(self, dashboard_path: str) -> Dashboard:
+        """Get a Lakeview dashboard."""
         with self._ws.workspace.download(dashboard_path, format=ExportFormat.SOURCE) as f:
             raw = f.read().decode("utf-8")
             as_dict = json.loads(raw)
             return Dashboard.from_dict(as_dict)
 
     def save_to_folder(self, dashboard: Dashboard, local_path: Path) -> Dashboard:
+        """Save the lakeview dashboard to a local folder."""
         local_path.mkdir(parents=True, exist_ok=True)
         dashboard = self._with_better_names(dashboard)
         for dataset in dashboard.datasets:
+            if dataset.query is None:
+                continue
             query = QueryTile.format(dataset.query)
             (local_path / f"{dataset.name}.sql").write_text(query)
         for page in dashboard.pages:
             with (local_path / f"{page.name}.yml").open("w") as f:
                 yaml.safe_dump(page.as_dict(), f)
             for layout in page.layout:
-                if layout.widget.textbox_spec is not None:
-                    name = layout.widget.name.removesuffix("_widget")
-                    (local_path / f"{name}.md").write_text(layout.widget.textbox_spec)
+                if layout.widget.name is None or layout.widget.textbox_spec is None:
+                    continue
+                name = layout.widget.name.removesuffix("_widget")
+                (local_path / f"{name}.md").write_text(layout.widget.textbox_spec)
         return dashboard
 
     def create_dashboard(
@@ -1180,16 +1305,17 @@ class Dashboards:
 
     def _with_better_names(self, dashboard: Dashboard) -> Dashboard:
         """Replace names with human-readable names."""
-        better_names = {}
+        better_names: dict[str, str] = {}
         for dataset in dashboard.datasets:
-            if dataset.display_name is not None:
+            if dataset.name is not None and dataset.display_name is not None:
                 better_names[dataset.name] = dataset.display_name
         for page in dashboard.pages:
-            if page.display_name is not None:
+            if page.name is not None and page.display_name is not None:
                 better_names[page.name] = page.display_name
         return self._replace_names(dashboard, better_names)
 
     def _replace_names(self, node: T, better_names: dict[str, str]) -> T:
+        """Replace names with human-readable names."""
         # walk every dataclass instance recursively and replace names
         if dataclasses.is_dataclass(node):
             for field in dataclasses.fields(node):
@@ -1198,22 +1324,26 @@ class Dashboards:
                     setattr(node, field.name, [self._replace_names(item, better_names) for item in value])
                 elif dataclasses.is_dataclass(value):
                     setattr(node, field.name, self._replace_names(value, better_names))
-        if isinstance(node, Dataset):
+        if isinstance(node, Dataset) and node.name is not None:
             node.name = better_names.get(node.name, node.name)
-        elif isinstance(node, Page):
+        elif isinstance(node, Page) and node.name is not None:
             node.name = better_names.get(node.name, node.name)
-        elif isinstance(node, Query):
+        elif isinstance(node, Query) and node.dataset_name is not None:
             node.dataset_name = better_names.get(node.dataset_name, node.dataset_name)
-        elif isinstance(node, NamedQuery) and node.query:
+        elif isinstance(node, NamedQuery) and node.query and node.name is not None:
             # 'dashboards/01eeb077e38c17e6ba3511036985960c/datasets/01eeb081882017f6a116991d124d3068_...'
             if node.name.startswith("dashboards/"):
-                parts = [node.query.dataset_name]
-                for query_field in node.query.fields:
-                    parts.append(query_field.name)
-                new_name = "_".join(parts)
-                better_names[node.name] = new_name
+                if node.query.dataset_name is None:
+                    logger.warning(f"NamedQuery {node.name} has no dataset name, cannot replace name.")
+                else:
+                    parts: list[str] = [node.query.dataset_name]
+                    for query_field in node.query.fields:
+                        if query_field.name is not None:
+                            parts.append(query_field.name)
+                    new_name = "_".join(parts)
+                    better_names[node.name] = new_name
             node.name = better_names.get(node.name, node.name)
-        elif isinstance(node, ControlFieldEncoding):
+        elif isinstance(node, ControlFieldEncoding) and node.query_name is not None:
             node.query_name = better_names.get(node.query_name, node.query_name)
         elif isinstance(node, Widget):
             if node.spec is not None:

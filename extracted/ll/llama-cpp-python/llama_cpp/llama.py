@@ -341,7 +341,11 @@ class Llama:
         self._logits_all = logits_all if draft_model is None else True
         self.context_params.embeddings = embedding  # TODO: Rename to embeddings
         self.context_params.offload_kqv = offload_kqv
-        self.context_params.flash_attn = flash_attn
+        self.context_params.flash_attn_type = (
+            llama_cpp.LLAMA_FLASH_ATTN_TYPE_ENABLED
+            if flash_attn
+            else llama_cpp.LLAMA_FLASH_ATTN_TYPE_DISABLED
+        )
 
         if op_offload is not None:
             self.context_params.op_offload = op_offload
@@ -431,9 +435,9 @@ class Llama:
 
             self._stack.callback(free_lora_adapter)
 
-            if llama_cpp.llama_set_adapter_lora(
-                self._ctx.ctx, self._lora_adapter, self.lora_scale
-            ):
+            adapters = (llama_cpp.llama_adapter_lora_p_ctypes * 1)(self._lora_adapter)
+            scales = (ctypes.c_float * 1)(self.lora_scale)
+            if llama_cpp.llama_set_adapters_lora(self._ctx.ctx, adapters, 1, scales):
                 raise RuntimeError(
                     f"Failed to set LoRA adapter from lora path: {self.lora_path}"
                 )
@@ -726,7 +730,6 @@ class Llama:
             sampler.add_grammar(self._model, grammar)
 
         if temp < 0.0:
-            sampler.add_softmax()
             sampler.add_dist(self._seed)
         elif temp == 0.0:
             sampler.add_greedy()
@@ -888,13 +891,20 @@ class Llama:
                 else:
                     break
             if longest_prefix > 0:
-                reset = False
-                tokens = tokens[longest_prefix:]
-                self.n_tokens = longest_prefix
-                if self.verbose:
+                if self._ctx.kv_cache_seq_rm(-1, longest_prefix, -1):
+                    reset = False
+                    tokens = tokens[longest_prefix:]
+                    self.n_tokens = longest_prefix
+                    if self.verbose:
+                        print(
+                            f"Llama.generate: {longest_prefix} prefix-match hit, "
+                            f"remaining {len(tokens)} prompt tokens to eval",
+                            file=sys.stderr,
+                        )
+                elif self.verbose:
                     print(
-                        f"Llama.generate: {longest_prefix} prefix-match hit, "
-                        f"remaining {len(tokens)} prompt tokens to eval",
+                        f"Llama.generate: {longest_prefix} prefix-match found "
+                        f"but partial kv removal not supported, re-evaluating full prompt",
                         file=sys.stderr,
                     )
 
@@ -934,7 +944,8 @@ class Llama:
 
                 sample_idx += 1
                 if stopping_criteria is not None and stopping_criteria(
-                    self._input_ids[: sample_idx], self._scores[sample_idx - self.n_tokens, :]
+                    self._input_ids[:sample_idx],
+                    self._scores[sample_idx - self.n_tokens, :],
                 ):
                     return
                 tokens_or_none = yield token
@@ -1041,7 +1052,7 @@ class Llama:
         data: Union[List[List[float]], List[List[List[float]]]] = []
 
         def decode_batch(seq_sizes: List[int]):
-            llama_cpp.llama_kv_self_clear(self._ctx.ctx)
+            self._ctx.kv_cache_clear()
             self._ctx.decode(self._batch)
             self._batch.reset()
 
@@ -1112,7 +1123,7 @@ class Llama:
 
         output = data[0] if isinstance(input, str) else data
 
-        llama_cpp.llama_kv_self_clear(self._ctx.ctx)
+        self._ctx.kv_cache_clear()
         self.reset()
 
         if return_count:
@@ -1157,9 +1168,9 @@ class Llama:
         bos_token_id: int = self.token_bos()
         cls_token_id: int = self._model.token_cls()
         sep_token_id: int = self._model.token_sep()
-        prefix_token_id: int = 0 # self._model.token_prefix() # TODO: Fix
-        middle_token_id: int = 0 # self._model.token_middle() # TODO: Fix
-        suffix_token_id: int = 0 # self._model.token_suffix() # TODO: Fix
+        prefix_token_id: int = 0  # self._model.token_prefix() # TODO: Fix
+        middle_token_id: int = 0  # self._model.token_middle() # TODO: Fix
+        suffix_token_id: int = 0  # self._model.token_suffix() # TODO: Fix
         add_space_prefix: bool = (
             self.metadata.get("tokenizer.ggml.add_space_prefix", "true") == "true"
         )
@@ -1315,7 +1326,7 @@ class Llama:
         if seed is not None:
             self.set_seed(seed)
         else:
-            self.set_seed(random.Random(self._seed).randint(0, 2 ** 32))
+            self.set_seed(random.Random(self._seed).randint(0, 2**32))
 
         finish_reason = "length"
         multibyte_fix = 0
@@ -2056,7 +2067,10 @@ class Llama:
             stream = kwargs.get("stream", False)  # type: ignore
             assert isinstance(stream, bool)
             if stream:
-                return (ChatCompletionChunk(**chunk) for chunk in self.create_chat_completion(*args, **kwargs))  # type: ignore
+                return (
+                    ChatCompletionChunk(**chunk)
+                    for chunk in self.create_chat_completion(*args, **kwargs)
+                )  # type: ignore
             else:
                 return ChatCompletion(**self.create_chat_completion(*args, **kwargs))  # type: ignore
         except ImportError:
@@ -2096,7 +2110,10 @@ class Llama:
             logits_all=self._logits_all,
             embedding=self.context_params.embeddings,
             offload_kqv=self.context_params.offload_kqv,
-            flash_attn=self.context_params.flash_attn,
+            flash_attn=(
+                self.context_params.flash_attn_type
+                == llama_cpp.LLAMA_FLASH_ATTN_TYPE_ENABLED
+            ),
             op_offload=self.context_params.op_offload,
             swa_full=self.context_params.swa_full,
             # Sampling Params
@@ -2318,7 +2335,11 @@ class Llama:
         if additional_files:
             for additonal_file_name in additional_files:
                 # find the additional shard file:
-                matching_additional_files = [file for file in file_list if fnmatch.fnmatch(file, additonal_file_name)]
+                matching_additional_files = [
+                    file
+                    for file in file_list
+                    if fnmatch.fnmatch(file, additonal_file_name)
+                ]
 
                 if len(matching_additional_files) == 0:
                     raise ValueError(

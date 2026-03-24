@@ -1392,10 +1392,8 @@ class TextractApi:
 
         :param document: The input document as base64-encoded bytes or an Amazon S3 object.
         :param feature_types: A list of the types of analysis to perform.
-        :param human_loop_config: Sets the configuration for the human in the loop workflow for analyzing
-        documents.
-        :param queries_config: Contains Queries and the alias for those Queries, as determined by the
-        input.
+        :param human_loop_config: Sets the configuration for the human in the loop workflow for analyzing documents.
+        :param queries_config: Contains Queries and the alias for those Queries, as determined by the input.
         :param adapters_config: Specifies the adapter to be used when analyzing a document.
         :returns: AnalyzeDocumentResponse
         :raises InvalidParameterException:
@@ -1523,14 +1521,12 @@ class TextractApi:
         argument. You can provide an optional KMSKeyId, an optional
         ClientRequestToken, and optional tags.
 
-        :param adapter_id: A string containing a unique ID for the adapter that will receive a new
-        version.
+        :param adapter_id: A string containing a unique ID for the adapter that will receive a new version.
         :param dataset_config: Specifies a dataset used to train a new adapter version.
         :param output_config: Sets whether or not your output will go to a user created bucket.
         :param client_request_token: Idempotent token is used to recognize the request.
         :param kms_key_id: The identifier for your AWS Key Management Service key (AWS KMS key).
-        :param tags: A set of tags (key-value pairs) that you want to attach to the adapter
-        version.
+        :param tags: A set of tags (key-value pairs) that you want to attach to the adapter version.
         :returns: CreateAdapterVersionResponse
         :raises InvalidParameterException:
         :raises InvalidS3ObjectException:
@@ -1580,8 +1576,7 @@ class TextractApi:
         both an AdapterId and a AdapterVersion. Deletes the adapter version
         specified by the AdapterId and the AdapterVersion.
 
-        :param adapter_id: A string containing a unique ID for the adapter version that will be
-        deleted.
+        :param adapter_id: A string containing a unique ID for the adapter version that will be deleted.
         :param adapter_version: Specifies the adapter version to be deleted.
         :returns: DeleteAdapterVersionResponse
         :raises InvalidParameterException:
@@ -1664,10 +1659,8 @@ class TextractApi:
         StatusMessage, DatasetConfig, KMSKeyId, OutputConfig, Tags and
         EvaluationMetrics.
 
-        :param adapter_id: A string specifying a unique ID for the adapter version you want to
-        retrieve information for.
-        :param adapter_version: A string specifying the adapter version you want to retrieve information
-        for.
+        :param adapter_id: A string specifying a unique ID for the adapter version you want to retrieve information for.
+        :param adapter_version: A string specifying the adapter version you want to retrieve information for.
         :returns: GetAdapterVersionResponse
         :raises InvalidParameterException:
         :raises AccessDeniedException:
@@ -1750,9 +1743,7 @@ class TextractApi:
 
         :param job_id: A unique identifier for the text-detection job.
         :param max_results: The maximum number of results to return per paginated call.
-        :param next_token: If the previous response was incomplete (because there are more blocks
-        to retrieve), Amazon Textract returns a pagination token in the
-        response.
+        :param next_token: If the previous response was incomplete (because there are more blocks to retrieve), Amazon Textract returns a pagination token in the response.
         :returns: GetDocumentAnalysisResponse
         :raises InvalidParameterException:
         :raises AccessDeniedException:
@@ -1810,9 +1801,7 @@ class TextractApi:
 
         :param job_id: A unique identifier for the text detection job.
         :param max_results: The maximum number of results to return per paginated call.
-        :param next_token: If the previous response was incomplete (because there are more blocks
-        to retrieve), Amazon Textract returns a pagination token in the
-        response.
+        :param next_token: If the previous response was incomplete (because there are more blocks to retrieve), Amazon Textract returns a pagination token in the response.
         :returns: GetDocumentTextDetectionResponse
         :raises InvalidParameterException:
         :raises AccessDeniedException:
@@ -1863,9 +1852,7 @@ class TextractApi:
 
         :param job_id: A unique identifier for the text detection job.
         :param max_results: The maximum number of results to return per paginated call.
-        :param next_token: If the previous response was incomplete (because there are more blocks
-        to retrieve), Amazon Textract returns a pagination token in the
-        response.
+        :param next_token: If the previous response was incomplete (because there are more blocks to retrieve), Amazon Textract returns a pagination token in the response.
         :returns: GetExpenseAnalysisResponse
         :raises InvalidParameterException:
         :raises AccessDeniedException:
@@ -1903,8 +1890,7 @@ class TextractApi:
 
         :param job_id: A unique identifier for the lending or text-detection job.
         :param max_results: The maximum number of results to return per paginated call.
-        :param next_token: If the previous response was incomplete, Amazon Textract returns a
-        pagination token in the response.
+        :param next_token: If the previous response was incomplete, Amazon Textract returns a pagination token in the response.
         :returns: GetLendingAnalysisResponse
         :raises InvalidParameterException:
         :raises AccessDeniedException:
@@ -1965,13 +1951,11 @@ class TextractApi:
         """List all version of an adapter that meet the specified filtration
         criteria.
 
-        :param adapter_id: A string containing a unique ID for the adapter to match for when
-        listing adapter versions.
+        :param adapter_id: A string containing a unique ID for the adapter to match for when listing adapter versions.
         :param after_creation_time: Specifies the lower bound for the ListAdapterVersions operation.
         :param before_creation_time: Specifies the upper bound for the ListAdapterVersions operation.
         :param max_results: The maximum number of results to return when listing adapter versions.
-        :param next_token: Identifies the next page of results to return when listing adapter
-        versions.
+        :param next_token: Identifies the next page of results to return when listing adapter versions.
         :returns: ListAdapterVersionsResponse
         :raises InvalidParameterException:
         :raises AccessDeniedException:
@@ -2015,8 +1999,7 @@ class TextractApi:
     ) -> ListTagsForResourceResponse:
         """Lists all tags for an Amazon Textract resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that specifies the resource to list tags
-        for.
+        :param resource_arn: The Amazon Resource Name (ARN) that specifies the resource to list tags for.
         :returns: ListTagsForResourceResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -2068,10 +2051,8 @@ class TextractApi:
         :param document_location: The location of the document to be processed.
         :param feature_types: A list of the types of analysis to perform.
         :param client_request_token: The idempotent token that you use to identify the start request.
-        :param job_tag: An identifier that you specify that's included in the completion
-        notification published to the Amazon SNS topic.
-        :param notification_channel: The Amazon SNS topic ARN that you want Amazon Textract to publish the
-        completion status of the operation to.
+        :param job_tag: An identifier that you specify that's included in the completion notification published to the Amazon SNS topic.
+        :param notification_channel: The Amazon SNS topic ARN that you want Amazon Textract to publish the completion status of the operation to.
         :param output_config: Sets if the output will go to a customer defined bucket.
         :param kms_key_id: The KMS key used to encrypt the inference results.
         :param queries_config: .
@@ -2127,10 +2108,8 @@ class TextractApi:
 
         :param document_location: The location of the document to be processed.
         :param client_request_token: The idempotent token that's used to identify the start request.
-        :param job_tag: An identifier that you specify that's included in the completion
-        notification published to the Amazon SNS topic.
-        :param notification_channel: The Amazon SNS topic ARN that you want Amazon Textract to publish the
-        completion status of the operation to.
+        :param job_tag: An identifier that you specify that's included in the completion notification published to the Amazon SNS topic.
+        :param notification_channel: The Amazon SNS topic ARN that you want Amazon Textract to publish the completion status of the operation to.
         :param output_config: Sets if the output will go to a customer defined bucket.
         :param kms_key_id: The KMS key used to encrypt the inference results.
         :returns: StartDocumentTextDetectionResponse
@@ -2185,10 +2164,8 @@ class TextractApi:
 
         :param document_location: The location of the document to be processed.
         :param client_request_token: The idempotent token that's used to identify the start request.
-        :param job_tag: An identifier you specify that's included in the completion notification
-        published to the Amazon SNS topic.
-        :param notification_channel: The Amazon SNS topic ARN that you want Amazon Textract to publish the
-        completion status of the operation to.
+        :param job_tag: An identifier you specify that's included in the completion notification published to the Amazon SNS topic.
+        :param notification_channel: The Amazon SNS topic ARN that you want Amazon Textract to publish the completion status of the operation to.
         :param output_config: Sets if the output will go to a customer defined bucket.
         :param kms_key_id: The KMS key used to encrypt the inference results.
         :returns: StartExpenseAnalysisResponse
@@ -2250,11 +2227,8 @@ class TextractApi:
 
         :param document_location: The Amazon S3 bucket that contains the document to be processed.
         :param client_request_token: The idempotent token that you use to identify the start request.
-        :param job_tag: An identifier that you specify to be included in the completion
-        notification published to the Amazon SNS topic.
-        :param notification_channel: The Amazon Simple Notification Service (Amazon SNS) topic to which
-        Amazon Textract publishes the completion status of an asynchronous
-        document operation.
+        :param job_tag: An identifier that you specify to be included in the completion notification published to the Amazon SNS topic.
+        :param notification_channel: The Amazon Simple Notification Service (Amazon SNS) topic to which Amazon Textract publishes the completion status of an asynchronous document operation.
         :param output_config: Sets whether or not your output will go to a user created bucket.
         :param kms_key_id: The KMS key used to encrypt the inference results.
         :returns: StartLendingAnalysisResponse
@@ -2303,10 +2277,8 @@ class TextractApi:
     ) -> UntagResourceResponse:
         """Removes any tags with the specified keys from the specified resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that specifies the resource to be
-        untagged.
-        :param tag_keys: Specifies the tags to be removed from the resource specified by the
-        ResourceARN.
+        :param resource_arn: The Amazon Resource Name (ARN) that specifies the resource to be untagged.
+        :param tag_keys: Specifies the tags to be removed from the resource specified by the ResourceARN.
         :returns: UntagResourceResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:

@@ -3848,22 +3848,14 @@ class Sesv2Api:
         set are applied to the email.
 
         :param configuration_set_name: The name of the configuration set.
-        :param tracking_options: An object that defines the open and click tracking options for emails
-        that you send using the configuration set.
-        :param delivery_options: An object that defines the dedicated IP pool that is used to send emails
-        that you send using the configuration set.
-        :param reputation_options: An object that defines whether or not Amazon SES collects reputation
-        metrics for the emails that you send that use the configuration set.
-        :param sending_options: An object that defines whether or not Amazon SES can send email that you
-        send using the configuration set.
-        :param tags: An array of objects that define the tags (keys and values) to associate
-        with the configuration set.
-        :param suppression_options: An object that contains information about the suppression list
-        preferences for your account.
-        :param vdm_options: An object that defines the VDM options for emails that you send using
-        the configuration set.
-        :param archiving_options: An object that defines the MailManager archiving options for emails that
-        you send using the configuration set.
+        :param tracking_options: An object that defines the open and click tracking options for emails that you send using the configuration set.
+        :param delivery_options: An object that defines the dedicated IP pool that is used to send emails that you send using the configuration set.
+        :param reputation_options: An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
+        :param sending_options: An object that defines whether or not Amazon SES can send email that you send using the configuration set.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the configuration set.
+        :param suppression_options: An object that contains information about the suppression list preferences for your account.
+        :param vdm_options: An object that defines the VDM options for emails that you send using the configuration set.
+        :param archiving_options: An object that defines the MailManager archiving options for emails that you send using the configuration set.
         :returns: CreateConfigurationSetResponse
         :raises AlreadyExistsException:
         :raises NotFoundException:
@@ -3892,8 +3884,7 @@ class Sesv2Api:
         A single configuration set can include more than one event destination.
 
         :param configuration_set_name: The name of the configuration set .
-        :param event_destination_name: A name that identifies the event destination within the configuration
-        set.
+        :param event_destination_name: A name that identifies the event destination within the configuration set.
         :param event_destination: An object that defines the event destination.
         :returns: CreateConfigurationSetEventDestinationResponse
         :raises NotFoundException:
@@ -3921,8 +3912,7 @@ class Sesv2Api:
         :param contact_list_name: The name of the contact list to which the contact should be added.
         :param email_address: The contact's email address.
         :param topic_preferences: The contact's preferences for being opted-in to or opted-out of topics.
-        :param unsubscribe_all: A boolean value status noting if the contact is unsubscribed from all
-        contact list topics.
+        :param unsubscribe_all: A boolean value status noting if the contact is unsubscribed from all contact list topics.
         :param attributes_data: The attribute data attached to a contact.
         :returns: CreateContactResponse
         :raises BadRequestException:
@@ -3982,12 +3972,9 @@ class Sesv2Api:
         :param from_email_address: The email address that the custom verification email is sent from.
         :param template_subject: The subject line of the custom verification email.
         :param template_content: The content of the custom verification email.
-        :param success_redirection_url: The URL that the recipient of the verification email is sent to if his
-        or her address is successfully verified.
-        :param failure_redirection_url: The URL that the recipient of the verification email is sent to if his
-        or her address is not successfully verified.
-        :param tags: An array of objects that define the tags (keys and values) to associate
-        with the custom verification email template.
+        :param success_redirection_url: The URL that the recipient of the verification email is sent to if his or her address is successfully verified.
+        :param failure_redirection_url: The URL that the recipient of the verification email is sent to if his or her address is not successfully verified.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the custom verification email template.
         :returns: CreateCustomVerificationEmailTemplateResponse
         :raises BadRequestException:
         :raises AlreadyExistsException:
@@ -4013,8 +4000,7 @@ class Sesv2Api:
         sent from one of the addresses in the associated pool.
 
         :param pool_name: The name of the dedicated IP pool.
-        :param tags: An object that defines the tags (keys and values) that you want to
-        associate with the pool.
+        :param tags: An object that defines the tags (keys and values) that you want to associate with the pool.
         :param scaling_mode: The type of scaling mode.
         :returns: CreateDedicatedIpPoolResponse
         :raises AlreadyExistsException:
@@ -4045,14 +4031,10 @@ class Sesv2Api:
         the ``GetDeliverabilityTestReport`` operation to view the results of the
         test.
 
-        :param from_email_address: The email address that the predictive inbox placement test email was
-        sent from.
-        :param content: The HTML body of the message that you sent when you performed the
-        predictive inbox placement test.
-        :param report_name: A unique name that helps you to identify the predictive inbox placement
-        test when you retrieve the results.
-        :param tags: An array of objects that define the tags (keys and values) that you want
-        to associate with the predictive inbox placement test.
+        :param from_email_address: The email address that the predictive inbox placement test email was sent from.
+        :param content: The HTML body of the message that you sent when you performed the predictive inbox placement test.
+        :param report_name: A unique name that helps you to identify the predictive inbox placement test when you retrieve the results.
+        :param tags: An array of objects that define the tags (keys and values) that you want to associate with the predictive inbox placement test.
         :returns: CreateDeliverabilityTestReportResponse
         :raises AccountSuspendedException:
         :raises SendingPausedException:
@@ -4114,12 +4096,8 @@ class Sesv2Api:
         email identity that you're verifying.
 
         :param email_identity: The email address or domain to verify.
-        :param tags: An array of objects that define the tags (keys and values) to associate
-        with the email identity.
-        :param dkim_signing_attributes: If your request includes this object, Amazon SES configures the identity
-        to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes,
-        or, configures the key length to be used for `Easy
-        DKIM <https://docs.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the email identity.
+        :param dkim_signing_attributes: If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.
         :param configuration_set_name: The configuration set to use by default when sending from this identity.
         :returns: CreateEmailIdentityResponse
         :raises AlreadyExistsException:
@@ -4182,10 +4160,8 @@ class Sesv2Api:
         You can execute this operation no more than once per second.
 
         :param template_name: The name of the template.
-        :param template_content: The content of the email template, composed of a subject line, an HTML
-        part, and a text-only part.
-        :param tags: An array of objects that define the tags (keys and values) to associate
-        with the email template.
+        :param template_content: The content of the email template, composed of a subject line, an HTML part, and a text-only part.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the email template.
         :returns: CreateEmailTemplateResponse
         :raises AlreadyExistsException:
         :raises TooManyRequestsException:
@@ -4254,10 +4230,8 @@ class Sesv2Api:
         been created and where it can be managed.
 
         :param endpoint_name: The name of the multi-region endpoint (global-endpoint).
-        :param details: Contains details of a multi-region endpoint (global-endpoint) being
-        created.
-        :param tags: An array of objects that define the tags (keys and values) to associate
-        with the multi-region endpoint (global-endpoint).
+        :param details: Contains details of a multi-region endpoint (global-endpoint) being created.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the multi-region endpoint (global-endpoint).
         :returns: CreateMultiRegionEndpointResponse
         :raises LimitExceededException:
         :raises TooManyRequestsException:
@@ -4284,8 +4258,7 @@ class Sesv2Api:
         account.
 
         :param tenant_name: The name of the tenant to create.
-        :param tags: An array of objects that define the tags (keys and values) to associate
-        with the tenant.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the tenant.
         :returns: CreateTenantResponse
         :raises AlreadyExistsException:
         :raises LimitExceededException:
@@ -4313,8 +4286,7 @@ class Sesv2Api:
         email sending operations.
 
         :param tenant_name: The name of the tenant to associate the resource with.
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to associate with the
-        tenant.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to associate with the tenant.
         :returns: CreateTenantResourceAssociationResponse
         :raises AlreadyExistsException:
         :raises NotFoundException:
@@ -4360,8 +4332,7 @@ class Sesv2Api:
         to Amazon EventBridge and associate a rule to send the event to the
         specified target.
 
-        :param configuration_set_name: The name of the configuration set that contains the event destination to
-        delete.
+        :param configuration_set_name: The name of the configuration set that contains the event destination to delete.
         :param event_destination_name: The name of the event destination to delete.
         :returns: DeleteConfigurationSetEventDestinationResponse
         :raises NotFoundException:
@@ -4417,8 +4388,7 @@ class Sesv2Api:
 
         You can execute this operation no more than once per second.
 
-        :param template_name: The name of the custom verification email template that you want to
-        delete.
+        :param template_name: The name of the custom verification email template that you want to delete.
         :returns: DeleteCustomVerificationEmailTemplateResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -4524,8 +4494,7 @@ class Sesv2Api:
     ) -> DeleteSuppressedDestinationResponse:
         """Removes an email address from the suppression list for your account.
 
-        :param email_address: The suppressed email destination to remove from the account suppression
-        list.
+        :param email_address: The suppressed email destination to remove from the account suppression list.
         :returns: DeleteSuppressedDestinationResponse
         :raises NotFoundException:
         :raises BadRequestException:
@@ -4566,8 +4535,7 @@ class Sesv2Api:
         that tenant's email sending operations.
 
         :param tenant_name: The name of the tenant to remove the resource association from.
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to remove from the tenant
-        association.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to remove from the tenant association.
         :returns: DeleteTenantResourceAssociationResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -4593,8 +4561,7 @@ class Sesv2Api:
         """Retrieve a list of the blacklists that your dedicated IP addresses
         appear on.
 
-        :param blacklist_item_names: A list of IP addresses that you want to retrieve blacklist information
-        about.
+        :param blacklist_item_names: A list of IP addresses that you want to retrieve blacklist information about.
         :returns: GetBlacklistReportsResponse
         :raises TooManyRequestsException:
         :raises NotFoundException:
@@ -4693,8 +4660,7 @@ class Sesv2Api:
 
         You can execute this operation no more than once per second.
 
-        :param template_name: The name of the custom verification email template that you want to
-        retrieve.
+        :param template_name: The name of the custom verification email template that you want to retrieve.
         :returns: GetCustomVerificationEmailTemplateResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -4742,12 +4708,9 @@ class Sesv2Api:
         """List the dedicated IP addresses that are associated with your Amazon Web
         Services account.
 
-        :param pool_name: The name of the IP pool that the dedicated IP address is associated
-        with.
-        :param next_token: A token returned from a previous call to ``GetDedicatedIps`` to indicate
-        the position of the dedicated IP pool in the list of IP pools.
-        :param page_size: The number of results to show in a single call to
-        ``GetDedicatedIpsRequest``.
+        :param pool_name: The name of the IP pool that the dedicated IP address is associated with.
+        :param next_token: A token returned from a previous call to ``GetDedicatedIps`` to indicate the position of the dedicated IP pool in the list of IP pools.
+        :param page_size: The number of results to show in a single call to ``GetDedicatedIpsRequest``.
         :returns: GetDedicatedIpsResponse
         :raises TooManyRequestsException:
         :raises NotFoundException:
@@ -4822,10 +4785,8 @@ class Sesv2Api:
         use to send email.
 
         :param domain: The domain that you want to obtain deliverability metrics for.
-        :param start_date: The first day (in Unix time) that you want to obtain domain
-        deliverability metrics for.
-        :param end_date: The last day (in Unix time) that you want to obtain domain
-        deliverability metrics for.
+        :param start_date: The first day (in Unix time) that you want to obtain domain deliverability metrics for.
+        :param end_date: The last day (in Unix time) that you want to obtain domain deliverability metrics for.
         :returns: GetDomainStatisticsReportResponse
         :raises TooManyRequestsException:
         :raises NotFoundException:
@@ -4946,8 +4907,7 @@ class Sesv2Api:
 
         You can execute this operation no more than once per second.
 
-        :param message_id: A ``MessageId`` is a unique identifier for a message, and is returned
-        when sending emails through Amazon SES.
+        :param message_id: A ``MessageId`` is a unique identifier for a message, and is returned when sending emails through Amazon SES.
         :returns: GetMessageInsightsResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -5046,10 +5006,8 @@ class Sesv2Api:
         you apply a configuration set to an email, all of the rules in that
         configuration set are applied to the email.
 
-        :param next_token: A token returned from a previous call to ``ListConfigurationSets`` to
-        indicate the position in the list of configuration sets.
-        :param page_size: The number of results to show in a single call to
-        ``ListConfigurationSets``.
+        :param next_token: A token returned from a previous call to ``ListConfigurationSets`` to indicate the position in the list of configuration sets.
+        :param page_size: The number of results to show in a single call to ``ListConfigurationSets``.
         :returns: ListConfigurationSetsResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5071,8 +5029,7 @@ class Sesv2Api:
         regardless of the number of contacts returned.
 
         :param page_size: Maximum number of contact lists to return at once.
-        :param next_token: A string token indicating that there might be additional contact lists
-        available to be listed.
+        :param next_token: A string token indicating that there might be additional contact lists available to be listed.
         :returns: ListContactListsResponse
         :raises BadRequestException:
         :raises TooManyRequestsException:
@@ -5093,10 +5050,8 @@ class Sesv2Api:
 
         :param contact_list_name: The name of the contact list.
         :param filter: A filter that can be applied to a list of contacts.
-        :param page_size: The number of contacts that may be returned at once, which is dependent
-        on if there are more or less contacts than the value of the PageSize.
-        :param next_token: A string token indicating that there might be additional contacts
-        available to be listed.
+        :param page_size: The number of contacts that may be returned at once, which is dependent on if there are more or less contacts than the value of the PageSize.
+        :param next_token: A string token indicating that there might be additional contacts available to be listed.
         :returns: ListContactsResponse
         :raises BadRequestException:
         :raises TooManyRequestsException:
@@ -5122,11 +5077,8 @@ class Sesv2Api:
 
         You can execute this operation no more than once per second.
 
-        :param next_token: A token returned from a previous call to
-        ``ListCustomVerificationEmailTemplates`` to indicate the position in the
-        list of custom verification email templates.
-        :param page_size: The number of results to show in a single call to
-        ``ListCustomVerificationEmailTemplates``.
+        :param next_token: A token returned from a previous call to ``ListCustomVerificationEmailTemplates`` to indicate the position in the list of custom verification email templates.
+        :param page_size: The number of results to show in a single call to ``ListCustomVerificationEmailTemplates``.
         :returns: ListCustomVerificationEmailTemplatesResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5144,10 +5096,8 @@ class Sesv2Api:
         """List all of the dedicated IP pools that exist in your Amazon Web
         Services account in the current Region.
 
-        :param next_token: A token returned from a previous call to ``ListDedicatedIpPools`` to
-        indicate the position in the list of dedicated IP pools.
-        :param page_size: The number of results to show in a single call to
-        ``ListDedicatedIpPools``.
+        :param next_token: A token returned from a previous call to ``ListDedicatedIpPools`` to indicate the position in the list of dedicated IP pools.
+        :param page_size: The number of results to show in a single call to ``ListDedicatedIpPools``.
         :returns: ListDedicatedIpPoolsResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5167,11 +5117,8 @@ class Sesv2Api:
         tests that are complete, you can use the ``GetDeliverabilityTestReport``
         operation to view the results.
 
-        :param next_token: A token returned from a previous call to
-        ``ListDeliverabilityTestReports`` to indicate the position in the list
-        of predictive inbox placement tests.
-        :param page_size: The number of results to show in a single call to
-        ``ListDeliverabilityTestReports``.
+        :param next_token: A token returned from a previous call to ``ListDeliverabilityTestReports`` to indicate the position in the list of predictive inbox placement tests.
+        :param page_size: The number of results to show in a single call to ``ListDeliverabilityTestReports``.
         :returns: ListDeliverabilityTestReportsResponse
         :raises TooManyRequestsException:
         :raises NotFoundException:
@@ -5198,10 +5145,8 @@ class Sesv2Api:
         :param start_date: The first day that you want to obtain deliverability data for.
         :param end_date: The last day that you want to obtain deliverability data for.
         :param subscribed_domain: The domain to obtain deliverability data for.
-        :param next_token: A token that’s returned from a previous call to the
-        ``ListDomainDeliverabilityCampaigns`` operation.
-        :param page_size: The maximum number of results to include in response to a single call to
-        the ``ListDomainDeliverabilityCampaigns`` operation.
+        :param next_token: A token that’s returned from a previous call to the ``ListDomainDeliverabilityCampaigns`` operation.
+        :param page_size: The maximum number of results to include in response to a single call to the ``ListDomainDeliverabilityCampaigns`` operation.
         :returns: ListDomainDeliverabilityCampaignsResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5223,10 +5168,8 @@ class Sesv2Api:
         as well as those that aren't. This operation returns identities that are
         associated with Amazon SES and Amazon Pinpoint.
 
-        :param next_token: A token returned from a previous call to ``ListEmailIdentities`` to
-        indicate the position in the list of identities.
-        :param page_size: The number of results to show in a single call to
-        ``ListEmailIdentities``.
+        :param next_token: A token returned from a previous call to ``ListEmailIdentities`` to indicate the position in the list of identities.
+        :param page_size: The number of results to show in a single call to ``ListEmailIdentities``.
         :returns: ListEmailIdentitiesResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5246,10 +5189,8 @@ class Sesv2Api:
 
         You can execute this operation no more than once per second.
 
-        :param next_token: A token returned from a previous call to ``ListEmailTemplates`` to
-        indicate the position in the list of email templates.
-        :param page_size: The number of results to show in a single call to
-        ``ListEmailTemplates``.
+        :param next_token: A token returned from a previous call to ``ListEmailTemplates`` to indicate the position in the list of email templates.
+        :param page_size: The number of results to show in a single call to ``ListEmailTemplates``.
         :returns: ListEmailTemplatesResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5268,11 +5209,9 @@ class Sesv2Api:
     ) -> ListExportJobsResponse:
         """Lists all of the export jobs.
 
-        :param next_token: The pagination token returned from a previous call to ``ListExportJobs``
-        to indicate the position in the list of export jobs.
+        :param next_token: The pagination token returned from a previous call to ``ListExportJobs`` to indicate the position in the list of export jobs.
         :param page_size: Maximum number of export jobs to return at once.
-        :param export_source_type: A value used to list export jobs that have a certain
-        ``ExportSourceType``.
+        :param export_source_type: A value used to list export jobs that have a certain ``ExportSourceType``.
         :param job_status: A value used to list export jobs that have a certain ``JobStatus``.
         :returns: ListExportJobsResponse
         :raises TooManyRequestsException:
@@ -5291,10 +5230,8 @@ class Sesv2Api:
     ) -> ListImportJobsResponse:
         """Lists all of the import jobs.
 
-        :param import_destination_type: The destination of the import job, which can be used to list import jobs
-        that have a certain ``ImportDestinationType``.
-        :param next_token: A string token indicating that there might be additional import jobs
-        available to be listed.
+        :param import_destination_type: The destination of the import job, which can be used to list import jobs that have a certain ``ImportDestinationType``.
+        :param next_token: A string token indicating that there might be additional import jobs available to be listed.
         :param page_size: Maximum number of import jobs to return at once.
         :returns: ListImportJobsResponse
         :raises TooManyRequestsException:
@@ -5315,11 +5252,8 @@ class Sesv2Api:
         Only multi-region endpoints (global-endpoints) whose primary region is
         the AWS-Region where operation is executed will be listed.
 
-        :param next_token: A token returned from a previous call to ``ListMultiRegionEndpoints`` to
-        indicate the position in the list of multi-region endpoints
-        (global-endpoints).
-        :param page_size: The number of results to show in a single call to
-        ``ListMultiRegionEndpoints``.
+        :param next_token: A token returned from a previous call to ``ListMultiRegionEndpoints`` to indicate the position in the list of multi-region endpoints (global-endpoints).
+        :param page_size: The number of results to show in a single call to ``ListMultiRegionEndpoints``.
         :returns: ListMultiRegionEndpointsResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5341,10 +5275,8 @@ class Sesv2Api:
         You can execute this operation no more than once per second.
 
         :param filter: Filters applied when retrieving recommendations.
-        :param next_token: A token returned from a previous call to ``ListRecommendations`` to
-        indicate the position in the list of recommendations.
-        :param page_size: The number of results to show in a single call to
-        ``ListRecommendations``.
+        :param next_token: A token returned from a previous call to ``ListRecommendations`` to indicate the position in the list of recommendations.
+        :param page_size: The number of results to show in a single call to ``ListRecommendations``.
         :returns: ListRecommendationsResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5369,12 +5301,9 @@ class Sesv2Api:
         reputation tracking and management capabilities. Use this operation to
         get an overview of all entities and their current reputation status.
 
-        :param filter: An object that contains filters to apply when listing reputation
-        entities.
-        :param next_token: A token returned from a previous call to ``ListReputationEntities`` to
-        indicate the position in the list of reputation entities.
-        :param page_size: The number of results to show in a single call to
-        ``ListReputationEntities``.
+        :param filter: An object that contains filters to apply when listing reputation entities.
+        :param next_token: A token returned from a previous call to ``ListReputationEntities`` to indicate the position in the list of reputation entities.
+        :param page_size: The number of results to show in a single call to ``ListReputationEntities``.
         :returns: ListReputationEntitiesResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5397,12 +5326,9 @@ class Sesv2Api:
         currently using a particular resource such as an email identity,
         configuration set, or email template.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to list associated
-        tenants for.
-        :param page_size: The number of results to show in a single call to
-        ``ListResourceTenants``.
-        :param next_token: A token returned from a previous call to ``ListResourceTenants`` to
-        indicate the position in the list of resource tenants.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to list associated tenants for.
+        :param page_size: The number of results to show in a single call to ``ListResourceTenants``.
+        :param next_token: A token returned from a previous call to ``ListResourceTenants`` to indicate the position in the list of resource tenants.
         :returns: ListResourceTenantsResponse
         :raises TooManyRequestsException:
         :raises NotFoundException:
@@ -5425,14 +5351,10 @@ class Sesv2Api:
         your account.
 
         :param reasons: The factors that caused the email address to be added to .
-        :param start_date: Used to filter the list of suppressed email destinations so that it only
-        includes addresses that were added to the list after a specific date.
-        :param end_date: Used to filter the list of suppressed email destinations so that it only
-        includes addresses that were added to the list before a specific date.
-        :param next_token: A token returned from a previous call to ``ListSuppressedDestinations``
-        to indicate the position in the list of suppressed email addresses.
-        :param page_size: The number of results to show in a single call to
-        ``ListSuppressedDestinations``.
+        :param start_date: Used to filter the list of suppressed email destinations so that it only includes addresses that were added to the list after a specific date.
+        :param end_date: Used to filter the list of suppressed email destinations so that it only includes addresses that were added to the list before a specific date.
+        :param next_token: A token returned from a previous call to ``ListSuppressedDestinations`` to indicate the position in the list of suppressed email addresses.
+        :param page_size: The number of results to show in a single call to ``ListSuppressedDestinations``.
         :returns: ListSuppressedDestinationsResponse
         :raises BadRequestException:
         :raises TooManyRequestsException:
@@ -5451,8 +5373,7 @@ class Sesv2Api:
         acts as a category for more specific tag values. A tag value acts as a
         descriptor within a tag key.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to retrieve
-        tag information for.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to retrieve tag information for.
         :returns: ListTagsForResourceResponse
         :raises BadRequestException:
         :raises NotFoundException:
@@ -5478,12 +5399,9 @@ class Sesv2Api:
         type.
 
         :param tenant_name: The name of the tenant to list resources for.
-        :param filter: A map of filter keys and values for filtering the list of tenant
-        resources.
-        :param page_size: The number of results to show in a single call to
-        ``ListTenantResources``.
-        :param next_token: A token returned from a previous call to ``ListTenantResources`` to
-        indicate the position in the list of tenant resources.
+        :param filter: A map of filter keys and values for filtering the list of tenant resources.
+        :param page_size: The number of results to show in a single call to ``ListTenantResources``.
+        :param next_token: A token returned from a previous call to ``ListTenantResources`` to indicate the position in the list of tenant resources.
         :returns: ListTenantResourcesResponse
         :raises TooManyRequestsException:
         :raises NotFoundException:
@@ -5505,8 +5423,7 @@ class Sesv2Api:
         This operation returns basic information about each tenant, such as
         tenant name, ID, ARN, and creation timestamp.
 
-        :param next_token: A token returned from a previous call to ``ListTenants`` to indicate the
-        position in the list of tenants.
+        :param next_token: A token returned from a previous call to ``ListTenants`` to indicate the position in the list of tenants.
         :param page_size: The number of results to show in a single call to ``ListTenants``.
         :returns: ListTenantsResponse
         :raises TooManyRequestsException:
@@ -5521,9 +5438,7 @@ class Sesv2Api:
         """Enable or disable the automatic warm-up feature for dedicated IP
         addresses.
 
-        :param auto_warmup_enabled: Enables or disables the automatic warm-up feature for dedicated IP
-        addresses that are associated with your Amazon SES account in the
-        current Amazon Web Services Region.
+        :param auto_warmup_enabled: Enables or disables the automatic warm-up feature for dedicated IP addresses that are associated with your Amazon SES account in the current Amazon Web Services Region.
         :returns: PutAccountDedicatedIpWarmupAttributesResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5548,10 +5463,8 @@ class Sesv2Api:
         :param website_url: The URL of your website.
         :param contact_language: The language you would prefer to be contacted with.
         :param use_case_description: A description of the types of email that you plan to send.
-        :param additional_contact_email_addresses: Additional email addresses that you would like to be notified regarding
-        Amazon SES matters.
-        :param production_access_enabled: Indicates whether or not your account should have production access in
-        the current Amazon Web Services Region.
+        :param additional_contact_email_addresses: Additional email addresses that you would like to be notified regarding Amazon SES matters.
+        :param production_access_enabled: Indicates whether or not your account should have production access in the current Amazon Web Services Region.
         :returns: PutAccountDetailsResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5582,10 +5495,8 @@ class Sesv2Api:
     ) -> PutAccountSuppressionAttributesResponse:
         """Change the settings for the account-level suppression list.
 
-        :param suppressed_reasons: A list that contains the reasons that email addresses will be
-        automatically added to the suppression list for your account.
-        :param validation_attributes: An object that contains additional suppression attributes for your
-        account.
+        :param suppressed_reasons: A list that contains the reasons that email addresses will be automatically added to the suppression list for your account.
+        :param validation_attributes: An object that contains additional suppression attributes for your account.
         :returns: PutAccountSuppressionAttributesResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5620,10 +5531,8 @@ class Sesv2Api:
         message as it will be given to the receiving SMTP server will be
         archived, along with the recipient information.
 
-        :param configuration_set_name: The name of the configuration set to associate with a MailManager
-        archive.
-        :param archive_arn: The Amazon Resource Name (ARN) of the MailManager archive that the
-        Amazon SES API v2 sends email to.
+        :param configuration_set_name: The name of the configuration set to associate with a MailManager archive.
+        :param archive_arn: The Amazon Resource Name (ARN) of the MailManager archive that the Amazon SES API v2 sends email to.
         :returns: PutConfigurationSetArchivingOptionsResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -5646,12 +5555,9 @@ class Sesv2Api:
         sending specific types of email.
 
         :param configuration_set_name: The name of the configuration set to associate with a dedicated IP pool.
-        :param tls_policy: Specifies whether messages that use the configuration set are required
-        to use Transport Layer Security (TLS).
-        :param sending_pool_name: The name of the dedicated IP pool to associate with the configuration
-        set.
-        :param max_delivery_seconds: The maximum amount of time, in seconds, that Amazon SES API v2 will
-        attempt delivery of email.
+        :param tls_policy: Specifies whether messages that use the configuration set are required to use Transport Layer Security (TLS).
+        :param sending_pool_name: The name of the dedicated IP pool to associate with the configuration set.
+        :param max_delivery_seconds: The maximum amount of time, in seconds, that Amazon SES API v2 will attempt delivery of email.
         :returns: PutConfigurationSetDeliveryOptionsResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -5672,8 +5578,7 @@ class Sesv2Api:
         Services Region.
 
         :param configuration_set_name: The name of the configuration set.
-        :param reputation_metrics_enabled: If ``true``, tracking of reputation metrics is enabled for the
-        configuration set.
+        :param reputation_metrics_enabled: If ``true``, tracking of reputation metrics is enabled for the configuration set.
         :returns: PutConfigurationSetReputationOptionsResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -5692,8 +5597,7 @@ class Sesv2Api:
         """Enable or disable email sending for messages that use a particular
         configuration set in a specific Amazon Web Services Region.
 
-        :param configuration_set_name: The name of the configuration set to enable or disable email sending
-        for.
+        :param configuration_set_name: The name of the configuration set to enable or disable email sending for.
         :param sending_enabled: If ``true``, email sending is enabled for the configuration set.
         :returns: PutConfigurationSetSendingOptionsResponse
         :raises NotFoundException:
@@ -5714,13 +5618,9 @@ class Sesv2Api:
         """Specify the account suppression list preferences for a configuration
         set.
 
-        :param configuration_set_name: The name of the configuration set to change the suppression list
-        preferences for.
-        :param suppressed_reasons: A list that contains the reasons that email addresses are automatically
-        added to the suppression list for your account.
-        :param validation_options: An object that contains information about the email address suppression
-        preferences for the configuration set in the current Amazon Web Services
-        Region.
+        :param configuration_set_name: The name of the configuration set to change the suppression list preferences for.
+        :param suppressed_reasons: A list that contains the reasons that email addresses are automatically added to the suppression list for your account.
+        :param validation_options: An object that contains information about the email address suppression preferences for the configuration set in the current Amazon Web Services Region.
         :returns: PutConfigurationSetSuppressionOptionsResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -5785,8 +5685,7 @@ class Sesv2Api:
         new pool by using the ``CreateDedicatedIpPool`` operation.
 
         :param ip: The IP address that you want to move to the dedicated IP pool.
-        :param destination_pool_name: The name of the IP pool that you want to add the dedicated IP address
-        to.
+        :param destination_pool_name: The name of the IP pool that you want to add the dedicated IP address to.
         :returns: PutDedicatedIpInPoolResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -5818,10 +5717,8 @@ class Sesv2Api:
     ) -> PutDedicatedIpWarmupAttributesResponse:
         """
 
-        :param ip: The dedicated IP address that you want to update the warm-up attributes
-        for.
-        :param warmup_percentage: The warm-up percentage that you want to associate with the dedicated IP
-        address.
+        :param ip: The dedicated IP address that you want to update the warm-up attributes for.
+        :param warmup_percentage: The warm-up percentage that you want to associate with the dedicated IP address.
         :returns: PutDedicatedIpWarmupAttributesResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -5850,8 +5747,7 @@ class Sesv2Api:
         Pricing <http://aws.amazon.com/ses/pricing/>`__.
 
         :param dashboard_enabled: Specifies whether to enable the Deliverability dashboard.
-        :param subscribed_domains: An array of objects, one for each verified domain that you use to send
-        email and enabled the Deliverability dashboard for.
+        :param subscribed_domains: An array of objects, one for each verified domain that you use to send email and enabled the Deliverability dashboard for.
         :returns: PutDeliverabilityDashboardOptionResponse
         :raises AlreadyExistsException:
         :raises NotFoundException:
@@ -5927,11 +5823,7 @@ class Sesv2Api:
 
         :param email_identity: The email identity.
         :param signing_attributes_origin: The method to use to configure DKIM for the identity.
-        :param signing_attributes: An object that contains information about the private key and selector
-        that you want to use to configure DKIM for the identity for Bring Your
-        Own DKIM (BYODKIM) for the identity, or, configures the key length to be
-        used for `Easy
-        DKIM <https://docs.
+        :param signing_attributes: An object that contains information about the private key and selector that you want to use to configure DKIM for the identity for Bring Your Own DKIM (BYODKIM) for the identity, or, configures the key length to be used for `Easy DKIM <https://docs.
         :returns: PutEmailIdentityDkimSigningAttributesResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -5984,8 +5876,7 @@ class Sesv2Api:
 
         :param email_identity: The verified email identity.
         :param mail_from_domain: The custom MAIL FROM domain that you want the verified identity to use.
-        :param behavior_on_mx_failure: The action to take if the required MX record isn't found when you send
-        an email.
+        :param behavior_on_mx_failure: The action to take if the required MX record isn't found when you send an email.
         :returns: PutEmailIdentityMailFromAttributesResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6003,10 +5894,8 @@ class Sesv2Api:
     ) -> PutSuppressedDestinationResponse:
         """Adds an email address to the suppression list for your account.
 
-        :param email_address: The email address that should be added to the suppression list for your
-        account.
-        :param reason: The factors that should cause the email address to be added to the
-        suppression list for your account.
+        :param email_address: The email address that should be added to the suppression list for your account.
+        :param reason: The factors that should cause the email address to be added to the suppression list for your account.
         :returns: PutSuppressedDestinationResponse
         :raises BadRequestException:
         :raises TooManyRequestsException:
@@ -6037,11 +5926,9 @@ class Sesv2Api:
         :param from_email_address: The email address to use as the "From" address for the email.
         :param from_email_address_identity_arn: This parameter is used only for sending authorization.
         :param reply_to_addresses: The "Reply-to" email addresses for the message.
-        :param feedback_forwarding_email_address: The address that you want bounce and complaint notifications to be sent
-        to.
+        :param feedback_forwarding_email_address: The address that you want bounce and complaint notifications to be sent to.
         :param feedback_forwarding_email_address_identity_arn: This parameter is used only for sending authorization.
-        :param default_email_tags: A list of tags, in the form of name/value pairs, to apply to an email
-        that you send using the ``SendEmail`` operation.
+        :param default_email_tags: A list of tags, in the form of name/value pairs, to apply to an email that you send using the ``SendEmail`` operation.
         :param configuration_set_name: The name of the configuration set to use when sending the email.
         :param endpoint_id: The ID of the multi-region endpoint (global-endpoint).
         :param tenant_name: The name of the tenant through which this bulk email will be sent.
@@ -6080,8 +5967,7 @@ class Sesv2Api:
         You can execute this operation no more than once per second.
 
         :param email_address: The email address to verify.
-        :param template_name: The name of the custom verification email template to use when sending
-        the verification email.
+        :param template_name: The name of the custom verification email template to use when sending the verification email.
         :param configuration_set_name: Name of a configuration set to use when sending the verification email.
         :returns: SendCustomVerificationEmailResponse
         :raises TooManyRequestsException:
@@ -6134,16 +6020,13 @@ class Sesv2Api:
         :param from_email_address_identity_arn: This parameter is used only for sending authorization.
         :param destination: An object that contains the recipients of the email message.
         :param reply_to_addresses: The "Reply-to" email addresses for the message.
-        :param feedback_forwarding_email_address: The address that you want bounce and complaint notifications to be sent
-        to.
+        :param feedback_forwarding_email_address: The address that you want bounce and complaint notifications to be sent to.
         :param feedback_forwarding_email_address_identity_arn: This parameter is used only for sending authorization.
-        :param email_tags: A list of tags, in the form of name/value pairs, to apply to an email
-        that you send using the ``SendEmail`` operation.
+        :param email_tags: A list of tags, in the form of name/value pairs, to apply to an email that you send using the ``SendEmail`` operation.
         :param configuration_set_name: The name of the configuration set to use when sending the email.
         :param endpoint_id: The ID of the multi-region endpoint (global-endpoint).
         :param tenant_name: The name of the tenant through which this email will be sent.
-        :param list_management_options: An object used to specify a list or topic to which an email belongs,
-        which will be used when a contact chooses to unsubscribe.
+        :param list_management_options: An object used to specify a list or topic to which an email belongs, which will be used when a contact chooses to unsubscribe.
         :returns: SendEmailResponse
         :raises TooManyRequestsException:
         :raises LimitExceededException:
@@ -6171,8 +6054,7 @@ class Sesv2Api:
         category for more specific tag values. A tag value acts as a descriptor
         within a tag key.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to add one
-        or more tags to.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to add one or more tags to.
         :param tags: A list of the tags that you want to add to the resource.
         :returns: TagResourceResponse
         :raises BadRequestException:
@@ -6214,8 +6096,7 @@ class Sesv2Api:
     ) -> UntagResourceResponse:
         """Remove one or more tags (keys and values) from a specified resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to remove
-        one or more tags from.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to remove one or more tags from.
         :param tag_keys: The tags (tag keys) that you want to remove from the resource.
         :returns: UntagResourceResponse
         :raises BadRequestException:
@@ -6243,8 +6124,7 @@ class Sesv2Api:
         to Amazon EventBridge and associate a rule to send the event to the
         specified target.
 
-        :param configuration_set_name: The name of the configuration set that contains the event destination to
-        modify.
+        :param configuration_set_name: The name of the configuration set that contains the event destination to modify.
         :param event_destination_name: The name of the event destination.
         :param event_destination: An object that defines the event destination.
         :returns: UpdateConfigurationSetEventDestinationResponse
@@ -6274,8 +6154,7 @@ class Sesv2Api:
         :param contact_list_name: The name of the contact list.
         :param email_address: The contact's email address.
         :param topic_preferences: The contact's preference for being opted-in to or opted-out of a topic.
-        :param unsubscribe_all: A boolean value status noting if the contact is unsubscribed from all
-        contact list topics.
+        :param unsubscribe_all: A boolean value status noting if the contact is unsubscribed from all contact list topics.
         :param attributes_data: The attribute data attached to a contact.
         :returns: UpdateContactResponse
         :raises BadRequestException:
@@ -6329,15 +6208,12 @@ class Sesv2Api:
 
         You can execute this operation no more than once per second.
 
-        :param template_name: The name of the custom verification email template that you want to
-        update.
+        :param template_name: The name of the custom verification email template that you want to update.
         :param from_email_address: The email address that the custom verification email is sent from.
         :param template_subject: The subject line of the custom verification email.
         :param template_content: The content of the custom verification email.
-        :param success_redirection_url: The URL that the recipient of the verification email is sent to if his
-        or her address is successfully verified.
-        :param failure_redirection_url: The URL that the recipient of the verification email is sent to if his
-        or her address is not successfully verified.
+        :param success_redirection_url: The URL that the recipient of the verification email is sent to if his or her address is successfully verified.
+        :param failure_redirection_url: The URL that the recipient of the verification email is sent to if his or her address is not successfully verified.
         :returns: UpdateCustomVerificationEmailTemplateResponse
         :raises NotFoundException:
         :raises BadRequestException:
@@ -6394,8 +6270,7 @@ class Sesv2Api:
         You can execute this operation no more than once per second.
 
         :param template_name: The name of the template.
-        :param template_content: The content of the email template, composed of a subject line, an HTML
-        part, and a text-only part.
+        :param template_content: The content of the email template, composed of a subject line, an HTML part, and a text-only part.
         :returns: UpdateEmailTemplateResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6455,8 +6330,7 @@ class Sesv2Api:
 
         :param reputation_entity_type: The type of reputation entity.
         :param reputation_entity_reference: The unique identifier for the reputation entity.
-        :param reputation_entity_policy: The Amazon Resource Name (ARN) of the reputation management policy to
-        apply to this entity.
+        :param reputation_entity_policy: The Amazon Resource Name (ARN) of the reputation management policy to apply to this entity.
         :returns: UpdateReputationEntityPolicyResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:

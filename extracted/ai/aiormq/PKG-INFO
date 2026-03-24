@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiormq
-Version: 9.6.4
+Version: 6.9.4
 Summary: Pure python AMQP asynchronous client library
 Keywords: rabbitmq,asyncio,amqp,amqp 0.9.1,driver,pamqp
 Author: Dmitry Orlov

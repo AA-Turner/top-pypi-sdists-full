@@ -190,10 +190,9 @@ def xml_check_xsd(xml, flavor='autodetect', level='autodetect'):
                 "Wrong level '%s' for Order-X document." % level)
         xsd_file = 'xsd/%s' % ORDERX_LEVEL2xsd[level]
 
-    logger.debug('Using XSD file %s', xsd_file)
-    xsd_etree_obj = etree.parse(
-        importlib_resources.files(__package__).joinpath(xsd_file).open())
-    official_schema = etree.XMLSchema(xsd_etree_obj)
+    xsd_absolute_filepath = importlib_resources.files(__package__).joinpath(xsd_file)
+    logger.debug('Using XSD file %s', xsd_absolute_filepath)
+    official_schema = etree.XMLSchema(file=xsd_absolute_filepath)
     try:
         t = etree.parse(BytesIO(xml_bytes))
         official_schema.assertValid(t)

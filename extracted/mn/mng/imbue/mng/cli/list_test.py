@@ -16,6 +16,7 @@ from imbue.mng.api.list import ListResult
 from imbue.mng.cli.list import _StreamingHumanRenderer
 from imbue.mng.cli.list import _StreamingTemplateEmitter
 from imbue.mng.cli.list import _compute_column_widths
+from imbue.mng.cli.list import _emit_human_output
 from imbue.mng.cli.list import _emit_template_output
 from imbue.mng.cli.list import _format_streaming_agent_row
 from imbue.mng.cli.list import _format_streaming_header_row
@@ -1133,14 +1134,26 @@ def test_get_header_label_returns_custom_label_for_known_fields() -> None:
     """_get_header_label should return custom labels for configured fields."""
     assert _get_header_label("host.name") == "HOST"
     assert _get_header_label("host.provider_name") == "PROVIDER"
-    assert _get_header_label("host.tags") == "TAGS"
+    assert _get_header_label("host.tags") == "HOST LABELS"
     assert _get_header_label("labels") == "LABELS"
+    assert _get_header_label("labels.project") == "PROJECT"
 
 
 def test_get_header_label_returns_uppercased_field_for_unknown_fields() -> None:
     """_get_header_label should uppercase and replace dots with spaces for unknown fields."""
     assert _get_header_label("name") == "NAME"
     assert _get_header_label("some.nested.field") == "SOME NESTED FIELD"
+
+
+def test_get_header_label_custom_headers_override_builtin() -> None:
+    """_get_header_label should prefer custom_headers over _HEADER_LABELS."""
+    custom = {"labels.project": "MY PROJECT", "labels.env": "ENV"}
+    assert _get_header_label("labels.project", custom) == "MY PROJECT"
+    assert _get_header_label("labels.env", custom) == "ENV"
+    # Builtin labels still work for fields not in custom_headers
+    assert _get_header_label("host.name", custom) == "HOST"
+    # Unknown fields still use the fallback
+    assert _get_header_label("some.field", custom) == "SOME FIELD"
 
 
 # =============================================================================
@@ -1163,7 +1176,7 @@ def test_get_field_value_returns_empty_for_empty_tags() -> None:
 
 
 # =============================================================================
-# Tests for --project and --tag CLI option parsing
+# Tests for --project and --host-label CLI option parsing
 # =============================================================================
 
 
@@ -1184,14 +1197,14 @@ def test_project_option_generates_cel_filter(
     assert "No agents found" in result.output
 
 
-def test_tag_option_generates_cel_filter(
+def test_host_label_option_generates_cel_filter(
     cli_runner: CliRunner,
     plugin_manager: pluggy.PluginManager,
 ) -> None:
-    """--tag should filter to agents with the specified tag key=value."""
+    """--host-label should filter to agents with the specified host label key=value."""
     result = cli_runner.invoke(
         list_command,
-        ["--tag", "env=nonexistent-849213"],
+        ["--host-label", "env=nonexistent-849213"],
         obj=plugin_manager,
         catch_exceptions=False,
     )
@@ -1199,14 +1212,14 @@ def test_tag_option_generates_cel_filter(
     assert "No agents found" in result.output
 
 
-def test_tag_option_rejects_invalid_format(
+def test_host_label_option_rejects_invalid_format(
     cli_runner: CliRunner,
     plugin_manager: pluggy.PluginManager,
 ) -> None:
-    """--tag should reject values not in KEY=VALUE format."""
+    """--host-label should reject values not in KEY=VALUE format."""
     result = cli_runner.invoke(
         list_command,
-        ["--tag", "invalid-no-equals"],
+        ["--host-label", "invalid-no-equals"],
         obj=plugin_manager,
         catch_exceptions=True,
     )
@@ -1433,6 +1446,44 @@ def test_list_command_human_format_custom_fields(
     assert "PROVIDER" not in result.output
 
 
+def test_list_command_custom_header_overrides_default(
+    cli_runner: CliRunner,
+    plugin_manager: pluggy.PluginManager,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """list --header labels.project=PROJ should override the default PROJECT header."""
+    agents = [
+        make_test_agent_details(name="header-test", labels={"project": "myproj"}),
+    ]
+    _patch_list_agents(monkeypatch, agents)
+
+    result = cli_runner.invoke(
+        list_command,
+        ["--sort", "name", "--header", "labels.project=PROJ"],
+        obj=plugin_manager,
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0
+    assert "PROJ" in result.output
+    assert "myproj" in result.output
+
+
+def test_list_command_header_option_rejects_invalid_format(
+    cli_runner: CliRunner,
+    plugin_manager: pluggy.PluginManager,
+) -> None:
+    """--header should reject values not in FIELD=LABEL format."""
+    result = cli_runner.invoke(
+        list_command,
+        ["--header", "invalid-no-equals"],
+        obj=plugin_manager,
+        catch_exceptions=True,
+    )
+    assert result.exit_code != 0
+    assert "FIELD=LABEL" in result.output
+
+
 def test_list_command_template_format_with_agents(
     cli_runner: CliRunner,
     plugin_manager: pluggy.PluginManager,
@@ -1595,3 +1646,42 @@ def test_headless_flag_is_accepted_by_list_command(
         catch_exceptions=False,
     )
     assert result.exit_code == 0
+
+
+def test_list_command_json_format_no_agents(
+    cli_runner: CliRunner,
+    plugin_manager: pluggy.PluginManager,
+) -> None:
+    """list --format json with no agents should output empty agents array."""
+    result = cli_runner.invoke(
+        list_command,
+        ["--format", "json"],
+        obj=plugin_manager,
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output.strip())
+    assert data["agents"] == []
+
+
+def test_list_command_format_template_no_agents(
+    cli_runner: CliRunner,
+    plugin_manager: pluggy.PluginManager,
+) -> None:
+    """list --format with a template string and no agents should produce empty output."""
+    result = cli_runner.invoke(
+        list_command,
+        ["--format", "{name}"],
+        obj=plugin_manager,
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    # Template mode produces no output for zero agents
+    assert result.output.strip() == ""
+
+
+def test_emit_human_output_empty_list_is_noop(capsys: pytest.CaptureFixture[str]) -> None:
+    """_emit_human_output with empty agents list should produce no output."""
+    _emit_human_output([], fields=["name", "state"])
+    captured = capsys.readouterr()
+    assert captured.out == ""

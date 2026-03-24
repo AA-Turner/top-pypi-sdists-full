@@ -7,7 +7,6 @@ HOOKS_CONFIGURE_LOCALSTACK_CONTAINER = "localstack.hooks.configure_localstack_co
 HOOKS_ON_RUNTIME_CREATE = "localstack.hooks.on_runtime_create"
 HOOKS_ON_INFRA_READY = "localstack.hooks.on_infra_ready"
 HOOKS_ON_INFRA_START = "localstack.hooks.on_infra_start"
-HOOKS_ON_PRO_INFRA_START = "localstack.hooks.on_pro_infra_start"
 HOOKS_ON_INFRA_SHUTDOWN = "localstack.hooks.on_infra_shutdown"
 HOOKS_PREPARE_HOST = "localstack.hooks.prepare_host"
 
@@ -86,9 +85,6 @@ patches or otherwise configure the interpreter before any other code is imported
 
 on_runtime_start = on_infra_start
 """Alias for on_infra_start. TODO: switch and deprecated `infra` naming."""
-
-on_pro_infra_start = hook_spec(HOOKS_ON_PRO_INFRA_START)
-"""Hooks that are executed after on_infra_start hooks, and only if LocalStack pro has been activated."""
 
 on_infra_ready = hook_spec(HOOKS_ON_INFRA_READY)
 """Hooks that are execute after all startup hooks have been executed, and the LocalStack infrastructure has become

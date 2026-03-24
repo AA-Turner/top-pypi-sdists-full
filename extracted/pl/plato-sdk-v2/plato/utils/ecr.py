@@ -19,10 +19,16 @@ _AWS_ENV_KEYS = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKE
 
 
 def _clean_aws_env() -> dict[str, str]:
-    """Return a copy of os.environ without injected AWS credential vars."""
+    """Return a copy of os.environ without injected AWS credential vars.
+
+    In CI (GitHub Actions), credentials come from OIDC via environment variables
+    and must be preserved.  Only strip them locally where litellm may pollute
+    the environment.
+    """
     env = os.environ.copy()
-    for key in _AWS_ENV_KEYS:
-        env.pop(key, None)
+    if not env.get("GITHUB_ACTIONS"):
+        for key in _AWS_ENV_KEYS:
+            env.pop(key, None)
     return env
 
 

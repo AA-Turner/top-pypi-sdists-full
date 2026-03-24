@@ -4,8 +4,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from plato.sdk import Plato
 from playwright.async_api import async_playwright
+
+from plato.sdk import Plato
 
 # Create necessary directories at startup
 SCREENSHOTS_DIR = Path("screenshots")

@@ -1,9 +1,9 @@
-from typing import Any, Callable, Dict, Iterable, Tuple
+from typing import Any, Callable, Dict, Iterable
 
 import pytest
 from numpy.testing import assert_equal
 
-from spacy import Language, registry, util
+from spacy import registry, util
 from spacy.attrs import ENT_KB_ID
 from spacy.compat import pickle
 from spacy.kb import Candidate, InMemoryLookupKB, KnowledgeBase, get_candidates
@@ -496,15 +496,15 @@ def test_el_pipe_configuration(nlp):
         return [get_lowercased_candidates(kb, span) for span in spans]
 
     @registry.misc("spacy.LowercaseCandidateGenerator.v1")
-    def create_candidates() -> (
-        Callable[[InMemoryLookupKB, "Span"], Iterable[Candidate]]
-    ):
+    def create_candidates() -> Callable[
+        [InMemoryLookupKB, "Span"], Iterable[Candidate]
+    ]:
         return get_lowercased_candidates
 
     @registry.misc("spacy.LowercaseCandidateBatchGenerator.v1")
-    def create_candidates_batch() -> (
-        Callable[[InMemoryLookupKB, Iterable["Span"]], Iterable[Iterable[Candidate]]]
-    ):
+    def create_candidates_batch() -> Callable[
+        [InMemoryLookupKB, Iterable["Span"]], Iterable[Iterable[Candidate]]
+    ]:
         return get_lowercased_candidates_batch
 
     # replace the pipe with a new one with with a different candidate generator

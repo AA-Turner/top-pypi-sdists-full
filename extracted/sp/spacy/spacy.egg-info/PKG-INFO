@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spacy
-Version: 3.8.11
+Version: 3.8.13
 Summary: Industrial-strength Natural Language Processing (NLP) in Python
 Home-page: https://spacy.io
 Author: Explosion
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
@@ -32,17 +33,18 @@ Requires-Dist: spacy-loggers<2.0.0,>=1.0.0
 Requires-Dist: murmurhash<1.1.0,>=0.28.0
 Requires-Dist: cymem<2.1.0,>=2.0.2
 Requires-Dist: preshed<3.1.0,>=3.0.2
-Requires-Dist: thinc<8.4.0,>=8.3.4
+Requires-Dist: thinc<8.4.0,>=8.3.12
 Requires-Dist: wasabi<1.2.0,>=0.9.1
-Requires-Dist: srsly<3.0.0,>=2.4.3
+Requires-Dist: srsly<3.0.0,>=2.5.3
 Requires-Dist: catalogue<2.1.0,>=2.0.6
-Requires-Dist: weasel<0.5.0,>=0.4.2
-Requires-Dist: typer-slim<1.0.0,>=0.3.0
+Requires-Dist: weasel<2.0.0,>=1.0.0
+Requires-Dist: confection<2.0.0,>=1.3.2
+Requires-Dist: typer<1.0.0,>=0.3.0
 Requires-Dist: tqdm<5.0.0,>=4.38.0
 Requires-Dist: numpy>=1.15.0; python_version < "3.9"
 Requires-Dist: numpy>=1.19.0; python_version >= "3.9"
 Requires-Dist: requests<3.0.0,>=2.13.0
-Requires-Dist: pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4
+Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: jinja2
 Requires-Dist: setuptools
 Requires-Dist: packaging>=20.0

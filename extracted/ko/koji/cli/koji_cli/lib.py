@@ -58,7 +58,7 @@ class TimeOption(optparse.Option):
                "parsed by dateutil.parser. e.g. \"2020-12-31 12:35\" or \"December 31st 12:35\""
 
 
-greetings = ('hello', 'hi', 'yo', "what's up", "g'day", 'back to work',
+greetings = ('hello', 'hi', 'yo', "what's up", "g'day", 'back to work', 'howdy',
              'bonjour',
              'hallo',
              'ciao',
@@ -662,8 +662,8 @@ def download_rpm(build, rpm, topurl, sigkey=None, quiet=False, noprogress=False,
         error("Downloaded rpm %s is not valid rpm file, deleting" % path)
 
     # payload hash
-    sigmd5 = koji.get_header_fields(path, ['sigmd5'])['sigmd5']
-    if rpm['payloadhash'] != koji.hex_string(sigmd5):
+    hdr = koji.get_rpm_header(path)
+    if rpm['payloadhash'] != koji.get_rpm_ident(hdr):
         os.unlink(path)
         error("Downloaded rpm %s doesn't match db, deleting" % path)
 

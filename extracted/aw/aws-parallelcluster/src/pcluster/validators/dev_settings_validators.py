@@ -15,6 +15,10 @@ from pcluster.validators.utils import dig, is_boolean_string, str_to_bool
 
 EXTRA_CHEF_ATTRIBUTES_PATH = "DevSettings/Cookbook/ExtraChefAttributes"
 ATTR_IN_PLACE_UPDATE_ON_FLEET_ENABLED = "in_place_update_on_fleet_enabled"
+ATTR_RECONFIGURE_TIMEOUT = "cluster.slurm.reconfigure_timeout"
+ATTR_CLUSTER_READINESS_CHECK_ENABLED = "cluster.cluster_readiness_check_enabled"
+ATTR_CLUSTER_READINESS_CHECK_IGNORE_FAILURE = "cluster.cluster_readiness_check_ignore_failure"
+MIN_SLURM_RECONFIGURE_TIMEOUT = 300
 
 
 class ExtraChefAttributesValidator(Validator):
@@ -29,8 +33,12 @@ class ExtraChefAttributesValidator(Validator):
         """
         if not extra_chef_attributes:
             return
-        else:
-            self._validate_in_place_update_on_fleet_enabled(json.loads(extra_chef_attributes))
+
+        attrs = json.loads(extra_chef_attributes)
+        self._validate_in_place_update_on_fleet_enabled(attrs)
+        self._validate_slurm_reconfigure_timeout(attrs)
+        self._validate_cluster_readiness_check_enabled(attrs)
+        self._validate_cluster_readiness_check_ignore_failure(attrs)
 
     def _validate_in_place_update_on_fleet_enabled(self, extra_chef_attributes: dict = None):
         """Validate attribute cluster.in_place_update_on_fleet_enabled.
@@ -59,4 +67,92 @@ class ExtraChefAttributesValidator(Validator):
                 "When in-place updates are disabled, cluster updates are applied "
                 "by replacing compute and login nodes according to the selected QueueUpdateStrategy.",
                 FailureLevel.WARNING,
+            )
+
+    def _validate_cluster_readiness_check_enabled(self, extra_chef_attributes: dict = None):
+        """Validate attribute cluster.cluster_readiness_check_enabled.
+
+        It returns an error if the attribute is set to a non-boolean value.
+        It returns a warning if the cluster readiness check is disabled.
+
+        Args:
+            extra_chef_attributes: Dictionary of Chef attributes to validate.
+        """
+        value = dig(extra_chef_attributes, *ATTR_CLUSTER_READINESS_CHECK_ENABLED.split("."))
+
+        if value is None:
+            return
+
+        if not is_boolean_string(str(value)):
+            self._add_failure(
+                f"Invalid value in {EXTRA_CHEF_ATTRIBUTES_PATH}: "
+                f"attribute '{ATTR_CLUSTER_READINESS_CHECK_ENABLED}' must be a boolean value.",
+                FailureLevel.ERROR,
+            )
+            return
+
+        if str_to_bool(str(value)) is False:
+            self._add_failure(
+                "Cluster readiness check is disabled. Cluster creation and cluster update can succeed "
+                "even if there are cluster nodes that did not complete the deployment of the expected configuration.",
+                FailureLevel.WARNING,
+            )
+
+    def _validate_cluster_readiness_check_ignore_failure(self, extra_chef_attributes: dict = None):
+        """Validate attribute cluster.cluster_readiness_check_ignore_failure.
+
+        It returns an error if the attribute is set to a non-boolean value.
+        It returns a warning if the cluster readiness check failures are ignored.
+
+        Args:
+            extra_chef_attributes: Dictionary of Chef attributes to validate.
+        """
+        value = dig(extra_chef_attributes, *ATTR_CLUSTER_READINESS_CHECK_IGNORE_FAILURE.split("."))
+
+        if value is None:
+            return
+
+        if not is_boolean_string(str(value)):
+            self._add_failure(
+                f"Invalid value in {EXTRA_CHEF_ATTRIBUTES_PATH}: "
+                f"attribute '{ATTR_CLUSTER_READINESS_CHECK_IGNORE_FAILURE}' must be a boolean value.",
+                FailureLevel.ERROR,
+            )
+            return
+
+        if str_to_bool(str(value)) is True:
+            self._add_failure(
+                "Cluster readiness check failures are ignored. Cluster creation and cluster update can succeed "
+                "even if there are cluster nodes that did not complete the deployment of the expected configuration.",
+                FailureLevel.WARNING,
+            )
+
+    def _validate_slurm_reconfigure_timeout(self, extra_chef_attributes: dict = None):
+        """Validate attribute cluster.slurm.reconfigure-timeout.
+
+        Must be an integer greater than 300.
+
+        Args:
+            extra_chef_attributes: Dictionary of Chef attributes to validate.
+        """
+        reconfigure_timeout = dig(extra_chef_attributes, *ATTR_RECONFIGURE_TIMEOUT.split("."))
+
+        if reconfigure_timeout is None:
+            return
+
+        # Reject booleans explicitly (bool is subclass of int in Python)
+        if isinstance(reconfigure_timeout, bool) or not isinstance(reconfigure_timeout, int):
+            self._add_failure(
+                f"Invalid value in {EXTRA_CHEF_ATTRIBUTES_PATH}: "
+                f"attribute '{ATTR_RECONFIGURE_TIMEOUT}' must be an integer.",
+                FailureLevel.ERROR,
+            )
+            return
+
+        if reconfigure_timeout <= MIN_SLURM_RECONFIGURE_TIMEOUT:
+            self._add_failure(
+                f"Invalid value in {EXTRA_CHEF_ATTRIBUTES_PATH}: "
+                f"attribute '{ATTR_RECONFIGURE_TIMEOUT}' "
+                f"must be greater than {MIN_SLURM_RECONFIGURE_TIMEOUT}.",
+                FailureLevel.ERROR,
             )

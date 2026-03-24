@@ -83,7 +83,6 @@ StackArn = str
 String = str
 StringWithCharLimit1024 = str
 StringWithCharLimit128 = str
-StringWithCharLimit2048 = str
 StringWithCharLimit256 = str
 StringWithCharLimit256Min0 = str
 StringWithCharLimit64 = str
@@ -2192,7 +2191,7 @@ OrganizationConfigRuleTriggerTypeNoSNs = list[OrganizationConfigRuleTriggerTypeN
 class OrganizationCustomPolicyRuleMetadataNoPolicy(TypedDict, total=False):
     Description: StringWithCharLimit256Min0 | None
     OrganizationConfigRuleTriggerTypes: OrganizationConfigRuleTriggerTypeNoSNs | None
-    InputParameters: StringWithCharLimit2048 | None
+    InputParameters: StringWithCharLimit1024 | None
     MaximumExecutionFrequency: MaximumExecutionFrequency | None
     ResourceTypesScope: ResourceTypesScope | None
     ResourceIdScope: StringWithCharLimit768 | None
@@ -2210,7 +2209,7 @@ class OrganizationCustomRuleMetadata(TypedDict, total=False):
     Description: StringWithCharLimit256Min0 | None
     LambdaFunctionArn: StringWithCharLimit256
     OrganizationConfigRuleTriggerTypes: OrganizationConfigRuleTriggerTypes
-    InputParameters: StringWithCharLimit2048 | None
+    InputParameters: StringWithCharLimit1024 | None
     MaximumExecutionFrequency: MaximumExecutionFrequency | None
     ResourceTypesScope: ResourceTypesScope | None
     ResourceIdScope: StringWithCharLimit768 | None
@@ -2221,7 +2220,7 @@ class OrganizationCustomRuleMetadata(TypedDict, total=False):
 class OrganizationManagedRuleMetadata(TypedDict, total=False):
     Description: StringWithCharLimit256Min0 | None
     RuleIdentifier: StringWithCharLimit256
-    InputParameters: StringWithCharLimit2048 | None
+    InputParameters: StringWithCharLimit1024 | None
     MaximumExecutionFrequency: MaximumExecutionFrequency | None
     ResourceTypesScope: ResourceTypesScope | None
     ResourceIdScope: StringWithCharLimit768 | None
@@ -2969,7 +2968,7 @@ class ListTagsForResourceResponse(TypedDict, total=False):
 class OrganizationCustomPolicyRuleMetadata(TypedDict, total=False):
     Description: StringWithCharLimit256Min0 | None
     OrganizationConfigRuleTriggerTypes: OrganizationConfigRuleTriggerTypeNoSNs | None
-    InputParameters: StringWithCharLimit2048 | None
+    InputParameters: StringWithCharLimit1024 | None
     MaximumExecutionFrequency: MaximumExecutionFrequency | None
     ResourceTypesScope: ResourceTypesScope | None
     ResourceIdScope: StringWithCharLimit768 | None

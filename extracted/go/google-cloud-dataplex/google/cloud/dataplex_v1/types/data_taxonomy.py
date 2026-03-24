@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataplex_v1.types import security
@@ -928,12 +928,12 @@ class ListDataAttributeBindingsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    data_attribute_bindings: MutableSequence[
-        "DataAttributeBinding"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="DataAttributeBinding",
+    data_attribute_bindings: MutableSequence["DataAttributeBinding"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="DataAttributeBinding",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

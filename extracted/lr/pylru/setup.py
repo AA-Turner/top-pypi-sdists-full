@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name = "pylru",
-    version = "1.2.1",
+    version = "1.2.2",
     py_modules=['pylru'],
     description = "A least recently used (LRU) cache implementation",
     author = "Jay Hutchinson",
@@ -14,10 +14,9 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: GNU General Public License (GPL)",
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Topic :: Software Development :: Libraries :: Python Modules",
         ],
-    long_description=open('README.rst').read())
-
-
+    long_description=open('README.rst').read(),
+    long_description_content_type='text/x-rst')

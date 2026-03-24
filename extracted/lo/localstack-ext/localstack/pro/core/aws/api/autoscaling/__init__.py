@@ -2680,8 +2680,7 @@ class AutoscalingApi:
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
         :param traffic_sources: The unique identifiers of one or more traffic sources.
-        :param skip_zonal_shift_validation: If you enable zonal shift with cross-zone disabled load balancers,
-        capacity could become imbalanced across Availability Zones.
+        :param skip_zonal_shift_validation: If you enable zonal shift with cross-zone disabled load balancers, capacity could become imbalanced across Availability Zones.
         :returns: AttachTrafficSourcesResultType
         :raises ResourceContentionFault:
         :raises ServiceLinkedRoleFailure:
@@ -2750,8 +2749,7 @@ class AutoscalingApi:
         API to roll back instead.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param wait_for_transitioning_instances: When cancelling an instance refresh, this indicates whether to wait for
-        in-flight launches and terminations to complete.
+        :param wait_for_transitioning_instances: When cancelling an instance refresh, this indicates whether to wait for in-flight launches and terminations to complete.
         :returns: CancelInstanceRefreshAnswer
         :raises LimitExceededFault:
         :raises ResourceContentionFault:
@@ -2807,8 +2805,7 @@ class AutoscalingApi:
         :param lifecycle_hook_name: The name of the lifecycle hook.
         :param auto_scaling_group_name: The name of the Auto Scaling group.
         :param lifecycle_action_result: The action for the group to take.
-        :param lifecycle_action_token: A universally unique identifier (UUID) that identifies a specific
-        lifecycle action associated with an instance.
+        :param lifecycle_action_token: A universally unique identifier (UUID) that identifies a specific lifecycle action associated with an instance.
         :param instance_id: The ID of the instance.
         :returns: CompleteLifecycleActionAnswer
         :raises ResourceContentionFault:
@@ -2849,51 +2846,34 @@ class AutoscalingApi:
         :param min_size: The minimum size of the group.
         :param max_size: The maximum size of the group.
         :param launch_configuration_name: The name of the launch configuration to use to launch instances.
-        :param launch_template: Information used to specify the launch template and version to use to
-        launch instances.
+        :param launch_template: Information used to specify the launch template and version to use to launch instances.
         :param mixed_instances_policy: The mixed instances policy.
         :param instance_id: The ID of the instance used to base the launch configuration on.
-        :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group
-        at the time of its creation and the capacity it attempts to maintain.
+        :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group at the time of its creation and the capacity it attempts to maintain.
         :param default_cooldown: *Only needed if you use simple scaling policies.
-        :param availability_zones: A list of Availability Zones where instances in the Auto Scaling group
-        can be created.
-        :param load_balancer_names: A list of Classic Load Balancers associated with this Auto Scaling
-        group.
-        :param target_group_arns: The Amazon Resource Names (ARN) of the Elastic Load Balancing target
-        groups to associate with the Auto Scaling group.
+        :param availability_zones: A list of Availability Zones where instances in the Auto Scaling group can be created.
+        :param load_balancer_names: A list of Classic Load Balancers associated with this Auto Scaling group.
+        :param target_group_arns: The Amazon Resource Names (ARN) of the Elastic Load Balancing target groups to associate with the Auto Scaling group.
         :param health_check_type: A comma-separated value string of one or more health check types.
-        :param health_check_grace_period: The amount of time, in seconds, that Amazon EC2 Auto Scaling waits
-        before checking the health status of an EC2 instance that has come into
-        service and marking it unhealthy due to a failed health check.
+        :param health_check_grace_period: The amount of time, in seconds, that Amazon EC2 Auto Scaling waits before checking the health status of an EC2 instance that has come into service and marking it unhealthy due to a failed health check.
         :param placement_group: The name of the placement group into which to launch your instances.
-        :param vpc_zone_identifier: A comma-separated list of subnet IDs for a virtual private cloud (VPC)
-        where instances in the Auto Scaling group can be created.
-        :param termination_policies: A policy or a list of policies that are used to select the instance to
-        terminate.
-        :param new_instances_protected_from_scale_in: Indicates whether newly launched instances are protected from
-        termination by Amazon EC2 Auto Scaling when scaling in.
+        :param vpc_zone_identifier: A comma-separated list of subnet IDs for a virtual private cloud (VPC) where instances in the Auto Scaling group can be created.
+        :param termination_policies: A policy or a list of policies that are used to select the instance to terminate.
+        :param new_instances_protected_from_scale_in: Indicates whether newly launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in.
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled.
-        :param lifecycle_hook_specification_list: One or more lifecycle hooks to add to the Auto Scaling group before
-        instances are launched.
+        :param lifecycle_hook_specification_list: One or more lifecycle hooks to add to the Auto Scaling group before instances are launched.
         :param deletion_protection: The deletion protection setting for the Auto Scaling group.
         :param tags: One or more tags.
-        :param service_linked_role_arn: The Amazon Resource Name (ARN) of the service-linked role that the Auto
-        Scaling group uses to call other Amazon Web Services service on your
-        behalf.
-        :param max_instance_lifetime: The maximum amount of time, in seconds, that an instance can be in
-        service.
+        :param service_linked_role_arn: The Amazon Resource Name (ARN) of the service-linked role that the Auto Scaling group uses to call other Amazon Web Services service on your behalf.
+        :param max_instance_lifetime: The maximum amount of time, in seconds, that an instance can be in service.
         :param context: Reserved.
         :param desired_capacity_type: The unit of measurement for the value specified for desired capacity.
-        :param default_instance_warmup: The amount of time, in seconds, until a new instance is considered to
-        have finished initializing and resource consumption to become stable
-        after it enters the ``InService`` state.
+        :param default_instance_warmup: The amount of time, in seconds, until a new instance is considered to have finished initializing and resource consumption to become stable after it enters the ``InService`` state.
         :param traffic_sources: The list of traffic sources to attach to this Auto Scaling group.
         :param instance_maintenance_policy: An instance maintenance policy.
         :param availability_zone_distribution: The instance capacity distribution across Availability Zones.
         :param availability_zone_impairment_policy: The policy for Availability Zone impairment.
-        :param skip_zonal_shift_validation: If you enable zonal shift with cross-zone disabled load balancers,
-        capacity could become imbalanced across Availability Zones.
+        :param skip_zonal_shift_validation: If you enable zonal shift with cross-zone disabled load balancers, capacity could become imbalanced across Availability Zones.
         :param capacity_reservation_specification: The capacity reservation specification for the Auto Scaling group.
         :param instance_lifecycle_policy: The instance lifecycle policy for the Auto Scaling group.
         :raises AlreadyExistsFault:
@@ -2951,11 +2931,9 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param launch_configuration_name: The name of the launch configuration.
-        :param image_id: The ID of the Amazon Machine Image (AMI) that was assigned during
-        registration.
+        :param image_id: The ID of the Amazon Machine Image (AMI) that was assigned during registration.
         :param key_name: The name of the key pair.
-        :param security_groups: A list that contains the security group IDs to assign to the instances
-        in the Auto Scaling group.
+        :param security_groups: A list that contains the security group IDs to assign to the instances in the Auto Scaling group.
         :param classic_link_vpc_id: Available for backward compatibility.
         :param classic_link_vpc_security_groups: Available for backward compatibility.
         :param user_data: The user data to make available to the launched EC2 instances.
@@ -2963,18 +2941,12 @@ class AutoscalingApi:
         :param instance_type: Specifies the instance type of the EC2 instance.
         :param kernel_id: The ID of the kernel associated with the AMI.
         :param ramdisk_id: The ID of the RAM disk to select.
-        :param block_device_mappings: The block device mapping entries that define the block devices to attach
-        to the instances at launch.
-        :param instance_monitoring: Controls whether instances in this group are launched with detailed
-        (``true``) or basic (``false``) monitoring.
-        :param spot_price: The maximum hourly price to be paid for any Spot Instance launched to
-        fulfill the request.
-        :param iam_instance_profile: The name or the Amazon Resource Name (ARN) of the instance profile
-        associated with the IAM role for the instance.
-        :param ebs_optimized: Specifies whether the launch configuration is optimized for EBS I/O
-        (``true``) or not (``false``).
-        :param associate_public_ip_address: Specifies whether to assign a public IPv4 address to the group's
-        instances.
+        :param block_device_mappings: The block device mapping entries that define the block devices to attach to the instances at launch.
+        :param instance_monitoring: Controls whether instances in this group are launched with detailed (``true``) or basic (``false``) monitoring.
+        :param spot_price: The maximum hourly price to be paid for any Spot Instance launched to fulfill the request.
+        :param iam_instance_profile: The name or the Amazon Resource Name (ARN) of the instance profile associated with the IAM role for the instance.
+        :param ebs_optimized: Specifies whether the launch configuration is optimized for EBS I/O (``true``) or not (``false``).
+        :param associate_public_ip_address: Specifies whether to assign a public IPv4 address to the group's instances.
         :param placement_tenancy: The tenancy of the instance, either ``default`` or ``dedicated``.
         :param metadata_options: The metadata options for the instances.
         :raises AlreadyExistsFault:
@@ -3041,9 +3013,7 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param force_delete: Specifies that the group is to be deleted along with all instances
-        associated with the group, without waiting for all instances to be
-        terminated.
+        :param force_delete: Specifies that the group is to be deleted along with all instances associated with the group, without waiting for all instances to be terminated.
         :raises ScalingActivityInProgressFault:
         :raises ResourceInUseFault:
         :raises ResourceContentionFault:
@@ -3169,9 +3139,7 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param force_delete: Specifies that the warm pool is to be deleted along with all of its
-        associated instances, without waiting for all instances to be
-        terminated.
+        :param force_delete: Specifies that the warm pool is to be deleted along with all of its associated instances, without waiting for all instances to be terminated.
         :returns: DeleteWarmPoolAnswer
         :raises LimitExceededFault:
         :raises ResourceContentionFault:
@@ -3246,8 +3214,7 @@ class AutoscalingApi:
         API.
 
         :param auto_scaling_group_names: The names of the Auto Scaling groups.
-        :param include_instances: Specifies whether to include information about Amazon EC2 instances in
-        the response.
+        :param include_instances: Specifies whether to include information about Amazon EC2 instances in the response.
         :param next_token: The token for the next set of items to return.
         :param max_records: The maximum number of items to return with this call.
         :param filters: One or more filters to limit the results based on specific tags.
@@ -3598,8 +3565,7 @@ class AutoscalingApi:
 
         :param activity_ids: The activity IDs of the desired scaling activities.
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param include_deleted_groups: Indicates whether to include scaling activity from deleted Auto Scaling
-        groups.
+        :param include_deleted_groups: Indicates whether to include scaling activity from deleted Auto Scaling groups.
         :param max_records: The maximum number of items to return with this call.
         :param next_token: The token for the next set of items to return.
         :param filters: One or more filters to limit the results based on specific criteria.
@@ -3786,8 +3752,7 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param should_decrement_desired_capacity: Indicates whether the Auto Scaling group decrements the desired capacity
-        value by the number of instances detached.
+        :param should_decrement_desired_capacity: Indicates whether the Auto Scaling group decrements the desired capacity value by the number of instances detached.
         :param instance_ids: The IDs of the instances.
         :returns: DetachInstancesAnswer
         :raises ResourceContentionFault:
@@ -3932,8 +3897,7 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param granularity: The frequency at which Amazon EC2 Auto Scaling sends aggregated data to
-        CloudWatch.
+        :param granularity: The frequency at which Amazon EC2 Auto Scaling sends aggregated data to CloudWatch.
         :param metrics: Identifies the metrics to enable.
         :raises ResourceContentionFault:
         """
@@ -3965,8 +3929,7 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param should_decrement_desired_capacity: Indicates whether to decrement the desired capacity of the Auto Scaling
-        group by the number of instances moved to ``Standby`` mode.
+        :param should_decrement_desired_capacity: Indicates whether to decrement the desired capacity of the Auto Scaling group by the number of instances moved to ``Standby`` mode.
         :param instance_ids: The IDs of the instances.
         :returns: EnterStandbyAnswer
         :raises ResourceContentionFault:
@@ -3989,8 +3952,7 @@ class AutoscalingApi:
 
         :param policy_name: The name or ARN of the policy.
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param honor_cooldown: Indicates whether Amazon EC2 Auto Scaling waits for the cooldown period
-        to complete before executing the policy.
+        :param honor_cooldown: Indicates whether Amazon EC2 Auto Scaling waits for the cooldown period to complete before executing the policy.
         :param metric_value: The metric value to compare to ``BreachThreshold``.
         :param breach_threshold: The breach threshold for the alarm.
         :raises ScalingActivityInProgressFault:
@@ -4077,13 +4039,11 @@ class AutoscalingApi:
 
         :param auto_scaling_group_name: The name of the Auto Scaling group to launch instances into.
         :param requested_capacity: The number of instances to launch.
-        :param client_token: A unique, case-sensitive identifier to ensure idempotency of the
-        request.
+        :param client_token: A unique, case-sensitive identifier to ensure idempotency of the request.
         :param availability_zones: The Availability Zones for the instance launch.
         :param availability_zone_ids: A list of Availability Zone IDs where instances should be launched.
         :param subnet_ids: The subnet IDs for the instance launch.
-        :param retry_strategy: Specifies whether to retry asynchronously if the synchronous launch
-        fails.
+        :param retry_strategy: Specifies whether to retry asynchronously if the synchronous launch fails.
         :returns: LaunchInstancesResult
         :raises ResourceContentionFault:
         :raises IdempotentParameterMismatchError:
@@ -4157,17 +4117,11 @@ class AutoscalingApi:
         :param lifecycle_hook_name: The name of the lifecycle hook.
         :param auto_scaling_group_name: The name of the Auto Scaling group.
         :param lifecycle_transition: The lifecycle transition.
-        :param role_arn: The ARN of the IAM role that allows the Auto Scaling group to publish to
-        the specified notification target.
-        :param notification_target_arn: The Amazon Resource Name (ARN) of the notification target that Amazon
-        EC2 Auto Scaling uses to notify you when an instance is in a wait state
-        for the lifecycle hook.
-        :param notification_metadata: Additional information that you want to include any time Amazon EC2 Auto
-        Scaling sends a message to the notification target.
-        :param heartbeat_timeout: The maximum time, in seconds, that can elapse before the lifecycle hook
-        times out.
-        :param default_result: The action the Auto Scaling group takes when the lifecycle hook timeout
-        elapses or if an unexpected failure occurs.
+        :param role_arn: The ARN of the IAM role that allows the Auto Scaling group to publish to the specified notification target.
+        :param notification_target_arn: The Amazon Resource Name (ARN) of the notification target that Amazon EC2 Auto Scaling uses to notify you when an instance is in a wait state for the lifecycle hook.
+        :param notification_metadata: Additional information that you want to include any time Amazon EC2 Auto Scaling sends a message to the notification target.
+        :param heartbeat_timeout: The maximum time, in seconds, that can elapse before the lifecycle hook times out.
+        :param default_result: The action the Auto Scaling group takes when the lifecycle hook timeout elapses or if an unexpected failure occurs.
         :returns: PutLifecycleHookAnswer
         :raises LimitExceededFault:
         :raises ResourceContentionFault:
@@ -4252,26 +4206,14 @@ class AutoscalingApi:
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
         :param policy_name: The name of the policy.
-        :param policy_type: One of the following policy types:
-
-        -  ``TargetTrackingScaling``
-
-        -  ``StepScaling``
-
-        -  ``SimpleScaling`` (default)
-
-        -  ``PredictiveScaling``.
-        :param adjustment_type: Specifies how the scaling adjustment is interpreted (for example, an
-        absolute number or a percentage).
+        :param policy_type: One of the following policy types:  -  ``TargetTrackingScaling``  -  ``StepScaling``  -  ``SimpleScaling`` (default)  -  ``PredictiveScaling``.
+        :param adjustment_type: Specifies how the scaling adjustment is interpreted (for example, an absolute number or a percentage).
         :param min_adjustment_step: Available for backward compatibility.
-        :param min_adjustment_magnitude: The minimum value to scale by when the adjustment type is
-        ``PercentChangeInCapacity``.
+        :param min_adjustment_magnitude: The minimum value to scale by when the adjustment type is ``PercentChangeInCapacity``.
         :param scaling_adjustment: The amount by which to scale, based on the specified adjustment type.
-        :param cooldown: A cooldown period, in seconds, that applies to a specific simple scaling
-        policy.
+        :param cooldown: A cooldown period, in seconds, that applies to a specific simple scaling policy.
         :param metric_aggregation_type: The aggregation type for the CloudWatch metrics.
-        :param step_adjustments: A set of adjustments that enable you to scale based on the size of the
-        alarm breach.
+        :param step_adjustments: A set of adjustments that enable you to scale based on the size of the alarm breach.
         :param estimated_instance_warmup: *Not needed if the default instance warmup is defined for the group.
         :param target_tracking_configuration: A target tracking scaling policy.
         :param enabled: Indicates whether the scaling policy is enabled or disabled.
@@ -4318,16 +4260,12 @@ class AutoscalingApi:
         :param auto_scaling_group_name: The name of the Auto Scaling group.
         :param scheduled_action_name: The name of this scaling action.
         :param time: This property is no longer used.
-        :param start_time: The date and time for this action to start, in YYYY-MM-DDThh:mm:ssZ
-        format in UTC/GMT only and in quotes (for example,
-        ``"2021-06-01T00:00:00Z"``).
+        :param start_time: The date and time for this action to start, in YYYY-MM-DDThh:mm:ssZ format in UTC/GMT only and in quotes (for example, ``"2021-06-01T00:00:00Z"``).
         :param end_time: The date and time for the recurring schedule to end, in UTC.
         :param recurrence: The recurring schedule for this action.
         :param min_size: The minimum size of the Auto Scaling group.
         :param max_size: The maximum size of the Auto Scaling group.
-        :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group
-        after the scheduled action runs and the capacity it attempts to
-        maintain.
+        :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group after the scheduled action runs and the capacity it attempts to maintain.
         :param time_zone: Specifies the time zone for a cron expression.
         :raises AlreadyExistsFault:
         :raises LimitExceededFault:
@@ -4367,14 +4305,10 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param max_group_prepared_capacity: Specifies the maximum number of instances that are allowed to be in the
-        warm pool or in any state except ``Terminated`` for the Auto Scaling
-        group.
+        :param max_group_prepared_capacity: Specifies the maximum number of instances that are allowed to be in the warm pool or in any state except ``Terminated`` for the Auto Scaling group.
         :param min_size: Specifies the minimum number of instances to maintain in the warm pool.
-        :param pool_state: Sets the instance state to transition to after the lifecycle actions are
-        complete.
-        :param instance_reuse_policy: Indicates whether instances in the Auto Scaling group can be returned to
-        the warm pool on scale in.
+        :param pool_state: Sets the instance state to transition to after the lifecycle actions are complete.
+        :param instance_reuse_policy: Indicates whether instances in the Auto Scaling group can be returned to the warm pool on scale in.
         :returns: PutWarmPoolAnswer
         :raises LimitExceededFault:
         :raises ResourceContentionFault:
@@ -4431,8 +4365,7 @@ class AutoscalingApi:
 
         :param lifecycle_hook_name: The name of the lifecycle hook.
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param lifecycle_action_token: A token that uniquely identifies a specific lifecycle action associated
-        with an instance.
+        :param lifecycle_action_token: A token that uniquely identifies a specific lifecycle action associated with an instance.
         :param instance_id: The ID of the instance.
         :returns: RecordLifecycleActionHeartbeatAnswer
         :raises ResourceContentionFault:
@@ -4455,27 +4388,7 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param scaling_processes: One or more of the following processes:
-
-        -  ``Launch``
-
-        -  ``Terminate``
-
-        -  ``AddToLoadBalancer``
-
-        -  ``AlarmNotification``
-
-        -  ``AZRebalance``
-
-        -  ``HealthCheck``
-
-        -  ``InstanceRefresh``
-
-        -  ``ReplaceUnhealthy``
-
-        -  ``ScheduledActions``
-
-        If you omit this property, all processes are specified.
+        :param scaling_processes: One or more of the following processes:  -  ``Launch``  -  ``Terminate``  -  ``AddToLoadBalancer``  -  ``AlarmNotification``  -  ``AZRebalance``  -  ``HealthCheck``  -  ``InstanceRefresh``  -  ``ReplaceUnhealthy``  -  ``ScheduledActions``  If you omit this property, all processes are specified.
         :raises ResourceInUseFault:
         :raises ResourceContentionFault:
         """
@@ -4543,11 +4456,8 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group
-        after this operation completes and the capacity it attempts to maintain.
-        :param honor_cooldown: Indicates whether Amazon EC2 Auto Scaling waits for the cooldown period
-        to complete before initiating a scaling activity to set your Auto
-        Scaling group to its new capacity.
+        :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group after this operation completes and the capacity it attempts to maintain.
+        :param honor_cooldown: Indicates whether Amazon EC2 Auto Scaling waits for the cooldown period to complete before initiating a scaling activity to set your Auto Scaling group to its new capacity.
         :raises ScalingActivityInProgressFault:
         :raises ResourceContentionFault:
         """
@@ -4571,9 +4481,7 @@ class AutoscalingApi:
 
         :param instance_id: The ID of the instance.
         :param health_status: The health status of the instance.
-        :param should_respect_grace_period: If the Auto Scaling group of the specified instance has a
-        ``HealthCheckGracePeriod`` specified for the group, by default, this
-        call respects the grace period.
+        :param should_respect_grace_period: If the Auto Scaling group of the specified instance has a ``HealthCheckGracePeriod`` specified for the group, by default, this call respects the grace period.
         :raises ResourceContentionFault:
         """
         raise NotImplementedError
@@ -4599,8 +4507,7 @@ class AutoscalingApi:
 
         :param instance_ids: One or more instance IDs.
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param protected_from_scale_in: Indicates whether the instance is protected from termination by Amazon
-        EC2 Auto Scaling when scaling in.
+        :param protected_from_scale_in: Indicates whether the instance is protected from termination by Amazon EC2 Auto Scaling when scaling in.
         :returns: SetInstanceProtectionAnswer
         :raises LimitExceededFault:
         :raises ResourceContentionFault:
@@ -4657,8 +4564,7 @@ class AutoscalingApi:
         :param auto_scaling_group_name: The name of the Auto Scaling group.
         :param strategy: The strategy to use for the instance refresh.
         :param desired_configuration: The desired configuration.
-        :param preferences: Sets your preferences for the instance refresh so that it performs as
-        expected when you start it.
+        :param preferences: Sets your preferences for the instance refresh so that it performs as expected when you start it.
         :returns: StartInstanceRefreshAnswer
         :raises LimitExceededFault:
         :raises ResourceContentionFault:
@@ -4688,27 +4594,7 @@ class AutoscalingApi:
         API.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
-        :param scaling_processes: One or more of the following processes:
-
-        -  ``Launch``
-
-        -  ``Terminate``
-
-        -  ``AddToLoadBalancer``
-
-        -  ``AlarmNotification``
-
-        -  ``AZRebalance``
-
-        -  ``HealthCheck``
-
-        -  ``InstanceRefresh``
-
-        -  ``ReplaceUnhealthy``
-
-        -  ``ScheduledActions``
-
-        If you omit this property, all processes are specified.
+        :param scaling_processes: One or more of the following processes:  -  ``Launch``  -  ``Terminate``  -  ``AddToLoadBalancer``  -  ``AlarmNotification``  -  ``AZRebalance``  -  ``HealthCheck``  -  ``InstanceRefresh``  -  ``ReplaceUnhealthy``  -  ``ScheduledActions``  If you omit this property, all processes are specified.
         :raises ResourceInUseFault:
         :raises ResourceContentionFault:
         """
@@ -4743,8 +4629,7 @@ class AutoscalingApi:
         in the *Amazon EC2 Auto Scaling User Guide*.
 
         :param instance_id: The ID of the instance.
-        :param should_decrement_desired_capacity: Indicates whether terminating the instance also decrements the size of
-        the Auto Scaling group.
+        :param should_decrement_desired_capacity: Indicates whether terminating the instance also decrements the size of the Auto Scaling group.
         :returns: ActivityType
         :raises ScalingActivityInProgressFault:
         :raises ResourceContentionFault:
@@ -4813,36 +4698,25 @@ class AutoscalingApi:
         :param mixed_instances_policy: The mixed instances policy.
         :param min_size: The minimum size of the Auto Scaling group.
         :param max_size: The maximum size of the Auto Scaling group.
-        :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group
-        after this operation completes and the capacity it attempts to maintain.
+        :param desired_capacity: The desired capacity is the initial capacity of the Auto Scaling group after this operation completes and the capacity it attempts to maintain.
         :param default_cooldown: *Only needed if you use simple scaling policies.
         :param availability_zones: One or more Availability Zones for the group.
         :param health_check_type: A comma-separated value string of one or more health check types.
-        :param health_check_grace_period: The amount of time, in seconds, that Amazon EC2 Auto Scaling waits
-        before checking the health status of an EC2 instance that has come into
-        service and marking it unhealthy due to a failed health check.
-        :param placement_group: The name of an existing placement group into which to launch your
-        instances.
+        :param health_check_grace_period: The amount of time, in seconds, that Amazon EC2 Auto Scaling waits before checking the health status of an EC2 instance that has come into service and marking it unhealthy due to a failed health check.
+        :param placement_group: The name of an existing placement group into which to launch your instances.
         :param vpc_zone_identifier: A comma-separated list of subnet IDs for a virtual private cloud (VPC).
-        :param termination_policies: A policy or a list of policies that are used to select the instances to
-        terminate.
-        :param new_instances_protected_from_scale_in: Indicates whether newly launched instances are protected from
-        termination by Amazon EC2 Auto Scaling when scaling in.
-        :param service_linked_role_arn: The Amazon Resource Name (ARN) of the service-linked role that the Auto
-        Scaling group uses to call other Amazon Web Services on your behalf.
-        :param max_instance_lifetime: The maximum amount of time, in seconds, that an instance can be in
-        service.
+        :param termination_policies: A policy or a list of policies that are used to select the instances to terminate.
+        :param new_instances_protected_from_scale_in: Indicates whether newly launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in.
+        :param service_linked_role_arn: The Amazon Resource Name (ARN) of the service-linked role that the Auto Scaling group uses to call other Amazon Web Services on your behalf.
+        :param max_instance_lifetime: The maximum amount of time, in seconds, that an instance can be in service.
         :param capacity_rebalance: Enables or disables Capacity Rebalancing.
         :param context: Reserved.
         :param desired_capacity_type: The unit of measurement for the value specified for desired capacity.
-        :param default_instance_warmup: The amount of time, in seconds, until a new instance is considered to
-        have finished initializing and resource consumption to become stable
-        after it enters the ``InService`` state.
+        :param default_instance_warmup: The amount of time, in seconds, until a new instance is considered to have finished initializing and resource consumption to become stable after it enters the ``InService`` state.
         :param instance_maintenance_policy: An instance maintenance policy.
         :param availability_zone_distribution: The instance capacity distribution across Availability Zones.
         :param availability_zone_impairment_policy: The policy for Availability Zone impairment.
-        :param skip_zonal_shift_validation: If you enable zonal shift with cross-zone disabled load balancers,
-        capacity could become imbalanced across Availability Zones.
+        :param skip_zonal_shift_validation: If you enable zonal shift with cross-zone disabled load balancers, capacity could become imbalanced across Availability Zones.
         :param capacity_reservation_specification: The capacity reservation specification for the Auto Scaling group.
         :param instance_lifecycle_policy: The instance lifecycle policy for the Auto Scaling group.
         :param deletion_protection: The deletion protection setting for the Auto Scaling group.

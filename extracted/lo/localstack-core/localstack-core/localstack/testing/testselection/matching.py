@@ -60,8 +60,11 @@ def _reverse_dependency_map(dependency_map: dict[str, Iterable[str]]) -> dict[st
     return result
 
 
-def get_test_dir_for_service(svc: str) -> str:
-    return f"tests/aws/services/{svc}"
+def get_tests_for_service(svc: str) -> list[str]:
+    return [
+        f"tests/aws/services/{svc}",
+        f"tests/aws/services/cloudformation/resources/test_{svc}.py",
+    ]
 
 
 def get_directory(t: str) -> str:
@@ -85,7 +88,9 @@ class Matcher:
 
     def service_tests(self, services: list[str]):
         return lambda t: (
-            [get_test_dir_for_service(svc) for svc in services] if self.matching_func(t) else []
+            [test for svc in services for test in get_tests_for_service(svc)]
+            if self.matching_func(t)
+            else []
         )
 
     def passthrough(self):
@@ -118,6 +123,7 @@ def generic_service_test_matching_rule(
     api_dependencies: dict[str, Iterable[str]] | None = None,
     search_patterns: Iterable[str] = DEFAULT_SEARCH_PATTERNS,
     test_dirs: Iterable[str] = ("tests/aws/services",),
+    test_patterns: Iterable[str] = ("tests/aws/services/cloudformation/resources/test_{}.py",),
 ) -> set[str]:
     """
     Generic matching of changes in service files to their tests
@@ -126,6 +132,7 @@ def generic_service_test_matching_rule(
     :param changed_file_path: the file path of the detected change
     :param search_patterns: list of regex patterns to search for in the changed file path
     :param test_dirs: list of test directories to match for a changed service
+    :param test_patterns: list of test file path patterns to match for a changed service. Must include a single {} placeholder for the service name
     :return: list of partial test file path filters for the matching service and all services it depends on
     """
     # TODO: consider API_COMPOSITES
@@ -154,7 +161,12 @@ def generic_service_test_matching_rule(
         changed_services.extend(service_dependencies)
         changed_service_module_names = [_map_to_module_name(svc) for svc in changed_services]
         return {
-            f"{test_dir}/{svc}/" for test_dir in test_dirs for svc in changed_service_module_names
+            path
+            for svc in changed_service_module_names
+            for path in (
+                *(f"{test_dir}/{svc}/" for test_dir in test_dirs),
+                *(test_pattern.format(svc) for test_pattern in test_patterns),
+            )
         }
 
     return set()

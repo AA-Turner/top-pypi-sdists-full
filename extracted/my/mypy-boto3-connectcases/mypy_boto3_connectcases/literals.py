@@ -48,7 +48,13 @@ __all__ = (
 )
 
 
-AuditEventTypeType = Literal["Case.Created", "Case.Updated", "RelatedItem.Created"]
+AuditEventTypeType = Literal[
+    "Case.Created",
+    "Case.Updated",
+    "RelatedItem.Created",
+    "RelatedItem.Deleted",
+    "RelatedItem.Updated",
+]
 CommentBodyTextTypeType = Literal["Text/Plain"]
 DomainStatusType = Literal["Active", "CreationFailed", "CreationInProgress"]
 FieldNamespaceType = Literal["Custom", "System"]
@@ -432,6 +438,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

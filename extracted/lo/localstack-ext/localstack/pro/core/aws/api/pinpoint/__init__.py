@@ -4166,8 +4166,7 @@ class PinpointApi:
     ) -> CreateAppResponse:
         """Creates an application.
 
-        :param create_application_request: Specifies the display name of an application and the tags to associate
-        with the application.
+        :param create_application_request: Specifies the display name of an application and the tags to associate with the application.
         :returns: CreateAppResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4215,8 +4214,7 @@ class PinpointApi:
         channel.
 
         :param template_name: The name of the message template.
-        :param email_template_request: Specifies the content and settings for a message template that can be
-        used in messages that are sent through the email channel.
+        :param email_template_request: Specifies the content and settings for a message template that can be used in messages that are sent through the email channel.
         :returns: CreateEmailTemplateResponse
         :raises MethodNotAllowedException:
         :raises TooManyRequestsException:
@@ -4237,8 +4235,7 @@ class PinpointApi:
         """Creates an export job for an application.
 
         :param application_id: The unique identifier for the application.
-        :param export_job_request: Specifies the settings for a job that exports endpoint definitions to an
-        Amazon Simple Storage Service (Amazon S3) bucket.
+        :param export_job_request: Specifies the settings for a job that exports endpoint definitions to an Amazon Simple Storage Service (Amazon S3) bucket.
         :returns: CreateExportJobResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4261,8 +4258,7 @@ class PinpointApi:
         """Creates an import job for an application.
 
         :param application_id: The unique identifier for the application.
-        :param import_job_request: Specifies the settings for a job that imports endpoint definitions from
-        an Amazon Simple Storage Service (Amazon S3) bucket.
+        :param import_job_request: Specifies the settings for a job that imports endpoint definitions from an Amazon Simple Storage Service (Amazon S3) bucket.
         :returns: CreateImportJobResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4331,8 +4327,7 @@ class PinpointApi:
         notification channel.
 
         :param template_name: The name of the message template.
-        :param push_notification_template_request: Specifies the content and settings for a message template that can be
-        used in messages that are sent through a push notification channel.
+        :param push_notification_template_request: Specifies the content and settings for a message template that can be used in messages that are sent through a push notification channel.
         :returns: CreatePushTemplateResponse
         :raises MethodNotAllowedException:
         :raises TooManyRequestsException:
@@ -4351,8 +4346,7 @@ class PinpointApi:
     ) -> CreateRecommenderConfigurationResponse:
         """Creates an Amazon Pinpoint configuration for a recommender model.
 
-        :param create_recommender_configuration: Specifies Amazon Pinpoint configuration settings for retrieving and
-        processing recommendation data from a recommender model.
+        :param create_recommender_configuration: Specifies Amazon Pinpoint configuration settings for retrieving and processing recommendation data from a recommender model.
         :returns: CreateRecommenderConfigurationResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4377,8 +4371,7 @@ class PinpointApi:
         with an application.
 
         :param application_id: The unique identifier for the application.
-        :param write_segment_request: Specifies the configuration, dimension, and other settings for a
-        segment.
+        :param write_segment_request: Specifies the configuration, dimension, and other settings for a segment.
         :returns: CreateSegmentResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4402,8 +4395,7 @@ class PinpointApi:
         channel.
 
         :param template_name: The name of the message template.
-        :param sms_template_request: Specifies the content and settings for a message template that can be
-        used in text messages that are sent through the SMS channel.
+        :param sms_template_request: Specifies the content and settings for a message template that can be used in text messages that are sent through the SMS channel.
         :returns: CreateSmsTemplateResponse
         :raises MethodNotAllowedException:
         :raises TooManyRequestsException:
@@ -4425,8 +4417,7 @@ class PinpointApi:
         channel.
 
         :param template_name: The name of the message template.
-        :param voice_template_request: Specifies the content and settings for a message template that can be
-        used in messages that are sent through the voice channel.
+        :param voice_template_request: Specifies the content and settings for a message template that can be used in messages that are sent through the voice channel.
         :returns: CreateVoiceTemplateResponse
         :raises MethodNotAllowedException:
         :raises TooManyRequestsException:
@@ -4618,8 +4609,7 @@ class PinpointApi:
         channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: DeleteEmailTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4699,8 +4689,7 @@ class PinpointApi:
         channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: DeleteInAppTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4743,8 +4732,7 @@ class PinpointApi:
         notification channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: DeletePushTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4824,8 +4812,7 @@ class PinpointApi:
         channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: DeleteSmsTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -4887,8 +4874,7 @@ class PinpointApi:
         channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: DeleteVoiceTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5027,16 +5013,11 @@ class PinpointApi:
         applies to an application.
 
         :param application_id: The unique identifier for the application.
-        :param kpi_name: The name of the metric, also referred to as a *key performance indicator
-        (KPI)*, to retrieve data for.
-        :param end_time: The last date and time to retrieve data for, as part of an inclusive
-        date range that filters the query results.
-        :param next_token: The string that specifies which page of results to return in a paginated
-        response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param start_time: The first date and time to retrieve data for, as part of an inclusive
-        date range that filters the query results.
+        :param kpi_name: The name of the metric, also referred to as a *key performance indicator (KPI)*, to retrieve data for.
+        :param end_time: The last date and time to retrieve data for, as part of an inclusive date range that filters the query results.
+        :param next_token: The string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param start_time: The first date and time to retrieve data for, as part of an inclusive date range that filters the query results.
         :returns: GetApplicationDateRangeKpiResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5077,10 +5058,8 @@ class PinpointApi:
         """Retrieves information about all the applications that are associated
         with your Amazon Pinpoint account.
 
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetAppsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5145,10 +5124,8 @@ class PinpointApi:
 
         :param application_id: The unique identifier for the application.
         :param campaign_id: The unique identifier for the campaign.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetCampaignActivitiesResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5177,17 +5154,12 @@ class PinpointApi:
         applies to a campaign.
 
         :param application_id: The unique identifier for the application.
-        :param kpi_name: The name of the metric, also referred to as a *key performance indicator
-        (KPI)*, to retrieve data for.
+        :param kpi_name: The name of the metric, also referred to as a *key performance indicator (KPI)*, to retrieve data for.
         :param campaign_id: The unique identifier for the campaign.
-        :param end_time: The last date and time to retrieve data for, as part of an inclusive
-        date range that filters the query results.
-        :param next_token: The string that specifies which page of results to return in a paginated
-        response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param start_time: The first date and time to retrieve data for, as part of an inclusive
-        date range that filters the query results.
+        :param end_time: The last date and time to retrieve data for, as part of an inclusive date range that filters the query results.
+        :param next_token: The string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param start_time: The first date and time to retrieve data for, as part of an inclusive date range that filters the query results.
         :returns: GetCampaignDateRangeKpiResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5240,10 +5212,8 @@ class PinpointApi:
 
         :param application_id: The unique identifier for the application.
         :param campaign_id: The unique identifier for the campaign.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetCampaignVersionsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5268,10 +5238,8 @@ class PinpointApi:
         settings for all the campaigns that are associated with an application.
 
         :param application_id: The unique identifier for the application.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetCampaignsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5333,8 +5301,7 @@ class PinpointApi:
         that are sent through the email channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: GetEmailTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5418,10 +5385,8 @@ class PinpointApi:
         jobs for an application.
 
         :param application_id: The unique identifier for the application.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetExportJobsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5485,10 +5450,8 @@ class PinpointApi:
         jobs for an application.
 
         :param application_id: The unique identifier for the application.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetImportJobsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5531,8 +5494,7 @@ class PinpointApi:
         sent through the in-app channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: GetInAppTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5582,16 +5544,11 @@ class PinpointApi:
 
         :param journey_id: The unique identifier for the journey.
         :param application_id: The unique identifier for the application.
-        :param kpi_name: The name of the metric, also referred to as a *key performance indicator
-        (KPI)*, to retrieve data for.
-        :param end_time: The last date and time to retrieve data for, as part of an inclusive
-        date range that filters the query results.
-        :param next_token: The string that specifies which page of results to return in a paginated
-        response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param start_time: The first date and time to retrieve data for, as part of an inclusive
-        date range that filters the query results.
+        :param kpi_name: The name of the metric, also referred to as a *key performance indicator (KPI)*, to retrieve data for.
+        :param end_time: The last date and time to retrieve data for, as part of an inclusive date range that filters the query results.
+        :param next_token: The string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param start_time: The first date and time to retrieve data for, as part of an inclusive date range that filters the query results.
         :returns: GetJourneyDateRangeKpiResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5620,10 +5577,8 @@ class PinpointApi:
         :param journey_activity_id: The unique identifier for the journey activity.
         :param application_id: The unique identifier for the application.
         :param journey_id: The unique identifier for the journey.
-        :param next_token: The ```` string that specifies which page of results to return in a
-        paginated response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
+        :param next_token: The ```` string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
         :returns: GetJourneyExecutionActivityMetricsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5650,10 +5605,8 @@ class PinpointApi:
 
         :param application_id: The unique identifier for the application.
         :param journey_id: The unique identifier for the journey.
-        :param next_token: The ```` string that specifies which page of results to return in a
-        paginated response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
+        :param next_token: The ```` string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
         :returns: GetJourneyExecutionMetricsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5684,10 +5637,8 @@ class PinpointApi:
         :param journey_activity_id: The unique identifier for the journey activity.
         :param journey_id: The unique identifier for the journey.
         :param application_id: The unique identifier for the application.
-        :param next_token: The ```` string that specifies which page of results to return in a
-        paginated response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
+        :param next_token: The ```` string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
         :returns: GetJourneyRunExecutionActivityMetricsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5716,10 +5667,8 @@ class PinpointApi:
         :param run_id: The unique identifier for the journey run.
         :param application_id: The unique identifier for the application.
         :param journey_id: The unique identifier for the journey.
-        :param next_token: The ```` string that specifies which page of results to return in a
-        paginated response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
+        :param next_token: The ```` string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
         :returns: GetJourneyRunExecutionMetricsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5745,10 +5694,8 @@ class PinpointApi:
 
         :param application_id: The unique identifier for the application.
         :param journey_id: The unique identifier for the journey.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetJourneyRunsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5772,8 +5719,7 @@ class PinpointApi:
         that are sent through a push notification channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: GetPushTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5815,10 +5761,8 @@ class PinpointApi:
         """Retrieves information about all the recommender model configurations
         that are associated with your Amazon Pinpoint account.
 
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetRecommenderConfigurationsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5865,10 +5809,8 @@ class PinpointApi:
 
         :param segment_id: The unique identifier for the segment.
         :param application_id: The unique identifier for the application.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetSegmentExportJobsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5895,10 +5837,8 @@ class PinpointApi:
 
         :param segment_id: The unique identifier for the segment.
         :param application_id: The unique identifier for the application.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetSegmentImportJobsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5953,10 +5893,8 @@ class PinpointApi:
 
         :param segment_id: The unique identifier for the segment.
         :param application_id: The unique identifier for the application.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetSegmentVersionsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -5981,10 +5919,8 @@ class PinpointApi:
         settings for all the segments that are associated with an application.
 
         :param application_id: The unique identifier for the application.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: GetSegmentsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6027,8 +5963,7 @@ class PinpointApi:
         that are sent through the SMS channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: GetSmsTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6091,8 +6026,7 @@ class PinpointApi:
         that are sent through the voice channel.
 
         :param template_name: The name of the message template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: GetVoiceTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6117,10 +6051,8 @@ class PinpointApi:
         settings for all the journeys that are associated with an application.
 
         :param application_id: The unique identifier for the application.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param token: The NextToken string that specifies which page of results to return in a
-        paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param token: The NextToken string that specifies which page of results to return in a paginated response.
         :returns: ListJourneysResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6159,10 +6091,8 @@ class PinpointApi:
 
         :param template_name: The name of the message template.
         :param template_type: The type of channel that the message template is designed for.
-        :param next_token: The string that specifies which page of results to return in a paginated
-        response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
+        :param next_token: The string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
         :returns: ListTemplateVersionsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6187,12 +6117,9 @@ class PinpointApi:
         """Retrieves information about all the message templates that are
         associated with your Amazon Pinpoint account.
 
-        :param next_token: The string that specifies which page of results to return in a paginated
-        response.
-        :param page_size: The maximum number of items to include in each page of a paginated
-        response.
-        :param prefix: The substring to match in the names of the message templates to include
-        in the results.
+        :param next_token: The string that specifies which page of results to return in a paginated response.
+        :param page_size: The maximum number of items to include in each page of a paginated response.
+        :param prefix: The substring to match in the names of the message templates to include in the results.
         :param template_type: The type of message template to include in the results.
         :returns: ListTemplatesResponse
         :raises MethodNotAllowedException:
@@ -6233,9 +6160,7 @@ class PinpointApi:
         an existing event stream for an application.
 
         :param application_id: The unique identifier for the application.
-        :param write_event_stream: Specifies the Amazon Resource Name (ARN) of an event stream to publish
-        events to and the AWS Identity and Access Management (IAM) role to use
-        when publishing those events.
+        :param write_event_stream: Specifies the Amazon Resource Name (ARN) of an event stream to publish events to and the AWS Identity and Access Management (IAM) role to use when publishing those events.
         :returns: PutEventStreamResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6286,8 +6211,7 @@ class PinpointApi:
 
         :param attribute_type: The type of attribute or attributes to remove.
         :param application_id: The unique identifier for the application.
-        :param update_attributes_request: Specifies one or more attributes to remove from all the endpoints that
-        are associated with an application.
+        :param update_attributes_request: Specifies one or more attributes to remove from all the endpoints that are associated with an application.
         :returns: RemoveAttributesResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6356,8 +6280,7 @@ class PinpointApi:
         """Creates and sends a message to a list of users.
 
         :param application_id: The unique identifier for the application.
-        :param send_users_message_request: Specifies the configuration and other settings for a message to send to
-        all the endpoints that are associated with a list of users.
+        :param send_users_message_request: Specifies the configuration and other settings for a message to send to all the endpoints that are associated with a list of users.
         :returns: SendUsersMessagesResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6377,8 +6300,7 @@ class PinpointApi:
         message template, or segment.
 
         :param resource_arn: The Amazon Resource Name (ARN) of the resource.
-        :param tags_model: Specifies the tags (keys and values) for an application, campaign,
-        message template, or segment.
+        :param tags_model: Specifies the tags (keys and values) for an application, campaign, message template, or segment.
         """
         raise NotImplementedError
 
@@ -6406,8 +6328,7 @@ class PinpointApi:
         settings of the ADM channel for an application.
 
         :param application_id: The unique identifier for the application.
-        :param adm_channel_request: Specifies the status and settings of the ADM (Amazon Device Messaging)
-        channel for an application.
+        :param adm_channel_request: Specifies the status and settings of the ADM (Amazon Device Messaging) channel for an application.
         :returns: UpdateAdmChannelResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6431,8 +6352,7 @@ class PinpointApi:
         settings of the APNs channel for an application.
 
         :param application_id: The unique identifier for the application.
-        :param apns_channel_request: Specifies the status and settings of the APNs (Apple Push Notification
-        service) channel for an application.
+        :param apns_channel_request: Specifies the status and settings of the APNs (Apple Push Notification service) channel for an application.
         :returns: UpdateApnsChannelResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6456,8 +6376,7 @@ class PinpointApi:
         status and settings of the APNs sandbox channel for an application.
 
         :param application_id: The unique identifier for the application.
-        :param apns_sandbox_channel_request: Specifies the status and settings of the APNs (Apple Push Notification
-        service) sandbox channel for an application.
+        :param apns_sandbox_channel_request: Specifies the status and settings of the APNs (Apple Push Notification service) sandbox channel for an application.
         :returns: UpdateApnsSandboxChannelResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6481,8 +6400,7 @@ class PinpointApi:
         and settings of the APNs VoIP channel for an application.
 
         :param application_id: The unique identifier for the application.
-        :param apns_voip_channel_request: Specifies the status and settings of the APNs (Apple Push Notification
-        service) VoIP channel for an application.
+        :param apns_voip_channel_request: Specifies the status and settings of the APNs (Apple Push Notification service) VoIP channel for an application.
         :returns: UpdateApnsVoipChannelResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6506,8 +6424,7 @@ class PinpointApi:
         status and settings of the APNs VoIP sandbox channel for an application.
 
         :param application_id: The unique identifier for the application.
-        :param apns_voip_sandbox_channel_request: Specifies the status and settings of the APNs (Apple Push Notification
-        service) VoIP sandbox channel for an application.
+        :param apns_voip_sandbox_channel_request: Specifies the status and settings of the APNs (Apple Push Notification service) VoIP sandbox channel for an application.
         :returns: UpdateApnsVoipSandboxChannelResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6554,8 +6471,7 @@ class PinpointApi:
         settings of the Baidu channel for an application.
 
         :param application_id: The unique identifier for the application.
-        :param baidu_channel_request: Specifies the status and settings of the Baidu (Baidu Cloud Push)
-        channel for an application.
+        :param baidu_channel_request: Specifies the status and settings of the Baidu (Baidu Cloud Push) channel for an application.
         :returns: UpdateBaiduChannelResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6604,8 +6520,7 @@ class PinpointApi:
         settings of the email channel for an application.
 
         :param application_id: The unique identifier for the application.
-        :param email_channel_request: Specifies the status and settings of the email channel for an
-        application.
+        :param email_channel_request: Specifies the status and settings of the email channel for an application.
         :returns: UpdateEmailChannelResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6631,12 +6546,9 @@ class PinpointApi:
         the email channel.
 
         :param template_name: The name of the message template.
-        :param email_template_request: Specifies the content and settings for a message template that can be
-        used in messages that are sent through the email channel.
-        :param create_new_version: Specifies whether to save the updates as a new version of the message
-        template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param email_template_request: Specifies the content and settings for a message template that can be used in messages that are sent through the email channel.
+        :param create_new_version: Specifies whether to save the updates as a new version of the message template.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: UpdateEmailTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6693,8 +6605,7 @@ class PinpointApi:
         values with the new values.
 
         :param application_id: The unique identifier for the application.
-        :param endpoint_batch_request: Specifies a batch of endpoints to create or update and the settings and
-        attributes to set or change for each endpoint.
+        :param endpoint_batch_request: Specifies a batch of endpoints to create or update and the settings and attributes to set or change for each endpoint.
         :returns: UpdateEndpointsBatchResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6745,10 +6656,8 @@ class PinpointApi:
 
         :param template_name: The name of the message template.
         :param in_app_template_request: InApp Template Request.
-        :param create_new_version: Specifies whether to save the updates as a new version of the message
-        template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param create_new_version: Specifies whether to save the updates as a new version of the message template.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: UpdateInAppTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6825,12 +6734,9 @@ class PinpointApi:
         a push notification channel.
 
         :param template_name: The name of the message template.
-        :param push_notification_template_request: Specifies the content and settings for a message template that can be
-        used in messages that are sent through a push notification channel.
-        :param create_new_version: Specifies whether to save the updates as a new version of the message
-        template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param push_notification_template_request: Specifies the content and settings for a message template that can be used in messages that are sent through a push notification channel.
+        :param create_new_version: Specifies whether to save the updates as a new version of the message template.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: UpdatePushTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6853,8 +6759,7 @@ class PinpointApi:
         """Updates an Amazon Pinpoint configuration for a recommender model.
 
         :param recommender_id: The unique identifier for the recommender model configuration.
-        :param update_recommender_configuration: Specifies Amazon Pinpoint configuration settings for retrieving and
-        processing recommendation data from a recommender model.
+        :param update_recommender_configuration: Specifies Amazon Pinpoint configuration settings for retrieving and processing recommendation data from a recommender model.
         :returns: UpdateRecommenderConfigurationResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6881,8 +6786,7 @@ class PinpointApi:
 
         :param segment_id: The unique identifier for the segment.
         :param application_id: The unique identifier for the application.
-        :param write_segment_request: Specifies the configuration, dimension, and other settings for a
-        segment.
+        :param write_segment_request: Specifies the configuration, dimension, and other settings for a segment.
         :returns: UpdateSegmentResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6932,12 +6836,9 @@ class PinpointApi:
         the SMS channel.
 
         :param template_name: The name of the message template.
-        :param sms_template_request: Specifies the content and settings for a message template that can be
-        used in text messages that are sent through the SMS channel.
-        :param create_new_version: Specifies whether to save the updates as a new version of the message
-        template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param sms_template_request: Specifies the content and settings for a message template that can be used in text messages that are sent through the SMS channel.
+        :param create_new_version: Specifies whether to save the updates as a new version of the message template.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: UpdateSmsTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6963,8 +6864,7 @@ class PinpointApi:
 
         :param template_name: The name of the message template.
         :param template_type: The type of channel that the message template is designed for.
-        :param template_active_version_request: Specifies which version of a message template to use as the active
-        version of the template.
+        :param template_active_version_request: Specifies which version of a message template to use as the active version of the template.
         :returns: UpdateTemplateActiveVersionResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -6988,8 +6888,7 @@ class PinpointApi:
         settings of the voice channel for an application.
 
         :param application_id: The unique identifier for the application.
-        :param voice_channel_request: Specifies the status and settings of the voice channel for an
-        application.
+        :param voice_channel_request: Specifies the status and settings of the voice channel for an application.
         :returns: UpdateVoiceChannelResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
@@ -7015,12 +6914,9 @@ class PinpointApi:
         the voice channel.
 
         :param template_name: The name of the message template.
-        :param voice_template_request: Specifies the content and settings for a message template that can be
-        used in messages that are sent through the voice channel.
-        :param create_new_version: Specifies whether to save the updates as a new version of the message
-        template.
-        :param version: The unique identifier for the version of the message template to update,
-        retrieve information about, or delete.
+        :param voice_template_request: Specifies the content and settings for a message template that can be used in messages that are sent through the voice channel.
+        :param create_new_version: Specifies whether to save the updates as a new version of the message template.
+        :param version: The unique identifier for the version of the message template to update, retrieve information about, or delete.
         :returns: UpdateVoiceTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:

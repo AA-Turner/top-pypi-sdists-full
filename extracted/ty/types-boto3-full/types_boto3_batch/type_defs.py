@@ -376,6 +376,7 @@ class ComputeScalingPolicyTypeDef(TypedDict):
 class Ec2ConfigurationTypeDef(TypedDict):
     imageType: str
     imageIdOverride: NotRequired[str]
+    batchImageStatus: NotRequired[str]
     imageKubernetesVersion: NotRequired[str]
 
 

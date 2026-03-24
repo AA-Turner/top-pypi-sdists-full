@@ -115,10 +115,56 @@ class SessionReviewSummary(ReviewData):
     Feedback: ClassVar[type] = StandardFeedback
 
 
+# ---------------------------------------------------------------------------
+# Human review
+# ---------------------------------------------------------------------------
+
+
+@review_model(
+    name="human_review",
+    description="Human reviewer annotation",
+)
+class HumanReview(ReviewData):
+    """Review data from a human annotator evaluating agent behaviour."""
+
+    score: Annotated[float, RenderHint(widget="score_bar")] = Field(ge=0.0, le=1.0, description="Normalized score 0-1")
+    evidence: Annotated[str, RenderHint(widget="markdown")] = ""
+    comment: Annotated[str | None, RenderHint(widget="markdown", label="Comment")] = None
+
+    Feedback: ClassVar[type] = StandardFeedback
+
+
+# ---------------------------------------------------------------------------
+# Human agreement review
+# ---------------------------------------------------------------------------
+
+
+@review_model(
+    name="human_agreement_review",
+    description="Agreement comparison between machine and human review",
+)
+class HumanAgreementReview(ReviewData):
+    """Measures agreement between a machine-generated review and a human review."""
+
+    machine_annotation_id: Annotated[str, RenderHint(widget="tag_list", label="Machine Annotation")] = ""
+    human_annotation_id: Annotated[str, RenderHint(widget="tag_list", label="Human Annotation")] = ""
+    agrees: Annotated[bool, RenderHint(widget="pass_fail_badge", label="Agrees")] = False
+    agreement_score: Annotated[float, RenderHint(widget="score_bar", label="Agreement Score")] = Field(
+        ge=0.0, le=1.0, default=0.0
+    )
+    evidence: Annotated[str, RenderHint(widget="markdown", label="Evidence")] = ""
+    machine_summary: Annotated[str, RenderHint(widget="markdown", label="Machine Review Summary")] = ""
+    human_summary: Annotated[str, RenderHint(widget="markdown", label="Human Review Summary")] = ""
+
+    Feedback: ClassVar[type] = StandardFeedback
+
+
 # All built-in review models — used as default for BaseWorld.review_models
 DEFAULT_REVIEW_MODELS: list[type] = [
     SessionReviewIssue,
     SessionReviewRecommendation,
     SessionChunkSummary,
     SessionReviewSummary,
+    HumanReview,
+    HumanAgreementReview,
 ]

@@ -2641,8 +2641,7 @@ class EmrApi:
 
         :param job_flow_id: A string that uniquely identifies the job flow.
         :param steps: A list of StepConfig to be executed by the job flow.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the runtime role for a step on the
-        cluster.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the runtime role for a step on the cluster.
         :returns: AddJobFlowStepsOutput
         :raises InternalServerError:
         """
@@ -2758,31 +2757,22 @@ class EmrApi:
         """Creates a new Amazon EMR Studio.
 
         :param name: A descriptive name for the Amazon EMR Studio.
-        :param auth_mode: Specifies whether the Studio authenticates users using IAM or IAM
-        Identity Center.
-        :param vpc_id: The ID of the Amazon Virtual Private Cloud (Amazon VPC) to associate
-        with the Studio.
+        :param auth_mode: Specifies whether the Studio authenticates users using IAM or IAM Identity Center.
+        :param vpc_id: The ID of the Amazon Virtual Private Cloud (Amazon VPC) to associate with the Studio.
         :param subnet_ids: A list of subnet IDs to associate with the Amazon EMR Studio.
         :param service_role: The IAM role that the Amazon EMR Studio assumes.
         :param workspace_security_group_id: The ID of the Amazon EMR Studio Workspace security group.
         :param engine_security_group_id: The ID of the Amazon EMR Studio Engine security group.
-        :param default_s3_location: The Amazon S3 location to back up Amazon EMR Studio Workspaces and
-        notebook files.
+        :param default_s3_location: The Amazon S3 location to back up Amazon EMR Studio Workspaces and notebook files.
         :param description: A detailed description of the Amazon EMR Studio.
-        :param user_role: The IAM user role that users and groups assume when logged in to an
-        Amazon EMR Studio.
+        :param user_role: The IAM user role that users and groups assume when logged in to an Amazon EMR Studio.
         :param idp_auth_url: The authentication endpoint of your identity provider (IdP).
-        :param idp_relay_state_parameter_name: The name that your identity provider (IdP) uses for its ``RelayState``
-        parameter.
+        :param idp_relay_state_parameter_name: The name that your identity provider (IdP) uses for its ``RelayState`` parameter.
         :param tags: A list of tags to associate with the Amazon EMR Studio.
-        :param trusted_identity_propagation_enabled: A Boolean indicating whether to enable Trusted identity propagation for
-        the Studio.
-        :param idc_user_assignment: Specifies whether IAM Identity Center user assignment is ``REQUIRED`` or
-        ``OPTIONAL``.
-        :param idc_instance_arn: The ARN of the IAM Identity Center instance to create the Studio
-        application.
-        :param encryption_key_arn: The KMS key identifier (ARN) used to encrypt Amazon EMR Studio workspace
-        and notebook files when backed up to Amazon S3.
+        :param trusted_identity_propagation_enabled: A Boolean indicating whether to enable Trusted identity propagation for the Studio.
+        :param idc_user_assignment: Specifies whether IAM Identity Center user assignment is ``REQUIRED`` or ``OPTIONAL``.
+        :param idc_instance_arn: The ARN of the IAM Identity Center instance to create the Studio application.
+        :param encryption_key_arn: The KMS key identifier (ARN) used to encrypt Amazon EMR Studio workspace and notebook files when backed up to Amazon S3.
         :returns: CreateStudioOutput
         :raises InternalServerException:
         :raises InvalidRequestException:
@@ -2808,14 +2798,10 @@ class EmrApi:
         a user or group to your EMR
         Studio <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-studio-manage-users.html#emr-studio-assign-users-groups>`__.
 
-        :param studio_id: The ID of the Amazon EMR Studio to which the user or group will be
-        mapped.
-        :param identity_type: Specifies whether the identity to map to the Amazon EMR Studio is a user
-        or a group.
-        :param session_policy_arn: The Amazon Resource Name (ARN) for the session policy that will be
-        applied to the user or group.
-        :param identity_id: The globally unique identifier (GUID) of the user or group from the IAM
-        Identity Center Identity Store.
+        :param studio_id: The ID of the Amazon EMR Studio to which the user or group will be mapped.
+        :param identity_type: Specifies whether the identity to map to the Amazon EMR Studio is a user or a group.
+        :param session_policy_arn: The Amazon Resource Name (ARN) for the session policy that will be applied to the user or group.
+        :param identity_id: The globally unique identifier (GUID) of the user or group from the IAM Identity Center Identity Store.
         :param identity_name: The name of the user or group.
         :raises InternalServerError:
         :raises InvalidRequestException:
@@ -2860,10 +2846,8 @@ class EmrApi:
         """Removes a user or group from an Amazon EMR Studio.
 
         :param studio_id: The ID of the Amazon EMR Studio.
-        :param identity_type: Specifies whether the identity to delete from the Amazon EMR Studio is a
-        user or a group.
-        :param identity_id: The globally unique identifier (GUID) of the user or group to remove
-        from the Amazon EMR Studio.
+        :param identity_type: Specifies whether the identity to delete from the Amazon EMR Studio is a user or a group.
+        :param identity_id: The globally unique identifier (GUID) of the user or group to remove from the Amazon EMR Studio.
         :param identity_name: The name of the user name or group to remove from the Amazon EMR Studio.
         :raises InternalServerError:
         :raises InvalidRequestException:
@@ -3022,8 +3006,7 @@ class EmrApi:
     ) -> GetAutoTerminationPolicyOutput:
         """Returns the auto-termination policy for an Amazon EMR cluster.
 
-        :param cluster_id: Specifies the ID of the Amazon EMR cluster for which the
-        auto-termination policy will be fetched.
+        :param cluster_id: Specifies the ID of the Amazon EMR cluster for which the auto-termination policy will be fetched.
         :returns: GetAutoTerminationPolicyOutput
         """
         raise NotImplementedError
@@ -3058,8 +3041,7 @@ class EmrApi:
         endpoints that support username and password authentication.
 
         :param cluster_id: The unique identifier of the cluster.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the runtime role for interactive
-        workload submission on the cluster.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the runtime role for interactive workload submission on the cluster.
         :returns: GetClusterSessionCredentialsOutput
         :raises InternalServerError:
         :raises InvalidRequestException:
@@ -3072,8 +3054,7 @@ class EmrApi:
     ) -> GetManagedScalingPolicyOutput:
         """Fetches the attached managed scaling policy for an Amazon EMR cluster.
 
-        :param cluster_id: Specifies the ID of the cluster for which the managed scaling policy
-        will be fetched.
+        :param cluster_id: Specifies the ID of the cluster for which the managed scaling policy will be fetched.
         :returns: GetManagedScalingPolicyOutput
         """
         raise NotImplementedError
@@ -3092,15 +3073,11 @@ class EmrApi:
         """The presigned URL properties for the cluster's application user
         interface.
 
-        :param cluster_id: The cluster ID associated with the cluster's application user interface
-        presigned URL.
-        :param on_cluster_app_ui_type: The application UI type associated with the cluster's application user
-        interface presigned URL.
-        :param application_id: The application ID associated with the cluster's application user
-        interface presigned URL.
+        :param cluster_id: The cluster ID associated with the cluster's application user interface presigned URL.
+        :param on_cluster_app_ui_type: The application UI type associated with the cluster's application user interface presigned URL.
+        :param application_id: The application ID associated with the cluster's application user interface presigned URL.
         :param dry_run: Determines if the user interface presigned URL is for a dry run.
-        :param execution_role_arn: The execution role ARN associated with the cluster's application user
-        interface presigned URL.
+        :param execution_role_arn: The execution role ARN associated with the cluster's application user interface presigned URL.
         :returns: GetOnClusterAppUIPresignedURLOutput
         :raises InternalServerError:
         :raises InvalidRequestException:
@@ -3121,10 +3098,8 @@ class EmrApi:
         """The presigned URL properties for the cluster's application user
         interface.
 
-        :param persistent_app_ui_id: The persistent application user interface ID associated with the
-        presigned URL.
-        :param persistent_app_ui_type: The persistent application user interface type associated with the
-        presigned URL.
+        :param persistent_app_ui_id: The persistent application user interface ID associated with the presigned URL.
+        :param persistent_app_ui_type: The persistent application user interface type associated with the presigned URL.
         :param application_id: The application ID associated with the presigned URL.
         :param auth_proxy_call: A boolean that represents if the caller is an authentication proxy call.
         :param execution_role_arn: The execution role ARN associated with the presigned URL.
@@ -3253,8 +3228,7 @@ class EmrApi:
         :param instance_group_types: The type of instance group for which to list the instances.
         :param instance_fleet_id: The unique identifier of the instance fleet.
         :param instance_fleet_type: The node type of the instance fleet.
-        :param instance_states: A list of instance states that will filter the instances returned with
-        this request.
+        :param instance_states: A list of instance states that will filter the instances returned with this request.
         :param marker: The pagination token that indicates the next set of results to retrieve.
         :returns: ListInstancesOutput
         :raises InternalServerException:
@@ -3276,9 +3250,7 @@ class EmrApi:
         :param status: The status filter for listing notebook executions.
         :param from: The beginning of time range filter for listing notebook executions.
         :param to: The end of time range filter for listing notebook executions.
-        :param marker: The pagination token, returned by a previous ``ListNotebookExecutions``
-        call, that indicates the start of the list for this
-        ``ListNotebookExecutions`` call.
+        :param marker: The pagination token, returned by a previous ``ListNotebookExecutions`` call, that indicates the start of the list for this ``ListNotebookExecutions`` call.
         :param execution_engine_id: The unique ID of the execution engine.
         :returns: ListNotebookExecutionsOutput
         :raises InternalServerError:
@@ -3300,8 +3272,7 @@ class EmrApi:
 
         :param filters: Filters the results of the request.
         :param next_token: Specifies the next page of results.
-        :param max_results: Defines the maximum number of release labels to return in a single
-        response.
+        :param max_results: Defines the maximum number of release labels to return in a single response.
         :returns: ListReleaseLabelsOutput
         :raises InternalServerException:
         :raises InvalidRequestException:
@@ -3345,8 +3316,7 @@ class EmrApi:
         :param cluster_id: The identifier of the cluster for which to list the steps.
         :param step_states: The filter to limit the step list based on certain states.
         :param step_ids: The filter to limit the step list based on the identifier of the steps.
-        :param marker: The maximum number of steps that a single ``ListSteps`` action returns
-        is 50.
+        :param marker: The maximum number of steps that a single ``ListSteps`` action returns is 50.
         :returns: ListStepsOutput
         :raises InternalServerException:
         :raises InvalidRequestException:
@@ -3396,9 +3366,7 @@ class EmrApi:
         """A list of the instance types that Amazon EMR supports. You can filter
         the list by Amazon Web Services Region and Amazon EMR release.
 
-        :param release_label: The Amazon EMR release label determines the `versions of open-source
-        application
-        packages <https://docs.
+        :param release_label: The Amazon EMR release label determines the `versions of open-source application packages <https://docs.
         :param marker: The pagination token that marks the next set of results to retrieve.
         :returns: ListSupportedInstanceTypesOutput
         :raises InternalServerException:
@@ -3483,8 +3451,7 @@ class EmrApi:
         Amazon EC2 instances in response to the value of a CloudWatch metric.
 
         :param cluster_id: Specifies the ID of a cluster.
-        :param instance_group_id: Specifies the ID of the instance group to which the automatic scaling
-        policy is applied.
+        :param instance_group_id: Specifies the ID of the instance group to which the automatic scaling policy is applied.
         :param auto_scaling_policy: Specifies the definition of the automatic scaling policy.
         :returns: PutAutoScalingPolicyOutput
         """
@@ -3508,8 +3475,7 @@ class EmrApi:
         termination options, see `Control cluster
         termination <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-termination.html>`__.
 
-        :param cluster_id: Specifies the ID of the Amazon EMR cluster to which the auto-termination
-        policy will be attached.
+        :param cluster_id: Specifies the ID of the Amazon EMR cluster to which the auto-termination policy will be attached.
         :param auto_termination_policy: Specifies the auto-termination policy to attach to the cluster.
         :returns: PutAutoTerminationPolicyOutput
         """
@@ -3549,8 +3515,7 @@ class EmrApi:
         policy only applies to the core and task nodes. The master node cannot
         be scaled after initial configuration.
 
-        :param cluster_id: Specifies the ID of an Amazon EMR cluster where the managed scaling
-        policy is attached.
+        :param cluster_id: Specifies the ID of an Amazon EMR cluster where the managed scaling policy is attached.
         :param managed_scaling_policy: Specifies the constraints for the managed scaling policy.
         :returns: PutManagedScalingPolicyOutput
         """
@@ -3568,8 +3533,7 @@ class EmrApi:
         within an Amazon EMR cluster.
 
         :param cluster_id: Specifies the ID of a cluster.
-        :param instance_group_id: Specifies the ID of the instance group to which the scaling policy is
-        applied.
+        :param instance_group_id: Specifies the ID of the instance group to which the scaling policy is applied.
         :returns: RemoveAutoScalingPolicyOutput
         """
         raise NotImplementedError
@@ -3580,8 +3544,7 @@ class EmrApi:
     ) -> RemoveAutoTerminationPolicyOutput:
         """Removes an auto-termination policy from an Amazon EMR cluster.
 
-        :param cluster_id: Specifies the ID of the Amazon EMR cluster from which the
-        auto-termination policy will be removed.
+        :param cluster_id: Specifies the ID of the Amazon EMR cluster from which the auto-termination policy will be removed.
         :returns: RemoveAutoTerminationPolicyOutput
         """
         raise NotImplementedError
@@ -3592,8 +3555,7 @@ class EmrApi:
     ) -> RemoveManagedScalingPolicyOutput:
         """Removes a managed scaling policy from a specified Amazon EMR cluster.
 
-        :param cluster_id: Specifies the ID of the cluster from which the managed scaling policy
-        will be removed.
+        :param cluster_id: Specifies the ID of the cluster from which the managed scaling policy will be removed.
         :returns: RemoveManagedScalingPolicyOutput
         """
         raise NotImplementedError
@@ -3693,41 +3655,31 @@ class EmrApi:
         :param log_encryption_kms_key_id: The KMS key used for encrypting log files.
         :param additional_info: A JSON string for selecting additional features.
         :param ami_version: Applies only to Amazon EMR AMI versions 3.
-        :param release_label: The Amazon EMR release label, which determines the version of
-        open-source application packages installed on the cluster.
+        :param release_label: The Amazon EMR release label, which determines the version of open-source application packages installed on the cluster.
         :param steps: A list of steps to run.
-        :param bootstrap_actions: A list of bootstrap actions to run before Hadoop starts on the cluster
-        nodes.
+        :param bootstrap_actions: A list of bootstrap actions to run before Hadoop starts on the cluster nodes.
         :param supported_products: For Amazon EMR releases 3.
         :param new_supported_products: For Amazon EMR releases 3.
         :param applications: Applies to Amazon EMR releases 4.
         :param configurations: For Amazon EMR releases 4.
         :param visible_to_all_users: The VisibleToAllUsers parameter is no longer supported.
         :param job_flow_role: Also called instance profile and Amazon EC2 role.
-        :param service_role: The IAM role that Amazon EMR assumes in order to access Amazon Web
-        Services resources on your behalf.
-        :param tags: A list of tags to associate with a cluster and propagate to Amazon EC2
-        instances.
+        :param service_role: The IAM role that Amazon EMR assumes in order to access Amazon Web Services resources on your behalf.
+        :param tags: A list of tags to associate with a cluster and propagate to Amazon EC2 instances.
         :param security_configuration: The name of a security configuration to apply to the cluster.
         :param auto_scaling_role: An IAM role for automatic scaling policies.
-        :param scale_down_behavior: Specifies the way that individual Amazon EC2 instances terminate when an
-        automatic scale-in activity occurs or an instance group is resized.
+        :param scale_down_behavior: Specifies the way that individual Amazon EC2 instances terminate when an automatic scale-in activity occurs or an instance group is resized.
         :param custom_ami_id: Available only in Amazon EMR releases 5.
-        :param ebs_root_volume_size: The size, in GiB, of the Amazon EBS root device volume of the Linux AMI
-        that is used for each Amazon EC2 instance.
+        :param ebs_root_volume_size: The size, in GiB, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
         :param repo_upgrade_on_boot: Applies only when ``CustomAmiID`` is used.
-        :param kerberos_attributes: Attributes for Kerberos configuration when Kerberos authentication is
-        enabled using a security configuration.
+        :param kerberos_attributes: Attributes for Kerberos configuration when Kerberos authentication is enabled using a security configuration.
         :param step_concurrency_level: Specifies the number of steps that can be executed concurrently.
         :param managed_scaling_policy: The specified managed scaling policy for an Amazon EMR cluster.
         :param placement_group_configs: The specified placement group configuration for an Amazon EMR cluster.
         :param auto_termination_policy: An auto-termination policy for an Amazon EMR cluster.
-        :param os_release_label: Specifies a particular Amazon Linux release for all nodes in a cluster
-        launch RunJobFlow request.
-        :param ebs_root_volume_iops: The IOPS, of the Amazon EBS root device volume of the Linux AMI that is
-        used for each Amazon EC2 instance.
-        :param ebs_root_volume_throughput: The throughput, in MiB/s, of the Amazon EBS root device volume of the
-        Linux AMI that is used for each Amazon EC2 instance.
+        :param os_release_label: Specifies a particular Amazon Linux release for all nodes in a cluster launch RunJobFlow request.
+        :param ebs_root_volume_iops: The IOPS, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
+        :param ebs_root_volume_throughput: The throughput, in MiB/s, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
         :param extended_support: Reserved.
         :param monitoring_configuration: Contains CloudWatch log configuration metadata and settings.
         :returns: RunJobFlowOutput
@@ -3756,8 +3708,7 @@ class EmrApi:
         in the *Amazon EMR Management Guide*.
 
         :param job_flow_ids: A list of strings that uniquely identify the clusters to protect.
-        :param keep_job_flow_alive_when_no_steps: A Boolean that indicates whether to terminate the cluster after all
-        steps are executed.
+        :param keep_job_flow_alive_when_no_steps: A Boolean that indicates whether to terminate the cluster after all steps are executed.
         :raises InternalServerError:
         """
         raise NotImplementedError
@@ -3793,9 +3744,7 @@ class EmrApi:
         in the *Amazon EMR Management Guide*.
 
         :param job_flow_ids: A list of strings that uniquely identify the clusters to protect.
-        :param termination_protected: A Boolean that indicates whether to protect the cluster and prevent the
-        Amazon EC2 instances in the cluster from shutting down due to API calls,
-        user intervention, or job-flow error.
+        :param termination_protected: A Boolean that indicates whether to protect the cluster and prevent the Amazon EC2 instances in the cluster from shutting down due to API calls, user intervention, or job-flow error.
         :raises InternalServerError:
         """
         raise NotImplementedError
@@ -3825,10 +3774,8 @@ class EmrApi:
         replacement <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-node-replacement.html>`__
         in the *Amazon EMR Management Guide*.
 
-        :param job_flow_ids: The list of strings that uniquely identify the clusters for which to
-        turn on unhealthy node replacement.
-        :param unhealthy_node_replacement: Indicates whether to turn on or turn off graceful unhealthy node
-        replacement.
+        :param job_flow_ids: The list of strings that uniquely identify the clusters for which to turn on unhealthy node replacement.
+        :param unhealthy_node_replacement: Indicates whether to turn on or turn off graceful unhealthy node replacement.
         :raises InternalServerError:
         """
         raise NotImplementedError
@@ -3863,9 +3810,7 @@ class EmrApi:
         in the *Amazon EMR Management Guide*.
 
         :param job_flow_ids: The unique identifier of the job flow (cluster).
-        :param visible_to_all_users: A value of ``true`` indicates that an IAM principal in the Amazon Web
-        Services account can perform Amazon EMR actions on the cluster that the
-        IAM policies attached to the principal allow.
+        :param visible_to_all_users: A value of ``true`` indicates that an IAM principal in the Amazon Web Services account can perform Amazon EMR actions on the cluster that the IAM policies attached to the principal allow.
         :raises InternalServerError:
         """
         raise NotImplementedError
@@ -3890,19 +3835,13 @@ class EmrApi:
     ) -> StartNotebookExecutionOutput:
         """Starts a notebook execution.
 
-        :param execution_engine: Specifies the execution engine (cluster) that runs the notebook
-        execution.
-        :param service_role: The name or ARN of the IAM role that is used as the service role for
-        Amazon EMR (the Amazon EMR role) for the notebook execution.
-        :param editor_id: The unique identifier of the Amazon EMR Notebook to use for notebook
-        execution.
-        :param relative_path: The path and file name of the notebook file for this execution, relative
-        to the path specified for the Amazon EMR Notebook.
+        :param execution_engine: Specifies the execution engine (cluster) that runs the notebook execution.
+        :param service_role: The name or ARN of the IAM role that is used as the service role for Amazon EMR (the Amazon EMR role) for the notebook execution.
+        :param editor_id: The unique identifier of the Amazon EMR Notebook to use for notebook execution.
+        :param relative_path: The path and file name of the notebook file for this execution, relative to the path specified for the Amazon EMR Notebook.
         :param notebook_execution_name: An optional name for the notebook execution.
-        :param notebook_params: Input parameters in JSON format passed to the Amazon EMR Notebook at
-        runtime for execution.
-        :param notebook_instance_security_group_id: The unique identifier of the Amazon EC2 security group to associate with
-        the Amazon EMR Notebook for this notebook execution.
+        :param notebook_params: Input parameters in JSON format passed to the Amazon EMR Notebook at runtime for execution.
+        :param notebook_instance_security_group_id: The unique identifier of the Amazon EC2 security group to associate with the Amazon EMR Notebook for this notebook execution.
         :param tags: A list of tags associated with a notebook execution.
         :param notebook_s3_location: The Amazon S3 location for the notebook execution input.
         :param output_notebook_s3_location: The Amazon S3 location for the notebook execution output.
@@ -3965,10 +3904,8 @@ class EmrApi:
         :param name: A descriptive name for the Amazon EMR Studio.
         :param description: A detailed description to assign to the Amazon EMR Studio.
         :param subnet_ids: A list of subnet IDs to associate with the Amazon EMR Studio.
-        :param default_s3_location: The Amazon S3 location to back up Workspaces and notebook files for the
-        Amazon EMR Studio.
-        :param encryption_key_arn: The KMS key identifier (ARN) used to encrypt Amazon EMR Studio workspace
-        and notebook files when backed up to Amazon S3.
+        :param default_s3_location: The Amazon S3 location to back up Workspaces and notebook files for the Amazon EMR Studio.
+        :param encryption_key_arn: The KMS key identifier (ARN) used to encrypt Amazon EMR Studio workspace and notebook files when backed up to Amazon S3.
         :raises InternalServerException:
         :raises InvalidRequestException:
         """
@@ -3990,8 +3927,7 @@ class EmrApi:
 
         :param studio_id: The ID of the Amazon EMR Studio.
         :param identity_type: Specifies whether the identity to update is a user or a group.
-        :param session_policy_arn: The Amazon Resource Name (ARN) of the session policy to associate with
-        the specified user or group.
+        :param session_policy_arn: The Amazon Resource Name (ARN) of the session policy to associate with the specified user or group.
         :param identity_id: The globally unique identifier (GUID) of the user or group.
         :param identity_name: The name of the user or group to update.
         :raises InternalServerError:

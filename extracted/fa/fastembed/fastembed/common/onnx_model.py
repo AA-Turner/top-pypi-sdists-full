@@ -1,7 +1,7 @@
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, Iterable, Optional, Sequence, Type, TypeVar
+from typing import Any, Generic, Iterable, Sequence, Type, TypeVar
 
 import numpy as np
 import onnxruntime as ort
@@ -9,7 +9,7 @@ import onnxruntime as ort
 from numpy.typing import NDArray
 from tokenizers import Tokenizer
 
-from fastembed.common.types import OnnxProvider, NumpyArray
+from fastembed.common.types import OnnxProvider, NumpyArray, Device
 from fastembed.parallel_processor import Worker
 
 # Holds type of the embedding result
@@ -19,8 +19,9 @@ T = TypeVar("T")
 @dataclass
 class OnnxOutputContext:
     model_output: NumpyArray
-    attention_mask: Optional[NDArray[np.int64]] = None
-    input_ids: Optional[NDArray[np.int64]] = None
+    attention_mask: NDArray[np.int64] | None = None
+    input_ids: NDArray[np.int64] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class OnnxModel(Generic[T]):
@@ -43,8 +44,8 @@ class OnnxModel(Generic[T]):
         raise NotImplementedError("Subclasses must implement this method")
 
     def __init__(self) -> None:
-        self.model: Optional[ort.InferenceSession] = None
-        self.tokenizer: Optional[Tokenizer] = None
+        self.model: ort.InferenceSession | None = None
+        self.tokenizer: Tokenizer | None = None
 
     def _preprocess_onnx_input(
         self, onnx_input: dict[str, NumpyArray], **kwargs: Any
@@ -58,25 +59,30 @@ class OnnxModel(Generic[T]):
         self,
         model_dir: Path,
         model_file: str,
-        threads: Optional[int],
-        providers: Optional[Sequence[OnnxProvider]] = None,
-        cuda: bool = False,
-        device_id: Optional[int] = None,
-        extra_session_options: Optional[dict[str, Any]] = None,
+        threads: int | None,
+        providers: Sequence[OnnxProvider] | None = None,
+        cuda: bool | Device = Device.AUTO,
+        device_id: int | None = None,
+        extra_session_options: dict[str, Any] | None = None,
     ) -> None:
         model_path = model_dir / model_file
         # List of Execution Providers: https://onnxruntime.ai/docs/execution-providers
+        available_providers = ort.get_available_providers()
+        cuda_available = "CUDAExecutionProvider" in available_providers
+        explicit_cuda = cuda is True or cuda == Device.CUDA
 
-        if cuda and providers is not None:
+        if explicit_cuda and providers is not None:
             warnings.warn(
-                f"`cuda` and `providers` are mutually exclusive parameters, cuda: {cuda}, providers: {providers}",
+                f"`cuda` and `providers` are mutually exclusive parameters, "
+                f"cuda: {cuda}, providers: {providers}. If you'd like to use providers, cuda should be one of "
+                f"[False, Device.CPU, Device.AUTO].",
                 category=UserWarning,
                 stacklevel=6,
             )
 
         if providers is not None:
             onnx_providers = list(providers)
-        elif cuda:
+        elif explicit_cuda or (cuda == Device.AUTO and cuda_available):
             if device_id is None:
                 onnx_providers = ["CUDAExecutionProvider"]
             else:
@@ -84,7 +90,6 @@ class OnnxModel(Generic[T]):
         else:
             onnx_providers = ["CPUExecutionProvider"]
 
-        available_providers = ort.get_available_providers()
         requested_provider_names: list[str] = []
         for provider in onnx_providers:
             # check providers available

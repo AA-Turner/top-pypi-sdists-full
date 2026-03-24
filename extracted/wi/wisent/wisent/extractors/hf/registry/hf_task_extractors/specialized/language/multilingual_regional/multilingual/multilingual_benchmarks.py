@@ -124,7 +124,7 @@ class MLQAExtractor(HuggingFaceBenchmarkExtractor):
     It contains QA instances in 7 languages.
     """
 
-    evaluator_name = "generation"
+    evaluator_name = "mlqa"
 
     def __init__(self, language: str | None = None):
         """

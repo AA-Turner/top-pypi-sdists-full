@@ -208,7 +208,11 @@ async def get_workflow_checkpoints(request: Request, run_id: str) -> dict[str, A
 
 
 @router.get("/workflow-runs/{run_id}/events")
-async def get_workflow_events(request: Request, run_id: str) -> list[dict[str, Any]]:
+async def get_workflow_events(
+    request: Request,
+    run_id: str,
+    event_type: str | None = Query(default=None, description="Filter by event type prefix"),
+) -> list[dict[str, Any]]:
     """Get durable event history for a workflow run."""
     from ..services.workflow_storage import get_workflow_run as ws_get
     from ..services.workflow_storage import list_workflow_events
@@ -218,7 +222,48 @@ async def get_workflow_events(request: Request, run_id: str) -> list[dict[str, A
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    return list_workflow_events(db, run_id)
+    events = list_workflow_events(db, run_id)
+    if event_type:
+        events = [e for e in events if e.get("event_type", "").startswith(event_type)]
+    return events
+
+
+@router.get("/workflow-runs/{run_id}/steps/{step_id}/transcript")
+async def get_step_transcript(request: Request, run_id: str, step_id: str) -> list[dict[str, Any]]:
+    """Get transcript events for a specific workflow step."""
+    from ..services.workflow_storage import get_workflow_run as ws_get
+    from ..services.workflow_storage import list_transcript_events
+
+    db = _get_db(request)
+    run = ws_get(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    return list_transcript_events(db, run_id, step_id=step_id)
+
+
+@router.get("/workflow-runs/{run_id}/transcript")
+async def get_workflow_transcript(
+    request: Request,
+    run_id: str,
+    step_id: str | None = Query(default=None),
+    since_id: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    """Get transcript events for a run, optionally filtered by step and since_id.
+
+    Used for transcript replay when a web client connects mid-step or reconnects
+    after an SSE disconnect.
+    """
+    from ..services.workflow_storage import get_workflow_run as ws_get
+    from ..services.workflow_storage import list_transcript_events
+
+    db = _get_db(request)
+    run = ws_get(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    events = list_transcript_events(db, run_id, step_id=step_id, since_id=since_id)
+    return {"events": events}
 
 
 # ---------------------------------------------------------------------------

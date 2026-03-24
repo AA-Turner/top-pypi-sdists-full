@@ -1,5 +1,7 @@
 use crate::common::{CoreWfStarter, build_fake_sdk, init_core_and_create_wf};
-use std::time::Duration;
+use futures_util::{StreamExt, stream::FuturesUnordered};
+use std::{future::Future, pin::Pin, time::Duration};
+use temporalio_client::WorkflowStartOptions;
 use temporalio_common::{
     prost_dur,
     protos::{
@@ -16,23 +18,41 @@ use temporalio_common::{
     },
     worker::WorkerTaskTypes,
 };
-use temporalio_sdk::{CancellableFuture, WfContext, WorkflowResult};
+use temporalio_macros::{workflow, workflow_methods};
+use temporalio_sdk::{CancellableFuture, WorkflowContext, WorkflowResult};
 use temporalio_sdk_core::test_help::{MockPollCfg, WorkerTestHelpers, drain_pollers_and_shutdown};
 
-pub(crate) async fn timer_wf(command_sink: WfContext) -> WorkflowResult<()> {
-    command_sink.timer(Duration::from_secs(1)).await;
-    Ok(().into())
+#[workflow]
+#[derive(Default)]
+pub(crate) struct TimerWf;
+
+#[workflow_methods]
+impl TimerWf {
+    #[run(name = "timer_wf_new")]
+    pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
+        ctx.timer(Duration::from_secs(1)).await;
+        Ok(())
+    }
 }
 
 #[tokio::test]
 async fn timer_workflow_workflow_driver() {
     let wf_name = "timer_wf_new";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.worker_config.task_types = WorkerTaskTypes::workflow_only();
+    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let mut worker = starter.worker().await;
-    worker.register_wf(wf_name.to_owned(), timer_wf);
+    worker.register_workflow::<TimerWf>();
 
-    starter.start_with_worker(wf_name, &mut worker).await;
+    let task_queue = starter.get_task_queue().to_owned();
+    let workflow_id = starter.get_task_queue().to_owned();
+    worker
+        .submit_workflow(
+            TimerWf::run,
+            (),
+            WorkflowStartOptions::new(task_queue, workflow_id).build(),
+        )
+        .await
+        .unwrap();
     worker.run_until_done().await.unwrap();
 }
 
@@ -40,7 +60,7 @@ async fn timer_workflow_workflow_driver() {
 async fn timer_workflow_manual() {
     let mut starter = init_core_and_create_wf("timer_workflow").await;
     let core = starter.get_worker().await;
-    starter.worker_config.task_types = WorkerTaskTypes::workflow_only();
+    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let task = core.poll_workflow_activation().await.unwrap();
     core.complete_workflow_activation(WorkflowActivationCompletion::from_cmds(
         task.run_id,
@@ -64,7 +84,7 @@ async fn timer_workflow_manual() {
 async fn timer_cancel_workflow() {
     let mut starter = init_core_and_create_wf("timer_cancel_workflow").await;
     let core = starter.get_worker().await;
-    starter.worker_config.task_types = WorkerTaskTypes::workflow_only();
+    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let task = core.poll_workflow_activation().await.unwrap();
     core.complete_workflow_activation(WorkflowActivationCompletion::from_cmds(
         task.run_id,
@@ -112,28 +132,44 @@ async fn timer_immediate_cancel_workflow() {
     .unwrap();
 }
 
-async fn parallel_timer_wf(command_sink: WfContext) -> WorkflowResult<()> {
-    let t1 = command_sink.timer(Duration::from_secs(1));
-    let t2 = command_sink.timer(Duration::from_secs(1));
-    let _ = tokio::join!(t1, t2);
-    Ok(().into())
+#[workflow]
+#[derive(Default)]
+struct ParallelTimerWf;
+
+#[workflow_methods]
+impl ParallelTimerWf {
+    #[run(name = "parallel_timers")]
+    async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
+        let t1 = ctx.timer(Duration::from_secs(1));
+        let t2 = ctx.timer(Duration::from_secs(1));
+        let _ = temporalio_sdk::workflows::join!(t1, t2);
+        Ok(())
+    }
 }
 
 #[tokio::test]
 async fn parallel_timers() {
     let wf_name = "parallel_timers";
     let mut starter = CoreWfStarter::new(wf_name);
-    starter.worker_config.task_types = WorkerTaskTypes::workflow_only();
+    starter.sdk_config.task_types = WorkerTaskTypes::workflow_only();
     let mut worker = starter.worker().await;
-    worker.register_wf(wf_name.to_owned(), parallel_timer_wf);
+    worker.register_workflow::<ParallelTimerWf>();
 
     starter.start_with_worker(wf_name, &mut worker).await;
     worker.run_until_done().await.unwrap();
 }
 
-async fn happy_timer(ctx: WfContext) -> WorkflowResult<()> {
-    ctx.timer(Duration::from_secs(5)).await;
-    Ok(().into())
+#[workflow]
+#[derive(Default)]
+struct HappyTimerWf;
+
+#[workflow_methods]
+impl HappyTimerWf {
+    #[run(name = DEFAULT_WORKFLOW_TYPE)]
+    async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
+        ctx.timer(Duration::from_secs(5)).await;
+        Ok(())
+    }
 }
 
 #[tokio::test]
@@ -156,8 +192,21 @@ async fn test_fire_happy_path_inc() {
     });
 
     let mut worker = build_fake_sdk(mock_cfg);
-    worker.register_wf(DEFAULT_WORKFLOW_TYPE, happy_timer);
+    worker.register_workflow::<HappyTimerWf>();
     worker.run().await.unwrap();
+}
+
+#[workflow]
+#[derive(Default)]
+struct MismatchedTimerWf;
+
+#[workflow_methods]
+impl MismatchedTimerWf {
+    #[run(name = DEFAULT_WORKFLOW_TYPE)]
+    async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
+        ctx.timer(Duration::from_secs(5)).await;
+        Ok(())
+    }
 }
 
 #[tokio::test]
@@ -171,20 +220,24 @@ async fn mismatched_timer_ids_errors() {
         if message.contains("Timer fired event did not have expected timer id 1"))
     });
     let mut worker = build_fake_sdk(mock_cfg);
-    worker.register_wf(DEFAULT_WORKFLOW_TYPE, |ctx: WfContext| async move {
-        ctx.timer(Duration::from_secs(5)).await;
-        Ok(().into())
-    });
+    worker.register_workflow::<MismatchedTimerWf>();
     worker.run().await.unwrap();
 }
 
-async fn cancel_timer(ctx: WfContext) -> WorkflowResult<()> {
-    let cancel_timer_fut = ctx.timer(Duration::from_secs(500));
-    ctx.timer(Duration::from_secs(5)).await;
-    // Cancel the first timer after having waited on the second
-    cancel_timer_fut.cancel(&ctx);
-    cancel_timer_fut.await;
-    Ok(().into())
+#[workflow]
+#[derive(Default)]
+struct CancelTimerWf;
+
+#[workflow_methods]
+impl CancelTimerWf {
+    #[run(name = DEFAULT_WORKFLOW_TYPE)]
+    async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
+        let cancel_timer_fut = ctx.timer(Duration::from_secs(500));
+        ctx.timer(Duration::from_secs(5)).await;
+        cancel_timer_fut.cancel();
+        cancel_timer_fut.await;
+        Ok(())
+    }
 }
 
 #[tokio::test]
@@ -209,8 +262,23 @@ async fn incremental_cancellation() {
     });
 
     let mut worker = build_fake_sdk(mock_cfg);
-    worker.register_wf(DEFAULT_WORKFLOW_TYPE, cancel_timer);
+    worker.register_workflow::<CancelTimerWf>();
     worker.run().await.unwrap();
+}
+
+#[workflow]
+#[derive(Default)]
+struct CancelBeforeSentWf;
+
+#[workflow_methods]
+impl CancelBeforeSentWf {
+    #[run(name = DEFAULT_WORKFLOW_TYPE)]
+    async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
+        let cancel_timer_fut = ctx.timer(Duration::from_secs(500));
+        cancel_timer_fut.cancel();
+        cancel_timer_fut.await;
+        Ok(())
+    }
 }
 
 #[tokio::test]
@@ -230,12 +298,46 @@ async fn cancel_before_sent_to_server() {
         });
     });
     let mut worker = build_fake_sdk(mock_cfg);
-    worker.register_wf(DEFAULT_WORKFLOW_TYPE, |ctx: WfContext| async move {
-        let cancel_timer_fut = ctx.timer(Duration::from_secs(500));
-        // Immediately cancel the timer
-        cancel_timer_fut.cancel(&ctx);
-        cancel_timer_fut.await;
-        Ok(().into())
-    });
+    worker.register_workflow::<CancelBeforeSentWf>();
+    worker.run().await.unwrap();
+}
+
+#[workflow]
+#[derive(Default)]
+struct WaitConditionWakerWf {
+    done: bool,
+}
+
+#[workflow_methods]
+impl WaitConditionWakerWf {
+    #[run(name = DEFAULT_WORKFLOW_TYPE)]
+    async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
+        let mut futs: FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>> = FuturesUnordered::new();
+
+        // Future 1: await timer, then set flag via state_mut
+        let ctx1 = ctx.clone();
+        futs.push(Box::pin(async move {
+            ctx1.timer(Duration::from_millis(500)).await;
+            ctx1.state_mut(|s| s.done = true);
+        }));
+
+        // Future 2: wait_condition on the flag (waker-dependent inside FuturesUnordered)
+        let ctx2 = ctx.clone();
+        futs.push(Box::pin(async move {
+            ctx2.wait_condition(|s| s.done).await;
+        }));
+
+        // Drive both to completion
+        while futs.next().await.is_some() {}
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn wait_condition_waker_in_futures_unordered() {
+    let t = canned_histories::single_timer_wf_completes("1");
+    let mock_cfg = MockPollCfg::from_hist_builder(t);
+    let mut worker = build_fake_sdk(mock_cfg);
+    worker.register_workflow::<WaitConditionWakerWf>();
     worker.run().await.unwrap();
 }

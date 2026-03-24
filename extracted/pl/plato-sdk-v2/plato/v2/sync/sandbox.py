@@ -229,7 +229,7 @@ def _start_heartbeat_process(session_id: str, api_key: str) -> int | None:
     base_url = base_url.rstrip("/")
 
     # Use only stdlib - no external dependencies
-    heartbeat_script = f'''
+    heartbeat_script = f"""
 import time
 import json
 import urllib.request
@@ -272,7 +272,7 @@ while True:
     except Exception as e:
         log(f"Heartbeat #{{heartbeat_count}} EXCEPTION: {{type(e).__name__}}: {{e}}")
     time.sleep(30)
-'''
+"""
 
     try:
         process = subprocess.Popen(

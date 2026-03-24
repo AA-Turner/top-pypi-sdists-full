@@ -380,7 +380,7 @@ class CaptureOutput:
         def write(self, s):
             if isinstance(s, str) and hasattr(s, "decode"):
                 s = s.decode("unicode-escape")
-            return super(CaptureOutput.LogStreamIO, self).write(s)
+            return super().write(s)
 
     def __init__(self):
         self._stdout = self.LogStreamIO()
@@ -470,7 +470,7 @@ class CaptureOutputProcess:
         def write(self, s):
             if isinstance(s, str) and hasattr(s, "decode"):
                 s = s.decode("unicode-escape")
-            return super(CaptureOutputProcess.LogStreamIO, self).write(s)
+            return super().write(s)
 
     def __init__(self):
         self.orig_stdout = sys.stdout

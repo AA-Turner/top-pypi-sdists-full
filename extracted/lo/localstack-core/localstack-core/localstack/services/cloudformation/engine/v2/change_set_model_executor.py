@@ -11,6 +11,7 @@ from typing import Final, Protocol, TypeVar
 from localstack import config
 from localstack.aws.api.cloudformation import (
     ChangeAction,
+    ChangeSetType,
     Output,
     ResourceStatus,
     StackStatus,
@@ -133,8 +134,12 @@ class ChangeSetModelExecutor(ChangeSetModelPreproc):
                 deferred.action()
 
         if failure_message and not is_deletion:
-            # TODO: differentiate between update and create
-            self._change_set.stack.set_stack_status(StackStatus.ROLLBACK_COMPLETE)
+            stack_status = (
+                StackStatus.UPDATE_ROLLBACK_COMPLETE
+                if self._change_set.change_set_type == ChangeSetType.UPDATE
+                else StackStatus.ROLLBACK_COMPLETE
+            )
+            self._change_set.stack.set_stack_status(stack_status)
 
         return ChangeSetModelExecutorResult(
             resources=self.resources, outputs=self.outputs, failure_message=failure_message
@@ -302,7 +307,7 @@ class ChangeSetModelExecutor(ChangeSetModelPreproc):
 
         output = Output(
             OutputKey=delta.after.name,
-            OutputValue=delta.after.value,
+            OutputValue=str(delta.after.value),
             # TODO
             # Description=delta.after.description
         )

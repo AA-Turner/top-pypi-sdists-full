@@ -141,6 +141,8 @@ class AgentRunner:
         # File trigger settings (set via with_file_triggers())
         self._file_trigger_patterns: list[str] | None = None
         self._trigger_server_url: str | None = None
+        # Populated after run() completes — hex span ID of the agent.execution.output span
+        self.last_execution_span_id: str = ""
 
     def on_prepare(self, fn: Callable[[PreparedAgent], Awaitable[None]]) -> AgentRunner:
         """Register a hook that runs after the environment is ready but before the agent task.
@@ -670,6 +672,10 @@ class AgentRunner:
                 logger.info("Executing agent on VM %s...", prepared.agent_id)
                 await self._runtime.execute(prepared, exec_ctx)
                 logger.info("Agent execution completed on VM %s", prepared.agent_id)
+
+                # Capture the execution span ID if the runtime exposes it
+                if hasattr(self._runtime, "last_execution_span_id"):
+                    self.last_execution_span_id = str(self._runtime.last_execution_span_id)
 
                 # If no exit condition configured, one-shot — break immediately
                 if self._exit_condition is None:

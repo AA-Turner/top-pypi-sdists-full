@@ -223,14 +223,16 @@ EKS_K3S_IMAGE_TAG = os.environ.get("EKS_K3S_IMAGE_TAG", "").strip()
 # Chosen EKS provider for the k8s implementation. Either "k3s" or "local".
 EKS_K8S_PROVIDER = os.environ.get("EKS_K8S_PROVIDER", "") or "k3s"
 
-# simulated delay (in seconds) for creating clusters in EKS mocked mode
-EKS_MOCK_CREATE_CLUSTER_DELAY = int(os.environ.get("EKS_MOCK_CREATE_CLUSTER_DELAY", "0").strip())
-
 # startup timeout for an EKS cluster
 EKS_STARTUP_TIMEOUT = int(os.environ.get("EKS_STARTUP_TIMEOUT", "180").strip())
 
 # Allow customisation of the k3s cluster
 EKS_K3S_FLAGS = os.environ.get("EKS_K3S_FLAGS")
+
+# Set a k3d cluster token
+EKS_K3D_CLUSTER_TOKEN = os.environ.get(
+    "EKS_K3D_CLUSTER_TOKEN", "localstack-k3d-cluster-token"
+).strip()
 
 # Set EKS pod identity webhook image
 EKS_POD_IDENTITY_WEBHOOK_IMAGE = (
@@ -285,6 +287,9 @@ REDIS_CONTAINER_MODE = localstack_config.is_env_true("REDIS_CONTAINER_MODE")
 
 # whether DocDB should use a proxied docker container for mongodb
 DOCDB_PROXY_CONTAINER = localstack_config.is_env_true("DOCDB_PROXY_CONTAINER")
+
+# whether Kafka should be spun up in a seperate container, as opposed to a process.
+KAFKA_CONTAINER_MODE = localstack_config.is_env_true("KAFKA_CONTAINER_MODE")
 
 # whether we serve WebSockets through the Gateway with Rolo
 # Beware! This cannot be used in conjunction of `PROVIDER_OVERRIDE_APIGATEWAY=legacy`, otherwise it does not do
@@ -367,13 +372,19 @@ def is_auth_token_configured() -> bool:
     return False
 
 
-# whether pro should be activated or not. this is set to true by default if using the pro image. if set to
-# true, localstack will fail to start if the key activation did not work. if set to false, then we will make
-# an attempt to start localstack community.
-ACTIVATE_PRO = localstack_config.is_env_not_false("ACTIVATE_PRO")
+# pro plugins should always run. If license activation failed this will be set to false to avoid loading pro plugins
+# after that.
+ACTIVATE_PRO = True
 
 # a comma-separated list of cloud pods to be automatically loaded at startup
 AUTO_LOAD_POD = os.environ.get("AUTO_LOAD_POD", "")
+
+# Avro serialization defaults back to pickle if an exception is raised. We might want to disable this behavior in
+# persistence tests to avoid issues going unnoticed.
+DISABLE_AVRO_FALLBACK = is_env_true("DISABLE_AVRO_FALLBACK")
+
+# Disable compatibility rules that present old states (potentially incompatible) to be loaded into LocalStack
+DISABLE_COMPATIBILITY_RULES = is_env_true("DISABLE_COMPATIBILITY_RULES")
 
 # The strategy that gets applied when a state (currently only via cloudpods) gets loaded into LocalStack.
 MERGE_STRATEGY = (os.environ.get("MERGE_STRATEGY", "") or "account-region-merge").strip()
@@ -393,13 +404,6 @@ ENABLE_POD_RESOURCES = is_env_true("ENABLE_POD_RESOURCES")
 #   set of Cloud Pods.
 CLI_INJECT_POD_IDENTITY = localstack_config.is_env_not_false("CLI_INJECT_POD_IDENTITY")
 
-if is_env_true("LOCALSTACK_CLI"):
-    # when we're in the CLI, we only want to activate pro code if an API key is set. this is because we are
-    # always loading localstack/pro/core/config.py in the CLI, and we would otherwise always have ACTIVATE_PRO=1
-    # when running `localstack start`.
-    ACTIVATE_PRO = ACTIVATE_PRO and is_auth_token_configured()
-    # we also need to update the environment so `ACTIVATE_PRO` is disabled in the container
-    os.environ["LOCALSTACK_ACTIVATE_PRO"] = "1" if ACTIVATE_PRO else "0"
 
 # backend service ports
 DEFAULT_PORT_LOCAL_DAEMON = 4600
@@ -482,6 +486,8 @@ localstack_config.CONFIG_ENV_VARS += [
     "CODEPIPELINE_GH_TOKEN",
     "CLOUDFRONT_STATIC_PORTS",
     "CLOUDFRONT_LAMBDA_EDGE",
+    "DISABLE_AVRO_FALLBACK",
+    "DISABLE_COMPATIBILITY_RULES",
     "DISABLE_LOCAL_DAEMON_CONNECTION",
     "DOCDB_PROXY_CONTAINER",
     "ECS_DISABLE_AWS_ENDPOINT_URL",
@@ -501,7 +507,6 @@ localstack_config.CONFIG_ENV_VARS += [
     "EKS_K3S_IMAGE_REPOSITORY",
     "EKS_K3S_IMAGE_TAG",
     "EKS_K8S_PROVIDER",
-    "EKS_MOCK_CREATE_CLUSTER_DELAY",
     "EKS_PERSIST_CLUSTER_CONTENTS",
     "EKS_STARTUP_TIMEOUT",
     "EKS_K3S_FLAGS",
@@ -549,6 +554,7 @@ localstack_config.CONFIG_ENV_VARS += [
     "RDS_CLUSTER_ENDPOINT_HOST_ONLY",
     "RDS_CLUSTER_ENDPOINT_IP_BASED",
     "REDIS_CONTAINER_MODE",
+    "KAFKA_CONTAINER_MODE",
     "POD_LOAD_CLI_TIMEOUT",
     "NEPTUNE_DB_TYPE",
     "NEPTUNE_ENABLE_TRANSACTION",

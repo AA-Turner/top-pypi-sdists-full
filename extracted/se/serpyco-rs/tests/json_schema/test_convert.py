@@ -528,6 +528,28 @@ def test_array_length():
     }
 
 
+def test_json_schema__exclusive_bounds():
+    serializer = Serializer(Annotated[int, Min(0, inclusive=False), Max(10, inclusive=False)])
+    assert serializer.get_json_schema() == {
+        '$schema': 'https://json-schema.org/draft/2020-12/schema',
+        'type': 'integer',
+        'format': 'int64',
+        'exclusiveMinimum': 0,
+        'exclusiveMaximum': 10,
+    }
+
+
+def test_json_schema__inclusive_bounds():
+    serializer = Serializer(Annotated[int, Min(0), Max(10)])
+    assert serializer.get_json_schema() == {
+        '$schema': 'https://json-schema.org/draft/2020-12/schema',
+        'type': 'integer',
+        'format': 'int64',
+        'minimum': 0,
+        'maximum': 10,
+    }
+
+
 def test_one_dataclass_with_different_annotations__should_generate_different_schemas():
     @dataclass
     class Foo:

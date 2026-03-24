@@ -2,9 +2,10 @@ import asyncio
 import time
 
 from dotenv import load_dotenv
+from playwright.async_api import async_playwright
+
 from plato.models import PlatoTask
 from plato.sdk import Plato
-from playwright.async_api import async_playwright
 
 load_dotenv(".env")
 

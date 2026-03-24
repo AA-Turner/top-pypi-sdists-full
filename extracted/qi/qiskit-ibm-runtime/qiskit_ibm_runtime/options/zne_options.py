@@ -12,6 +12,8 @@
 
 """Zero noise extrapolation mitigation options.."""
 
+from __future__ import annotations
+
 from typing import Literal
 from collections.abc import Sequence
 
@@ -108,7 +110,7 @@ class ZneOptions:
     noise_factors: UnsetType | Sequence[float] = Unset
     r""" noise_factors: Noise factors to use for noise amplification. 
          
-    Default: ``(1, 1.5, 2)`` for PEA, and ``(1, 3, 5)`` otherwise.
+    Default: ``(1, 3, 5)``.
     """
     extrapolator: UnsetType | ExtrapolatorType | Sequence[ExtrapolatorType] = Unset
     r"""Extrapolator(s) to try (in order) for extrapolating to zero noise.
@@ -158,7 +160,7 @@ class ZneOptions:
         return factors
 
     @model_validator(mode="after")
-    def _validate_options(self) -> "ZneOptions":
+    def _validate_options(self) -> ZneOptions:
         """Check that there are enough noise factors for all extrapolators."""
         noise_factors = (
             self.noise_factors if self.noise_factors != Unset else self._default_noise_factors()

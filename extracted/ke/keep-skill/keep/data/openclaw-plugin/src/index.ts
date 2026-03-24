@@ -100,10 +100,87 @@ function formatTurn(messages: any[], maxInlineLength: number): string {
     const text = extractText(msg.content);
     if (!text.trim()) continue;
 
-    const limit = role === "user" ? 500 : maxInlineLength;
-    parts.push(`[${role}] ${truncate(text, limit)}`);
+    parts.push(`[${role}] ${truncate(text, maxInlineLength)}`);
   }
   return parts.join("\n\n");
+}
+
+// ---------------------------------------------------------------------------
+// Global singleton: MCP transport survives SIGUSR1 module re-evaluation.
+// Symbol.for() returns the same symbol across reloads; globalThis persists.
+// ---------------------------------------------------------------------------
+
+const KEEP_MCP_STATE = Symbol.for("keep.mcpTransportState");
+
+interface KeepMcpState {
+  mcp: KeepMcpTransport;
+  eventsRegistered: boolean;
+}
+
+function getMcpState(api: any): KeepMcpState {
+  const g = globalThis as any;
+  if (g[KEEP_MCP_STATE]) return g[KEEP_MCP_STATE];
+  const state: KeepMcpState = {
+    mcp: new KeepMcpTransport({
+      logger: {
+        debug: (m: string) => api.logger?.debug?.(m),
+        info: (m: string) => api.logger?.info(m),
+        warn: (m: string) => api.logger?.warn(m),
+        error: (m: string) => api.logger?.error(m),
+      },
+    }),
+    eventsRegistered: false,
+  };
+  g[KEEP_MCP_STATE] = state;
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap context engine: injects setup instructions when keep is not
+// fully available. The agent reads these and guides the user through setup.
+// ---------------------------------------------------------------------------
+
+const BOOTSTRAP_MESSAGES: Record<string, string> = {
+  install: [
+    "⚠️ keep plugin is installed but the Python runtime is not available.",
+    "",
+    "Guide the user through setup:",
+    "1. Install Python 3.13 and uv (if not present): https://docs.astral.sh/uv/",
+    "2. Install keep: uv pip install keep-skill[local]",
+    "3. Restart: openclaw gateway restart",
+    "",
+    "After restart, if providers need configuration the agent will be prompted again.",
+  ].join("\n"),
+  configure: [
+    "⚠️ keep is installed but no embedding/summarization providers are configured.",
+    "",
+    "Guide the user through provider setup:",
+    "1. Run: openclaw keep setup",
+    "   (interactive wizard — choose embedding and summarization providers)",
+    "2. Restart: openclaw gateway restart",
+  ].join("\n"),
+};
+
+function registerBootstrapContextEngine(api: any, mode: "install" | "configure") {
+  const message = BOOTSTRAP_MESSAGES[mode];
+  api.logger?.warn(`[keep] Registering bootstrap context engine (mode=${mode})`);
+
+  api.registerContextEngine("keep", () => {
+    return {
+      info: {
+        id: "keep",
+        name: "keep (setup required)",
+        version: "0.109.0",
+        ownsCompaction: false,
+      },
+      async assemble(params: { messages: any[]; tokenBudget?: number }) {
+        return {
+          messages: params.messages,
+          systemPromptAddition: message,
+        };
+      },
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +189,8 @@ function formatTurn(messages: any[], maxInlineLength: number): string {
 
 export default function register(api: any) {
   if (!keepAvailable()) {
-    api.logger?.warn("[keep] keep CLI not found, plugin inactive");
+    api.logger?.warn("[keep] keep CLI not found — registering bootstrap context engine");
+    registerBootstrapContextEngine(api, "install");
     return;
   }
 
@@ -202,15 +280,17 @@ export default function register(api: any) {
       });
   }, { commands: ["keep"] });
 
-  // Shared MCP transport — initialized on gateway_start
-  const mcp = new KeepMcpTransport({
-    logger: {
-      debug: (m: string) => api.logger?.debug?.(m),
-      info: (m: string) => api.logger?.info(m),
-      warn: (m: string) => api.logger?.warn(m),
-      error: (m: string) => api.logger?.error(m),
-    },
-  });
+  // If providers aren't configured, register bootstrap CE and stop.
+  // The CLI is already registered above so `openclaw keep setup` works.
+  if (!keepHealthy) {
+    api.logger?.warn("[keep] Providers not configured — registering bootstrap context engine");
+    registerBootstrapContextEngine(api, "configure");
+    return;
+  }
+
+  // Shared MCP transport — global singleton survives SIGUSR1 reloads
+  const mcpState = getMcpState(api);
+  const mcp = mcpState.mcp;
 
   // Track first assemble per session (keyed by sessionKey for persistence).
   const sessionFirstAssemble = new Set<string>();
@@ -283,20 +363,23 @@ export default function register(api: any) {
   // Gateway lifecycle: start/stop MCP transport
   // -----------------------------------------------------------------------
 
-  api.on("gateway_start", async () => {
-    try {
-      await mcp.connect();
-      api.logger?.info("[keep] MCP transport connected");
-    } catch (err: any) {
-      api.logger?.warn(
-        `[keep] MCP connect failed, falling back to CLI: ${err.message}`,
-      );
-    }
-  });
+  if (!mcpState.eventsRegistered) {
+    mcpState.eventsRegistered = true;
+    api.on("gateway_start", async () => {
+      try {
+        await mcp.connect();
+        api.logger?.info("[keep] MCP transport connected");
+      } catch (err: any) {
+        api.logger?.warn(
+          `[keep] MCP connect failed, falling back to CLI: ${err.message}`,
+        );
+      }
+    });
 
-  api.on("gateway_stop", async () => {
-    await mcp.disconnect();
-  });
+    api.on("gateway_stop", async () => {
+      await mcp.disconnect();
+    });
+  }
 
   // -----------------------------------------------------------------------
   // memory_search / memory_get tools
@@ -346,19 +429,21 @@ export default function register(api: any) {
             const minScore = typeof params?.minScore === "number" ? params.minScore : 0;
 
             if (!mcp.connected) {
-              return {
-                content: [{
-                  type: "text",
-                  text: JSON.stringify({
-                    results: [],
-                    disabled: true,
-                    unavailable: true,
-                    error: "keep MCP not connected",
-                    warning: "Memory search is unavailable because keep is not running.",
-                    action: "Check keep installation and restart the gateway.",
-                  }),
-                }],
-              };
+              try { await mcp.connect(); } catch {
+                return {
+                  content: [{
+                    type: "text",
+                    text: JSON.stringify({
+                      results: [],
+                      disabled: true,
+                      unavailable: true,
+                      error: "keep MCP not connected",
+                      warning: "Memory search is unavailable because keep is not running.",
+                      action: "Verify keep is installed (uv pip install keep-skill[local]) and restart: openclaw gateway restart",
+                    }),
+                  }],
+                };
+              }
             }
 
             try {
@@ -541,7 +626,7 @@ export default function register(api: any) {
       info: {
         id: "keep",
         name: "keep reflective memory",
-        version: "0.106.1",
+        version: "0.108.0",
         ownsCompaction: false,
       },
 
@@ -554,7 +639,9 @@ export default function register(api: any) {
         sessionFile: string;
       }) {
         if (!mcp.connected) {
-          return { bootstrapped: false, reason: "MCP not connected" };
+          try { await mcp.connect(); } catch {
+            return { bootstrapped: false, reason: "MCP not connected" };
+          }
         }
 
         const itemId = sessionItemId(params);
@@ -586,7 +673,9 @@ export default function register(api: any) {
         }
 
         if (!mcp.connected) {
-          return { ingested: false };
+          try { await mcp.connect(); } catch {
+            return { ingested: false };
+          }
         }
 
         const role: string = params.message.role || "unknown";
@@ -601,8 +690,7 @@ export default function register(api: any) {
             return { ingested: false };
           }
 
-          const limit = role === "user" ? 500 : maxInlineLength;
-          const content = `[${role}] ${truncate(text, limit)}`;
+          const content = `[${role}] ${truncate(text, maxInlineLength)}`;
           const itemId = sessionItemId(params);
 
           await mcp.flow({
@@ -635,7 +723,9 @@ export default function register(api: any) {
           return { ingestedCount: 0 };
         }
         if (!mcp.connected) {
-          return { ingestedCount: 0 };
+          try { await mcp.connect(); } catch {
+            return { ingestedCount: 0 };
+          }
         }
 
         // Format all messages in the batch into a single turn block
@@ -687,10 +777,12 @@ export default function register(api: any) {
         }, 0);
 
         if (!mcp.connected) {
-          return {
-            messages: params.messages,
-            estimatedTokens: conversationTokens,
-          };
+          try { await mcp.connect(); } catch {
+            return {
+              messages: params.messages,
+              estimatedTokens: conversationTokens,
+            };
+          }
         }
 
         try {
@@ -759,8 +851,17 @@ export default function register(api: any) {
         tokenBudget?: number;
         runtimeContext?: Record<string, unknown>;
       }) {
+        api.logger?.debug(`[keep] afterTurn (mcp=${mcp.connected}, sessionKey=${params.sessionKey}, newMsgs=${(params.messages?.length ?? 0) - (params.prePromptMessageCount ?? 0)})`);
         if (params.isHeartbeat) return;
-        if (!mcp.connected) return;
+        if (!mcp.connected) {
+          try {
+            api.logger?.info("[keep] afterTurn: MCP not connected, reconnecting...");
+            await mcp.connect();
+          } catch (err: any) {
+            api.logger?.warn(`[keep] afterTurn: MCP reconnect failed: ${err.message}`);
+            return;
+          }
+        }
 
         // Ensure workspace watches are set up (once per gateway lifetime).
         const workspaceDir = params.runtimeContext?.workspaceDir as string;
@@ -770,6 +871,28 @@ export default function register(api: any) {
 
         const newMessages = params.messages.slice(params.prePromptMessageCount);
         if (newMessages.length === 0) return;
+
+        // Ingest each new message as a version of the session item
+        const itemId = sessionItemId(params);
+        for (const msg of newMessages) {
+          const role: string = msg.role || "unknown";
+          if (!INGEST_ROLES.has(role)) continue;
+          const text = extractText(msg.content);
+          if (!text.trim()) continue;
+          const content = `[${role}] ${truncate(text, maxInlineLength)}`;
+          try {
+            await mcp.flow({
+              state: "put",
+              params: {
+                content,
+                id: itemId,
+                tags: sessionTags({ ...params, extra: { role } }),
+              },
+            });
+          } catch (err: any) {
+            api.logger?.warn(`[keep] afterTurn ingest error: ${err.message}`);
+          }
+        }
 
         // Detect inflection signals in the new messages
         const signals = detectInflection(newMessages);
@@ -839,7 +962,9 @@ export default function register(api: any) {
         childSessionKey: string;
         ttlMs?: number;
       }) {
-        if (!mcp.connected) return undefined;
+        if (!mcp.connected) {
+          try { await mcp.connect(); } catch { return undefined; }
+        }
 
         try {
           // Write spawn marker as first version of the child session item

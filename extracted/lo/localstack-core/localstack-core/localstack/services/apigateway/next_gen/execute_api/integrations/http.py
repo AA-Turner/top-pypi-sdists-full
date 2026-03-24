@@ -81,6 +81,8 @@ class RestApiHttpIntegration(BaseRestApiHttpIntegration):
             raise IntegrationFailureError("Network error communicating with endpoint") from e
 
         except requests.exceptions.ConnectionError as e:
+            LOG.warning("Execution failed due to a connection error with the endpoint.")
+            LOG.debug("Execution error: %s", e)
             raise ApiConfigurationError("Internal server error") from e
 
         return EndpointResponse(
@@ -135,8 +137,10 @@ class RestApiHttpProxyIntegration(BaseRestApiHttpIntegration):
             LOG.warning("Execution failed due to a network error communicating with endpoint")
             raise IntegrationFailureError("Network error communicating with endpoint")
 
-        except requests.exceptions.ConnectionError:
-            raise ApiConfigurationError("Internal server error")
+        except requests.exceptions.ConnectionError as e:
+            LOG.warning("Execution failed due to a connection error with the endpoint.")
+            LOG.debug("Execution error: %s", e)
+            raise ApiConfigurationError("Internal server error") from e
 
         response_headers = Headers(dict(request_response.headers))
 

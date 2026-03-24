@@ -17,30 +17,41 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 
 from google.cloud.securitycenter_v1 import gapic_version as package_version
 from google.cloud.securitycenter_v1.types import (
     bigquery_export,
     effective_event_threat_detection_custom_module,
     effective_security_health_analytics_custom_module,
+    event_threat_detection_custom_module,
+    finding,
+    mute_config,
+    notification_config,
+    organization_settings,
+    resource_value_config,
+    security_health_analytics_custom_module,
+    securitycenter_service,
+    simulation,
+    source,
+    valued_resource,
 )
-from google.cloud.securitycenter_v1.types import securitycenter_service, simulation
-from google.cloud.securitycenter_v1.types import event_threat_detection_custom_module
 from google.cloud.securitycenter_v1.types import (
     event_threat_detection_custom_module as gcs_event_threat_detection_custom_module,
 )
 from google.cloud.securitycenter_v1.types import external_system as gcs_external_system
+from google.cloud.securitycenter_v1.types import finding as gcs_finding
+from google.cloud.securitycenter_v1.types import mute_config as gcs_mute_config
 from google.cloud.securitycenter_v1.types import (
     notification_config as gcs_notification_config,
 )
@@ -50,21 +61,11 @@ from google.cloud.securitycenter_v1.types import (
 from google.cloud.securitycenter_v1.types import (
     resource_value_config as gcs_resource_value_config,
 )
-from google.cloud.securitycenter_v1.types import security_health_analytics_custom_module
 from google.cloud.securitycenter_v1.types import (
     security_health_analytics_custom_module as gcs_security_health_analytics_custom_module,
 )
 from google.cloud.securitycenter_v1.types import security_marks as gcs_security_marks
-from google.cloud.securitycenter_v1.types import finding
-from google.cloud.securitycenter_v1.types import finding as gcs_finding
-from google.cloud.securitycenter_v1.types import mute_config
-from google.cloud.securitycenter_v1.types import mute_config as gcs_mute_config
-from google.cloud.securitycenter_v1.types import notification_config
-from google.cloud.securitycenter_v1.types import organization_settings
-from google.cloud.securitycenter_v1.types import resource_value_config
-from google.cloud.securitycenter_v1.types import source
 from google.cloud.securitycenter_v1.types import source as gcs_source
-from google.cloud.securitycenter_v1.types import valued_resource
 
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
@@ -120,8 +121,6 @@ class SecurityCenterTransport(abc.ABC):
                 be used for service account credentials.
         """
 
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
-
         # Save the scopes.
         self._scopes = scopes
         if not hasattr(self, "_ignore_credentials"):
@@ -136,11 +135,16 @@ class SecurityCenterTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -1431,13 +1435,19 @@ class SecurityCenterTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property

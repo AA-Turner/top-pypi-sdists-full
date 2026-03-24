@@ -202,8 +202,9 @@ static void slice_bunch(double *r_in,int num_particles,int nslice,int nturns,
 static void compute_kicks(int nslice,int nturns,int nelem,
                    double *turnhistory,double *waketableT,double *waketableDX,
                    double *waketableDY,double *waketableQX,double *waketableQY,
-                   double *waketableZ,double *normfact, double *kx,double *ky,
-                   double *kx2,double *ky2,double *kz){
+                   double *waketableZ, double *waketableCX, double *waketableCY,
+                   double *normfact, double *kx,double *ky,
+                   double *kx2,double *ky2,double *kz, double *kcx, double *kcy){
     int rank=0;
     int size=1;
     int i,ii,index;
@@ -219,6 +220,8 @@ static void compute_kicks(int nslice,int nturns,int nelem,
         kx2[i]=0.0;
         ky2[i]=0.0;
         kz[i]=0.0;
+        kcx[i]=0.0;
+        kcy[i]=0.0;
     }
 
     #ifdef MPI
@@ -239,6 +242,9 @@ static void compute_kicks(int nslice,int nturns,int nelem,
                     if(waketableQX)kx2[i-nslice*(nturns-1)] += normfact[0]*wi*getTableWake(waketableQX,waketableT,ds,index);
                     if(waketableQY)ky2[i-nslice*(nturns-1)] += normfact[1]*wi*getTableWake(waketableQY,waketableT,ds,index);
                     if(waketableZ) kz[i-nslice*(nturns-1)] += normfact[2]*wi*getTableWake(waketableZ,waketableT,ds,index);
+                    if(waketableCX)kcx[i-nslice*(nturns-1)] += normfact[0]*wi*getTableWake(waketableCX,waketableT,ds,index);
+                    if(waketableCY)kcy[i-nslice*(nturns-1)] += normfact[1]*wi*getTableWake(waketableCY,waketableT,ds,index);
+                    
                 }            
             }
         }
@@ -249,6 +255,8 @@ static void compute_kicks(int nslice,int nturns,int nelem,
     if(waketableQX)MPI_Allreduce(MPI_IN_PLACE,kx2,nslice,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
     if(waketableQY)MPI_Allreduce(MPI_IN_PLACE,ky2,nslice,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
     if(waketableZ)MPI_Allreduce(MPI_IN_PLACE,kz,nslice,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    if(waketableCX)MPI_Allreduce(MPI_IN_PLACE,kcx,nslice,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    if(waketableCY)MPI_Allreduce(MPI_IN_PLACE,kcy,nslice,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
     #endif
 };
@@ -292,174 +300,226 @@ static void wakefunc_long_resonator(double ds, double freqres, double qfactor, d
 }
 
 
-static void compute_kicks_longres(int nslice,int nbunch,int nturns, double *turnhistory,double normfact,
-                           double *kz,double freq, double qfactor, double rshunt,
-                           double beta, double *vbeamk, double energy, double *vbunch) {
-
-    int rank=0;
-    int size=1;
-    int i,ii,ib;
-    double ds,wi,wii;
-    double *turnhistoryZ = turnhistory+nslice*nbunch*nturns*2;
-    double *turnhistoryW = turnhistory+nslice*nbunch*nturns*3;
-    double wake[2];
-    double vba, vbp;
-    double *vbr = vbunch;
-    double *vbi = vbunch+nbunch;
-    double totalW = 0;
-    double *totalWb = atMalloc(nbunch*sizeof(double));
-    
-    for (i=0;i<nslice*nbunch;i++) {
-        ib = (int)(i/nslice);
-        kz[i]=0.0;
-        vbr[ib] = 0.0;
-        vbi[ib] = 0.0;
-        totalWb[ib] = 0.0;
-    }
-
-    vbeamk[0] = 0.0;
-    vbeamk[1] = 0.0;
-    wake[0] = 0.0;
-    wake[1] = 0.0;
-
-
-    #ifdef MPI
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    #endif
-    for(i=nslice*nbunch*(nturns-1);i<nslice*nbunch*nturns;i++){  
-        ib = (int)((i-nslice*nbunch*(nturns-1))/nslice);
-        wi = turnhistoryW[i];
-        if(turnhistoryW[i]>0.0 && rank==(i+size)%size){
-            totalW += wi;
-            totalWb[ib] += wi;
-            for (ii=0;ii<nslice*nbunch*nturns;ii++){
-                ds = turnhistoryZ[i]-turnhistoryZ[ii];
-                if(turnhistoryW[ii]>0.0 && ds>=0){
-                    wii = turnhistoryW[ii];
-                    wakefunc_long_resonator(ds,freq,qfactor,rshunt,beta,wake);       
-                    kz[i-nslice*nbunch*(nturns-1)] += normfact*wii*wake[0];
-                    vbeamk[0] += normfact*wii*wake[0]*energy*wi;
-                    vbeamk[1] -= normfact*wii*wake[1]*energy*wi;
-                    vbr[ib] += normfact*wii*wake[0]*energy*wi;
-                    vbi[ib] -= normfact*wii*wake[1]*energy*wi;
-                }            
-            }
-        }
-    }
-
-    #ifdef MPI
-    MPI_Allreduce(MPI_IN_PLACE,kz,nslice*nbunch,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE,vbeamk,2,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE,vbr,nbunch,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE,vbi,nbunch,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE,&totalW,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE,totalWb,nbunch,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
-    #endif
-    
-    vba = sqrt(vbeamk[0]*vbeamk[0]+vbeamk[1]*vbeamk[1])/totalW;
-    vbp = atan2(vbeamk[1],vbeamk[0]);
-    vbeamk[0] = vba;
-    vbeamk[1] = vbp;
-    
-    for(i=0;i<nbunch;i++){
-        double vr = vbr[i]/totalWb[i];
-        double vi = vbi[i]/totalWb[i];
-        vbr[i] = sqrt(vr*vr+vi*vi); 
-        vbi[i] = atan2(vi,vr);
-    }
-    atFree(totalWb);
-};
-
-
 static void compute_kicks_phasor(int nslice, int nbunch, int nturns, double *turnhistory,
-                          double normfact, double *kz,double freq, double qfactor,
-                          double rshunt, double *vbeam, double circumference,
-                          double energy, double beta, double *vbeamk, double *vbunch){ 
+                          double normfact, double *vbeam_kicks, double resfreq, double qfactor,
+                          double rshunt, double *vbeam_phasor, double circumference,
+                          double energy, double beta, double *ave_vbeam, double *vbunch,
+                          double *bunch_spos, int ring_harmn, 
+                          double *fillpattern, double ts_central_z){ 
                           
     #ifndef _MSC_VER  
-    int i,ib,is;
+    int i,ib;
     double wi;
     double selfkick;
-    int sliceperturn = nslice*nbunch;
     double dt =0.0;
     double *turnhistoryZ = turnhistory+nslice*nbunch*nturns*2;
     double *turnhistoryW = turnhistory+nslice*nbunch*nturns*3;
-    double omr = TWOPI*freq;
-    double complex vbeamc = vbeam[0]*cexp(_Complex_I*vbeam[1]);
-    double complex vbeamkc = 0.0;
+    double omr = TWOPI*resfreq;
+    double complex vbeam_complex = vbeam_phasor[0]*cexp(_Complex_I*vbeam_phasor[1]);
     double kloss = rshunt*omr/(2*qfactor);
     double bc = beta*C0;
     double *vbr = vbunch;
     double *vbi = vbunch+nbunch;
-    double totalW=0.0;
-    double *totalWb = atMalloc(nbunch*sizeof(double));
+    int ibunch, islice, total_slice_counter;
+    int bunch_counter = 0;
+    double bucket_curr = 0.0;
+    double main_bucket = circumference / (double) ring_harmn;
+    double ave_vbeam_ri[] = {0.0, 0.0};
     
-    for (i=0;i<sliceperturn;i++) {
-        ib = (int)(i/nslice);
-        kz[i]=0.0;
-        vbr[ib] = 0.0;
-        vbi[ib] = 0.0;
-        totalWb[ib] = 0.0;
+    
+    
+    for (i=0;i<nslice*nbunch;i++) {
+        ibunch = (int)(i/nslice);
+        vbeam_kicks[i] = 0.0;
+        vbr[ibunch] = 0.0;
+        vbi[ibunch] = 0.0;
     }
-    
-    for(i=sliceperturn*(nturns-1);i<sliceperturn*nturns;i++){
-        ib = (int)((i-sliceperturn*(nturns-1))/nslice);
-        wi = turnhistoryW[i];
-        selfkick = normfact*wi*kloss*energy;
-        if(i==sliceperturn*(nturns-1)){
-            /*At the end of the turn, the vbeamc is
-            reverted to -final value, which stores the
-            dt information from previous turn. This extra
-            circumference is needed to take this into account. */
-            dt = (circumference+turnhistoryZ[i])/bc;
-        }else{
-            /* This is dt between each slice*/
-            dt = (turnhistoryZ[i]-turnhistoryZ[i-1])/bc;
-        }
-        vbeamc *= cexp((_Complex_I*omr-omr/(2*qfactor))*dt);
-        /*vbeamkc is average kick i.e. average vbeam*/   
-        vbeamkc += (vbeamc+selfkick)*wi;
-        totalW += wi;
-        totalWb[ib] += wi;
-        kz[i-sliceperturn*(nturns-1)] = creal((vbeamc + selfkick)/energy);
-        vbr[ib] += creal((vbeamc + selfkick)*wi);
-        vbi[ib] += cimag((vbeamc + selfkick)*wi);
-        vbeamc += 2*selfkick;    
-    }
-    
-    /*This takes the vbeam backwards in time to effectively store the
-    final slice position */
-    dt = -turnhistoryZ[sliceperturn*nturns-1]/bc;    
-    vbeamc *= cexp((_Complex_I*omr-omr/(2*qfactor))*dt);
 
-    vbeam[0] = cabs(vbeamc);
-    vbeam[1] = carg(vbeamc);
-    vbeamkc /= (totalW);
-    vbeamk[0] = cabs(vbeamkc);
-    vbeamk[1] = carg(vbeamkc);   
     
-    for(i=0;i<nbunch;i++){
-        double vr = vbr[i]/totalWb[i];
-        double vi = vbi[i]/totalWb[i];
-        vbr[i] = sqrt(vr*vr+vi*vi); 
-        vbi[i] = atan2(vi,vr);
+    /* The vbeam_complex will always be sent to the center of the next bucket */
+    
+    for(ibunch=0; ibunch<ring_harmn; ibunch++){
+        bucket_curr = fillpattern[ibunch];
+        if(bucket_curr!=0.0){
+            for(islice=0; islice<nslice; islice++){
+                total_slice_counter = islice + nslice*bunch_counter; 
+                wi = turnhistoryW[total_slice_counter];
+                selfkick = normfact*wi*kloss*energy; /*normfact*energy is -t0 . This number comes out to be negative, which is correct*/       
+                if(islice==0){
+                    /* TurnhistoryZ goes from -bucket991 to bucket0 */
+                    dt = (turnhistoryZ[total_slice_counter] + bunch_spos[nbunch-1-bunch_counter] - bunch_spos[0])/bc;
+                    
+                }else{
+                    /* This is dt between each slice*/
+                    dt = (turnhistoryZ[total_slice_counter]-turnhistoryZ[total_slice_counter-1])/bc;
+                }
+                
+                /* track the dt */
+                vbeam_complex *= cexp((_Complex_I*omr-omr/(2*qfactor))*dt);
+                vbeam_kicks[total_slice_counter] = creal((vbeam_complex + selfkick)/energy);
+                
+                vbeam_complex += 2*selfkick;    
+               
+            }
+            /* back to the center of the bucket */
+            dt = -(turnhistoryZ[total_slice_counter] + bunch_spos[nbunch - 1 - bunch_counter] - bunch_spos[0])/bc;
+            vbeam_complex *= cexp((_Complex_I*omr-omr/(2*qfactor))*dt);
+            
+            /* move to ts_central time */
+            dt = -ts_central_z/bc;
+            vbeam_complex *= cexp((_Complex_I*omr-omr/(2*qfactor))*dt);
+            
+            vbr[bunch_counter] = cabs(vbeam_complex);
+            vbi[bunch_counter] = carg(vbeam_complex);
+                        
+            bunch_counter += 1;
+        }else{
+            /* move to ts_central time */
+            dt = -ts_central_z/bc;
+            vbeam_complex *= cexp((_Complex_I*omr-omr/(2*qfactor))*dt);     
+        }
+
+        ave_vbeam_ri[0] += creal(vbeam_complex)/ring_harmn;
+        ave_vbeam_ri[1] += cimag(vbeam_complex)/ring_harmn;
+
+        /* move back to center of this bucket */
+        dt = ts_central_z/bc;
+        vbeam_complex *= cexp((_Complex_I*omr-omr/(2*qfactor))*dt);
+
+        /* advance the phasor to the center of the next bucket */
+       
+        dt = main_bucket/bc;
+        vbeam_complex *= cexp((_Complex_I*omr-omr/(2*qfactor))*dt);
+        
     }
-    atFree(totalWb);
+    /* store the phasor for the next turn */
+    vbeam_phasor[0] = cabs(vbeam_complex);
+    vbeam_phasor[1] = carg(vbeam_complex);
+    
+    ave_vbeam[0] = sqrt(ave_vbeam_ri[0]*ave_vbeam_ri[0] + ave_vbeam_ri[1]*ave_vbeam_ri[1]);
+    ave_vbeam[1] = atan2(ave_vbeam_ri[1], ave_vbeam_ri[0]);
+
     #endif    
 };
 
 
-static void update_vgen(double *vbeam,double *vcav,double *vgen,double voltgain,double phasegain,double detune_angle){
-    double vbeamr = vbeam[0]*cos(vbeam[1]);
-    double vbeami = vbeam[0]*sin(vbeam[1]);
-    double vcavr = vcav[0]*cos(vcav[1]);
-    double vcavi = vcav[0]*sin(vcav[1]);   
-    double vgenr = vcavr - vbeamr;
-    double vgeni = vcavi - vbeami; 
-    double vga = sqrt(vgenr*vgenr+vgeni*vgeni);   
-    double vgp = atan2(vgeni,vgenr)-vcav[1]+detune_angle;
-    vgen[0] += (vga-vgen[0])*voltgain;
-    vgen[1] += (vgp-vgen[1])*phasegain;
+static void update_vgen(double *vbeam,double *vcav,double *vgen, double voltgain,double phasegain,double detune_angle){
+
+    double vbeamr_meas = vbeam[0]*cos(vbeam[1]);
+    double vbeami_meas = vbeam[0]*sin(vbeam[1]);
+    
+    double vgenr_meas = -vgen[0]*sin(vgen[1]);
+    double vgeni_meas = vgen[0]*cos(vgen[1]);      
+    
+    double vcavr_meas = vgenr_meas + vbeamr_meas;
+    double vcavi_meas = vgeni_meas + vbeami_meas;   
+
+    double vcav_meas = sqrt(vcavr_meas*vcavr_meas + vcavi_meas*vcavi_meas); 
+    double phis_meas = -atan2(vcavr_meas, vcavi_meas);
+
+    double phis = vcav[1];   
+    /* This computes the delta theta g*/
+    double ptmp = phis_meas - phis; 
+    
+    /* This computes the delta psi */
+    double dttmp = vgen[1] - vgen[2] - phis + detune_angle;
+
+    double dtmp = vcav[0] / vcav_meas;
+    
+    vgen[3] *= pow(dtmp,voltgain);
+    vgen[2] += dttmp*phasegain; 
+    vgen[1] -= ptmp*phasegain;
+    vgen[0] = vgen[3]*cos(vgen[2]);
 }
+
+
+static void update_passive_frequency(double *vbeam, double *vcav, double *vgen, double phasegain){
+    /* The cavity voltage is
+    V(t) = 2*I0*rs*cos(psi)*exp(i(wt+psi))
+    We save the amplitude of vbeam, so the exponent goes to 1.
+    Therefore vbeam[0] = 2*I0*rs*cos(psi) which is the cavity voltage.
+    */
+    double vset = vcav[0];
+    double psi = vgen[2];
+    double vpeak = vbeam[0]; /* Peak amplitude of cavity voltage */
+    double delta_v = vset - vpeak;
+    double grad = vbeam[0]*sin(psi)/cos(psi); 
+    /*vbeam amp contains cos(psi). So replace with sin(psi)
+    to get get the gradient */
+    
+    double delta_psi = delta_v / grad; /*linear extrapolation*/
+
+    
+    /* If the cavity is detuned positively, the psi needs to
+    be increased to reduce the voltage. Likewise, if the cavity
+    is detuned negatively, the psi needs to be decreased to reduce
+    the voltage.
+    */
+        
+    int sg = (psi<0) - (psi>0);
+
+    /* This is to avoid setting a value if grad is 0, as then
+    delta_psi is inf, which even when multiplied by 0 gives nan
+    */
+    if (grad!=0.0){
+        vgen[2] += sg*delta_psi*phasegain;
+    }
+}
+
+static void compute_buffer_mean(double *out_array, double *buffer, long windowlength, long buffersize, long numcolumns){
+
+    int c,p,offset;
+    offset = buffersize - windowlength;
+
+    for (p=0; p<numcolumns; p++) {
+        out_array[p] = 0.0;
+    }
+    
+    for (c=offset; c<buffersize; c++) {
+        for (p=0; p<numcolumns; p++) {
+            out_array[p] += buffer[2*c+p];
+        }
+    }
+    
+    for (p=0; p<numcolumns; p++) {
+        out_array[p] /= windowlength ; 
+    }
+}
+
+int check_buffer_length(double *buffer, long buffersize, long numcolumns){
+    int c;
+    int bufferlengthnow=0;
+    for (c=0; c<numcolumns*buffersize; c++){
+        if (buffer[c]!=0.0){
+            bufferlengthnow += 1;
+        }
+    }
+    bufferlengthnow /= numcolumns;
+    return bufferlengthnow;
+}
+
+
+static void update_vbeam_set(long fbmode, double *vbeam_set,
+                             double *vbeamk, double *vbeam_buffer,
+                             long buffersize, long windowlength){
+    int bufferlengthnow = 0;
+    // If FBMode is set to ONETURN, then set the vbeam and move on
+    if(fbmode==1){
+        vbeam_set[0] = vbeamk[0];
+        vbeam_set[1] = vbeamk[1];        
+    }
+    // If FBMode is set to WINDOW, compute the vbeam_set from the buffer
+    
+    else if(fbmode==2){
+        // Compute the length of the buffer as we will not act until 
+        // the buffer is full. (2 arrays of vbeam and psi)
+        
+        bufferlengthnow = check_buffer_length(vbeam_buffer, buffersize, 2);
+
+        if(bufferlengthnow >= windowlength){
+            compute_buffer_mean(vbeam_set, vbeam_buffer, windowlength, buffersize, 2);
+        } 
+    }
+}
+
+

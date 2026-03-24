@@ -1,0 +1,7 @@
+ALPINE='docker.io/library/alpine:3'
+UBUNTU='docker.io/library/ubuntu:noble'
+BUSYBOX='docker.io/library/busybox:1'
+NGINX='docker.io/library/nginx:1'
+DEBIAN='docker.io/library/debian:stable'
+AMAZONLINUX='docker.io/library/amazonlinux:2023'
+AWS_CLI='docker.io/amazon/aws-cli:2.34.7'

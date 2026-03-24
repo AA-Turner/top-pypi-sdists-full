@@ -40,6 +40,7 @@ from plato.cli.utils import (
     read_plato_config,
     require_api_key,
     require_plato_config_field,
+    safe_print,
 )
 from plato.v1.flow_executor import FlowExecutor
 from plato.v1.models.flow import Flow
@@ -136,7 +137,7 @@ start_app = typer.Typer(help="Start env or data pipelines for simulators")
 experiment_app = typer.Typer(help="Manage experiment configs in Chronos")
 experiment_env_app = typer.Typer(help="Env pipeline experiments")
 experiment_env_base_app = typer.Typer(help="Env base (fresh create) experiment")
-experiment_env_resume_app = typer.Typer(help="Env resume (fix) experiment")
+experiment_env_fix_app = typer.Typer(help="Env fix experiment")
 experiment_data_app = typer.Typer(help="Data pipeline experiments")
 experiment_data_base_app = typer.Typer(help="Data base experiment")
 
@@ -148,7 +149,7 @@ pm_app.add_typer(experiment_app, name="experiment")
 experiment_app.add_typer(experiment_env_app, name="env")
 experiment_app.add_typer(experiment_data_app, name="data")
 experiment_env_app.add_typer(experiment_env_base_app, name="base")
-experiment_env_app.add_typer(experiment_env_resume_app, name="resume")
+experiment_env_app.add_typer(experiment_env_fix_app, name="fix")
 experiment_data_app.add_typer(experiment_data_base_app, name="base")
 
 
@@ -256,6 +257,20 @@ def _extract_review_comment_texts(review: dict) -> list[str]:
     return [legacy_comments] if legacy_comments else []
 
 
+def _get_latest_rejected_env_review_comments(reviews: list[dict]) -> list[str]:
+    """Get the latest rejected env-review comments."""
+    rejected_env_reviews = [
+        review
+        for review in reviews
+        if isinstance(review, dict) and review.get("review_type") == "env" and review.get("outcome") == "reject"
+    ]
+    rejected_env_reviews.sort(key=lambda review: review.get("timestamp_iso", ""), reverse=True)
+    if not rejected_env_reviews:
+        return []
+
+    return _extract_review_comment_texts(rejected_env_reviews[0])
+
+
 def _get_latest_rejected_data_review_comments(reviews: list[dict]) -> list[str]:
     """Get the latest rejected data-review comments."""
     rejected_data_reviews = [
@@ -277,17 +292,19 @@ def _build_datagen_review_prompt(simulator_name: str, comments: list[str], base_
     return (
         f"This is a REVIEW FOLLOW-UP for {simulator_name}. The application was previously populated with data, "
         "but a reviewer found issues that need to be fixed.\n\n"
-        "== REVIEW COMMENTS (all must be addressed) ==\n\n"
+        "== REVIEW COMMENTS (must be addressed FIRST) ==\n\n"
         f"{comment_lines or '  (No specific comments)'}\n\n"
         "== YOUR TASK ==\n\n"
-        "1. First, screenshot every major section of the app to see the current state.\n"
-        "2. Address EVERY review comment above - add missing data, fix issues, fill gaps.\n"
-        "3. After fixing, do a FULL pass through the entire UI:\n"
-        "   - Every section should have realistic, diverse data\n"
-        "   - Every column in list views should be populated (no blank columns)\n"
-        "   - Dropdown/enum fields should use the full range of values\n"
-        "   - All data should look like a real business has been using this app\n"
-        "4. Screenshot each section after your changes to verify.\n\n"
+        "Follow the same AUDIT → GENERATE workflow, but prioritize the review comments.\n\n"
+        "In your AUDIT step:\n"
+        "  - First check every review comment above against the current app state.\n"
+        "  - Then do the full systematic audit (dashboard, all sections, detail tabs, diversity, links).\n"
+        "  - Include both review-comment issues AND any new gaps in your gap report.\n\n"
+        "In your GENERATE step:\n"
+        "  - Fix review comment issues first — these are blocking.\n"
+        "  - Then fix all other gaps from the audit.\n"
+        "  - The reviewer checks EVERYTHING, not just what they listed. Any remaining gap will\n"
+        "    cause another rejection.\n\n"
         "== ORIGINAL DATA GENERATION INSTRUCTIONS ==\n\n"
         f"{base_prompt}"
     )
@@ -493,7 +510,7 @@ def _load_template(name: str) -> dict:
 # Maps (pipeline, mode) → experiment name in Chronos
 _EXPERIMENT_NAMES: dict[tuple[str, str], str] = {
     ("env", "base"): "env-create-launch",
-    ("env", "resume"): "env-fix-launch",
+    ("env", "fix"): "env-fix-launch",
     ("data", "base"): "datagen-launch",
 }
 
@@ -586,10 +603,12 @@ async def _launch_env_world(
     current_config: dict,
     action_inputs: dict | None = None,
 ) -> str | None:
-    """Launch a structured world (fresh or resume) after env reject. Returns session_id or None.
+    """Launch a structured world (fresh, resume, or fix) after env reject. Returns session_id or None.
 
-    action_inputs: Pre-collected inputs from the caller. For fresh: {"github_url": "..."}.
-                   For resume: {"resume_from": "..."}.
+    action_inputs: Pre-collected inputs from the caller.
+        For fresh: {"github_url": "..."}.
+        For resume: {"resume_from": "..."}.
+        For fix: {"resume_from": "..."}.
     """
     datagen_api_key = DEFAULT_DATAGEN_API_KEY
     inputs = action_inputs or {}
@@ -612,16 +631,31 @@ async def _launch_env_world(
             _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
             template["tags"].append(simulator_name)
 
-        else:
-            # Resume
+        elif action == "resume":
+            resume_from = inputs.get("resume_from", "")
+
+            template, version_id = _fetch_experiment_config("env", "base", api_key)
+            config = template["world"]["config"]
+            config["sim_name"] = simulator_name
+            config["github_url"] = current_config.get("source_code_url", "")
+            cred_key, cred_val = _get_claude_credentials()
+            config["plato_api_key"] = datagen_api_key
+            _set_claude_credentials(config, cred_key, cred_val)
+            config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
+            _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+            config["state"]["resume_from"] = resume_from
+            template["tags"].append(simulator_name)
+            template["tags"].append("resume")
+
+        elif action == "fix":
             base_artifact_id = current_config.get("base_artifact_id")
             if not base_artifact_id:
-                console.print("[red]Simulator has no base_artifact_id. Cannot launch resume.[/red]")
+                console.print("[red]Simulator has no base_artifact_id. Cannot launch fix.[/red]")
                 return None
 
             resume_from = inputs.get("resume_from", "")
 
-            template, version_id = _fetch_experiment_config("env", "resume", api_key)
+            template, version_id = _fetch_experiment_config("env", "fix", api_key)
             config = template["world"]["config"]
             config["sim_name"] = simulator_name
             config["artifact_id"] = base_artifact_id
@@ -633,6 +667,10 @@ async def _launch_env_world(
             _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
             config["state"]["resume_from"] = resume_from
             template["tags"].append(simulator_name)
+
+        else:
+            console.print(f"[red]Unknown action: {action}[/red]")
+            return None
 
         console.print("[cyan]Launching world on Chronos...[/cyan]")
         session_id = _launch_on_chronos(template, api_key)
@@ -705,16 +743,12 @@ async def _launch_datagen_world(
         config["mcps"] = mcps
         config["envs"] = [{"artifact_id": artifact_id, "alias": simulator_name}]
 
-        # Update iterations
-        msg = config["initial_messages"][0]
-        msg["iterations"] = iterations
+        # Update generation message iterations (message 0 = generate step)
+        gen_msg = config["initial_messages"][0]
+        gen_msg["iterations"] = iterations
         if review_comments is not None:
-            base_prompt = msg["message"]
-            msg["message"] = _build_datagen_review_prompt(simulator_name, review_comments, base_prompt)
-        prompt = msg["message"]
-        msg["continuation_prompt"] = (
-            f"Continue working on the task below. Review what you've done so far, then pick up where you left off.\n\n---\n\n{prompt}"
-        )
+            base_prompt = gen_msg["message"]
+            gen_msg["message"] = _build_datagen_review_prompt(simulator_name, review_comments, base_prompt)
 
         template["tags"].append(simulator_name)
 
@@ -736,16 +770,33 @@ async def _launch_datagen_world(
 @start_app.command(name="env")
 def start_env(
     simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
-    resume: bool = typer.Option(False, "--resume", "-r", help="Resume from last simcreator session instead of fresh"),
+    resume: bool = typer.Option(False, "--resume", "-r", help="Resume create pipeline from last simcreator session"),
+    resume_from: str = typer.Option("", "--resume-from", help="Resume from a specific session ID"),
+    fix: bool = typer.Option(False, "--fix", "-f", help="Fix rejected sim using latest env review feedback"),
 ):
     """Start simcreator (env pipeline) for one or more simulators.
 
     Moves status to env_in_progress and launches simcreator on Chronos.
 
+    Modes:
+        fresh (default): Full create pipeline from GitHub URL
+        --resume / -r:   Resume create pipeline from last session's state
+        --resume-from ID: Resume from a specific session ID
+        --fix / -f:      Fix pipeline using base artifact + latest env review feedback
+
     Examples:
         plato pm start env aureus memos docmost
         plato pm start env aureus -r    # resume from last session
+        plato pm start env aureus --resume-from abc123  # resume from specific session
+        plato pm start env aureus -f    # fix from artifact with review feedback
     """
+    if resume_from:
+        resume = True
+    if resume and fix:
+        console.print("[red]❌ Cannot use --resume and --fix together. Pick one.[/red]")
+        raise typer.Exit(1)
+
+    mode = "fix" if fix else ("resume" if resume else "fresh")
     api_key = require_api_key()
 
     async def _start():
@@ -767,8 +818,12 @@ def start_env(
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 status = current_config.get("status", "not_started")
 
-                if not github_url:
+                if mode == "fresh" and not github_url:
                     console.print(f"[yellow]⚠️  {sim_name}: no source_code_url, skipping[/yellow]")
+                    continue
+
+                if mode == "fix" and not base_artifact_id:
+                    console.print(f"[yellow]⚠️  {sim_name}: no base_artifact_id, skipping (required for fix)[/yellow]")
                     continue
 
                 entry = {
@@ -777,15 +832,29 @@ def start_env(
                     "status": status,
                     "github_url": github_url,
                     "base_artifact_id": base_artifact_id,
+                    "current_config": current_config,
                 }
 
-                # For resume, find the last simcreator session
-                if resume:
-                    last = _get_last_chronos_session(tags=["simcreator", sim_name], api_key=api_key)
-                    entry["resume_from"] = last["public_id"] if last else ""
-                    if not entry["resume_from"]:
+                # For resume or fix, find the session to resume from
+                if mode in ("resume"):
+                    if resume_from:
+                        entry["resume_from"] = resume_from
+                    else:
+                        last = _get_last_chronos_session(tags=["simcreator", sim_name], api_key=api_key)
+                        entry["resume_from"] = last["public_id"] if last else ""
+                        if not entry["resume_from"]:
+                            console.print(
+                                f"[yellow]⚠️  {sim_name}: no previous simcreator session found, will start fresh[/yellow]"
+                            )
+
+                # For fix, get latest env review feedback
+                if mode == "fix":
+                    reviews = current_config.get("reviews") or []
+                    feedback_comments = _get_latest_rejected_env_review_comments(reviews)
+                    entry["feedback"] = "\n".join(feedback_comments) if feedback_comments else ""
+                    if not entry["feedback"]:
                         console.print(
-                            f"[yellow]⚠️  {sim_name}: no previous simcreator session found, will start fresh[/yellow]"
+                            f"[yellow]⚠️  {sim_name}: no rejected env review comments found, will fix without feedback[/yellow]"
                         )
 
                 to_launch.append(entry)
@@ -796,10 +865,15 @@ def start_env(
             console.print("[yellow]Nothing to launch.[/yellow]")
             return
 
-        mode = "resume" if resume else "fresh"
         console.print(f"\n[bold]Will launch simcreator ({mode}) for {len(to_launch)} simulator(s):[/bold]")
         for s in to_launch:
-            extra = f"resume={s.get('resume_from', '')[:12]}" if resume else s["github_url"]
+            if mode == "resume":
+                extra = f"resume={s.get('resume_from', '')[:12]}"
+            elif mode == "fix":
+                feedback_preview = s.get("feedback", "")[:60]
+                extra = f"artifact={s['base_artifact_id'][:8]}... feedback={'yes' if feedback_preview else 'none'}"
+            else:
+                extra = s["github_url"]
             console.print(f"  {s['name']} ({s['status']}) — {extra}")
 
         if not typer.confirm("\nProceed?", default=True):
@@ -819,18 +893,42 @@ def start_env(
                         x_api_key=api_key,
                     )
 
-                template, version_id = _fetch_experiment_config("env", "base", api_key)
-                config = template["world"]["config"]
-                config["sim_name"] = s["name"]
-                config["github_url"] = s["github_url"]
-                config["plato_api_key"] = datagen_api_key
-                _set_claude_credentials(config, cred_key, cred_val)
-                config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-                _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
-                if resume:
-                    config["state"]["resume_from"] = s.get("resume_from", "")
-                template["tags"].append(s["name"])
+                if mode == "fresh":
+                    template, version_id = _fetch_experiment_config("env", "base", api_key)
+                    config = template["world"]["config"]
+                    config["sim_name"] = s["name"]
+                    config["github_url"] = s["github_url"]
+                    config["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config, cred_key, cred_val)
+                    config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+                    template["tags"].append(s["name"])
 
+                elif mode == "resume":
+                    template, version_id = _fetch_experiment_config("env", "base", api_key)
+                    config = template["world"]["config"]
+                    config["sim_name"] = s["name"]
+                    config["github_url"] = s["github_url"]
+                    config["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config, cred_key, cred_val)
+                    config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+                    config["state"]["resume_from"] = s.get("resume_from", "")
+                    template["tags"].append(s["name"])
+                    template["tags"].append("resume")
+
+                else:  # fix
+                    template, version_id = _fetch_experiment_config("env", "fix", api_key)
+                    config = template["world"]["config"]
+                    config["sim_name"] = s["name"]
+                    config["artifact_id"] = s["base_artifact_id"]
+                    config["feedback"] = s.get("feedback", "")
+                    config["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config, cred_key, cred_val)
+                    config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
+                    _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
+                    config["state"]["resume_from"] = s.get("resume_from", "")
+                    template["tags"].append(s["name"])
                 session_id = _launch_on_chronos(template, api_key)
                 _attach_session_to_experiment(version_id, session_id, api_key)
                 console.print(f"[green]✅ {s['name']}:[/green] {session_id}")
@@ -1099,6 +1197,12 @@ def review_env(
         "--clock",
         help="Set fake browser time (ISO format or offset like '-30d' for 30 days ago).",
     ),
+    next_sim: bool = typer.Option(
+        False,
+        "--next",
+        "-n",
+        help="Auto-pick the last simulator from 'plato pm list env' (pending env review).",
+    ),
 ):
     """Review environment artifact for a simulator.
 
@@ -1113,8 +1217,33 @@ def review_env(
             '-s sim' (uses server's base_artifact_id) or '-s sim:<uuid>'
         -a, --artifact: Explicit artifact UUID to review. Overrides server's value.
         --skip-review: Run automated checks without interactive review session.
+        -n, --next: Auto-pick the last simulator pending env review.
     """
     api_key = require_api_key()
+
+    if next_sim:
+        # Fetch the last simulator from the env_review_requested list
+        async def _pick_next():
+            base_url = _get_base_url()
+            async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                sims = await get_simulators.asyncio(client=client, x_api_key=api_key)
+                matched = []
+                for s in sims:
+                    config = s.get("config", {}) if isinstance(s, dict) else getattr(s, "config", {})
+                    if not isinstance(config, dict):
+                        continue
+                    if config.get("status") == "env_review_requested":
+                        name = (s.get("name") or "") if isinstance(s, dict) else (getattr(s, "name", None) or "")
+                        matched.append(name)
+                if not matched:
+                    console.print("[red]❌ No simulators pending env review[/red]")
+                    raise typer.Exit(1)
+                matched.sort()
+                return matched[-1]
+
+        picked = handle_async(_pick_next())
+        console.print(f"[cyan]▶ Auto-selected:[/cyan] {picked}")
+        simulator = picked
 
     # Parse simulator and artifact from args (artifact not required - falls back to server config)
     simulator_name, artifact_id_input = parse_simulator_artifact(
@@ -1314,11 +1443,11 @@ def review_env(
                         else:
                             mutations = state_data.pop("mutations", [])
                             console.print("\n[bold]State:[/bold]")
-                            console.print(json.dumps(state_data, indent=2, default=str))
+                            safe_print(json.dumps(state_data, indent=2, default=str))
                             if mutations:
                                 has_mutations = True
                                 console.print(f"\n[bold red]Mutations ({len(mutations)}):[/bold red]")
-                                console.print(json.dumps(mutations, indent=2, default=str))
+                                safe_print(json.dumps(mutations, indent=2, default=str))
                             else:
                                 console.print("\n[green]No mutations recorded[/green]")
                     else:
@@ -1390,14 +1519,14 @@ def review_env(
                                     else:
                                         mutations = state_data.pop("mutations", [])
                                         console.print("\n[bold]State:[/bold]")
-                                        console.print(json.dumps(state_data, indent=2, default=str))
+                                        safe_print(json.dumps(state_data, indent=2, default=str))
                                         if mutations:
                                             console.print(f"\n[bold]Mutations ({len(mutations)}):[/bold]")
-                                            console.print(json.dumps(mutations, indent=2, default=str))
+                                            safe_print(json.dumps(mutations, indent=2, default=str))
                                         else:
                                             console.print("\n[yellow]No mutations recorded[/yellow]")
                                 else:
-                                    console.print(json.dumps(state_data, indent=2, default=str))
+                                    safe_print(json.dumps(state_data, indent=2, default=str))
                                 console.print()
                             except Exception as e:
                                 console.print(f"[red]❌ Error getting state: {e}[/red]")
@@ -1488,14 +1617,15 @@ def review_env(
                 console.print("\n[bold]Launch a world?[/bold]")
                 console.print("  1. none")
                 if github_url_from_config:
-                    console.print(f"  2. fresh (simcreator — {github_url_from_config})")
+                    console.print(f"  2. fresh (create from scratch — {github_url_from_config})")
                 else:
-                    console.print("  2. fresh (simcreator — no GitHub URL in config)")
+                    console.print("  2. fresh (create from scratch — no GitHub URL in config)")
+                console.print("  3. resume (continue create pipeline from last session)")
                 if base_artifact:
-                    console.print(f"  3. resume (simcreator_resume — artifact {base_artifact[:8]}...)")
+                    console.print(f"  4. fix (fix pipeline — artifact {base_artifact[:8]}... + review feedback)")
                 else:
-                    console.print("  3. resume (simcreator_resume — [red]no base_artifact_id[/red])")
-                action_choice = typer.prompt("Choice [1/2/3]", default="1").strip()
+                    console.print("  4. fix (fix pipeline — [red]no base_artifact_id[/red])")
+                action_choice = typer.prompt("Choice [1/2/3/4]", default="1").strip()
 
                 if action_choice == "2":
                     reject_action = "fresh"
@@ -1508,6 +1638,23 @@ def review_env(
                         reject_action = None
                 elif action_choice == "3":
                     reject_action = "resume"
+                    # Look up last simcreator session for this sim
+                    last_session = _get_last_chronos_session(tags=["simcreator", simulator_name], api_key=api_key)
+                    default_resume = ""
+                    if last_session:
+                        sid = last_session["public_id"]
+                        status = last_session.get("status", "?")
+                        created = last_session.get("created_at", "")[:16].replace("T", " ")
+                        console.print(f"[cyan]Last simcreator session:[/cyan] {sid} ({status}, {created})")
+                        default_resume = sid
+                    resume_from = typer.prompt(
+                        "Resume session (enter for above, 'none' for fresh)", default=default_resume
+                    ).strip()
+                    if resume_from.lower() == "none":
+                        resume_from = ""
+                    reject_action_inputs["resume_from"] = resume_from
+                elif action_choice == "4":
+                    reject_action = "fix"
                     # Look up last simcreator session for this sim
                     last_session = _get_last_chronos_session(tags=["simcreator", simulator_name], api_key=api_key)
                     default_resume = ""
@@ -1536,7 +1683,7 @@ def review_env(
                 action_desc = reject_action
                 if reject_action == "fresh":
                     action_desc += f" ({reject_action_inputs.get('github_url', '')})"
-                elif reject_action == "resume":
+                elif reject_action in ("resume"):
                     rs = reject_action_inputs.get("resume_from", "")
                     action_desc += f" ({rs[:12]}...)" if rs else " (fresh state)"
                 console.print(f"  World: {action_desc}")
@@ -1721,6 +1868,12 @@ def review_data(
         "-a",
         help="Artifact UUID to review. If not provided, uses server's data_artifact_id.",
     ),
+    next_sim: bool = typer.Option(
+        False,
+        "--next",
+        "-n",
+        help="Auto-pick the last simulator pending data review.",
+    ),
 ):
     """
     Launch browser with Data Review extension for data review.
@@ -1741,8 +1894,33 @@ def review_data(
         plato pm review data -s fathom:e9c25ca5-1234-5678-9abc-def012345678
 
     Requires simulator status: data_review_requested
+        -n, --next: Auto-pick the last simulator pending data review.
     """
     api_key = require_api_key()
+
+    if next_sim:
+
+        async def _pick_next():
+            base_url = _get_base_url()
+            async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                sims = await get_simulators.asyncio(client=client, x_api_key=api_key)
+                matched = []
+                for s in sims:
+                    config = s.get("config", {}) if isinstance(s, dict) else getattr(s, "config", {})
+                    if not isinstance(config, dict):
+                        continue
+                    if config.get("status") == "data_review_requested":
+                        name = (s.get("name") or "") if isinstance(s, dict) else (getattr(s, "name", None) or "")
+                        matched.append(name)
+                if not matched:
+                    console.print("[red]❌ No simulators pending data review[/red]")
+                    raise typer.Exit(1)
+                matched.sort()
+                return matched[-1]
+
+        picked = handle_async(_pick_next())
+        console.print(f"[cyan]▶ Auto-selected:[/cyan] {picked}")
+        simulator = picked
 
     # Parse simulator and artifact from args (artifact not required - falls back to server config)
     simulator_name, artifact_id = parse_simulator_artifact(
@@ -1958,10 +2136,10 @@ def review_data(
                         else:
                             mutations = state_data.pop("mutations", [])
                             console.print("\n[bold]State:[/bold]")
-                            console.print(json.dumps(state_data, indent=2, default=str))
+                            safe_print(json.dumps(state_data, indent=2, default=str))
                             if mutations:
                                 console.print(f"\n[bold red]⚠️  Mutations ({len(mutations)}):[/bold red]")
-                                console.print(json.dumps(mutations, indent=2, default=str))
+                                safe_print(json.dumps(mutations, indent=2, default=str))
                             else:
                                 console.print("\n[green]No mutations recorded[/green]")
                     else:
@@ -2317,7 +2495,7 @@ def submit_data(
 # =============================================================================
 # EXPERIMENT COMMANDS
 # plato pm experiment env base push
-# plato pm experiment env resume push
+# plato pm experiment env fix push
 # plato pm experiment data base push
 # =============================================================================
 
@@ -2327,17 +2505,17 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
     name = _EXPERIMENT_NAMES[(pipeline, mode)]
     template_file = {
         ("env", "base"): "env-create-launch.json",
-        ("env", "resume"): "env-fix-launch.json",
+        ("env", "fix"): "env-fix-launch.json",
         ("data", "base"): "datagen-launch.json",
     }[(pipeline, mode)]
     description = {
         ("env", "base"): "Run via: plato pm start env <sim> (fresh create) or plato pm review env <sim> (action=fresh)",
-        ("env", "resume"): "Run via: plato pm review env <sim> (action=resume, after rejection)",
+        ("env", "fix"): "Run via: plato pm review env <sim> (action=fix, after rejection)",
         ("data", "base"): "Run via: plato pm start data <sim>",
     }[(pipeline, mode)]
     world_key = {
         ("env", "base"): "structured-execution",
-        ("env", "resume"): "structured-execution",
+        ("env", "fix"): "structured-execution",
         ("data", "base"): "interactive",
     }[(pipeline, mode)]
     config_json = _load_template(template_file)
@@ -2389,11 +2567,11 @@ def experiment_env_base_push() -> None:
     _push_experiment("env", "base", api_key)
 
 
-@experiment_env_resume_app.command(name="push")
-def experiment_env_resume_push() -> None:
+@experiment_env_fix_app.command(name="push")
+def experiment_env_fix_push() -> None:
     """Push local env-fix-launch.json to Chronos as a new experiment version."""
     api_key = require_api_key()
-    _push_experiment("env", "resume", api_key)
+    _push_experiment("env", "fix", api_key)
 
 
 @experiment_data_base_app.command(name="push")

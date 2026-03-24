@@ -2,7 +2,7 @@ import contextlib
 import os
 from multiprocessing import get_all_start_methods
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence, Type, Union
+from typing import Any, Iterable, Sequence, Type
 
 import numpy as np
 from PIL import Image
@@ -11,19 +11,19 @@ from tokenizers import Encoding, Tokenizer
 from fastembed.common import OnnxProvider, ImageInput
 from fastembed.common.onnx_model import EmbeddingWorker, OnnxModel, OnnxOutputContext, T
 from fastembed.common.preprocessor_utils import load_tokenizer, load_preprocessor
-from fastembed.common.types import NumpyArray
+from fastembed.common.types import NumpyArray, Device
 from fastembed.common.utils import iter_batch
 from fastembed.image.transform.operators import Compose
 from fastembed.parallel_processor import ParallelWorkerPool
 
 
 class OnnxMultimodalModel(OnnxModel[T]):
-    ONNX_OUTPUT_NAMES: Optional[list[str]] = None
+    ONNX_OUTPUT_NAMES: list[str] | None = None
 
     def __init__(self) -> None:
         super().__init__()
-        self.tokenizer: Optional[Tokenizer] = None
-        self.processor: Optional[Compose] = None
+        self.tokenizer: Tokenizer | None = None
+        self.processor: Compose | None = None
         self.special_token_to_id: dict[str, int] = {}
 
     def _preprocess_onnx_text_input(
@@ -60,11 +60,11 @@ class OnnxMultimodalModel(OnnxModel[T]):
         self,
         model_dir: Path,
         model_file: str,
-        threads: Optional[int],
-        providers: Optional[Sequence[OnnxProvider]] = None,
-        cuda: bool = False,
-        device_id: Optional[int] = None,
-        extra_session_options: Optional[dict[str, Any]] = None,
+        threads: int | None,
+        providers: Sequence[OnnxProvider] | None = None,
+        cuda: bool | Device = Device.AUTO,
+        device_id: int | None = None,
+        extra_session_options: dict[str, Any] | None = None,
     ) -> None:
         super()._load_onnx_model(
             model_dir=model_dir,
@@ -116,15 +116,15 @@ class OnnxMultimodalModel(OnnxModel[T]):
         self,
         model_name: str,
         cache_dir: str,
-        documents: Union[str, Iterable[str]],
+        documents: str | Iterable[str],
         batch_size: int = 256,
-        parallel: Optional[int] = None,
-        providers: Optional[Sequence[OnnxProvider]] = None,
-        cuda: bool = False,
-        device_ids: Optional[list[int]] = None,
+        parallel: int | None = None,
+        providers: Sequence[OnnxProvider] | None = None,
+        cuda: bool | Device = Device.AUTO,
+        device_ids: list[int] | None = None,
         local_files_only: bool = False,
-        specific_model_path: Optional[str] = None,
-        extra_session_options: Optional[dict[str, Any]] = None,
+        specific_model_path: str | None = None,
+        extra_session_options: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Iterable[T]:
         is_small = False
@@ -170,9 +170,11 @@ class OnnxMultimodalModel(OnnxModel[T]):
                 yield from self._post_process_onnx_text_output(batch)  # type: ignore
 
     def onnx_embed_image(self, images: list[ImageInput], **kwargs: Any) -> OnnxOutputContext:
-        with contextlib.ExitStack():
+        with contextlib.ExitStack() as stack:
             image_files = [
-                Image.open(image) if not isinstance(image, Image.Image) else image
+                stack.enter_context(Image.open(image))
+                if not isinstance(image, Image.Image)
+                else image
                 for image in images
             ]
             assert self.processor is not None, "Processor is not initialized"
@@ -187,15 +189,15 @@ class OnnxMultimodalModel(OnnxModel[T]):
         self,
         model_name: str,
         cache_dir: str,
-        images: Union[Iterable[ImageInput], ImageInput],
+        images: Iterable[ImageInput] | ImageInput,
         batch_size: int = 256,
-        parallel: Optional[int] = None,
-        providers: Optional[Sequence[OnnxProvider]] = None,
-        cuda: bool = False,
-        device_ids: Optional[list[int]] = None,
+        parallel: int | None = None,
+        providers: Sequence[OnnxProvider] | None = None,
+        cuda: bool | Device = Device.AUTO,
+        device_ids: list[int] | None = None,
         local_files_only: bool = False,
-        specific_model_path: Optional[str] = None,
-        extra_session_options: Optional[dict[str, Any]] = None,
+        specific_model_path: str | None = None,
+        extra_session_options: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Iterable[T]:
         is_small = False

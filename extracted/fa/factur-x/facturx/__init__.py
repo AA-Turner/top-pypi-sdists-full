@@ -1,4 +1,4 @@
-__version__ = "4.1"
+__version__ = "4.2"
 from .facturx import generate_from_file, \
     generate_from_binary, \
     get_xml_namespaces, \

@@ -42,6 +42,8 @@ class LangGraphExecutorStub:
     """Apply binary operator aggregate reduce operation"""
     StateUpdate: _grpc.UnaryUnaryMultiCallable[_executor_api_pb2.StateUpdateRequest, _engine_common_pb2.TaskResult]
     """State update"""
+    CallLoopback: _grpc.UnaryUnaryMultiCallable[_executor_api_pb2.CallLoopbackRequest, _executor_api_pb2.CallLoopbackResponse]
+    """Call a relative URL via the executor's loopback ASGI transport"""
 
 @_typing.type_check_only
 class LangGraphExecutorAsyncStub(LangGraphExecutorStub):
@@ -56,6 +58,8 @@ class LangGraphExecutorAsyncStub(LangGraphExecutorStub):
     """Apply binary operator aggregate reduce operation"""
     StateUpdate: _aio.UnaryUnaryMultiCallable[_executor_api_pb2.StateUpdateRequest, _engine_common_pb2.TaskResult]  # type: ignore[assignment]
     """State update"""
+    CallLoopback: _aio.UnaryUnaryMultiCallable[_executor_api_pb2.CallLoopbackRequest, _executor_api_pb2.CallLoopbackResponse]  # type: ignore[assignment]
+    """Call a relative URL via the executor's loopback ASGI transport"""
 
 class LangGraphExecutorServicer(metaclass=_abc_1.ABCMeta):
     """Executor service for execution to call"""
@@ -91,5 +95,13 @@ class LangGraphExecutorServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_engine_common_pb2.TaskResult, _abc.Awaitable[_engine_common_pb2.TaskResult]]:
         """State update"""
+
+    @_abc_1.abstractmethod
+    def CallLoopback(
+        self,
+        request: _executor_api_pb2.CallLoopbackRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_executor_api_pb2.CallLoopbackResponse, _abc.Awaitable[_executor_api_pb2.CallLoopbackResponse]]:
+        """Call a relative URL via the executor's loopback ASGI transport"""
 
 def add_LangGraphExecutorServicer_to_server(servicer: LangGraphExecutorServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

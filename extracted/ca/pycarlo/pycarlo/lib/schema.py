@@ -1462,13 +1462,14 @@ class ConsolidatedMonitorStatusType(pycarlo.lib.types.Enum):
 class ContextUsage(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
+    * `CUSTOM_FIELDS`None
     * `PROMPT_AND_RESPONSE`None
     * `PROMPT_ONLY`None
     * `RESPONSE_ONLY`None
     """
 
     __schema__ = schema
-    __choices__ = ("PROMPT_AND_RESPONSE", "PROMPT_ONLY", "RESPONSE_ONLY")
+    __choices__ = ("CUSTOM_FIELDS", "PROMPT_AND_RESPONSE", "PROMPT_ONLY", "RESPONSE_ONLY")
 
 
 class ConversationFilterFieldName(pycarlo.lib.types.Enum):
@@ -3225,6 +3226,51 @@ class FieldValueFilterOperator(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("EXCLUDE", "INCLUDE")
+
+
+class FigRiskLevel(pycarlo.lib.types.Enum):
+    """Risk assessment level.
+
+    Enumeration Choices:
+
+    * `CRITICAL`None
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
+
+
+class FigStatus(pycarlo.lib.types.Enum):
+    """Execution status of a fig.
+
+    Enumeration Choices:
+
+    * `CANCELLED`None
+    * `FAILED`None
+    * `RUNNING`None
+    * `SUCCESS`None
+    * `TIMEOUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CANCELLED", "FAILED", "RUNNING", "SUCCESS", "TIMEOUT")
+
+
+class FigTriggerType(pycarlo.lib.types.Enum):
+    """How the fig was triggered.
+
+    Enumeration Choices:
+
+    * `CHAT`None
+    * `TASK`None
+    * `WORKFLOW`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CHAT", "TASK", "WORKFLOW")
 
 
 class FilterSpanComparisonOperator(pycarlo.lib.types.Enum):
@@ -5502,11 +5548,12 @@ class SloStatus(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
     * `BREACHED`None
+    * `MET`None
     * `NOT_BREACHED`None
     """
 
     __schema__ = schema
-    __choices__ = ("BREACHED", "NOT_BREACHED")
+    __choices__ = ("BREACHED", "MET", "NOT_BREACHED")
 
 
 class SloType(pycarlo.lib.types.Enum):
@@ -11996,6 +12043,7 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
         "consumer_secret",
         "connection_settings",
         "domain",
+        "dataspaces",
     )
     db_name = sgqlc.types.Field(String, graphql_name="dbName")
     """Name of database to add connection for"""
@@ -12031,6 +12079,11 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
 
     domain = sgqlc.types.Field(String, graphql_name="domain")
     """Domain for the connection"""
+
+    dataspaces = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="dataspaces")
+    """List of data space names to collect for Salesforce Data Cloud
+    connections.
+    """
 
 
 class TransactionalDbConnectionSettings(sgqlc.types.Input):
@@ -12069,6 +12122,7 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
         "consumer_key",
         "consumer_secret",
         "domain",
+        "dataspaces",
         "connection_settings",
         "ssl_options",
     )
@@ -12101,6 +12155,11 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
 
     domain = sgqlc.types.Field(String, graphql_name="domain")
     """Domain to use for the connection"""
+
+    dataspaces = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="dataspaces")
+    """List of data space names to collect for Salesforce Data Cloud
+    connections.
+    """
 
     connection_settings = sgqlc.types.Field(
         "TransactionalDbUpdateConnectionSettings", graphql_name="connectionSettings"
@@ -18157,6 +18216,7 @@ class CategorizedSearchResult(sgqlc.types.Type):
         "etl_type",
         "supports_data_explorer",
         "dbt_project_name",
+        "job_name",
         "category",
         "is_dynamic_schedule_supported",
     )
@@ -18250,6 +18310,9 @@ class CategorizedSearchResult(sgqlc.types.Type):
 
     dbt_project_name = sgqlc.types.Field(String, graphql_name="dbtProjectName")
     """Name of the dbt project for dbt-job assets"""
+
+    job_name = sgqlc.types.Field(String, graphql_name="jobName")
+    """Name of the parent job for task assets"""
 
     category = sgqlc.types.Field(SearchCategoryEnum, graphql_name="category")
     """Name of the category for the table like: RESOLVED TABLES, ALL
@@ -19736,6 +19799,19 @@ class CreateDraftMonitorFromYamlOutput(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null("MonitorError")), graphql_name="errors"
     )
     """List of errors if creation failed"""
+
+
+class CreateFig(sgqlc.types.Type):
+    """Create a fig execution record and auto-analyze it.  Unlike agent-
+    hub's POST /api/fig, this does not support client-provided IDs or
+    duplicate detection. Every call creates a new fig with an auto-
+    generated UUID.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("fig",)
+    fig = sgqlc.types.Field(sgqlc.types.non_null("FigRecord"), graphql_name="fig")
+    """The created fig record"""
 
 
 class CreateIntegrationKey(sgqlc.types.Type):
@@ -26105,6 +26181,511 @@ class FieldValueCorrelation(sgqlc.types.Type):
     anom_rate = sgqlc.types.Field(Float, graphql_name="anomRate")
 
 
+class FigAnomaly(sgqlc.types.Type):
+    """A detected deviation from baseline behavior."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "fig_id",
+        "anomaly_type",
+        "description",
+        "severity",
+        "baseline_value",
+        "actual_value",
+        "detected_at",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Anomaly identifier"""
+
+    fig_id = sgqlc.types.Field(UUID, graphql_name="figId")
+    """Associated fig identifier"""
+
+    anomaly_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="anomalyType")
+    """Type of anomaly detected"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Human-readable description"""
+
+    severity = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="severity")
+    """low, medium, or high"""
+
+    baseline_value = sgqlc.types.Field(Float, graphql_name="baselineValue")
+    """Expected baseline value"""
+
+    actual_value = sgqlc.types.Field(Float, graphql_name="actualValue")
+    """Observed actual value"""
+
+    detected_at = sgqlc.types.Field(DateTime, graphql_name="detectedAt")
+    """When the anomaly was detected"""
+
+
+class FigCompareResult(sgqlc.types.Type):
+    """Side-by-side comparison of two fig executions."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "fig_a",
+        "fig_b",
+        "overview_diff",
+        "score_diff",
+        "stage_diff",
+        "pattern_diff",
+        "token_diff",
+    )
+    fig_a = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="figA")
+    """Summary of fig A"""
+
+    fig_b = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="figB")
+    """Summary of fig B"""
+
+    overview_diff = sgqlc.types.Field(
+        sgqlc.types.non_null(GenericScalar), graphql_name="overviewDiff"
+    )
+    """Field-by-field diff with deltas"""
+
+    score_diff = sgqlc.types.Field(GenericScalar, graphql_name="scoreDiff")
+    """Quality score diff per dimension"""
+
+    stage_diff = sgqlc.types.Field(GenericScalar, graphql_name="stageDiff")
+    """Execution stage sequence diff"""
+
+    pattern_diff = sgqlc.types.Field(GenericScalar, graphql_name="patternDiff")
+    """Detected pattern diff"""
+
+    token_diff = sgqlc.types.Field(GenericScalar, graphql_name="tokenDiff")
+    """Token usage diff"""
+
+
+class FigCostData(sgqlc.types.Type):
+    """Token cost breakdown."""
+
+    __schema__ = schema
+    __field_names__ = ("total_cost_usd", "count", "avg_cost_per_fig", "by_agent")
+    total_cost_usd = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="totalCostUsd")
+    """Total estimated cost in USD"""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of figs"""
+
+    avg_cost_per_fig = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="avgCostPerFig")
+    """Average cost per fig"""
+
+    by_agent = sgqlc.types.Field(GenericScalar, graphql_name="byAgent")
+    """Cost breakdown per agent: {agent_id: {count, cost_usd,
+    duration_s}}
+    """
+
+
+class FigDriftData(sgqlc.types.Type):
+    """Behavioral drift detection results."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "insufficient_data",
+        "count",
+        "needed",
+        "recent",
+        "historical",
+        "drift_pct",
+        "window",
+    )
+    insufficient_data = sgqlc.types.Field(Boolean, graphql_name="insufficientData")
+    """True if not enough data for drift analysis"""
+
+    count = sgqlc.types.Field(Int, graphql_name="count")
+    """Number of figs available"""
+
+    needed = sgqlc.types.Field(Int, graphql_name="needed")
+    """Minimum figs needed for analysis"""
+
+    recent = sgqlc.types.Field(GenericScalar, graphql_name="recent")
+    """Recent period metrics: {duration_s, tool_calls, success_rate}"""
+
+    historical = sgqlc.types.Field(GenericScalar, graphql_name="historical")
+    """Historical period metrics"""
+
+    drift_pct = sgqlc.types.Field(GenericScalar, graphql_name="driftPct")
+    """Percentage change per metric between periods"""
+
+    window = sgqlc.types.Field(Int, graphql_name="window")
+    """Window size in days"""
+
+
+class FigFailureCluster(sgqlc.types.Type):
+    """A group of failures sharing a common root cause."""
+
+    __schema__ = schema
+    __field_names__ = ("cluster", "count", "agents", "fig_ids")
+    cluster = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cluster")
+    """Failure cluster identifier"""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of failures in cluster"""
+
+    agents = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="agents",
+    )
+    """Agents affected"""
+
+    fig_ids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="figIds",
+    )
+    """Fig UUIDs in this cluster"""
+
+
+class FigHealthOutput(sgqlc.types.Type):
+    """Health score for an agent or account."""
+
+    __schema__ = schema
+    __field_names__ = ("score", "count", "components")
+    score = sgqlc.types.Field(Float, graphql_name="score")
+    """Health score 0-100"""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of figs in window"""
+
+    components = sgqlc.types.Field(GenericScalar, graphql_name="components")
+    """Score components: success_rate, avg_process_score, anomaly_rate"""
+
+
+class FigHealthTrendPoint(sgqlc.types.Type):
+    """Health score for a single time period."""
+
+    __schema__ = schema
+    __field_names__ = ("period_start", "period_end", "score", "count", "success_rate")
+    period_start = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="periodStart")
+    """Period start ISO timestamp"""
+
+    period_end = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="periodEnd")
+    """Period end ISO timestamp"""
+
+    score = sgqlc.types.Field(Float, graphql_name="score")
+    """Health score for this period"""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Figs in this period"""
+
+    success_rate = sgqlc.types.Field(Float, graphql_name="successRate")
+    """Success rate in this period"""
+
+
+class FigInsight(sgqlc.types.Type):
+    """Human-readable insight synthesized from detected patterns."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "text",
+        "severity",
+        "pattern_name",
+        "agent_id",
+        "success_rate",
+        "baseline_rate",
+        "frequency",
+        "impact",
+        "confidence",
+        "recommendation",
+    )
+    text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="text")
+    """Insight description"""
+
+    severity = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="severity")
+    """positive, negative, or neutral"""
+
+    pattern_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="patternName")
+    """Source pattern"""
+
+    agent_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentId")
+    """Agent this applies to"""
+
+    success_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="successRate")
+    """Success rate when pattern is present"""
+
+    baseline_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="baselineRate")
+    """Account-wide baseline success rate"""
+
+    frequency = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="frequency")
+    """How often pattern occurs"""
+
+    impact = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="impact")
+    """Delta from baseline success rate"""
+
+    confidence = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="confidence")
+    """Confidence 0-1"""
+
+    recommendation = sgqlc.types.Field(String, graphql_name="recommendation")
+    """Actionable recommendation"""
+
+
+class FigPracticalMetric(sgqlc.types.Type):
+    """A single practical metric."""
+
+    __schema__ = schema
+    __field_names__ = ("name", "label", "value", "detail", "description")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Metric identifier"""
+
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
+    """Display label"""
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """Formatted value"""
+
+    detail = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="detail")
+    """Additional detail/tooltip"""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """What this metric measures"""
+
+
+class FigPracticalMetricsData(sgqlc.types.Type):
+    """Aggregate operational metrics over a time window."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "count",
+        "days",
+        "metrics",
+        "by_agent",
+        "tool_type_breakdown",
+        "total_prompt_tokens",
+        "total_completion_tokens",
+        "total_tokens",
+        "models_breakdown",
+    )
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of figs in window"""
+
+    days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="days")
+    """Window size in days"""
+
+    metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FigPracticalMetric))),
+        graphql_name="metrics",
+    )
+    """Summary metrics"""
+
+    by_agent = sgqlc.types.Field(GenericScalar, graphql_name="byAgent")
+    """Per-agent breakdown: {agent_id: {count, cost_usd, duration_s,
+    tool_calls}}
+    """
+
+    tool_type_breakdown = sgqlc.types.Field(GenericScalar, graphql_name="toolTypeBreakdown")
+    """Tool usage counts by type"""
+
+    total_prompt_tokens = sgqlc.types.Field(Int, graphql_name="totalPromptTokens")
+    """Total prompt tokens"""
+
+    total_completion_tokens = sgqlc.types.Field(Int, graphql_name="totalCompletionTokens")
+    """Total completion tokens"""
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    """Total tokens"""
+
+    models_breakdown = sgqlc.types.Field(GenericScalar, graphql_name="modelsBreakdown")
+    """Model usage counts"""
+
+
+class FigProcessQualityData(sgqlc.types.Type):
+    """Aggregate process quality scores."""
+
+    __schema__ = schema
+    __field_names__ = ("count", "overall", "dimensions")
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of scored figs"""
+
+    overall = sgqlc.types.Field(Float, graphql_name="overall")
+    """Overall average quality score"""
+
+    dimensions = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("FigProcessQualityDimension"))
+        ),
+        graphql_name="dimensions",
+    )
+    """Per-dimension breakdown"""
+
+
+class FigProcessQualityDimension(sgqlc.types.Type):
+    """A single scoring dimension within process quality."""
+
+    __schema__ = schema
+    __field_names__ = ("name", "weight", "avg_score", "description", "count")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Dimension name"""
+
+    weight = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="weight")
+    """Weight in overall score"""
+
+    avg_score = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="avgScore")
+    """Average score across figs"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """What this dimension measures"""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of figs with this dimension scored"""
+
+
+class FigRecord(sgqlc.types.Type):
+    """A single agent execution record."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "agent_id",
+        "agent_name",
+        "trigger_type",
+        "task_id",
+        "plan_id",
+        "thread_id",
+        "langgraph_run_id",
+        "model_id",
+        "project",
+        "status",
+        "started_at",
+        "completed_at",
+        "duration_s",
+        "steps",
+        "tool_calls_total",
+        "files_touched",
+        "output_summary",
+        "pr_url",
+        "risk_level",
+        "risk_factors",
+        "review_verdict",
+        "review_score",
+        "review_findings",
+        "attempt",
+        "parent_fig_id",
+        "tags",
+        "meta",
+        "total_tokens",
+        "total_prompt_tokens",
+        "total_completion_tokens",
+        "tool_types_summary",
+        "models_used",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Unique fig identifier"""
+
+    agent_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentId")
+    """Agent identifier"""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Human-readable agent name"""
+
+    trigger_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="triggerType")
+    """How the fig was triggered (task, workflow, chat)"""
+
+    task_id = sgqlc.types.Field(Int, graphql_name="taskId")
+    """Associated task ID"""
+
+    plan_id = sgqlc.types.Field(Int, graphql_name="planId")
+    """Associated plan ID"""
+
+    thread_id = sgqlc.types.Field(String, graphql_name="threadId")
+    """Conversation thread ID"""
+
+    langgraph_run_id = sgqlc.types.Field(String, graphql_name="langgraphRunId")
+    """LangGraph run ID"""
+
+    model_id = sgqlc.types.Field(String, graphql_name="modelId")
+    """LLM model identifier"""
+
+    project = sgqlc.types.Field(String, graphql_name="project")
+    """Project scope"""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="status")
+    """Execution status (running, success, failed, timeout, cancelled)"""
+
+    started_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startedAt")
+    """When execution started"""
+
+    completed_at = sgqlc.types.Field(DateTime, graphql_name="completedAt")
+    """When execution completed"""
+
+    duration_s = sgqlc.types.Field(Float, graphql_name="durationS")
+    """Wall-clock duration in seconds"""
+
+    steps = sgqlc.types.Field(GenericScalar, graphql_name="steps")
+    """Ordered list of execution steps"""
+
+    tool_calls_total = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="toolCallsTotal")
+    """Total tool invocations"""
+
+    files_touched = sgqlc.types.Field(GenericScalar, graphql_name="filesTouched")
+    """List of files modified"""
+
+    output_summary = sgqlc.types.Field(String, graphql_name="outputSummary")
+    """Summary of execution output"""
+
+    pr_url = sgqlc.types.Field(String, graphql_name="prUrl")
+    """Pull request URL if one was created"""
+
+    risk_level = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="riskLevel")
+    """Risk assessment (low, medium, high, critical)"""
+
+    risk_factors = sgqlc.types.Field(GenericScalar, graphql_name="riskFactors")
+    """List of identified risk factors"""
+
+    review_verdict = sgqlc.types.Field(String, graphql_name="reviewVerdict")
+    """Review outcome (approved, changes_requested, rejected)"""
+
+    review_score = sgqlc.types.Field(Float, graphql_name="reviewScore")
+    """Numeric review score"""
+
+    review_findings = sgqlc.types.Field(GenericScalar, graphql_name="reviewFindings")
+    """List of review findings"""
+
+    attempt = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="attempt")
+    """Retry attempt number"""
+
+    parent_fig_id = sgqlc.types.Field(String, graphql_name="parentFigId")
+    """Parent fig UUID for retry chains"""
+
+    tags = sgqlc.types.Field(GenericScalar, graphql_name="tags")
+    """User-defined tags"""
+
+    meta = sgqlc.types.Field(GenericScalar, graphql_name="meta")
+    """Arbitrary metadata"""
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    """Total tokens consumed"""
+
+    total_prompt_tokens = sgqlc.types.Field(Int, graphql_name="totalPromptTokens")
+    """Prompt tokens consumed"""
+
+    total_completion_tokens = sgqlc.types.Field(Int, graphql_name="totalCompletionTokens")
+    """Completion tokens consumed"""
+
+    tool_types_summary = sgqlc.types.Field(GenericScalar, graphql_name="toolTypesSummary")
+    """Tool type usage counts"""
+
+    models_used = sgqlc.types.Field(GenericScalar, graphql_name="modelsUsed")
+    """LLM models used during execution"""
+
+
+class FigRetryChain(sgqlc.types.Type):
+    """Retry attempts summary for a task."""
+
+    __schema__ = schema
+    __field_names__ = ("task_id", "total_attempts", "final_status", "total_duration_s")
+    task_id = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="taskId")
+    """Task identifier"""
+
+    total_attempts = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalAttempts")
+    """Number of retry attempts"""
+
+    final_status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="finalStatus")
+    """Status of the final attempt"""
+
+    total_duration_s = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="totalDurationS")
+    """Total duration across all attempts"""
+
+
 class FilterPredicate(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("name", "negated")
@@ -26442,6 +27023,25 @@ class GenerateReport(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("report_job_id",)
     report_job_id = sgqlc.types.Field(UUID, graphql_name="reportJobId")
+
+
+class GenerateSqlEvalOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("sql_expression", "alias", "description", "returns", "customize")
+    sql_expression = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sqlExpression")
+    """The SQL expression for evaluation"""
+
+    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+    """A short snake_case score field name"""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """What the SQL expression does"""
+
+    returns = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="returns")
+    """What the expression returns and when"""
+
+    customize = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="customize")
+    """How to modify the expression for different use cases"""
 
 
 class GenerateWebhookUrl(sgqlc.types.Type):
@@ -30716,6 +31316,7 @@ class Mutation(sgqlc.types.Type):
         "test_customer_mcp_server_connection",
         "get_customer_mcp_server_authorization_url",
         "revoke_customer_mcp_server_authorization",
+        "create_fig",
         "create_or_update_custom_dashboard",
         "create_or_update_custom_dashboard_from_json",
         "delete_custom_dashboard",
@@ -31581,6 +32182,125 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `mcp_server_uuid` (`UUID!`): UUID of the MCP server
+    """
+
+    create_fig = sgqlc.types.Field(
+        CreateFig,
+        graphql_name="createFig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentId", default=None
+                    ),
+                ),
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
+                ("attempt", sgqlc.types.Arg(Int, graphql_name="attempt", default=1)),
+                (
+                    "files_touched",
+                    sgqlc.types.Arg(GenericScalar, graphql_name="filesTouched", default=None),
+                ),
+                (
+                    "langgraph_run_id",
+                    sgqlc.types.Arg(String, graphql_name="langgraphRunId", default=None),
+                ),
+                ("meta", sgqlc.types.Arg(GenericScalar, graphql_name="meta", default=None)),
+                ("model_id", sgqlc.types.Arg(String, graphql_name="modelId", default=None)),
+                (
+                    "models_used",
+                    sgqlc.types.Arg(GenericScalar, graphql_name="modelsUsed", default=None),
+                ),
+                (
+                    "output_summary",
+                    sgqlc.types.Arg(String, graphql_name="outputSummary", default=None),
+                ),
+                (
+                    "parent_fig_id",
+                    sgqlc.types.Arg(String, graphql_name="parentFigId", default=None),
+                ),
+                ("plan_id", sgqlc.types.Arg(Int, graphql_name="planId", default=None)),
+                ("pr_url", sgqlc.types.Arg(String, graphql_name="prUrl", default=None)),
+                ("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),
+                (
+                    "risk_factors",
+                    sgqlc.types.Arg(GenericScalar, graphql_name="riskFactors", default=None),
+                ),
+                (
+                    "risk_level",
+                    sgqlc.types.Arg(FigRiskLevel, graphql_name="riskLevel", default="low"),
+                ),
+                ("started_at", sgqlc.types.Arg(DateTime, graphql_name="startedAt", default=None)),
+                ("status", sgqlc.types.Arg(FigStatus, graphql_name="status", default="running")),
+                ("steps", sgqlc.types.Arg(GenericScalar, graphql_name="steps", default=None)),
+                ("tags", sgqlc.types.Arg(GenericScalar, graphql_name="tags", default=None)),
+                ("task_id", sgqlc.types.Arg(Int, graphql_name="taskId", default=None)),
+                ("thread_id", sgqlc.types.Arg(String, graphql_name="threadId", default=None)),
+                (
+                    "tool_calls_total",
+                    sgqlc.types.Arg(Int, graphql_name="toolCallsTotal", default=0),
+                ),
+                (
+                    "tool_types_summary",
+                    sgqlc.types.Arg(GenericScalar, graphql_name="toolTypesSummary", default=None),
+                ),
+                (
+                    "total_completion_tokens",
+                    sgqlc.types.Arg(Int, graphql_name="totalCompletionTokens", default=0),
+                ),
+                (
+                    "total_prompt_tokens",
+                    sgqlc.types.Arg(Int, graphql_name="totalPromptTokens", default=0),
+                ),
+                ("total_tokens", sgqlc.types.Arg(Int, graphql_name="totalTokens", default=0)),
+                (
+                    "trigger_type",
+                    sgqlc.types.Arg(FigTriggerType, graphql_name="triggerType", default="task"),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create an agent execution record and auto-analyze
+    it.
+
+    Arguments:
+
+    * `agent_id` (`String!`): Agent identifier
+    * `agent_name` (`String`): Human-readable agent name
+    * `attempt` (`Int`): Retry attempt number (default: `1`)
+    * `files_touched` (`GenericScalar`): List of files modified
+    * `langgraph_run_id` (`String`): LangGraph run ID
+    * `meta` (`GenericScalar`): Arbitrary metadata
+    * `model_id` (`String`): LLM model identifier
+    * `models_used` (`GenericScalar`): LLM models used during
+      execution
+    * `output_summary` (`String`): Summary of execution output
+    * `parent_fig_id` (`String`): Parent fig UUID for retry chains
+    * `plan_id` (`Int`): Associated plan ID
+    * `pr_url` (`String`): Pull request URL if one was created
+    * `project` (`String`): Project scope
+    * `risk_factors` (`GenericScalar`): List of identified risk
+      factors
+    * `risk_level` (`FigRiskLevel`): Risk assessment level (default:
+      `"low"`)
+    * `started_at` (`DateTime`): When execution started (defaults to
+      now)
+    * `status` (`FigStatus`): Initial execution status (default:
+      `"running"`)
+    * `steps` (`GenericScalar`): Ordered list of execution steps
+    * `tags` (`GenericScalar`): User-defined tags
+    * `task_id` (`Int`): Associated task ID
+    * `thread_id` (`String`): Conversation thread ID
+    * `tool_calls_total` (`Int`): Total tool invocations (default:
+      `0`)
+    * `tool_types_summary` (`GenericScalar`): Tool type usage counts
+    * `total_completion_tokens` (`Int`): Completion tokens consumed
+      (default: `0`)
+    * `total_prompt_tokens` (`Int`): Prompt tokens consumed (default:
+      `0`)
+    * `total_tokens` (`Int`): Total tokens consumed (default: `0`)
+    * `trigger_type` (`FigTriggerType`): How the fig was triggered
+      (default: `"task"`)
     """
 
     create_or_update_custom_dashboard = sgqlc.types.Field(
@@ -45782,9 +46502,10 @@ class Mutation(sgqlc.types.Type):
       role without saving. Returns the full role output including
       resolved permissions and definition YAML. (default: `false`)
     * `label` (`String!`): UI/user-friendly display name for the role.
-    * `name` (`String!`): Role name in [company-prefix]/[role-name]
-      format.  '{MANAGED_ROLE_PREFIX}/' prefix is reserved for Monte
-      Carlo managed roles.
+    * `name` (`String!`): Role name — a simple identifier (e.g. my-
+      role, my_role) or optionally namespaced (e.g. acme/my-role,
+      my_ns/viewer). The '{MANAGED_ROLE_PREFIX}/' prefix is reserved
+      for Monte Carlo managed roles.
     * `policy_statements` (`[AuthorizationPolicyStatementInput!]!`):
       Authorization policy statements (path: effect) defined by this
       role.
@@ -53245,6 +53966,18 @@ class Query(sgqlc.types.Type):
         "get_my_dashboard_schedules",
         "get_customer_mcp_servers",
         "discover_customer_mcp_server_auth",
+        "get_figs",
+        "get_fig_health",
+        "get_fig_health_trend",
+        "get_fig_insights",
+        "get_fig_anomalies",
+        "get_fig_costs",
+        "get_fig_drift",
+        "get_fig_failure_clusters",
+        "get_fig_retry_chains",
+        "get_fig_process_quality",
+        "get_fig_practical_metrics",
+        "compare_figs",
         "list_custom_dashboards",
         "get_custom_dashboard",
         "get_custom_dashboard_as_json",
@@ -53774,6 +54507,7 @@ class Query(sgqlc.types.Type):
         "fix_sql_query",
         "create_sql_query",
         "generate_eval_prompt",
+        "generate_sql_eval",
         "get_agent_operation_logs",
         "get_gcp_agent_logs",
         "get_azure_agent_logs",
@@ -53839,6 +54573,195 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcp_server_url` (`String!`): MCP server URL to probe
+    """
+
+    get_figs = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigRecord)),
+        graphql_name="getFigs",
+        args=sgqlc.types.ArgDict(
+            (
+                ("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),
+                ("status", sgqlc.types.Arg(String, graphql_name="status", default=None)),
+                ("risk_level", sgqlc.types.Arg(String, graphql_name="riskLevel", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=50)),
+            )
+        ),
+    )
+    """(experimental) List fig execution records with optional filters
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    * `status` (`String`): Filter by status (running, success, failed,
+      timeout, cancelled)
+    * `risk_level` (`String`): Filter by risk level (low, medium,
+      high, critical)
+    * `limit` (`Int`): Max results to return (default: `50`)
+    """
+
+    get_fig_health = sgqlc.types.Field(
+        FigHealthOutput,
+        graphql_name="getFigHealth",
+        args=sgqlc.types.ArgDict(
+            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
+        ),
+    )
+    """(experimental) Health score (0-100) for an agent or account
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    """
+
+    get_fig_health_trend = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigHealthTrendPoint)),
+        graphql_name="getFigHealthTrend",
+        args=sgqlc.types.ArgDict(
+            (
+                ("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),
+                ("days", sgqlc.types.Arg(Int, graphql_name="days", default=30)),
+            )
+        ),
+    )
+    """(experimental) Health score over time, bucketed into daily periods
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    * `days` (`Int`): Number of days to look back (default: `30`)
+    """
+
+    get_fig_insights = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigInsight)),
+        graphql_name="getFigInsights",
+        args=sgqlc.types.ArgDict(
+            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
+        ),
+    )
+    """(experimental) Human-readable insights synthesized from detected
+    patterns
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    """
+
+    get_fig_anomalies = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigAnomaly)),
+        graphql_name="getFigAnomalies",
+        args=sgqlc.types.ArgDict(
+            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
+        ),
+    )
+    """(experimental) List detected behavioral anomalies
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    """
+
+    get_fig_costs = sgqlc.types.Field(
+        FigCostData,
+        graphql_name="getFigCosts",
+        args=sgqlc.types.ArgDict(
+            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
+        ),
+    )
+    """(experimental) Token cost breakdown by agent
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    """
+
+    get_fig_drift = sgqlc.types.Field(FigDriftData, graphql_name="getFigDrift")
+    """(experimental) Behavioral drift detection comparing recent vs
+    historical figs
+    """
+
+    get_fig_failure_clusters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigFailureCluster)),
+        graphql_name="getFigFailureClusters",
+        args=sgqlc.types.ArgDict(
+            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
+        ),
+    )
+    """(experimental) Failed figs grouped by failure reason
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    """
+
+    get_fig_retry_chains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FigRetryChain)),
+        graphql_name="getFigRetryChains",
+        args=sgqlc.types.ArgDict(
+            (("task_id", sgqlc.types.Arg(Int, graphql_name="taskId", default=None)),)
+        ),
+    )
+    """(experimental) Retry attempts grouped by task
+
+    Arguments:
+
+    * `task_id` (`Int`): Filter by task ID
+    """
+
+    get_fig_process_quality = sgqlc.types.Field(
+        FigProcessQualityData,
+        graphql_name="getFigProcessQuality",
+        args=sgqlc.types.ArgDict(
+            (("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),)
+        ),
+    )
+    """(experimental) Aggregate process quality scores broken down by
+    dimension
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    """
+
+    get_fig_practical_metrics = sgqlc.types.Field(
+        FigPracticalMetricsData,
+        graphql_name="getFigPracticalMetrics",
+        args=sgqlc.types.ArgDict(
+            (
+                ("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),
+                ("days", sgqlc.types.Arg(Int, graphql_name="days", default=30)),
+            )
+        ),
+    )
+    """(experimental) Aggregate operational metrics over a time window
+
+    Arguments:
+
+    * `agent_id` (`String`): Filter by agent ID
+    * `days` (`Int`): Number of days to look back (default: `30`)
+    """
+
+    compare_figs = sgqlc.types.Field(
+        FigCompareResult,
+        graphql_name="compareFigs",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "fig_a",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="figA", default=None),
+                ),
+                (
+                    "fig_b",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="figB", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Side-by-side comparison of two fig executions
+
+    Arguments:
+
+    * `fig_a` (`UUID!`): First fig UUID
+    * `fig_b` (`UUID!`): Second fig UUID
     """
 
     list_custom_dashboards = sgqlc.types.Field(
@@ -72830,6 +73753,11 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(Strictness), graphql_name="strictness", default=None
                     ),
                 ),
+                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
+                (
+                    "connection_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="connectionUuid", default=None),
+                ),
             )
         ),
     )
@@ -72844,6 +73772,54 @@ class Query(sgqlc.types.Type):
     * `context_usage` (`ContextUsage!`): Which template variables to
       include in the prompt
     * `strictness` (`Strictness!`): Strictness tone for evaluation
+    * `mcon` (`String`): MCON of the data source table (required for
+      CUSTOM_FIELDS context_usage)
+    * `connection_uuid` (`UUID`): Connection UUID for schema lookup
+      (used with CUSTOM_FIELDS)
+    """
+
+    generate_sql_eval = sgqlc.types.Field(
+        GenerateSqlEvalOutput,
+        graphql_name="generateSqlEval",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "description_text",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="descriptionText", default=None
+                    ),
+                ),
+                (
+                    "output_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="outputType", default=None
+                    ),
+                ),
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "connection_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="connectionUuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Generate a SQL evaluation expression from a
+    description
+
+    Arguments:
+
+    * `description_text` (`String!`): Natural language description of
+      what to evaluate
+    * `output_type` (`String!`): Expected output type: string, number,
+      or boolean
+    * `mcon` (`String!`): MCON of the agent data source
+    * `connection_uuid` (`UUID`): Connection UUID for schema and
+      warehouse type lookup
     """
 
     get_agent_operation_logs = sgqlc.types.Field(
@@ -74653,6 +75629,7 @@ class SearchResult(sgqlc.types.Type):
         "etl_type",
         "supports_data_explorer",
         "dbt_project_name",
+        "job_name",
     )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Monte Carlo full identifier for an entity"""
@@ -74742,6 +75719,9 @@ class SearchResult(sgqlc.types.Type):
 
     dbt_project_name = sgqlc.types.Field(String, graphql_name="dbtProjectName")
     """Name of the dbt project for dbt-job assets"""
+
+    job_name = sgqlc.types.Field(String, graphql_name="jobName")
+    """Name of the parent job for task assets"""
 
 
 class SearchResultProperty(sgqlc.types.Type):
@@ -79523,6 +80503,11 @@ class TransformFunction(sgqlc.types.Type):
         "supported_output_types",
         "icon",
         "sql_expression_map",
+        "rubric",
+        "scoring_anchors",
+        "bias_guardrail",
+        "returns",
+        "customize",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -79572,6 +80557,29 @@ class TransformFunction(sgqlc.types.Type):
     icon = sgqlc.types.Field(String, graphql_name="icon")
 
     sql_expression_map = sgqlc.types.Field(GenericScalar, graphql_name="sqlExpressionMap")
+
+    rubric = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="rubric"
+    )
+
+    scoring_anchors = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TransformScoringAnchor")),
+        graphql_name="scoringAnchors",
+    )
+
+    bias_guardrail = sgqlc.types.Field(String, graphql_name="biasGuardrail")
+
+    returns = sgqlc.types.Field(String, graphql_name="returns")
+
+    customize = sgqlc.types.Field(String, graphql_name="customize")
+
+
+class TransformScoringAnchor(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("score", "description")
+    score = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="score")
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
 
 
 class TriggerCircuitBreakerRule(sgqlc.types.Type):
@@ -88771,7 +89779,9 @@ class Incident(sgqlc.types.Type, Node):
     """MCONs of tables/jobs associated with the incident"""
 
     slo_status = sgqlc.types.Field(String, graphql_name="sloStatus")
-    """SLO status: "not_breached" or "breached". null = no policy."""
+    """SLO status: "not_breached", "breached", or "met". null = no
+    policy.
+    """
 
     slo_breach_at = sgqlc.types.Field(DateTime, graphql_name="sloBreachAt")
     """Absolute timestamp when SLO breaches: created_time +

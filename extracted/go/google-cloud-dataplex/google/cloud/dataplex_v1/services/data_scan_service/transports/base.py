@@ -17,17 +17,19 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.dataplex_v1 import gapic_version as package_version
 from google.cloud.dataplex_v1.types import datascans
@@ -86,8 +88,6 @@ class DataScanServiceTransport(abc.ABC):
                 be used for service account credentials.
         """
 
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
-
         # Save the scopes.
         self._scopes = scopes
         if not hasattr(self, "_ignore_credentials"):
@@ -102,11 +102,16 @@ class DataScanServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -189,6 +194,21 @@ class DataScanServiceTransport(abc.ABC):
             ),
             self.list_locations: gapic_v1.method.wrap_method(
                 self.list_locations,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_iam_policy: gapic_v1.method.wrap_method(
+                self.get_iam_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.set_iam_policy: gapic_v1.method.wrap_method(
+                self.set_iam_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.test_iam_permissions: gapic_v1.method.wrap_method(
+                self.test_iam_permissions,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -341,13 +361,49 @@ class DataScanServiceTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def set_iam_policy(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.SetIamPolicyRequest],
+        Union[policy_pb2.Policy, Awaitable[policy_pb2.Policy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_iam_policy(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.GetIamPolicyRequest],
+        Union[policy_pb2.Policy, Awaitable[policy_pb2.Policy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.TestIamPermissionsRequest],
+        Union[
+            iam_policy_pb2.TestIamPermissionsResponse,
+            Awaitable[iam_policy_pb2.TestIamPermissionsResponse],
+        ],
+    ]:
         raise NotImplementedError()
 
     @property

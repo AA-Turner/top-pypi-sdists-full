@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.1.2
+Version: 2.1.3
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -8,6 +8,7 @@ License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: eval-type-backport>=0.2.0
 Requires-Dist: httpx>=0.28.1
+Requires-Dist: jsonpath-python>=1.0.6
 Requires-Dist: opentelemetry-api<2.0.0,>=1.33.1
 Requires-Dist: opentelemetry-semantic-conventions<0.61,>=0.60b1
 Requires-Dist: pydantic>=2.11.2
@@ -538,6 +539,7 @@ print(res.choices[0].message.content)
 * [list](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#list) - List all connectors.
 * [get_auth_url](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#get_auth_url) - Get the auth URL for a connector.
 * [call_tool](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#call_tool) - Call Connector Tool
+* [list_tools](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#list_tools) - List tools for a connector.
 * [get](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#get) - Get a connector.
 * [update](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#update) - Update a connector.
 * [delete](https://github.com/mistralai/client-python/blob/main/docs/sdks/connectors/README.md#delete) - Delete a connector.
@@ -876,8 +878,8 @@ with Mistral(
 
 
 **Inherit from [`MistralError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/mistralerror.py)**:
-* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 68 of 130 methods.*
-* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 41 of 130 methods.*
+* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 69 of 131 methods.*
+* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 41 of 131 methods.*
 * [`ResponseValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

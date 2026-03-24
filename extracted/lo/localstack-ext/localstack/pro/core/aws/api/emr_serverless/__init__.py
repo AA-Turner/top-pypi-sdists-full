@@ -785,8 +785,7 @@ class EmrServerlessApi:
 
         :param application_id: The ID of the application on which the job run will be canceled.
         :param job_run_id: The ID of the job run to cancel.
-        :param shutdown_grace_period_in_seconds: The duration in seconds to wait before forcefully terminating the job
-        after cancellation is requested.
+        :param shutdown_grace_period_in_seconds: The duration in seconds to wait before forcefully terminating the job after cancellation is requested.
         :returns: CancelJobRunResponse
         :raises ValidationException:
         :raises InternalServerException:
@@ -807,25 +806,18 @@ class EmrServerlessApi:
         :param initial_capacity: The capacity to initialize when the application is created.
         :param maximum_capacity: The maximum capacity to allocate when the application is created.
         :param tags: The tags assigned to the application.
-        :param auto_start_configuration: The configuration for an application to automatically start on job
-        submission.
-        :param auto_stop_configuration: The configuration for an application to automatically stop after a
-        certain amount of time being idle.
+        :param auto_start_configuration: The configuration for an application to automatically start on job submission.
+        :param auto_stop_configuration: The configuration for an application to automatically stop after a certain amount of time being idle.
         :param network_configuration: The network configuration for customer VPC connectivity.
         :param architecture: The CPU architecture of an application.
         :param image_configuration: The image configuration for all worker types.
-        :param worker_type_specifications: The key-value pairs that specify worker type to
-        ``WorkerTypeSpecificationInput``.
-        :param runtime_configuration: The
-        `Configuration <https://docs.
+        :param worker_type_specifications: The key-value pairs that specify worker type to ``WorkerTypeSpecificationInput``.
+        :param runtime_configuration: The `Configuration <https://docs.
         :param monitoring_configuration: The configuration setting for monitoring.
         :param disk_encryption_configuration: The configuration object that allows encrypting local disks.
-        :param interactive_configuration: The interactive configuration object that enables the interactive use
-        cases to use when running an application.
-        :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this
-        application.
-        :param identity_center_configuration: The IAM Identity Center Configuration accepts the Identity Center
-        instance parameter required to enable trusted identity propagation.
+        :param interactive_configuration: The interactive configuration object that enables the interactive use cases to use when running an application.
+        :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this application.
+        :param identity_center_configuration: The IAM Identity Center Configuration accepts the Identity Center instance parameter required to enable trusted identity propagation.
         :param job_level_cost_allocation_configuration: The configuration object that enables job level cost allocation.
         :returns: CreateApplicationResponse
         :raises ValidationException:
@@ -995,8 +987,7 @@ class EmrServerlessApi:
     ) -> ListTagsForResourceResponse:
         """Lists the tags assigned to the resources.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list the
-        tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list the tags for.
         :returns: ListTagsForResourceResponse
         :raises ValidationException:
         :raises InternalServerException:
@@ -1085,8 +1076,7 @@ class EmrServerlessApi:
         When you have many resources of the same type, you can quickly identify
         a specific resource based on the tags you've assigned to it.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list the
-        tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list the tags for.
         :param tags: The tags to add to the resource.
         :returns: TagResourceResponse
         :raises ValidationException:
@@ -1101,8 +1091,7 @@ class EmrServerlessApi:
     ) -> UntagResourceResponse:
         """Removes tags from resources.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list the
-        tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list the tags for.
         :param tag_keys: The keys of the tags to be removed.
         :returns: UntagResourceResponse
         :raises ValidationException:
@@ -1142,26 +1131,19 @@ class EmrServerlessApi:
         :param client_token: The client idempotency token of the application to update.
         :param initial_capacity: The capacity to initialize when the application is updated.
         :param maximum_capacity: The maximum capacity to allocate when the application is updated.
-        :param auto_start_configuration: The configuration for an application to automatically start on job
-        submission.
-        :param auto_stop_configuration: The configuration for an application to automatically stop after a
-        certain amount of time being idle.
+        :param auto_start_configuration: The configuration for an application to automatically start on job submission.
+        :param auto_stop_configuration: The configuration for an application to automatically stop after a certain amount of time being idle.
         :param network_configuration: The network configuration for customer VPC connectivity.
         :param architecture: The CPU architecture of an application.
         :param image_configuration: The image configuration to be used for all worker types.
-        :param worker_type_specifications: The key-value pairs that specify worker type to
-        ``WorkerTypeSpecificationInput``.
-        :param interactive_configuration: The interactive configuration object that contains new interactive use
-        cases when the application is updated.
+        :param worker_type_specifications: The key-value pairs that specify worker type to ``WorkerTypeSpecificationInput``.
+        :param interactive_configuration: The interactive configuration object that contains new interactive use cases when the application is updated.
         :param release_label: The Amazon EMR release label for the application.
-        :param runtime_configuration: The
-        `Configuration <https://docs.
+        :param runtime_configuration: The `Configuration <https://docs.
         :param monitoring_configuration: The configuration setting for monitoring.
         :param disk_encryption_configuration: The configuration object that allows encrypting local disks.
-        :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this
-        application.
-        :param identity_center_configuration: Specifies the IAM Identity Center configuration used to enable or
-        disable trusted identity propagation.
+        :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this application.
+        :param identity_center_configuration: Specifies the IAM Identity Center configuration used to enable or disable trusted identity propagation.
         :param job_level_cost_allocation_configuration: The configuration object that enables job level cost allocation.
         :returns: UpdateApplicationResponse
         :raises ValidationException:

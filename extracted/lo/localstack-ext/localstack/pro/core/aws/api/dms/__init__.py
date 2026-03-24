@@ -3751,11 +3751,9 @@ class DmsApi:
         """Applies a pending maintenance action to a resource (for example, to a
         replication instance).
 
-        :param replication_instance_arn: The Amazon Resource Name (ARN) of the DMS resource that the pending
-        maintenance action applies to.
+        :param replication_instance_arn: The Amazon Resource Name (ARN) of the DMS resource that the pending maintenance action applies to.
         :param apply_action: The pending maintenance action to apply to this resource.
-        :param opt_in_type: A value that specifies the type of opt-in request, or undoes an opt-in
-        request.
+        :param opt_in_type: A value that specifies the type of opt-in request, or undoes an opt-in request.
         :returns: ApplyPendingMaintenanceActionResponse
         :raises ResourceNotFoundFault:
         """
@@ -3842,8 +3840,7 @@ class DmsApi:
         haven't started running. It also attempts to cancel any individual
         assessments that are currently running.
 
-        :param replication_task_assessment_run_arn: Amazon Resource Name (ARN) of the premigration assessment run to be
-        canceled.
+        :param replication_task_assessment_run_arn: Amazon Resource Name (ARN) of the premigration assessment run to be canceled.
         :returns: CancelReplicationTaskAssessmentRunResponse
         :raises AccessDeniedFault:
         :raises ResourceNotFoundFault:
@@ -3870,19 +3867,15 @@ class DmsApi:
         """Creates a data migration using the provided settings.
 
         :param migration_project_identifier: An identifier for the migration project.
-        :param data_migration_type: Specifies if the data migration is full-load only, change data capture
-        (CDC) only, or full-load and CDC.
-        :param service_access_role_arn: The Amazon Resource Name (ARN) for the service access role that you want
-        to use to create the data migration.
+        :param data_migration_type: Specifies if the data migration is full-load only, change data capture (CDC) only, or full-load and CDC.
+        :param service_access_role_arn: The Amazon Resource Name (ARN) for the service access role that you want to use to create the data migration.
         :param data_migration_name: A user-friendly name for the data migration.
         :param enable_cloudwatch_logs: Specifies whether to enable CloudWatch logs for the data migration.
         :param source_data_settings: Specifies information about the source data provider.
         :param target_data_settings: Specifies information about the target data provider.
-        :param number_of_jobs: The number of parallel jobs that trigger parallel threads to unload the
-        tables from the source, and then load them to the target.
+        :param number_of_jobs: The number of parallel jobs that trigger parallel threads to unload the tables from the source, and then load them to the target.
         :param tags: One or more tags to be assigned to the data migration.
-        :param selection_rules: An optional JSON string specifying what tables, views, and schemas to
-        include or exclude from the migration.
+        :param selection_rules: An optional JSON string specifying what tables, views, and schemas to include or exclude from the migration.
         :returns: CreateDataMigrationResponse
         :raises ResourceQuotaExceededFault:
         :raises ResourceNotFoundFault:
@@ -3980,21 +3973,17 @@ class DmsApi:
         :param port: The port used by the endpoint database.
         :param database_name: The name of the endpoint database.
         :param extra_connection_attributes: Additional attributes associated with the connection.
-        :param kms_key_id: An KMS key identifier that is used to encrypt the connection parameters
-        for the endpoint.
+        :param kms_key_id: An KMS key identifier that is used to encrypt the connection parameters for the endpoint.
         :param tags: One or more tags to be assigned to the endpoint.
         :param certificate_arn: The Amazon Resource Name (ARN) for the certificate.
         :param ssl_mode: The Secure Sockets Layer (SSL) mode to use for the SSL connection.
-        :param service_access_role_arn: The Amazon Resource Name (ARN) for the service access role that you want
-        to use to create the endpoint.
+        :param service_access_role_arn: The Amazon Resource Name (ARN) for the service access role that you want to use to create the endpoint.
         :param external_table_definition: The external table definition.
         :param dynamo_db_settings: Settings in JSON format for the target Amazon DynamoDB endpoint.
         :param s3_settings: Settings in JSON format for the target Amazon S3 endpoint.
-        :param dms_transfer_settings: The settings in JSON format for the DMS transfer type of source
-        endpoint.
+        :param dms_transfer_settings: The settings in JSON format for the DMS transfer type of source endpoint.
         :param mongo_db_settings: Settings in JSON format for the source MongoDB endpoint.
-        :param kinesis_settings: Settings in JSON format for the target endpoint for Amazon Kinesis Data
-        Streams.
+        :param kinesis_settings: Settings in JSON format for the target endpoint for Amazon Kinesis Data Streams.
         :param kafka_settings: Settings in JSON format for the target Apache Kafka endpoint.
         :param elasticsearch_settings: Settings in JSON format for the target OpenSearch endpoint.
         :param neptune_settings: Settings in JSON format for the target Amazon Neptune endpoint.
@@ -4003,12 +3992,9 @@ class DmsApi:
         :param my_sql_settings: Settings in JSON format for the source and target MySQL endpoint.
         :param oracle_settings: Settings in JSON format for the source and target Oracle endpoint.
         :param sybase_settings: Settings in JSON format for the source and target SAP ASE endpoint.
-        :param microsoft_sql_server_settings: Settings in JSON format for the source and target Microsoft SQL Server
-        endpoint.
+        :param microsoft_sql_server_settings: Settings in JSON format for the source and target Microsoft SQL Server endpoint.
         :param ibm_db2_settings: Settings in JSON format for the source IBM Db2 LUW endpoint.
-        :param resource_identifier: A friendly name for the resource identifier at the end of the
-        ``EndpointArn`` response parameter that is returned in the created
-        ``Endpoint`` object.
+        :param resource_identifier: A friendly name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
         :param doc_db_settings: Provides information that defines a DocumentDB endpoint.
         :param redis_settings: Settings in JSON format for the target Redis endpoint.
         :param gcp_my_sql_settings: Settings in JSON format for the source GCP MySQL endpoint.
@@ -4058,14 +4044,11 @@ class DmsApi:
         in the *Database Migration Service User Guide.*
 
         :param subscription_name: The name of the DMS event notification subscription.
-        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic created for event
-        notification.
+        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic created for event notification.
         :param source_type: The type of DMS resource that generates the events.
-        :param event_categories: A list of event categories for a source type that you want to subscribe
-        to.
+        :param event_categories: A list of event categories for a source type that you want to subscribe to.
         :param source_ids: A list of identifiers for which DMS provides notification events.
-        :param enabled: A Boolean value; set to ``true`` to activate the subscription, or set to
-        ``false`` to create the subscription but not activate it.
+        :param enabled: A Boolean value; set to ``true`` to activate the subscription, or set to ``false`` to create the subscription but not activate it.
         :param tags: One or more tags to be assigned to the event subscription.
         :returns: CreateEventSubscriptionResponse
         :raises ResourceQuotaExceededFault:
@@ -4100,12 +4083,9 @@ class DmsApi:
 
         Creates a Fleet Advisor collector using the specified parameters.
 
-        :param collector_name: The name of your Fleet Advisor collector (for example,
-        ``sample-collector``).
-        :param service_access_role_arn: The IAM role that grants permissions to access the specified Amazon S3
-        bucket.
-        :param s3_bucket_name: The Amazon S3 bucket that the Fleet Advisor collector uses to store
-        inventory metadata.
+        :param collector_name: The name of your Fleet Advisor collector (for example, ``sample-collector``).
+        :param service_access_role_arn: The IAM role that grants permissions to access the specified Amazon S3 bucket.
+        :param s3_bucket_name: The Amazon S3 bucket that the Fleet Advisor collector uses to store inventory metadata.
         :param description: A summary description of your Fleet Advisor collector.
         :returns: CreateFleetAdvisorCollectorResponse
         :raises InvalidResourceStateFault:
@@ -4134,16 +4114,14 @@ class DmsApi:
         """Creates the instance profile using the specified parameters.
 
         :param availability_zone: The Availability Zone where the instance profile will be created.
-        :param kms_key_arn: The Amazon Resource Name (ARN) of the KMS key that is used to encrypt
-        the connection parameters for the instance profile.
+        :param kms_key_arn: The Amazon Resource Name (ARN) of the KMS key that is used to encrypt the connection parameters for the instance profile.
         :param publicly_accessible: Specifies the accessibility options for the instance profile.
         :param tags: One or more tags to be assigned to the instance profile.
         :param network_type: Specifies the network type for the instance profile.
         :param instance_profile_name: A user-friendly name for the instance profile.
         :param description: A user-friendly description of the instance profile.
         :param subnet_group_identifier: A subnet group to associate with the instance profile.
-        :param vpc_security_groups: Specifies the VPC security group names to be used with the instance
-        profile.
+        :param vpc_security_groups: Specifies the VPC security group names to be used with the instance profile.
         :returns: CreateInstanceProfileResponse
         :raises AccessDeniedFault:
         :raises ResourceAlreadyExistsFault:
@@ -4179,17 +4157,14 @@ class DmsApi:
         and
         `CreateDataProvider <https://docs.aws.amazon.com/dms/latest/APIReference/API_CreateDataProvider.html>`__.
 
-        :param source_data_provider_descriptors: Information about the source data provider, including the name, ARN, and
-        Secrets Manager parameters.
-        :param target_data_provider_descriptors: Information about the target data provider, including the name, ARN, and
-        Amazon Web Services Secrets Manager parameters.
+        :param source_data_provider_descriptors: Information about the source data provider, including the name, ARN, and Secrets Manager parameters.
+        :param target_data_provider_descriptors: Information about the target data provider, including the name, ARN, and Amazon Web Services Secrets Manager parameters.
         :param instance_profile_identifier: The identifier of the associated instance profile.
         :param migration_project_name: A user-friendly name for the migration project.
         :param transformation_rules: The settings in JSON format for migration rules.
         :param description: A user-friendly description of the migration project.
         :param tags: One or more tags to be assigned to the migration project.
-        :param schema_conversion_application_attributes: The schema conversion application attributes, including the Amazon S3
-        bucket name and Amazon S3 role ARN.
+        :param schema_conversion_application_attributes: The schema conversion application attributes, including the Amazon S3 bucket name and Amazon S3 role ARN.
         :returns: CreateMigrationProjectResponse
         :raises AccessDeniedFault:
         :raises ResourceAlreadyExistsFault:
@@ -4221,25 +4196,16 @@ class DmsApi:
         start an DMS Serverless replication. You can also provide options to
         validate the configuration inputs before you start the replication.
 
-        :param replication_config_identifier: A unique identifier that you want to use to create a
-        ``ReplicationConfigArn`` that is returned as part of the output from
-        this action.
-        :param source_endpoint_arn: The Amazon Resource Name (ARN) of the source endpoint for this DMS
-        Serverless replication configuration.
-        :param target_endpoint_arn: The Amazon Resource Name (ARN) of the target endpoint for this DMS
-        serverless replication configuration.
+        :param replication_config_identifier: A unique identifier that you want to use to create a ``ReplicationConfigArn`` that is returned as part of the output from this action.
+        :param source_endpoint_arn: The Amazon Resource Name (ARN) of the source endpoint for this DMS Serverless replication configuration.
+        :param target_endpoint_arn: The Amazon Resource Name (ARN) of the target endpoint for this DMS serverless replication configuration.
         :param compute_config: Configuration parameters for provisioning an DMS Serverless replication.
-        :param replication_type: The type of DMS Serverless replication to provision using this
-        replication configuration.
-        :param table_mappings: JSON table mappings for DMS Serverless replications that are provisioned
-        using this replication configuration.
-        :param replication_settings: Optional JSON settings for DMS Serverless replications that are
-        provisioned using this replication configuration.
+        :param replication_type: The type of DMS Serverless replication to provision using this replication configuration.
+        :param table_mappings: JSON table mappings for DMS Serverless replications that are provisioned using this replication configuration.
+        :param replication_settings: Optional JSON settings for DMS Serverless replications that are provisioned using this replication configuration.
         :param supplemental_settings: Optional JSON settings for specifying supplemental data.
-        :param resource_identifier: Optional unique value or name that you set for a given resource that can
-        be used to construct an Amazon Resource Name (ARN) for that resource.
-        :param tags: One or more optional tags associated with resources used by the DMS
-        Serverless replication.
+        :param resource_identifier: Optional unique value or name that you set for a given resource that can be used to construct an Amazon Resource Name (ARN) for that resource.
+        :param tags: One or more optional tags associated with resources used by the DMS Serverless replication.
         :returns: CreateReplicationConfigResponse
         :raises AccessDeniedFault:
         :raises ResourceAlreadyExistsFault:
@@ -4292,33 +4258,22 @@ class DmsApi:
         Notes <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_ReleaseNotes.html>`__.
 
         :param replication_instance_identifier: The replication instance identifier.
-        :param replication_instance_class: The compute and memory capacity of the replication instance as defined
-        for the specified replication instance class.
-        :param allocated_storage: The amount of storage (in gigabytes) to be initially allocated for the
-        replication instance.
-        :param vpc_security_group_ids: Specifies the VPC security group to be used with the replication
-        instance.
+        :param replication_instance_class: The compute and memory capacity of the replication instance as defined for the specified replication instance class.
+        :param allocated_storage: The amount of storage (in gigabytes) to be initially allocated for the replication instance.
+        :param vpc_security_group_ids: Specifies the VPC security group to be used with the replication instance.
         :param availability_zone: The Availability Zone where the replication instance will be created.
         :param replication_subnet_group_identifier: A subnet group to associate with the replication instance.
-        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in
-        Universal Coordinated Time (UTC).
+        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC).
         :param multi_az: Specifies whether the replication instance is a Multi-AZ deployment.
         :param engine_version: The engine version number of the replication instance.
-        :param auto_minor_version_upgrade: A value that indicates whether minor engine upgrades are applied
-        automatically to the replication instance during the maintenance window.
+        :param auto_minor_version_upgrade: A value that indicates whether minor engine upgrades are applied automatically to the replication instance during the maintenance window.
         :param tags: One or more tags to be assigned to the replication instance.
-        :param kms_key_id: An KMS key identifier that is used to encrypt the data on the
-        replication instance.
+        :param kms_key_id: An KMS key identifier that is used to encrypt the data on the replication instance.
         :param publicly_accessible: Specifies the accessibility options for the replication instance.
-        :param dns_name_servers: A list of custom DNS name servers supported for the replication instance
-        to access your on-premise source or target database.
-        :param resource_identifier: A friendly name for the resource identifier at the end of the
-        ``EndpointArn`` response parameter that is returned in the created
-        ``Endpoint`` object.
-        :param network_type: The type of IP address protocol used by a replication instance, such as
-        IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing.
-        :param kerberos_authentication_settings: Specifies the settings required for kerberos authentication when
-        creating the replication instance.
+        :param dns_name_servers: A list of custom DNS name servers supported for the replication instance to access your on-premise source or target database.
+        :param resource_identifier: A friendly name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
+        :param network_type: The type of IP address protocol used by a replication instance, such as IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing.
+        :param kerberos_authentication_settings: Specifies the settings required for kerberos authentication when creating the replication instance.
         :returns: CreateReplicationInstanceResponse
         :raises AccessDeniedFault:
         :raises ResourceAlreadyExistsFault:
@@ -4394,10 +4349,8 @@ class DmsApi:
         """Creates a replication task using the specified parameters.
 
         :param replication_task_identifier: An identifier for the replication task.
-        :param source_endpoint_arn: An Amazon Resource Name (ARN) that uniquely identifies the source
-        endpoint.
-        :param target_endpoint_arn: An Amazon Resource Name (ARN) that uniquely identifies the target
-        endpoint.
+        :param source_endpoint_arn: An Amazon Resource Name (ARN) that uniquely identifies the source endpoint.
+        :param target_endpoint_arn: An Amazon Resource Name (ARN) that uniquely identifies the target endpoint.
         :param replication_instance_arn: The Amazon Resource Name (ARN) of a replication instance.
         :param migration_type: The migration type.
         :param table_mappings: The table mappings for the task, in JSON format.
@@ -4406,11 +4359,8 @@ class DmsApi:
         :param cdc_start_position: Indicates when you want a change data capture (CDC) operation to start.
         :param cdc_stop_position: Indicates when you want a change data capture (CDC) operation to stop.
         :param tags: One or more tags to be assigned to the replication task.
-        :param task_data: Supplemental information that the task requires to migrate the data for
-        certain source and target endpoints.
-        :param resource_identifier: A friendly name for the resource identifier at the end of the
-        ``EndpointArn`` response parameter that is returned in the created
-        ``Endpoint`` object.
+        :param task_data: Supplemental information that the task requires to migrate the data for certain source and target endpoints.
+        :param resource_identifier: A friendly name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
         :returns: CreateReplicationTaskResponse
         :raises AccessDeniedFault:
         :raises InvalidResourceStateFault:
@@ -4444,8 +4394,7 @@ class DmsApi:
     ) -> DeleteConnectionResponse:
         """Deletes the connection between a replication instance and an endpoint.
 
-        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the
-        endpoint.
+        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the endpoint.
         :param replication_instance_arn: The Amazon Resource Name (ARN) of the replication instance.
         :returns: DeleteConnectionResponse
         :raises AccessDeniedFault:
@@ -4495,8 +4444,7 @@ class DmsApi:
         All tasks associated with the endpoint must be deleted before you can
         delete the endpoint.
 
-        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the
-        endpoint.
+        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the endpoint.
         :returns: DeleteEndpointResponse
         :raises ResourceNotFoundFault:
         :raises InvalidResourceStateFault:
@@ -4584,8 +4532,7 @@ class DmsApi:
 
         The migration project must be closed before you can delete it.
 
-        :param migration_project_identifier: The name or Amazon Resource Name (ARN) of the migration project to
-        delete.
+        :param migration_project_identifier: The name or Amazon Resource Name (ARN) of the migration project to delete.
         :returns: DeleteMigrationProjectResponse
         :raises AccessDeniedFault:
         :raises ResourceNotFoundFault:
@@ -4622,8 +4569,7 @@ class DmsApi:
         You must delete any migration tasks that are associated with the
         replication instance before you can delete it.
 
-        :param replication_instance_arn: The Amazon Resource Name (ARN) of the replication instance to be
-        deleted.
+        :param replication_instance_arn: The Amazon Resource Name (ARN) of the replication instance to be deleted.
         :returns: DeleteReplicationInstanceResponse
         :raises InvalidResourceStateFault:
         :raises ResourceNotFoundFault:
@@ -4667,8 +4613,7 @@ class DmsApi:
         assessment run. However, the operation leaves untouched all information
         about this assessment run that is stored in your Amazon S3 bucket.
 
-        :param replication_task_assessment_run_arn: Amazon Resource Name (ARN) of the premigration assessment run to be
-        deleted.
+        :param replication_task_assessment_run_arn: Amazon Resource Name (ARN) of the premigration assessment run to be deleted.
         :returns: DeleteReplicationTaskAssessmentRunResponse
         :raises AccessDeniedFault:
         :raises ResourceNotFoundFault:
@@ -4732,18 +4677,12 @@ class DmsApi:
         the default list of individual assessments that you can specify in an
         assessment run for the task.
 
-        :param replication_task_arn: Amazon Resource Name (ARN) of a migration task on which you want to base
-        the default list of individual assessments.
-        :param replication_instance_arn: ARN of a replication instance on which you want to base the default list
-        of individual assessments.
-        :param replication_config_arn: Amazon Resource Name (ARN) of a serverless replication on which you want
-        to base the default list of individual assessments.
-        :param source_engine_name: Name of a database engine that the specified replication instance
-        supports as a source.
-        :param target_engine_name: Name of a database engine that the specified replication instance
-        supports as a target.
-        :param migration_type: Name of the migration type that each provided individual assessment must
-        support.
+        :param replication_task_arn: Amazon Resource Name (ARN) of a migration task on which you want to base the default list of individual assessments.
+        :param replication_instance_arn: ARN of a replication instance on which you want to base the default list of individual assessments.
+        :param replication_config_arn: Amazon Resource Name (ARN) of a serverless replication on which you want to base the default list of individual assessments.
+        :param source_engine_name: Name of a database engine that the specified replication instance supports as a source.
+        :param target_engine_name: Name of a database engine that the specified replication instance supports as a target.
+        :param migration_type: Name of the migration type that each provided individual assessment must support.
         :param max_records: Maximum number of records to include in the response.
         :param marker: Optional pagination token provided by a previous request.
         :returns: DescribeApplicableIndividualAssessmentsResponse
@@ -4764,8 +4703,7 @@ class DmsApi:
     ) -> DescribeCertificatesResponse:
         """Provides a description of the certificate.
 
-        :param filters: Filters applied to the certificates described in the form of key-value
-        pairs.
+        :param filters: Filters applied to the certificates described in the form of key-value pairs.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional pagination token provided by a previous request.
         :returns: DescribeCertificatesResponse
@@ -4803,8 +4741,7 @@ class DmsApi:
     ) -> DescribeConversionConfigurationResponse:
         """Returns configuration parameters for a schema conversion project.
 
-        :param migration_project_identifier: The name or Amazon Resource Name (ARN) for the schema conversion project
-        to describe.
+        :param migration_project_identifier: The name or Amazon Resource Name (ARN) for the schema conversion project to describe.
         :returns: DescribeConversionConfigurationResponse
         :raises ResourceNotFoundFault:
         """
@@ -4847,11 +4784,9 @@ class DmsApi:
         """Returns a paginated list of data providers for your account in the
         current region.
 
-        :param filters: Filters applied to the data providers described in the form of key-value
-        pairs.
+        :param filters: Filters applied to the data providers described in the form of key-value pairs.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :returns: DescribeDataProvidersResponse
         :raises ResourceNotFoundFault:
         :raises AccessDeniedFault:
@@ -5030,10 +4965,8 @@ class DmsApi:
         converting objects to the target database.
 
         :param migration_project_identifier: The name or Amazon Resource Name (ARN) for the migration project.
-        :param filters: Filters applied to the extension pack associations described in the form
-        of key-value pairs.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param filters: Filters applied to the extension pack associations described in the form of key-value pairs.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeExtensionPackAssociationsResponse
         """
@@ -5057,14 +4990,9 @@ class DmsApi:
 
         Returns a list of the Fleet Advisor collectors in your account.
 
-        :param filters: If you specify any of the following filters, the output includes
-        information for only those collectors that meet the filter criteria:
-
-        -  ``collector-referenced-id`` – The ID of the collector agent, for
-           example ``d4610ac5-e323-4ad9-bc50-eaf7249dfe9d``.
+        :param filters: If you specify any of the following filters, the output includes information for only those collectors that meet the filter criteria:  -  ``collector-referenced-id`` – The ID of the collector agent, for    example ``d4610ac5-e323-4ad9-bc50-eaf7249dfe9d``.
         :param max_records: Sets the maximum number of records returned in the response.
-        :param next_token: If ``NextToken`` is returned by a previous response, there are more
-        results available.
+        :param next_token: If ``NextToken`` is returned by a previous response, there are more results available.
         :returns: DescribeFleetAdvisorCollectorsResponse
         :raises InvalidResourceStateFault:
         """
@@ -5088,13 +5016,9 @@ class DmsApi:
 
         Returns a list of Fleet Advisor databases in your account.
 
-        :param filters: If you specify any of the following filters, the output includes
-        information for only those databases that meet the filter criteria:
-
-        -  ``database-id`` – The ID of the database.
+        :param filters: If you specify any of the following filters, the output includes information for only those databases that meet the filter criteria:  -  ``database-id`` – The ID of the database.
         :param max_records: Sets the maximum number of records returned in the response.
-        :param next_token: If ``NextToken`` is returned by a previous response, there are more
-        results available.
+        :param next_token: If ``NextToken`` is returned by a previous response, there are more results available.
         :returns: DescribeFleetAdvisorDatabasesResponse
         :raises InvalidResourceStateFault:
         """
@@ -5119,8 +5043,7 @@ class DmsApi:
         by your Fleet Advisor collectors.
 
         :param max_records: Sets the maximum number of records returned in the response.
-        :param next_token: If ``NextToken`` is returned by a previous response, there are more
-        results available.
+        :param next_token: If ``NextToken`` is returned by a previous response, there are more results available.
         :returns: DescribeFleetAdvisorLsaAnalysisResponse
         :raises InvalidResourceStateFault:
         """
@@ -5145,15 +5068,9 @@ class DmsApi:
         Provides descriptions of the schemas discovered by your Fleet Advisor
         collectors.
 
-        :param filters: If you specify any of the following filters, the output includes
-        information for only those schema objects that meet the filter criteria:
-
-        -  ``schema-id`` – The ID of the schema, for example
-           ``d4610ac5-e323-4ad9-bc50-eaf7249dfe9d``.
-        :param max_records: End of support notice: On May 20, 2026, Amazon Web Services will end
-        support for Amazon Web Services DMS Fleet Advisor;.
-        :param next_token: If ``NextToken`` is returned by a previous response, there are more
-        results available.
+        :param filters: If you specify any of the following filters, the output includes information for only those schema objects that meet the filter criteria:  -  ``schema-id`` – The ID of the schema, for example    ``d4610ac5-e323-4ad9-bc50-eaf7249dfe9d``.
+        :param max_records: End of support notice: On May 20, 2026, Amazon Web Services will end support for Amazon Web Services DMS Fleet Advisor;.
+        :param next_token: If ``NextToken`` is returned by a previous response, there are more results available.
         :returns: DescribeFleetAdvisorSchemaObjectSummaryResponse
         :raises InvalidResourceStateFault:
         """
@@ -5178,13 +5095,9 @@ class DmsApi:
         Returns a list of schemas detected by Fleet Advisor Collectors in your
         account.
 
-        :param filters: If you specify any of the following filters, the output includes
-        information for only those schemas that meet the filter criteria:
-
-        -  ``complexity`` – The schema's complexity, for example ``Simple``.
+        :param filters: If you specify any of the following filters, the output includes information for only those schemas that meet the filter criteria:  -  ``complexity`` – The schema's complexity, for example ``Simple``.
         :param max_records: Sets the maximum number of records returned in the response.
-        :param next_token: If ``NextToken`` is returned by a previous response, there are more
-        results available.
+        :param next_token: If ``NextToken`` is returned by a previous response, there are more results available.
         :returns: DescribeFleetAdvisorSchemasResponse
         :raises InvalidResourceStateFault:
         """
@@ -5202,11 +5115,9 @@ class DmsApi:
         """Returns a paginated list of instance profiles for your account in the
         current region.
 
-        :param filters: Filters applied to the instance profiles described in the form of
-        key-value pairs.
+        :param filters: Filters applied to the instance profiles described in the form of key-value pairs.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :returns: DescribeInstanceProfilesResponse
         :raises ResourceNotFoundFault:
         :raises AccessDeniedFault:
@@ -5250,10 +5161,8 @@ class DmsApi:
         in the current region.
 
         :param migration_project_identifier: The name or Amazon Resource Name (ARN) of the migration project.
-        :param filters: Filters applied to the metadata model assessments described in the form
-        of key-value pairs.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param filters: Filters applied to the metadata model assessments described in the form of key-value pairs.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeMetadataModelAssessmentsResponse
         :raises ResourceNotFoundFault:
@@ -5274,14 +5183,11 @@ class DmsApi:
         """Gets a list of child metadata models for the specified metadata model in
         the database hierarchy.
 
-        :param selection_rules: The JSON string that specifies which metadata model's children to
-        retrieve.
+        :param selection_rules: The JSON string that specifies which metadata model's children to retrieve.
         :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
         :param origin: Specifies whether to retrieve metadata from the source or target tree.
-        :param marker: Specifies the unique pagination token that indicates where the next page
-        should start.
-        :param max_records: The maximum number of metadata model children to include in the
-        response.
+        :param marker: Specifies the unique pagination token that indicates where the next page should start.
+        :param max_records: The maximum number of metadata model children to include in the response.
         :returns: DescribeMetadataModelChildrenResponse
         :raises ResourceNotFoundFault:
         :raises AccessDeniedFault:
@@ -5302,10 +5208,8 @@ class DmsApi:
         project.
 
         :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
-        :param filters: Filters applied to the metadata model conversions described in the form
-        of key-value pairs.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param filters: Filters applied to the metadata model conversions described in the form of key-value pairs.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeMetadataModelConversionsResponse
         :raises ResourceNotFoundFault:
@@ -5326,12 +5230,9 @@ class DmsApi:
         migration project.
 
         :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
-        :param filters: Filters applied to the metadata model creation requests described in the
-        form of key-value pairs.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of metadata model creation requests.
-        :param max_records: The maximum number of metadata model creation requests to include in the
-        response.
+        :param filters: Filters applied to the metadata model creation requests described in the form of key-value pairs.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of metadata model creation requests.
+        :param max_records: The maximum number of metadata model creation requests to include in the response.
         :returns: DescribeMetadataModelCreationsResponse
         :raises ResourceNotFoundFault:
         :raises AccessDeniedFault:
@@ -5351,10 +5252,8 @@ class DmsApi:
         """Returns a paginated list of metadata model exports.
 
         :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
-        :param filters: Filters applied to the metadata model exports described in the form of
-        key-value pairs.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param filters: Filters applied to the metadata model exports described in the form of key-value pairs.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeMetadataModelExportsAsScriptResponse
         :raises ResourceNotFoundFault:
@@ -5374,10 +5273,8 @@ class DmsApi:
         """Returns a paginated list of metadata model exports.
 
         :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
-        :param filters: Filters applied to the metadata model exports described in the form of
-        key-value pairs.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param filters: Filters applied to the metadata model exports described in the form of key-value pairs.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeMetadataModelExportsToTargetResponse
         :raises ResourceNotFoundFault:
@@ -5397,10 +5294,8 @@ class DmsApi:
         """Returns a paginated list of metadata model imports.
 
         :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
-        :param filters: Filters applied to the metadata model imports described in the form of
-        key-value pairs.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param filters: Filters applied to the metadata model imports described in the form of key-value pairs.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :param max_records: A paginated list of metadata model imports.
         :returns: DescribeMetadataModelImportsResponse
         :raises ResourceNotFoundFault:
@@ -5419,11 +5314,9 @@ class DmsApi:
         """Returns a paginated list of migration projects for your account in the
         current region.
 
-        :param filters: Filters applied to the migration projects described in the form of
-        key-value pairs.
+        :param filters: Filters applied to the migration projects described in the form of key-value pairs.
         :param max_records: The maximum number of records to include in the response.
-        :param marker: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param marker: Specifies the unique pagination token that makes it possible to display the next page of results.
         :returns: DescribeMigrationProjectsResponse
         :raises ResourceNotFoundFault:
         :raises AccessDeniedFault:
@@ -5489,11 +5382,9 @@ class DmsApi:
         Returns a paginated list of limitations for recommendations of target
         Amazon Web Services engines.
 
-        :param filters: Filters applied to the limitations described in the form of key-value
-        pairs.
+        :param filters: Filters applied to the limitations described in the form of key-value pairs.
         :param max_records: The maximum number of records to include in the response.
-        :param next_token: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param next_token: Specifies the unique pagination token that makes it possible to display the next page of results.
         :returns: DescribeRecommendationLimitationsResponse
         :raises InvalidResourceStateFault:
         :raises AccessDeniedFault:
@@ -5519,11 +5410,9 @@ class DmsApi:
         Returns a paginated list of target engine recommendations for your
         source databases.
 
-        :param filters: Filters applied to the target engine recommendations described in the
-        form of key-value pairs.
+        :param filters: Filters applied to the target engine recommendations described in the form of key-value pairs.
         :param max_records: The maximum number of records to include in the response.
-        :param next_token: Specifies the unique pagination token that makes it possible to display
-        the next page of results.
+        :param next_token: Specifies the unique pagination token that makes it possible to display the next page of results.
         :returns: DescribeRecommendationsResponse
         :raises InvalidResourceStateFault:
         :raises AccessDeniedFault:
@@ -5536,8 +5425,7 @@ class DmsApi:
     ) -> DescribeRefreshSchemasStatusResponse:
         """Returns the status of the RefreshSchemas operation.
 
-        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the
-        endpoint.
+        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the endpoint.
         :returns: DescribeRefreshSchemasStatusResponse
         :raises InvalidResourceStateFault:
         :raises ResourceNotFoundFault:
@@ -5692,8 +5580,7 @@ class DmsApi:
         For this information, see the
         ``DescribeReplicationTaskIndividualAssessments`` operation.
 
-        :param filters: Filters applied to the premigration assessment runs described in the
-        form of key-value pairs.
+        :param filters: Filters applied to the premigration assessment runs described in the form of key-value pairs.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional pagination token provided by a previous request.
         :returns: DescribeReplicationTaskAssessmentRunsResponse
@@ -5716,8 +5603,7 @@ class DmsApi:
         These filter settings can specify a combination of premigration
         assessment runs, migration tasks, and assessment status values.
 
-        :param filters: Filters applied to the individual assessments described in the form of
-        key-value pairs.
+        :param filters: Filters applied to the individual assessments described in the form of key-value pairs.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional pagination token provided by a previous request.
         :returns: DescribeReplicationTaskIndividualAssessmentsResponse
@@ -5778,8 +5664,7 @@ class DmsApi:
     ) -> DescribeSchemasResponse:
         """Returns information about the schema for the specified endpoint.
 
-        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the
-        endpoint.
+        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the endpoint.
         :param max_records: The maximum number of records to include in the response.
         :param marker: An optional pagination token provided by a previous request.
         :returns: DescribeSchemasResponse
@@ -5899,10 +5784,8 @@ class DmsApi:
         ```Tag`` <https://docs.aws.amazon.com/dms/latest/APIReference/API_Tag.html>`__
         data type description.
 
-        :param resource_arn: The Amazon Resource Name (ARN) string that uniquely identifies the DMS
-        resource to list tags for.
-        :param resource_arn_list: List of ARNs that identify multiple DMS resources that you want to list
-        tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) string that uniquely identifies the DMS resource to list tags for.
+        :param resource_arn_list: List of ARNs that identify multiple DMS resources that you want to list tags for.
         :returns: ListTagsForResourceResponse
         :raises ResourceNotFoundFault:
         :raises InvalidResourceStateFault:
@@ -5950,14 +5833,10 @@ class DmsApi:
         :param enable_cloudwatch_logs: Whether to enable Cloudwatch logs for the data migration.
         :param service_access_role_arn: The new service access role ARN for the data migration.
         :param data_migration_type: The new migration type for the data migration.
-        :param source_data_settings: The new information about the source data provider for the data
-        migration.
-        :param target_data_settings: The new information about the target data provider for the data
-        migration.
-        :param number_of_jobs: The number of parallel jobs that trigger parallel threads to unload the
-        tables from the source, and then load them to the target.
-        :param selection_rules: A JSON-formatted string that defines what objects to include and exclude
-        from the migration.
+        :param source_data_settings: The new information about the source data provider for the data migration.
+        :param target_data_settings: The new information about the target data provider for the data migration.
+        :param number_of_jobs: The number of parallel jobs that trigger parallel threads to unload the tables from the source, and then load them to the target.
+        :param selection_rules: A JSON-formatted string that defines what objects to include and exclude from the migration.
         :returns: ModifyDataMigrationResponse
         :raises InvalidResourceStateFault:
         :raises ResourceNotFoundFault:
@@ -5988,9 +5867,7 @@ class DmsApi:
         :param description: A user-friendly description of the data provider.
         :param engine: The type of database engine for the data provider.
         :param virtual: Indicates whether the data provider is virtual.
-        :param exact_settings: If this attribute is Y, the current call to ``ModifyDataProvider``
-        replaces all existing data provider settings with the exact settings
-        that you specify in this call.
+        :param exact_settings: If this attribute is Y, the current call to ``ModifyDataProvider`` replaces all existing data provider settings with the exact settings that you specify in this call.
         :param settings: The settings in JSON format for a data provider.
         :returns: ModifyDataProviderResponse
         :raises AccessDeniedFault:
@@ -6049,8 +5926,7 @@ class DmsApi:
         For MySQL endpoints, you specify the database only when you specify the
         schema in the table-mapping rules of the DMS task.
 
-        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the
-        endpoint.
+        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the endpoint.
         :param endpoint_identifier: The database endpoint identifier.
         :param endpoint_type: The type of endpoint.
         :param engine_name: The database engine name.
@@ -6060,19 +5936,15 @@ class DmsApi:
         :param port: The port used by the endpoint database.
         :param database_name: The name of the endpoint database.
         :param extra_connection_attributes: Additional attributes associated with the connection.
-        :param certificate_arn: The Amazon Resource Name (ARN) of the certificate used for SSL
-        connection.
+        :param certificate_arn: The Amazon Resource Name (ARN) of the certificate used for SSL connection.
         :param ssl_mode: The SSL mode used to connect to the endpoint.
-        :param service_access_role_arn: The Amazon Resource Name (ARN) for the IAM role you want to use to
-        modify the endpoint.
+        :param service_access_role_arn: The Amazon Resource Name (ARN) for the IAM role you want to use to modify the endpoint.
         :param external_table_definition: The external table definition.
         :param dynamo_db_settings: Settings in JSON format for the target Amazon DynamoDB endpoint.
         :param s3_settings: Settings in JSON format for the target Amazon S3 endpoint.
-        :param dms_transfer_settings: The settings in JSON format for the DMS transfer type of source
-        endpoint.
+        :param dms_transfer_settings: The settings in JSON format for the DMS transfer type of source endpoint.
         :param mongo_db_settings: Settings in JSON format for the source MongoDB endpoint.
-        :param kinesis_settings: Settings in JSON format for the target endpoint for Amazon Kinesis Data
-        Streams.
+        :param kinesis_settings: Settings in JSON format for the target endpoint for Amazon Kinesis Data Streams.
         :param kafka_settings: Settings in JSON format for the target Apache Kafka endpoint.
         :param elasticsearch_settings: Settings in JSON format for the target OpenSearch endpoint.
         :param neptune_settings: Settings in JSON format for the target Amazon Neptune endpoint.
@@ -6081,14 +5953,11 @@ class DmsApi:
         :param my_sql_settings: Settings in JSON format for the source and target MySQL endpoint.
         :param oracle_settings: Settings in JSON format for the source and target Oracle endpoint.
         :param sybase_settings: Settings in JSON format for the source and target SAP ASE endpoint.
-        :param microsoft_sql_server_settings: Settings in JSON format for the source and target Microsoft SQL Server
-        endpoint.
+        :param microsoft_sql_server_settings: Settings in JSON format for the source and target Microsoft SQL Server endpoint.
         :param ibm_db2_settings: Settings in JSON format for the source IBM Db2 LUW endpoint.
         :param doc_db_settings: Settings in JSON format for the source DocumentDB endpoint.
         :param redis_settings: Settings in JSON format for the Redis target endpoint.
-        :param exact_settings: If this attribute is Y, the current call to ``ModifyEndpoint`` replaces
-        all existing endpoint settings with the exact settings that you specify
-        in this call.
+        :param exact_settings: If this attribute is Y, the current call to ``ModifyEndpoint`` replaces all existing endpoint settings with the exact settings that you specify in this call.
         :param gcp_my_sql_settings: Settings in JSON format for the source GCP MySQL endpoint.
         :param timestream_settings: Settings in JSON format for the target Amazon Timestream endpoint.
         :returns: ModifyEndpointResponse
@@ -6114,12 +5983,9 @@ class DmsApi:
         """Modifies an existing DMS event notification subscription.
 
         :param subscription_name: The name of the DMS event notification subscription to be modified.
-        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic created for event
-        notification.
-        :param source_type: The type of DMS resource that generates the events you want to subscribe
-        to.
-        :param event_categories: A list of event categories for a source type that you want to subscribe
-        to.
+        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic created for event notification.
+        :param source_type: The type of DMS resource that generates the events you want to subscribe to.
+        :param event_categories: A list of event categories for a source type that you want to subscribe to.
         :param enabled: A Boolean value; set to **true** to activate the subscription.
         :returns: ModifyEventSubscriptionResponse
         :raises ResourceQuotaExceededFault:
@@ -6157,8 +6023,7 @@ class DmsApi:
 
         :param instance_profile_identifier: The identifier of the instance profile.
         :param availability_zone: The Availability Zone where the instance profile runs.
-        :param kms_key_arn: The Amazon Resource Name (ARN) of the KMS key that is used to encrypt
-        the connection parameters for the instance profile.
+        :param kms_key_arn: The Amazon Resource Name (ARN) of the KMS key that is used to encrypt the connection parameters for the instance profile.
         :param publicly_accessible: Specifies the accessibility options for the instance profile.
         :param network_type: Specifies the network type for the instance profile.
         :param instance_profile_name: A user-friendly name for the instance profile.
@@ -6196,15 +6061,12 @@ class DmsApi:
 
         :param migration_project_identifier: The identifier of the migration project.
         :param migration_project_name: A user-friendly name for the migration project.
-        :param source_data_provider_descriptors: Information about the source data provider, including the name, ARN, and
-        Amazon Web Services Secrets Manager parameters.
-        :param target_data_provider_descriptors: Information about the target data provider, including the name, ARN, and
-        Amazon Web Services Secrets Manager parameters.
+        :param source_data_provider_descriptors: Information about the source data provider, including the name, ARN, and Amazon Web Services Secrets Manager parameters.
+        :param target_data_provider_descriptors: Information about the target data provider, including the name, ARN, and Amazon Web Services Secrets Manager parameters.
         :param instance_profile_identifier: The name or Amazon Resource Name (ARN) for the instance profile.
         :param transformation_rules: The settings in JSON format for migration rules.
         :param description: A user-friendly description of the migration project.
-        :param schema_conversion_application_attributes: The schema conversion application attributes, including the Amazon S3
-        bucket name and Amazon S3 role ARN.
+        :param schema_conversion_application_attributes: The schema conversion application attributes, including the Amazon S3 bucket name and Amazon S3 role ARN.
         :returns: ModifyMigrationProjectResponse
         :raises AccessDeniedFault:
         :raises ResourceNotFoundFault:
@@ -6249,10 +6111,8 @@ class DmsApi:
         :param replication_settings: The settings for the replication.
         :param supplemental_settings: Additional settings for the replication.
         :param compute_config: Configuration parameters for provisioning an DMS Serverless replication.
-        :param source_endpoint_arn: The Amazon Resource Name (ARN) of the source endpoint for this DMS
-        serverless replication configuration.
-        :param target_endpoint_arn: The Amazon Resource Name (ARN) of the target endpoint for this DMS
-        serverless replication configuration.
+        :param source_endpoint_arn: The Amazon Resource Name (ARN) of the source endpoint for this DMS serverless replication configuration.
+        :param target_endpoint_arn: The Amazon Resource Name (ARN) of the target endpoint for this DMS serverless replication configuration.
         :returns: ModifyReplicationConfigResponse
         :raises AccessDeniedFault:
         :raises ResourceNotFoundFault:
@@ -6289,26 +6149,18 @@ class DmsApi:
         Some settings are applied during the maintenance window.
 
         :param replication_instance_arn: The Amazon Resource Name (ARN) of the replication instance.
-        :param allocated_storage: The amount of storage (in gigabytes) to be allocated for the replication
-        instance.
-        :param apply_immediately: Indicates whether the changes should be applied immediately or during
-        the next maintenance window.
-        :param replication_instance_class: The compute and memory capacity of the replication instance as defined
-        for the specified replication instance class.
-        :param vpc_security_group_ids: Specifies the VPC security group to be used with the replication
-        instance.
-        :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can
-        occur, which might result in an outage.
+        :param allocated_storage: The amount of storage (in gigabytes) to be allocated for the replication instance.
+        :param apply_immediately: Indicates whether the changes should be applied immediately or during the next maintenance window.
+        :param replication_instance_class: The compute and memory capacity of the replication instance as defined for the specified replication instance class.
+        :param vpc_security_group_ids: Specifies the VPC security group to be used with the replication instance.
+        :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur, which might result in an outage.
         :param multi_az: Specifies whether the replication instance is a Multi-AZ deployment.
         :param engine_version: The engine version number of the replication instance.
         :param allow_major_version_upgrade: Indicates that major version upgrades are allowed.
-        :param auto_minor_version_upgrade: A value that indicates that minor version upgrades are applied
-        automatically to the replication instance during the maintenance window.
+        :param auto_minor_version_upgrade: A value that indicates that minor version upgrades are applied automatically to the replication instance during the maintenance window.
         :param replication_instance_identifier: The replication instance identifier.
-        :param network_type: The type of IP address protocol used by a replication instance, such as
-        IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing.
-        :param kerberos_authentication_settings: Specifies the settings required for kerberos authentication when
-        modifying a replication instance.
+        :param network_type: The type of IP address protocol used by a replication instance, such as IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing.
+        :param kerberos_authentication_settings: Specifies the settings required for kerberos authentication when modifying a replication instance.
         :returns: ModifyReplicationInstanceResponse
         :raises AccessDeniedFault:
         :raises InvalidResourceStateFault:
@@ -6371,15 +6223,12 @@ class DmsApi:
         :param replication_task_arn: The Amazon Resource Name (ARN) of the replication task.
         :param replication_task_identifier: The replication task identifier.
         :param migration_type: The migration type.
-        :param table_mappings: When using the CLI or boto3, provide the path of the JSON file that
-        contains the table mappings.
-        :param replication_task_settings: JSON file that contains settings for the task, such as task metadata
-        settings.
+        :param table_mappings: When using the CLI or boto3, provide the path of the JSON file that contains the table mappings.
+        :param replication_task_settings: JSON file that contains settings for the task, such as task metadata settings.
         :param cdc_start_time: Indicates the start time for a change data capture (CDC) operation.
         :param cdc_start_position: Indicates when you want a change data capture (CDC) operation to start.
         :param cdc_stop_position: Indicates when you want a change data capture (CDC) operation to stop.
-        :param task_data: Supplemental information that the task requires to migrate the data for
-        certain source and target endpoints.
+        :param task_data: Supplemental information that the task requires to migrate the data for certain source and target endpoints.
         :returns: ModifyReplicationTaskResponse
         :raises InvalidResourceStateFault:
         :raises ResourceNotFoundFault:
@@ -6425,11 +6274,8 @@ class DmsApi:
         until the replication instance becomes available again.
 
         :param replication_instance_arn: The Amazon Resource Name (ARN) of the replication instance.
-        :param force_failover: If this parameter is ``true``, the reboot is conducted through a
-        Multi-AZ failover.
-        :param force_planned_failover: If this parameter is ``true``, the reboot is conducted through a planned
-        Multi-AZ failover where resources are released and cleaned up prior to
-        conducting the failover.
+        :param force_failover: If this parameter is ``true``, the reboot is conducted through a Multi-AZ failover.
+        :param force_planned_failover: If this parameter is ``true``, the reboot is conducted through a planned Multi-AZ failover where resources are released and cleaned up prior to conducting the failover.
         :returns: RebootReplicationInstanceResponse
         :raises ResourceNotFoundFault:
         :raises InvalidResourceStateFault:
@@ -6448,8 +6294,7 @@ class DmsApi:
         operation and can take several minutes. You can check the status of this
         operation by calling the DescribeRefreshSchemasStatus operation.
 
-        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the
-        endpoint.
+        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the endpoint.
         :param replication_instance_arn: The Amazon Resource Name (ARN) of the replication instance.
         :returns: RefreshSchemasResponse
         :raises InvalidResourceStateFault:
@@ -6475,8 +6320,7 @@ class DmsApi:
         otherwise the service will throw an ``InvalidResourceStateFault``
         exception.
 
-        :param replication_config_arn: The Amazon Resource Name of the replication config for which to reload
-        tables.
+        :param replication_config_arn: The Amazon Resource Name of the replication config for which to reload tables.
         :param tables_to_reload: The list of tables to reload.
         :param reload_option: Options for reload.
         :returns: ReloadReplicationTablesResponse
@@ -6662,8 +6506,7 @@ class DmsApi:
         PostgreSQL, or from SQL Server to RDS for PostgreSQL.
 
         :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
-        :param selection_rules: The JSON string that specifies the location where the metadata model
-        will be created.
+        :param selection_rules: The JSON string that specifies the location where the metadata model will be created.
         :param metadata_model_name: The name of the metadata model.
         :param properties: The properties of metadata model in JSON format.
         :returns: StartMetadataModelCreationResponse
@@ -6748,8 +6591,7 @@ class DmsApi:
         :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
         :param selection_rules: A value that specifies the database objects to import.
         :param origin: Whether to load metadata to the source or target database.
-        :param refresh: If ``true``, DMS loads metadata for the specified objects from the
-        source database.
+        :param refresh: If ``true``, DMS loads metadata for the specified objects from the source database.
         :returns: StartMetadataModelImportResponse
         :raises AccessDeniedFault:
         :raises InvalidResourceStateFault:
@@ -6783,10 +6625,8 @@ class DmsApi:
         You can create recommendations for multiple source databases using
         `BatchStartRecommendations <https://docs.aws.amazon.com/dms/latest/APIReference/API_BatchStartRecommendations.html>`__.
 
-        :param database_id: The identifier of the source database to analyze and provide
-        recommendations for.
-        :param settings: The settings in JSON format that Fleet Advisor uses to determine target
-        engine recommendations.
+        :param database_id: The identifier of the source database to analyze and provide recommendations for.
+        :param settings: The settings in JSON format that Fleet Advisor uses to determine target engine recommendations.
         :raises InvalidResourceStateFault:
         :raises AccessDeniedFault:
         :raises ResourceNotFoundFault:
@@ -6812,8 +6652,7 @@ class DmsApi:
         the server resources that DMS has provisioned for the DMS Serverless
         replication.
 
-        :param replication_config_arn: The Amazon Resource Name of the replication for which to start
-        replication.
+        :param replication_config_arn: The Amazon Resource Name of the replication for which to start replication.
         :param start_replication_type: The replication type.
         :param premigration_assessment_settings: User-defined settings for the premigration assessment.
         :param cdc_start_time: Indicates the start time for a change data capture (CDC) operation.
@@ -6910,24 +6749,16 @@ class DmsApi:
         assessment. You can also run the migration task manually after the
         assessment run and its individual assessments complete.
 
-        :param replication_task_arn: Amazon Resource Name (ARN) of the migration task associated with the
-        premigration assessment run that you want to start.
+        :param replication_task_arn: Amazon Resource Name (ARN) of the migration task associated with the premigration assessment run that you want to start.
         :param service_access_role_arn: ARN of the service role needed to start the assessment run.
-        :param result_location_bucket: Amazon S3 bucket where you want DMS to store the results of this
-        assessment run.
+        :param result_location_bucket: Amazon S3 bucket where you want DMS to store the results of this assessment run.
         :param assessment_run_name: Unique name to identify the assessment run.
-        :param result_location_folder: Folder within an Amazon S3 bucket where you want DMS to store the
-        results of this assessment run.
-        :param result_encryption_mode: Encryption mode that you can specify to encrypt the results of this
-        assessment run.
-        :param result_kms_key_arn: ARN of a custom KMS encryption key that you specify when you set
-        ``ResultEncryptionMode`` to ``"SSE_KMS``".
-        :param include_only: Space-separated list of names for specific individual assessments that
-        you want to include.
-        :param exclude: Space-separated list of names for specific individual assessments that
-        you want to exclude.
-        :param tags: One or more tags to be assigned to the premigration assessment run that
-        you want to start.
+        :param result_location_folder: Folder within an Amazon S3 bucket where you want DMS to store the results of this assessment run.
+        :param result_encryption_mode: Encryption mode that you can specify to encrypt the results of this assessment run.
+        :param result_kms_key_arn: ARN of a custom KMS encryption key that you specify when you set ``ResultEncryptionMode`` to ``"SSE_KMS``".
+        :param include_only: Space-separated list of names for specific individual assessments that you want to include.
+        :param exclude: Space-separated list of names for specific individual assessments that you want to exclude.
+        :param tags: One or more tags to be assigned to the premigration assessment run that you want to start.
         :returns: StartReplicationTaskAssessmentRunResponse
         :raises AccessDeniedFault:
         :raises ResourceNotFoundFault:
@@ -6998,8 +6829,7 @@ class DmsApi:
         """Tests the connection between the replication instance and the endpoint.
 
         :param replication_instance_arn: The Amazon Resource Name (ARN) of the replication instance.
-        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the
-        endpoint.
+        :param endpoint_arn: The Amazon Resource Name (ARN) string that uniquely identifies the endpoint.
         :returns: TestConnectionResponse
         :raises ResourceNotFoundFault:
         :raises InvalidResourceStateFault:
@@ -7030,8 +6860,7 @@ class DmsApi:
         EventBridge <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Events.html#CHAP_Events-migrate-to-eventbridge>`__
         in the *Amazon Web Services Database Migration Service User Guide*.
 
-        :param force_move: When set to true, this operation migrates DMS subscriptions for Amazon
-        SNS notifications no matter what your replication instance version is.
+        :param force_move: When set to true, this operation migrates DMS subscriptions for Amazon SNS notifications no matter what your replication instance version is.
         :returns: UpdateSubscriptionsToEventBridgeResponse
         :raises AccessDeniedFault:
         :raises InvalidResourceStateFault:

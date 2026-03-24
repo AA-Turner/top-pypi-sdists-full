@@ -3702,8 +3702,7 @@ class CodecommitApi:
         """Creates an association between an approval rule template and one or more
         specified repositories.
 
-        :param approval_rule_template_name: The name of the template you want to associate with one or more
-        repositories.
+        :param approval_rule_template_name: The name of the template you want to associate with one or more repositories.
         :param repository_names: The names of the repositories you want to associate with the template.
         :returns: BatchAssociateApprovalRuleTemplateWithRepositoriesOutput
         :raises ApprovalRuleTemplateNameRequiredException:
@@ -3739,21 +3738,16 @@ class CodecommitApi:
         merge of two commit specifiers using the squash or three-way merge
         strategy.
 
-        :param repository_name: The name of the repository that contains the merge conflicts you want to
-        review.
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param repository_name: The name of the repository that contains the merge conflicts you want to review.
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param merge_option: The merge option or strategy you want to use to merge the code.
         :param max_merge_hunks: The maximum number of merge hunks to include in the output.
         :param max_conflict_files: The maximum number of files to include in the output.
         :param file_paths: The path of the target files used to describe the conflicts.
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
         :returns: BatchDescribeMergeConflictsOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -3790,10 +3784,8 @@ class CodecommitApi:
         """Removes the association between an approval rule template and one or
         more specified repositories.
 
-        :param approval_rule_template_name: The name of the template that you want to disassociate from one or more
-        repositories.
-        :param repository_names: The repository names that you want to disassociate from the approval
-        rule template.
+        :param approval_rule_template_name: The name of the template that you want to disassociate from one or more repositories.
+        :param repository_names: The repository names that you want to disassociate from the approval rule template.
         :returns: BatchDisassociateApprovalRuleTemplateFromRepositoriesOutput
         :raises ApprovalRuleTemplateNameRequiredException:
         :raises InvalidApprovalRuleTemplateNameException:
@@ -3878,8 +3870,7 @@ class CodecommitApi:
         AssociateApprovalRuleTemplateWithRepository.
 
         :param approval_rule_template_name: The name of the approval rule template.
-        :param approval_rule_template_content: The content of the approval rule that is created on pull requests in
-        associated repositories.
+        :param approval_rule_template_content: The content of the approval rule that is created on pull requests in associated repositories.
         :param approval_rule_template_description: The description of the approval rule template.
         :returns: CreateApprovalRuleTemplateOutput
         :raises ApprovalRuleTemplateNameRequiredException:
@@ -3950,8 +3941,7 @@ class CodecommitApi:
         :param author_name: The name of the author who created the commit.
         :param email: The email address of the person who created the commit.
         :param commit_message: The commit message you want to include in the commit.
-        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder
-        structure if the changes leave the folders empty.
+        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder structure if the changes leave the folders empty.
         :param put_files: The files to add or update in this commit.
         :param delete_files: The files to delete in this commit.
         :param set_file_modes: The file modes to update for files in this commit.
@@ -4010,14 +4000,9 @@ class CodecommitApi:
         """Creates a pull request in the specified repository.
 
         :param title: The title of the pull request.
-        :param targets: The targets for the pull request, including the source of the code to be
-        reviewed (the source branch) and the destination where the creator of
-        the pull request intends the code to be merged after the pull request is
-        closed (the destination branch).
+        :param targets: The targets for the pull request, including the source of the code to be reviewed (the source branch) and the destination where the creator of the pull request intends the code to be merged after the pull request is closed (the destination branch).
         :param description: A description of the pull request.
-        :param client_request_token: A unique, client-generated idempotency token that, when provided in a
-        request, ensures the request cannot be repeated with a changed
-        parameter.
+        :param client_request_token: A unique, client-generated idempotency token that, when provided in a request, ensures the request cannot be repeated with a changed parameter.
         :returns: CreatePullRequestOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -4058,12 +4043,9 @@ class CodecommitApi:
     ) -> CreatePullRequestApprovalRuleOutput:
         """Creates an approval rule for a pull request.
 
-        :param pull_request_id: The system-generated ID of the pull request for which you want to create
-        the approval rule.
+        :param pull_request_id: The system-generated ID of the pull request for which you want to create the approval rule.
         :param approval_rule_name: The name for the approval rule.
-        :param approval_rule_content: The content of the approval rule, including the number of approvals
-        needed and the structure of an approval pool defined for approvals, if
-        any.
+        :param approval_rule_content: The content of the approval rule, including the number of approvals needed and the structure of an approval pool defined for approvals, if any.
         :returns: CreatePullRequestApprovalRuleOutput
         :raises ApprovalRuleNameRequiredException:
         :raises InvalidApprovalRuleNameException:
@@ -4147,23 +4129,17 @@ class CodecommitApi:
         API or through git commands such as git fetch. To retrieve this commit,
         you must specify its commit ID or otherwise reference it.
 
-        :param repository_name: The name of the repository where you want to create the unreferenced
-        merge commit.
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param repository_name: The name of the repository where you want to create the unreferenced merge commit.
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param merge_option: The merge option or strategy you want to use to merge the code.
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
         :param author_name: The name of the author who created the unreferenced commit.
         :param email: The email address for the person who created the unreferenced commit.
         :param commit_message: The commit message for the unreferenced commit.
-        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder
-        structure if the changes leave the folders empty.
-        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to
-        use when resolving conflicts during a merge.
+        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder structure if the changes leave the folders empty.
+        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to use when resolving conflicts during a merge.
         :returns: CreateUnreferencedMergeCommitOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -4287,12 +4263,9 @@ class CodecommitApi:
 
         :param repository_name: The name of the repository that contains the file to delete.
         :param branch_name: The name of the branch where the commit that deletes the file is made.
-        :param file_path: The fully qualified path to the file that to be deleted, including the
-        full name and extension of that file.
-        :param parent_commit_id: The ID of the commit that is the tip of the branch where you want to
-        create the commit that deletes the file.
-        :param keep_empty_folders: If a file is the only object in the folder or directory, specifies
-        whether to delete the folder or directory that contains the file.
+        :param file_path: The fully qualified path to the file that to be deleted, including the full name and extension of that file.
+        :param parent_commit_id: The ID of the commit that is the tip of the branch where you want to create the commit that deletes the file.
+        :param keep_empty_folders: If a file is the only object in the folder or directory, specifies whether to delete the folder or directory that contains the file.
         :param commit_message: The commit message you want to include as part of deleting the file.
         :param name: The name of the author of the commit that deletes the file.
         :param email: The email address for the commit that deletes the file.
@@ -4337,8 +4310,7 @@ class CodecommitApi:
         where the pull request was created. You cannot delete an approval rule
         from a merged or closed pull request.
 
-        :param pull_request_id: The system-generated ID of the pull request that contains the approval
-        rule you want to delete.
+        :param pull_request_id: The system-generated ID of the pull request that contains the approval rule you want to delete.
         :param approval_rule_name: The name of the approval rule you want to delete.
         :returns: DeletePullRequestApprovalRuleOutput
         :raises PullRequestDoesNotExistException:
@@ -4399,20 +4371,15 @@ class CodecommitApi:
         strategy. If the merge option for the attempted merge is specified as
         FAST_FORWARD_MERGE, an exception is thrown.
 
-        :param repository_name: The name of the repository where you want to get information about a
-        merge conflict.
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param repository_name: The name of the repository where you want to get information about a merge conflict.
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param merge_option: The merge option or strategy you want to use to merge the code.
         :param file_path: The path of the target files used to describe the conflicts.
         :param max_merge_hunks: The maximum number of merge hunks to include in the output.
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
         :returns: DescribeMergeConflictsOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -4455,12 +4422,9 @@ class CodecommitApi:
 
         :param pull_request_id: The system-generated ID of the pull request.
         :param pull_request_event_type: Optional.
-        :param actor_arn: The Amazon Resource Name (ARN) of the user whose actions resulted in the
-        event.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param actor_arn: The Amazon Resource Name (ARN) of the user whose actions resulted in the event.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :returns: DescribePullRequestEventsOutput
         :raises PullRequestDoesNotExistException:
         :raises InvalidPullRequestIdException:
@@ -4492,8 +4456,7 @@ class CodecommitApi:
         delete any approval rules previously created for pull requests through
         the template association.
 
-        :param approval_rule_template_name: The name of the approval rule template to disassociate from a specified
-        repository.
+        :param approval_rule_template_name: The name of the approval rule template to disassociate from a specified repository.
         :param repository_name: The name of the repository you want to disassociate from the template.
         :raises ApprovalRuleTemplateNameRequiredException:
         :raises InvalidApprovalRuleTemplateNameException:
@@ -4546,8 +4509,7 @@ class CodecommitApi:
     ) -> GetApprovalRuleTemplateOutput:
         """Returns information about a specified approval rule template.
 
-        :param approval_rule_template_name: The name of the approval rule template for which you want to get
-        information.
+        :param approval_rule_template_name: The name of the approval rule template for which you want to get information.
         :returns: GetApprovalRuleTemplateOutput
         :raises ApprovalRuleTemplateNameRequiredException:
         :raises InvalidApprovalRuleTemplateNameException:
@@ -4591,8 +4553,7 @@ class CodecommitApi:
         """Returns information about a repository branch, including its name and
         the last commit ID.
 
-        :param repository_name: The name of the repository that contains the branch for which you want
-        to retrieve information.
+        :param repository_name: The name of the repository that contains the branch for which you want to retrieve information.
         :param branch_name: The name of the branch for which you want to retrieve information.
         :returns: GetBranchOutput
         :raises RepositoryNameRequiredException:
@@ -4649,10 +4610,8 @@ class CodecommitApi:
 
         :param comment_id: The ID of the comment for which you want to get reactions information.
         :param reaction_user_arn: Optional.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :returns: GetCommentReactionsOutput
         :raises CommentDoesNotExistException:
         :raises CommentIdRequiredException:
@@ -4683,14 +4642,10 @@ class CodecommitApi:
         active identities, use GetCommentReactions.
 
         :param repository_name: The name of the repository where you want to compare commits.
-        :param after_commit_id: To establish the directionality of the comparison, the full commit ID of
-        the after commit.
-        :param before_commit_id: To establish the directionality of the comparison, the full commit ID of
-        the before commit.
-        :param next_token: An enumeration token that when provided in a request, returns the next
-        batch of the results.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param after_commit_id: To establish the directionality of the comparison, the full commit ID of the after commit.
+        :param before_commit_id: To establish the directionality of the comparison, the full commit ID of the before commit.
+        :param next_token: An enumeration token that when provided in a request, returns the next batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :returns: GetCommentsForComparedCommitOutput
         :raises RepositoryNameRequiredException:
         :raises RepositoryDoesNotExistException:
@@ -4728,14 +4683,10 @@ class CodecommitApi:
 
         :param pull_request_id: The system-generated ID of the pull request.
         :param repository_name: The name of the repository that contains the pull request.
-        :param before_commit_id: The full commit ID of the commit in the destination branch that was the
-        tip of the branch at the time the pull request was created.
-        :param after_commit_id: The full commit ID of the commit in the source branch that was the tip
-        of the branch at the time the comment was made.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param before_commit_id: The full commit ID of the commit in the destination branch that was the tip of the branch at the time the pull request was created.
+        :param after_commit_id: The full commit ID of the commit in the source branch that was the tip of the branch at the time the comment was made.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :returns: GetCommentsForPullRequestOutput
         :raises PullRequestIdRequiredException:
         :raises PullRequestDoesNotExistException:
@@ -4803,16 +4754,12 @@ class CodecommitApi:
         reference). Results can be limited to a specified path.
 
         :param repository_name: The name of the repository where you want to get differences.
-        :param after_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit.
-        :param before_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, the full commit ID).
+        :param after_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit.
+        :param before_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, the full commit ID).
         :param before_path: The file path in which to check for differences.
         :param after_path: The file path in which to check differences.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
         :returns: GetDifferencesOutput
         :raises RepositoryNameRequiredException:
         :raises RepositoryDoesNotExistException:
@@ -4846,10 +4793,8 @@ class CodecommitApi:
         metadata.
 
         :param repository_name: The name of the repository that contains the file.
-        :param file_path: The fully qualified path to the file, including the full name and
-        extension of the file.
-        :param commit_specifier: The fully quaified reference that identifies the commit that contains
-        the file.
+        :param file_path: The fully qualified path to the file, including the full name and extension of the file.
+        :param commit_specifier: The fully quaified reference that identifies the commit that contains the file.
         :returns: GetFileOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -4880,10 +4825,8 @@ class CodecommitApi:
         """Returns the contents of a specified folder in a repository.
 
         :param repository_name: The name of the repository.
-        :param folder_path: The fully qualified path to the folder whose contents are returned,
-        including the folder name.
-        :param commit_specifier: A fully qualified reference used to identify a commit that contains the
-        version of the folder's content to return.
+        :param folder_path: The fully qualified path to the folder whose contents are returned, including the folder name.
+        :param commit_specifier: A fully qualified reference used to identify a commit that contains the version of the folder's content to return.
         :returns: GetFolderOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -4914,15 +4857,11 @@ class CodecommitApi:
     ) -> GetMergeCommitOutput:
         """Returns information about a specified merge commit.
 
-        :param repository_name: The name of the repository that contains the merge commit about which
-        you want to get information.
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param repository_name: The name of the repository that contains the merge commit about which you want to get information.
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
         :returns: GetMergeCommitOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -4958,17 +4897,13 @@ class CodecommitApi:
         commit IDs for a pull request in a repository.
 
         :param repository_name: The name of the repository where the pull request was created.
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param merge_option: The merge option or strategy you want to use to merge the code.
         :param conflict_detail_level: The level of conflict detail to use.
         :param max_conflict_files: The maximum number of files to include in the output.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
         :returns: GetMergeConflictsOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -5010,15 +4945,11 @@ class CodecommitApi:
         specified branches. For details about why a merge option is not
         available, use GetMergeConflicts or DescribeMergeConflicts.
 
-        :param repository_name: The name of the repository that contains the commits about which you
-        want to get merge options.
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param repository_name: The name of the repository that contains the commits about which you want to get merge options.
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
         :returns: GetMergeOptionsOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -5099,8 +5030,7 @@ class CodecommitApi:
         (ARN) of the user or identity that overrode the rules and their
         requirements for the pull request.
 
-        :param pull_request_id: The ID of the pull request for which you want to get information about
-        whether approval rules have been set aside (overridden).
+        :param pull_request_id: The ID of the pull request for which you want to get information about whether approval rules have been set aside (overridden).
         :param revision_id: The system-generated ID of the revision for the pull request.
         :returns: GetPullRequestOverrideStateOutput
         :raises PullRequestDoesNotExistException:
@@ -5174,10 +5104,8 @@ class CodecommitApi:
         Region is not specified, the Amazon Web Services Region where you are
         signed in is used.
 
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :returns: ListApprovalRuleTemplatesOutput
         :raises InvalidMaxResultsException:
         :raises InvalidContinuationTokenException:
@@ -5196,12 +5124,9 @@ class CodecommitApi:
         """Lists all approval rule templates that are associated with a specified
         repository.
 
-        :param repository_name: The name of the repository for which you want to list all associated
-        approval rule templates.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param repository_name: The name of the repository for which you want to list all associated approval rule templates.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :returns: ListAssociatedApprovalRuleTemplatesForRepositoryOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -5255,12 +5180,9 @@ class CodecommitApi:
         """Retrieves a list of commits and changes to a specified file.
 
         :param repository_name: The name of the repository that contains the file.
-        :param file_path: The full path of the file whose history you want to retrieve, including
-        the name of the file.
-        :param commit_specifier: The fully quaified reference that identifies the commit that contains
-        the file.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param file_path: The full path of the file whose history you want to retrieve, including the name of the file.
+        :param commit_specifier: The fully quaified reference that identifies the commit that contains the file.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :param next_token: An enumeration token that allows the operation to batch the results.
         :returns: ListFileCommitHistoryResponse
         :raises RepositoryNameRequiredException:
@@ -5297,10 +5219,8 @@ class CodecommitApi:
         :param repository_name: The name of the repository for which you want to list pull requests.
         :param author_arn: Optional.
         :param pull_request_status: Optional.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :returns: ListPullRequestsOutput
         :raises InvalidPullRequestStatusException:
         :raises InvalidAuthorArnException:
@@ -5329,8 +5249,7 @@ class CodecommitApi:
     ) -> ListRepositoriesOutput:
         """Gets information about one or more repositories.
 
-        :param next_token: An enumeration token that allows the operation to batch the results of
-        the operation.
+        :param next_token: An enumeration token that allows the operation to batch the results of the operation.
         :param sort_by: The criteria used to sort the results of a list repositories operation.
         :param order: The order in which to sort the results of a list repositories operation.
         :returns: ListRepositoriesOutput
@@ -5352,12 +5271,9 @@ class CodecommitApi:
         """Lists all repositories associated with the specified approval rule
         template.
 
-        :param approval_rule_template_name: The name of the approval rule template for which you want to list
-        repositories that are associated with that template.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
+        :param approval_rule_template_name: The name of the approval rule template for which you want to list repositories that are associated with that template.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
         :returns: ListRepositoriesForApprovalRuleTemplateOutput
         :raises ApprovalRuleTemplateNameRequiredException:
         :raises InvalidApprovalRuleTemplateNameException:
@@ -5386,10 +5302,8 @@ class CodecommitApi:
         Operations <https://docs.aws.amazon.com/codecommit/latest/userguide/auth-and-access-control-iam-access-control-identity-based.html#arn-formats>`__
         in the *CodeCommit User Guide*.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want to get
-        information about tags, if any.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want to get information about tags, if any.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
         :returns: ListTagsForResourceOutput
         :raises RepositoryDoesNotExistException:
         :raises InvalidRepositoryNameException:
@@ -5411,10 +5325,8 @@ class CodecommitApi:
         """Merges two branches using the fast-forward merge strategy.
 
         :param repository_name: The name of the repository where you want to merge two branches.
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param target_branch: The branch where the merge is applied.
         :returns: MergeBranchesByFastForwardOutput
         :raises RepositoryNameRequiredException:
@@ -5459,21 +5371,16 @@ class CodecommitApi:
         """Merges two branches using the squash merge strategy.
 
         :param repository_name: The name of the repository where you want to merge two branches.
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param target_branch: The branch where the merge is applied.
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
         :param author_name: The name of the author who created the commit.
         :param email: The email address of the person merging the branches.
         :param commit_message: The commit message for the merge.
-        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder
-        structure if the changes leave the folders empty.
-        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to
-        use when resolving conflicts during a merge.
+        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder structure if the changes leave the folders empty.
+        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to use when resolving conflicts during a merge.
         :returns: MergeBranchesBySquashOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -5537,21 +5444,16 @@ class CodecommitApi:
         """Merges two specified branches using the three-way merge strategy.
 
         :param repository_name: The name of the repository where you want to merge two branches.
-        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
-        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to
-        identify a commit (for example, a branch name or a full commit ID).
+        :param source_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
+        :param destination_commit_specifier: The branch, tag, HEAD, or other fully qualified reference used to identify a commit (for example, a branch name or a full commit ID).
         :param target_branch: The branch where the merge is applied.
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
         :param author_name: The name of the author who created the commit.
         :param email: The email address of the person merging the branches.
         :param commit_message: The commit message to include in the commit information for the merge.
-        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder
-        structure if the changes leave the folders empty.
-        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to
-        use when resolving conflicts during a merge.
+        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder structure if the changes leave the folders empty.
+        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to use when resolving conflicts during a merge.
         :returns: MergeBranchesByThreeWayOutput
         :raises RepositoryNameRequiredException:
         :raises InvalidRepositoryNameException:
@@ -5611,8 +5513,7 @@ class CodecommitApi:
 
         :param pull_request_id: The system-generated ID of the pull request.
         :param repository_name: The name of the repository where the pull request was created.
-        :param source_commit_id: The full commit ID of the original or updated commit in the pull request
-        source branch.
+        :param source_commit_id: The full commit ID of the original or updated commit in the pull request source branch.
         :returns: MergePullRequestByFastForwardOutput
         :raises ManualMergeRequiredException:
         :raises PullRequestAlreadyClosedException:
@@ -5659,18 +5560,14 @@ class CodecommitApi:
 
         :param pull_request_id: The system-generated ID of the pull request.
         :param repository_name: The name of the repository where the pull request was created.
-        :param source_commit_id: The full commit ID of the original or updated commit in the pull request
-        source branch.
+        :param source_commit_id: The full commit ID of the original or updated commit in the pull request source branch.
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
         :param commit_message: The commit message to include in the commit information for the merge.
         :param author_name: The name of the author who created the commit.
         :param email: The email address of the person merging the branches.
-        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder
-        structure if the changes leave the folders empty.
-        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to
-        use when resolving conflicts during a merge.
+        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder structure if the changes leave the folders empty.
+        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to use when resolving conflicts during a merge.
         :returns: MergePullRequestBySquashOutput
         :raises PullRequestAlreadyClosedException:
         :raises PullRequestDoesNotExistException:
@@ -5736,18 +5633,14 @@ class CodecommitApi:
 
         :param pull_request_id: The system-generated ID of the pull request.
         :param repository_name: The name of the repository where the pull request was created.
-        :param source_commit_id: The full commit ID of the original or updated commit in the pull request
-        source branch.
+        :param source_commit_id: The full commit ID of the original or updated commit in the pull request source branch.
         :param conflict_detail_level: The level of conflict detail to use.
-        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to
-        attempt automatically merging two versions of a file.
+        :param conflict_resolution_strategy: Specifies which branch to use when resolving conflicts, or whether to attempt automatically merging two versions of a file.
         :param commit_message: The commit message to include in the commit information for the merge.
         :param author_name: The name of the author who created the commit.
         :param email: The email address of the person merging the branches.
-        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder
-        structure if the changes leave the folders empty.
-        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to
-        use when resolving conflicts during a merge.
+        :param keep_empty_folders: If the commit contains deletions, whether to keep a folder or folder structure if the changes leave the folders empty.
+        :param conflict_resolution: If AUTOMERGE is the conflict resolution strategy, a list of inputs to use when resolving conflicts during a merge.
         :returns: MergePullRequestByThreeWayOutput
         :raises PullRequestAlreadyClosedException:
         :raises PullRequestDoesNotExistException:
@@ -5802,12 +5695,9 @@ class CodecommitApi:
         """Sets aside (overrides) all approval rule requirements for a specified
         pull request.
 
-        :param pull_request_id: The system-generated ID of the pull request for which you want to
-        override all approval rule requirements.
+        :param pull_request_id: The system-generated ID of the pull request for which you want to override all approval rule requirements.
         :param revision_id: The system-generated ID of the most recent revision of the pull request.
-        :param override_status: Whether you want to set aside approval rule requirements for the pull
-        request (OVERRIDE) or revoke a previous override and apply approval rule
-        requirements (REVOKE).
+        :param override_status: Whether you want to set aside approval rule requirements for the pull request (OVERRIDE) or revoke a previous override and apply approval rule requirements (REVOKE).
         :raises PullRequestDoesNotExistException:
         :raises InvalidPullRequestIdException:
         :raises PullRequestIdRequiredException:
@@ -5840,17 +5730,12 @@ class CodecommitApi:
     ) -> PostCommentForComparedCommitOutput:
         """Posts a comment on the comparison between two commits.
 
-        :param repository_name: The name of the repository where you want to post a comment on the
-        comparison between commits.
-        :param after_commit_id: To establish the directionality of the comparison, the full commit ID of
-        the after commit.
+        :param repository_name: The name of the repository where you want to post a comment on the comparison between commits.
+        :param after_commit_id: To establish the directionality of the comparison, the full commit ID of the after commit.
         :param content: The content of the comment you want to make.
-        :param before_commit_id: To establish the directionality of the comparison, the full commit ID of
-        the before commit.
+        :param before_commit_id: To establish the directionality of the comparison, the full commit ID of the before commit.
         :param location: The location of the comparison where you want to comment.
-        :param client_request_token: A unique, client-generated idempotency token that, when provided in a
-        request, ensures the request cannot be repeated with a changed
-        parameter.
+        :param client_request_token: A unique, client-generated idempotency token that, when provided in a request, ensures the request cannot be repeated with a changed parameter.
         :returns: PostCommentForComparedCommitOutput
         :raises RepositoryNameRequiredException:
         :raises RepositoryDoesNotExistException:
@@ -5895,18 +5780,12 @@ class CodecommitApi:
         """Posts a comment on a pull request.
 
         :param pull_request_id: The system-generated ID of the pull request.
-        :param repository_name: The name of the repository where you want to post a comment on a pull
-        request.
-        :param before_commit_id: The full commit ID of the commit in the destination branch that was the
-        tip of the branch at the time the pull request was created.
-        :param after_commit_id: The full commit ID of the commit in the source branch that is the
-        current tip of the branch for the pull request when you post the
-        comment.
+        :param repository_name: The name of the repository where you want to post a comment on a pull request.
+        :param before_commit_id: The full commit ID of the commit in the destination branch that was the tip of the branch at the time the pull request was created.
+        :param after_commit_id: The full commit ID of the commit in the source branch that is the current tip of the branch for the pull request when you post the comment.
         :param content: The content of your comment on the change.
         :param location: The location of the change where you want to post your comment.
-        :param client_request_token: A unique, client-generated idempotency token that, when provided in a
-        request, ensures the request cannot be repeated with a changed
-        parameter.
+        :param client_request_token: A unique, client-generated idempotency token that, when provided in a request, ensures the request cannot be repeated with a changed parameter.
         :returns: PostCommentForPullRequestOutput
         :raises PullRequestDoesNotExistException:
         :raises InvalidPullRequestIdException:
@@ -5953,9 +5832,7 @@ class CodecommitApi:
 
         :param in_reply_to: The system-generated ID of the comment to which you want to reply.
         :param content: The contents of your reply to a comment.
-        :param client_request_token: A unique, client-generated idempotency token that, when provided in a
-        request, ensures the request cannot be repeated with a changed
-        parameter.
+        :param client_request_token: A unique, client-generated idempotency token that, when provided in a request, ensures the request cannot be repeated with a changed parameter.
         :returns: PostCommentReplyOutput
         :raises ClientRequestTokenRequiredException:
         :raises InvalidClientRequestTokenException:
@@ -6014,11 +5891,9 @@ class CodecommitApi:
         :param repository_name: The name of the repository where you want to add or update the file.
         :param branch_name: The name of the branch where you want to add or update the file.
         :param file_content: The content of the file, in binary object format.
-        :param file_path: The name of the file you want to add or update, including the relative
-        path to the file in the repository.
+        :param file_path: The name of the file you want to add or update, including the relative path to the file in the repository.
         :param file_mode: The file mode permissions of the blob.
-        :param parent_commit_id: The full commit ID of the head commit in the branch where you want to
-        add or update the file.
+        :param parent_commit_id: The full commit ID of the head commit in the branch where you want to add or update the file.
         :param commit_message: A message about why this file was added or updated.
         :param name: The name of the person adding or updating the file.
         :param email: An email address for the person adding or updating the file.
@@ -6067,8 +5942,7 @@ class CodecommitApi:
         """Replaces all triggers for a repository. Used to create or delete
         triggers.
 
-        :param repository_name: The name of the repository where you want to create or update the
-        trigger.
+        :param repository_name: The name of the repository where you want to create or update the trigger.
         :param triggers: The JSON block of configuration information for each trigger.
         :returns: PutRepositoryTriggersOutput
         :raises RepositoryDoesNotExistException:
@@ -6104,8 +5978,7 @@ class CodecommitApi:
         Operations <https://docs.aws.amazon.com/codecommit/latest/userguide/auth-and-access-control-iam-access-control-identity-based.html#arn-formats>`__
         in the *CodeCommit User Guide*.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which you want to add
-        or update tags.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which you want to add or update tags.
         :param tags: The key-value pair to use when tagging this repository.
         :raises RepositoryDoesNotExistException:
         :raises InvalidRepositoryNameException:
@@ -6168,8 +6041,7 @@ class CodecommitApi:
         Operations <https://docs.aws.amazon.com/codecommit/latest/userguide/auth-and-access-control-iam-access-control-identity-based.html#arn-formats>`__
         in the *CodeCommit User Guide*.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which you want to
-        remove tags.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which you want to remove tags.
         :param tag_keys: The tag key for each tag that you want to remove from the resource.
         :raises RepositoryDoesNotExistException:
         :raises InvalidRepositoryNameException:
@@ -6196,8 +6068,7 @@ class CodecommitApi:
         number of required approvals, the membership of the approval rule, and
         whether an approval pool is defined.
 
-        :param approval_rule_template_name: The name of the approval rule template where you want to update the
-        content of the rule.
+        :param approval_rule_template_name: The name of the approval rule template where you want to update the content of the rule.
         :param new_rule_content: The content that replaces the existing content of the rule.
         :param existing_rule_content_sha256: The SHA-256 hash signature for the content of the approval rule.
         :returns: UpdateApprovalRuleTemplateContentOutput
@@ -6283,8 +6154,7 @@ class CodecommitApi:
         current default branch name, a success message is returned even though
         the default branch did not change.
 
-        :param repository_name: The name of the repository for which you want to set or change the
-        default branch.
+        :param repository_name: The name of the repository for which you want to set or change the default branch.
         :param default_branch_name: The name of the branch to set as the default branch.
         :raises RepositoryNameRequiredException:
         :raises RepositoryDoesNotExistException:
@@ -6455,8 +6325,7 @@ class CodecommitApi:
         any application that uses this API to display the repository description
         on a webpage.
 
-        :param repository_name: The name of the repository to set or change the comment or description
-        for.
+        :param repository_name: The name of the repository to set or change the comment or description for.
         :param repository_description: The new comment or description for the specified repository.
         :raises RepositoryNameRequiredException:
         :raises RepositoryDoesNotExistException:
@@ -6481,8 +6350,7 @@ class CodecommitApi:
         """Updates the Key Management Service encryption key used to encrypt and
         decrypt a CodeCommit repository.
 
-        :param repository_name: The name of the repository for which you want to update the KMS
-        encryption key used to encrypt and decrypt the repository.
+        :param repository_name: The name of the repository for which you want to update the KMS encryption key used to encrypt and decrypt the repository.
         :param kms_key_id: The ID of the encryption key.
         :returns: UpdateRepositoryEncryptionKeyOutput
         :raises RepositoryNameRequiredException:

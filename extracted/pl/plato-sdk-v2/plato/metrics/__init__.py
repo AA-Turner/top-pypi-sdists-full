@@ -12,6 +12,7 @@ Usage:
     print(result.value)  # 0.85
 """
 
+from plato.metrics.compute import compute_metric
 from plato.metrics.specs import (
     HumanAgreement,
     LLMComparison,
@@ -21,7 +22,6 @@ from plato.metrics.specs import (
     VerifierPassRate,
     VerifierScore,
 )
-from plato.metrics.compute import compute_metric
 
 __all__ = [
     "HumanAgreement",

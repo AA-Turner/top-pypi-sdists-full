@@ -89,7 +89,7 @@ class MMLUReduxExtractor(HuggingFaceBenchmarkExtractor):
                 # Load dataset for this subject
                 docs = self.load_dataset(
                     dataset_name="edinburgh-dawg/mmlu-redux",
-                    config=subject,
+                    dataset_config=subject,
                     split="test",
                     limit=max_items - len(pairs) if max_items else None,
                 )

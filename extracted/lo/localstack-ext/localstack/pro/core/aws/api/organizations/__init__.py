@@ -2341,8 +2341,7 @@ class OrganizationsApi:
            account <https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/Closing-govcloud-account.html>`__
            in the *Amazon Web Services GovCloud User Guide*.
 
-        :param account_id: Retrieves the Amazon Web Services account Id for the current
-        ``CloseAccount`` API request.
+        :param account_id: Retrieves the Amazon Web Services account Id for the current ``CloseAccount`` API request.
         :raises AccessDeniedException:
         :raises AccountAlreadyClosedException:
         :raises AccountNotFoundException:
@@ -2450,10 +2449,8 @@ class OrganizationsApi:
 
         :param email: The email address of the owner to assign to the new member account.
         :param account_name: The friendly name of the member account.
-        :param role_name: The name of an IAM role that Organizations automatically preconfigures
-        in the new member account.
-        :param iam_user_access_to_billing: If set to ``ALLOW``, the new account enables IAM users to access account
-        billing information *if* they have the required permissions.
+        :param role_name: The name of an IAM role that Organizations automatically preconfigures in the new member account.
+        :param iam_user_access_to_billing: If set to ``ALLOW``, the new account enables IAM users to access account billing information *if* they have the required permissions.
         :param tags: A list of tags that you want to attach to the newly created account.
         :returns: CreateAccountResponse
         :raises AccessDeniedException:
@@ -2607,17 +2604,10 @@ class OrganizationsApi:
         for an account, see `Granting access to your billing information and
         tools <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/grantaccess.html>`__.
 
-        :param email: Specifies the email address of the owner to assign to the new member
-        account in the commercial Region.
+        :param email: Specifies the email address of the owner to assign to the new member account in the commercial Region.
         :param account_name: The friendly name of the member account.
-        :param role_name: (Optional)
-
-        The name of an IAM role that Organizations automatically preconfigures
-        in the new member accounts in both the Amazon Web Services GovCloud (US)
-        Region and in the commercial Region.
-        :param iam_user_access_to_billing: If set to ``ALLOW``, the new linked account in the commercial Region
-        enables IAM users to access account billing information *if* they have
-        the required permissions.
+        :param role_name: (Optional)  The name of an IAM role that Organizations automatically preconfigures in the new member accounts in both the Amazon Web Services GovCloud (US) Region and in the commercial Region.
+        :param iam_user_access_to_billing: If set to ``ALLOW``, the new linked account in the commercial Region enables IAM users to access account billing information *if* they have the required permissions.
         :param tags: A list of tags that you want to attach to the newly created account.
         :returns: CreateGovCloudAccountResponse
         :raises AccessDeniedException:
@@ -2873,10 +2863,8 @@ class OrganizationsApi:
 
         You can only call this operation from the management account.
 
-        :param account_id: The account ID number of the member account in the organization that you
-        want to deregister as a delegated administrator.
-        :param service_principal: The service principal name of an Amazon Web Services service for which
-        the account is a delegated administrator.
+        :param account_id: The account ID number of the member account in the organization that you want to deregister as a delegated administrator.
+        :param service_principal: The service principal name of an Amazon Web Services service for which the account is a delegated administrator.
         :raises AccessDeniedException:
         :raises AccountNotFoundException:
         :raises AccountNotRegisteredException:
@@ -2899,8 +2887,7 @@ class OrganizationsApi:
         You can only call this operation from the management account or a member
         account that is a delegated administrator.
 
-        :param account_id: The unique identifier (ID) of the Amazon Web Services account that you
-        want information about.
+        :param account_id: The unique identifier (ID) of the Amazon Web Services account that you want information about.
         :returns: DescribeAccountResponse
         :raises AccessDeniedException:
         :raises AccountNotFoundException:
@@ -2921,8 +2908,7 @@ class OrganizationsApi:
         You can only call this operation from the management account or a member
         account that is a delegated administrator.
 
-        :param create_account_request_id: Specifies the ``Id`` value that uniquely identifies the
-        ``CreateAccount`` request.
+        :param create_account_request_id: Specifies the ``Id`` value that uniquely identifies the ``CreateAccount`` request.
         :returns: DescribeCreateAccountStatusResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -2959,8 +2945,7 @@ class OrganizationsApi:
         You can call this operation from any account in a organization.
 
         :param policy_type: The type of policy that you want information about.
-        :param target_id: When you're signed in as the management account, specify the ID of the
-        account that you want details about.
+        :param target_id: When you're signed in as the management account, specify the ID of the account that you want details about.
         :returns: DescribeEffectivePolicyResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3214,8 +3199,7 @@ class OrganizationsApi:
 
         You can only call this operation from the management account.
 
-        :param service_principal: The service principal name of the Amazon Web Services service for which
-        you want to disable integration with your organization.
+        :param service_principal: The service principal name of the Amazon Web Services service for which you want to disable integration with your organization.
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
         :raises ConcurrentModificationException:
@@ -3297,8 +3281,7 @@ class OrganizationsApi:
 
         You can only call this operation from the management account.
 
-        :param service_principal: The service principal name of the Amazon Web Services service for which
-        you want to enable integration with your organization.
+        :param service_principal: The service principal name of the Amazon Web Services service for which you want to enable integration with your organization.
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
         :raises ConcurrentModificationException:
@@ -3423,12 +3406,9 @@ class OrganizationsApi:
 
         You can only call this operation from the management account.
 
-        :param target: The identifier (ID) of the Amazon Web Services account that you want to
-        invite to join your organization.
-        :param notes: Additional information that you want to include in the generated email
-        to the recipient account owner.
-        :param tags: A list of tags that you want to attach to the account when it becomes a
-        member of the organization.
+        :param target: The identifier (ID) of the Amazon Web Services account that you want to invite to join your organization.
+        :param notes: Additional information that you want to include in the generated email to the recipient account owner.
+        :param tags: A list of tags that you want to attach to the account when it becomes a member of the organization.
         :returns: InviteAccountToOrganizationResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3460,8 +3440,7 @@ class OrganizationsApi:
 
         :param type: The type of responsibility you want to designate to your organization.
         :param target: A ``HandshakeParty`` object.
-        :param start_timestamp: Timestamp when the recipient will begin managing the specified
-        responsibilities.
+        :param start_timestamp: Timestamp when the recipient will begin managing the specified responsibilities.
         :param source_name: Name you want to assign to the transfer.
         :param notes: Additional information that you want to include in the invitation.
         :param tags: A list of tags that you want to attach to the transfer.
@@ -3570,8 +3549,7 @@ class OrganizationsApi:
         You can only call this operation from the management account or a member
         account that is a delegated administrator.
 
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListAWSServiceAccessForOrganizationResponse
         :raises AccessDeniedException:
@@ -3606,8 +3584,7 @@ class OrganizationsApi:
         You can only call this operation from the management account or a member
         account that is a delegated administrator.
 
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListAccountsResponse
         :raises AccessDeniedException:
@@ -3644,10 +3621,8 @@ class OrganizationsApi:
         You can only call this operation from the management account or a member
         account that is a delegated administrator.
 
-        :param parent_id: The unique identifier (ID) for the parent root or organization unit (OU)
-        whose accounts you want to list.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param parent_id: The unique identifier (ID) for the parent root or organization unit (OU) whose accounts you want to list.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListAccountsForParentResponse
         :raises AccessDeniedException:
@@ -3679,8 +3654,7 @@ class OrganizationsApi:
         account that is a delegated administrator.
 
         :param policy_type: The type of policy that you want information about.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListAccountsWithInvalidEffectivePolicyResponse
         :raises AccessDeniedException:
@@ -3719,11 +3693,9 @@ class OrganizationsApi:
         You can only call this operation from the management account or a member
         account that is a delegated administrator.
 
-        :param parent_id: The unique identifier (ID) for the parent root or OU whose children you
-        want to list.
+        :param parent_id: The unique identifier (ID) for the parent root or OU whose children you want to list.
         :param child_type: Filters the output to include only the specified child type.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListChildrenResponse
         :raises AccessDeniedException:
@@ -3758,8 +3730,7 @@ class OrganizationsApi:
         account that is a delegated administrator.
 
         :param states: A list of one or more states that you want included in the response.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListCreateAccountStatusResponse
         :raises AccessDeniedException:
@@ -3787,8 +3758,7 @@ class OrganizationsApi:
         account that is a delegated administrator.
 
         :param service_principal: Specifies a service principal name.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListDelegatedAdministratorsResponse
         :raises AccessDeniedException:
@@ -3816,10 +3786,8 @@ class OrganizationsApi:
         You can only call this operation from the management account or a member
         account that is a delegated administrator.
 
-        :param account_id: The account ID number of a delegated administrator account in the
-        organization.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param account_id: The account ID number of a delegated administrator account in the organization.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListDelegatedServicesForAccountResponse
         :raises AccessDeniedException:
@@ -3853,8 +3821,7 @@ class OrganizationsApi:
 
         :param account_id: The ID of the account that you want details about.
         :param policy_type: The type of policy that you want information about.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListEffectivePolicyValidationErrorsResponse
         :raises AccessDeniedException:
@@ -3893,8 +3860,7 @@ class OrganizationsApi:
         retrieved all available results.
 
         :param filter: A ``HandshakeFilter`` object.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListHandshakesForAccountResponse
         :raises AccessDeniedException:
@@ -3930,8 +3896,7 @@ class OrganizationsApi:
         retrieved all available results.
 
         :param filter: A ``HandshakeFilter`` object.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListHandshakesForOrganizationResponse
         :raises AccessDeniedException:
@@ -3960,8 +3925,7 @@ class OrganizationsApi:
 
         :param type: The type of responsibility.
         :param id: ID for the transfer.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListInboundResponsibilityTransfersResponse
         :raises AccessDeniedException:
@@ -3998,8 +3962,7 @@ class OrganizationsApi:
         account that is a delegated administrator.
 
         :param parent_id: ID for the root or OU whose child OUs you want to list.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListOrganizationalUnitsForParentResponse
         :raises AccessDeniedException:
@@ -4027,8 +3990,7 @@ class OrganizationsApi:
         retrieved all available results.
 
         :param type: The type of responsibility.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListOutboundResponsibilityTransfersResponse
         :raises AccessDeniedException:
@@ -4068,8 +4030,7 @@ class OrganizationsApi:
         In the current release, a child can have only a single parent.
 
         :param child_id: ID for the OU or account whose parent containers you want to list.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListParentsResponse
         :raises AccessDeniedException:
@@ -4104,8 +4065,7 @@ class OrganizationsApi:
         account that is a delegated administrator.
 
         :param filter: Specifies the type of policy that you want to include in the response.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListPoliciesResponse
         :raises AccessDeniedException:
@@ -4141,11 +4101,9 @@ class OrganizationsApi:
         You can only call this operation from the management account or a member
         account that is a delegated administrator.
 
-        :param target_id: ID for the root, organizational unit, or account whose policies you want
-        to list.
+        :param target_id: ID for the root, organizational unit, or account whose policies you want to list.
         :param filter: The type of policy that you want to include in the returned list.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListPoliciesForTargetResponse
         :raises AccessDeniedException:
@@ -4185,8 +4143,7 @@ class OrganizationsApi:
         see the availability of a policy type in an organization, use
         DescribeOrganization.
 
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListRootsResponse
         :raises AccessDeniedException:
@@ -4221,8 +4178,7 @@ class OrganizationsApi:
         account that is a delegated administrator.
 
         :param resource_id: The ID of the resource with the tags to list.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :returns: ListTagsForResourceResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -4256,8 +4212,7 @@ class OrganizationsApi:
         account that is a delegated administrator.
 
         :param policy_id: ID for the policy whose attachments you want to know.
-        :param next_token: The parameter for receiving additional results if you receive a
-        ``NextToken`` response in a previous request.
+        :param next_token: The parameter for receiving additional results if you receive a ``NextToken`` response in a previous request.
         :param max_results: The maximum number of items to return in the response.
         :returns: ListTargetsForPolicyResponse
         :raises AccessDeniedException:
@@ -4285,10 +4240,8 @@ class OrganizationsApi:
         You can only call this operation from the management account.
 
         :param account_id: ID for the account that you want to move.
-        :param source_parent_id: ID for the root or organizational unit that you want to move the account
-        from.
-        :param destination_parent_id: ID for the root or organizational unit that you want to move the account
-        to.
+        :param source_parent_id: ID for the root or organizational unit that you want to move the account from.
+        :param destination_parent_id: ID for the root or organizational unit that you want to move the account to.
         :raises AccessDeniedException:
         :raises InvalidInputException:
         :raises SourceParentNotFoundException:
@@ -4315,8 +4268,7 @@ class OrganizationsApi:
         You can only call this operation from the management account..
 
         :param content: If provided, the new content for the resource policy.
-        :param tags: A list of tags that you want to attach to the newly created resource
-        policy.
+        :param tags: A list of tags that you want to attach to the newly created resource policy.
         :returns: PutResourcePolicyResponse
         :raises AccessDeniedException:
         :raises ServiceException:
@@ -4352,10 +4304,8 @@ class OrganizationsApi:
 
         You can only call this operation from the management account.
 
-        :param account_id: The account ID number of the member account in the organization to
-        register as a delegated administrator.
-        :param service_principal: The service principal of the Amazon Web Services service for which you
-        want to make the member account a delegated administrator.
+        :param account_id: The account ID number of the member account in the organization to register as a delegated administrator.
+        :param service_principal: The service principal of the Amazon Web Services service for which you want to make the member account a delegated administrator.
         :raises AccessDeniedException:
         :raises AccountAlreadyRegisteredException:
         :raises AccountNotFoundException:

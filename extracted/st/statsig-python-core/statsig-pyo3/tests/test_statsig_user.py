@@ -1,10 +1,10 @@
+import sys
 import pytest
 from statsig_python_core import StatsigUser, StatsigOptions, Statsig
 import json
 from typing import Mapping
 from utils import get_test_data_resource
 from pytest_httpserver import HTTPServer
-from utils import get_test_data_resource
 from profile_util import profile
 
 
@@ -72,10 +72,19 @@ def test_create_user_with_custom_fields():
 def test_various_custom_attr_types():
     user = StatsigUser(
         user_id="user_123",
-        custom={"age": 30, "percent": 0.5, "premium": True, "arr": [True, "2", 3, 4.0]},
+        custom={
+            "age": 30,
+            "percent": 0.5,
+            "premium": True,
+            "arr": [True, "2", 3, 4.0],
+            "big_int": sys.maxsize,
+            "too_big_float": 999999999999999999999999999999.999999999999999999999999999999,
+            "too_big_int": 999999999999999999999999999999,
+        },
     )
 
     custom = user.custom
+    print(custom)
 
     assert custom["age"] == 30
     assert isinstance(custom["age"], int)
@@ -85,6 +94,10 @@ def test_various_custom_attr_types():
     assert isinstance(custom["premium"], bool)
     assert custom["arr"] == [True, "2", 3, 4.0]
     assert isinstance(custom["arr"], list)
+    assert custom["big_int"] == sys.maxsize
+    assert isinstance(custom["big_int"], int)
+    assert isinstance(custom["too_big_float"], float)
+    assert custom.get("too_big_int") is None
 
     assert isinstance(custom["arr"][0], bool)
     assert isinstance(custom["arr"][1], str)
@@ -139,7 +152,7 @@ def test_create_user_with_py_list():
 def test_create_user_with_both_null_user_id_and_custom_id():
     user = StatsigUser()
     assert user.user_id == ""
-    assert user.custom_ids == {}
+    assert user.custom_ids is None
 
 
 def test_create_user_with_custom_empty():

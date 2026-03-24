@@ -62,6 +62,8 @@ def _guess_chunks(
     tuple[int, ...]
 
     """
+    if min_bytes >= max_bytes:
+        raise ValueError(f"Cannot have more min_bytes ({min_bytes}) than max_bytes ({max_bytes})")
     if isinstance(shape, int):
         shape = (shape,)
 
@@ -124,11 +126,14 @@ def normalize_chunks(chunks: Any, shape: tuple[int, ...], typesize: int) -> tupl
         chunks = tuple(int(chunks) for _ in shape)
 
     # handle dask-style chunks (iterable of iterables)
-    if all(isinstance(c, (tuple | list)) for c in chunks):
-        # take first chunk size for each dimension
-        chunks = tuple(
-            c[0] for c in chunks
-        )  # TODO: check/error/warn for irregular chunks (e.g. if c[0] != c[1:-1])
+    if all(isinstance(c, (tuple, list)) for c in chunks):
+        for i, c in enumerate(chunks):
+            if any(x != y for x, y in itertools.pairwise(c[:-1])) or (len(c) > 1 and c[-1] > c[0]):
+                raise ValueError(
+                    f"Irregular chunk sizes in dimension {i}: {tuple(c)}. "
+                    "Only uniform chunks (with an optional smaller final chunk) are supported."
+                )
+        chunks = tuple(c[0] for c in chunks)
 
     # handle bad dimensionality
     if len(chunks) > len(shape):
@@ -264,7 +269,7 @@ def _auto_partition(
     else:
         if chunk_shape == "auto":
             # aim for a 1MiB chunk
-            _chunks_out = _guess_chunks(array_shape, item_size, max_bytes=1024)
+            _chunks_out = _guess_chunks(array_shape, item_size, max_bytes=1048576)
         else:
             _chunks_out = chunk_shape
 

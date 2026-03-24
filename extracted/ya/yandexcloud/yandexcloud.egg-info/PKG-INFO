@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: yandexcloud
-Version: 0.382.0
+Version: 0.383.0
 Summary: The Yandex Cloud official SDK
 Author-email: Yandex LLC <cloud@support.yandex.ru>
 License: MIT
@@ -12,18 +12,19 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: cryptography>=44.0.0
 Requires-Dist: grpcio<2,>=1.68.1
-Requires-Dist: protobuf<6,>=5.29.1
+Requires-Dist: protobuf<7,>=6.31.1
 Requires-Dist: googleapis-common-protos<2,>=1.66.0
 Requires-Dist: pyjwt<3,>=2.10.1
 Requires-Dist: requests<3,>=2.32.3
 Requires-Dist: six<2,>=1.17.0
-Requires-Dist: grpcio-tools>=1.68.1
+Requires-Dist: grpcio-tools>=1.76.0
 Requires-Dist: deprecated>=1.2.18
 
 [![PyPI Version][pypi-image]][pypi-url]

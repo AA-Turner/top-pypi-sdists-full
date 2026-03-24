@@ -13,9 +13,29 @@ import logging
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
+
+
+class TranscriptCallback(Protocol):
+    """Callback signature for emitting transcript events."""
+
+    def __call__(self, event_type: str, step_id: str | None, payload: dict[str, Any]) -> None: ...
+
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_WORKFLOW_AGENT_MAX_ITERATIONS = 100
+
+
+def _trim_transcript_value(value: Any, max_chars: int) -> Any:
+    """Preserve tool result structure while trimming oversized string leaves."""
+    if isinstance(value, str):
+        return value[:max_chars]
+    if isinstance(value, dict):
+        return {k: _trim_transcript_value(v, max_chars) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_trim_transcript_value(item, max_chars) for item in value]
+    return value
 
 
 @dataclass(frozen=True)
@@ -105,12 +125,17 @@ async def execute_agent_runner(
     system_prompt: str | None = None,
     tools_filter: list[str] | None = None,
     timeout: int = 300,
+    max_iterations: int = _DEFAULT_WORKFLOW_AGENT_MAX_ITERATIONS,
     ai_service: Any | None = None,
     tool_executor: Any | None = None,
     tools_openai: list[dict[str, Any]] | None = None,
     pause_signal: Any | None = None,
     confirm_callback: Any | None = None,
     model: str | None = None,
+    transcript_cb: TranscriptCallback | None = None,
+    transcript_max_assistant_chars: int = 4000,
+    transcript_max_tool_output_chars: int = 2000,
+    step_id: str | None = None,
 ) -> RunnerResult:
     """Execute an agent runner step through Anteroom's agent loop.
 
@@ -145,10 +170,38 @@ async def execute_agent_runner(
         actual_executor = _wrapped_executor
 
     assistant_content = ""
+    turn_content = ""  # per-turn accumulator for transcript
     tool_outputs: list[dict[str, Any]] = []
     paused = False
     total_prompt_tokens = 0
     total_completion_tokens = 0
+    turn_tokens = 0  # tokens for current turn
+
+    if transcript_cb is not None and prompt.strip():
+        transcript_cb(
+            "transcript_prompt",
+            step_id,
+            {
+                "content": prompt,
+                "chars": len(prompt),
+            },
+        )
+
+    def _flush_turn() -> None:
+        """Emit transcript_assistant for accumulated turn text."""
+        nonlocal turn_content, turn_tokens
+        if transcript_cb is not None and turn_content:
+            transcript_cb(
+                "transcript_assistant",
+                step_id,
+                {
+                    "content": turn_content[:transcript_max_assistant_chars],
+                    "tokens": turn_tokens,
+                    "model": model or "",
+                },
+            )
+        turn_content = ""
+        turn_tokens = 0
 
     async for event in run_agent_loop(
         ai_service=ai_service,
@@ -157,20 +210,57 @@ async def execute_agent_runner(
         tools_openai=tools_openai,
         serialize_tools=True,
         pause_signal=pause_signal,
-        max_iterations=15,
+        max_iterations=max_iterations,
     ):
         if event.kind == "token":
-            assistant_content += event.data.get("content", "")
+            content = event.data.get("content", "")
+            assistant_content += content
+            turn_content += content
         elif event.kind == "tool_call_end":
             tool_outputs.append(event.data)
+            if transcript_cb is not None:
+                tc_name = event.data.get("tool_name", "")
+                tc_output = _trim_transcript_value(event.data.get("output", ""), transcript_max_tool_output_chars)
+                transcript_cb(
+                    "transcript_tool_result",
+                    step_id,
+                    {
+                        "tool_name": tc_name,
+                        "status": event.data.get("status", ""),
+                        "output": tc_output,
+                    },
+                )
+        elif event.kind == "tool_call_start":
+            # Flush assistant turn before tool call — preserves chronology
+            _flush_turn()
+            if transcript_cb is not None:
+                transcript_cb(
+                    "transcript_tool_call",
+                    step_id,
+                    {
+                        "tool_name": event.data.get("tool_name", ""),
+                        "arguments": str(event.data.get("arguments", "")),
+                    },
+                )
         elif event.kind == "usage":
-            # Capture token usage events for budget tracking (#967)
             total_prompt_tokens += event.data.get("prompt_tokens", 0)
             total_completion_tokens += event.data.get("completion_tokens", 0)
+            turn_tokens += event.data.get("completion_tokens", 0)
+            if transcript_cb is not None:
+                transcript_cb(
+                    "transcript_usage",
+                    step_id,
+                    {
+                        "prompt_tokens": event.data.get("prompt_tokens", 0),
+                        "completion_tokens": event.data.get("completion_tokens", 0),
+                        "total_tokens": event.data.get("total_tokens", 0),
+                    },
+                )
         elif event.kind == "workflow_pause":
             paused = True
             break
         elif event.kind == "error":
+            _flush_turn()
             duration_ms = int((time.monotonic() - start) * 1000)
             return RunnerResult(
                 status="failed",
@@ -178,6 +268,8 @@ async def execute_agent_runner(
                 duration_ms=duration_ms,
             )
 
+    # Flush any remaining assistant text from the final turn
+    _flush_turn()
     duration_ms = int((time.monotonic() - start) * 1000)
 
     if paused:
@@ -210,6 +302,10 @@ async def execute_opaque_runner(
     env: dict[str, str] | None = None,
     working_dir: str | None = None,
     timeout: int = 300,
+    transcript_cb: TranscriptCallback | None = None,
+    transcript_max_stdout_chars: int = 4000,
+    transcript_max_stderr_chars: int = 4000,
+    step_id: str | None = None,
 ) -> RunnerResult:
     """Execute an opaque runner step as a subprocess.
 
@@ -222,7 +318,6 @@ async def execute_opaque_runner(
 
     start = time.monotonic()
 
-    # Generic preflight: check working_dir exists if specified
     if working_dir and not Path(working_dir).is_dir():
         return RunnerResult(
             status="failed",
@@ -230,11 +325,16 @@ async def execute_opaque_runner(
             duration_ms=0,
         )
 
-    merged_env: dict[str, str] | None = None
-    if env:
-        import os
+    import os
+    import signal
 
-        merged_env = {**os.environ, **env}
+    # Always build merged_env so we can inject PYTHONUNBUFFERED=1.
+    # This forces Python subprocesses to flush stdout/stderr per-line
+    # instead of block-buffering when connected to a pipe.
+    merged_env = {**os.environ, "PYTHONUNBUFFERED": "1", **(env or {})}
+    spawn_kwargs: dict[str, Any] = {}
+    if os.name != "nt":
+        spawn_kwargs["start_new_session"] = True
 
     try:
         if mode == "shell":
@@ -244,6 +344,7 @@ async def execute_opaque_runner(
                 stderr=asyncio.subprocess.PIPE,
                 cwd=working_dir,
                 env=merged_env,
+                **spawn_kwargs,
             )
         elif mode == "exec":
             exec_args = [sys.executable, command, *(argv or [])]
@@ -253,14 +354,52 @@ async def execute_opaque_runner(
                 stderr=asyncio.subprocess.PIPE,
                 cwd=working_dir,
                 env=merged_env,
+                **spawn_kwargs,
             )
         else:
             raise ValueError(f"Unknown opaque runner mode: {mode!r}")
 
+        stdout_lines: list[str] = []
+        stderr_lines: list[str] = []
+
+        async def _read_stream(
+            stream: asyncio.StreamReader | None,
+            lines: list[str],
+            event_type: str,
+            max_chars: int,
+        ) -> None:
+            if stream is None:
+                return
+            while True:
+                line_bytes = await stream.readline()
+                if not line_bytes:
+                    break
+                line = line_bytes.decode("utf-8", errors="replace").rstrip("\n").rstrip("\r")
+                lines.append(line)
+                if transcript_cb is not None:
+                    transcript_cb(
+                        event_type,
+                        step_id,
+                        {"content": line[:max_chars]},
+                    )
+
         try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            await asyncio.wait_for(
+                asyncio.gather(
+                    _read_stream(proc.stdout, stdout_lines, "transcript_stdout", transcript_max_stdout_chars),
+                    _read_stream(proc.stderr, stderr_lines, "transcript_stderr", transcript_max_stderr_chars),
+                ),
+                timeout=timeout,
+            )
+            await proc.wait()
         except asyncio.TimeoutError:
-            proc.kill()
+            if os.name != "nt":
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            else:
+                proc.kill()
             await proc.wait()
             duration_ms = int((time.monotonic() - start) * 1000)
             return RunnerResult(
@@ -270,8 +409,8 @@ async def execute_opaque_runner(
             )
 
         duration_ms = int((time.monotonic() - start) * 1000)
-        stdout = stdout_bytes.decode("utf-8", errors="replace").strip() if stdout_bytes else ""
-        stderr = stderr_bytes.decode("utf-8", errors="replace").strip() if stderr_bytes else ""
+        stdout = "\n".join(stdout_lines).strip()
+        stderr = "\n".join(stderr_lines).strip()
 
         if proc.returncode == 0:
             return RunnerResult(

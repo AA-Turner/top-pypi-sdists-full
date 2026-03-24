@@ -27,15 +27,39 @@ _DEFAULTS = {
 def find_threshold_cli(
     # fmt: off
     model: str = Arg(..., help="Model name or path"),
-    data_path: Path = Arg(..., help="Location of binary evaluation data in .spacy format", exists=True),
+    data_path: Path = Arg(
+        ..., help="Location of binary evaluation data in .spacy format", exists=True
+    ),
     pipe_name: str = Arg(..., help="Name of pipe to examine thresholds for"),
-    threshold_key: str = Arg(..., help="Key of threshold attribute in component's configuration"),
+    threshold_key: str = Arg(
+        ..., help="Key of threshold attribute in component's configuration"
+    ),
     scores_key: str = Arg(..., help="Metric to optimize"),
-    n_trials: int = Opt(_DEFAULTS["n_trials"], "--n_trials", "-n", help="Number of trials to determine optimal thresholds"),
-    code_path: Optional[Path] = Opt(None, "--code", "-c", help="Path to Python file with additional code (registered functions) to be imported"),
-    use_gpu: int = Opt(_DEFAULTS["use_gpu"], "--gpu-id", "-g", help="GPU ID or -1 for CPU"),
-    gold_preproc: bool = Opt(_DEFAULTS["gold_preproc"], "--gold-preproc", "-G", help="Use gold preprocessing"),
-    verbose: bool = Opt(False, "--verbose", "-V", "-VV", help="Display more information for debugging purposes"),
+    n_trials: int = Opt(
+        _DEFAULTS["n_trials"],
+        "--n_trials",
+        "-n",
+        help="Number of trials to determine optimal thresholds",
+    ),
+    code_path: Optional[Path] = Opt(
+        None,
+        "--code",
+        "-c",
+        help="Path to Python file with additional code (registered functions) to be imported",
+    ),
+    use_gpu: int = Opt(
+        _DEFAULTS["use_gpu"], "--gpu-id", "-g", help="GPU ID or -1 for CPU"
+    ),
+    gold_preproc: bool = Opt(
+        _DEFAULTS["gold_preproc"], "--gold-preproc", "-G", help="Use gold preprocessing"
+    ),
+    verbose: bool = Opt(
+        False,
+        "--verbose",
+        "-V",
+        "-VV",
+        help="Display more information for debugging purposes",
+    ),
     # fmt: on
 ):
     """
@@ -183,10 +207,10 @@ def find_threshold(
             ),
         )
         if hasattr(pipe, "cfg"):
-            setattr(
-                nlp.get_pipe(pipe_name),
-                "cfg",
-                set_nested_item(getattr(pipe, "cfg"), config_keys, threshold),
+            nlp.get_pipe(pipe_name).cfg = set_nested_item(  # type: ignore[attr-defined]
+                pipe.cfg,
+                config_keys,
+                threshold,  # type: ignore[attr-defined]
             )
 
         eval_scores = nlp.evaluate(dev_dataset)

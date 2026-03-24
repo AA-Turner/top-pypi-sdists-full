@@ -45,7 +45,7 @@ from localstack.utils.aws.message_forwarding import (
     add_target_http_parameters,
 )
 from localstack.utils.json import extract_jsonpath
-from localstack.utils.strings import to_bytes
+from localstack.utils.strings import long_uid, to_bytes
 from localstack.utils.time import now_utc
 from localstack.utils.xray.trace_header import TraceHeader
 
@@ -670,8 +670,15 @@ class StatesTargetSender(TargetSender):
     def send_event(self, event, trace_header):
         self.service = "stepfunctions"
 
+        # In the case that the target expects custom input, the event dict
+        # won't have the usual attributes such as version, id, detail-type,
+        # etc. Since we use the event id to name the execution, we have to
+        # generate our own in case it doesn't exist.
+        custom_input = self.target.get("Input")
+        execution_name = long_uid() if custom_input else event["id"]
+
         self.client.start_execution(
-            stateMachineArn=self.target["Arn"], name=event["id"], input=to_json_str(event)
+            stateMachineArn=self.target["Arn"], name=execution_name, input=to_json_str(event)
         )
 
     def _validate_input(self, target: Target):

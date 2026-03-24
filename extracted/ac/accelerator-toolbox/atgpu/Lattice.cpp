@@ -90,8 +90,21 @@ void Lattice::mapBuffers(std::string &code) {
   code.append("    MAP_FLOAT_BUFFER(gpuRing[elem].R2,gpuRing);\n");
   code.append("    MAP_FLOAT_BUFFER(gpuRing[elem].EApertures,gpuRing);\n");
   code.append("    MAP_FLOAT_BUFFER(gpuRing[elem].RApertures,gpuRing);\n");
-  code.append("    MAP_FLOAT_BUFFER(gpuRing[elem].mpole.PolynomA,gpuRing);\n");
-  code.append("    MAP_FLOAT_BUFFER(gpuRing[elem].mpole.PolynomB,gpuRing);\n");
+  code.append("    switch(gpuRing[elem].Type) {\n");
+  code.append("      case BNDMPOLESYMPLECTIC4PASS:\n");
+  code.append("      case BNDMPOLESYMPLECTIC4RADPASS:\n");
+  code.append("      case STRMPOLESYMPLECTIC4PASS:\n");
+  code.append("      case STRMPOLESYMPLECTIC4RADPASS:\n");
+  code.append("      case EXACTMULTIPOLEPASS:\n");
+  code.append("      case EXACTMULTIPOLERADPASS:\n");
+  code.append("      case THINMPOLEPASS:\n");
+  code.append("        MAP_FLOAT_BUFFER(gpuRing[elem].mpole.PolynomA,gpuRing);\n");
+  code.append("        MAP_FLOAT_BUFFER(gpuRing[elem].mpole.PolynomB,gpuRing);\n");
+  code.append("        break;\n");
+  code.append("      case CORRECTORPASS:\n");
+  code.append("        MAP_FLOAT_BUFFER(gpuRing[elem].cp.KickAngle,gpuRing);\n");
+  code.append("        break;\n");
+  code.append("    }\n");
   code.append("  }\n");
   code.append("}\n");
 
@@ -187,7 +200,6 @@ void Lattice::generateGPUKernel() {
   // GPU main track function
   code.append(kType + "void track(" + mType + "RING_PARAM *ringParam," + mType + "ELEMENT* gpuRing,\n"
               "                   uint32_t startElem,uint32_t nbElementToProcess,\n"
-              "                   " + mType + "int32_t *elemOffsets, uint32_t offsetStride,\n"
               "                   uint32_t nbPart," + mType + "AT_FLOAT* rin," + mType + "AT_FLOAT* rout,\n"
               "                   " + mType + "uint32_t* lost, uint32_t turn,\n"
               "                   " + mType + "int32_t *refpts, uint32_t nbRef,\n"
@@ -215,12 +227,9 @@ void Lattice::generateGPUKernel() {
   code.append("  sr6[4] = rin[4 + 6*threadId];\n"); // d = (pz-p0)/p0
   code.append("  sr6[5] = rin[5 + 6*threadId];\n"); // c.tau (time lag)
 
-  // The tracking starts at elem elemOffset (equivalent to lattice.rotate(elemOffset))
-  code.append("  int32_t elemOffset = elemOffsets?elemOffsets[threadId/offsetStride]:0;\n");
-
   // Loop over elements
   code.append("  while(!pLost && elem<startElem+nbElementToProcess) {\n");
-  code.append("    "+mType+" ELEMENT* elemPtr = gpuRing + ((elem+elemOffset)%NB_TOTAL_ELEMENT);\n");
+  code.append("    "+mType+" ELEMENT* elemPtr = gpuRing + elem;\n");
   storeParticleCoord(code);
   code.append("    switch(elemPtr->Type) {\n");
   factory.generatePassMethodsCalls(code);
@@ -294,7 +303,7 @@ uint64_t Lattice::fillGPUMemory() {
 }
 
 void Lattice::run(uint64_t nbTurn,uint32_t nbParticles,AT_FLOAT *rin,AT_FLOAT *rout,uint32_t nbRef,
-                  uint32_t *refPts,uint32_t nbElemOffset,uint32_t *elemOffsets,
+                  uint32_t *refPts,uint32_t startElem,uint32_t endElem,
                   uint32_t *lostAtTurn,uint32_t *lostAtElem,AT_FLOAT *lostAtCoord,
                   bool updateRin) {
 
@@ -358,28 +367,14 @@ void Lattice::run(uint64_t nbTurn,uint32_t nbParticles,AT_FLOAT *rin,AT_FLOAT *r
   if(lostAtElem) gpu->allocDevice(&gpuLostAtElem, nbParticles * sizeof(uint32_t));
   if(lostAtCoord) gpu->allocDevice(&gpuLostAtCoord, nbParticles * 6 * sizeof(AT_FLOAT));
 
-  // Starting element (lattice rotation)
-  void *gpuOffsets = nullptr;
-  uint32_t offsetStride = 0;
-  if(nbElemOffset) {
-    gpu->allocDevice(&gpuOffsets, nbElemOffset * sizeof(int32_t));
-    gpu->hostToDevice(gpuOffsets, elemOffsets, nbElemOffset * sizeof(int32_t));
-    // nbParticles % nbElemOffset must be 0
-    // offsetStride (nbParticles/nbElemOffset) should be a multiple of 64
-    offsetStride = nbParticles / nbElemOffset;
-  }
-
   // Call GPU
   gpu->resetArg();
-  uint32_t startElem;
-  uint32_t nbElemToProcess = (uint32_t)elements.size();
+  uint32_t nbElemToProcess = endElem - startElem;
   uint32_t turn;
   gpu->addArg(sizeof(void *),&gpuRingParams);       // Global ring params
   gpu->addArg(sizeof(void *),&gpuRing);             // The lattice
   gpu->addArg(sizeof(uint32_t),&startElem);         // Process from
   gpu->addArg(sizeof(uint32_t),&nbElemToProcess);   // Number of element to process
-  gpu->addArg(sizeof(void *),&gpuOffsets);          // Tracking start offsets
-  gpu->addArg(sizeof(uint32_t),&offsetStride);      // Number of particle which starts at elem specified in gpuOffsets
   gpu->addArg(sizeof(uint32_t),&nbParticles);       // Total number of particle to track
   gpu->addArg(sizeof(void *),&gpuRin);              // Input 6D coordinates
   gpu->addArg(sizeof(void *),&gpuRout);             // Output 6D coordinates
@@ -392,8 +387,9 @@ void Lattice::run(uint64_t nbTurn,uint32_t nbParticles,AT_FLOAT *rin,AT_FLOAT *r
 
   // Turn loop
   for(turn=0;turn<nbTurn;turn++) {
-    startElem = 0;
     gpu->run(nbParticles); // 1 particle per thread
+    startElem = 0;
+    nbElemToProcess = (uint32_t)elements.size();
   }
 
   // Get back data
@@ -428,7 +424,6 @@ void Lattice::run(uint64_t nbTurn,uint32_t nbParticles,AT_FLOAT *rin,AT_FLOAT *r
   gpu->freeDevice(gpuRingParams);
   if( gpuLostAtElem ) gpu->freeDevice(gpuLostAtElem);
   if( gpuLostAtCoord ) gpu->freeDevice(gpuLostAtCoord);
-  if( gpuOffsets ) gpu->freeDevice(gpuOffsets);
   delete[] expandedRefPts;
   delete[] lost;
 

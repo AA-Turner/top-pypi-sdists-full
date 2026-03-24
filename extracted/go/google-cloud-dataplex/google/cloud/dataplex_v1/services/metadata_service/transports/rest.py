@@ -16,20 +16,22 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -543,6 +545,78 @@ class MetadataServiceRestInterceptor:
         """
         return response
 
+    def pre_get_iam_policy(
+        self,
+        request: iam_policy_pb2.GetIamPolicyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        iam_policy_pb2.GetIamPolicyRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_iam_policy
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the MetadataService server.
+        """
+        return request, metadata
+
+    def post_get_iam_policy(self, response: policy_pb2.Policy) -> policy_pb2.Policy:
+        """Post-rpc interceptor for get_iam_policy
+
+        Override in a subclass to manipulate the response
+        after it is returned by the MetadataService server but before
+        it is returned to user code.
+        """
+        return response
+
+    def pre_set_iam_policy(
+        self,
+        request: iam_policy_pb2.SetIamPolicyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        iam_policy_pb2.SetIamPolicyRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for set_iam_policy
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the MetadataService server.
+        """
+        return request, metadata
+
+    def post_set_iam_policy(self, response: policy_pb2.Policy) -> policy_pb2.Policy:
+        """Post-rpc interceptor for set_iam_policy
+
+        Override in a subclass to manipulate the response
+        after it is returned by the MetadataService server but before
+        it is returned to user code.
+        """
+        return response
+
+    def pre_test_iam_permissions(
+        self,
+        request: iam_policy_pb2.TestIamPermissionsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        iam_policy_pb2.TestIamPermissionsRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for test_iam_permissions
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the MetadataService server.
+        """
+        return request, metadata
+
+    def post_test_iam_permissions(
+        self, response: iam_policy_pb2.TestIamPermissionsResponse
+    ) -> iam_policy_pb2.TestIamPermissionsResponse:
+        """Post-rpc interceptor for test_iam_permissions
+
+        Override in a subclass to manipulate the response
+        after it is returned by the MetadataService server but before
+        it is returned to user code.
+        """
+        return response
+
     def pre_cancel_operation(
         self,
         request: operations_pb2.CancelOperationRequest,
@@ -937,9 +1011,7 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseMetadataServiceRestTransport._BaseCreatePartition._get_http_options()
-            )
+            http_options = _BaseMetadataServiceRestTransport._BaseCreatePartition._get_http_options()
 
             request, metadata = self._interceptor.pre_create_partition(
                 request, metadata
@@ -1106,7 +1178,7 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1190,9 +1262,7 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseMetadataServiceRestTransport._BaseDeletePartition._get_http_options()
-            )
+            http_options = _BaseMetadataServiceRestTransport._BaseDeletePartition._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_partition(
                 request, metadata
@@ -1214,7 +1284,7 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1740,9 +1810,7 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
                     List metadata partitions response.
             """
 
-            http_options = (
-                _BaseMetadataServiceRestTransport._BaseListPartitions._get_http_options()
-            )
+            http_options = _BaseMetadataServiceRestTransport._BaseListPartitions._get_http_options()
 
             request, metadata = self._interceptor.pre_list_partitions(request, metadata)
             transcoded_request = _BaseMetadataServiceRestTransport._BaseListPartitions._get_transcoded_request(
@@ -2341,6 +2409,439 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
             return resp
 
     @property
+    def get_iam_policy(self):
+        return self._GetIamPolicy(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _GetIamPolicy(
+        _BaseMetadataServiceRestTransport._BaseGetIamPolicy, MetadataServiceRestStub
+    ):
+        def __hash__(self):
+            return hash("MetadataServiceRestTransport.GetIamPolicy")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: iam_policy_pb2.GetIamPolicyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> policy_pb2.Policy:
+            r"""Call the get iam policy method over HTTP.
+
+            Args:
+                request (iam_policy_pb2.GetIamPolicyRequest):
+                    The request object for GetIamPolicy method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                policy_pb2.Policy: Response from GetIamPolicy method.
+            """
+
+            http_options = (
+                _BaseMetadataServiceRestTransport._BaseGetIamPolicy._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
+            transcoded_request = _BaseMetadataServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseMetadataServiceRestTransport._BaseGetIamPolicy._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.dataplex_v1.MetadataServiceClient.GetIamPolicy",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.MetadataService",
+                        "rpcName": "GetIamPolicy",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = MetadataServiceRestTransport._GetIamPolicy._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            content = response.content.decode("utf-8")
+            resp = policy_pb2.Policy()
+            resp = json_format.Parse(content, resp)
+            resp = self._interceptor.post_get_iam_policy(resp)
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.dataplex_v1.MetadataServiceAsyncClient.GetIamPolicy",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.MetadataService",
+                        "rpcName": "GetIamPolicy",
+                        "httpResponse": http_response,
+                        "metadata": http_response["headers"],
+                    },
+                )
+            return resp
+
+    @property
+    def set_iam_policy(self):
+        return self._SetIamPolicy(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _SetIamPolicy(
+        _BaseMetadataServiceRestTransport._BaseSetIamPolicy, MetadataServiceRestStub
+    ):
+        def __hash__(self):
+            return hash("MetadataServiceRestTransport.SetIamPolicy")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: iam_policy_pb2.SetIamPolicyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> policy_pb2.Policy:
+            r"""Call the set iam policy method over HTTP.
+
+            Args:
+                request (iam_policy_pb2.SetIamPolicyRequest):
+                    The request object for SetIamPolicy method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                policy_pb2.Policy: Response from SetIamPolicy method.
+            """
+
+            http_options = (
+                _BaseMetadataServiceRestTransport._BaseSetIamPolicy._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
+            transcoded_request = _BaseMetadataServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseMetadataServiceRestTransport._BaseSetIamPolicy._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseMetadataServiceRestTransport._BaseSetIamPolicy._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.dataplex_v1.MetadataServiceClient.SetIamPolicy",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.MetadataService",
+                        "rpcName": "SetIamPolicy",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = MetadataServiceRestTransport._SetIamPolicy._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            content = response.content.decode("utf-8")
+            resp = policy_pb2.Policy()
+            resp = json_format.Parse(content, resp)
+            resp = self._interceptor.post_set_iam_policy(resp)
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.dataplex_v1.MetadataServiceAsyncClient.SetIamPolicy",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.MetadataService",
+                        "rpcName": "SetIamPolicy",
+                        "httpResponse": http_response,
+                        "metadata": http_response["headers"],
+                    },
+                )
+            return resp
+
+    @property
+    def test_iam_permissions(self):
+        return self._TestIamPermissions(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _TestIamPermissions(
+        _BaseMetadataServiceRestTransport._BaseTestIamPermissions,
+        MetadataServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("MetadataServiceRestTransport.TestIamPermissions")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: iam_policy_pb2.TestIamPermissionsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> iam_policy_pb2.TestIamPermissionsResponse:
+            r"""Call the test iam permissions method over HTTP.
+
+            Args:
+                request (iam_policy_pb2.TestIamPermissionsRequest):
+                    The request object for TestIamPermissions method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                iam_policy_pb2.TestIamPermissionsResponse: Response from TestIamPermissions method.
+            """
+
+            http_options = _BaseMetadataServiceRestTransport._BaseTestIamPermissions._get_http_options()
+
+            request, metadata = self._interceptor.pre_test_iam_permissions(
+                request, metadata
+            )
+            transcoded_request = _BaseMetadataServiceRestTransport._BaseTestIamPermissions._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseMetadataServiceRestTransport._BaseTestIamPermissions._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseMetadataServiceRestTransport._BaseTestIamPermissions._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.dataplex_v1.MetadataServiceClient.TestIamPermissions",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.MetadataService",
+                        "rpcName": "TestIamPermissions",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = MetadataServiceRestTransport._TestIamPermissions._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            content = response.content.decode("utf-8")
+            resp = iam_policy_pb2.TestIamPermissionsResponse()
+            resp = json_format.Parse(content, resp)
+            resp = self._interceptor.post_test_iam_permissions(resp)
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.dataplex_v1.MetadataServiceAsyncClient.TestIamPermissions",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.MetadataService",
+                        "rpcName": "TestIamPermissions",
+                        "httpResponse": http_response,
+                        "metadata": http_response["headers"],
+                    },
+                )
+            return resp
+
+    @property
     def cancel_operation(self):
         return self._CancelOperation(self._session, self._host, self._interceptor)  # type: ignore
 
@@ -2395,9 +2896,7 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseMetadataServiceRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseMetadataServiceRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -2514,9 +3013,7 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseMetadataServiceRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseMetadataServiceRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -2771,9 +3268,7 @@ class MetadataServiceRestTransport(_BaseMetadataServiceRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseMetadataServiceRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseMetadataServiceRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseMetadataServiceRestTransport._BaseListOperations._get_transcoded_request(

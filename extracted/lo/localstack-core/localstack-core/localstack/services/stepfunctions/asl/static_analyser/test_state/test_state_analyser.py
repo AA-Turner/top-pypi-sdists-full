@@ -16,6 +16,7 @@ from localstack.aws.api.stepfunctions import (
     MockInput,
     MockResponseValidationMode,
     StateName,
+    TestStateConfiguration,
     TestStateInput,
     ValidationException,
 )
@@ -65,6 +66,7 @@ class TestStateStaticAnalyser(StaticAnalyser):
         StateType.Succeed,
         StateType.Fail,
         StateType.Map,
+        StateType.Parallel,
     }
 
     @staticmethod
@@ -83,6 +85,32 @@ class TestStateStaticAnalyser(StaticAnalyser):
         test_state = test_program.test_state
         if isinstance(test_state, StateTask) and mock_input is None:
             raise ValidationException("RoleArn must be specified when testing a Task state")
+
+    @staticmethod
+    def validate_state_configuration(
+        state_configuration: TestStateConfiguration | None, mock_input: MockInput
+    ):
+        if state_configuration is None:
+            return
+
+        if "mapIterationFailureCount" not in state_configuration:
+            return
+
+        if not mock_input:
+            raise ValidationException(
+                "TestState does not support MapIterationFailureCount when a mock is not specified."
+            )
+
+        mock_result_raw = mock_input.get("result")
+        if not mock_result_raw:
+            return
+
+        mock_result = json.loads(mock_result_raw)
+        map_iteration_failure_count = state_configuration["mapIterationFailureCount"]
+        if isinstance(mock_result, list) and map_iteration_failure_count > len(mock_result):
+            raise ValidationException(
+                "Map iteration failure count must be less than or equal to the number of Map iterations"
+            )
 
     @staticmethod
     def validate_mock(test_state_input: TestStateInput) -> None:
@@ -122,6 +150,11 @@ class TestStateStaticAnalyser(StaticAnalyser):
                 mock_result=mock_result, test_state=test_state
             )
 
+        if isinstance(test_state, StateParallel):
+            TestStateStaticAnalyser.validate_mock_result_matches_parallel_definition(
+                mock_result=mock_result, test_state=test_state
+            )
+
         if isinstance(test_state, StateTaskService):
             field_validation_mode = mock_input.get(
                 "fieldValidationMode", MockResponseValidationMode.STRICT
@@ -155,6 +188,18 @@ class TestStateStaticAnalyser(StaticAnalyser):
 
         if test_state.result_writer is None and not isinstance(mock_result, list):
             raise ValidationException("Mocked result must be an array.")
+
+    @staticmethod
+    def validate_mock_result_matches_parallel_definition(
+        mock_result: Any, test_state: StateParallel
+    ):
+        if not isinstance(mock_result, list):
+            raise ValidationException("Mocked result must be an array.")
+
+        if len(mock_result) != len(test_state.branches.programs):
+            raise ValidationException(
+                "Mocked result must contain the same number of items as number of Parallel branches."
+            )
 
     @staticmethod
     def validate_mock_result_matches_api_shape(

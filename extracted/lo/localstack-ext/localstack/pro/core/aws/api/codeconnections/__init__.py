@@ -769,11 +769,9 @@ class CodeconnectionsApi:
         connection handshake is completed from the console.
 
         :param connection_name: The name of the connection to be created.
-        :param provider_type: The name of the external provider where your third-party code repository
-        is configured.
+        :param provider_type: The name of the external provider where your third-party code repository is configured.
         :param tags: The key-value pair to use when tagging the resource.
-        :param host_arn: The Amazon Resource Name (ARN) of the host associated with the
-        connection to be created.
+        :param host_arn: The Amazon Resource Name (ARN) of the host associated with the connection to be created.
         :returns: CreateConnectionOutput
         :raises LimitExceededException:
         :raises ResourceNotFoundException:
@@ -803,10 +801,8 @@ class CodeconnectionsApi:
         the console.
 
         :param name: The name of the host to be created.
-        :param provider_type: The name of the installed provider to be associated with your
-        connection.
-        :param provider_endpoint: The endpoint of the infrastructure to be represented by the host after
-        it is created.
+        :param provider_type: The name of the installed provider to be associated with your connection.
+        :param provider_endpoint: The endpoint of the infrastructure to be represented by the host after it is created.
         :param vpc_configuration: The VPC configuration to be provisioned for the host.
         :param tags: Tags for the host to be created.
         :returns: CreateHostOutput
@@ -829,13 +825,10 @@ class CodeconnectionsApi:
         allows Git sync to monitor and sync changes to files in a specified Git
         repository.
 
-        :param connection_arn: The Amazon Resource Name (ARN) of the connection to be associated with
-        the repository link.
-        :param owner_id: The owner ID for the repository associated with a specific sync
-        configuration, such as the owner ID in GitHub.
+        :param connection_arn: The Amazon Resource Name (ARN) of the connection to be associated with the repository link.
+        :param owner_id: The owner ID for the repository associated with a specific sync configuration, such as the owner ID in GitHub.
         :param repository_name: The name of the repository to be associated with the repository link.
-        :param encryption_key_arn: The Amazon Resource Name (ARN) encryption key for the repository to be
-        associated with the repository link.
+        :param encryption_key_arn: The Amazon Resource Name (ARN) encryption key for the repository to be associated with the repository link.
         :param tags: The tags for the repository to be associated with the repository link.
         :returns: CreateRepositoryLinkOutput
         :raises AccessDeniedException:
@@ -869,21 +862,14 @@ class CodeconnectionsApi:
         sync type.
 
         :param branch: The branch in the repository from which changes will be synced.
-        :param config_file: The file name of the configuration file that manages syncing between the
-        connection and the repository.
+        :param config_file: The file name of the configuration file that manages syncing between the connection and the repository.
         :param repository_link_id: The ID of the repository link created for the connection.
-        :param resource_name: The name of the Amazon Web Services resource (for example, a
-        CloudFormation stack in the case of CFN_STACK_SYNC) that will be
-        synchronized from the linked repository.
-        :param role_arn: The ARN of the IAM role that grants permission for Amazon Web Services
-        to use Git sync to update a given Amazon Web Services resource on your
-        behalf.
+        :param resource_name: The name of the Amazon Web Services resource (for example, a CloudFormation stack in the case of CFN_STACK_SYNC) that will be synchronized from the linked repository.
+        :param role_arn: The ARN of the IAM role that grants permission for Amazon Web Services to use Git sync to update a given Amazon Web Services resource on your behalf.
         :param sync_type: The type of sync configuration.
-        :param publish_deployment_status: Whether to enable or disable publishing of deployment status to source
-        providers.
+        :param publish_deployment_status: Whether to enable or disable publishing of deployment status to source providers.
         :param trigger_resource_update_on: When to trigger Git sync to begin the stack update.
-        :param pull_request_comment: A toggle that specifies whether to enable or disable pull request
-        comments for the sync configuration to be created.
+        :param pull_request_comment: A toggle that specifies whether to enable or disable pull request comments for the sync configuration to be created.
         :returns: CreateSyncConfigurationOutput
         :raises AccessDeniedException:
         :raises ConcurrentModificationException:
@@ -954,8 +940,7 @@ class CodeconnectionsApi:
         connection.
 
         :param sync_type: The type of sync configuration to be deleted.
-        :param resource_name: The name of the Amazon Web Services resource associated with the sync
-        configuration to be deleted.
+        :param resource_name: The name of the Amazon Web Services resource associated with the sync configuration to be deleted.
         :returns: DeleteSyncConfigurationOutput
         :raises AccessDeniedException:
         :raises ConcurrentModificationException:
@@ -1023,8 +1008,7 @@ class CodeconnectionsApi:
         """Returns details about the sync status for a repository. A repository
         sync uses Git sync to push and pull changes from your remote repository.
 
-        :param branch: The branch of the repository link for the requested repository sync
-        status.
+        :param branch: The branch of the repository link for the requested repository sync status.
         :param repository_link_id: The repository link ID for the requested repository sync status.
         :param sync_type: The sync type of the requested sync status.
         :returns: GetRepositorySyncStatusOutput
@@ -1047,8 +1031,7 @@ class CodeconnectionsApi:
         """Returns the status of the sync with the Git repository for a specific
         Amazon Web Services resource.
 
-        :param resource_name: The name of the Amazon Web Services resource for the sync status with
-        the Git repository.
+        :param resource_name: The name of the Amazon Web Services resource for the sync status with the Git repository.
         :param sync_type: The sync type for the sync status with the Git repository.
         :returns: GetResourceSyncStatusOutput
         :raises AccessDeniedException:
@@ -1070,8 +1053,7 @@ class CodeconnectionsApi:
         """Returns a list of the most recent sync blockers.
 
         :param sync_type: The sync type for the sync blocker summary.
-        :param resource_name: The name of the Amazon Web Services resource currently blocked from
-        automatically being synced from a Git repository.
+        :param resource_name: The name of the Amazon Web Services resource currently blocked from automatically being synced from a Git repository.
         :returns: GetSyncBlockerSummaryOutput
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1094,10 +1076,8 @@ class CodeconnectionsApi:
         (push and pull) changes from the remote repository for a specified
         branch in a Git repository.
 
-        :param sync_type: The sync type for the sync configuration for which you want to retrieve
-        information.
-        :param resource_name: The name of the Amazon Web Services resource for the sync configuration
-        for which you want to retrieve information.
+        :param sync_type: The sync type for the sync configuration for which you want to retrieve information.
+        :param resource_name: The name of the Amazon Web Services resource for the sync configuration for which you want to retrieve information.
         :returns: GetSyncConfigurationOutput
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1119,13 +1099,10 @@ class CodeconnectionsApi:
     ) -> ListConnectionsOutput:
         """Lists the connections associated with your account.
 
-        :param provider_type_filter: Filters the list of connections to those associated with a specified
-        provider, such as Bitbucket.
-        :param host_arn_filter: Filters the list of connections to those associated with a specified
-        host.
+        :param provider_type_filter: Filters the list of connections to those associated with a specified provider, such as Bitbucket.
+        :param host_arn_filter: Filters the list of connections to those associated with a specified host.
         :param max_results: The maximum number of results to return in a single call.
-        :param next_token: The token that was returned from the previous ``ListConnections`` call,
-        which can be used to return the next set of connections in the list.
+        :param next_token: The token that was returned from the previous ``ListConnections`` call, which can be used to return the next set of connections in the list.
         :returns: ListConnectionsOutput
         :raises ResourceNotFoundException:
         """
@@ -1142,8 +1119,7 @@ class CodeconnectionsApi:
         """Lists the hosts associated with your account.
 
         :param max_results: The maximum number of results to return in a single call.
-        :param next_token: The token that was returned from the previous ``ListHosts`` call, which
-        can be used to return the next set of hosts in the list.
+        :param next_token: The token that was returned from the previous ``ListHosts`` call, which can be used to return the next set of hosts in the list.
         :returns: ListHostsOutput
         """
         raise NotImplementedError
@@ -1158,10 +1134,8 @@ class CodeconnectionsApi:
     ) -> ListRepositoryLinksOutput:
         """Lists the repository links created for connections in your account.
 
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
-        :param next_token: An enumeration token that, when provided in a request, returns the next
-        batch of the results.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
+        :param next_token: An enumeration token that, when provided in a request, returns the next batch of the results.
         :returns: ListRepositoryLinksOutput
         :raises AccessDeniedException:
         :raises ConcurrentModificationException:
@@ -1183,10 +1157,8 @@ class CodeconnectionsApi:
         """Lists the repository sync definitions for repository links in your
         account.
 
-        :param repository_link_id: The ID of the repository link for the sync definition for which you want
-        to retrieve information.
-        :param sync_type: The sync type of the repository link for the the sync definition for
-        which you want to retrieve information.
+        :param repository_link_id: The ID of the repository link for the sync definition for which you want to retrieve information.
+        :param sync_type: The sync type of the repository link for the the sync definition for which you want to retrieve information.
         :returns: ListRepositorySyncDefinitionsOutput
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1208,13 +1180,10 @@ class CodeconnectionsApi:
     ) -> ListSyncConfigurationsOutput:
         """Returns a list of sync configurations for a specified repository.
 
-        :param repository_link_id: The ID of the repository link for the requested list of sync
-        configurations.
+        :param repository_link_id: The ID of the repository link for the requested list of sync configurations.
         :param sync_type: The sync type for the requested list of sync configurations.
-        :param max_results: A non-zero, non-negative integer used to limit the number of returned
-        results.
-        :param next_token: An enumeration token that allows the operation to batch the results of
-        the operation.
+        :param max_results: A non-zero, non-negative integer used to limit the number of returned results.
+        :param next_token: An enumeration token that allows the operation to batch the results of the operation.
         :returns: ListSyncConfigurationsOutput
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -1231,8 +1200,7 @@ class CodeconnectionsApi:
         """Gets the set of key-value pairs (metadata) that are used to manage the
         resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want to get
-        information about tags, if any.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want to get information about tags, if any.
         :returns: ListTagsForResourceOutput
         :raises ResourceNotFoundException:
         """
@@ -1245,8 +1213,7 @@ class CodeconnectionsApi:
         """Adds to or modifies the tags of the given resource. Tags are metadata
         that can be used to manage a resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which you want to add
-        or update tags.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which you want to add or update tags.
         :param tags: The tags you want to modify or add to the resource.
         :returns: TagResourceOutput
         :raises ResourceNotFoundException:
@@ -1307,10 +1274,8 @@ class CodeconnectionsApi:
         changes to files in a specified Git repository.
 
         :param repository_link_id: The ID of the repository link to be updated.
-        :param connection_arn: The Amazon Resource Name (ARN) of the connection for the repository link
-        to be updated.
-        :param encryption_key_arn: The Amazon Resource Name (ARN) of the encryption key for the repository
-        link to be updated.
+        :param connection_arn: The Amazon Resource Name (ARN) of the connection for the repository link to be updated.
+        :param encryption_key_arn: The Amazon Resource Name (ARN) of the encryption key for the repository link to be updated.
         :returns: UpdateRepositoryLinkOutput
         :raises AccessDeniedException:
         :raises ConditionalCheckFailedException:
@@ -1368,18 +1333,15 @@ class CodeconnectionsApi:
         """Updates the sync configuration for your connection and a specified
         external Git repository.
 
-        :param resource_name: The name of the Amazon Web Services resource for the sync configuration
-        to be updated.
+        :param resource_name: The name of the Amazon Web Services resource for the sync configuration to be updated.
         :param sync_type: The sync type for the sync configuration to be updated.
         :param branch: The branch for the sync configuration to be updated.
         :param config_file: The configuration file for the sync configuration to be updated.
         :param repository_link_id: The ID of the repository link for the sync configuration to be updated.
         :param role_arn: The ARN of the IAM role for the sync configuration to be updated.
-        :param publish_deployment_status: Whether to enable or disable publishing of deployment status to source
-        providers.
+        :param publish_deployment_status: Whether to enable or disable publishing of deployment status to source providers.
         :param trigger_resource_update_on: When to trigger Git sync to begin the stack update.
-        :param pull_request_comment: TA toggle that specifies whether to enable or disable pull request
-        comments for the sync configuration to be updated.
+        :param pull_request_comment: TA toggle that specifies whether to enable or disable pull request comments for the sync configuration to be updated.
         :returns: UpdateSyncConfigurationOutput
         :raises AccessDeniedException:
         :raises ConcurrentModificationException:

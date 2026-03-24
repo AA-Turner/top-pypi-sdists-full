@@ -12,8 +12,6 @@
 
 """Qiskit runtime service."""
 
-from __future__ import annotations
-
 import math
 import copy
 import logging
@@ -53,7 +51,9 @@ class QiskitRuntimeLocalService:
         """
 
     def backend(
-        self, name: str = None, instance: str = None  # pylint: disable=unused-argument
+        self,
+        name: str | None = None,
+        instance: str | None = None,  # pylint: disable=unused-argument
     ) -> FakeBackendV2:
         """Return a single fake backend matching the specified filters.
 
@@ -61,7 +61,7 @@ class QiskitRuntimeLocalService:
             name: The name of the backend.
 
         Returns:
-            Backend: A backend matching the filtering.
+            A backend matching the filtering.
         """
         return self.backends(name=name)[0]
 

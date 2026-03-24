@@ -6,12 +6,18 @@ use pyo3::{Bound, PyAny, PyErr, PyResult};
 use std::cmp::Ordering;
 use std::fmt::Display;
 
-pub fn check_lower_bound<T>(val: T, min: Option<T>, instance_path: &InstancePath) -> PyResult<()>
+pub fn check_lower_bound<T>(
+    val: T,
+    min: Option<T>,
+    inclusive: bool,
+    instance_path: &InstancePath,
+) -> PyResult<()>
 where
     T: PartialOrd + Display,
 {
     if let Some(min) = min {
-        if val <= min {
+        let violates = if inclusive { val < min } else { val <= min };
+        if violates {
             raise_error(
                 format!("{val} is less than the minimum of {min}"),
                 instance_path,
@@ -21,12 +27,18 @@ where
     Ok(())
 }
 
-pub fn check_upper_bound<T>(val: T, max: Option<T>, instance_path: &InstancePath) -> PyResult<()>
+pub fn check_upper_bound<T>(
+    val: T,
+    max: Option<T>,
+    inclusive: bool,
+    instance_path: &InstancePath,
+) -> PyResult<()>
 where
     T: PartialOrd + Display,
 {
     if let Some(max) = max {
-        if val > max {
+        let violates = if inclusive { val > max } else { val >= max };
+        if violates {
             raise_error(
                 format!("{val} is greater than the maximum of {max}"),
                 instance_path,
@@ -40,6 +52,8 @@ pub fn _check_bounds<T>(
     val: T,
     min: Option<T>,
     max: Option<T>,
+    inclusive_min: bool,
+    inclusive_max: bool,
     instance_path: &InstancePath,
 ) -> PyResult<()>
 where
@@ -48,14 +62,21 @@ where
     if min.is_none() && max.is_none() {
         return Ok(());
     }
-    check_lower_bound(val, min, instance_path)?;
-    check_upper_bound(val, max, instance_path)?;
+    check_lower_bound(val, min, inclusive_min, instance_path)?;
+    check_upper_bound(val, max, inclusive_max, instance_path)?;
     Ok(())
 }
 
 macro_rules! check_bounds {
     ($val: expr, $type_info: expr, $path: expr) => {
-        crate::validator::validators::_check_bounds($val, $type_info.min, $type_info.max, $path)
+        crate::validator::validators::_check_bounds(
+            $val,
+            $type_info.min,
+            $type_info.max,
+            $type_info.inclusive_min,
+            $type_info.inclusive_max,
+            $path,
+        )
     };
 }
 
@@ -66,7 +87,7 @@ pub fn check_min_length(
     instance_path: &InstancePath,
 ) -> PyResult<()> {
     if let Some(min) = min {
-        if len <= min {
+        if len < min {
             raise_error(
                 format!(r#""{val}" is shorter than {min} characters"#),
                 instance_path,

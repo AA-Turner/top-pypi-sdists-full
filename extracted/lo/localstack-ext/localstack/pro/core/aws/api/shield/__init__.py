@@ -1030,8 +1030,7 @@ class ShieldApi:
         `Enterprise Support
         plan <http://aws.amazon.com/premiumsupport/enterprise-support/>`__.
 
-        :param role_arn: The Amazon Resource Name (ARN) of the role the SRT will use to access
-        your Amazon Web Services account.
+        :param role_arn: The Amazon Resource Name (ARN) of the role the SRT will use to access your Amazon Web Services account.
         :returns: AssociateDRTRoleResponse
         :raises InternalErrorException:
         :raises InvalidOperationException:
@@ -1061,10 +1060,8 @@ class ShieldApi:
         Detection <https://docs.aws.amazon.com/waf/latest/developerguide/ddos-overview.html#ddos-advanced-health-check-option>`__
         in the *WAF Developer Guide*.
 
-        :param protection_id: The unique identifier (ID) for the Protection object to add the health
-        check association to.
-        :param health_check_arn: The Amazon Resource Name (ARN) of the health check to associate with the
-        protection.
+        :param protection_id: The unique identifier (ID) for the Protection object to add the health check association to.
+        :param health_check_arn: The Amazon Resource Name (ARN) of the health check to associate with the protection.
         :returns: AssociateHealthCheckResponse
         :raises InternalErrorException:
         :raises LimitsExceededException:
@@ -1096,9 +1093,7 @@ class ShieldApi:
         use them, retrieve the list using ``DescribeEmergencyContactSettings``
         and then provide it to this call.
 
-        :param emergency_contact_list: A list of email addresses and phone numbers that the Shield Response
-        Team (SRT) can use to contact you for escalations to the SRT and to
-        initiate proactive customer support.
+        :param emergency_contact_list: A list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support.
         :returns: AssociateProactiveEngagementDetailsResponse
         :raises InternalErrorException:
         :raises InvalidOperationException:
@@ -1135,8 +1130,7 @@ class ShieldApi:
 
         :param name: Friendly name for the ``Protection`` you are creating.
         :param resource_arn: The ARN (Amazon Resource Name) of the resource to be protected.
-        :param tags: One or more tag key-value pairs for the Protection object that is
-        created.
+        :param tags: One or more tag key-value pairs for the Protection object that is created.
         :returns: CreateProtectionResponse
         :raises InternalErrorException:
         :raises InvalidResourceException:
@@ -1166,13 +1160,10 @@ class ShieldApi:
         and reduces false positives.
 
         :param protection_group_id: The name of the protection group.
-        :param aggregation: Defines how Shield combines resource data for the group in order to
-        detect, mitigate, and report events.
-        :param pattern: The criteria to use to choose the protected resources for inclusion in
-        the group.
+        :param aggregation: Defines how Shield combines resource data for the group in order to detect, mitigate, and report events.
+        :param pattern: The criteria to use to choose the protected resources for inclusion in the group.
         :param resource_type: The resource type to include in the protection group.
-        :param members: The Amazon Resource Names (ARNs) of the resources to include in the
-        protection group.
+        :param members: The Amazon Resource Names (ARNs) of the resources to include in the protection group.
         :param tags: One or more tag key-value pairs for the protection group.
         :returns: CreateProtectionGroupResponse
         :raises InternalErrorException:
@@ -1318,8 +1309,7 @@ class ShieldApi:
         """Lists the details of a Protection object.
 
         :param protection_id: The unique identifier (ID) for the Protection object to describe.
-        :param resource_arn: The ARN (Amazon Resource Name) of the protected Amazon Web Services
-        resource.
+        :param resource_arn: The ARN (Amazon Resource Name) of the protected Amazon Web Services resource.
         :returns: DescribeProtectionResponse
         :raises InternalErrorException:
         :raises InvalidParameterException:
@@ -1440,10 +1430,8 @@ class ShieldApi:
         Detection <https://docs.aws.amazon.com/waf/latest/developerguide/ddos-overview.html#ddos-advanced-health-check-option>`__
         in the *WAF Developer Guide*.
 
-        :param protection_id: The unique identifier (ID) for the Protection object to remove the
-        health check association from.
-        :param health_check_arn: The Amazon Resource Name (ARN) of the health check that is associated
-        with the protection.
+        :param protection_id: The unique identifier (ID) for the Protection object to remove the health check association from.
+        :param health_check_arn: The Amazon Resource Name (ARN) of the health check that is associated with the protection.
         :returns: DisassociateHealthCheckResponse
         :raises InternalErrorException:
         :raises InvalidParameterException:
@@ -1488,9 +1476,7 @@ class ShieldApi:
         Guide <https://docs.aws.amazon.com/waf/latest/developerguide/>`__.
 
         :param resource_arn: The ARN (Amazon Resource Name) of the protected resource.
-        :param action: Specifies the action setting that Shield Advanced should use in the WAF
-        rules that it creates on behalf of the protected resource in response to
-        DDoS attacks.
+        :param action: Specifies the action setting that Shield Advanced should use in the WAF rules that it creates on behalf of the protected resource in response to DDoS attacks.
         :returns: EnableApplicationLayerAutomaticResponseResponse
         :raises LimitsExceededException:
         :raises InternalErrorException:
@@ -1546,11 +1532,8 @@ class ShieldApi:
         :param resource_arns: The ARNs (Amazon Resource Names) of the resources that were attacked.
         :param start_time: The start of the time period for the attacks.
         :param end_time: The end of the time period for the attacks.
-        :param next_token: When you request a list of objects from Shield Advanced, if the response
-        does not include all of the remaining available objects, Shield Advanced
-        includes a ``NextToken`` value in the response.
-        :param max_results: The greatest number of objects that you want Shield Advanced to return
-        to the list request.
+        :param next_token: When you request a list of objects from Shield Advanced, if the response does not include all of the remaining available objects, Shield Advanced includes a ``NextToken`` value in the response.
+        :param max_results: The greatest number of objects that you want Shield Advanced to return to the list request.
         :returns: ListAttacksResponse
         :raises InternalErrorException:
         :raises InvalidParameterException:
@@ -1571,11 +1554,8 @@ class ShieldApi:
         protection groups or you can provide filtering criteria and retrieve
         just the subset of protection groups that match the criteria.
 
-        :param next_token: When you request a list of objects from Shield Advanced, if the response
-        does not include all of the remaining available objects, Shield Advanced
-        includes a ``NextToken`` value in the response.
-        :param max_results: The greatest number of objects that you want Shield Advanced to return
-        to the list request.
+        :param next_token: When you request a list of objects from Shield Advanced, if the response does not include all of the remaining available objects, Shield Advanced includes a ``NextToken`` value in the response.
+        :param max_results: The greatest number of objects that you want Shield Advanced to return to the list request.
         :param inclusion_filters: Narrows the set of protection groups that the call retrieves.
         :returns: ListProtectionGroupsResponse
         :raises InternalErrorException:
@@ -1597,11 +1577,8 @@ class ShieldApi:
         protections or you can provide filtering criteria and retrieve just the
         subset of protections that match the criteria.
 
-        :param next_token: When you request a list of objects from Shield Advanced, if the response
-        does not include all of the remaining available objects, Shield Advanced
-        includes a ``NextToken`` value in the response.
-        :param max_results: The greatest number of objects that you want Shield Advanced to return
-        to the list request.
+        :param next_token: When you request a list of objects from Shield Advanced, if the response does not include all of the remaining available objects, Shield Advanced includes a ``NextToken`` value in the response.
+        :param max_results: The greatest number of objects that you want Shield Advanced to return to the list request.
         :param inclusion_filters: Narrows the set of protections that the call retrieves.
         :returns: ListProtectionsResponse
         :raises InternalErrorException:
@@ -1622,11 +1599,8 @@ class ShieldApi:
         """Retrieves the resources that are included in the protection group.
 
         :param protection_group_id: The name of the protection group.
-        :param next_token: When you request a list of objects from Shield Advanced, if the response
-        does not include all of the remaining available objects, Shield Advanced
-        includes a ``NextToken`` value in the response.
-        :param max_results: The greatest number of objects that you want Shield Advanced to return
-        to the list request.
+        :param next_token: When you request a list of objects from Shield Advanced, if the response does not include all of the remaining available objects, Shield Advanced includes a ``NextToken`` value in the response.
+        :param max_results: The greatest number of objects that you want Shield Advanced to return to the list request.
         :returns: ListResourcesInProtectionGroupResponse
         :raises InternalErrorException:
         :raises ResourceNotFoundException:
@@ -1655,8 +1629,7 @@ class ShieldApi:
     ) -> TagResourceResponse:
         """Adds or updates tags for a resource in Shield.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to add or
-        update tags for.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to add or update tags for.
         :param tags: The tags that you want to modify or add to the resource.
         :returns: TagResourceResponse
         :raises InternalErrorException:
@@ -1672,8 +1645,7 @@ class ShieldApi:
     ) -> UntagResourceResponse:
         """Removes tags from a resource in Shield.
 
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to remove
-        tags from.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource that you want to remove tags from.
         :param tag_keys: The tag key for each tag that you want to remove from the resource.
         :returns: UntagResourceResponse
         :raises InternalErrorException:
@@ -1691,9 +1663,7 @@ class ShieldApi:
         mitigation configuration for the specified resource.
 
         :param resource_arn: The ARN (Amazon Resource Name) of the resource.
-        :param action: Specifies the action setting that Shield Advanced should use in the WAF
-        rules that it creates on behalf of the protected resource in response to
-        DDoS attacks.
+        :param action: Specifies the action setting that Shield Advanced should use in the WAF rules that it creates on behalf of the protected resource in response to DDoS attacks.
         :returns: UpdateApplicationLayerAutomaticResponseResponse
         :raises InternalErrorException:
         :raises ResourceNotFoundException:
@@ -1715,10 +1685,7 @@ class ShieldApi:
         proactive engagement enabled, for escalations to the SRT and to initiate
         proactive customer support.
 
-        :param emergency_contact_list: A list of email addresses and phone numbers that the Shield Response
-        Team (SRT) can use to contact you if you have proactive engagement
-        enabled, for escalations to the SRT and to initiate proactive customer
-        support.
+        :param emergency_contact_list: A list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you if you have proactive engagement enabled, for escalations to the SRT and to initiate proactive customer support.
         :returns: UpdateEmergencyContactSettingsResponse
         :raises InternalErrorException:
         :raises InvalidParameterException:
@@ -1744,13 +1711,10 @@ class ShieldApi:
         positives.
 
         :param protection_group_id: The name of the protection group.
-        :param aggregation: Defines how Shield combines resource data for the group in order to
-        detect, mitigate, and report events.
-        :param pattern: The criteria to use to choose the protected resources for inclusion in
-        the group.
+        :param aggregation: Defines how Shield combines resource data for the group in order to detect, mitigate, and report events.
+        :param pattern: The criteria to use to choose the protected resources for inclusion in the group.
         :param resource_type: The resource type to include in the protection group.
-        :param members: The Amazon Resource Names (ARNs) of the resources to include in the
-        protection group.
+        :param members: The Amazon Resource Names (ARNs) of the resources to include in the protection group.
         :returns: UpdateProtectionGroupResponse
         :raises InternalErrorException:
         :raises ResourceNotFoundException:
@@ -1770,8 +1734,7 @@ class ShieldApi:
         Advanced subscriptions are billed against the organization's payer
         account, regardless of whether the payer account itself is subscribed.
 
-        :param auto_renew: When you initally create a subscription, ``AutoRenew`` is set to
-        ``ENABLED``.
+        :param auto_renew: When you initally create a subscription, ``AutoRenew`` is set to ``ENABLED``.
         :returns: UpdateSubscriptionResponse
         :raises InternalErrorException:
         :raises LockedSubscriptionException:

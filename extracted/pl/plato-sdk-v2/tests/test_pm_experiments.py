@@ -307,12 +307,12 @@ class TestExperimentPushCommands:
 
     @patch.dict("os.environ", {"PLATO_API_KEY": "test-key"})
     @patch("plato.cli.pm.httpx.Client")
-    def test_env_resume_push(self, mock_client_cls):
+    def test_env_fix_push(self, mock_client_cls):
         mock_client = _make_http_mock(list_files=[])
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = runner.invoke(pm_app, ["experiment", "env", "resume", "push"])
+        result = runner.invoke(pm_app, ["experiment", "env", "fix", "push"])
 
         assert result.exit_code == 0, result.output
         assert "env-fix-launch" in result.output

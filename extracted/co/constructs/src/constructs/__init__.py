@@ -363,6 +363,7 @@ class MetadataEntry:
     jsii_struct_bases=[],
     name_mapping={
         "stack_trace": "stackTrace",
+        "stack_trace_override": "stackTraceOverride",
         "trace_from_function": "traceFromFunction",
     },
 )
@@ -371,20 +372,25 @@ class MetadataOptions:
         self,
         *,
         stack_trace: typing.Optional[builtins.bool] = None,
+        stack_trace_override: typing.Optional[typing.Sequence[builtins.str]] = None,
         trace_from_function: typing.Any = None,
     ) -> None:
         '''Options for ``construct.addMetadata()``.
 
         :param stack_trace: Include stack trace with metadata entry. Default: false
+        :param stack_trace_override: The actual stack trace to be added to the metadata. If this parameter is passed, the stackTrace parameter is ignored.
         :param trace_from_function: A JavaScript function to begin tracing from. This option is ignored unless ``stackTrace`` is ``true``. Default: addMetadata()
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__75d38f18f5b98ff8e52a193cc40da1d25ab1a4740362b86cea0782ada618178b)
             check_type(argname="argument stack_trace", value=stack_trace, expected_type=type_hints["stack_trace"])
+            check_type(argname="argument stack_trace_override", value=stack_trace_override, expected_type=type_hints["stack_trace_override"])
             check_type(argname="argument trace_from_function", value=trace_from_function, expected_type=type_hints["trace_from_function"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if stack_trace is not None:
             self._values["stack_trace"] = stack_trace
+        if stack_trace_override is not None:
+            self._values["stack_trace_override"] = stack_trace_override
         if trace_from_function is not None:
             self._values["trace_from_function"] = trace_from_function
 
@@ -396,6 +402,16 @@ class MetadataOptions:
         '''
         result = self._values.get("stack_trace")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def stack_trace_override(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actual stack trace to be added to the metadata.
+
+        If this
+        parameter is passed, the stackTrace parameter is ignored.
+        '''
+        result = self._values.get("stack_trace_override")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def trace_from_function(self) -> typing.Any:
@@ -477,6 +493,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         data: typing.Any,
         *,
         stack_trace: typing.Optional[builtins.bool] = None,
+        stack_trace_override: typing.Optional[typing.Sequence[builtins.str]] = None,
         trace_from_function: typing.Any = None,
     ) -> None:
         '''Adds a metadata entry to this construct.
@@ -490,6 +507,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         :param type: a string denoting the type of metadata.
         :param data: the value of the metadata (can be a Token). If null/undefined, metadata will not be added.
         :param stack_trace: Include stack trace with metadata entry. Default: false
+        :param stack_trace_override: The actual stack trace to be added to the metadata. If this parameter is passed, the stackTrace parameter is ignored.
         :param trace_from_function: A JavaScript function to begin tracing from. This option is ignored unless ``stackTrace`` is ``true``. Default: addMetadata()
         '''
         if __debug__:
@@ -497,7 +515,9 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
         options = MetadataOptions(
-            stack_trace=stack_trace, trace_from_function=trace_from_function
+            stack_trace=stack_trace,
+            stack_trace_override=stack_trace_override,
+            trace_from_function=trace_from_function,
         )
 
         return typing.cast(None, jsii.invoke(self, "addMetadata", [type, data, options]))
@@ -1055,6 +1075,7 @@ def _typecheckingstub__ac0c2f394c95b32376bd2487bfa65b455507f8363a71e56bbcfef3a69
 def _typecheckingstub__75d38f18f5b98ff8e52a193cc40da1d25ab1a4740362b86cea0782ada618178b(
     *,
     stack_trace: typing.Optional[builtins.bool] = None,
+    stack_trace_override: typing.Optional[typing.Sequence[builtins.str]] = None,
     trace_from_function: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -1085,6 +1106,7 @@ def _typecheckingstub__023b8c3b11b2c1279fbfa8d54f858cec54fb8d9621c584addfbcccc63
     data: typing.Any,
     *,
     stack_trace: typing.Optional[builtins.bool] = None,
+    stack_trace_override: typing.Optional[typing.Sequence[builtins.str]] = None,
     trace_from_function: typing.Any = None,
 ) -> None:
     """Type checking stubs"""

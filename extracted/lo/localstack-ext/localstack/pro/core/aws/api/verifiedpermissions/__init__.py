@@ -1898,11 +1898,8 @@ class VerifiedpermissionsApi:
         policies.
 
         :param policy_store_id: Specifies the ID of the policy store.
-        :param requests: An array of up to 30 requests that you want Verified Permissions to
-        evaluate.
-        :param entities: (Optional) Specifies the list of resources and principals and their
-        associated attributes that Verified Permissions can examine when
-        evaluating the policies.
+        :param requests: An array of up to 30 requests that you want Verified Permissions to evaluate.
+        :param entities: (Optional) Specifies the list of resources and principals and their associated attributes that Verified Permissions can examine when evaluating the policies.
         :returns: BatchIsAuthorizedOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -1947,15 +1944,10 @@ class VerifiedpermissionsApi:
         ``verifiedpermissions:IsAuthorizedWithToken`` in their IAM policies.
 
         :param policy_store_id: Specifies the ID of the policy store.
-        :param requests: An array of up to 30 requests that you want Verified Permissions to
-        evaluate.
-        :param identity_token: Specifies an identity (ID) token for the principal that you want to
-        authorize in each request.
-        :param access_token: Specifies an access token for the principal that you want to authorize
-        in each request.
-        :param entities: (Optional) Specifies the list of resources and their associated
-        attributes that Verified Permissions can examine when evaluating the
-        policies.
+        :param requests: An array of up to 30 requests that you want Verified Permissions to evaluate.
+        :param identity_token: Specifies an identity (ID) token for the principal that you want to authorize in each request.
+        :param access_token: Specifies an access token for the principal that you want to authorize in each request.
+        :param entities: (Optional) Specifies the list of resources and their associated attributes that Verified Permissions can examine when evaluating the policies.
         :returns: BatchIsAuthorizedWithTokenOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -2014,14 +2006,10 @@ class VerifiedpermissionsApi:
         service and be visible in the results of other Verified Permissions
         operations.
 
-        :param policy_store_id: Specifies the ID of the policy store in which you want to store this
-        identity source.
-        :param configuration: Specifies the details required to communicate with the identity provider
-        (IdP) associated with this identity source.
-        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the
-        idempotency of the request.
-        :param principal_entity_type: Specifies the namespace and data type of the principals generated for
-        identities authenticated by the new identity source.
+        :param policy_store_id: Specifies the ID of the policy store in which you want to store this identity source.
+        :param configuration: Specifies the details required to communicate with the identity provider (IdP) associated with this identity source.
+        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the idempotency of the request.
+        :param principal_entity_type: Specifies the namespace and data type of the principals generated for identities authenticated by the new identity source.
         :returns: CreateIdentitySourceOutput
         :raises ValidationException:
         :raises ServiceQuotaExceededException:
@@ -2066,12 +2054,9 @@ class VerifiedpermissionsApi:
         service and be visible in the results of other Verified Permissions
         operations.
 
-        :param policy_store_id: Specifies the ``PolicyStoreId`` of the policy store you want to store
-        the policy in.
-        :param definition: A structure that specifies the policy type and content to use for the
-        new policy.
-        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the
-        idempotency of the request.
+        :param policy_store_id: Specifies the ``PolicyStoreId`` of the policy store you want to store the policy in.
+        :param definition: A structure that specifies the policy type and content to use for the new policy.
+        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the idempotency of the request.
         :returns: CreatePolicyOutput
         :raises ValidationException:
         :raises ServiceQuotaExceededException:
@@ -2110,13 +2095,10 @@ class VerifiedpermissionsApi:
         operations.
 
         :param validation_settings: Specifies the validation setting for this policy store.
-        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the
-        idempotency of the request.
-        :param description: Descriptive text that you can provide to help with identification of the
-        current policy store.
+        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the idempotency of the request.
+        :param description: Descriptive text that you can provide to help with identification of the current policy store.
         :param deletion_protection: Specifies whether the policy store can be deleted.
-        :param encryption_settings: Specifies the encryption settings used to encrypt the policy store and
-        their child resources.
+        :param encryption_settings: Specifies the encryption settings used to encrypt the policy store and their child resources.
         :param tags: The list of key-value pairs to associate with the policy store.
         :returns: CreatePolicyStoreOutput
         :raises ValidationException:
@@ -2154,10 +2136,8 @@ class VerifiedpermissionsApi:
         operations.
 
         :param policy_store_id: The ID of the policy store in which to create the policy template.
-        :param statement: Specifies the content that you want to use for the new policy template,
-        written in the Cedar policy language.
-        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the
-        idempotency of the request.
+        :param statement: Specifies the content that you want to use for the new policy template, written in the Cedar policy language.
+        :param client_token: Specifies a unique, case-sensitive ID that you provide to ensure the idempotency of the request.
         :param description: Specifies a description for the policy template.
         :returns: CreatePolicyTemplateOutput
         :raises ValidationException:
@@ -2185,8 +2165,7 @@ class VerifiedpermissionsApi:
         `IsAuthorizedWithToken <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_IsAuthorizedWithToken.html>`__.
         operations.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the identity source
-        that you want to delete.
+        :param policy_store_id: Specifies the ID of the policy store that contains the identity source that you want to delete.
         :param identity_source_id: Specifies the ID of the identity source that you want to delete.
         :returns: DeleteIdentitySourceOutput
         :raises ValidationException:
@@ -2208,8 +2187,7 @@ class VerifiedpermissionsApi:
         exist, the request response returns a successful ``HTTP 200`` status
         code.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the policy that you
-        want to delete.
+        :param policy_store_id: Specifies the ID of the policy store that contains the policy that you want to delete.
         :param policy_id: Specifies the ID of the policy that you want to delete.
         :returns: DeletePolicyOutput
         :raises ValidationException:
@@ -2256,8 +2234,7 @@ class VerifiedpermissionsApi:
         all future API responses, and are asynchronously deleted from the policy
         store.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the policy template
-        that you want to delete.
+        :param policy_store_id: Specifies the ID of the policy store that contains the policy template that you want to delete.
         :param policy_template_id: Specifies the ID of the policy template that you want to delete.
         :returns: DeletePolicyTemplateOutput
         :raises ValidationException:
@@ -2279,8 +2256,7 @@ class VerifiedpermissionsApi:
     ) -> GetIdentitySourceOutput:
         """Retrieves the details about the specified identity source.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the identity source
-        you want information about.
+        :param policy_store_id: Specifies the ID of the policy store that contains the identity source you want information about.
         :param identity_source_id: Specifies the ID of the identity source you want information about.
         :returns: GetIdentitySourceOutput
         :raises ValidationException:
@@ -2297,8 +2273,7 @@ class VerifiedpermissionsApi:
     ) -> GetPolicyOutput:
         """Retrieves information about the specified policy.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the policy that you
-        want information about.
+        :param policy_store_id: Specifies the ID of the policy store that contains the policy that you want information about.
         :param policy_id: Specifies the ID of the policy you want information about.
         :returns: GetPolicyOutput
         :raises ValidationException:
@@ -2320,8 +2295,7 @@ class VerifiedpermissionsApi:
         """Retrieves details about a policy store.
 
         :param policy_store_id: Specifies the ID of the policy store that you want information about.
-        :param tags: Specifies whether to return the tags that are attached to the policy
-        store.
+        :param tags: Specifies whether to return the tags that are attached to the policy store.
         :returns: GetPolicyStoreOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -2342,8 +2316,7 @@ class VerifiedpermissionsApi:
         """Retrieve the details for the specified policy template in the specified
         policy store.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the policy template
-        that you want information about.
+        :param policy_store_id: Specifies the ID of the policy store that contains the policy template that you want information about.
         :param policy_template_id: Specifies the ID of the policy template that you want information about.
         :returns: GetPolicyTemplateOutput
         :raises ValidationException:
@@ -2384,16 +2357,11 @@ class VerifiedpermissionsApi:
         decision.
 
         :param policy_store_id: Specifies the ID of the policy store.
-        :param principal: Specifies the principal for which the authorization decision is to be
-        made.
+        :param principal: Specifies the principal for which the authorization decision is to be made.
         :param action: Specifies the requested action to be authorized.
-        :param resource: Specifies the resource for which the authorization decision is to be
-        made.
-        :param context: Specifies additional context that can be used to make more granular
-        authorization decisions.
-        :param entities: (Optional) Specifies the list of resources and principals and their
-        associated attributes that Verified Permissions can examine when
-        evaluating the policies.
+        :param resource: Specifies the resource for which the authorization decision is to be made.
+        :param context: Specifies additional context that can be used to make more granular authorization decisions.
+        :param entities: (Optional) Specifies the list of resources and principals and their associated attributes that Verified Permissions can examine when evaluating the policies.
         :returns: IsAuthorizedOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -2429,11 +2397,8 @@ class VerifiedpermissionsApi:
         :param access_token: Specifies an access token for the principal to be authorized.
         :param action: Specifies the requested action to be authorized.
         :param resource: Specifies the resource for which the authorization decision is made.
-        :param context: Specifies additional context that can be used to make more granular
-        authorization decisions.
-        :param entities: (Optional) Specifies the list of resources and their associated
-        attributes that Verified Permissions can examine when evaluating the
-        policies.
+        :param context: Specifies additional context that can be used to make more granular authorization decisions.
+        :param entities: (Optional) Specifies the list of resources and their associated attributes that Verified Permissions can examine when evaluating the policies.
         :returns: IsAuthorizedWithTokenOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -2456,13 +2421,10 @@ class VerifiedpermissionsApi:
         """Returns a paginated list of all of the identity sources defined in the
         specified policy store.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the identity sources
-        that you want to list.
+        :param policy_store_id: Specifies the ID of the policy store that contains the identity sources that you want to list.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
-        :param filters: Specifies characteristics of an identity source that you can use to
-        limit the output to matching identity sources.
+        :param max_results: Specifies the total number of results that you want included in each response.
+        :param filters: Specifies characteristics of an identity source that you can use to limit the output to matching identity sources.
         :returns: ListIdentitySourcesOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -2487,10 +2449,8 @@ class VerifiedpermissionsApi:
 
         :param policy_store_id: Specifies the ID of the policy store you want to list policies from.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
-        :param filter: Specifies a filter that limits the response to only policies that match
-        the specified criteria.
+        :param max_results: Specifies the total number of results that you want included in each response.
+        :param filter: Specifies a filter that limits the response to only policies that match the specified criteria.
         :returns: ListPoliciesOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -2512,8 +2472,7 @@ class VerifiedpermissionsApi:
         Services account.
 
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :returns: ListPolicyStoresOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -2534,11 +2493,9 @@ class VerifiedpermissionsApi:
         """Returns a paginated list of all policy templates in the specified policy
         store.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the policy templates
-        you want to list.
+        :param policy_store_id: Specifies the ID of the policy store that contains the policy templates you want to list.
         :param next_token: Specifies that you want to receive the next page of results.
-        :param max_results: Specifies the total number of results that you want included in each
-        response.
+        :param max_results: Specifies the total number of results that you want included in each response.
         :returns: ListPolicyTemplatesOutput
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -2677,13 +2634,10 @@ class VerifiedpermissionsApi:
         service and be visible in the results of other Verified Permissions
         operations.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the identity source
-        that you want to update.
+        :param policy_store_id: Specifies the ID of the policy store that contains the identity source that you want to update.
         :param identity_source_id: Specifies the ID of the identity source that you want to update.
-        :param update_configuration: Specifies the details required to communicate with the identity provider
-        (IdP) associated with this identity source.
-        :param principal_entity_type: Specifies the data type of principals generated for identities
-        authenticated by the identity source.
+        :param update_configuration: Specifies the details required to communicate with the identity provider (IdP) associated with this identity source.
+        :param principal_entity_type: Specifies the data type of principals generated for identities authenticated by the identity source.
         :returns: UpdateIdentitySourceOutput
         :raises ValidationException:
         :raises ConflictException:
@@ -2743,11 +2697,9 @@ class VerifiedpermissionsApi:
         service and be visible in the results of other Verified Permissions
         operations.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the policy that you
-        want to update.
+        :param policy_store_id: Specifies the ID of the policy store that contains the policy that you want to update.
         :param policy_id: Specifies the ID of the policy that you want to update.
-        :param definition: Specifies the updated policy content that you want to replace on the
-        specified policy.
+        :param definition: Specifies the updated policy content that you want to replace on the specified policy.
         :returns: UpdatePolicyOutput
         :raises ValidationException:
         :raises ServiceQuotaExceededException:
@@ -2778,11 +2730,9 @@ class VerifiedpermissionsApi:
         operations.
 
         :param policy_store_id: Specifies the ID of the policy store that you want to update.
-        :param validation_settings: A structure that defines the validation settings that want to enable for
-        the policy store.
+        :param validation_settings: A structure that defines the validation settings that want to enable for the policy store.
         :param deletion_protection: Specifies whether the policy store can be deleted.
-        :param description: Descriptive text that you can provide to help with identification of the
-        current policy store.
+        :param description: Descriptive text that you can provide to help with identification of the current policy store.
         :returns: UpdatePolicyStoreOutput
         :raises ValidationException:
         :raises ConflictException:
@@ -2818,11 +2768,9 @@ class VerifiedpermissionsApi:
         service and be visible in the results of other Verified Permissions
         operations.
 
-        :param policy_store_id: Specifies the ID of the policy store that contains the policy template
-        that you want to update.
+        :param policy_store_id: Specifies the ID of the policy store that contains the policy template that you want to update.
         :param policy_template_id: Specifies the ID of the policy template that you want to update.
-        :param statement: Specifies new statement content written in Cedar policy language to
-        replace the current body of the policy template.
+        :param statement: Specifies new statement content written in Cedar policy language to replace the current body of the policy template.
         :param description: Specifies a new description to apply to the policy template.
         :returns: UpdatePolicyTemplateOutput
         :raises ValidationException:

@@ -7,4 +7,3 @@ def register():
     import localstack.pro.core.persistence.avro.reducers.threading  # noqa
     import localstack.pro.core.persistence.avro.reducers.cryptography  # noqa
     import localstack.pro.core.persistence.avro.reducers.sqs  # noqa
-    import localstack.pro.core.persistence.avro.reducers.cognito  # noqa

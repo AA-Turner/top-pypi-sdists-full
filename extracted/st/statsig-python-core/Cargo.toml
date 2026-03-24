@@ -4,7 +4,7 @@ lto = "thin"
 codegen-units = 1
 
 [workspace]
-members = ["statsig-rust", "statsig-pyo3"]
+members = ["statsig-rust", "statsig-grpc", "statsig-pyo3"]
 resolver = "2"
 exclude = [
     "examples/rust/sample-usage",
@@ -18,7 +18,7 @@ exclude = [
 [workspace.package]
 edition = "2021"
 license = "ISC"
-version = "0.16.5"
+version = "0.17.1"
 homepage = "https://statsig.com/"
 authors = ["Statsig", "Daniel Loomb <daniel@statsig.com>"]
 readme = "README.md"

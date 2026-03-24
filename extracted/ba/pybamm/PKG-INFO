@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pybamm
-Version: 25.12.2
+Version: 26.3.0
 Summary: Python Battery Mathematical Modelling
 Project-URL: Homepage, https://pybamm.org
 Project-URL: Documentation, https://docs.pybamm.org
@@ -48,17 +48,17 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Requires-Dist: anytree>=2.8.0
 Requires-Dist: black
-Requires-Dist: casadi==3.6.7
 Requires-Dist: numpy
 Requires-Dist: pandas>=1.5.0
 Requires-Dist: platformdirs
 Requires-Dist: pooch>=1.8.1
 Requires-Dist: posthog
-Requires-Dist: pybammsolvers<0.4.0,>=0.3.3
+Requires-Dist: pybammsolvers<0.7.0,>=0.6.0
 Requires-Dist: pyyaml
 Requires-Dist: scipy>=1.11.4
 Requires-Dist: sympy>=1.12
@@ -76,38 +76,10 @@ Provides-Extra: bpx
 Requires-Dist: bpx<0.6.0,>=0.5.0; extra == 'bpx'
 Provides-Extra: cite
 Requires-Dist: pybtex>=0.25.0; extra == 'cite'
-Provides-Extra: dev
-Requires-Dist: hypothesis; extra == 'dev'
-Requires-Dist: importlib-metadata; (python_version < '3.10') and extra == 'dev'
-Requires-Dist: nbmake; extra == 'dev'
-Requires-Dist: nox; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: pytest-doctestplus; extra == 'dev'
-Requires-Dist: pytest-mock; extra == 'dev'
-Requires-Dist: pytest-xdist; extra == 'dev'
-Requires-Dist: pytest>=9.0; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: ipykernel; extra == 'docs'
-Requires-Dist: ipywidgets; extra == 'docs'
-Requires-Dist: myst-parser; extra == 'docs'
-Requires-Dist: nbsphinx; extra == 'docs'
-Requires-Dist: pydata-sphinx-theme; extra == 'docs'
-Requires-Dist: sphinx-autobuild; extra == 'docs'
-Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx-design; extra == 'docs'
-Requires-Dist: sphinx-docsearch; extra == 'docs'
-Requires-Dist: sphinx-gallery; extra == 'docs'
-Requires-Dist: sphinx-inline-tabs; extra == 'docs'
-Requires-Dist: sphinx-last-updated-by-git; extra == 'docs'
-Requires-Dist: sphinx-rtd-theme>=0.5; extra == 'docs'
-Requires-Dist: sphinx>=6; extra == 'docs'
-Requires-Dist: sphinxcontrib-bibtex; extra == 'docs'
 Provides-Extra: examples
 Requires-Dist: jupyter; extra == 'examples'
 Provides-Extra: jax
-Requires-Dist: jax<0.7.0,>=0.4.36; extra == 'jax'
+Requires-Dist: jax<0.9.0,>=0.7.0; (python_version >= '3.11' and (sys_platform != 'darwin' or platform_machine != 'x86_64')) and extra == 'jax'
 Provides-Extra: plot
 Requires-Dist: matplotlib>=3.6.0; extra == 'plot'
 Provides-Extra: tqdm

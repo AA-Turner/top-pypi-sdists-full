@@ -11,6 +11,7 @@ from typing import TypedDict
 
 import click
 import requests
+
 from localstack_cli import config
 from localstack_cli.cli import console
 from localstack_cli.cli.exceptions import CLIError
@@ -255,10 +256,17 @@ At the moment only environment variables are recognized.
 )
 @click.option(
     "--replication-type",
-    type=click.Choice(["MOCK", "SINGLE_RESOURCE", "BATCH"]),
+    type=click.Choice(["SINGLE_RESOURCE", "BATCH"]),
     default="SINGLE_RESOURCE",
     show_default=True,
-    help="Type of replication job: MOCK, SINGLE_RESOURCE, BATCH",
+    help="Type of replication job: SINGLE_RESOURCE, BATCH",
+)
+@click.option(
+    "--explore-strategy",
+    type=click.Choice(["SIMPLE", "TREE"]),
+    default="SIMPLE",
+    show_default=True,
+    help="How we explore the resource tree. SIMPLE only replicates the resource requested.",
 )
 @click.option(
     "--resource-arn",
@@ -285,6 +293,7 @@ At the moment only environment variables are recognized.
 @click.option("--delay", help="Delay for the MOCK replication work")
 def start(
     replication_type: str,
+    explore_strategy: str,
     resource_arn: str | None = None,
     resource_type: str | None = None,
     resource_identifier: str | None = None,
@@ -314,6 +323,7 @@ def start(
 
     payload = {
         "replication_type": replication_type,
+        "explore_strategy": explore_strategy,
         "replication_job_config": replication_config,
         "source_aws_config": source_config,
         "target_aws_config": target_config,

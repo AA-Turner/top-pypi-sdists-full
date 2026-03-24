@@ -1,7 +1,7 @@
-from typing import Any, Iterable, Optional, Sequence, Type, Union
+from typing import Any, Iterable, Sequence, Type
 from dataclasses import asdict
 
-from fastembed.common.types import NumpyArray
+from fastembed.common.types import NumpyArray, Device
 from fastembed.common import ImageInput, OnnxProvider
 from fastembed.image.image_embedding_base import ImageEmbeddingBase
 from fastembed.image.onnx_embedding import OnnxImageEmbedding
@@ -48,11 +48,11 @@ class ImageEmbedding(ImageEmbeddingBase):
     def __init__(
         self,
         model_name: str,
-        cache_dir: Optional[str] = None,
-        threads: Optional[int] = None,
-        providers: Optional[Sequence[OnnxProvider]] = None,
-        cuda: bool = False,
-        device_ids: Optional[list[int]] = None,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        providers: Sequence[OnnxProvider] | None = None,
+        cuda: bool | Device = Device.AUTO,
+        device_ids: list[int] | None = None,
         lazy_load: bool = False,
         **kwargs: Any,
     ):
@@ -98,7 +98,7 @@ class ImageEmbedding(ImageEmbeddingBase):
             ValueError: If the model name is not found in the supported models.
         """
         descriptions = cls._list_supported_models()
-        embedding_size: Optional[int] = None
+        embedding_size: int | None = None
         for description in descriptions:
             if description.model.lower() == model_name.lower():
                 embedding_size = description.dim
@@ -113,9 +113,9 @@ class ImageEmbedding(ImageEmbeddingBase):
 
     def embed(
         self,
-        images: Union[ImageInput, Iterable[ImageInput]],
+        images: ImageInput | Iterable[ImageInput],
         batch_size: int = 16,
-        parallel: Optional[int] = None,
+        parallel: int | None = None,
         **kwargs: Any,
     ) -> Iterable[NumpyArray]:
         """

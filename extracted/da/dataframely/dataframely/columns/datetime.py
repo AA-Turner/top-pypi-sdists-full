@@ -60,7 +60,7 @@ class Date(OrdinalMixin[dt.date], Column):
             max_exclusive: Like `max` but exclusive. May not be specified if `max`
                 is specified and vice versa.
             resolution: The resolution that dates in the column must have. This uses the
-                formatting language used by :mod:`polars` datetime `round` method.
+                formatting language used by :mod:`polars` datetime `truncate` method.
                 For example, a value `1mo` expects all dates to be on the first of the
                 month. Note that this setting does *not* affect the storage resolution.
             check: A custom rule or multiple rules to run for this column. This can be:
@@ -183,7 +183,7 @@ class Time(OrdinalMixin[dt.time], Column):
             max_exclusive: Like `max` but exclusive. May not be specified if `max`
                 is specified and vice versa.
             resolution: The resolution that times in the column must have. This uses the
-                formatting language used by :mod:`polars` datetime `round` method.
+                formatting language used by :mod:`polars` datetime `truncate` method.
                 For example, a value `1h` expects all times to be full hours. Note
                 that this setting does *not* affect the storage resolution.
             check: A custom rule or multiple rules to run for this column. This can be:
@@ -314,7 +314,7 @@ class Datetime(OrdinalMixin[dt.datetime], Column):
             max_exclusive: Like `max` but exclusive. May not be specified if `max`
                 is specified and vice versa.
             resolution: The resolution that datetimes in the column must have. This uses
-                the formatting language used by :mod:`polars` datetime `round` method.
+                the formatting language used by :mod:`polars` datetime `truncate` method.
                 For example, a value `1h` expects all datetimes to be full hours. Note
                 that this setting does *not* affect the storage resolution.
             time_zone: The time zone that datetimes in the column must have. The time
@@ -440,6 +440,7 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
         max: dt.timedelta | None = None,
         max_exclusive: dt.timedelta | None = None,
         resolution: str | None = None,
+        time_unit: TimeUnit = "us",
         check: Check | None = None,
         alias: str | None = None,
         metadata: dict[str, Any] | None = None,
@@ -459,9 +460,10 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
             max_exclusive: Like `max` but exclusive. May not be specified if `max`
                 is specified and vice versa.
             resolution: The resolution that durations in the column must have. This uses
-                the formatting language used by :mod:`polars` datetime `round` method.
+                the formatting language used by :mod:`polars` datetime `truncate` method.
                 For example, a value `1h` expects all durations to be full hours. Note
                 that this setting does *not* affect the storage resolution.
+            time_unit: Unit of time. Defaults to `us` (microseconds).
             check: A custom rule or multiple rules to run for this column. This can be:
                 - A single callable that returns a non-aggregated boolean expression.
                 The name of the rule is derived from the callable name, or defaults to
@@ -504,10 +506,11 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
             metadata=metadata,
         )
         self.resolution = resolution
+        self.time_unit = time_unit
 
     @property
     def dtype(self) -> pl.DataType:
-        return pl.Duration()
+        return pl.Duration(time_unit=self.time_unit)
 
     def validation_rules(self, expr: pl.Expr) -> dict[str, pl.Expr]:
         result = super().validation_rules(expr)
@@ -526,7 +529,7 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
 
     @property
     def pyarrow_dtype(self) -> pa.DataType:
-        return pa.duration("us")
+        return pa.duration(self.time_unit)
 
     def _sample_unchecked(self, generator: Generator, n: int) -> pl.Series:
         # NOTE: If no duration is specified, we default to 100 years
@@ -543,6 +546,7 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
                 default=dt.timedelta(days=365 * 100),
             ),
             resolution=self.resolution,
+            time_unit=self.time_unit,
             null_probability=self._null_probability,
         )
 

@@ -350,3 +350,22 @@ def every_year(options: Options) -> None:
 
 def tuesday_9(options: Options) -> None:
     assert get_description("0 9 * * 2", options) == "At 09:00 AM, only on Tuesday"
+
+
+def test_comma_with_step_in_hours(options: Options) -> None:
+    """Issue #21: comma combined with step expression in the same field"""
+    assert get_description("0 0,6-23/2 * * *", options) == "At 12:00 AM and every 2 hours, 06:00 AM through 11:59 PM"
+
+
+def test_comma_with_step_in_minutes(options: Options) -> None:
+    """Issue #21: comma combined with step expression in minutes"""
+    assert get_description("5,10-30/5 9 * * *", options) == (
+        "At 5 and every 5 minutes, 10 through 30 minutes past the hour, between 09:00 AM and 09:59 AM"
+    )
+
+
+def test_multiple_commas_with_step(options: Options) -> None:
+    """Issue #21: multiple values and a step expression"""
+    assert get_description("0 0,12,18-23/2 * * *", options) == (
+        "At 12:00 AM, 12:00 PM, and every 2 hours, 06:00 PM through 11:59 PM"
+    )

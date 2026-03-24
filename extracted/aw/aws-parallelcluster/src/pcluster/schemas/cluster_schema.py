@@ -64,6 +64,7 @@ from pcluster.config.cluster_config import (
     Image,
     Imds,
     IntelSoftware,
+    LaunchTemplateOverrides,
     LocalStorage,
     LoginNodes,
     LoginNodesIam,
@@ -276,7 +277,7 @@ class QueueEphemeralVolumeSchema(BaseSchema):
 class HeadNodeStorageSchema(BaseSchema):
     """Represent the schema of storage attached to a node."""
 
-    root_volume = fields.Nested(HeadNodeRootVolumeSchema, metadata={"update_policy": UpdatePolicy.SUPPORTED})
+    root_volume = fields.Nested(HeadNodeRootVolumeSchema, metadata={"update_policy": UpdatePolicy.UNSUPPORTED})
     ephemeral_volume = fields.Nested(
         HeadNodeEphemeralVolumeSchema, metadata={"update_policy": UpdatePolicy.UNSUPPORTED}
     )
@@ -829,6 +830,25 @@ class EfaSchema(BaseSchema):
         return Efa(**data)
 
 
+class LaunchTemplateOverridesSchema(BaseSchema):
+    """Represent the schema of LaunchTemplateOverrides for a Compute Resource."""
+
+    launch_template_id = fields.Str(
+        required=True,
+        metadata={"update_policy": UpdatePolicy.QUEUE_UPDATE_STRATEGY},
+    )
+    version = fields.Int(
+        validate=validate.Range(min=1),
+        required=True,
+        metadata={"update_policy": UpdatePolicy.QUEUE_UPDATE_STRATEGY},
+    )
+
+    @post_load
+    def make_resource(self, data, **kwargs):
+        """Generate resource."""
+        return LaunchTemplateOverrides(**data)
+
+
 # ---------------------- Monitoring ---------------------- #
 
 
@@ -1088,6 +1108,7 @@ class AmiSearchFiltersSchema(BaseSchema):
         TagSchema, many=True, metadata={"update_policy": UpdatePolicy.UNSUPPORTED, "update_key": "Key"}
     )
     owner = fields.Str(metadata={"update_policy": UpdatePolicy.UNSUPPORTED})
+    name_prefix = fields.Str(metadata={"update_policy": UpdatePolicy.UNSUPPORTED})
 
     @post_load()
     def make_resource(self, data, **kwargs):
@@ -1145,6 +1166,7 @@ class ClusterDevSettingsSchema(BaseDevSettingsSchema):
     instance_types_data = fields.Str(metadata={"update_policy": UpdatePolicy.SUPPORTED})
     timeouts = fields.Nested(TimeoutsSchema, metadata={"update_policy": UpdatePolicy.SUPPORTED})
     compute_startup_time_metric_enabled = fields.Bool(metadata={"update_policy": UpdatePolicy.SUPPORTED})
+    efa_interface_type = fields.Str(metadata={"update_policy": UpdatePolicy.QUEUE_UPDATE_STRATEGY})
 
     @post_load
     def make_resource(self, data, **kwargs):
@@ -1369,7 +1391,7 @@ class HeadNodeSchema(BaseSchema):
         HeadNodeNetworkingSchema, required=True, metadata={"update_policy": UpdatePolicy.UNSUPPORTED}
     )
     ssh = fields.Nested(HeadNodeSshSchema, metadata={"update_policy": UpdatePolicy.SUPPORTED})
-    local_storage = fields.Nested(HeadNodeStorageSchema, metadata={"update_policy": UpdatePolicy.SUPPORTED})
+    local_storage = fields.Nested(HeadNodeStorageSchema, metadata={"update_policy": UpdatePolicy.UNSUPPORTED})
     shared_storage_type = fields.Str(
         required=False,
         metadata={"update_policy": UpdatePolicy.UNSUPPORTED},
@@ -1404,20 +1426,28 @@ class LoginNodesImageSchema(BaseSchema):
         return LoginNodesImage(**data)
 
 
-class LoginNodesSshSchema(BaseSshSchema):
+class LoginNodesSshSchema(BaseSchema):
     """Represent the Ssh schema of LoginNodes."""
 
-    key_name = fields.Str(metadata={"update_policy": UpdatePolicy.LOGIN_NODES_POOL_STOP})
     allowed_ips = fields.Str(
         validate=is_cidr_or_prefix_list, metadata={"update_policy": UpdatePolicy.LOGIN_NODES_POOL_STOP}
     )
 
+    def handle_error(self, error, data, **kwargs):
+        """Provide a helpful error message if the removed KeyName field is used."""
+        if isinstance(data, dict) and "KeyName" in data:
+            if hasattr(error, "messages") and isinstance(error.messages, dict) and "KeyName" in error.messages:
+                # Replace the generic "Unknown field" message for KeyName with a helpful message
+                error.messages["KeyName"] = [
+                    "Starting with ParallelCluster 3.15, the KeyName parameter is no longer supported for Login Nodes. "
+                    "Remove from the configuration and try again."
+                ]
+        raise error
+
     @post_load
     def make_resource(self, data, **kwargs):
         """Generate resource."""
-        # If KeyName is present in the user configuration, mark it as explicitly set
-        key_name_explicitly_set = "key_name" in data
-        return LoginNodesSsh(key_name_explicitly_set=key_name_explicitly_set, **data)
+        return LoginNodesSsh(**data)
 
 
 class LoginNodesNetworkingSchema(BaseNetworkingSchema):
@@ -1574,6 +1604,9 @@ class SlurmComputeResourceSchema(_ComputeResourceSchema):
     dynamic_node_priority = fields.Int(
         validate=validate.Range(min=MIN_SLURM_NODE_PRIORITY, max=MAX_SLURM_NODE_PRIORITY),
         metadata={"update_policy": UpdatePolicy.SUPPORTED},
+    )
+    launch_template_overrides = fields.Nested(
+        LaunchTemplateOverridesSchema, metadata={"update_policy": UpdatePolicy.QUEUE_UPDATE_STRATEGY}
     )
 
     @validates_schema
@@ -1961,9 +1994,7 @@ class ClusterSchema(BaseSchema):
 
     monitoring = fields.Nested(MonitoringSchema, metadata={"update_policy": UpdatePolicy.IGNORED})
     additional_packages = fields.Nested(AdditionalPackagesSchema, metadata={"update_policy": UpdatePolicy.UNSUPPORTED})
-    tags = fields.Nested(
-        TagSchema, many=True, metadata={"update_policy": UpdatePolicy.UNSUPPORTED, "update_key": "Key"}
-    )
+    tags = fields.Nested(TagSchema, many=True, metadata={"update_policy": UpdatePolicy.SUPPORTED, "update_key": "Key"})
     iam = fields.Nested(ClusterIamSchema, metadata={"update_policy": UpdatePolicy.IGNORED})
     directory_service = fields.Nested(
         DirectoryServiceSchema, metadata={"update_policy": UpdatePolicy.COMPUTE_AND_LOGIN_NODES_STOP}

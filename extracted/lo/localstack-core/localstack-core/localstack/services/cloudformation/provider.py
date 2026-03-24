@@ -109,11 +109,7 @@ from localstack.services.cloudformation.engine.validations import (
     DEFAULT_TEMPLATE_VALIDATIONS,
     ValidationError,
 )
-from localstack.services.cloudformation.resource_provider import (
-    PRO_RESOURCE_PROVIDERS,
-    ResourceProvider,
-)
-from localstack.services.cloudformation.stores import (
+from localstack.services.cloudformation.models import (
     cloudformation_stores,
     find_active_stack_by_name_or_id,
     find_change_set,
@@ -121,8 +117,13 @@ from localstack.services.cloudformation.stores import (
     find_stack_by_id,
     get_cloudformation_store,
 )
+from localstack.services.cloudformation.resource_provider import (
+    PRO_RESOURCE_PROVIDERS,
+    ResourceProvider,
+)
 from localstack.services.plugins import ServiceLifecycleHook
 from localstack.state import StateVisitor
+from localstack.utils.aws.arns import ARN_PARTITION_REGEX
 from localstack.utils.collections import (
     remove_attributes,
     select_attributes,
@@ -134,13 +135,13 @@ from localstack.utils.strings import long_uid, short_uid
 LOG = logging.getLogger(__name__)
 
 ARN_CHANGESET_REGEX = re.compile(
-    r"arn:(aws|aws-us-gov|aws-cn):cloudformation:[-a-zA-Z0-9]+:\d{12}:changeSet/[a-zA-Z][-a-zA-Z0-9]*/[-a-zA-Z0-9:/._+]+"
+    rf"{ARN_PARTITION_REGEX}:cloudformation:[-a-zA-Z0-9]+:\d{{12}}:changeSet/[a-zA-Z][-a-zA-Z0-9]*/[-a-zA-Z0-9:/._+]+"
 )
 ARN_STACK_REGEX = re.compile(
-    r"arn:(aws|aws-us-gov|aws-cn):cloudformation:[-a-zA-Z0-9]+:\d{12}:stack/[a-zA-Z][-a-zA-Z0-9]*/[-a-zA-Z0-9:/._+]+"
+    rf"{ARN_PARTITION_REGEX}:cloudformation:[-a-zA-Z0-9]+:\d{{12}}:stack/[a-zA-Z][-a-zA-Z0-9]*/[-a-zA-Z0-9:/._+]+"
 )
 ARN_STACK_SET_REGEX = re.compile(
-    r"arn:(aws|aws-us-gov|aws-cn):cloudformation:[-a-zA-Z0-9]+:\d{12}:stack-set/[a-zA-Z][-a-zA-Z0-9]*/[-a-zA-Z0-9:/._+]+"
+    rf"{ARN_PARTITION_REGEX}:cloudformation:[-a-zA-Z0-9]+:\d{{12}}:stack-set/[a-zA-Z][-a-zA-Z0-9]*/[-a-zA-Z0-9:/._+]+"
 )
 
 

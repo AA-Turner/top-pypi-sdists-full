@@ -6,3 +6,19 @@ cd "$(dirname "$0")/.."
 rm -rf dist
 uv build
 uv publish
+
+# Publish experiment templates to Chronos (only changed templates)
+# Use CHANGED_FILES from CI detect-changes (git diff HEAD~1 is unreliable after version-bump commits)
+CHANGED=$(echo "$CHANGED_FILES" | grep "^python-sdk/plato/cli/templates/" || true)
+if echo "$CHANGED" | grep -q "env-create-launch.json"; then
+  echo "Publishing env-create-launch template..."
+  uv run plato pm experiment env base push
+fi
+if echo "$CHANGED" | grep -q "env-fix-launch.json"; then
+  echo "Publishing env-fix-launch template..."
+  uv run plato pm experiment env fix push
+fi
+if echo "$CHANGED" | grep -q "datagen-launch.json"; then
+  echo "Publishing datagen-launch template..."
+  uv run plato pm experiment data base push
+fi

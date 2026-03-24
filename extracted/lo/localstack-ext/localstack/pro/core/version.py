@@ -8,6 +8,6 @@ __version_tuple__:VERSION_TUPLE
 version_tuple:VERSION_TUPLE
 commit_id:COMMIT_ID
 __commit_id__:COMMIT_ID
-__version__=version='4.14.0'
-__version_tuple__=version_tuple=4,14,0
-__commit_id__=commit_id='g1b90b664e'
+__version__=version='2026.3.0'
+__version_tuple__=version_tuple=2026,3,0
+__commit_id__=commit_id='ge28f8cfa4'

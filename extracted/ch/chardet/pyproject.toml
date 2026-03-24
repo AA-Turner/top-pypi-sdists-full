@@ -2,7 +2,7 @@
 name = "chardet"
 dynamic = ["version"]
 description = "Universal character encoding detector"
-license = "MIT"
+license = "0BSD"
 readme = "README.md"
 keywords = ["encoding", "charset", "detection", "unicode", "chardet"]
 requires-python = ">=3.10"
@@ -14,7 +14,6 @@ maintainers = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -67,6 +66,10 @@ include = [
     "/src/chardet/pipeline/utf1632.py",
     "/src/chardet/pipeline/utf8.py",
     "/src/chardet/pipeline/escape.py",
+    "/src/chardet/pipeline/orchestrator.py",
+    "/src/chardet/pipeline/confusion.py",
+    "/src/chardet/pipeline/magic.py",
+    "/src/chardet/pipeline/ascii.py",
 ]
 mypy-args = ["--ignore-missing-imports"]
 options = { debug_level = "0" }
@@ -121,7 +124,6 @@ ignore = [
     "PLW1510", # subprocess.run check not needed in tests
     "T201",    # print is fine in tests
     "PT011",   # pytest.raises broad match acceptable
-    "PLC0415", # conditional imports sometimes needed
     "PERF401", # manual list comprehension (readability)
     "SLF001",  # private member access (whitebox testing of internals)
     "ARG001",  # unused function arguments (pytest fixtures)
@@ -149,7 +151,6 @@ ignore = [
     "RUF003",  # ambiguous unicode (intentional in encoding training)
     "S603",    # subprocess security not relevant
     "S607",    # subprocess security not relevant
-    "PLC0415", # conditional imports
     "RUF046",  # unnecessary int cast
     "TRY300",  # try-consider-else style
     "PLR0915", # too many statements
@@ -184,6 +185,10 @@ ignore = [
 "src/chardet/pipeline/utf1632.py" = ["FA100"]
 "src/chardet/pipeline/utf8.py" = ["FA100"]
 "src/chardet/pipeline/escape.py" = ["FA100"]
+"src/chardet/pipeline/orchestrator.py" = ["FA100"]
+"src/chardet/pipeline/confusion.py" = ["FA100"]
+"src/chardet/pipeline/magic.py" = ["FA100"]
+"src/chardet/pipeline/ascii.py" = ["FA100"]
 
 
 [tool.ruff.lint.pydocstyle]
@@ -211,7 +216,7 @@ build-frontend = "build[uv]"
 test-command = "python -c \"import chardet; print(chardet.detect(b'hello world'))\""
 
 [tool.cibuildwheel.linux]
-archs = ["x86_64", "aarch64"]
+archs = ["x86_64", "aarch64", "riscv64"]
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]

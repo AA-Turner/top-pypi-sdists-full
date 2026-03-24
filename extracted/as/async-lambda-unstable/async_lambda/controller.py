@@ -69,30 +69,6 @@ class BatchInvokeException(Exception):
         super().__init__(msg)
 
 
-# Exception raised when async_invoke_* is called to a non-internal task with a delay greater than _SQS_MAX_DELAY_SECONDS
-class AsyncInvokeInvalidDelay(Exception):
-    pass
-
-
-class _BatchEntry:
-    enqueue_id: str
-    payload: dict
-    delay: int
-    message_group_id: Optional[str]
-
-    def __init__(
-        self,
-        enqueue_id: str,
-        payload: dict,
-        delay: int,
-        message_group_id: Optional[str],
-    ):
-        self.enqueue_id = enqueue_id
-        self.payload = payload
-        self.delay = delay
-        self.message_group_id = message_group_id
-
-
 class AsyncLambdaController:
     """
     AsyncLambdaController manages async tasks, middleware, and invocation logic for the async-lambda framework.
@@ -449,6 +425,18 @@ class AsyncLambdaController:
                                 "Ref": "AsyncLambdaPayloadBucket"
                             },
                             "ASYNC_LAMBDA_ACCOUNT_ID": {"Ref": "AWS::AccountId"},
+                            "ASYNC_LAMBDA_DELAY_SCHEDULER_ROLE_ARN": {
+                                "Fn::GetAtt": ["AsyncLambdaDelaySchedulerRole", "Arn"]
+                            },
+                            "ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP": {
+                                "Ref": "AsyncLambdaDelayScheduleGroup"
+                            },
+                            "ASYNC_LAMBDA_DELAY_SCHEDULE_DLQ_ARN": {
+                                "Fn::GetAtt": [
+                                    "AsyncLambdaDelayDLQ",
+                                    "Arn",
+                                ]
+                            },
                             **build_config.environment_variables,
                         },
                     },
@@ -477,102 +465,133 @@ class AsyncLambdaController:
                         ),
                     },
                 },
+                "AsyncLambdaDelayDLQ": {
+                    "Type": "AWS::SQS::Queue",
+                    "Properties": {
+                        "QueueName": f"{config.name}-delay-dlq",
+                        "MessageRetentionPeriod": 1_209_600,  # 14 days
+                        "Tags": make_cf_tags(
+                            {
+                                **build_config.tags,
+                                "async-lambda-queue-type": "dlq",
+                            }
+                        ),
+                    },
+                },
+                "AsyncLambdaDelayScheduleGroup": {
+                    "Type": "AWS::Scheduler::ScheduleGroup",
+                    "Properties": {
+                        "Name": f"{config.name}-delay",
+                        "Tags": make_cf_tags(build_config.tags),
+                    },
+                },
+                "AsyncLambdaCreateDelaySchedulesPolicy": {
+                    "Type": "AWS::IAM::ManagedPolicy",
+                    "Properties": {
+                        "ManagedPolicyName": {
+                            "Fn::Sub": "${AWS::StackName}-create-delay-schedules"
+                        },
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "CreateSchedules",
+                                    "Effect": "Allow",
+                                    "Action": "scheduler:CreateSchedule",
+                                    "Resource": {
+                                        "Fn::Sub": "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${AsyncLambdaDelayScheduleGroup}/*"
+                                    },
+                                },
+                                {
+                                    "Sid": "PassSchedulerExecutionRole",
+                                    "Effect": "Allow",
+                                    "Action": "iam:PassRole",
+                                    "Resource": {
+                                        "Fn::GetAtt": [
+                                            "AsyncLambdaDelaySchedulerRole",
+                                            "Arn",
+                                        ]
+                                    },
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "iam:PassedToService": "scheduler.amazonaws.com"
+                                        }
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
             },
         }
         _task_list = list(self.tasks.values())
-        internal_tasks_resources = [
+        managed_tasks_resources = [
             resource
             for task in _task_list
             if task.trigger_type in MANAGED_SQS_TASK_TYPES
             for resource in task.get_policy_sqs_resources()
-        ]
-        external_tasks_resources = [
+        ] + [
             resource
             for external_async_task_id in self.external_async_tasks
             for resource in AsyncLambdaTask.get_policy_external_task_resources(
                 external_async_task_id
             )
         ]
-        managed_tasks_resources = internal_tasks_resources + external_tasks_resources
-        task_ref_policies = {}
-        if len(managed_tasks_resources) > 0:
-            task_ref_policies = self._build_send_to_all_async_lambda_queues_policies(
+
+        send_all_queues_task_ref_policies = (
+            self._build_send_to_all_async_lambda_queues_policies(
                 managed_tasks_resources
             )
-            for key in task_ref_policies.keys():
-                template["Resources"][key] = task_ref_policies[key]
+        )
+        for key in send_all_queues_task_ref_policies.keys():
+            template["Resources"][key] = send_all_queues_task_ref_policies[key]
 
-        if len(internal_tasks_resources) > 0:
-            template["Resources"]["AsyncLambdaDelayScheduleGroup"] = {
-                "Type": "AWS::Scheduler::ScheduleGroup",
-                "Properties": {
-                    "Name": f"{config.name}-delay",
-                    "Tags": make_cf_tags(build_config.tags),
-                },
-            }
-            template["Resources"]["AsyncLambdaDelaySchedulerRole"] = {
-                "Type": "AWS::IAM::Role",
-                "Properties": {
-                    "AssumeRolePolicyDocument": {
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            {
-                                "Effect": "Allow",
-                                "Principal": {"Service": "scheduler.amazonaws.com"},
-                                "Action": "sts:AssumeRole",
-                            }
-                        ],
-                    },
-                    "ManagedPolicyArns": [
-                        {"Ref": policy_id} for policy_id in task_ref_policies.keys()
+        template["Resources"]["AsyncLambdaDelaySchedulerRole"] = {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {"Service": "scheduler.amazonaws.com"},
+                            "Action": "sts:AssumeRole",
+                        }
                     ],
                 },
-            }
-            template["Resources"][
+                "ManagedPolicyArns": [
+                    {"Ref": policy_ref}
+                    for policy_ref in send_all_queues_task_ref_policies.keys()
+                ],
+                "Policies": [
+                    {
+                        "PolicyName": "SendToDelayDLQ",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "SendToDelayDLQ",
+                                    "Effect": "Allow",
+                                    "Action": "sqs:SendMessage",
+                                    "Resource": {
+                                        "Fn::GetAtt": [
+                                            "AsyncLambdaDelayDLQ",
+                                            "Arn",
+                                        ]
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            },
+        }
+        task_ref_policies = {
+            **send_all_queues_task_ref_policies,
+            "AsyncLambdaCreateDelaySchedulesPolicy": template["Resources"][
                 "AsyncLambdaCreateDelaySchedulesPolicy"
-            ] = task_ref_policies["AsyncLambdaCreateDelaySchedulesPolicy"] = {
-                "Type": "AWS::IAM::ManagedPolicy",
-                "Properties": {
-                    "ManagedPolicyName": {
-                        "Fn::Sub": "${AWS::StackName}-create-delay-schedules"
-                    },
-                    "PolicyDocument": {
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            {
-                                "Sid": "CreateSchedules",
-                                "Effect": "Allow",
-                                "Action": "scheduler:CreateSchedule",
-                                "Resource": {
-                                    "Fn::Sub": "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${AsyncLambdaDelayScheduleGroup}/*"
-                                },
-                            },
-                            {
-                                "Sid": "PassSchedulerExecutionRole",
-                                "Effect": "Allow",
-                                "Action": "iam:PassRole",
-                                "Resource": {
-                                    "Fn::GetAtt": [
-                                        "AsyncLambdaDelaySchedulerRole",
-                                        "Arn",
-                                    ]
-                                },
-                                "Condition": {
-                                    "StringEquals": {
-                                        "iam:PassedToService": "scheduler.amazonaws.com"
-                                    }
-                                },
-                            },
-                        ],
-                    },
-                },
-            }
-            template["Globals"]["Function"]["Environment"]["Variables"][
-                "ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP"
-            ] = {"Ref": "AsyncLambdaDelayScheduleGroup"}
-            template["Globals"]["Function"]["Environment"]["Variables"][
-                "ASYNC_LAMBDA_DELAY_SCHEDULER_ROLE_ARN"
-            ] = {"Fn::GetAtt": ["AsyncLambdaDelaySchedulerRole", "Arn"]}
+            ],
+        }
 
         has_api_tasks = False
         for task in _task_list:
@@ -868,6 +887,7 @@ class AsyncLambdaController:
         force_sync: bool = False,
         lane: Optional[int] = None,
         message_group_id: Optional[str] = None,
+        unique_delay_id: Optional[str] = None,
     ):
         """
         Sends an asynchronous invocation payload to a managed or external task via SQS.
@@ -883,6 +903,8 @@ class AsyncLambdaController:
             delay (int, optional): Delay in seconds before sending the message. Defaults to 0.
             force_sync (bool, optional): If True, invokes the task synchronously. Defaults to False.
             lane (Optional[int], optional): The lane to use for invocation. If None, lane assignment is determined automatically.
+            message_group_id (Optional[str], optional): Optional message group ID for enabling SQS Fair Queues. Defaults to None.
+            unique_delay_id (Optional[str], optional): Unique name for EventBridge scheduled delays when delay is longer than 900 seconds. Random if not provided.
 
         Returns:
             Any: The result of the synchronous invocation if `force_sync` is True; otherwise, None.
@@ -899,6 +921,7 @@ class AsyncLambdaController:
                 force_sync=force_sync,
                 lane=lane,
                 message_group_id=message_group_id,
+                unique_delay_id=unique_delay_id,
             )
         is_external_task = False
         if destination_task_id not in self.tasks:
@@ -908,11 +931,6 @@ class AsyncLambdaController:
                 raise Exception(
                     f"No such task exists with the task_id {destination_task_id}"
                 )
-
-        if is_external_task and delay > _SQS_MAX_DELAY_SECONDS:
-            raise AsyncInvokeInvalidDelay(
-                f"Unable to invoke task {destination_task_id} with delay {delay} seconds. External tasks only support delays up to {_SQS_MAX_DELAY_SECONDS} seconds."
-            )
 
         destination_task = None
         if not is_external_task:
@@ -984,18 +1002,7 @@ class AsyncLambdaController:
                 assert destination_task is not None
                 url = destination_task.get_managed_queue_url(lane=lane)
 
-            if delay > _SQS_MAX_DELAY_SECONDS:
-                assert not is_external_task
-
-                queue_arn = destination_task.get_managed_queue_arn(lane=lane)
-                # TODO: Use _message_group_id when AWS tells me how
-                self._send_via_scheduler(
-                    queue_arn=queue_arn,
-                    message_body=json.dumps(sqs_payload),
-                    delay=delay,
-                    message_group_id=_message_group_id,
-                )
-            else:
+            if delay <= _SQS_MAX_DELAY_SECONDS:
                 _kwargs = {}
                 if _message_group_id:
                     _kwargs["MessageGroupId"] = _message_group_id
@@ -1006,7 +1013,61 @@ class AsyncLambdaController:
                     DelaySeconds=delay,
                     **_kwargs,
                 )
+            else:
+                self._send_via_scheduler(
+                    queue_url=url,
+                    message_body=json.dumps(sqs_payload),
+                    delay=delay,
+                    schedule_name=unique_delay_id,
+                    message_group_id=_message_group_id,
+                )
+
             return None
+
+    @staticmethod
+    def _send_via_scheduler(
+        queue_url: str,
+        message_body: str,
+        delay: int,
+        schedule_name: Optional[str] = None,
+        message_group_id: Optional[str] = None,
+    ):
+        """
+        Schedules a one-time EventBridge scheduler SQS sendMessage at some point in the future.
+
+        Args:
+            schedule_name (str): Unique name for the schedule.
+            queue_url (str): URL of the destination SQS queue.
+            message_body (str): JSON-serialized message body to deliver to the queue.
+            delay (int): Delay in seconds before delivering the message.
+            message_group_id (Optional[str]): MessageGroupId for FIFO queues. Defaults to None.
+        """
+        schedule_time = datetime.now(tz=timezone.utc) + timedelta(seconds=delay)
+        schedule_expression = f"at({schedule_time.strftime('%Y-%m-%dT%H:%M:%S')})"
+
+        sqs_input: dict = {
+            "QueueUrl": queue_url,
+            "MessageBody": message_body,
+        }
+        if message_group_id:
+            sqs_input["MessageGroupId"] = message_group_id
+
+        sqs_universal_target: dict = {
+            "Arn": "arn:aws:scheduler:::aws-sdk:sqs:sendMessage",
+            "RoleArn": env.get_delay_scheduler_role_arn(),
+            "Input": json.dumps(sqs_input),
+            "DeadLetterConfig": {"Arn": env.get_delay_schedule_dlq_arn()},
+        }
+
+        get_scheduler_client().create_schedule(
+            Name=schedule_name or str(uuid4()),
+            GroupName=env.get_delay_schedule_group_name(),
+            ScheduleExpression=schedule_expression,
+            ScheduleExpressionTimezone="UTC",
+            FlexibleTimeWindow={"Mode": "OFF"},
+            Target=sqs_universal_target,
+            ActionAfterCompletion="DELETE",
+        )
 
     def send_async_invoke_payload_batch(
         self,
@@ -1083,35 +1144,6 @@ class AsyncLambdaController:
                 )
             lane = 0
 
-        batch_entries: List[_BatchEntry] = []
-        for i, sqs_payload in enumerate(sqs_payloads):
-            if isinstance(delay, Sequence):
-                _delay = delay[i]
-            else:
-                _delay = delay
-
-            _message_group_id = (
-                message_group_id[i]
-                if isinstance(message_group_id, Sequence)
-                and not isinstance(message_group_id, str)
-                else message_group_id
-            )
-            if (
-                _message_group_id is None
-                and (current_message_group_id := self.get_current_message_group_id())
-                is not None
-                and self.should_propagate_message_group_id()
-            ):
-                _message_group_id = current_message_group_id
-            batch_entries.append(
-                _BatchEntry(
-                    enqueue_id=f"index_{index + i}",
-                    payload=sqs_payload,
-                    delay=_delay,
-                    message_group_id=_message_group_id,
-                )
-            )
-
         if force_sync or env.get_force_sync_mode():
             if is_external_task:
                 raise NotImplementedError(
@@ -1122,16 +1154,34 @@ class AsyncLambdaController:
             current_lane = self.get_current_lane()
             assert destination_task is not None
             queue_arn = destination_task.get_managed_queue_arn(lane=lane)
+            for i, sqs_payload in enumerate(sqs_payloads):
+                if delay:
+                    if isinstance(delay, Sequence):
+                        time.sleep(delay[i])
+                    else:
+                        time.sleep(delay)
 
-            for batch in batch_entries:
-                if batch.delay:
-                    time.sleep(batch.delay)
+                _message_group_id = (
+                    message_group_id[i]
+                    if isinstance(message_group_id, Sequence)
+                    and not isinstance(message_group_id, str)
+                    else message_group_id
+                )
+                if (
+                    _message_group_id is None
+                    and (
+                        current_message_group_id := self.get_current_message_group_id()
+                    )
+                    is not None
+                    and self.should_propagate_message_group_id()
+                ):
+                    _message_group_id = current_message_group_id
 
                 current_message_group_id = self.get_current_message_group_id()
                 mock_event = MockSQSLambdaEvent(
-                    json.dumps(batch.payload),
+                    json.dumps(sqs_payload),
                     source_queue_arn=queue_arn,
-                    message_group_id=batch.message_group_id,
+                    message_group_id=_message_group_id,
                 )
                 mock_context = MockLambdaContext(destination_task.task_id)
                 self.handle_invocation(
@@ -1141,112 +1191,69 @@ class AsyncLambdaController:
                 self.set_current_task_id(current_task_id)
                 self.set_current_message_group_id(current_message_group_id)
         else:
-            sqs_entries: List[dict] = []
-            for batch in batch_entries:
-                if batch.delay > _SQS_MAX_DELAY_SECONDS:
-                    if is_external_task:
-                        raise AsyncInvokeInvalidDelay(
-                            f"send_async_invoke_payload_batch does not support a delay longer than {_SQS_MAX_DELAY_SECONDS} seconds for external tasks"
-                        )
-                    assert destination_task is not None
-                    queue_arn = destination_task.get_managed_queue_arn(lane=lane)
-                    self._send_via_scheduler(
-                        queue_arn=queue_arn,
-                        message_body=json.dumps(batch.payload),
-                        delay=batch.delay,
-                    )
+            entries: List[dict] = []
+            for i, sqs_payload in enumerate(sqs_payloads):
+                if isinstance(delay, Sequence):
+                    _delay = delay[i]
                 else:
-                    entry: dict = {
-                        "MessageBody": json.dumps(batch.payload),
-                        "DelaySeconds": batch.delay,
-                        "Id": batch.enqueue_id,
-                    }
-                    if batch.message_group_id:
-                        entry["MessageGroupId"] = batch.message_group_id
-                    sqs_entries.append(entry)
-            if sqs_entries:
-                if is_external_task:
-                    url = f"https://sqs.{env.get_aws_region()}.amazonaws.com/{env.get_aws_account_id()}/{destination_task_id}"
-                else:
-                    assert destination_task is not None
-                    url = destination_task.get_managed_queue_url(lane=lane)
-                failed_messages: List[dict] = []
-                batch_retry_count = env.get_batch_failure_retry_count() + 1
-                entries = sqs_entries
-                for i in range(batch_retry_count):
-                    response = get_sqs_client().send_message_batch(
-                        QueueUrl=url,
-                        Entries=entries,
-                    )
-                    failed_messages = response.get("Failed", [])
-                    if len(failed_messages) == 0:
-                        return
-                    logger.warning(failed_messages)
-                    logger.warning(f"{len(failed_messages)} messages failed to send. ")
-                    failed_message_ids = {message["Id"] for message in failed_messages}
-                    entries = [
-                        entry for entry in entries if entry["Id"] in failed_message_ids
-                    ]
-                    if i < batch_retry_count:
-                        send_delay = 0.5 + random.random()
-                        logger.info(
-                            f"Waiting {send_delay:.3f} before attempting batch failures again."
-                        )
-                        time.sleep(send_delay)
-                logger.error(failed_messages)
-                raise BatchInvokeException(
-                    f"Failed to send {len(failed_messages)} messages.",
-                    failed_payloads=[
-                        int(entry["Id"].split("_")[-1]) for entry in entries
-                    ],
+                    _delay = delay
+
+                _message_group_id = (
+                    message_group_id[i]
+                    if isinstance(message_group_id, Sequence)
+                    and not isinstance(message_group_id, str)
+                    else message_group_id
                 )
+                if (
+                    _message_group_id is None
+                    and (
+                        current_message_group_id := self.get_current_message_group_id()
+                    )
+                    is not None
+                    and self.should_propagate_message_group_id()
+                ):
+                    _message_group_id = current_message_group_id
 
-    @staticmethod
-    def _send_via_scheduler(
-        queue_arn: str,
-        message_body: str,
-        delay: int,
-        message_group_id: Optional[str] = None,
-    ):
-        """
-        Schedules a message for future delivery to an SQS queue via EventBridge Scheduler.
-
-        Used when the requested delay exceeds SQS's maximum of 900 seconds (15 minutes).
-        Creates a one-time schedule in the stack-level schedule group (ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP),
-        which is provisioned by CloudFormation. The schedule auto-deletes after firing.
-
-        Requires the following environment variables:
-        - ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP: name of the CloudFormation-managed schedule group.
-        - ASYNC_LAMBDA_DELAY_SCHEDULER_ROLE_ARN: ARN of the IAM role EventBridge Scheduler uses
-          to deliver to the target SQS queue (must have sqs:SendMessage on all queues in the group).
-
-        Args:
-            queue_arn (str): ARN of the destination SQS queue.
-            message_body (str): JSON-serialized message body to deliver to the queue.
-            delay (int): Delay in seconds before delivering the message.
-            message_group_id (Optional[str]): MessageGroupId for FIFO queues. Defaults to None.
-        """
-        schedule_time = datetime.now(tz=timezone.utc) + timedelta(seconds=delay)
-        schedule_expression = f"at({schedule_time.strftime('%Y-%m-%dT%H:%M:%S')})"
-
-        target: dict = {
-            "Arn": queue_arn,
-            "RoleArn": env.get_delay_scheduler_role_arn(),
-            "Input": message_body,
-        }
-        # TODO: Set message_group_id based on feedback from AWS
-        # if message_group_id:
-        #     target["SqsParameters"] = {"MessageGroupId": message_group_id}
-
-        get_scheduler_client().create_schedule(
-            Name=uuid4().hex,
-            GroupName=env.get_delay_schedule_group_name(),
-            ScheduleExpression=schedule_expression,
-            ScheduleExpressionTimezone="UTC",
-            FlexibleTimeWindow={"Mode": "OFF"},
-            Target=target,
-            ActionAfterCompletion="DELETE",
-        )
+                entry = {
+                    "MessageBody": json.dumps(sqs_payload),
+                    "DelaySeconds": _delay,
+                    "Id": f"index_{index + i}",
+                }
+                if _message_group_id:
+                    entry["MessageGroupId"] = _message_group_id
+                entries.append(entry)
+            if is_external_task:
+                url = f"https://sqs.{env.get_aws_region()}.amazonaws.com/{env.get_aws_account_id()}/{destination_task_id}"
+            else:
+                assert destination_task is not None
+                url = destination_task.get_managed_queue_url(lane=lane)
+            failed_messages = []
+            batch_retry_count = env.get_batch_failure_retry_count() + 1
+            for i in range(batch_retry_count):
+                response = get_sqs_client().send_message_batch(
+                    QueueUrl=url,
+                    Entries=entries,
+                )
+                failed_messages: List[dict] = response.get("Failed", [])
+                if len(failed_messages) == 0:
+                    return
+                logger.warning(failed_messages)
+                logger.warning(f"{len(failed_messages)} messages failed to send. ")
+                failed_message_ids = {message["Id"] for message in failed_messages}
+                entries = [
+                    entry for entry in entries if entry["Id"] in failed_message_ids
+                ]
+                if i < batch_retry_count:
+                    send_delay = 0.5 + random.random()
+                    logger.info(
+                        f"Waiting {send_delay:.3f} before attempting batch failures again."
+                    )
+                    time.sleep(send_delay)
+            logger.error(failed_messages)
+            raise BatchInvokeException(
+                f"Failed to send {len(failed_messages)} messages.",
+                failed_payloads=[int(entry["Id"].split("_")[-1]) for entry in entries],
+            )
 
     def new_payload(
         self,
@@ -1345,6 +1352,7 @@ class AsyncLambdaController:
         force_sync: bool = False,
         lane: Optional[int] = None,
         message_group_id: Optional[str] = None,
+        unique_delay_id: Optional[str] = None,
     ):
         """
         Asynchronously invokes a task by sending a payload to the specified destination.
@@ -1359,6 +1367,8 @@ class AsyncLambdaController:
             delay (int, optional): Delay in seconds before invoking the task. Defaults to 0.
             force_sync (bool, optional): If True, forces synchronous invocation. Defaults to False.
             lane (Optional[int], optional): Optional lane identifier for routing. Defaults to None.
+            message_group_id (Optional[str], optional): Optional message group ID. Defaults to None.
+            unique_delay_id (Optional[str], optional): Unique name for EventBridge scheduled delays when delay is longer than 900 seconds. Random if not provided.
 
         Returns:
             Any: The result of sending the asynchronous invocation payload.
@@ -1374,6 +1384,7 @@ class AsyncLambdaController:
             force_sync=force_sync,
             lane=lane,
             message_group_id=message_group_id,
+            unique_delay_id=unique_delay_id,
         )
 
     def async_invoke_batch(

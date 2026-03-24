@@ -168,10 +168,7 @@ async def _compute_llm_comparison(
 
     response = await llm_client(
         messages=[{"role": "user", "content": prompt}],
-        system=(
-            "You are evaluating a session's results. "
-            "Respond with JSON: {\"score\": 0.0-1.0, \"evidence\": \"...\"}"
-        ),
+        system=("You are evaluating a session's results. " 'Respond with JSON: {"score": 0.0-1.0, "evidence": "..."}'),
         max_tokens=1024,
     )
 

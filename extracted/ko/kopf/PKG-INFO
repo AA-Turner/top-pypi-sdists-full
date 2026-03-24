@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kopf
-Version: 1.44.2
+Version: 1.44.3
 Summary: Kubernetes Operator Pythonic Framework (Kopf)
 Author-email: Sergey Vasilyev <nolar@nolar.info>
 Maintainer-email: Sergey Vasilyev <nolar@nolar.info>
@@ -34,7 +34,7 @@ Requires-Dist: aiohttp>=3.11.0
 Requires-Dist: aiohttp>=3.9.0; python_version >= "3.12"
 Provides-Extra: full-auth
 Requires-Dist: pykube-ng; extra == "full-auth"
-Requires-Dist: kubernetes; extra == "full-auth"
+Requires-Dist: kubernetes>=12.0.0; extra == "full-auth"
 Provides-Extra: uvloop
 Requires-Dist: uvloop; extra == "uvloop"
 Requires-Dist: uvloop>=0.18.0; python_version >= "3.12" and extra == "uvloop"

@@ -1,6 +1,7 @@
 //! Hangul Word Processor (.hwp) extractor.
 //!
-//! Extracts text content from HWP 5.0 documents using the `hwpers` crate.
+//! Extracts text content from HWP 5.0 documents using the vendored HWP parser
+//! in `crate::extraction::hwp`.
 
 use crate::Result;
 use crate::core::config::ExtractionConfig;
@@ -52,10 +53,8 @@ impl Plugin for HwpExtractor {
 }
 
 fn extract_hwp_content(content: &[u8]) -> Result<String> {
-    let document = hwpers::HwpReader::from_bytes(content)
-        .map_err(|e| crate::KreuzbergError::parsing(format!("Failed to read HWP file: {e}")))?;
-
-    Ok(document.extract_text())
+    crate::extraction::hwp::extract_hwp_text(content)
+        .map_err(|e| crate::KreuzbergError::parsing(format!("Failed to read HWP file: {e}")))
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]

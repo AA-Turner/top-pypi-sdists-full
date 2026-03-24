@@ -38,7 +38,7 @@ except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.Retry, object, None]  # type: ignore
     OptionalAsyncRetry = Union[retries_async.AsyncRetry, object, None]  # type: ignore
 
-from google.cloud.dataplex_v1.types import analyze, resources, service, tasks
+from google.cloud.dataplex_v1.types import resources, service, tasks
 
 
 class ListLakesPager:
@@ -67,7 +67,7 @@ class ListLakesPager:
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiate the pager.
 
@@ -143,7 +143,7 @@ class ListLakesAsyncPager:
         *,
         retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiates the pager.
 
@@ -223,7 +223,7 @@ class ListLakeActionsPager:
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiate the pager.
 
@@ -299,7 +299,7 @@ class ListLakeActionsAsyncPager:
         *,
         retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiates the pager.
 
@@ -379,7 +379,7 @@ class ListZonesPager:
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiate the pager.
 
@@ -455,7 +455,7 @@ class ListZonesAsyncPager:
         *,
         retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiates the pager.
 
@@ -535,7 +535,7 @@ class ListZoneActionsPager:
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiate the pager.
 
@@ -611,7 +611,7 @@ class ListZoneActionsAsyncPager:
         *,
         retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiates the pager.
 
@@ -691,7 +691,7 @@ class ListAssetsPager:
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiate the pager.
 
@@ -767,7 +767,7 @@ class ListAssetsAsyncPager:
         *,
         retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiates the pager.
 
@@ -847,7 +847,7 @@ class ListAssetActionsPager:
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiate the pager.
 
@@ -923,7 +923,7 @@ class ListAssetActionsAsyncPager:
         *,
         retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiates the pager.
 
@@ -1003,7 +1003,7 @@ class ListTasksPager:
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiate the pager.
 
@@ -1079,7 +1079,7 @@ class ListTasksAsyncPager:
         *,
         retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiates the pager.
 
@@ -1159,7 +1159,7 @@ class ListJobsPager:
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiate the pager.
 
@@ -1235,7 +1235,7 @@ class ListJobsAsyncPager:
         *,
         retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ):
         """Instantiates the pager.
 
@@ -1281,318 +1281,6 @@ class ListJobsAsyncPager:
         async def async_generator():
             async for page in self.pages:
                 for response in page.jobs:
-                    yield response
-
-        return async_generator()
-
-    def __repr__(self) -> str:
-        return "{0}<{1!r}>".format(self.__class__.__name__, self._response)
-
-
-class ListEnvironmentsPager:
-    """A pager for iterating through ``list_environments`` requests.
-
-    This class thinly wraps an initial
-    :class:`google.cloud.dataplex_v1.types.ListEnvironmentsResponse` object, and
-    provides an ``__iter__`` method to iterate through its
-    ``environments`` field.
-
-    If there are more pages, the ``__iter__`` method will make additional
-    ``ListEnvironments`` requests and continue to iterate
-    through the ``environments`` field on the
-    corresponding responses.
-
-    All the usual :class:`google.cloud.dataplex_v1.types.ListEnvironmentsResponse`
-    attributes are available on the pager. If multiple requests are made, only
-    the most recent response is retained, and thus used for attribute lookup.
-    """
-
-    def __init__(
-        self,
-        method: Callable[..., service.ListEnvironmentsResponse],
-        request: service.ListEnvironmentsRequest,
-        response: service.ListEnvironmentsResponse,
-        *,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
-    ):
-        """Instantiate the pager.
-
-        Args:
-            method (Callable): The method that was originally called, and
-                which instantiated this pager.
-            request (google.cloud.dataplex_v1.types.ListEnvironmentsRequest):
-                The initial request object.
-            response (google.cloud.dataplex_v1.types.ListEnvironmentsResponse):
-                The initial response object.
-            retry (google.api_core.retry.Retry): Designation of what errors,
-                if any, should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-        """
-        self._method = method
-        self._request = service.ListEnvironmentsRequest(request)
-        self._response = response
-        self._retry = retry
-        self._timeout = timeout
-        self._metadata = metadata
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._response, name)
-
-    @property
-    def pages(self) -> Iterator[service.ListEnvironmentsResponse]:
-        yield self._response
-        while self._response.next_page_token:
-            self._request.page_token = self._response.next_page_token
-            self._response = self._method(
-                self._request,
-                retry=self._retry,
-                timeout=self._timeout,
-                metadata=self._metadata,
-            )
-            yield self._response
-
-    def __iter__(self) -> Iterator[analyze.Environment]:
-        for page in self.pages:
-            yield from page.environments
-
-    def __repr__(self) -> str:
-        return "{0}<{1!r}>".format(self.__class__.__name__, self._response)
-
-
-class ListEnvironmentsAsyncPager:
-    """A pager for iterating through ``list_environments`` requests.
-
-    This class thinly wraps an initial
-    :class:`google.cloud.dataplex_v1.types.ListEnvironmentsResponse` object, and
-    provides an ``__aiter__`` method to iterate through its
-    ``environments`` field.
-
-    If there are more pages, the ``__aiter__`` method will make additional
-    ``ListEnvironments`` requests and continue to iterate
-    through the ``environments`` field on the
-    corresponding responses.
-
-    All the usual :class:`google.cloud.dataplex_v1.types.ListEnvironmentsResponse`
-    attributes are available on the pager. If multiple requests are made, only
-    the most recent response is retained, and thus used for attribute lookup.
-    """
-
-    def __init__(
-        self,
-        method: Callable[..., Awaitable[service.ListEnvironmentsResponse]],
-        request: service.ListEnvironmentsRequest,
-        response: service.ListEnvironmentsResponse,
-        *,
-        retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
-    ):
-        """Instantiates the pager.
-
-        Args:
-            method (Callable): The method that was originally called, and
-                which instantiated this pager.
-            request (google.cloud.dataplex_v1.types.ListEnvironmentsRequest):
-                The initial request object.
-            response (google.cloud.dataplex_v1.types.ListEnvironmentsResponse):
-                The initial response object.
-            retry (google.api_core.retry.AsyncRetry): Designation of what errors,
-                if any, should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-        """
-        self._method = method
-        self._request = service.ListEnvironmentsRequest(request)
-        self._response = response
-        self._retry = retry
-        self._timeout = timeout
-        self._metadata = metadata
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._response, name)
-
-    @property
-    async def pages(self) -> AsyncIterator[service.ListEnvironmentsResponse]:
-        yield self._response
-        while self._response.next_page_token:
-            self._request.page_token = self._response.next_page_token
-            self._response = await self._method(
-                self._request,
-                retry=self._retry,
-                timeout=self._timeout,
-                metadata=self._metadata,
-            )
-            yield self._response
-
-    def __aiter__(self) -> AsyncIterator[analyze.Environment]:
-        async def async_generator():
-            async for page in self.pages:
-                for response in page.environments:
-                    yield response
-
-        return async_generator()
-
-    def __repr__(self) -> str:
-        return "{0}<{1!r}>".format(self.__class__.__name__, self._response)
-
-
-class ListSessionsPager:
-    """A pager for iterating through ``list_sessions`` requests.
-
-    This class thinly wraps an initial
-    :class:`google.cloud.dataplex_v1.types.ListSessionsResponse` object, and
-    provides an ``__iter__`` method to iterate through its
-    ``sessions`` field.
-
-    If there are more pages, the ``__iter__`` method will make additional
-    ``ListSessions`` requests and continue to iterate
-    through the ``sessions`` field on the
-    corresponding responses.
-
-    All the usual :class:`google.cloud.dataplex_v1.types.ListSessionsResponse`
-    attributes are available on the pager. If multiple requests are made, only
-    the most recent response is retained, and thus used for attribute lookup.
-    """
-
-    def __init__(
-        self,
-        method: Callable[..., service.ListSessionsResponse],
-        request: service.ListSessionsRequest,
-        response: service.ListSessionsResponse,
-        *,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
-    ):
-        """Instantiate the pager.
-
-        Args:
-            method (Callable): The method that was originally called, and
-                which instantiated this pager.
-            request (google.cloud.dataplex_v1.types.ListSessionsRequest):
-                The initial request object.
-            response (google.cloud.dataplex_v1.types.ListSessionsResponse):
-                The initial response object.
-            retry (google.api_core.retry.Retry): Designation of what errors,
-                if any, should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-        """
-        self._method = method
-        self._request = service.ListSessionsRequest(request)
-        self._response = response
-        self._retry = retry
-        self._timeout = timeout
-        self._metadata = metadata
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._response, name)
-
-    @property
-    def pages(self) -> Iterator[service.ListSessionsResponse]:
-        yield self._response
-        while self._response.next_page_token:
-            self._request.page_token = self._response.next_page_token
-            self._response = self._method(
-                self._request,
-                retry=self._retry,
-                timeout=self._timeout,
-                metadata=self._metadata,
-            )
-            yield self._response
-
-    def __iter__(self) -> Iterator[analyze.Session]:
-        for page in self.pages:
-            yield from page.sessions
-
-    def __repr__(self) -> str:
-        return "{0}<{1!r}>".format(self.__class__.__name__, self._response)
-
-
-class ListSessionsAsyncPager:
-    """A pager for iterating through ``list_sessions`` requests.
-
-    This class thinly wraps an initial
-    :class:`google.cloud.dataplex_v1.types.ListSessionsResponse` object, and
-    provides an ``__aiter__`` method to iterate through its
-    ``sessions`` field.
-
-    If there are more pages, the ``__aiter__`` method will make additional
-    ``ListSessions`` requests and continue to iterate
-    through the ``sessions`` field on the
-    corresponding responses.
-
-    All the usual :class:`google.cloud.dataplex_v1.types.ListSessionsResponse`
-    attributes are available on the pager. If multiple requests are made, only
-    the most recent response is retained, and thus used for attribute lookup.
-    """
-
-    def __init__(
-        self,
-        method: Callable[..., Awaitable[service.ListSessionsResponse]],
-        request: service.ListSessionsRequest,
-        response: service.ListSessionsResponse,
-        *,
-        retry: OptionalAsyncRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = ()
-    ):
-        """Instantiates the pager.
-
-        Args:
-            method (Callable): The method that was originally called, and
-                which instantiated this pager.
-            request (google.cloud.dataplex_v1.types.ListSessionsRequest):
-                The initial request object.
-            response (google.cloud.dataplex_v1.types.ListSessionsResponse):
-                The initial response object.
-            retry (google.api_core.retry.AsyncRetry): Designation of what errors,
-                if any, should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-        """
-        self._method = method
-        self._request = service.ListSessionsRequest(request)
-        self._response = response
-        self._retry = retry
-        self._timeout = timeout
-        self._metadata = metadata
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._response, name)
-
-    @property
-    async def pages(self) -> AsyncIterator[service.ListSessionsResponse]:
-        yield self._response
-        while self._response.next_page_token:
-            self._request.page_token = self._response.next_page_token
-            self._response = await self._method(
-                self._request,
-                retry=self._retry,
-                timeout=self._timeout,
-                metadata=self._metadata,
-            )
-            yield self._response
-
-    def __aiter__(self) -> AsyncIterator[analyze.Session]:
-        async def async_generator():
-            async for page in self.pages:
-                for response in page.sessions:
                     yield response
 
         return async_generator()

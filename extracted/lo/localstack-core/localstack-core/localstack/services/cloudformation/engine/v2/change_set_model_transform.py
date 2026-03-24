@@ -42,7 +42,7 @@ from localstack.services.cloudformation.engine.v2.change_set_model_preproc impor
     PreprocProperties,
 )
 from localstack.services.cloudformation.engine.validations import ValidationError
-from localstack.services.cloudformation.stores import get_cloudformation_store
+from localstack.services.cloudformation.models import get_cloudformation_store
 from localstack.services.cloudformation.v2.entities import ChangeSet
 from localstack.services.cloudformation.v2.types import EngineParameter, engine_parameter_value
 from localstack.utils import testutil
@@ -97,9 +97,9 @@ class ChangeSetModelTransform(ChangeSetModelPreproc):
 
     def __init__(
         self,
-        change_set: ChangeSet,
-        before_parameters: dict,
-        after_parameters: dict,
+        change_set: "ChangeSet",
+        before_parameters: dict | None,
+        after_parameters: dict | None,
         before_template: dict | None,
         after_template: dict | None,
     ):

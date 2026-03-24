@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.securitycenter_v1p1beta1.types import (
@@ -125,6 +125,7 @@ class Finding(proto.Message):
                 non-issue or otherwise addressed and is no
                 longer active.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         INACTIVE = 2
@@ -145,6 +146,7 @@ class Finding(proto.Message):
             LOW (4):
                 Low severity.
         """
+
         SEVERITY_UNSPECIFIED = 0
         CRITICAL = 1
         HIGH = 2

@@ -25,8 +25,7 @@ from ..util import (
     registry,
     resolve_dot_names,
 )
-from ..vectors import Mode as VectorsMode
-from ..vectors import Vectors
+from ..vectors import Mode as VectorsMode, Vectors
 from .pretrain import get_tok2vec_ref
 
 if TYPE_CHECKING:
@@ -51,7 +50,7 @@ def init_nlp(config: Config, *, use_gpu: int = -1) -> "Language":
     logger.info("Set up nlp object from config")
     config = nlp.config.interpolate()
     # Resolve all training-relevant sections using the filled nlp config
-    T = registry.resolve(config["training"], schema=ConfigSchemaTraining)
+    T = registry.resolve(config["training"], schema=ConfigSchemaTraining)  # type: ignore[arg-type]
     dot_names = [T["train_corpus"], T["dev_corpus"]]
     if not isinstance(T["train_corpus"], str):
         raise ConfigValidationError(

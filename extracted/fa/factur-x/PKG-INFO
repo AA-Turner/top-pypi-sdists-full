@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: factur-x
-Version: 4.1
+Version: 4.2
 Summary: Factur-X and Order-X: electronic invoicing and ordering standards
 Project-URL: Homepage, https://github.com/akretion/factur-x
 Project-URL: Source, https://github.com/akretion/factur-x
@@ -164,6 +164,10 @@ Contributors
 
 Changelog
 =========
+
+* Version 4.2 dated 2026-03-23
+
+  * Fix resource leak in the loading of the XSD file for XML schema validation (closes bug #68)
 
 * Version 4.1 dated 2026-03-19
 

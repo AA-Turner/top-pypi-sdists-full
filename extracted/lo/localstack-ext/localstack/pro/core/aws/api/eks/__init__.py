@@ -331,6 +331,7 @@ class ProvisionedControlPlaneTier(StrEnum):
     tier_xl = "tier-xl"
     tier_2xl = "tier-2xl"
     tier_4xl = "tier-4xl"
+    tier_8xl = "tier-8xl"
 
 
 class RepairAction(StrEnum):
@@ -2758,8 +2759,7 @@ class EksApi:
         in the *Amazon EKS User Guide*.
 
         :param cluster_name: The name of your cluster.
-        :param principal_arn: The Amazon Resource Name (ARN) of the IAM user or role for the
-        ``AccessEntry`` that you're associating the access policy to.
+        :param principal_arn: The Amazon Resource Name (ARN) of the IAM user or role for the ``AccessEntry`` that you're associating the access policy to.
         :param policy_arn: The ARN of the ``AccessPolicy`` that you're associating.
         :param access_scope: The scope for the ``AccessPolicy``.
         :returns: AssociateAccessPolicyResponse
@@ -2788,8 +2788,7 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param encryption_config: The configuration you are using for encryption.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: AssociateEncryptionConfigResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -2824,11 +2823,9 @@ class EksApi:
         in the Kubernetes documentation.
 
         :param cluster_name: The name of your cluster.
-        :param oidc: An object representing an OpenID Connect (OIDC) identity provider
-        configuration.
+        :param oidc: An object representing an OpenID Connect (OIDC) identity provider configuration.
         :param tags: Metadata that assists with categorization and organization.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: AssociateIdentityProviderConfigResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -2864,12 +2861,9 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param principal_arn: The ARN of the IAM principal for the ``AccessEntry``.
-        :param kubernetes_groups: The value for ``name`` that you've specified for ``kind: Group`` as a
-        ``subject`` in a Kubernetes ``RoleBinding`` or ``ClusterRoleBinding``
-        object.
+        :param kubernetes_groups: The value for ``name`` that you've specified for ``kind: Group`` as a ``subject`` in a Kubernetes ``RoleBinding`` or ``ClusterRoleBinding`` object.
         :param tags: Metadata that assists with categorization and organization.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param username: The username to authenticate to Kubernetes with.
         :param type: The type of the new access entry.
         :returns: CreateAccessEntryResponse
@@ -2909,11 +2903,9 @@ class EksApi:
         :param cluster_name: The name of your cluster.
         :param addon_name: The name of the add-on.
         :param addon_version: The version of the add-on.
-        :param service_account_role_arn: The Amazon Resource Name (ARN) of an existing IAM role to bind to the
-        add-on's service account.
+        :param service_account_role_arn: The Amazon Resource Name (ARN) of an existing IAM role to bind to the add-on's service account.
         :param resolve_conflicts: How to resolve field value conflicts for an Amazon EKS add-on.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param tags: Metadata that assists with categorization and organization.
         :param configuration_values: The set of configuration values for the add-on that's created.
         :param pod_identity_associations: An array of EKS Pod Identity associations to be created.
@@ -2951,18 +2943,13 @@ class EksApi:
         in the *Amazon EKS User Guide*.
 
         :param capability_name: A unique name for the capability.
-        :param cluster_name: The name of the Amazon EKS cluster where you want to create the
-        capability.
+        :param cluster_name: The name of the Amazon EKS cluster where you want to create the capability.
         :param type: The type of capability to create.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the capability uses
-        to interact with Amazon Web Services services.
-        :param delete_propagation_policy: Specifies how Kubernetes resources managed by the capability should be
-        handled when the capability is deleted.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the capability uses to interact with Amazon Web Services services.
+        :param delete_propagation_policy: Specifies how Kubernetes resources managed by the capability should be handled when the capability is deleted.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param configuration: The configuration settings for the capability.
-        :param tags: The metadata that you apply to a resource to help you categorize and
-        organize them.
+        :param tags: The metadata that you apply to a resource to help you categorize and organize them.
         :returns: CreateCapabilityResponse
         :raises InvalidParameterException:
         :raises InvalidRequestException:
@@ -3049,30 +3036,22 @@ class EksApi:
         in the *Amazon EKS User Guide*.
 
         :param name: The unique name to give to your cluster.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that provides permissions
-        for the Kubernetes control plane to make calls to Amazon Web Services
-        API operations on your behalf.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that provides permissions for the Kubernetes control plane to make calls to Amazon Web Services API operations on your behalf.
         :param resources_vpc_config: The VPC configuration that's used by the cluster control plane.
         :param version: The desired Kubernetes version for your cluster.
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
-        :param logging: Enable or disable exporting the Kubernetes control plane logs for your
-        cluster to CloudWatch Logs .
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param logging: Enable or disable exporting the Kubernetes control plane logs for your cluster to CloudWatch Logs .
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param tags: Metadata that assists with categorization and organization.
         :param encryption_config: The encryption configuration for the cluster.
-        :param outpost_config: An object representing the configuration of your local Amazon EKS
-        cluster on an Amazon Web Services Outpost.
+        :param outpost_config: An object representing the configuration of your local Amazon EKS cluster on an Amazon Web Services Outpost.
         :param access_config: The access configuration for the cluster.
-        :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default
-        networking add-ons will not be installed.
+        :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed.
         :param upgrade_policy: New clusters, by default, have extended support enabled.
         :param zonal_shift_config: Enable or disable ARC zonal shift for the cluster.
         :param remote_network_config: The configuration in the cluster for EKS Hybrid Nodes.
-        :param compute_config: Enable or disable the compute capability of EKS Auto Mode when creating
-        your EKS Auto Mode cluster.
-        :param storage_config: Enable or disable the block storage capability of EKS Auto Mode when
-        creating your EKS Auto Mode cluster.
+        :param compute_config: Enable or disable the compute capability of EKS Auto Mode when creating your EKS Auto Mode cluster.
+        :param storage_config: Enable or disable the block storage capability of EKS Auto Mode when creating your EKS Auto Mode cluster.
         :param deletion_protection: Indicates whether to enable deletion protection for the cluster.
         :param control_plane_scaling_config: The control plane scaling tier configuration.
         :returns: CreateClusterResponse
@@ -3106,16 +3085,12 @@ class EksApi:
         access to EKS Anywhere Curated Packages.
 
         :param name: The unique name for your subscription.
-        :param term: An object representing the term duration and term unit type of your
-        subscription.
+        :param term: An object representing the term duration and term unit type of your subscription.
         :param license_quantity: The number of licenses to purchase with the subscription.
         :param license_type: The license type for all licenses in the subscription.
-        :param auto_renew: A boolean indicating whether the subscription auto renews at the end of
-        the term.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
-        :param tags: The metadata for a subscription to assist with categorization and
-        organization.
+        :param auto_renew: A boolean indicating whether the subscription auto renews at the end of the term.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param tags: The metadata for a subscription to assist with categorization and organization.
         :returns: CreateEksAnywhereSubscriptionResponse
         :raises ResourceLimitExceededException:
         :raises InvalidParameterException:
@@ -3178,12 +3153,10 @@ class EksApi:
 
         :param fargate_profile_name: The name of the Fargate profile.
         :param cluster_name: The name of your cluster.
-        :param pod_execution_role_arn: The Amazon Resource Name (ARN) of the ``Pod`` execution role to use for
-        a ``Pod`` that matches the selectors in the Fargate profile.
+        :param pod_execution_role_arn: The Amazon Resource Name (ARN) of the ``Pod`` execution role to use for a ``Pod`` that matches the selectors in the Fargate profile.
         :param subnets: The IDs of subnets to launch a ``Pod`` into.
         :param selectors: The selectors to match for a ``Pod`` to use this Fargate profile.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param tags: Metadata that assists with categorization and organization.
         :returns: CreateFargateProfileResponse
         :raises InvalidParameterException:
@@ -3247,29 +3220,23 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param nodegroup_name: The unique name to give your node group.
-        :param subnets: The subnets to use for the Auto Scaling group that is created for your
-        node group.
-        :param node_role: The Amazon Resource Name (ARN) of the IAM role to associate with your
-        node group.
-        :param scaling_config: The scaling configuration details for the Auto Scaling group that is
-        created for your node group.
+        :param subnets: The subnets to use for the Auto Scaling group that is created for your node group.
+        :param node_role: The Amazon Resource Name (ARN) of the IAM role to associate with your node group.
+        :param scaling_config: The scaling configuration details for the Auto Scaling group that is created for your node group.
         :param disk_size: The root device disk size (in GiB) for your node group instances.
         :param instance_types: Specify the instance types for a node group.
         :param ami_type: The AMI type for your node group.
         :param remote_access: The remote access configuration to use with your node group.
-        :param labels: The Kubernetes ``labels`` to apply to the nodes in the node group when
-        they are created.
+        :param labels: The Kubernetes ``labels`` to apply to the nodes in the node group when they are created.
         :param taints: The Kubernetes taints to be applied to the nodes in the node group.
         :param tags: Metadata that assists with categorization and organization.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param launch_template: An object representing a node group's launch template specification.
         :param update_config: The node group update configuration.
         :param node_repair_config: The node auto repair configuration for the node group.
         :param capacity_type: The capacity type for your node group.
         :param version: The Kubernetes version to use for your managed nodes.
-        :param release_version: The AMI version of the Amazon EKS optimized AMI to use with your node
-        group.
+        :param release_version: The AMI version of the Amazon EKS optimized AMI to use with your node group.
         :returns: CreateNodegroupResponse
         :raises ResourceInUseException:
         :raises ResourceLimitExceededException:
@@ -3334,22 +3301,14 @@ class EksApi:
         account.
 
         :param cluster_name: The name of the cluster to create the EKS Pod Identity association in.
-        :param namespace: The name of the Kubernetes namespace inside the cluster to create the
-        EKS Pod Identity association in.
-        :param service_account: The name of the Kubernetes service account inside the cluster to
-        associate the IAM credentials with.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the
-        service account.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param namespace: The name of the Kubernetes namespace inside the cluster to create the EKS Pod Identity association in.
+        :param service_account: The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param tags: Metadata that assists with categorization and organization.
-        :param disable_session_tags: Disable the automatic sessions tags that are appended by EKS Pod
-        Identity.
-        :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with
-        the service account.
-        :param policy: An optional IAM policy in JSON format (as an escaped string) that
-        applies additional restrictions to this pod identity association beyond
-        the IAM policies attached to the IAM role.
+        :param disable_session_tags: Disable the automatic sessions tags that are appended by EKS Pod Identity.
+        :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with the service account.
+        :param policy: An optional IAM policy in JSON format (as an escaped string) that applies additional restrictions to this pod identity association beyond the IAM policies attached to the IAM role.
         :returns: CreatePodIdentityAssociationResponse
         :raises ServerException:
         :raises ResourceNotFoundException:
@@ -3395,8 +3354,7 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param addon_name: The name of the add-on.
-        :param preserve: Specifying this option preserves the add-on software on your cluster but
-        Amazon EKS stops managing any settings for the add-on.
+        :param preserve: Specifying this option preserves the add-on software on your cluster but Amazon EKS stops managing any settings for the add-on.
         :returns: DeleteAddonResponse
         :raises InvalidParameterException:
         :raises InvalidRequestException:
@@ -3421,8 +3379,7 @@ class EksApi:
         the capability, use ``kubectl delete`` or remove them through your
         GitOps workflow.
 
-        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want
-        to delete.
+        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want to delete.
         :param capability_name: The name of the capability to delete.
         :returns: DeleteCapabilityResponse
         :raises InvalidParameterException:
@@ -3637,9 +3594,7 @@ class EksApi:
 
         :param kubernetes_version: The Kubernetes versions that you can use the add-on with.
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :param addon_name: The name of the add-on.
         :param types: The type of the add-on.
         :param publishers: The publisher of the add-on.
@@ -3659,8 +3614,7 @@ class EksApi:
         Amazon EKS cluster, including its current status, configuration, health
         information, and any issues that may be affecting its operation.
 
-        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want
-        to describe.
+        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want to describe.
         :param capability_name: The name of the capability to describe.
         :returns: DescribeCapabilityResponse
         :raises InvalidParameterException:
@@ -3916,8 +3870,7 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param identity_provider_config: An object representing an identity provider configuration.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: DisassociateIdentityProviderConfigResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -3944,9 +3897,7 @@ class EksApi:
         :param cluster_name: The name of your cluster.
         :param associated_policy_arn: The ARN of an ``AccessPolicy``.
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListAccessEntriesResponse
         :raises ServerException:
         :raises ResourceNotFoundException:
@@ -3966,9 +3917,7 @@ class EksApi:
         """Lists the available access policies.
 
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListAccessPoliciesResponse
         :raises ServerException:
         """
@@ -3987,9 +3936,7 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListAddonsResponse
         :raises InvalidParameterException:
         :raises InvalidRequestException:
@@ -4014,9 +3961,7 @@ class EksApi:
         :param cluster_name: The name of your cluster.
         :param principal_arn: The ARN of the IAM principal for the ``AccessEntry``.
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListAssociatedAccessPoliciesResponse
         :raises ServerException:
         :raises ResourceNotFoundException:
@@ -4037,11 +3982,8 @@ class EksApi:
         this operation to get an overview of all capabilities and their current
         status.
 
-        :param cluster_name: The name of the Amazon EKS cluster for which you want to list
-        capabilities.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param cluster_name: The name of the Amazon EKS cluster for which you want to list capabilities.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :param max_results: The maximum number of results to return in a single call.
         :returns: ListCapabilitiesResponse
         :raises InvalidParameterException:
@@ -4062,9 +4004,7 @@ class EksApi:
         specified Amazon Web Services Region.
 
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :param include: Indicates whether external clusters are included in the returned list.
         :returns: ListClustersResponse
         :raises InvalidParameterException:
@@ -4085,11 +4025,8 @@ class EksApi:
     ) -> ListEksAnywhereSubscriptionsResponse:
         """Displays the full description of the subscription.
 
-        :param max_results: The maximum number of cluster results returned by
-        ListEksAnywhereSubscriptions in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListEksAnywhereSubscriptions`` request where ``maxResults`` was used
-        and the results exceeded the value of that parameter.
+        :param max_results: The maximum number of cluster results returned by ListEksAnywhereSubscriptions in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListEksAnywhereSubscriptions`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :param include_status: An array of subscription statuses to filter on.
         :returns: ListEksAnywhereSubscriptionsResponse
         :raises InvalidParameterException:
@@ -4113,9 +4050,7 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListFargateProfilesResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -4137,9 +4072,7 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListIdentityProviderConfigsResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -4176,10 +4109,8 @@ class EksApi:
 
         :param cluster_name: The name of the Amazon EKS cluster associated with the insights.
         :param filter: The criteria to filter your list of insights for your cluster.
-        :param max_results: The maximum number of identity provider configurations returned by
-        ``ListInsights`` in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListInsights`` request.
+        :param max_results: The maximum number of identity provider configurations returned by ``ListInsights`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListInsights`` request.
         :returns: ListInsightsResponse
         :raises ServerException:
         :raises ResourceNotFoundException:
@@ -4203,9 +4134,7 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param max_results: The maximum number of results, returned in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListNodegroupsResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -4231,14 +4160,10 @@ class EksApi:
         that the association uses.
 
         :param cluster_name: The name of the cluster that the associations are in.
-        :param namespace: The name of the Kubernetes namespace inside the cluster that the
-        associations are in.
+        :param namespace: The name of the Kubernetes namespace inside the cluster that the associations are in.
         :param service_account: The name of the Kubernetes service account that the associations use.
-        :param max_results: The maximum number of EKS Pod Identity association results returned by
-        ``ListPodIdentityAssociations`` in paginated output.
-        :param next_token: The ``nextToken`` value returned from a previous paginated
-        ``ListUpdates`` request where ``maxResults`` was used and the results
-        exceeded the value of that parameter.
+        :param max_results: The maximum number of EKS Pod Identity association results returned by ``ListPodIdentityAssociations`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated ``ListUpdates`` request where ``maxResults`` was used and the results exceeded the value of that parameter.
         :returns: ListPodIdentityAssociationsResponse
         :raises ServerException:
         :raises ResourceNotFoundException:
@@ -4253,8 +4178,7 @@ class EksApi:
     ) -> ListTagsForResourceResponse:
         """List the tags for an Amazon EKS resource.
 
-        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list tags
-        for.
+        :param resource_arn: The Amazon Resource Name (ARN) that identifies the resource to list tags for.
         :returns: ListTagsForResourceResponse
         :raises BadRequestException:
         :raises NotFoundException:
@@ -4280,9 +4204,7 @@ class EksApi:
         :param nodegroup_name: The name of the Amazon EKS managed node group to list updates for.
         :param addon_name: The names of the installed add-ons that have available updates.
         :param capability_name: The name of the capability for which you want to list updates.
-        :param next_token: The ``nextToken`` value returned from a previous paginated request,
-        where ``maxResults`` was used and the results exceeded the value of that
-        parameter.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request, where ``maxResults`` was used and the results exceeded the value of that parameter.
         :param max_results: The maximum number of results, returned in paginated output.
         :returns: ListUpdatesResponse
         :raises InvalidParameterException:
@@ -4323,10 +4245,8 @@ class EksApi:
         must be deregistered using ``DeregisterCluster``.
 
         :param name: A unique name for this cluster in your Amazon Web Services Region.
-        :param connector_config: The configuration settings required to connect the Kubernetes cluster to
-        the Amazon EKS control plane.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param connector_config: The configuration settings required to connect the Kubernetes cluster to the Amazon EKS control plane.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param tags: Metadata that assists with categorization and organization.
         :returns: RegisterClusterResponse
         :raises ResourceLimitExceededException:
@@ -4406,11 +4326,8 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param principal_arn: The ARN of the IAM principal for the ``AccessEntry``.
-        :param kubernetes_groups: The value for ``name`` that you've specified for ``kind: Group`` as a
-        ``subject`` in a Kubernetes ``RoleBinding`` or ``ClusterRoleBinding``
-        object.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param kubernetes_groups: The value for ``name`` that you've specified for ``kind: Group`` as a ``subject`` in a Kubernetes ``RoleBinding`` or ``ClusterRoleBinding`` object.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param username: The username to authenticate to Kubernetes with.
         :returns: UpdateAccessEntryResponse
         :raises ServerException:
@@ -4439,12 +4356,9 @@ class EksApi:
         :param cluster_name: The name of your cluster.
         :param addon_name: The name of the add-on.
         :param addon_version: The version of the add-on.
-        :param service_account_role_arn: The Amazon Resource Name (ARN) of an existing IAM role to bind to the
-        add-on's service account.
-        :param resolve_conflicts: How to resolve field value conflicts for an Amazon EKS add-on if you've
-        changed a value from the Amazon EKS default value.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param service_account_role_arn: The Amazon Resource Name (ARN) of an existing IAM role to bind to the add-on's service account.
+        :param resolve_conflicts: How to resolve field value conflicts for an Amazon EKS add-on if you've changed a value from the Amazon EKS default value.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param configuration_values: The set of configuration values for the add-on that's created.
         :param pod_identity_associations: An array of EKS Pod Identity associations to be updated.
         :returns: UpdateAddonResponse
@@ -4478,14 +4392,11 @@ class EksApi:
         available during the update process, but some operations may be
         temporarily unavailable.
 
-        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want
-        to update configuration for.
+        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want to update configuration for.
         :param capability_name: The name of the capability to update configuration for.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the capability uses
-        to interact with Amazon Web Services services.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the capability uses to interact with Amazon Web Services services.
         :param configuration: The updated configuration settings for the capability.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param delete_propagation_policy: The updated delete propagation policy for the capability.
         :returns: UpdateCapabilityResponse
         :raises InvalidParameterException:
@@ -4567,24 +4478,17 @@ class EksApi:
         to ``Active``.
 
         :param name: The name of the Amazon EKS cluster to update.
-        :param resources_vpc_config: An object representing the VPC configuration to use for an Amazon EKS
-        cluster.
-        :param logging: Enable or disable exporting the Kubernetes control plane logs for your
-        cluster to CloudWatch Logs .
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param resources_vpc_config: An object representing the VPC configuration to use for an Amazon EKS cluster.
+        :param logging: Enable or disable exporting the Kubernetes control plane logs for your cluster to CloudWatch Logs .
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :param access_config: The access configuration for the cluster.
-        :param upgrade_policy: You can enable or disable extended support for clusters currently on
-        standard support.
+        :param upgrade_policy: You can enable or disable extended support for clusters currently on standard support.
         :param zonal_shift_config: Enable or disable ARC zonal shift for the cluster.
-        :param compute_config: Update the configuration of the compute capability of your EKS Auto Mode
-        cluster.
+        :param compute_config: Update the configuration of the compute capability of your EKS Auto Mode cluster.
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
-        :param storage_config: Update the configuration of the block storage capability of your EKS
-        Auto Mode cluster.
+        :param storage_config: Update the configuration of the block storage capability of your EKS Auto Mode cluster.
         :param remote_network_config: The configuration in the cluster for EKS Hybrid Nodes.
-        :param deletion_protection: Specifies whether to enable or disable deletion protection for the
-        cluster.
+        :param deletion_protection: Specifies whether to enable or disable deletion protection for the cluster.
         :param control_plane_scaling_config: The control plane scaling tier configuration.
         :returns: UpdateClusterConfigResponse
         :raises InvalidParameterException:
@@ -4626,10 +4530,8 @@ class EksApi:
 
         :param name: The name of the Amazon EKS cluster to update.
         :param version: The desired Kubernetes version following a successful update.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
-        :param force: Set this value to ``true`` to override upgrade-blocking readiness checks
-        when updating a cluster.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster.
         :returns: UpdateClusterVersionResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -4655,10 +4557,8 @@ class EksApi:
         updated after subscription creation.
 
         :param id: The ID of the subscription.
-        :param auto_renew: A boolean indicating whether or not to automatically renew the
-        subscription.
-        :param client_request_token: Unique, case-sensitive identifier to ensure the idempotency of the
-        request.
+        :param auto_renew: A boolean indicating whether or not to automatically renew the subscription.
+        :param client_request_token: Unique, case-sensitive identifier to ensure the idempotency of the request.
         :returns: UpdateEksAnywhereSubscriptionResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -4692,16 +4592,12 @@ class EksApi:
 
         :param cluster_name: The name of your cluster.
         :param nodegroup_name: The name of the managed node group to update.
-        :param labels: The Kubernetes ``labels`` to apply to the nodes in the node group after
-        the update.
-        :param taints: The Kubernetes taints to be applied to the nodes in the node group after
-        the update.
-        :param scaling_config: The scaling configuration details for the Auto Scaling group after the
-        update.
+        :param labels: The Kubernetes ``labels`` to apply to the nodes in the node group after the update.
+        :param taints: The Kubernetes taints to be applied to the nodes in the node group after the update.
+        :param scaling_config: The scaling configuration details for the Auto Scaling group after the update.
         :param update_config: The node group update configuration.
         :param node_repair_config: The node auto repair configuration for the node group.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: UpdateNodegroupConfigResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -4766,10 +4662,8 @@ class EksApi:
         :param version: The Kubernetes version to update to.
         :param release_version: The AMI version of the Amazon EKS optimized AMI to use for the update.
         :param launch_template: An object representing a node group's launch template specification.
-        :param force: Force the update if any ``Pod`` on the existing node group can't be
-        drained due to a ``Pod`` disruption budget issue.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
+        :param force: Force the update if any ``Pod`` on the existing node group can't be drained due to a ``Pod`` disruption budget issue.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
         :returns: UpdateNodegroupVersionResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -4821,15 +4715,10 @@ class EksApi:
         :param cluster_name: The name of the cluster that you want to update the association in.
         :param association_id: The ID of the association to be updated.
         :param role_arn: The new IAM role to change in the association.
-        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
-        idempotency of the request.
-        :param disable_session_tags: Disable the automatic sessions tags that are appended by EKS Pod
-        Identity.
-        :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with
-        the service account.
-        :param policy: An optional IAM policy in JSON format (as an escaped string) that
-        applies additional restrictions to this pod identity association beyond
-        the IAM policies attached to the IAM role.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param disable_session_tags: Disable the automatic sessions tags that are appended by EKS Pod Identity.
+        :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with the service account.
+        :param policy: An optional IAM policy in JSON format (as an escaped string) that applies additional restrictions to this pod identity association beyond the IAM policies attached to the IAM role.
         :returns: UpdatePodIdentityAssociationResponse
         :raises ServerException:
         :raises ResourceNotFoundException:

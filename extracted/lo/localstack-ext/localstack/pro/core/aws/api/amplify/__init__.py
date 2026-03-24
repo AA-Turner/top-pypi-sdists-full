@@ -1201,15 +1201,12 @@ class AmplifyApi:
         :param repository: The Git repository for the Amplify app.
         :param platform: The platform for the Amplify app.
         :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role to assign to an SSR app.
-        :param iam_service_role_arn: The Amazon Resource Name (ARN) of the IAM service role for the Amplify
-        app.
-        :param oauth_token: The OAuth token for a third-party source control system for an Amplify
-        app.
+        :param iam_service_role_arn: The Amazon Resource Name (ARN) of the IAM service role for the Amplify app.
+        :param oauth_token: The OAuth token for a third-party source control system for an Amplify app.
         :param access_token: The personal access token for a GitHub repository for an Amplify app.
         :param environment_variables: The environment variables map for an Amplify app.
         :param enable_branch_auto_build: Enables the auto building of branches for an Amplify app.
-        :param enable_branch_auto_deletion: Automatically disconnects a branch in the Amplify console when you
-        delete a branch from your Git repository.
+        :param enable_branch_auto_deletion: Automatically disconnects a branch in the Amplify console when you delete a branch from your Git repository.
         :param enable_basic_auth: Enables basic authorization for an Amplify app.
         :param basic_auth_credentials: The credentials for basic authorization for an Amplify app.
         :param custom_rules: The custom rewrite and redirect rules for an Amplify app.
@@ -1219,8 +1216,7 @@ class AmplifyApi:
         :param enable_auto_branch_creation: Enables automated branch creation for an Amplify app.
         :param auto_branch_creation_patterns: The automated branch creation glob patterns for an Amplify app.
         :param auto_branch_creation_config: The automated branch creation configuration for an Amplify app.
-        :param job_config: Describes the configuration details that apply to the jobs for an
-        Amplify app.
+        :param job_config: Describes the configuration details that apply to the jobs for an Amplify app.
         :param cache_config: The cache configuration for the Amplify app.
         :returns: CreateAppResult
         :raises BadRequestException:
@@ -1309,11 +1305,9 @@ class AmplifyApi:
         :param display_name: The display name for a branch.
         :param enable_pull_request_preview: Enables pull request previews for this branch.
         :param pull_request_environment_name: The Amplify environment name for the pull request.
-        :param backend_environment_arn: The Amazon Resource Name (ARN) for a backend environment that is part of
-        a Gen 1 Amplify app.
+        :param backend_environment_arn: The Amazon Resource Name (ARN) for a backend environment that is part of a Gen 1 Amplify app.
         :param backend: The backend for a ``Branch`` of an Amplify app.
-        :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role to assign to a branch of
-        an SSR app.
+        :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role to assign to a branch of an SSR app.
         :returns: CreateBranchResult
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -1343,8 +1337,7 @@ class AmplifyApi:
 
         :param app_id: The unique ID for an Amplify app.
         :param branch_name: The name of the branch to use for the job.
-        :param file_map: An optional file map that contains the file name as the key and the file
-        content md5 hash as the value.
+        :param file_map: An optional file map that contains the file name as the key and the file content md5 hash as the value.
         :returns: CreateDeploymentResult
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -1374,8 +1367,7 @@ class AmplifyApi:
         :param sub_domain_settings: The setting for the subdomain.
         :param enable_auto_sub_domain: Enables the automated creation of subdomains for branches.
         :param auto_sub_domain_creation_patterns: Sets the branch patterns for automatic subdomain creation.
-        :param auto_sub_domain_iam_role: The required AWS Identity and Access Management (IAM) service role for
-        the Amazon Resource Name (ARN) for automatically creating subdomains.
+        :param auto_sub_domain_iam_role: The required AWS Identity and Access Management (IAM) service role for the Amazon Resource Name (ARN) for automatically creating subdomains.
         :param certificate_settings: The type of SSL/TLS certificate to use for your custom domain.
         :returns: CreateDomainAssociationResult
         :raises BadRequestException:
@@ -1876,10 +1868,8 @@ class AmplifyApi:
 
         :param app_id: The unique ID for an Amplify app.
         :param branch_name: The name of the branch to use for the deployment job.
-        :param job_id: The job ID for this deployment that is generated by the
-        ``CreateDeployment`` request.
-        :param source_url: The source URL for the deployment that is used when calling
-        ``StartDeployment`` without ``CreateDeployment``.
+        :param job_id: The job ID for this deployment that is generated by the ``CreateDeployment`` request.
+        :param source_url: The source URL for the deployment that is used when calling ``StartDeployment`` without ``CreateDeployment``.
         :param source_url_type: The type of source specified by the ``sourceURL``.
         :returns: StartDeploymentResult
         :raises BadRequestException:
@@ -2011,27 +2001,22 @@ class AmplifyApi:
         :param description: The description for an Amplify app.
         :param platform: The platform for the Amplify app.
         :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role to assign to an SSR app.
-        :param iam_service_role_arn: The Amazon Resource Name (ARN) of the IAM service role for the Amplify
-        app.
+        :param iam_service_role_arn: The Amazon Resource Name (ARN) of the IAM service role for the Amplify app.
         :param environment_variables: The environment variables for an Amplify app.
         :param enable_branch_auto_build: Enables branch auto-building for an Amplify app.
-        :param enable_branch_auto_deletion: Automatically disconnects a branch in the Amplify console when you
-        delete a branch from your Git repository.
+        :param enable_branch_auto_deletion: Automatically disconnects a branch in the Amplify console when you delete a branch from your Git repository.
         :param enable_basic_auth: Enables basic authorization for an Amplify app.
         :param basic_auth_credentials: The basic authorization credentials for an Amplify app.
         :param custom_rules: The custom redirect and rewrite rules for an Amplify app.
         :param build_spec: The build specification (build spec) for an Amplify app.
         :param custom_headers: The custom HTTP headers for an Amplify app.
         :param enable_auto_branch_creation: Enables automated branch creation for an Amplify app.
-        :param auto_branch_creation_patterns: Describes the automated branch creation glob patterns for an Amplify
-        app.
+        :param auto_branch_creation_patterns: Describes the automated branch creation glob patterns for an Amplify app.
         :param auto_branch_creation_config: The automated branch creation configuration for an Amplify app.
         :param repository: The name of the Git repository for an Amplify app.
-        :param oauth_token: The OAuth token for a third-party source control system for an Amplify
-        app.
+        :param oauth_token: The OAuth token for a third-party source control system for an Amplify app.
         :param access_token: The personal access token for a GitHub repository for an Amplify app.
-        :param job_config: Describes the configuration details that apply to the jobs for an
-        Amplify app.
+        :param job_config: Describes the configuration details that apply to the jobs for an Amplify app.
         :param cache_config: The cache configuration for the Amplify app.
         :returns: UpdateAppResult
         :raises BadRequestException:
@@ -2086,11 +2071,9 @@ class AmplifyApi:
         :param display_name: The display name for a branch.
         :param enable_pull_request_preview: Enables pull request previews for this branch.
         :param pull_request_environment_name: The Amplify environment name for the pull request.
-        :param backend_environment_arn: The Amazon Resource Name (ARN) for a backend environment that is part of
-        a Gen 1 Amplify app.
+        :param backend_environment_arn: The Amazon Resource Name (ARN) for a backend environment that is part of a Gen 1 Amplify app.
         :param backend: The backend for a ``Branch`` of an Amplify app.
-        :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role to assign to a branch of
-        an SSR app.
+        :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role to assign to a branch of an SSR app.
         :returns: UpdateBranchResult
         :raises BadRequestException:
         :raises UnauthorizedException:
@@ -2120,8 +2103,7 @@ class AmplifyApi:
         :param enable_auto_sub_domain: Enables the automated creation of subdomains for branches.
         :param sub_domain_settings: Describes the settings for the subdomain.
         :param auto_sub_domain_creation_patterns: Sets the branch patterns for automatic subdomain creation.
-        :param auto_sub_domain_iam_role: The required AWS Identity and Access Management (IAM) service role for
-        the Amazon Resource Name (ARN) for automatically creating subdomains.
+        :param auto_sub_domain_iam_role: The required AWS Identity and Access Management (IAM) service role for the Amazon Resource Name (ARN) for automatically creating subdomains.
         :param certificate_settings: The type of SSL/TLS certificate to use for your custom domain.
         :returns: UpdateDomainAssociationResult
         :raises BadRequestException:

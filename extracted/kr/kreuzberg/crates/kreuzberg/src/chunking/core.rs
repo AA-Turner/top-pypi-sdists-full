@@ -89,6 +89,21 @@ pub fn chunk_text(
             for chunk in &mut chunks {
                 chunk.metadata.heading_context = resolve_heading_context(chunk.metadata.byte_start, &heading_map);
             }
+
+            // Optionally prepend heading hierarchy path to chunk content.
+            if config.prepend_heading_context {
+                for chunk in &mut chunks {
+                    if let Some(ref ctx) = chunk.metadata.heading_context {
+                        let prefix = ctx
+                            .headings
+                            .iter()
+                            .map(|h| format!("{} {}", "#".repeat(h.level as usize), h.text))
+                            .collect::<Vec<_>>()
+                            .join(" > ");
+                        chunk.content = format!("{}\n\n{}", prefix, chunk.content);
+                    }
+                }
+            }
         }
     }
 
@@ -532,6 +547,38 @@ mod tests {
         let text = "日本語のテキストです。これは長い文章で、複数のチャンクに分割されるべきです。";
         let result = chunk_text(text, &config, None).unwrap();
         assert!(result.chunk_count >= 1);
+    }
+
+    #[test]
+    fn test_prepend_heading_context() {
+        let config = ChunkingConfig {
+            max_characters: 50,
+            overlap: 0,
+            trim: true,
+            chunker_type: ChunkerType::Markdown,
+            prepend_heading_context: true,
+            ..Default::default()
+        };
+        let markdown = "# Title\n\nSome text\n\n## Section\n\nMore text";
+        let result = chunk_text(markdown, &config, None).unwrap();
+        assert!(result.chunk_count >= 1);
+        // Each chunk with heading context should have its content prefixed with
+        // a heading breadcrumb path like "# Title" or "# Title > ## Section".
+        for chunk in &result.chunks {
+            if chunk.metadata.heading_context.is_some() {
+                assert!(
+                    chunk.content.starts_with('#'),
+                    "Expected chunk content to start with heading path, got: {:?}",
+                    &chunk.content[..chunk.content.len().min(80)]
+                );
+            }
+        }
+        // At least one chunk should contain the section breadcrumb
+        let has_section = result
+            .chunks
+            .iter()
+            .any(|c| c.content.contains("# Title") || c.content.contains("## Section"));
+        assert!(has_section, "Expected at least one chunk with heading breadcrumb in content");
     }
 
     #[test]

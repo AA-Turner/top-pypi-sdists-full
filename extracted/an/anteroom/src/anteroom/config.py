@@ -798,6 +798,17 @@ class ComplianceConfig:
 
 
 @dataclass
+class TranscriptConfig:
+    """Controls durable transcript recording for workflow steps (#1111)."""
+
+    enabled: bool = True
+    max_assistant_chars: int = 4000
+    max_tool_output_chars: int = 2000
+    max_stdout_chars: int = 4000
+    max_stderr_chars: int = 4000
+
+
+@dataclass
 class WorkflowCredentialConfig:
     """A named credential reference for workflow steps (#970).
 
@@ -829,6 +840,7 @@ class WorkflowConfig:
 
     enabled: bool = True
     max_review_rounds: int = 2
+    max_iterations: int = 30
     step_timeout: int = 300
     heartbeat_interval: int = 30
     stale_threshold: int = 60
@@ -842,9 +854,13 @@ class WorkflowConfig:
     max_concurrent_runs: int = 3
     scheduler_enabled: bool = True
     min_schedule_interval: int = 60
+    watch_buffer_lines: int = 50
+    transcript: TranscriptConfig = field(default_factory=TranscriptConfig)
 
     _MIN_STEP_TIMEOUT: int = field(default=10, init=False, repr=False)
     _MAX_STEP_TIMEOUT: int = field(default=3600, init=False, repr=False)
+    _MIN_MAX_ITERATIONS: int = field(default=1, init=False, repr=False)
+    _MAX_MAX_ITERATIONS: int = field(default=100, init=False, repr=False)
     _MIN_HEARTBEAT: int = field(default=5, init=False, repr=False)
     _MIN_POLL_INTERVAL: int = field(default=1, init=False, repr=False)
     _MAX_POLL_INTERVAL: int = field(default=60, init=False, repr=False)
@@ -852,8 +868,24 @@ class WorkflowConfig:
     _MAX_CONCURRENT_RUNS: int = field(default=20, init=False, repr=False)
     _MIN_SCHED_INTERVAL: int = field(default=60, init=False, repr=False)
     _MAX_SCHED_INTERVAL: int = field(default=86400, init=False, repr=False)
+    _MIN_WATCH_BUFFER_LINES: int = field(default=1, init=False, repr=False)
+    _MAX_WATCH_BUFFER_LINES: int = field(default=1000, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if self.max_iterations < self._MIN_MAX_ITERATIONS:
+            logger.warning(
+                "workflow max_iterations=%d below minimum (%d), clamping",
+                self.max_iterations,
+                self._MIN_MAX_ITERATIONS,
+            )
+            object.__setattr__(self, "max_iterations", self._MIN_MAX_ITERATIONS)
+        if self.max_iterations > self._MAX_MAX_ITERATIONS:
+            logger.warning(
+                "workflow max_iterations=%d above maximum (%d), clamping",
+                self.max_iterations,
+                self._MAX_MAX_ITERATIONS,
+            )
+            object.__setattr__(self, "max_iterations", self._MAX_MAX_ITERATIONS)
         if self.step_timeout < self._MIN_STEP_TIMEOUT:
             logger.warning(
                 "workflow step_timeout=%d below minimum (%d), clamping",
@@ -884,6 +916,10 @@ class WorkflowConfig:
             object.__setattr__(self, "min_schedule_interval", self._MIN_SCHED_INTERVAL)
         if self.min_schedule_interval > self._MAX_SCHED_INTERVAL:
             object.__setattr__(self, "min_schedule_interval", self._MAX_SCHED_INTERVAL)
+        if self.watch_buffer_lines < self._MIN_WATCH_BUFFER_LINES:
+            object.__setattr__(self, "watch_buffer_lines", self._MIN_WATCH_BUFFER_LINES)
+        if self.watch_buffer_lines > self._MAX_WATCH_BUFFER_LINES:
+            object.__setattr__(self, "watch_buffer_lines", self._MAX_WATCH_BUFFER_LINES)
 
 
 @dataclass
@@ -2232,16 +2268,25 @@ def load_config(
         max_tokens=budget_max_tokens,
     )
     workflow_kwargs: dict[str, Any] = {"budget": workflow_budget}
-    for wf_key, wf_default in [
-        ("enabled", True),
-        ("max_review_rounds", 2),
-        ("step_timeout", 300),
-        ("heartbeat_interval", 30),
-        ("stale_threshold", 60),
-        ("approval_timeout", 300),
-        ("registry_enabled", True),
-        ("registry_heartbeat_interval", 30),
-    ]:
+    workflow_defaults = WorkflowConfig()
+    for wf_key in (
+        "enabled",
+        "max_review_rounds",
+        "max_iterations",
+        "step_timeout",
+        "heartbeat_interval",
+        "stale_threshold",
+        "approval_timeout",
+        "registry_enabled",
+        "registry_heartbeat_interval",
+        "executor_enabled",
+        "executor_poll_interval",
+        "max_concurrent_runs",
+        "scheduler_enabled",
+        "min_schedule_interval",
+        "watch_buffer_lines",
+    ):
+        wf_default = getattr(workflow_defaults, wf_key)
         val = workflow_raw.get(wf_key, wf_default)
         if isinstance(wf_default, bool):
             if isinstance(val, bool):
@@ -2273,6 +2318,24 @@ def load_config(
             )
         )
     workflow_kwargs["credentials"] = workflow_creds
+    # Parse workflow.transcript.*
+    transcript_raw = workflow_raw.get("transcript", {})
+    if isinstance(transcript_raw, dict):
+        tc_defaults = TranscriptConfig()
+        tc_kwargs: dict[str, Any] = {}
+        _tc_fields = ("enabled", "max_assistant_chars", "max_tool_output_chars", "max_stdout_chars", "max_stderr_chars")
+        for tc_key in _tc_fields:
+            if tc_key in transcript_raw:
+                val = transcript_raw[tc_key]
+                tc_default = getattr(tc_defaults, tc_key)
+                if isinstance(tc_default, bool):
+                    tc_kwargs[tc_key] = val if isinstance(val, bool) else str(val).lower() in ("true", "1", "yes")
+                elif isinstance(tc_default, int):
+                    try:
+                        tc_kwargs[tc_key] = int(val)
+                    except (ValueError, TypeError):
+                        tc_kwargs[tc_key] = tc_default
+        workflow_kwargs["transcript"] = TranscriptConfig(**tc_kwargs)
     workflow_config = WorkflowConfig(**workflow_kwargs)
 
     pack_sources_raw = raw.get("pack_sources", [])

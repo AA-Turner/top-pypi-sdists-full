@@ -22,7 +22,7 @@ class PostgresqlPackageInstaller(OSPackageInstaller):
 	def _redhat_packages(A)->list[str]:return A._redhat_package_list
 	def _redhat_prepare_install(A,target:InstallTarget):run(['dnf','install','-y',POSTGRES_RPM_REPOSITORY]);super()._redhat_prepare_install(target)
 class PostgresqlPackage(Package):
-	DEFAULT_INSTALLATION_VERSION_POSTGRES='12'
+	DEFAULT_INSTALLATION_VERSION_POSTGRES='17'
 	def __init__(A,default_version:str=DEFAULT_INSTALLATION_VERSION_POSTGRES):super().__init__(name='PostgreSQL',default_version=default_version)
 	def get_versions(A)->list[str]:return POSTGRES_MAJOR_VERSION_RANGE
 	def _get_installer(A,version):return PostgresqlPackageInstaller(version)

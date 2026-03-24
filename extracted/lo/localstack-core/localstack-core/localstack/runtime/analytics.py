@@ -1,6 +1,9 @@
+"""Module to send analytics events related to the localstack runtime."""
+
+import datetime
 import logging
 import os
-import platform
+import time
 
 from localstack import config
 from localstack.runtime import hooks
@@ -129,41 +132,20 @@ def _publish_config_as_analytics_event():
     log.event("config", env_vars=env_vars, set_vars=present_env_vars)
 
 
-class LocalstackContainerInfo:
-    def get_image_variant(self) -> str:
-        for f in os.listdir("/usr/lib/localstack"):
-            if f.startswith(".") and f.endswith("-version"):
-                return f[1:-8]
-        return "unknown"
+@hooks.on_infra_shutdown()
+def _publish_ls_shutdown_analytics_event():
+    """
+    This event signals the end of a localstack session and contains some statistics about the session that are useful
+    for analytics purposes.
 
-    def has_docker_socket(self) -> bool:
-        return os.path.exists("/run/docker.sock")
+    This event is sent to the global analytics logger in a shutdown hook. This is ok, because the
+    ``GlobalAnalyticsBus`` registers an ``atexit`` handler, which happens after all the application-level hooks
+    have been run.
+    """
+    session_duration = int(time.time() - config.load_start_time)
 
-    def uname(self) -> dict:
-        result = platform.uname()
-        return {
-            "uname_system": result.system,
-            "uname_release": result.release,
-            "uname_version": result.version,
-            "uname_machine": result.machine,
-        }
-
-    def to_dict(self):
-        return {
-            "variant": self.get_image_variant(),
-            "has_docker_socket": self.has_docker_socket(),
-            "container_runtime": config.CONTAINER_RUNTIME,
-            **self.uname(),
-        }
-
-
-@hooks.on_infra_start()
-def _publish_container_info():
-    if not config.is_in_docker:
-        return
-
-    try:
-        log.event("container_info", payload=LocalstackContainerInfo().to_dict())
-    except Exception as e:
-        if config.DEBUG_ANALYTICS:
-            LOG.debug("error gathering container information: %s", e)
+    log.event(
+        "ls_shutdown",
+        shutdown_time=datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
+        session_duration_seconds=session_duration,
+    )

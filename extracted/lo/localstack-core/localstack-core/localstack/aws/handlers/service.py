@@ -168,7 +168,7 @@ class ServiceExceptionSerializer(ExceptionHandler):
             self._moto_service_exception = moto.core.exceptions.ServiceException
             self._moto_rest_error = moto.core.exceptions.RESTError
         except (ModuleNotFoundError, AttributeError) as exc:
-            # Moto may not be available in stripped-down versions of LocalStack, like LocalStack S3 image.
+            # Moto may not be available in stripped-down versions of LocalStack
             LOG.debug("Unable to set up Moto exception translation: %s", exc)
 
     def __call__(
