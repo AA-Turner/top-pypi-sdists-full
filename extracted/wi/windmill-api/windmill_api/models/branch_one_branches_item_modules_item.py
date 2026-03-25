@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.branch_one_branches_item_modules_item_debouncing import BranchOneBranchesItemModulesItemDebouncing
     from ..models.branch_one_branches_item_modules_item_mock import BranchOneBranchesItemModulesItemMock
     from ..models.branch_one_branches_item_modules_item_retry import BranchOneBranchesItemModulesItemRetry
     from ..models.branch_one_branches_item_modules_item_skip_if import BranchOneBranchesItemModulesItemSkipIf
@@ -62,6 +63,8 @@ class BranchOneBranchesItemModulesItem:
         priority (Union[Unset, float]): Execution priority for this step (higher numbers run first)
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, BranchOneBranchesItemModulesItemRetry]): Retry configuration for failed module executions
+        debouncing (Union[Unset, BranchOneBranchesItemModulesItemDebouncing]): Debounce configuration for this step (EE
+            only)
     """
 
     id: str
@@ -90,6 +93,7 @@ class BranchOneBranchesItemModulesItem:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "BranchOneBranchesItemModulesItemRetry"] = UNSET
+    debouncing: Union[Unset, "BranchOneBranchesItemModulesItemDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -176,6 +180,10 @@ class BranchOneBranchesItemModulesItem:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -212,11 +220,14 @@ class BranchOneBranchesItemModulesItem:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.branch_one_branches_item_modules_item_debouncing import BranchOneBranchesItemModulesItemDebouncing
         from ..models.branch_one_branches_item_modules_item_mock import BranchOneBranchesItemModulesItemMock
         from ..models.branch_one_branches_item_modules_item_retry import BranchOneBranchesItemModulesItemRetry
         from ..models.branch_one_branches_item_modules_item_skip_if import BranchOneBranchesItemModulesItemSkipIf
@@ -405,6 +416,13 @@ class BranchOneBranchesItemModulesItem:
         else:
             retry = BranchOneBranchesItemModulesItemRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, BranchOneBranchesItemModulesItemDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = BranchOneBranchesItemModulesItemDebouncing.from_dict(_debouncing)
+
         branch_one_branches_item_modules_item = cls(
             id=id,
             value=value,
@@ -422,6 +440,7 @@ class BranchOneBranchesItemModulesItem:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         branch_one_branches_item_modules_item.additional_properties = d

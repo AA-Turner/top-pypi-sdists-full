@@ -70,7 +70,7 @@ class NICEWebScrapingTool(BaseTool):
         limit = arguments.get("limit", 10)
 
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         return self._search_nice_guidelines_real(query, limit)
 
@@ -122,6 +122,7 @@ class NICEWebScrapingTool(BaseTool):
             script_tag = soup.find("script", {"id": "__NEXT_DATA__"})
             if not script_tag:
                 return {
+                    "status": "error",
                     "error": "No search results found",
                     "suggestion": "Try different search terms or check if the NICE website is accessible",
                 }
@@ -139,12 +140,14 @@ class NICEWebScrapingTool(BaseTool):
                 )
             except (json.JSONDecodeError, KeyError) as e:
                 return {
+                    "status": "error",
                     "error": f"Failed to parse search results: {str(e)}",
                     "source": "NICE",
                 }
 
             if not documents:
                 return {
+                    "status": "error",
                     "error": "No NICE guidelines found",
                     "suggestion": "Try different search terms or check if the NICE website is accessible",
                 }
@@ -224,6 +227,7 @@ class NICEWebScrapingTool(BaseTool):
 
             if not results:
                 return {
+                    "status": "error",
                     "error": "No NICE guidelines found",
                     "suggestion": "Try different search terms or check if the NICE website is accessible",
                 }
@@ -232,11 +236,16 @@ class NICEWebScrapingTool(BaseTool):
 
         except requests.exceptions.RequestException as e:
             return {
+                "status": "error",
                 "error": f"Failed to search NICE guidelines: {str(e)}",
                 "source": "NICE",
             }
         except Exception as e:
-            return {"error": f"Error parsing NICE response: {str(e)}", "source": "NICE"}
+            return {
+                "status": "error",
+                "error": f"Error parsing NICE response: {str(e)}",
+                "source": "NICE",
+            }
 
 
 @register_tool()
@@ -257,7 +266,7 @@ class PubMedGuidelinesTool(BaseTool):
         api_key = arguments.get("api_key", "")
 
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         return self._search_pubmed_guidelines(query, limit, api_key)
 
@@ -393,9 +402,14 @@ class PubMedGuidelinesTool(BaseTool):
             return results
 
         except requests.exceptions.RequestException as e:
-            return {"error": f"Failed to search PubMed: {str(e)}", "source": "PubMed"}
+            return {
+                "status": "error",
+                "error": f"Failed to search PubMed: {str(e)}",
+                "source": "PubMed",
+            }
         except Exception as e:
             return {
+                "status": "error",
                 "error": f"Error processing PubMed response: {str(e)}",
                 "source": "PubMed",
             }
@@ -418,7 +432,7 @@ class EuropePMCGuidelinesTool(BaseTool):
         limit = arguments.get("limit", 10)
 
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         return self._search_europepmc_guidelines(query, limit)
 
@@ -529,11 +543,13 @@ class EuropePMCGuidelinesTool(BaseTool):
 
         except requests.exceptions.RequestException as e:
             return {
+                "status": "error",
                 "error": f"Failed to search Europe PMC: {str(e)}",
                 "source": "Europe PMC",
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": f"Error processing Europe PMC response: {str(e)}",
                 "source": "Europe PMC",
             }
@@ -657,7 +673,7 @@ class TRIPDatabaseTool(BaseTool):
         search_type = arguments.get("search_type", "guideline")
 
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         return self._search_trip_database(query, limit, search_type)
 
@@ -763,16 +779,19 @@ class TRIPDatabaseTool(BaseTool):
 
         except requests.exceptions.RequestException as e:
             return {
+                "status": "error",
                 "error": f"Failed to search TRIP Database: {str(e)}",
                 "source": "TRIP Database",
             }
         except ET.ParseError as e:
             return {
+                "status": "error",
                 "error": f"Failed to parse TRIP Database response: {str(e)}",
                 "source": "TRIP Database",
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": f"Error processing TRIP Database response: {str(e)}",
                 "source": "TRIP Database",
             }
@@ -1070,7 +1089,7 @@ class WHOGuidelinesTool(BaseTool):
         limit = arguments.get("limit", 10)
 
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         return self._search_who_guidelines(query, limit)
 
@@ -1197,11 +1216,13 @@ class WHOGuidelinesTool(BaseTool):
 
         except requests.exceptions.RequestException as e:
             return {
+                "status": "error",
                 "error": f"Failed to access WHO guidelines: {str(e)}",
                 "source": "WHO",
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": f"Error processing WHO guidelines: {str(e)}",
                 "source": "WHO",
             }
@@ -1225,7 +1246,7 @@ class OpenAlexGuidelinesTool(BaseTool):
         year_to = arguments.get("year_to", None)
 
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         return self._search_openalex_guidelines(query, limit, year_from, year_to)
 
@@ -1390,11 +1411,13 @@ class OpenAlexGuidelinesTool(BaseTool):
 
         except requests.exceptions.RequestException as e:
             return {
+                "status": "error",
                 "error": f"Failed to search OpenAlex: {str(e)}",
                 "source": "OpenAlex",
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": f"Error processing OpenAlex response: {str(e)}",
                 "source": "OpenAlex",
             }
@@ -1445,11 +1468,14 @@ class NICEGuidelineFullTextTool(BaseTool):
         url = arguments.get("url", "")
 
         if not url:
-            return {"error": "URL parameter is required"}
+            return {"status": "error", "error": "URL parameter is required"}
 
         # Ensure it's a NICE URL
         if "nice.org.uk" not in url:
-            return {"error": "URL must be a NICE guideline URL (nice.org.uk)"}
+            return {
+                "status": "error",
+                "error": "URL must be a NICE guideline URL (nice.org.uk)",
+            }
 
         return self._fetch_full_guideline(url)
 
@@ -1583,9 +1609,17 @@ class NICEGuidelineFullTextTool(BaseTool):
             }
 
         except requests.exceptions.RequestException as e:
-            return {"error": f"Failed to fetch NICE guideline: {str(e)}", "url": url}
+            return {
+                "status": "error",
+                "error": f"Failed to fetch NICE guideline: {str(e)}",
+                "url": url,
+            }
         except Exception as e:
-            return {"error": f"Error parsing NICE guideline: {str(e)}", "url": url}
+            return {
+                "status": "error",
+                "error": f"Error parsing NICE guideline: {str(e)}",
+                "url": url,
+            }
 
 
 @register_tool()
@@ -1609,11 +1643,14 @@ class WHOGuidelineFullTextTool(BaseTool):
         url = arguments.get("url", "")
 
         if not url:
-            return {"error": "URL parameter is required"}
+            return {"status": "error", "error": "URL parameter is required"}
 
         # Ensure it's a WHO URL
         if "who.int" not in url:
-            return {"error": "URL must be a WHO publication URL (who.int)"}
+            return {
+                "status": "error",
+                "error": "URL must be a WHO publication URL (who.int)",
+            }
 
         return self._fetch_who_guideline(url)
 
@@ -1733,9 +1770,17 @@ class WHOGuidelineFullTextTool(BaseTool):
             }
 
         except requests.exceptions.RequestException as e:
-            return {"error": f"Failed to fetch WHO guideline: {str(e)}", "url": url}
+            return {
+                "status": "error",
+                "error": f"Failed to fetch WHO guideline: {str(e)}",
+                "url": url,
+            }
         except Exception as e:
-            return {"error": f"Error parsing WHO guideline: {str(e)}", "url": url}
+            return {
+                "status": "error",
+                "error": f"Error parsing WHO guideline: {str(e)}",
+                "url": url,
+            }
 
 
 @register_tool()
@@ -1763,7 +1808,7 @@ class GINGuidelinesTool(BaseTool):
         limit = arguments.get("limit", 10)
 
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         return self._search_gin_guidelines(query, limit)
 
@@ -1821,9 +1866,14 @@ class GINGuidelinesTool(BaseTool):
             )
 
         except requests.exceptions.RequestException as e:
-            return {"error": f"GIN search failed: {str(e)}", "source": "GIN"}
+            return {
+                "status": "error",
+                "error": f"GIN search failed: {str(e)}",
+                "source": "GIN",
+            }
         except Exception as e:
             return {
+                "status": "error",
                 "error": f"Error processing GIN guidelines: {str(e)}",
                 "source": "GIN",
             }
@@ -1851,7 +1901,7 @@ class CMAGuidelinesTool(BaseTool):
         limit = arguments.get("limit", 10)
 
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         return self._search_cma_guidelines(query, limit)
 
@@ -1930,9 +1980,14 @@ class CMAGuidelinesTool(BaseTool):
             return guidelines
 
         except requests.exceptions.RequestException as e:
-            return {"error": f"PubMed search failed: {str(e)}", "source": "CMA"}
+            return {
+                "status": "error",
+                "error": f"PubMed search failed: {str(e)}",
+                "source": "CMA",
+            }
         except Exception as e:
             return {
+                "status": "error",
                 "error": f"Error searching Canadian guidelines: {str(e)}",
                 "source": "CMA",
             }
@@ -2054,14 +2109,20 @@ class SIGNSearchGuidelinesTool(BaseTool):
         limit = int(arguments.get("limit", 10))
 
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         try:
             rows = _fetch_sign_table()
         except requests.RequestException as exc:
-            return {"error": f"Failed to fetch SIGN guidelines: {exc}"}
+            return {
+                "status": "error",
+                "error": f"Failed to fetch SIGN guidelines: {exc}",
+            }
         except Exception as exc:
-            return {"error": f"Error parsing SIGN guidelines page: {exc}"}
+            return {
+                "status": "error",
+                "error": f"Error parsing SIGN guidelines page: {exc}",
+            }
 
         query_lower = query.lower()
         results = [
@@ -2088,9 +2149,15 @@ class SIGNListGuidelinesTool(BaseTool):
         try:
             rows = _fetch_sign_table()
         except requests.RequestException as exc:
-            return {"error": f"Failed to fetch SIGN guidelines: {exc}"}
+            return {
+                "status": "error",
+                "error": f"Failed to fetch SIGN guidelines: {exc}",
+            }
         except Exception as exc:
-            return {"error": f"Error parsing SIGN guidelines page: {exc}"}
+            return {
+                "status": "error",
+                "error": f"Error parsing SIGN guidelines page: {exc}",
+            }
 
         if topic:
             topic_lower = topic.lower()
@@ -2167,9 +2234,15 @@ class CTFPHCListGuidelinesTool(BaseTool):
         try:
             guidelines = _fetch_ctfphc_links()
         except requests.RequestException as exc:
-            return {"error": f"Failed to fetch CTFPHC guidelines: {exc}"}
+            return {
+                "status": "error",
+                "error": f"Failed to fetch CTFPHC guidelines: {exc}",
+            }
         except Exception as exc:
-            return {"error": f"Error parsing CTFPHC guidelines page: {exc}"}
+            return {
+                "status": "error",
+                "error": f"Error parsing CTFPHC guidelines page: {exc}",
+            }
 
         return guidelines[:limit]
 
@@ -2187,14 +2260,20 @@ class CTFPHCSearchGuidelinesTool(BaseTool):
         limit = int(arguments.get("limit", 10))
 
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         try:
             guidelines = _fetch_ctfphc_links()
         except requests.RequestException as exc:
-            return {"error": f"Failed to fetch CTFPHC guidelines: {exc}"}
+            return {
+                "status": "error",
+                "error": f"Failed to fetch CTFPHC guidelines: {exc}",
+            }
         except Exception as exc:
-            return {"error": f"Error parsing CTFPHC guidelines page: {exc}"}
+            return {
+                "status": "error",
+                "error": f"Error parsing CTFPHC guidelines page: {exc}",
+            }
 
         query_lower = query.lower()
         results = [g for g in guidelines if query_lower in g["title"].lower()]

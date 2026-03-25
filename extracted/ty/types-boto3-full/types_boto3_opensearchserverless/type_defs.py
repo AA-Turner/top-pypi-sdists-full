@@ -702,27 +702,6 @@ UpdateAccessPolicyRequestTypeDef = TypedDict(
         "clientToken": NotRequired[str],
     },
 )
-UpdateCollectionDetailTypeDef = TypedDict(
-    "UpdateCollectionDetailTypeDef",
-    {
-        "id": NotRequired[str],
-        "name": NotRequired[str],
-        "status": NotRequired[CollectionStatusType],
-        "type": NotRequired[CollectionTypeType],
-        "description": NotRequired[str],
-        "arn": NotRequired[str],
-        "createdDate": NotRequired[int],
-        "lastModifiedDate": NotRequired[int],
-    },
-)
-UpdateCollectionRequestTypeDef = TypedDict(
-    "UpdateCollectionRequestTypeDef",
-    {
-        "id": str,
-        "description": NotRequired[str],
-        "clientToken": NotRequired[str],
-    },
-)
 
 
 class UpdateIamIdentityCenterConfigOptionsTypeDef(TypedDict):
@@ -891,6 +870,29 @@ CreateCollectionDetailTypeDef = TypedDict(
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
         "collectionGroupName": NotRequired[str],
+    },
+)
+UpdateCollectionDetailTypeDef = TypedDict(
+    "UpdateCollectionDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "status": NotRequired[CollectionStatusType],
+        "type": NotRequired[CollectionTypeType],
+        "description": NotRequired[str],
+        "vectorOptions": NotRequired[VectorOptionsTypeDef],
+        "arn": NotRequired[str],
+        "createdDate": NotRequired[int],
+        "lastModifiedDate": NotRequired[int],
+    },
+)
+UpdateCollectionRequestTypeDef = TypedDict(
+    "UpdateCollectionRequestTypeDef",
+    {
+        "id": str,
+        "description": NotRequired[str],
+        "vectorOptions": NotRequired[VectorOptionsTypeDef],
+        "clientToken": NotRequired[str],
     },
 )
 
@@ -1100,11 +1102,6 @@ class ListVpcEndpointsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class UpdateCollectionResponseTypeDef(TypedDict):
-    updateCollectionDetail: UpdateCollectionDetailTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 UpdateSecurityConfigRequestTypeDef = TypedDict(
     "UpdateSecurityConfigRequestTypeDef",
     {
@@ -1142,6 +1139,11 @@ class BatchGetCollectionResponseTypeDef(TypedDict):
 
 class CreateCollectionResponseTypeDef(TypedDict):
     createCollectionDetail: CreateCollectionDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateCollectionResponseTypeDef(TypedDict):
+    updateCollectionDetail: UpdateCollectionDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

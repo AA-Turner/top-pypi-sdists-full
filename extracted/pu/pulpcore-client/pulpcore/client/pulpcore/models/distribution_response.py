@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class DistributionResponse(BaseModel):
     """
-    The Serializer for the Distribution model.  The serializer deliberately omits the `publication` and `repository_version` field due to plugins typically requiring one or the other but not both.  To include the ``publication`` field, it is recommended plugins define the field::    publication = DetailRelatedField(       required=False,       help_text=_(\"Publication to be served\"),       view_name_pattern=r\"publications(-.*/.*)?-detail\",       queryset=models.Publication.objects.exclude(complete=False),       allow_null=True,   )  To include the ``repository_version`` field, it is recommended plugins define the field::    repository_version = RepositoryVersionRelatedField(       required=False, help_text=_(\"RepositoryVersion to be served\"), allow_null=True   )  Additionally, the serializer omits the ``remote`` field, which is used for pull-through caching feature and only by plugins which use publications. Plugins implementing a pull-through caching should define the field in their derived serializer class like this::    remote = DetailRelatedField(       required=False,       help_text=_('Remote that can be used to fetch content when using pull-through caching.'),       queryset=models.Remote.objects.all(),       allow_null=True   )
+    The Serializer for the Distribution model.  The serializer deliberately omits the `publication` field due to not all plugins using publications. To include the `publication` field, plugins should define it::    publication = DetailRelatedField(       required=False,       help_text=_(\"Publication to be served\"),       view_name_pattern=r\"publications(-.*/.*)?-detail\",       queryset=models.Publication.objects.exclude(complete=False),       allow_null=True,   )  The serializer also omits the `remote` field, which is used for pull-through caching and only by plugins which use publications. Plugins implementing pull-through caching should define the field in their derived serializer class like this::    remote = DetailRelatedField(       required=False,       help_text=_('Remote that can be used to fetch content when using pull-through caching.'),       queryset=models.Remote.objects.all(),       allow_null=True   )
     """ # noqa: E501
     pulp_href: Optional[StrictStr] = None
     prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
@@ -35,12 +35,14 @@ class DistributionResponse(BaseModel):
     base_path: StrictStr = Field(description="The base (relative) path component of the published url. Avoid paths that                     overlap with other distribution base paths (e.g. \"foo\" and \"foo/bar\")")
     base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
     content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
+    content_guard_prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN) of the associated optional content guard.")
     no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
     hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
     name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
     repository: Optional[StrictStr] = Field(default=None, description="The latest RepositoryVersion for this Repository will be served.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "base_path", "base_url", "content_guard", "no_content_change_since", "hidden", "pulp_labels", "name", "repository"]
+    repository_version: Optional[StrictStr] = Field(default=None, description="RepositoryVersion to be served")
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "base_path", "base_url", "content_guard", "content_guard_prn", "no_content_change_since", "hidden", "pulp_labels", "name", "repository", "repository_version"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -78,6 +80,7 @@ class DistributionResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
@@ -85,6 +88,7 @@ class DistributionResponse(BaseModel):
             "pulp_created",
             "pulp_last_updated",
             "base_url",
+            "content_guard_prn",
             "no_content_change_since",
         ])
 
@@ -102,6 +106,11 @@ class DistributionResponse(BaseModel):
         # and model_fields_set contains the field
         if self.repository is None and "repository" in self.model_fields_set:
             _dict['repository'] = None
+
+        # set to None if repository_version (nullable) is None
+        # and model_fields_set contains the field
+        if self.repository_version is None and "repository_version" in self.model_fields_set:
+            _dict['repository_version'] = None
 
         return _dict
 

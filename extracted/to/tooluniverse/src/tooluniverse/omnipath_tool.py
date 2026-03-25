@@ -53,13 +53,25 @@ class OmniPathTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"OmniPath API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"OmniPath API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to OmniPath API at omnipathdb.org"}
+            return {
+                "status": "error",
+                "error": "Failed to connect to OmniPath API at omnipathdb.org",
+            }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"OmniPath API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"OmniPath API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying OmniPath: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying OmniPath: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate OmniPath endpoint."""
@@ -80,7 +92,7 @@ class OmniPathTool(BaseTool):
         elif self.endpoint == "dorothea":
             return self._get_dorothea_regulon(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _make_request(self, path: str, params: Dict[str, Any]) -> Any:
         """Make an HTTP request to OmniPath API."""
@@ -124,13 +136,17 @@ class OmniPathTool(BaseTool):
         # Must have at least one protein filter
         if not any(arguments.get(k) for k in ["partners", "sources", "targets"]):
             return {
-                "error": "At least one of 'partners', 'sources', or 'targets' is required to query ligand-receptor interactions."
+                "status": "error",
+                "error": "At least one of 'partners', 'sources', or 'targets' is required to query ligand-receptor interactions.",
             }
 
         data = self._make_request("interactions/", params)
 
         if not isinstance(data, list):
-            return {"error": f"Unexpected response format from OmniPath: {type(data)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected response format from OmniPath: {type(data)}",
+            }
 
         interactions = []
         for item in data:
@@ -153,6 +169,7 @@ class OmniPathTool(BaseTool):
         interactions.sort(key=lambda x: x.get("curation_effort") or 0, reverse=True)
 
         return {
+            "status": "success",
             "data": interactions,
             "metadata": {
                 "source": "OmniPath (omnipathdb.org)",
@@ -184,7 +201,10 @@ class OmniPathTool(BaseTool):
         data = self._make_request("intercell/", params)
 
         if not isinstance(data, list):
-            return {"error": f"Unexpected response format from OmniPath: {type(data)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected response format from OmniPath: {type(data)}",
+            }
 
         results = []
         for item in data:
@@ -208,6 +228,7 @@ class OmniPathTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "OmniPath Intercell (omnipathdb.org)",
@@ -242,13 +263,17 @@ class OmniPathTool(BaseTool):
 
         if not any(arguments.get(k) for k in ["partners", "sources", "targets"]):
             return {
-                "error": "At least one of 'partners', 'sources', or 'targets' is required to query signaling interactions."
+                "status": "error",
+                "error": "At least one of 'partners', 'sources', or 'targets' is required to query signaling interactions.",
             }
 
         data = self._make_request("interactions/", params)
 
         if not isinstance(data, list):
-            return {"error": f"Unexpected response format from OmniPath: {type(data)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected response format from OmniPath: {type(data)}",
+            }
 
         interactions = []
         for item in data:
@@ -273,6 +298,7 @@ class OmniPathTool(BaseTool):
         interactions.sort(key=lambda x: x.get("curation_effort") or 0, reverse=True)
 
         return {
+            "status": "success",
             "data": interactions,
             "metadata": {
                 "source": "OmniPath (omnipathdb.org)",
@@ -286,7 +312,8 @@ class OmniPathTool(BaseTool):
         proteins = arguments.get("proteins", "")
         if not proteins:
             return {
-                "error": "proteins parameter is required (UniProt accession(s), e.g., P01137)"
+                "status": "error",
+                "error": "proteins parameter is required (UniProt accession(s), e.g., P01137)",
             }
 
         params = {"proteins": proteins}
@@ -296,7 +323,10 @@ class OmniPathTool(BaseTool):
         data = self._make_request("complexes/", params)
 
         if not isinstance(data, list):
-            return {"error": f"Unexpected response format from OmniPath: {type(data)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected response format from OmniPath: {type(data)}",
+            }
 
         complexes = []
         for item in data:
@@ -313,6 +343,7 @@ class OmniPathTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": complexes,
             "metadata": {
                 "source": "OmniPath Complexes (omnipathdb.org)",
@@ -327,24 +358,24 @@ class OmniPathTool(BaseTool):
         proteins = arguments.get("proteins", "")
         if not proteins:
             return {
-                "error": "proteins parameter is required (UniProt accession(s) or gene symbol(s))"
+                "status": "error",
+                "error": "proteins parameter is required (UniProt accession(s) or gene symbol(s))",
             }
 
         databases = arguments.get("databases") or "CellPhoneDB,CellChatDB"
-        genesymbols = arguments.get("genesymbols")
-        if genesymbols is None:
-            genesymbols = True
 
         params = {
             "proteins": proteins,
             "databases": databases,
-            "genesymbols": "yes" if genesymbols else "no",
         }
 
         data = self._make_request("annotations/", params)
 
         if not isinstance(data, list):
-            return {"error": f"Unexpected response format from OmniPath: {type(data)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected response format from OmniPath: {type(data)}",
+            }
 
         annotations = []
         for item in data:
@@ -361,6 +392,7 @@ class OmniPathTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": annotations,
             "metadata": {
                 "source": "OmniPath Annotations (omnipathdb.org)",
@@ -388,12 +420,18 @@ class OmniPathTool(BaseTool):
             params["limit"] = str(arguments["limit"])
 
         if not any(arguments.get(k) for k in ["enzymes", "substrates"]):
-            return {"error": "At least one of 'enzymes' or 'substrates' is required."}
+            return {
+                "status": "error",
+                "error": "At least one of 'enzymes' or 'substrates' is required.",
+            }
 
         data = self._make_request("enz_sub/", params)
 
         if not isinstance(data, list):
-            return {"error": f"Unexpected response format from OmniPath: {type(data)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected response format from OmniPath: {type(data)}",
+            }
 
         results = []
         for item in data:
@@ -411,6 +449,7 @@ class OmniPathTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "OmniPath Enzyme-Substrate (omnipathdb.org)",
@@ -425,7 +464,10 @@ class OmniPathTool(BaseTool):
         confidence_level = arguments.get("confidence_level")
 
         if not tf_gene and not target_gene:
-            return {"error": "At least one of 'tf_gene' or 'target_gene' is required"}
+            return {
+                "status": "error",
+                "error": "At least one of 'tf_gene' or 'target_gene' is required",
+            }
 
         params = {
             "genesymbols": "yes",
@@ -441,7 +483,10 @@ class OmniPathTool(BaseTool):
         data = self._make_request("interactions/", params)
 
         if not isinstance(data, list):
-            return {"error": f"Unexpected response format from OmniPath: {type(data)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected response format from OmniPath: {type(data)}",
+            }
 
         interactions = []
         for item in data:
@@ -470,6 +515,7 @@ class OmniPathTool(BaseTool):
         interactions.sort(key=lambda x: x.get("curation_effort") or 0, reverse=True)
 
         return {
+            "status": "success",
             "data": interactions,
             "metadata": {
                 "source": "OmniPath DoRothEA + CollecTRI (omnipathdb.org)",
@@ -481,7 +527,10 @@ class OmniPathTool(BaseTool):
     def _get_dorothea_regulon(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         tf_gene = arguments.get("tf_gene")
         if not tf_gene:
-            return {"error": "'tf_gene' is required for DoRothEA regulon query"}
+            return {
+                "status": "error",
+                "error": "'tf_gene' is required for DoRothEA regulon query",
+            }
 
         confidence_levels = arguments.get("confidence_levels")
 
@@ -495,7 +544,10 @@ class OmniPathTool(BaseTool):
         data = self._make_request("interactions/", params)
 
         if not isinstance(data, list):
-            return {"error": f"Unexpected response format from OmniPath: {type(data)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected response format from OmniPath: {type(data)}",
+            }
 
         interactions = []
         for item in data:
@@ -530,6 +582,7 @@ class OmniPathTool(BaseTool):
             by_level.setdefault(lvl, []).append(i)
 
         return {
+            "status": "success",
             "data": interactions,
             "metadata": {
                 "source": "OmniPath DoRothEA (omnipathdb.org)",

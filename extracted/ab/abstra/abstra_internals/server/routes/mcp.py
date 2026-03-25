@@ -50,6 +50,7 @@ def get_editor_bp(main_controller: MainController):
             requires_approval(main_controller.run_job),
             requires_approval(main_controller.run_tasklet),
             requires_approval(main_controller.run_hook),
+            requires_approval(main_controller.run_page),
             main_controller.list_directory,
             main_controller.find_files_by_pattern,
             main_controller.grep_codebase,

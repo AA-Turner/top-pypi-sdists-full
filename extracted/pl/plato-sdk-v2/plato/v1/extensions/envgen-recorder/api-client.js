@@ -60,14 +60,13 @@ class PlatoApiClient {
   }
 
   /**
-   * Submit review
+   * Submit review using the proper review + status API endpoints
    */
   async submitReview(simulatorName, review) {
     // Get simulator info
     const simulator = await this.getSimulator(simulatorName);
     const simulatorId = simulator.id;
     const currentConfig = simulator.config || {};
-    const existingReviews = currentConfig.reviews || [];
     const currentStatus = currentConfig.status || 'not_started';
 
     if (currentStatus != 'data_review_requested') {
@@ -87,43 +86,49 @@ class PlatoApiClient {
       return { success: true, message: 'Skipped' };
     }
 
-
     // Extract video and events paths from recordings array (should only have one recording)
     const recording = review.recordings && review.recordings.length > 0 ? review.recordings[0] : null;
     if (!recording || !recording.video_s3_path || !recording.events_s3_path) {
       throw new Error('Recording paths are required for review submission');
     }
 
-    // Build review object matching SimReview model
-    const reviewObject = {
-      review_type: 'data', // Environment recording reviews are always 'env'
+    // 1. Submit review first (so we don't leave status changed without a review record)
+    const reviewBody = {
+      review_type: 'data',
       outcome: review.outcome,
       artifact_id: review.artifactId,
       video_s3_path: recording.video_s3_path,
       events_s3_path: recording.events_s3_path,
-      comments: review.comments || null,
-      timestamp_iso: new Date().toISOString()
+      sim_comments: review.comments ? [{ comment: review.comments }] : [],
     };
 
-    // Submit
-    const response = await fetch(`${this.baseUrl}/env/simulators/${simulatorId}`, {
-      method: 'PUT',
+    const reviewResponse = await fetch(`${this.baseUrl}/v1/simulator/${simulatorId}/reviews`, {
+      method: 'POST',
       headers: {
         'X-API-Key': this.apiKey,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        config: {
-          ...currentConfig,
-          status: newStatus,
-          reviews: [...existingReviews, reviewObject]
-        }
-      })
+      body: JSON.stringify(reviewBody)
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => response.statusText);
+    if (!reviewResponse.ok) {
+      const errorText = await reviewResponse.text().catch(() => reviewResponse.statusText);
       throw new Error(`Failed to submit review: ${errorText}`);
+    }
+
+    // 2. Update status after review is recorded
+    const statusResponse = await fetch(`${this.baseUrl}/v1/simulator/${simulatorId}/status`, {
+      method: 'POST',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: newStatus })
+    });
+
+    if (!statusResponse.ok) {
+      const errorText = await statusResponse.text().catch(() => statusResponse.statusText);
+      throw new Error(`Failed to update status: ${errorText}`);
     }
 
     return { success: true, newStatus };

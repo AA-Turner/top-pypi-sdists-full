@@ -129,7 +129,10 @@ impl TesseractBackend {
     ///
     /// Returns a vector of available language codes, or an error if querying fails.
     fn query_available_languages(&self) -> Result<Vec<String>> {
-        let api = kreuzberg_tesseract::TesseractAPI::new();
+        let api = kreuzberg_tesseract::TesseractAPI::new().map_err(|e| crate::KreuzbergError::Ocr {
+            message: format!("Failed to allocate Tesseract engine: {}", e),
+            source: Some(Box::new(e)),
+        })?;
         api.init("", "eng").map_err(|e| crate::KreuzbergError::Ocr {
             message: format!("Failed to initialize Tesseract for language query: {}", e),
             source: Some(Box::new(e)),
@@ -282,10 +285,11 @@ impl OcrBackend for TesseractBackend {
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
-    async fn process_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
+    async fn process_image_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
         let tess_config = self.config_to_tesseract(config);
         let tess_config_clone = tess_config.clone();
         let output_format = config.output_format;
@@ -294,8 +298,8 @@ impl OcrBackend for TesseractBackend {
         let path_str = path.to_string_lossy().to_string();
 
         let ocr_result = tokio::task::spawn_blocking(move || match output_format {
-            Some(fmt) => processor.process_file_with_format(&path_str, &tess_config_clone, fmt),
-            None => processor.process_file(&path_str, &tess_config_clone),
+            Some(fmt) => processor.process_image_file_with_format(&path_str, &tess_config_clone, fmt),
+            None => processor.process_image_file(&path_str, &tess_config_clone),
         })
         .await
         .map_err(|e| crate::KreuzbergError::Plugin {
@@ -381,6 +385,7 @@ impl OcrBackend for TesseractBackend {
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 

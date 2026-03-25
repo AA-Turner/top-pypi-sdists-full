@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SoftLayer
-Version: 6.2.8
+Version: 6.2.9
 Summary: A library for SoftLayer's API
 Home-page: https://github.com/SoftLayer/softlayer-python
 Author: SoftLayer, Inc., an IBM Company

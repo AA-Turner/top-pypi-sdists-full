@@ -28,6 +28,102 @@ def compare[T: int](x: T, y: T) -> bool:
 );
 
 testcase!(
+    test_constrained_type_var_comparison,
+    r#"
+from typing import Generic, TypeVar, assert_type
+
+N = TypeVar("N", int, str)
+
+class A(Generic[N]):
+    a: N
+
+    def foo(self, b: N) -> None:
+        assert_type(self.a < b, bool)
+"#,
+);
+
+testcase!(
+    test_bound_typevar_comparison,
+    r#"
+def f1[T: int | float](x: T, y: T) -> bool:
+    # Ok because you can compare an int and a float
+    return x < y
+def f2[T: int | str](x: T, y: T) -> bool:
+    return x < y  # E: not supported between `int` and `str`  # E: not supported between `str` and `int`
+    "#,
+);
+
+testcase!(
+    test_cannot_compare_unrestricted_typevar,
+    r#"
+def f1[T](x: T) -> bool:
+    return x < 0  # E: not supported between `T` and `Literal[0]`
+def f2[T](x: T) -> bool:
+    return 0 < x  # E: not supported between `Literal[0]` and `T`
+    "#,
+);
+
+testcase!(
+    test_preserve_typevar_through_comparison_and_binop,
+    r#"
+from typing import Any, Protocol, Self, TypeVar
+
+class NativeExpr:
+    def __ge__(self, value: Any, /) -> Self: ...
+    def __add__(self, value: Any, /) -> Self: ...
+
+NativeExprT = TypeVar("NativeExprT", bound=NativeExpr)
+
+class SQLExpr(Protocol[NativeExprT]):
+    def _window(self) -> NativeExprT: ...
+    def _when(self, condition: NativeExprT) -> NativeExprT: ...
+
+    def do_stuff(self) -> None:
+        x = self._window()
+        y_ge = x >= 1
+        z_add = x + 1
+        self._when(y_ge)
+        self._when(z_add)
+    "#,
+);
+
+testcase!(
+    test_compare_typevars,
+    r#"
+from typing import Generic, Protocol, TypeVar
+
+Weight = TypeVar("Weight", bound="ImplementationWeight")
+SelfWeight = TypeVar("SelfWeight", bound="ImplementationWeight")
+
+class ImplementationWeight(Protocol):
+    def __lt__(self: SelfWeight, other: SelfWeight) -> bool: ...
+
+class CandidateWeight(Generic[Weight]):
+    weight: Weight
+    def __lt__(self, other: CandidateWeight[Weight]) -> bool:
+        return self.weight < other.weight
+    "#,
+);
+
+testcase!(
+    test_add_typevars,
+    r#"
+from typing import Generic, Protocol, TypeVar
+
+Weight = TypeVar("Weight", bound="ImplementationWeight")
+SelfWeight = TypeVar("SelfWeight", bound="ImplementationWeight")
+
+class ImplementationWeight(Protocol):
+    def __add__(self: SelfWeight, other: SelfWeight) -> SelfWeight: ...
+
+class CandidateWeight(Generic[Weight]):
+    weight: Weight
+    def __add__(self, other: CandidateWeight[Weight]) -> Weight:
+        return self.weight + other.weight
+    "#,
+);
+
+testcase!(
     test_negative_literals,
     r#"
 from typing import Literal

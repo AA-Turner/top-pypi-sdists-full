@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def ols_get_ontology_info(
-    operation: str,
     ontology_id: str,
+    operation: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

@@ -47,6 +47,34 @@ CLASSIFICATION_ORDER = {
 }
 
 
+def _disease_matches(record: Dict[str, str], query_lower: str) -> bool:
+    """Match a GenCC record by disease name or curie, with word-tokenized fallback.
+
+    Exact substring match first. If that fails, falls back to requiring all
+    query words to appear in the disease title (handles hyphens in GenCC names,
+    e.g. 'breast cancer' matches 'breast-ovarian cancer, familial...').
+    """
+    title = record.get("disease_title", "").lower()
+    curie = record.get("disease_curie", "").lower()
+    orig = record.get("disease_original_curie", "").lower()
+    if query_lower in title or query_lower in curie or query_lower in orig:
+        return True
+    # Word-tokenized fallback: all words in the query must appear in title
+    words = query_lower.split()
+    return len(words) > 1 and all(w in title for w in words)
+
+
+def _gene_matches(record: Dict[str, str], gene_symbol: str) -> bool:
+    """Match a GenCC record by gene symbol, checking both current and submitted HGNC symbol.
+
+    Needed because HGNC renames genes (e.g. GBA → GBA1); submissions may use the old name.
+    """
+    return (
+        record.get("gene_symbol", "").upper() == gene_symbol
+        or record.get("submitted_as_hgnc_symbol", "").upper() == gene_symbol
+    )
+
+
 def _download_gencc_data() -> List[Dict[str, str]]:
     """Download and parse GenCC TSV data with caching."""
     now = time.time()
@@ -130,9 +158,7 @@ class GenCCTool(BaseTool):
             records = _download_gencc_data()
 
             # Filter by gene symbol
-            matches = [
-                r for r in records if r.get("gene_symbol", "").upper() == gene_symbol
-            ]
+            matches = [r for r in records if _gene_matches(r, gene_symbol)]
 
             # Optional classification filter
             if classification_filter:
@@ -173,6 +199,18 @@ class GenCCTool(BaseTool):
                 key=lambda x: CLASSIFICATION_ORDER.get(x["classification"], 99)
             )
 
+            metadata: Dict[str, Any] = {
+                "source": "GenCC (Gene Curation Coalition)",
+                "gene_symbol": gene_symbol,
+            }
+            if not results:
+                # GenCC uses current HGNC-approved symbols; older/alias symbols return empty.
+                metadata["note"] = (
+                    f"No GenCC submissions found for '{gene_symbol}'. "
+                    "GenCC uses current HGNC-approved gene symbols. "
+                    "If the gene was recently renamed (e.g. GBA→GBA1), "
+                    "try the current approved symbol from HGNC."
+                )
             return {
                 "status": "success",
                 "data": {
@@ -181,10 +219,7 @@ class GenCCTool(BaseTool):
                     "submission_count": len(results),
                     "unique_diseases": len(set(r["disease_curie"] for r in results)),
                 },
-                "metadata": {
-                    "source": "GenCC (Gene Curation Coalition)",
-                    "gene_symbol": gene_symbol,
-                },
+                "metadata": metadata,
             }
 
         except requests.exceptions.RequestException as e:
@@ -204,7 +239,9 @@ class GenCCTool(BaseTool):
                 - disease: Disease name or MONDO/OMIM ID to search
                 - classification: Optional filter by classification level
         """
-        disease = arguments.get("disease", "").strip()
+        disease = (
+            arguments.get("disease") or arguments.get("disease_name", "")
+        ).strip()
         if not disease:
             return {"status": "error", "error": "Missing required parameter: disease"}
 
@@ -215,13 +252,7 @@ class GenCCTool(BaseTool):
 
             # Search by disease name (case-insensitive contains) or disease curie
             disease_lower = disease.lower()
-            matches = [
-                r
-                for r in records
-                if disease_lower in r.get("disease_title", "").lower()
-                or disease_lower in r.get("disease_curie", "").lower()
-                or disease_lower in r.get("disease_original_curie", "").lower()
-            ]
+            matches = [r for r in records if _disease_matches(r, disease_lower)]
 
             # Optional classification filter
             if classification_filter:
@@ -296,11 +327,17 @@ class GenCCTool(BaseTool):
             arguments: Dict containing:
                 - submitter: Optional filter by submitting organization name
         """
-        submitter_filter = arguments.get("submitter", "")
+        submitter_filter = arguments.get("submitter", "").strip()
+        gene_symbol = arguments.get("gene_symbol", "").strip().upper()
+        disease_filter = arguments.get("disease", "").strip().lower()
 
         try:
             records = _download_gencc_data()
 
+            if gene_symbol:
+                records = [r for r in records if _gene_matches(r, gene_symbol)]
+            if disease_filter:
+                records = [r for r in records if _disease_matches(r, disease_filter)]
             if submitter_filter:
                 records = [
                     r

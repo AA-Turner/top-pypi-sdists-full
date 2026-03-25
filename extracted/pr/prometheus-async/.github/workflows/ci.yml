@@ -16,26 +16,24 @@ env:
 
 permissions: {}
 
-
 jobs:
   build-package:
     name: Build & verify package
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: hynek/build-and-inspect-python-package@v2
+      - uses: hynek/build-and-inspect-python-package@f3d069d0f9a3c9169d1a483318bb0e09876a6fd6 # v2.15.0
         id: baipp
 
     outputs:
       # Used to define the matrix for tests below. The value is based on
       # packaging metadata (trove classifiers).
       supported-python-versions: ${{ steps.baipp.outputs.supported_python_classifiers_json_array }}
-
 
   tests:
     name: Tests & Mypy API on ${{ matrix.python-version }}
@@ -53,38 +51,32 @@ jobs:
 
     steps:
       - name: Download pre-built packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: Packages
           path: dist
       - run: |
           rm -rf src
           tar xf dist/*.tar.gz --strip-components=1
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
-      - uses: hynek/setup-cached-uv@v2
+      - uses: hynek/setup-cached-uv@0b9e52652c2d5d4fb6af4598efa3d14e60e934d1 # v2.4.0
 
       - run: >
           uvx --with tox-uv
           tox run
           --installpkg dist/*.whl
-          -f py$(echo $PYTHON | tr -d .)
-      - run: >
-          uvx --with tox-uv --python $PYTHON
-          tox run
-          --installpkg dist/*.whl
-          -e mypy-api
+          -f $PYTHON
 
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: coverage-data-${{ matrix.python-version }}
           path: .coverage.*
           include-hidden-files: true
           if-no-files-found: ignore
-
 
   coverage:
     name: Combine & check coverage
@@ -92,15 +84,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-           persist-credentials: false
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version-file: .python-version-default
-      - uses: hynek/setup-cached-uv@v2
+      - uses: hynek/setup-cached-uv@0b9e52652c2d5d4fb6af4598efa3d14e60e934d1 # v2.4.0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: coverage-data-*
           merge-multiple: true
@@ -119,61 +111,49 @@ jobs:
           coverage report --fail-under=100
 
       - name: Upload HTML report if check failed.
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: html-report
           path: htmlcov
         if: ${{ failure() }}
 
-
-  mypy-pkg:
-    name: Mypy Codebase
+  typing:
+    name: Check types using supported type checkers
     runs-on: ubuntu-latest
+    needs: build-package
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Download pre-built packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-           persist-credentials: false
-      - uses: actions/setup-python@v5
+          name: Packages
+          path: dist
+      - run: tar xf dist/*.tar.gz --strip-components=1
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version-file: .python-version-default
-      - uses: hynek/setup-cached-uv@v2
+      - uses: hynek/setup-cached-uv@0b9e52652c2d5d4fb6af4598efa3d14e60e934d1 # v2.4.0
 
       - run: >
           uvx --with tox-uv
-          tox run -e mypy-pkg
-
+          tox run -f typing
 
   docs:
     name: Run doctests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-           persist-credentials: false
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           # Keep in sync with tox.ini/docs & .readthedocs.yaml
-          python-version: "3.13"
-      - uses: hynek/setup-cached-uv@v2
+          python-version: "3.14"
+      - uses: hynek/setup-cached-uv@0b9e52652c2d5d4fb6af4598efa3d14e60e934d1 # v2.4.0
 
       - run: >
           uvx --with tox-uv
           tox run -e docs-doctests
-
-  pyright:
-    name: Check types using pyright
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version-file: .python-version-default
-      - uses: hynek/setup-cached-uv@v2
-
-      - run: uvx --with=tox-uv tox run -e pyright
 
   install-dev:
     name: Verify dev env
@@ -183,16 +163,15 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-           persist-credentials: false
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version-file: .python-version-default
 
-      - run: python -Im pip install -e .[dev]
+      - run: python -Im pip install -e . --group dev
       - run: python -Ic 'import prometheus_async; print(prometheus_async.__version__)'
-
 
   required-checks-pass:
     name: Ensure everything required is passing for branch protection
@@ -202,12 +181,12 @@ jobs:
       - coverage
       - docs
       - install-dev
-      - mypy-pkg
+      - typing
 
     runs-on: ubuntu-latest
 
     steps:
       - name: Decide whether the needed jobs succeeded or failed
-        uses: re-actors/alls-green@release/v1
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
         with:
           jobs: ${{ toJSON(needs) }}

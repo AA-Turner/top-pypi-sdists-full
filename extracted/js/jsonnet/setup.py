@@ -14,6 +14,8 @@
 
 import os
 import re
+import sys
+
 import setuptools
 from setuptools.command.build_ext import build_ext as BuildExt
 
@@ -98,23 +100,36 @@ class BuildJsonnetExt(BuildExt):
         super().run()
 
 
+# Default to not using the Limited API.
+_PY_LIMITED_API = None
+_bdist_limited_api_tag = None
+if not hasattr(sys, "_is_gil_enabled") or sys._is_gil_enabled():
+    # If we're on Python 3.10 or later, use Limited API 3.10.
+    # Otherwise, drop back to 3.8.
+    if sys.hexversion >= 0x030A0000:
+        _PY_LIMITED_API = 0x030A0000
+        _bdist_limited_api_tag = "cp310"
+    elif sys.hexversion >= 0x03080000:
+        _PY_LIMITED_API = 0x03080000
+        _bdist_limited_api_tag = "cp38"
+
+
 setuptools.setup(
     name="jsonnet",
-    url="https://jsonnet.org",
-    project_urls={
-        "Source": "https://github.com/google/jsonnet",
-    },
-    description="Python bindings for Jsonnet - The data templating language ",
-    license="Apache License 2.0",
-    author="David Cunningham",
-    author_email="dcunnin@google.com",
     version=get_version(),
+    license="Apache-2.0",
     cmdclass={
         "build_ext": BuildJsonnetExt,
     },
     ext_modules=[
         setuptools.Extension(
             "_jsonnet",
+            define_macros=(
+                [("Py_LIMITED_API", f"{_PY_LIMITED_API:#010x}")]
+                if _PY_LIMITED_API is not None
+                else []
+            ),
+            py_limited_api=(_PY_LIMITED_API is not None),
             sources=LIB_SOURCES,
             include_dirs=[
                 "include",
@@ -125,5 +140,9 @@ setuptools.setup(
             language="c++",
         )
     ],
-    test_suite="python._jsonnet_test",
+    options=(
+        {"bdist_wheel": {"py_limited_api": _bdist_limited_api_tag}}
+        if _bdist_limited_api_tag is not None
+        else {}
+    ),
 )

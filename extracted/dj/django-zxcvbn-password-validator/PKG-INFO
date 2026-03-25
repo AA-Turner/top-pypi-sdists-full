@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: django-zxcvbn-password-validator
-Version: 1.5.3
+Version: 1.6.0
 Summary: A translatable password validator for django, based on zxcvbn-python.
 Author-email: Pierre SASSOULAS <pierre.sassoulas@gmail.com>
-License-Expression: MIT
+License: MIT
 Project-URL: Bug Tracker, https://github.com/Pierre-Sassoulas/django-zxcvbn-password-validator/issues
 Project-URL: Source Code, https://github.com/Pierre-Sassoulas/django-zxcvbn-password-validator
 Keywords: django,password-validator,zxcvbn
@@ -14,37 +14,83 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: Afrikaans
 Classifier: Natural Language :: Arabic
 Classifier: Natural Language :: Armenian
+Classifier: Natural Language :: Basque
+Classifier: Natural Language :: Bengali
+Classifier: Natural Language :: Bosnian
+Classifier: Natural Language :: Bulgarian
+Classifier: Natural Language :: Cantonese
+Classifier: Natural Language :: Catalan
+Classifier: Natural Language :: Catalan (Valencian)
 Classifier: Natural Language :: Chinese (Simplified)
+Classifier: Natural Language :: Chinese (Traditional)
+Classifier: Natural Language :: Croatian
 Classifier: Natural Language :: Czech
+Classifier: Natural Language :: Danish
 Classifier: Natural Language :: Dutch
 Classifier: Natural Language :: English
+Classifier: Natural Language :: Esperanto
+Classifier: Natural Language :: Estonian
+Classifier: Natural Language :: Finnish
 Classifier: Natural Language :: French
+Classifier: Natural Language :: Galician
+Classifier: Natural Language :: Georgian
 Classifier: Natural Language :: German
+Classifier: Natural Language :: Greek
+Classifier: Natural Language :: Hebrew
 Classifier: Natural Language :: Hindi
 Classifier: Natural Language :: Hungarian
+Classifier: Natural Language :: Icelandic
 Classifier: Natural Language :: Indonesian
+Classifier: Natural Language :: Irish
 Classifier: Natural Language :: Italian
 Classifier: Natural Language :: Japanese
+Classifier: Natural Language :: Javanese
 Classifier: Natural Language :: Korean
+Classifier: Natural Language :: Latin
+Classifier: Natural Language :: Latvian
+Classifier: Natural Language :: Lithuanian
+Classifier: Natural Language :: Macedonian
+Classifier: Natural Language :: Malay
+Classifier: Natural Language :: Marathi
+Classifier: Natural Language :: Nepali
+Classifier: Natural Language :: Norwegian
+Classifier: Natural Language :: Panjabi
+Classifier: Natural Language :: Persian
 Classifier: Natural Language :: Polish
 Classifier: Natural Language :: Portuguese
 Classifier: Natural Language :: Portuguese (Brazilian)
+Classifier: Natural Language :: Romanian
 Classifier: Natural Language :: Russian
+Classifier: Natural Language :: Serbian
+Classifier: Natural Language :: Slovak
+Classifier: Natural Language :: Slovenian
 Classifier: Natural Language :: Spanish
+Classifier: Natural Language :: Swedish
+Classifier: Natural Language :: Tamil
+Classifier: Natural Language :: Telugu
 Classifier: Natural Language :: Thai
+Classifier: Natural Language :: Tibetan
 Classifier: Natural Language :: Turkish
 Classifier: Natural Language :: Ukrainian
+Classifier: Natural Language :: Urdu
 Classifier: Natural Language :: Vietnamese
+Classifier: Natural Language :: Yiddish
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Requires-Python: >=3.6.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: django<7,>=2
@@ -68,6 +114,11 @@ Dynamic: license-file
 A translatable password validator for django, based on zxcvbn-python and available with
 pip.
 
+Unlike rule-based validators (minimum length, must contain a digit...), zxcvbn estimates
+actual password strength using pattern matching, common password dictionaries, and
+keyboard layout analysis. It provides meaningful, actionable feedback to help users
+create stronger passwords.
+
 Professional support for django-zxcvbn-password-validator is available as part of the
 [Tidelift Subscription](https://tidelift.com/subscription/pkg/pypi-django-zxcvbn-password-validator?utm_source=pypi-django-zxcvbn-password-validator&utm_medium=referral&utm_campaign=enterprise)
 
@@ -76,64 +127,15 @@ Professional support for django-zxcvbn-password-validator is available as part o
 [![PyPI version](https://badge.fury.io/py/django-zxcvbn-password-validator.svg)](https://badge.fury.io/py/django-zxcvbn-password-validator)
 [![Published on Django Packages](https://img.shields.io/badge/Published%20on-Django%20Packages-0c3c26)](https://djangopackages.org/packages/p/django-zxcvbn-password-validator/)
 
-## Translating the project
-
-This project is available in multiple language. Your contribution would be very
-appreciated if you know a language that is not yet available. See
-[how to contribute](CONTRIBUTING.md)
-
-### Language available
-
-The software is developed in English. Other available languages are:
-
-[![Translation status](https://hosted.weblate.org/widget/django-zxcvbn-password-validator/multi-auto.svg)](https://hosted.weblate.org/engage/django-zxcvbn-password-validator/)
-
-- [x] Arabic thanks to Claude AI Assistant
-- [x] Armenian thanks to Claude AI Assistant
-- [x] Brazilian Portuguese thanks to [Andrés Martano](https://github.com/andresmrm/) and
-      Claude AI Assistant (corrections)
-- [x] Chinese Simplified thanks to Claude AI Assistant
-- [x] Czech thanks to [Michal Čihař](https://github.com/nijel/)
-- [x] Dutch thanks to [Thom Wiggers](https://github.com/thomwiggers/)
-- [x] English
-- [x] French thanks to [Pierre Sassoulas](https://github.com/Pierre-Sassoulas/) and
-      [Lionel Sausin](https://github.com/ls-initiatives)
-- [x] German thanks to Claude AI Assistant
-- [x] Hausa thanks to Claude AI Assistant
-- [x] Hindi thanks to Claude AI Assistant
-- [x] Hungarian thanks to [RViktor](https://github.com/rviktor/)
-- [x] Indonesian thanks to Claude AI Assistant
-- [x] Italian thanks to Claude AI Assistant
-- [x] Japanese thanks to Claude AI Assistant
-- [x] Korean thanks to Claude AI Assistant
-- [x] Polish thanks to Claude AI Assistant
-- [x] Portuguese thanks to Claude AI Assistant
-- [x] Russian thanks to Claude AI Assistant
-- [x] Spanish thanks to Claude AI Assistant
-- [x] Swahili thanks to Claude AI Assistant
-- [x] Thai thanks to Claude AI Assistant
-- [x] Turkish thanks to Claude AI Assistant
-- [x] Ukrainian thanks to Claude AI Assistant
-- [x] Vietnamese thanks to Claude AI Assistant
-- [x] Yoruba thanks to Claude AI Assistant
-
-## Creating a user with django-zxcvbn-password-validator
-
-If the password is not strong enough, we provide errors explaining what you need to do :
-
-![English example](doc/english_example.png "English example")
-
-The error message are translated to your target language (even the string given by
-zxcvbn that are in english only) :
-
-![Translated example](doc/french_example.png "Translated example")
-
 ## How to use
 
-Add `django-zxcvbn-password-validator` to your requirements and get it with pip. Then
-everything happens in your settings file.
+Install the package:
 
-Add `'django_zxcvbn_password_validator'` in the `INSTALLED_APPS` :
+```bash
+pip install django-zxcvbn-password-validator
+```
+
+Add `'django_zxcvbn_password_validator'` in the `INSTALLED_APPS`:
 
 ```python
 INSTALLED_APPS = [
@@ -142,7 +144,7 @@ INSTALLED_APPS = [
 ]
 ```
 
-Modify `AUTH_PASSWORD_VALIDATORS` :
+Modify `AUTH_PASSWORD_VALIDATORS`:
 
 ```python
 AUTH_PASSWORD_VALIDATORS = [
@@ -156,12 +158,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 ```
 
-You could choose to use zxcvbn alone, but I personally still use Django's
-`UserAttributeSimilarityValidator`, because there seems to be still be some problem with
-it integrating user information with zxcvbn (as of june 2018).
+You could choose to use zxcvbn alone, but using it alongside Django's
+`UserAttributeSimilarityValidator` is recommended.
 
 Finally, you can set the `PASSWORD_MINIMAL_STRENGTH` to your liking (default is 2),
-every password scoring lower than this number will be rejected :
+every password scoring lower than this number will be rejected:
 
 ```python
 # 0 too guessable: risky password. (guesses < 10^3)
@@ -175,3 +176,53 @@ every password scoring lower than this number will be rejected :
 # (guesses >= 10^10)
 PASSWORD_MINIMAL_STRENGTH = 0 if DEBUG else 4
 ```
+
+If the password is not strong enough, we provide errors explaining what you need to do:
+
+![English example](doc/english_example.png "English example")
+
+The error messages are translated to your target language (even the strings given by
+zxcvbn that are in English only):
+
+![Translated example](doc/french_example.png "Translated example")
+
+## Compatibility
+
+Requires Django 2+ and Python 3.6+. Note that Python 3.6 and 3.7 are not tested in CI
+anymore (GitHub Actions no longer provides runners for them), so while they should work,
+there is no guarantee.
+
+## Translating the project
+
+This project is available in 131 languages. Your contribution would be very appreciated
+if you know a language that is not yet available or if you want to improve an existing
+translation (especially AI-generated ones). See [how to contribute](CONTRIBUTING.md)
+
+[![Translation status](https://hosted.weblate.org/widget/django-zxcvbn-password-validator/multi-auto.svg)](https://hosted.weblate.org/engage/django-zxcvbn-password-validator/)
+
+<details>
+<summary>Translators</summary>
+
+- [Andrés Martano](https://github.com/andresmrm/): Brazilian Portuguese
+- [Lionel Sausin](https://github.com/ls-initiatives): French
+- [Michal Čihař](https://github.com/nijel/): Czech
+- [Pierre Sassoulas](https://github.com/Pierre-Sassoulas/): French
+- [RViktor](https://github.com/rviktor/): Hungarian
+- [Thom Wiggers](https://github.com/thomwiggers/): Dutch
+- Claude AI: Afrikaans, Akan, Albanian, Amharic, Arabic, Armenian, Assamese,
+  Azerbaijani, Basque, Belarusian, Bengali, Bosnian, Brazilian Portuguese (corrections),
+  Breton, Bulgarian, Burmese, Cantonese, Catalan, Cebuano, Chichewa, Chinese Simplified,
+  Chinese Traditional, Corsican, Croatian, Danish, Esperanto, Estonian, Ewe, Faroese,
+  Filipino, Finnish, Fulah, Galician, Georgian, German, Greek, Gujarati, Hausa,
+  Hawaiian, Hebrew, Hindi, Icelandic, Igbo, Indonesian, Irish, Italian, Japanese,
+  Javanese, Kannada, Kazakh, Khmer, Kinyarwanda, Kirundi, Korean, Kurdish, Kyrgyz, Lao,
+  Latin, Latvian, Lingala, Lithuanian, Luganda, Luxembourgish, Macedonian, Malagasy,
+  Malay, Malayalam, Maltese, Maori, Marathi, Mongolian, Nepali, Northern Ndebele,
+  Northern Sami, Norwegian Bokmål, Occitan, Odia, Oromo, Pashto, Persian, Polish,
+  Portuguese, Punjabi, Romanian, Russian, Samoan, Sango, Sardinian, Scottish Gaelic,
+  Serbian, Sesotho, Shona, Sindhi, Sinhala, Slovak, Slovenian, Somali, Southern Ndebele,
+  Spanish, Sundanese, Swahili, Swati, Swedish, Tajik, Tamil, Telugu, Thai, Tibetan,
+  Tigrinya, Tongan, Tsonga, Tswana, Turkish, Turkmen, Twi, Ukrainian, Urdu, Uzbek,
+  Venda, Vietnamese, Welsh, Western Frisian, Wolof, Xhosa, Yiddish, Yoruba, Zulu
+
+</details>

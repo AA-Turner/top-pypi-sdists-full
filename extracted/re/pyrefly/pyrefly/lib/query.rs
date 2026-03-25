@@ -289,7 +289,10 @@ impl<'a> CalleesWithLocation<'a> {
                         .end()
                         .checked_sub(TextSize::from(1))
                         .unwrap(),
-                    FindPreference::default(),
+                    FindPreference {
+                        resolve_call_dunders: false,
+                        ..FindPreference::default()
+                    },
                 )
                 .into_iter()
                 .collect_vec()
@@ -686,7 +689,10 @@ impl<'a> CalleesWithLocation<'a> {
                 &self.handle,
                 // take location of last included character in range (which should work for identifiers and attributes)
                 callee_range.end().checked_sub(TextSize::from(1)).unwrap(),
-                FindPreference::default(),
+                FindPreference {
+                    resolve_call_dunders: false,
+                    ..FindPreference::default()
+                },
             )
             .into_iter()
             // filter out attributes since we don't know how to handle them
@@ -771,6 +777,7 @@ impl<'a> CalleesWithLocation<'a> {
             Type::Union(box Union { members: tys, .. }) => {
                 self.init_or_new_from_union(tys, callee_range)
             }
+            Type::Any(_) => vec![],
             x => {
                 panic!(
                     "unexpected type at [{}]: {x:?}",
@@ -932,7 +939,10 @@ impl Query {
         let errors = transaction.as_mut().get_errors(&handles);
         self.state.commit_transaction(transaction, None);
         let project_root = PathBuf::new();
-        errors.collect_errors().shown.map(|e| {
+        let collected = errors.collect_errors();
+        let mut output_errors = collected.ordinary;
+        output_errors.extend(collected.directives);
+        output_errors.map(|e| {
             // We deliberately don't have a Display for `Error`, to encourage doing the right thing.
             // But we just hack something up as this code is experimental.
             let mut s = Cursor::new(Vec::new());
@@ -1242,10 +1252,10 @@ impl Query {
         )]);
         t.run(&[handle.dupe()], Require::Everything, None);
         let errors = t.get_errors([handle]).collect_errors();
-        if !errors.shown.is_empty() {
+        if !errors.ordinary.is_empty() {
             let mut res = Vec::new();
             let project_root = PathBuf::new();
-            for e in errors.shown {
+            for e in errors.ordinary {
                 e.write_line(&mut Cursor::new(&mut res), project_root.as_path(), true)
                     .unwrap();
             }

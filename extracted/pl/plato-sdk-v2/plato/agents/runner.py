@@ -210,6 +210,20 @@ class AgentRunner:
         self._trigger_server_url = trigger_server_url
         return self
 
+    def with_file_triggers_from(self, ctx: object) -> AgentRunner:
+        """Configure file triggers from a :class:`CheckpointContext`.
+
+        This is the recommended way to wire file triggers — the patterns
+        and trigger server URL are read directly from the context yielded
+        by :func:`~plato.worlds.checkpoint.checkpoint`.
+        """
+        trigger_url = getattr(ctx, "trigger_url", None)
+        trigger_patterns = getattr(ctx, "trigger_patterns", None)
+        if trigger_url and trigger_patterns:
+            self._file_trigger_patterns = trigger_patterns
+            self._trigger_server_url = trigger_url
+        return self
+
     def _all_transports(self) -> list[Transport]:
         """Return the primary and extra transports without duplicates."""
         transports: list[Transport] = []

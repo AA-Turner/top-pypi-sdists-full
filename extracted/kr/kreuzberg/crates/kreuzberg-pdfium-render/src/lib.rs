@@ -1,8 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![allow(clippy::doc_nested_refdefs)]
-// Vendored fork: suppress warnings from entangled internal modules
-// (form fields, annotation variable_text, appearance mode) that are
-// not exposed in the prelude but cannot be cleanly removed.
+// Vendored fork: suppress warnings from internal modules not exposed in the prelude.
 #![allow(dead_code)]
 #![allow(deprecated)]
 
@@ -27,8 +25,9 @@ mod utils;
 /// A prelude for conveniently importing public `pdfium-render` definitions.
 ///
 /// Only re-exports types actually used by the kreuzberg crate.
-/// Unused modules (form fields, actions, destinations, appearance modes,
-/// attachments, bookmarks, signatures) are excluded to reduce surface area.
+/// Removed modules: form fields (field/), appearance_mode, annotation subtypes
+/// popup/redacted/widget/xfa_widget/variable_text. Form highlighting functions
+/// (highlight_*_form_fields) removed from PdfRenderConfig.
 ///
 /// Usage:
 /// ```

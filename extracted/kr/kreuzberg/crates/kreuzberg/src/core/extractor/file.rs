@@ -180,6 +180,11 @@ pub(in crate::core::extractor) async fn extract_file_with_extractor(
     mime_type: &str,
     config: &ExtractionConfig,
 ) -> Result<ExtractionResult> {
+    // Normalize config so cache keys are consistent for ElementBased requests
+    // regardless of whether the caller explicitly set extract_pages.
+    let config = config.normalized();
+    let config = config.as_ref();
+
     // Skip cache if disabled or TTL=0
     if !config.use_cache || config.cache_ttl_secs == Some(0) {
         return extract_file_uncached(path, mime_type, config).await;
@@ -216,6 +221,12 @@ pub(in crate::core::extractor) async fn extract_file_with_extractor(
 
 /// Extract without caching logic.
 async fn extract_file_uncached(path: &Path, mime_type: &str, config: &ExtractionConfig) -> Result<ExtractionResult> {
+    let config = config.normalized();
+    let config = config.as_ref();
+
+    let budget = crate::core::config::concurrency::resolve_thread_budget(config.concurrency.as_ref());
+    crate::core::config::concurrency::init_thread_pools(budget);
+
     crate::extractors::ensure_initialized()?;
 
     let extractor = get_extractor(mime_type)?;
@@ -272,6 +283,12 @@ pub(in crate::core::extractor) async fn extract_bytes_with_extractor(
     mime_type: &str,
     config: &ExtractionConfig,
 ) -> Result<ExtractionResult> {
+    let config = config.normalized();
+    let config = config.as_ref();
+
+    let budget = crate::core::config::concurrency::resolve_thread_budget(config.concurrency.as_ref());
+    crate::core::config::concurrency::init_thread_pools(budget);
+
     crate::extractors::ensure_initialized()?;
 
     let extractor = get_extractor(mime_type)?;

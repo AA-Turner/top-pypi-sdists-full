@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
-from ._insights import InsightList
+from ._insights import InsightList, ModelSyntaxWarning
 from ._module import ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -34,7 +34,12 @@ class BuildParameters(BaseModel):
 
 
 class BuildSourceFiles(BaseModel):
-    """Intermediate format used when parsing modules"""
+    """The output of reading the source system.
+
+    All yaml files found in the modules/ directory.
+    If available, the config.<name>.yaml file, which specifies which modules to build, variables available,
+    CDF Project to build for.
+    """
 
     yaml_files: list[RelativeFilePath] = Field(
         description="List of all YAML files that are part of the build, with paths relative to the organization directory."
@@ -49,6 +54,10 @@ class BuildSourceFiles(BaseModel):
     cdf_project: str
     organization_dir: AbsoluteDirPath
 
+    @property
+    def module_dir(self) -> Path:
+        return self.organization_dir / MODULES
+
 
 class BuiltResource(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -59,7 +68,7 @@ class BuiltResource(BaseModel):
     build_path: AbsoluteFilePath
     crud_cls: builtins.type[ResourceCRUD]
     dependencies: set[tuple[builtins.type[ResourceCRUD], Identifier]] = Field(default_factory=set)
-    insights: InsightList = Field(default_factory=InsightList)
+    syntax_warning: ModelSyntaxWarning | None = None
 
 
 class BuiltModule(BaseModel):
@@ -109,7 +118,8 @@ class BuildFolder(BaseModel):
         for module in self.built_modules:
             insights.extend(module.insights)
             for resource in module.resources:
-                insights.extend(resource.insights)
+                if resource.syntax_warning:
+                    insights.append(resource.syntax_warning)
         return insights
 
     @property

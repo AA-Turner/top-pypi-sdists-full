@@ -89,6 +89,8 @@ class Dataframe(_message.Message):
         """Only one cell can be selected at a time."""
         MULTI_CELL: Dataframe._SelectionMode.ValueType  # 5
         """Multiple cells (continuous range) can be selected."""
+        SINGLE_ROW_REQUIRED: Dataframe._SelectionMode.ValueType  # 6
+        """Single row, cannot be cleared (radio-like behavior)."""
 
     class SelectionMode(_SelectionMode, metaclass=_SelectionModeEnumTypeWrapper):
         """Available selection modes:"""
@@ -105,6 +107,8 @@ class Dataframe(_message.Message):
     """Only one cell can be selected at a time."""
     MULTI_CELL: Dataframe.SelectionMode.ValueType  # 5
     """Multiple cells (continuous range) can be selected."""
+    SINGLE_ROW_REQUIRED: Dataframe.SelectionMode.ValueType  # 6
+    """Single row, cannot be cleared (radio-like behavior)."""
 
     ARROW_DATA_FIELD_NUMBER: _builtins.int
     ID_FIELD_NUMBER: _builtins.int

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name        = "home-assistant-intents"
-version     = "2026.3.3"
+version     = "2026.3.24"
 license     = "Apache-2.0"
 description = "Intents for Home Assistant"
 readme      = "README.md"
@@ -63,5 +63,6 @@ include = ["home_assistant_intents"]
 "home_assistant_intents" = [
     "data/*.json",
     "fuzzy/*.json",
-    "language_scores.json"
+    "language_scores.json",
+    "py.typed"
 ]

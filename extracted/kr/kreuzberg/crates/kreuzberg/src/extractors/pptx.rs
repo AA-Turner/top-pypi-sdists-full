@@ -65,6 +65,7 @@ impl DocumentExtractor for PptxExtractor {
             config.output_format,
             crate::core::config::OutputFormat::Plain | crate::core::config::OutputFormat::Structured
         );
+        let include_structure = config.include_document_structure;
 
         let pptx_result = {
             #[cfg(feature = "tokio-runtime")]
@@ -80,6 +81,7 @@ impl DocumentExtractor for PptxExtractor {
                             extract_images,
                             pages_config.as_ref(),
                             plain,
+                            include_structure,
                         )
                     })
                     .await
@@ -92,13 +94,20 @@ impl DocumentExtractor for PptxExtractor {
                         extract_images,
                         config.pages.as_ref(),
                         plain,
+                        include_structure,
                     )?
                 }
             }
 
             #[cfg(not(feature = "tokio-runtime"))]
             {
-                crate::extraction::pptx::extract_pptx_from_bytes(content, extract_images, config.pages.as_ref(), plain)?
+                crate::extraction::pptx::extract_pptx_from_bytes(
+                    content,
+                    extract_images,
+                    config.pages.as_ref(),
+                    plain,
+                    include_structure,
+                )?
             }
         };
 
@@ -150,12 +159,13 @@ impl DocumentExtractor for PptxExtractor {
             djot_content: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document: pptx_result.document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
@@ -176,8 +186,13 @@ impl DocumentExtractor for PptxExtractor {
             config.output_format,
             crate::core::config::OutputFormat::Plain | crate::core::config::OutputFormat::Structured
         );
-        let pptx_result =
-            crate::extraction::pptx::extract_pptx_from_path(path_str, extract_images, config.pages.as_ref(), plain)?;
+        let pptx_result = crate::extraction::pptx::extract_pptx_from_path(
+            path_str,
+            extract_images,
+            config.pages.as_ref(),
+            plain,
+            config.include_document_structure,
+        )?;
 
         let mut additional: AHashMap<Cow<'static, str>, serde_json::Value> = AHashMap::new();
         additional.insert(Cow::Borrowed("slide_count"), serde_json::json!(pptx_result.slide_count));
@@ -227,12 +242,13 @@ impl DocumentExtractor for PptxExtractor {
             djot_content: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document: pptx_result.document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: line-protocol-parser
-Version: 1.1.3
+Version: 1.1.4
 Summary: Parse InfluxDB line protocol string into Python dictionary
 Home-page: https://github.com/Penlect/line-protocol-parser
 Author: Daniel Andersson

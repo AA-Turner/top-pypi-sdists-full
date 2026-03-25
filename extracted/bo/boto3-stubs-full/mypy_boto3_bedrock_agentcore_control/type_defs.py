@@ -226,6 +226,7 @@ __all__ = (
     "EvaluatorReferenceTypeDef",
     "EvaluatorSummaryTypeDef",
     "ExtractionConfigurationTypeDef",
+    "FilesystemConfigurationTypeDef",
     "FilterTypeDef",
     "FilterValueTypeDef",
     "FindingTypeDef",
@@ -443,6 +444,7 @@ __all__ = (
     "SemanticOverrideConsolidationConfigurationInputTypeDef",
     "SemanticOverrideExtractionConfigurationInputTypeDef",
     "SessionConfigTypeDef",
+    "SessionStorageConfigurationTypeDef",
     "SetTokenVaultCMKRequestTypeDef",
     "SetTokenVaultCMKResponseTypeDef",
     "SlackOauth2ProviderConfigInputTypeDef",
@@ -977,6 +979,10 @@ class EvaluatorSummaryTypeDef(TypedDict):
     lockedForModification: NotRequired[bool]
 
 
+class SessionStorageConfigurationTypeDef(TypedDict):
+    mountPath: str
+
+
 class FilterValueTypeDef(TypedDict):
     stringValue: NotRequired[str]
     doubleValue: NotRequired[float]
@@ -1187,6 +1193,7 @@ class ListApiKeyCredentialProvidersRequestTypeDef(TypedDict):
 class ListBrowserProfilesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    name: NotRequired[str]
 
 
 ListBrowsersRequestTypeDef = TypedDict(
@@ -2060,6 +2067,10 @@ class ListEvaluatorsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class FilesystemConfigurationTypeDef(TypedDict):
+    sessionStorage: NotRequired[SessionStorageConfigurationTypeDef]
+
+
 FilterTypeDef = TypedDict(
     "FilterTypeDef",
     {
@@ -2213,6 +2224,7 @@ class ListApiKeyCredentialProvidersRequestPaginateTypeDef(TypedDict):
 
 
 class ListBrowserProfilesRequestPaginateTypeDef(TypedDict):
+    name: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -3101,6 +3113,7 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
     requestHeaderConfiguration: RequestHeaderConfigurationOutputTypeDef
     metadataConfiguration: RuntimeMetadataConfigurationTypeDef
+    filesystemConfigurations: list[FilesystemConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3235,6 +3248,7 @@ class CreateAgentRuntimeRequestTypeDef(TypedDict):
     protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
     lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
+    filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -3266,6 +3280,7 @@ class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
     metadataConfiguration: NotRequired[RuntimeMetadataConfigurationTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
+    filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     clientToken: NotRequired[str]
 
 

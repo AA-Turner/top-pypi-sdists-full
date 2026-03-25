@@ -43,14 +43,17 @@ class GProfilerTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"g:Profiler API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"g:Profiler API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to g:Profiler API"}
+            return {"status": "error", "error": "Failed to connect to g:Profiler API"}
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
-            return {"error": f"g:Profiler API HTTP {status}"}
+            return {"status": "error", "error": f"g:Profiler API HTTP {status}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -63,7 +66,7 @@ class GProfilerTool(BaseTool):
         elif self.endpoint == "snpense":
             return self._snpense(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _parse_gene_list(self, gene_list_str: str):
         """Parse comma-separated gene list into a list."""
@@ -77,7 +80,8 @@ class GProfilerTool(BaseTool):
         genes = self._parse_gene_list(gene_list_str)
         if not genes:
             return {
-                "error": "gene_list is required. Provide comma-separated gene symbols (e.g., 'TP53,BRCA1,EGFR')."
+                "status": "error",
+                "error": "gene_list is required. Provide comma-separated gene symbols (e.g., 'TP53,BRCA1,EGFR').",
             }
 
         organism = arguments.get("organism", "hsapiens")
@@ -121,6 +125,7 @@ class GProfilerTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": enriched_terms,
             "metadata": {
                 "source": "g:Profiler (biit.cs.ut.ee/gprofiler) - University of Tartu",
@@ -136,7 +141,8 @@ class GProfilerTool(BaseTool):
         genes = self._parse_gene_list(gene_list_str)
         if not genes:
             return {
-                "error": "gene_list is required. Provide comma-separated identifiers (e.g., 'TP53,BRCA1')."
+                "status": "error",
+                "error": "gene_list is required. Provide comma-separated identifiers (e.g., 'TP53,BRCA1').",
             }
 
         target = arguments.get("target_namespace", "ENSG")
@@ -167,6 +173,7 @@ class GProfilerTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": converted,
             "metadata": {
                 "source": "g:Profiler g:Convert (biit.cs.ut.ee/gprofiler)",
@@ -181,7 +188,8 @@ class GProfilerTool(BaseTool):
         genes = self._parse_gene_list(gene_list_str)
         if not genes:
             return {
-                "error": "gene_list is required. Provide comma-separated gene symbols (e.g., 'TP53,BRCA1')."
+                "status": "error",
+                "error": "gene_list is required. Provide comma-separated gene symbols (e.g., 'TP53,BRCA1').",
             }
 
         source_organism = arguments.get("source_organism", "hsapiens")
@@ -211,6 +219,7 @@ class GProfilerTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": orthologs,
             "metadata": {
                 "source": "g:Profiler g:Orth (biit.cs.ut.ee/gprofiler)",
@@ -224,7 +233,8 @@ class GProfilerTool(BaseTool):
         snp_list_str = arguments.get("snp_list", "")
         if not snp_list_str:
             return {
-                "error": "snp_list is required. Provide comma-separated rsIDs (e.g., 'rs11540652,rs429358,rs7903146')."
+                "status": "error",
+                "error": "snp_list is required. Provide comma-separated rsIDs (e.g., 'rs11540652,rs429358,rs7903146').",
             }
 
         snps = [s.strip() for s in snp_list_str.split(",") if s.strip()]
@@ -267,6 +277,7 @@ class GProfilerTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": annotations,
             "metadata": {
                 "source": "g:Profiler g:SNPense (biit.cs.ut.ee/gprofiler)",

@@ -24,6 +24,10 @@ use crate::core::config::ExtractionConfig;
 #[cfg(feature = "office")]
 use crate::plugins::{DocumentExtractor, Plugin};
 #[cfg(feature = "office")]
+use crate::types::builder::{self, DocumentStructureBuilder};
+#[cfg(feature = "office")]
+use crate::types::document_structure::{DocumentStructure, TextAnnotation};
+#[cfg(feature = "office")]
 use crate::types::{ExtractionResult, Metadata};
 #[cfg(feature = "office")]
 use async_trait::async_trait;
@@ -48,6 +52,404 @@ impl TypstExtractor {
         let metadata = extractor.metadata;
 
         (text, metadata)
+    }
+
+    /// Build a `DocumentStructure` from Typst source text.
+    fn build_document_structure(content: &str) -> DocumentStructure {
+        let mut builder = DocumentStructureBuilder::new().source_format("typst");
+        let mut in_code_block = false;
+        let mut code_text = String::new();
+        let mut code_lang: Option<String> = None;
+        let mut in_set_document = false;
+        let mut paren_depth: i32 = 0;
+        let mut paragraph_buf = String::new();
+        // Track multi-line #table() accumulation
+        let mut in_table = false;
+        let mut table_buf = String::new();
+        let mut table_paren_depth: i32 = 0;
+        let mut table_bracket_depth: i32 = 0;
+        // Track active list: (node_index, is_ordered) — read across loop iterations
+        #[allow(unused_assignments)]
+        let mut active_list: Option<(crate::types::document_structure::NodeIndex, bool)> = None;
+
+        let lines: Vec<&str> = content.lines().collect();
+        let mut line_idx = 0;
+        let image_re = Regex::new(r#"#image\("([^"]*)""#).ok();
+
+        while line_idx < lines.len() {
+            let trimmed = lines[line_idx].trim();
+            line_idx += 1;
+
+            // Accumulate multi-line #table() blocks
+            if in_table {
+                table_buf.push('\n');
+                table_buf.push_str(trimmed);
+                for ch in trimmed.chars() {
+                    match ch {
+                        '(' => table_paren_depth += 1,
+                        ')' => table_paren_depth -= 1,
+                        '[' => table_bracket_depth += 1,
+                        ']' => table_bracket_depth -= 1,
+                        _ => {}
+                    }
+                }
+                if table_paren_depth <= 0 && table_bracket_depth <= 0 {
+                    in_table = false;
+                    Self::emit_table(&table_buf, &mut builder);
+                    table_buf.clear();
+                }
+                continue;
+            }
+
+            // Skip multi-line #set document(...) blocks
+            if in_set_document {
+                for ch in trimmed.chars() {
+                    match ch {
+                        '(' => paren_depth += 1,
+                        ')' => paren_depth -= 1,
+                        _ => {}
+                    }
+                }
+                if paren_depth <= 0 {
+                    in_set_document = false;
+                    paren_depth = 0;
+                }
+                continue;
+            }
+
+            // Code block handling
+            if trimmed.starts_with("```") {
+                if in_code_block {
+                    if trimmed == "```" {
+                        in_code_block = false;
+                        let text = code_text.trim_end().to_string();
+                        if !text.is_empty() {
+                            builder.push_code(&text, code_lang.as_deref(), None);
+                        }
+                        code_text.clear();
+                        code_lang = None;
+                        continue;
+                    }
+                } else {
+                    Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                    in_code_block = true;
+                    code_text.clear();
+                    code_lang = trimmed.strip_prefix("```").and_then(|l| {
+                        let l = l.trim();
+                        if l.is_empty() { None } else { Some(l.to_string()) }
+                    });
+                    continue;
+                }
+            }
+
+            if in_code_block {
+                code_text.push_str(lines[line_idx - 1]);
+                code_text.push('\n');
+                continue;
+            }
+
+            // Skip #set document(...)
+            if trimmed.starts_with("#set document(") {
+                Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                paren_depth = 0;
+                for ch in trimmed.chars() {
+                    match ch {
+                        '(' => paren_depth += 1,
+                        ')' => paren_depth -= 1,
+                        _ => {}
+                    }
+                }
+                if paren_depth > 0 {
+                    in_set_document = true;
+                }
+                continue;
+            }
+
+            // Skip directives
+            if trimmed.starts_with("#set ")
+                || trimmed.starts_with("#let ")
+                || trimmed.starts_with("#import ")
+                || trimmed.starts_with("#include ")
+                || trimmed.starts_with("#pagebreak")
+                || trimmed.starts_with("#colbreak")
+                || trimmed.starts_with("#v(")
+                || trimmed.starts_with("#h(")
+            {
+                continue;
+            }
+
+            // List items — check before headings so `= ...` isn't mistaken for list
+            if (trimmed.starts_with('+') || trimmed.starts_with('-'))
+                && trimmed.len() > 1
+                && trimmed.chars().nth(1).is_some_and(|c| !c.is_alphanumeric())
+            {
+                Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                let ordered = trimmed.starts_with('+');
+
+                // Reuse active list if it matches the same type, otherwise start a new one
+                let list_idx = match active_list {
+                    Some((idx, prev_ordered)) if prev_ordered == ordered => idx,
+                    _ => {
+                        let idx = builder.push_list(ordered, None);
+                        active_list = Some((idx, ordered));
+                        idx
+                    }
+                };
+                builder.push_list_item(list_idx, trimmed[1..].trim(), None);
+                continue;
+            }
+
+            // Any non-list line ends the active list
+            active_list = None;
+
+            // Headings
+            if trimmed.starts_with('=') {
+                let heading_level = trimmed.chars().take_while(|&c| c == '=').count();
+                let heading_text = trimmed[heading_level..].trim();
+                if !heading_text.is_empty() {
+                    Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                    builder.push_heading(heading_level as u8, heading_text, None, None);
+                }
+                continue;
+            }
+
+            // Math blocks (display math: $ ... $)
+            if trimmed.starts_with('$') && trimmed.ends_with('$') && trimmed.len() > 1 {
+                Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                let math = trimmed.trim_matches('$').trim();
+                if !math.is_empty() {
+                    builder.push_formula(math, None);
+                }
+                continue;
+            }
+
+            // Empty lines flush paragraph
+            if trimmed.is_empty() {
+                Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                continue;
+            }
+
+            // #table() — start accumulation (may span multiple lines)
+            if trimmed.starts_with("#table(") {
+                Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                table_buf.clear();
+                table_buf.push_str(trimmed);
+                table_paren_depth = 0;
+                table_bracket_depth = 0;
+                for ch in trimmed.chars() {
+                    match ch {
+                        '(' => table_paren_depth += 1,
+                        ')' => table_paren_depth -= 1,
+                        '[' => table_bracket_depth += 1,
+                        ']' => table_bracket_depth -= 1,
+                        _ => {}
+                    }
+                }
+                if table_paren_depth > 0 || table_bracket_depth > 0 {
+                    in_table = true;
+                } else {
+                    Self::emit_table(&table_buf, &mut builder);
+                    table_buf.clear();
+                }
+                continue;
+            }
+
+            // #footnote[text] — extract footnote
+            if trimmed.starts_with("#footnote[") {
+                Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                if let Some(text) = Self::extract_bracket_content(trimmed, "#footnote[") {
+                    builder.push_footnote(&text, None);
+                }
+                continue;
+            }
+
+            // #image("path") — extract image
+            if trimmed.starts_with("#image(") {
+                Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+                // Extract path from #image("path") or #image("path", ...)
+                let description = image_re
+                    .as_ref()
+                    .and_then(|r| r.captures(trimmed))
+                    .and_then(|c| c.get(1))
+                    .map(|m| m.as_str());
+                builder.push_image(description, None, None, None);
+                continue;
+            }
+
+            // Regular text: accumulate into paragraph
+            if !paragraph_buf.is_empty() {
+                paragraph_buf.push(' ');
+            }
+            paragraph_buf.push_str(trimmed);
+        }
+
+        // Flush any remaining paragraph
+        Self::flush_paragraph(&mut paragraph_buf, &mut builder);
+
+        builder.build()
+    }
+
+    /// Parse inline formatting markers in paragraph text, producing stripped text
+    /// and annotations for bold (`*...*`), italic (`_..._`), code (`` `...` ``),
+    /// and links (`#link("url")[text]`).
+    fn parse_inline_annotations(raw: &str) -> (String, Vec<TextAnnotation>) {
+        let mut text = String::with_capacity(raw.len());
+        let mut annotations = Vec::new();
+        let mut byte_pos = 0;
+
+        while byte_pos < raw.len() {
+            // Handle #link("url")[text]
+            if raw.as_bytes()[byte_pos] == b'#'
+                && raw[byte_pos..].starts_with("#link(\"")
+                && let Some((url, display, consumed)) = Self::parse_link_at(&raw[byte_pos..])
+            {
+                let start = text.len() as u32;
+                text.push_str(&display);
+                let end = text.len() as u32;
+                annotations.push(builder::link(start, end, &url, None));
+                byte_pos += consumed;
+                continue;
+            }
+
+            // Handle #footnote[text] inline (emit text in brackets as-is with a
+            // footnote marker — but since footnotes are block-level, we skip
+            // inline footnotes in paragraph text).
+
+            // Decode the current character and its byte length
+            let ch = &raw[byte_pos..];
+            let c = ch.chars().next().unwrap();
+            let c_len = c.len_utf8();
+
+            match c {
+                '*' => {
+                    // Bold: find matching closing *
+                    if let Some(close_byte) = Self::find_closing_marker_byte(raw, byte_pos + c_len, b'*') {
+                        let start = text.len() as u32;
+                        text.push_str(&raw[byte_pos + c_len..close_byte]);
+                        let end = text.len() as u32;
+                        if end > start {
+                            annotations.push(builder::bold(start, end));
+                        }
+                        byte_pos = close_byte + 1; // skip closing '*'
+                    } else {
+                        text.push('*');
+                        byte_pos += c_len;
+                    }
+                }
+                '_' => {
+                    // Italic: find matching closing _
+                    if let Some(close_byte) = Self::find_closing_marker_byte(raw, byte_pos + c_len, b'_') {
+                        let start = text.len() as u32;
+                        text.push_str(&raw[byte_pos + c_len..close_byte]);
+                        let end = text.len() as u32;
+                        if end > start {
+                            annotations.push(builder::italic(start, end));
+                        }
+                        byte_pos = close_byte + 1; // skip closing '_'
+                    } else {
+                        text.push('_');
+                        byte_pos += c_len;
+                    }
+                }
+                '`' => {
+                    // Code: find matching closing `
+                    if let Some(close_byte) = Self::find_closing_marker_byte(raw, byte_pos + c_len, b'`') {
+                        let start = text.len() as u32;
+                        text.push_str(&raw[byte_pos + c_len..close_byte]);
+                        let end = text.len() as u32;
+                        if end > start {
+                            annotations.push(builder::code(start, end));
+                        }
+                        byte_pos = close_byte + 1; // skip closing '`'
+                    } else {
+                        text.push('`');
+                        byte_pos += c_len;
+                    }
+                }
+                _ => {
+                    text.push(c);
+                    byte_pos += c_len;
+                }
+            }
+        }
+
+        (text, annotations)
+    }
+
+    /// Find the byte index of a closing ASCII marker character starting from byte position `start`.
+    fn find_closing_marker_byte(raw: &str, start: usize, marker: u8) -> Option<usize> {
+        let bytes = raw.as_bytes();
+        (start..bytes.len()).find(|&idx| bytes[idx] == marker)
+    }
+
+    /// Parse a `#link("url")[text]` pattern at the beginning of a string slice.
+    /// Returns `(url, display_text, byte_count_consumed)` on success.
+    fn parse_link_at(s: &str) -> Option<(String, String, usize)> {
+        let re = Regex::new(r#"^#link\("([^"]*)"\)\[([^\]]*)\]"#).ok()?;
+        let caps = re.captures(s)?;
+        let url = caps.get(1)?.as_str().to_string();
+        let display = caps.get(2)?.as_str().to_string();
+        let consumed = caps.get(0)?.end();
+        Some((url, display, consumed))
+    }
+
+    /// Flush accumulated paragraph text, parsing inline formatting into annotations.
+    fn flush_paragraph(buf: &mut String, b: &mut DocumentStructureBuilder) {
+        let raw = buf.trim().to_string();
+        if !raw.is_empty() {
+            let (text, annotations) = Self::parse_inline_annotations(&raw);
+            b.push_paragraph(&text, annotations, None, None);
+        }
+        buf.clear();
+    }
+
+    /// Extract content between the first `[` after the prefix and the matching `]`.
+    fn extract_bracket_content(s: &str, prefix: &str) -> Option<String> {
+        let after = s.strip_prefix(prefix)?;
+        let end = after.find(']')?;
+        Some(after[..end].to_string())
+    }
+
+    /// Parse a `#table(...)` block and emit it as a table node.
+    fn emit_table(table_str: &str, builder: &mut DocumentStructureBuilder) {
+        // Extract column count from `columns: N`
+        let num_cols = Regex::new(r"columns:\s*(\d+)")
+            .ok()
+            .and_then(|re| re.captures(table_str))
+            .and_then(|caps| caps.get(1))
+            .and_then(|m| m.as_str().parse::<usize>().ok())
+            .unwrap_or(0);
+
+        // Collect all cell texts from [content] brackets
+        let mut cells: Vec<String> = Vec::new();
+        let mut in_bracket = false;
+        let mut cell = String::new();
+        for ch in table_str.chars() {
+            match ch {
+                '[' => {
+                    in_bracket = true;
+                    cell.clear();
+                }
+                ']' if in_bracket => {
+                    cells.push(cell.trim().to_string());
+                    in_bracket = false;
+                    cell.clear();
+                }
+                _ if in_bracket => {
+                    cell.push(ch);
+                }
+                _ => {}
+            }
+        }
+
+        if cells.is_empty() {
+            return;
+        }
+
+        // Arrange cells into rows
+        let effective_cols = if num_cols > 0 { num_cols } else { cells.len() };
+        let rows: Vec<Vec<String>> = cells.chunks(effective_cols).map(|chunk| chunk.to_vec()).collect();
+        builder.push_table_from_cells(&rows, None);
     }
 }
 
@@ -90,7 +492,7 @@ impl Plugin for TypstExtractor {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl DocumentExtractor for TypstExtractor {
     #[cfg_attr(feature = "otel", tracing::instrument(
-        skip(self, content, _config),
+        skip(self, content, config),
         fields(
             extractor.name = self.name(),
             content.size_bytes = content.len(),
@@ -100,10 +502,16 @@ impl DocumentExtractor for TypstExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let typst_str = String::from_utf8_lossy(content).to_string();
         let (text, metadata) = Self::extract_from_typst(&typst_str);
+
+        let document = if config.include_document_structure {
+            Some(Self::build_document_structure(&typst_str))
+        } else {
+            None
+        };
 
         Ok(ExtractionResult {
             content: text,
@@ -117,12 +525,13 @@ impl DocumentExtractor for TypstExtractor {
             pages: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
@@ -731,5 +1140,24 @@ Actual content"#;
         let (output, _) = TypstExtractor::extract_from_typst(content);
 
         assert!(output.contains("*") || output.contains("_") || (output.contains("bold") && output.contains("italic")));
+    }
+
+    #[test]
+    fn test_cjk_with_inline_formatting() {
+        // CJK text with bold markers — must not panic on multi-byte chars
+        let content = "これは*太字*テスト";
+        let (output, _) = TypstExtractor::extract_from_typst(content);
+        assert!(output.contains("太字"), "Bold content should be present");
+        assert!(output.contains("これは"), "Leading CJK text preserved");
+        assert!(output.contains("テスト"), "Trailing CJK text preserved");
+    }
+
+    #[test]
+    fn test_emoji_with_inline_formatting() {
+        let content = "Hello 🎉 *bold* world 🌍";
+        let (output, _) = TypstExtractor::extract_from_typst(content);
+        assert!(output.contains("🎉"), "Emoji preserved");
+        assert!(output.contains("bold"), "Bold content present");
+        assert!(output.contains("🌍"), "Trailing emoji preserved");
     }
 }

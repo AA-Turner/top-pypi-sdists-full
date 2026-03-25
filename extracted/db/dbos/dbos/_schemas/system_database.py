@@ -82,10 +82,13 @@ class SystemSchema:
         Column("priority", Integer(), nullable=False),
         Column("queue_partition_key", Text()),
         Column("forked_from", Text()),
+        Column("was_forked_from", Boolean, nullable=False, server_default="false"),
         Column("owner_xid", Text()),
         Column("parent_workflow_id", Text()),
         Column("serialization", Text()),
+        Column("delay_until_epoch_ms", BigInteger, nullable=True),
         Index("workflow_status_created_at_index", "created_at"),
+        Index("idx_workflow_status_delayed", "delay_until_epoch_ms"),
         Index("workflow_status_executor_id_index", "executor_id"),
         Index("workflow_status_status_index", "status"),
         UniqueConstraint(
@@ -216,6 +219,7 @@ class SystemSchema:
         Column("last_fired_at", Text, nullable=True),
         Column("automatic_backfill", Boolean, nullable=False, server_default="false"),
         Column("cron_timezone", Text, nullable=True),
+        Column("queue_name", Text, nullable=True),
     )
 
     application_versions = Table(

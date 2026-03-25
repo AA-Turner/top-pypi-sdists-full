@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 
+use dupe::Dupe;
 use pretty_assertions::assert_eq;
 use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Param;
@@ -16,17 +17,17 @@ use pyrefly_types::class::ClassType;
 use ruff_python_ast::name::Name;
 
 use crate::report::pysa::call_graph::Target;
+use crate::report::pysa::context::ModuleAnswersContext;
 use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::context::PysaResolver;
 use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionDefinition;
 use crate::report::pysa::function::FunctionParameter;
 use crate::report::pysa::function::FunctionParameters;
 use crate::report::pysa::function::FunctionSignature;
-use crate::report::pysa::function::collect_function_base_definitions;
 use crate::report::pysa::function::export_function_definitions;
 use crate::report::pysa::module::ModuleIds;
-use crate::report::pysa::module_index::build_pysa_module_index;
-use crate::report::pysa::override_graph::build_reversed_override_graph;
+use crate::report::pysa::override_graph::create_reversed_override_graph_for_module;
 use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::types::ClassNamesFromType;
 use crate::report::pysa::types::PysaType;
@@ -57,11 +58,11 @@ fn create_function_definition(
             is_stub: false,
             is_def_statement: true,
             defining_class: None,
-            overridden_base_method: None,
         },
         undecorated_signatures,
         captured_variables: Vec::new(),
         decorator_callees: HashMap::new(),
+        overridden_base_method: None,
     }
 }
 
@@ -87,23 +88,28 @@ fn test_exported_functions(
 
     let test_module_handle = get_handle_for_module_name(module_name, &transaction);
 
-    let context = ModuleContext::create(test_module_handle, &transaction, &module_ids).unwrap();
+    let resolver = PysaResolver::new_for_test(
+        &transaction,
+        &module_ids,
+        test_module_handle.dupe(),
+        &handles,
+    );
+    let context = ModuleContext {
+        answers_context: ModuleAnswersContext::create(
+            test_module_handle.dupe(),
+            &transaction,
+            &module_ids,
+        ),
+        resolver: &resolver,
+    };
 
     let expected_function_definitions = create_expected_function_definitions(&context);
 
-    let pysa_module_index = build_pysa_module_index(&handles, &transaction, &module_ids);
-    let reversed_override_graph =
-        build_reversed_override_graph(&handles, &transaction, &module_ids, &pysa_module_index);
     let captured_variables = HashMap::new();
+    let module_reversed_override_graph = create_reversed_override_graph_for_module(&context);
     let actual_function_definitions = export_function_definitions(
-        &pysa_module_index,
-        &collect_function_base_definitions(
-            &handles,
-            &transaction,
-            &module_ids,
-            &reversed_override_graph,
-        ),
         &captured_variables,
+        &module_reversed_override_graph,
         &context,
     );
 
@@ -160,10 +166,13 @@ def foo(x: int) -> str:
             vec![create_simple_signature(
                 vec![FunctionParameter::Pos {
                     name: "x".into(),
-                    annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                    annotation: PysaType::from_class_type(
+                        context.answers_context.stdlib.int(),
+                        context,
+                    ),
                     required: true,
                 }],
-                PysaType::from_class_type(context.stdlib.str(), context),
+                PysaType::from_class_type(context.answers_context.stdlib.str(), context),
             )],
         )
     },
@@ -184,26 +193,41 @@ def complex_function(pos_arg: int, /, pos_or_kw: str, *args: float, kw_only: boo
                 vec![
                     FunctionParameter::PosOnly {
                         name: Some("pos_arg".into()),
-                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.int(),
+                            context,
+                        ),
                         required: true,
                     },
                     FunctionParameter::Pos {
                         name: "pos_or_kw".into(),
-                        annotation: PysaType::from_class_type(context.stdlib.str(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.str(),
+                            context,
+                        ),
                         required: true,
                     },
                     FunctionParameter::VarArg {
                         name: Some("args".into()),
-                        annotation: PysaType::from_class_type(context.stdlib.float(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.float(),
+                            context,
+                        ),
                     },
                     FunctionParameter::KwOnly {
                         name: "kw_only".into(),
-                        annotation: PysaType::from_class_type(context.stdlib.bool(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.bool(),
+                            context,
+                        ),
                         required: true,
                     },
                     FunctionParameter::Kwargs {
                         name: Some("kwargs".into()),
-                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.int(),
+                            context,
+                        ),
                     },
                 ],
                 PysaType::none(),
@@ -260,10 +284,13 @@ class MyClass:
             vec![create_simple_signature(
                 vec![FunctionParameter::Pos {
                     name: "x".into(),
-                    annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                    annotation: PysaType::from_class_type(
+                        context.answers_context.stdlib.int(),
+                        context,
+                    ),
                     required: true,
                 }],
-                PysaType::from_class_type(context.stdlib.str(), context),
+                PysaType::from_class_type(context.answers_context.stdlib.str(), context),
             )],
         )
         .with_is_staticmethod(true)
@@ -290,13 +317,16 @@ class MyClass:
                 vec![FunctionParameter::Pos {
                     name: "cls".into(),
                     annotation: PysaType::from_type(
-                        &context
-                            .answers
-                            .heap()
-                            .mk_type(context.answers.heap().mk_class_type(ClassType::new(
-                                get_class("test", "MyClass", context),
-                                Default::default(),
-                            ))),
+                        &context.answers_context.answers.heap().mk_type(
+                            context
+                                .answers_context
+                                .answers
+                                .heap()
+                                .mk_class_type(ClassType::new(
+                                    get_class("test", "MyClass", context),
+                                    Default::default(),
+                                )),
+                        ),
                         context,
                     ),
                     required: true,
@@ -331,18 +361,24 @@ def foo(x: str | int) -> str | int:
                 create_simple_signature(
                     vec![FunctionParameter::Pos {
                         name: "x".into(),
-                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.int(),
+                            context,
+                        ),
                         required: true,
                     }],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 ),
                 create_simple_signature(
                     vec![FunctionParameter::Pos {
                         name: "x".into(),
-                        annotation: PysaType::from_class_type(context.stdlib.str(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.str(),
+                            context,
+                        ),
                         required: true,
                     }],
-                    PysaType::from_class_type(context.stdlib.str(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.str(), context),
                 ),
             ],
         )
@@ -394,7 +430,7 @@ class MyClass:
                         ),
                         required: true,
                     }],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 )],
             )
             .with_is_property_getter(true)
@@ -417,7 +453,10 @@ class MyClass:
                         },
                         FunctionParameter::Pos {
                             name: "value".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: true,
                         },
                     ],
@@ -471,15 +510,15 @@ def foo(x: int) -> int:
     return x
 "#,
     &|context: &ModuleContext| {
-        let heap = context.answers.heap();
+        let heap = context.answers_context.answers.heap();
         let callable_int_to_int = PysaType::from_type(
             &heap.mk_callable_from(Callable::list(
                 ParamList::new(vec![Param::PosOnly(
                     None,
-                    heap.mk_class_type(context.stdlib.int().clone()),
+                    heap.mk_class_type(context.answers_context.stdlib.int().clone()),
                     Required::Required,
                 )]),
-                heap.mk_class_type(context.stdlib.int().clone()),
+                heap.mk_class_type(context.answers_context.stdlib.int().clone()),
             )),
             context,
         );
@@ -504,10 +543,13 @@ def foo(x: int) -> int:
                 vec![create_simple_signature(
                     vec![FunctionParameter::Pos {
                         name: "x".into(),
-                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.int(),
+                            context,
+                        ),
                         required: true,
                     }],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 )],
             )
             .with_decorator_callees(HashMap::from([(
@@ -535,14 +577,14 @@ def foo(x: int) -> int:
     return x
 "#,
     &|context: &ModuleContext| {
-        let heap = context.answers.heap();
+        let heap = context.answers_context.answers.heap();
         let callable_int_to_int = heap.mk_callable_from(Callable::list(
             ParamList::new(vec![Param::PosOnly(
                 None,
-                heap.mk_class_type(context.stdlib.int().clone()),
+                heap.mk_class_type(context.answers_context.stdlib.int().clone()),
                 Required::Required,
             )]),
-            heap.mk_class_type(context.stdlib.int().clone()),
+            heap.mk_class_type(context.answers_context.stdlib.int().clone()),
         ));
         vec![
             create_function_definition(
@@ -552,18 +594,25 @@ def foo(x: int) -> int:
                 vec![create_simple_signature(
                     vec![FunctionParameter::Pos {
                         name: "x".into(),
-                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.int(),
+                            context,
+                        ),
                         required: true,
                     }],
                     PysaType::from_type(
-                        &context.answers.heap().mk_callable_from(Callable::list(
-                            ParamList::new(vec![Param::PosOnly(
-                                None,
+                        &context
+                            .answers_context
+                            .answers
+                            .heap()
+                            .mk_callable_from(Callable::list(
+                                ParamList::new(vec![Param::PosOnly(
+                                    None,
+                                    callable_int_to_int.clone(),
+                                    Required::Required,
+                                )]),
                                 callable_int_to_int.clone(),
-                                Required::Required,
-                            )]),
-                            callable_int_to_int.clone(),
-                        )),
+                            )),
                         context,
                     ),
                 )],
@@ -575,10 +624,13 @@ def foo(x: int) -> int:
                 vec![create_simple_signature(
                     vec![FunctionParameter::Pos {
                         name: "x".into(),
-                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.int(),
+                            context,
+                        ),
                         required: true,
                     }],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 )],
             )
             .with_decorator_callees(HashMap::from([(
@@ -610,15 +662,15 @@ def foo(x: int) -> int:
     return x
 "#,
     &|context: &ModuleContext| {
-        let heap = context.answers.heap();
+        let heap = context.answers_context.answers.heap();
         let callable_int_to_int = PysaType::from_type(
             &heap.mk_callable_from(Callable::list(
                 ParamList::new(vec![Param::PosOnly(
                     None,
-                    heap.mk_class_type(context.stdlib.int().clone()),
+                    heap.mk_class_type(context.answers_context.stdlib.int().clone()),
                     Required::Required,
                 )]),
-                heap.mk_class_type(context.stdlib.int().clone()),
+                heap.mk_class_type(context.answers_context.stdlib.int().clone()),
             )),
             context,
         );
@@ -656,10 +708,13 @@ def foo(x: int) -> int:
                 vec![create_simple_signature(
                     vec![FunctionParameter::Pos {
                         name: "x".into(),
-                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.int(),
+                            context,
+                        ),
                         required: true,
                     }],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 )],
             )
             .with_decorator_callees(HashMap::from([
@@ -703,7 +758,7 @@ class Foo:
                         ),
                         required: true,
                     }],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 )],
             )
             .with_is_def_statement(false)
@@ -727,12 +782,18 @@ class Foo:
                         },
                         FunctionParameter::Pos {
                             name: "x".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: true,
                         },
                         FunctionParameter::Pos {
                             name: "y".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.str(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.str(),
+                                context,
+                            ),
                             required: true,
                         },
                     ],
@@ -760,12 +821,18 @@ class Foo:
                         },
                         FunctionParameter::KwOnly {
                             name: "x".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: false,
                         },
                         FunctionParameter::KwOnly {
                             name: "y".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.str(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.str(),
+                                context,
+                            ),
                             required: false,
                         },
                     ],
@@ -796,10 +863,13 @@ class Foo:
                 vec![create_simple_signature(
                     vec![FunctionParameter::PosOnly {
                         name: None,
-                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        annotation: PysaType::from_class_type(
+                            context.answers_context.stdlib.int(),
+                            context,
+                        ),
                         required: true,
                     }],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 )],
             )
             .with_is_def_statement(false)
@@ -838,11 +908,14 @@ class Foo:
                         },
                         FunctionParameter::Pos {
                             name: "x".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: true,
                         },
                     ],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 )],
             )
             .with_defining_class(get_class_ref("test", "Foo", context)),
@@ -864,11 +937,14 @@ class Foo:
                         },
                         FunctionParameter::Pos {
                             name: "x".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: true,
                         },
                     ],
-                    PysaType::from_class_type(context.stdlib.int(), context),
+                    PysaType::from_class_type(context.answers_context.stdlib.int(), context),
                 )],
             )
             .with_is_def_statement(false)
@@ -1146,13 +1222,14 @@ class B(A):
                     vec![FunctionParameter::Pos {
                         name: "cls".into(),
                         annotation: PysaType::from_type(
-                            &context
-                                .answers
-                                .heap()
-                                .mk_type(context.answers.heap().mk_class_type(ClassType::new(
-                                    get_class("test", "A", context),
-                                    Default::default(),
-                                ))),
+                            &context.answers_context.answers.heap().mk_type(
+                                context.answers_context.answers.heap().mk_class_type(
+                                    ClassType::new(
+                                        get_class("test", "A", context),
+                                        Default::default(),
+                                    ),
+                                ),
+                            ),
                             context,
                         ),
                         required: true,
@@ -1172,13 +1249,14 @@ class B(A):
                     vec![FunctionParameter::Pos {
                         name: "cls".into(),
                         annotation: PysaType::from_type(
-                            &context
-                                .answers
-                                .heap()
-                                .mk_type(context.answers.heap().mk_class_type(ClassType::new(
-                                    get_class("test", "B", context),
-                                    Default::default(),
-                                ))),
+                            &context.answers_context.answers.heap().mk_type(
+                                context.answers_context.answers.heap().mk_class_type(
+                                    ClassType::new(
+                                        get_class("test", "B", context),
+                                        Default::default(),
+                                    ),
+                                ),
+                            ),
                             context,
                         ),
                         required: true,
@@ -1226,7 +1304,10 @@ class B(A):
                         },
                         FunctionParameter::Pos {
                             name: "x".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: true,
                         },
                     ],
@@ -1253,7 +1334,10 @@ class B(A):
                         },
                         FunctionParameter::Pos {
                             name: "x".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: true,
                         },
                     ],
@@ -1281,7 +1365,10 @@ class B(A):
                         },
                         FunctionParameter::KwOnly {
                             name: "x".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: false,
                         },
                     ],
@@ -1308,7 +1395,10 @@ class B(A):
                         },
                         FunctionParameter::KwOnly {
                             name: "x".into(),
-                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            annotation: PysaType::from_class_type(
+                                context.answers_context.stdlib.int(),
+                                context,
+                            ),
                             required: false,
                         },
                     ],

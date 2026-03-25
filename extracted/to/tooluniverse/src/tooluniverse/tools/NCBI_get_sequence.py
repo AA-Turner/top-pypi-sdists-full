@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def NCBI_get_sequence(
-    operation: str,
     accession: str,
+    operation: Optional[str] = None,
     format: Optional[str] = "fasta",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,

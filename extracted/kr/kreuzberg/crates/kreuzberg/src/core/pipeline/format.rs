@@ -99,8 +99,8 @@ pub fn apply_output_format(result: &mut ExtractionResult, output_format: OutputF
                     // Keep original content on error, record error in metadata
                     let error_msg = format!("Failed to convert to djot: {}", e);
                     result.processing_warnings.push(ProcessingWarning {
-                        source: "output_format".to_string(),
-                        message: error_msg.clone(),
+                        source: Cow::Borrowed("output_format"),
+                        message: Cow::Owned(error_msg.clone()),
                     });
                     // DEPRECATED: kept for backward compatibility; will be removed in next major version.
                     result.metadata.additional.insert(
@@ -125,8 +125,8 @@ pub fn apply_output_format(result: &mut ExtractionResult, output_format: OutputF
                         // Keep original content on error, record error in metadata
                         let error_msg = format!("Failed to convert to markdown: {}", e);
                         result.processing_warnings.push(ProcessingWarning {
-                            source: "output_format".to_string(),
-                            message: error_msg.clone(),
+                            source: Cow::Borrowed("output_format"),
+                            message: Cow::Owned(error_msg.clone()),
                         });
                         // DEPRECATED: kept for backward compatibility; will be removed in next major version.
                         result.metadata.additional.insert(
@@ -152,8 +152,8 @@ pub fn apply_output_format(result: &mut ExtractionResult, output_format: OutputF
                                 // Keep original content on error, record error in metadata
                                 let error_msg = format!("Failed to convert djot to HTML: {}", e);
                                 result.processing_warnings.push(ProcessingWarning {
-                                    source: "output_format".to_string(),
-                                    message: error_msg.clone(),
+                                    source: Cow::Borrowed("output_format"),
+                                    message: Cow::Owned(error_msg.clone()),
                                 });
                                 // DEPRECATED: kept for backward compatibility; will be removed in next major version.
                                 result.metadata.additional.insert(
@@ -167,8 +167,8 @@ pub fn apply_output_format(result: &mut ExtractionResult, output_format: OutputF
                         // Keep original content on error, record error in metadata
                         let error_msg = format!("Failed to generate djot for HTML conversion: {}", e);
                         result.processing_warnings.push(ProcessingWarning {
-                            source: "output_format".to_string(),
-                            message: error_msg.clone(),
+                            source: Cow::Borrowed("output_format"),
+                            message: Cow::Owned(error_msg.clone()),
                         });
                         // DEPRECATED: kept for backward compatibility; will be removed in next major version.
                         result.metadata.additional.insert(
@@ -198,12 +198,22 @@ pub fn apply_output_format(result: &mut ExtractionResult, output_format: OutputF
 }
 
 /// Escape HTML special characters in a string.
+///
+/// Single-pass implementation to avoid 4 intermediate String allocations from
+/// chained `.replace()` calls. Reserves extra capacity upfront for escape sequences.
 fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#39;")
+    let mut result = String::with_capacity(s.len() + s.len() / 8);
+    for c in s.chars() {
+        match c {
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '"' => result.push_str("&quot;"),
+            '\'' => result.push_str("&#39;"),
+            _ => result.push(c),
+        }
+    }
+    result
 }
 
 #[cfg(test)]

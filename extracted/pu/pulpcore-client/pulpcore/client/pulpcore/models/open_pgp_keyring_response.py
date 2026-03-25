@@ -39,8 +39,9 @@ class OpenPGPKeyringResponse(BaseModel):
     name: StrictStr = Field(description="A unique name for this repository.")
     description: Optional[StrictStr] = Field(default=None, description="An optional description.")
     retain_repo_versions: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
+    retain_checkpoints: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Retain X checkpoint publications for the repository. Default is null which retains all checkpoints.")
     remote: Optional[StrictStr] = Field(default=None, description="An optional remote to use by default when syncing.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "versions_href", "pulp_labels", "latest_version_href", "name", "description", "retain_repo_versions", "remote"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "versions_href", "pulp_labels", "latest_version_href", "name", "description", "retain_repo_versions", "retain_checkpoints", "remote"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -102,6 +103,11 @@ class OpenPGPKeyringResponse(BaseModel):
         # and model_fields_set contains the field
         if self.retain_repo_versions is None and "retain_repo_versions" in self.model_fields_set:
             _dict['retain_repo_versions'] = None
+
+        # set to None if retain_checkpoints (nullable) is None
+        # and model_fields_set contains the field
+        if self.retain_checkpoints is None and "retain_checkpoints" in self.model_fields_set:
+            _dict['retain_checkpoints'] = None
 
         # set to None if remote (nullable) is None
         # and model_fields_set contains the field

@@ -56,6 +56,7 @@ class HealthDisparitiesTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": {
                 "data_sources": data_sources,
                 "note": "SVI data is available as downloadable CSV files. Visit the download URL to access the data. Data includes social vulnerability indicators at county, census tract, and state levels.",
@@ -83,6 +84,7 @@ class HealthDisparitiesTool(BaseTool):
         ]
 
         return {
+            "status": "success",
             "data": {
                 "data_sources": data_sources,
                 "note": "County Health Rankings data is available through their website. Visit the access URL to explore and download county-level health data. Data includes health outcomes, health factors, and health behaviors by county.",
@@ -101,4 +103,4 @@ class HealthDisparitiesTool(BaseTool):
         elif self.endpoint == "county_rankings":
             return self._get_county_rankings_info(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}

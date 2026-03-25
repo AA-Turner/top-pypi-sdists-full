@@ -11,9 +11,10 @@ from pymobiledevice3.services.installation_proxy import InstallationProxyService
 async def user_bundle_id(lockdown: LockdownClient) -> str:
     async with InstallationProxyService(lockdown=lockdown) as installation_proxy:
         user_apps = await installation_proxy.get_apps(application_type="User")
-    if not user_apps:
-        pytest.skip("No user apps installed to exercise house arrest")
-    return next(iter(user_apps))
+    file_sharing_apps = [bundle_id for bundle_id, app_info in user_apps.items() if app_info.get("UIFileSharingEnabled")]
+    if not file_sharing_apps:
+        pytest.skip("No user apps with UIFileSharingEnabled installed to exercise house arrest")
+    return file_sharing_apps[0]
 
 
 @pytest.mark.asyncio
@@ -26,7 +27,6 @@ async def test_missing_bundle_id(lockdown: LockdownClient) -> None:
 @pytest.mark.asyncio
 async def test_vend_container_lists_app_root(lockdown: LockdownClient, user_bundle_id: str) -> None:
     async with await HouseArrestService.create(
-        lockdown=lockdown, bundle_id=user_bundle_id, documents_only=False
+        lockdown=lockdown, bundle_id=user_bundle_id, documents_only=True
     ) as service:
-        entries = set(await service.listdir("/"))
-    assert "Documents" in entries
+        await service.listdir("/Documents")

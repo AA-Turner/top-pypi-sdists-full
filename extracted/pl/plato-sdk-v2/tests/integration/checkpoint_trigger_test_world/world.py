@@ -81,23 +81,6 @@ class CheckpointTriggerTestWorld(BaseWorld[CheckpointTriggerTestConfig]):
         workspace_path = Path(code_ws.path)
         workspace_path.mkdir(parents=True, exist_ok=True)
 
-        # Start trigger server for receiving file change events from agent VM
-        trigger_server = await self.start_trigger_server()
-        trigger_url = f"runtime.plato.internal:{trigger_server.port}"
-
-        logger.info(
-            "Trigger server started on port %d (url=%s)",
-            trigger_server.port,
-            trigger_url,
-        )
-
-        # Build agent runner with file triggers
-        agent_runner = self.agent(self.config.agent, workspaces=[code_ws]).with_file_triggers(
-            patterns=["**/progress.json"],
-            trigger_server_url=trigger_url,
-        )
-
-        # Run agent with file trigger checkpoints
         file_triggers = [FileCheckpointTrigger(pattern="**/progress.json", debounce_s=1.0)]
 
         async with checkpoint(
@@ -106,8 +89,8 @@ class CheckpointTriggerTestWorld(BaseWorld[CheckpointTriggerTestConfig]):
             step=1,
             interval_s=300,
             file_triggers=file_triggers,
-            trigger_server=trigger_server,
-        ):
+        ) as ctx:
+            agent_runner = self.agent(self.config.agent, workspaces=[code_ws]).with_file_triggers_from(ctx)
             await agent_runner.run(INSTRUCTION)
 
         # Verify agent output
@@ -150,8 +133,6 @@ class CheckpointTriggerTestWorld(BaseWorld[CheckpointTriggerTestConfig]):
                     len(file_triggered_refs),
                     len(triggered_with_span),
                 )
-
-        await trigger_server.stop()
 
         return StepResult(
             observation=Observation(data=validation),

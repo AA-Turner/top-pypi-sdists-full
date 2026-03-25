@@ -37,18 +37,31 @@ class CellxGeneDiscoveryTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"CellxGene Discovery API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"CellxGene Discovery API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to CellxGene Discovery API"}
+            return {
+                "status": "error",
+                "error": "Failed to connect to CellxGene Discovery API",
+            }
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "unknown"
             if code == 404:
                 return {
-                    "error": f"Collection/dataset not found: {arguments.get('collection_id', '')}"
+                    "status": "error",
+                    "error": f"Collection/dataset not found: {arguments.get('collection_id', '')}",
                 }
-            return {"error": f"CellxGene Discovery API HTTP error: {code}"}
+            return {
+                "status": "error",
+                "error": f"CellxGene Discovery API HTTP error: {code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying CellxGene Discovery: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying CellxGene Discovery: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -59,7 +72,7 @@ class CellxGeneDiscoveryTool(BaseTool):
         elif self.endpoint == "search_datasets":
             return self._search_datasets(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _list_collections(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """List curated single-cell collections."""
@@ -96,6 +109,7 @@ class CellxGeneDiscoveryTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "total_collections": total,
                 "returned": len(results),
@@ -111,7 +125,10 @@ class CellxGeneDiscoveryTool(BaseTool):
         """Get detailed collection information with datasets."""
         collection_id = arguments.get("collection_id", "")
         if not collection_id:
-            return {"error": "collection_id is required (UUID format)"}
+            return {
+                "status": "error",
+                "error": "collection_id is required (UUID format)",
+            }
 
         url = f"{CXG_BASE_URL}/curation/v1/collections/{collection_id}"
         response = requests.get(url, timeout=self.timeout)
@@ -146,6 +163,7 @@ class CellxGeneDiscoveryTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "collection_id": c.get("collection_id"),
                 "name": c.get("name"),
@@ -172,7 +190,8 @@ class CellxGeneDiscoveryTool(BaseTool):
 
         if not any([tissue, disease, organism, cell_type]):
             return {
-                "error": "At least one search parameter required: tissue, disease, organism, or cell_type"
+                "status": "error",
+                "error": "At least one search parameter required: tissue, disease, organism, or cell_type",
             }
 
         # Fetch full dataset index and filter
@@ -252,6 +271,7 @@ class CellxGeneDiscoveryTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "total_matching": total,
                 "returned": len(results),

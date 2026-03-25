@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import gc
 import logging
 import numbers
 import operator
@@ -54,17 +55,58 @@ def handle_sigint(signals: int, frametype: FrameType | None) -> Any:
     if callable(old_handler):
         old_handler(signals, frametype)
     else:
-        print("*** CRITICAL ERROR - THIS SHOULD NEVER HAPPEN", sys.stderr, flush=True)
         raise KeyboardInterrupt
 
 
-if threading.current_thread() == threading.main_thread():  # Signal only works in the main thread
-    old_handler = signal.getsignal(signal.SIGINT)
-    if old_handler is None or old_handler == signal.SIG_DFL:
-        # there is a signal handler installed by someone other than python. we cannot handle this.
+old_handler = True  # I forget why True is the default value here...
+_gc_lock = threading.Lock()
+_active_z3_calls = 0
+_gc_was_enabled = False
+
+
+def _enter_z3():
+    global _active_z3_calls, _gc_was_enabled
+
+    with _gc_lock:
+        if _active_z3_calls == 0:
+            _gc_was_enabled = gc.isenabled()
+            if _gc_was_enabled:
+                gc.disable()
+        _active_z3_calls += 1
+
+
+def _exit_z3():
+    global _active_z3_calls, _gc_was_enabled
+
+    with _gc_lock:
+        if _active_z3_calls == 0:
+            log.error("BackendZ3 GC guard underflow")
+            return
+
+        _active_z3_calls -= 1
+        if _active_z3_calls == 0:
+            if _gc_was_enabled:
+                gc.enable()
+            _gc_was_enabled = False
+
+
+def install_sigint_handler():
+    global old_handler
+    if threading.current_thread() == threading.main_thread():  # Signal only works in the main thread
+        old_handler = signal.getsignal(signal.SIGINT)
+        if old_handler is None or old_handler == signal.SIG_DFL:
+            # there is a signal handler installed by someone other than python. we cannot handle this.
+            pass
+        else:
+            signal.signal(signal.SIGINT, handle_sigint)
+
+
+def uninstall_sigint_handler():
+    global old_handler
+    if old_handler is not True:
+        signal.signal(signal.SIGINT, old_handler)
         old_handler = True
-    else:
-        signal.signal(signal.SIGINT, handle_sigint)
+
 
 try:
     import __pypy__
@@ -192,9 +234,14 @@ def condom(f):
         The Z3 condom intercepts Z3Exceptions and throws a ClaripyZ3Error instead.
         """
         try:
+            _enter_z3()
+            install_sigint_handler()
             return f(*args, **kwargs)
         except z3.Z3Exception as ze:
             raise ClaripyZ3Error from ze
+        finally:
+            uninstall_sigint_handler()
+            _exit_z3()
 
     return z3_condom
 

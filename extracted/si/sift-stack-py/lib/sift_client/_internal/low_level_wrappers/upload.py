@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -15,6 +16,10 @@ if TYPE_CHECKING:
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Parquet MIME types are not included in mimetypes by default
+mimetypes.add_type("application/vnd.apache.parquet", ".pqt")
+mimetypes.add_type("application/vnd.apache.parquet", ".parquet")
 
 
 class UploadLowLevelClient(LowLevelClientBase, WithRestClient):
@@ -88,7 +93,11 @@ class UploadLowLevelClient(LowLevelClientBase, WithRestClient):
         file_name, mimetype, content_encoding = self._mime_and_content_type_from_path(posix_path)
 
         if not mimetype:
-            raise ValueError(f"The MIME-type of '{posix_path}' could not be computed.")
+            extension = posix_path.suffix
+            if extension:
+                mimetype = f"application/x-{extension.lstrip('.')}"
+            else:
+                mimetype = "application/octet-stream"  # fallback to generic 'binary data' MIME type
 
         # Run the synchronous file upload in a thread pool to avoid blocking the event loop
         loop = asyncio.get_event_loop()
@@ -182,7 +191,6 @@ class UploadLowLevelClient(LowLevelClientBase, WithRestClient):
         Returns:
             A tuple of (file_name, mime_type, content_encoding).
         """
-        import mimetypes
 
         file_name = path.name
         mime, encoding = mimetypes.guess_type(path)

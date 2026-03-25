@@ -15,7 +15,11 @@ from github_heatmap.config import (
     DOM_BOX_RADIUS,
 )
 from github_heatmap.err import BaseDrawError
-from github_heatmap.utils import interpolate_color, make_key_times
+from github_heatmap.utils import (
+    interpolate_color,
+    make_key_times,
+    resolve_github_level,
+)
 
 
 class Drawer:
@@ -71,7 +75,21 @@ class Drawer:
             return f"{date_title} {value} {self.poster.units}"
         return date_title
 
-    def make_color(self, length_range, length):
+    def _resolve_level_thresholds(self, type_name=None):
+        if type_name and self.poster.level_thresholds_by_type:
+            return self.poster.level_thresholds_by_type.get(type_name, ())
+        return self.poster.level_thresholds
+
+    def _make_github_level_color(self, length, type_name=None):
+        level = resolve_github_level(length, self._resolve_level_thresholds(type_name))
+        if level == 0:
+            return self.poster.colors.get("dom")
+        return self.poster.level_colors[level - 1]
+
+    def make_color(self, length_range, length, type_name=None):
+        if self.poster.use_github_level_mapping and self.poster.level_colors:
+            return self._make_github_level_color(length, type_name)
+
         sp2 = self.poster.special_number.get("special_number2")
         sp1 = self.poster.special_number.get("special_number1")
         has_special = False
@@ -122,7 +140,10 @@ class Drawer:
         color = self.poster.colors.get("dom")
         if day_tracks:
             color = self.make_color(self.poster.length_range_by_date, day_tracks)
-            if day_tracks >= self.poster.special_number["special_number1"]:
+            if (
+                not self.poster.use_github_level_mapping
+                and day_tracks >= self.poster.special_number["special_number1"]
+            ):
                 color = self.poster.colors.get("special2") or self.poster.colors.get(
                     "special"
                 )
@@ -171,7 +192,7 @@ class Drawer:
                 if not num:
                     continue
                 dom = dom_tuple[index]
-                color = self.make_color(length_range, num)
+                color = self.make_color(length_range, num, _type)
                 rect = dr.rect(
                     (rect_x, rect_y),
                     dom,
@@ -308,6 +329,7 @@ class Drawer:
                     "special_number1": loader.special_number1,
                     "special_number2": loader.special_number2,
                 }
+                self.poster.level_thresholds = getattr(loader, "level_thresholds", ())
                 self.poster.tooltip_by_date = (
                     getattr(loader, "tooltip_by_date_dict", {}) or {}
                 )

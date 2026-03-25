@@ -19,8 +19,8 @@ from uvicorn import Config
 from uvicorn import Server
 
 with warnings.catch_warnings():
-    warnings.filterwarnings('ignore', message='torch.distributed', category=FutureWarning)
-    from .._vendor import codefind
+    warnings.filterwarnings('ignore', category=FutureWarning, message=r'.*torch\.distributed\.reduce_op.*')
+    from .._vendor.jurigged import codetools
 
 from .._vendor.jurigged.codetools import CodeFile
 from .._vendor.jurigged.codetools import CodeFileOperation

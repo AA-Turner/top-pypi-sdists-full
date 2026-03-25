@@ -41,15 +41,25 @@ class SGDTool(BaseTool):
         try:
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"SGD API request timed out after {self.timeout} seconds"}
+            return {
+                "status": "error",
+                "error": f"SGD API request timed out after {self.timeout} seconds",
+            }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to SGD API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to SGD API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"SGD API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"SGD API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying SGD: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying SGD: {str(e)}",
+            }
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint based on config."""
@@ -65,7 +75,8 @@ class SGDTool(BaseTool):
             return self._search(arguments)
         else:
             return {
-                "error": f"Unknown endpoint_type/query_mode: {self.endpoint_type}/{self.query_mode}"
+                "status": "error",
+                "error": f"Unknown endpoint_type/query_mode: {self.endpoint_type}/{self.query_mode}",
             }
 
     def _locus_overview(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -73,7 +84,8 @@ class SGDTool(BaseTool):
         sgd_id = arguments.get("sgd_id", "")
         if not sgd_id:
             return {
-                "error": "sgd_id parameter is required (e.g., S000003219 or S000000259)"
+                "status": "error",
+                "error": "sgd_id parameter is required (e.g., S000003219 or S000000259)",
             }
 
         url = f"{SGD_BASE_URL}/locus/{sgd_id}"
@@ -98,6 +110,7 @@ class SGDTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "SGD",
@@ -110,7 +123,7 @@ class SGDTool(BaseTool):
         """Get phenotype annotations for a yeast gene."""
         sgd_id = arguments.get("sgd_id", "")
         if not sgd_id:
-            return {"error": "sgd_id parameter is required"}
+            return {"status": "error", "error": "sgd_id parameter is required"}
 
         url = f"{SGD_BASE_URL}/locus/{sgd_id}/phenotype_details"
         response = requests.get(
@@ -146,6 +159,7 @@ class SGDTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "SGD",
@@ -160,7 +174,7 @@ class SGDTool(BaseTool):
         """Get Gene Ontology annotations for a yeast gene."""
         sgd_id = arguments.get("sgd_id", "")
         if not sgd_id:
-            return {"error": "sgd_id parameter is required"}
+            return {"status": "error", "error": "sgd_id parameter is required"}
 
         url = f"{SGD_BASE_URL}/locus/{sgd_id}/go_details"
         response = requests.get(
@@ -190,6 +204,7 @@ class SGDTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "SGD",
@@ -204,7 +219,7 @@ class SGDTool(BaseTool):
         """Get genetic and physical interactions for a yeast gene."""
         sgd_id = arguments.get("sgd_id", "")
         if not sgd_id:
-            return {"error": "sgd_id parameter is required"}
+            return {"status": "error", "error": "sgd_id parameter is required"}
 
         url = f"{SGD_BASE_URL}/locus/{sgd_id}/interaction_details"
         response = requests.get(
@@ -240,6 +255,7 @@ class SGDTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "SGD",
@@ -254,7 +270,7 @@ class SGDTool(BaseTool):
         """Search SGD for genes, GO terms, phenotypes, etc."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         limit = min(arguments.get("limit", 10), 50)
         offset = arguments.get("offset", 0)
@@ -280,6 +296,7 @@ class SGDTool(BaseTool):
 
         if raw is None:
             return {
+                "status": "success",
                 "data": [],
                 "metadata": {"total_results": 0, "query": query, "source": "SGD"},
             }
@@ -306,6 +323,7 @@ class SGDTool(BaseTool):
         total = raw.get("total", {})
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "total_results": total.get("value", len(results)),

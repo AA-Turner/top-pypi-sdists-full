@@ -21,6 +21,7 @@ from arthur_client.api_bindings.api.metrics_v1_api import MetricsV1Api
 from arthur_client.api_bindings.api.models_v1_api import ModelsV1Api
 from arthur_client.api_bindings.api.o_auth_v1_api import OAuthV1Api
 from arthur_client.api_bindings.api.organizations_v1_api import OrganizationsV1Api
+from arthur_client.api_bindings.api.policies_v1_api import PoliciesV1Api
 from arthur_client.api_bindings.api.projects_v1_api import ProjectsV1Api
 from arthur_client.api_bindings.api.registration_v1_api import RegistrationV1Api
 from arthur_client.api_bindings.api.roles_v1_api import RolesV1Api

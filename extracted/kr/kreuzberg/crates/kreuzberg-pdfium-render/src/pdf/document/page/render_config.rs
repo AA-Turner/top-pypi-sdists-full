@@ -11,7 +11,6 @@ use crate::error::PdfiumError;
 use crate::pdf::bitmap::{PdfBitmap, PdfBitmapFormat, Pixels};
 use crate::pdf::color::PdfColor;
 use crate::pdf::document::page::PdfPageOrientation::{Landscape, Portrait};
-use crate::pdf::document::page::field::PdfFormFieldType;
 use crate::pdf::document::page::{PdfPage, PdfPageOrientation, PdfPageRenderRotation};
 use crate::pdf::matrix::{PdfMatrix, PdfMatrixValue};
 use crate::pdf::points::PdfPoints;
@@ -83,7 +82,6 @@ pub struct PdfRenderConfig {
     do_clear_bitmap_before_rendering: bool,
     clear_color: PdfColor,
     do_render_form_data: bool,
-    form_field_highlight: Option<Vec<(PdfFormFieldType, PdfColor)>>,
     transformation_matrix: PdfMatrix,
     clip_rect: Option<(Pixels, Pixels, Pixels, Pixels)>,
 
@@ -124,7 +122,6 @@ impl PdfRenderConfig {
             do_clear_bitmap_before_rendering: true,
             clear_color: PdfColor::WHITE,
             do_render_form_data: true,
-            form_field_highlight: None,
             transformation_matrix: PdfMatrix::IDENTITY,
             clip_rect: None,
             do_set_flag_render_annotations: true,
@@ -559,75 +556,6 @@ impl PdfRenderConfig {
         self
     }
 
-    /// Highlights all rendered form fields with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_all_form_fields(self, color: PdfColor) -> Self {
-        self.highlight_form_fields_of_type(PdfFormFieldType::Unknown, color)
-    }
-
-    /// Highlights all rendered push button form fields with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_button_form_fields(self, color: PdfColor) -> Self {
-        self.highlight_form_fields_of_type(PdfFormFieldType::PushButton, color)
-    }
-
-    /// Highlights all rendered checkbox form fields with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_checkbox_form_fields(self, color: PdfColor) -> Self {
-        self.highlight_form_fields_of_type(PdfFormFieldType::Checkbox, color)
-    }
-
-    /// Highlights all rendered radio button form fields with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_radio_button_form_fields(self, color: PdfColor) -> Self {
-        self.highlight_form_fields_of_type(PdfFormFieldType::RadioButton, color)
-    }
-
-    /// Highlights all rendered combobox form fields with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_combobox_form_fields(self, color: PdfColor) -> Self {
-        self.highlight_form_fields_of_type(PdfFormFieldType::ComboBox, color)
-    }
-
-    /// Highlights all rendered listbox form fields with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_listbox_form_fields(self, color: PdfColor) -> Self {
-        self.highlight_form_fields_of_type(PdfFormFieldType::ListBox, color)
-    }
-
-    /// Highlights all rendered text entry form fields with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_text_form_fields(self, color: PdfColor) -> Self {
-        self.highlight_form_fields_of_type(PdfFormFieldType::Text, color)
-    }
-
-    /// Highlights all rendered signature form fields with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_signature_form_fields(self, color: PdfColor) -> Self {
-        self.highlight_form_fields_of_type(PdfFormFieldType::Signature, color)
-    }
-
-    /// Highlights all rendered form fields matching the given type with the given color.
-    /// Note that specifying a solid color with no opacity will overprint any user data in the field.
-    #[inline]
-    pub fn highlight_form_fields_of_type(mut self, form_field_type: PdfFormFieldType, color: PdfColor) -> Self {
-        if let Some(form_field_highlight) = self.form_field_highlight.as_mut() {
-            form_field_highlight.push((form_field_type, color));
-        } else {
-            self.form_field_highlight = Some(vec![(form_field_type, color)]);
-        }
-
-        self
-    }
-
     create_transform_setters!(
         Self,
         Result<Self, PdfiumError>,
@@ -878,18 +806,7 @@ impl PdfRenderConfig {
             do_clear_bitmap_before_rendering: self.do_clear_bitmap_before_rendering,
             clear_color: self.clear_color.as_pdfium_color(),
             do_render_form_data: self.do_render_form_data,
-            form_field_highlight: if !self.do_render_form_data {
-                None
-            } else {
-                self.form_field_highlight.as_ref().map(|highlights| {
-                    highlights
-                        .iter()
-                        .map(|(form_field_type, color)| {
-                            (form_field_type.as_pdfium() as c_int, color.as_pdfium_color_with_alpha())
-                        })
-                        .collect::<Vec<_>>()
-                })
-            },
+            form_field_highlight: None,
             matrix: transformation_matrix.unwrap_or(PdfMatrix::IDENTITY).as_pdfium(),
             clipping: if let Some((left, top, right, bottom)) = self.clip_rect {
                 FS_RECTF {

@@ -30,6 +30,25 @@ class FAERSAnalyticsTool(BaseTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to analytics operation."""
+        # Normalize aliases
+        if not arguments.get("adverse_event") and arguments.get("reaction"):
+            arguments = dict(arguments, adverse_event=arguments["reaction"])
+        if not arguments.get("stratify_by") and arguments.get("demographic"):
+            arguments = dict(arguments, stratify_by=arguments["demographic"])
+        # Normalize drug_name aliases: 'drug' → 'drug_name'
+        if not arguments.get("drug_name") and arguments.get("drug"):
+            arguments = dict(arguments, drug_name=arguments["drug"])
+        # Normalize seriousness_type alias: 'event_type' → 'seriousness_type'
+        if not arguments.get("seriousness_type") and arguments.get("event_type"):
+            arguments = dict(arguments, seriousness_type=arguments["event_type"])
+        # Normalize compare_drugs alias: 'drugs' list → 'drug1', 'drug2'
+        if arguments.get("drugs") and not arguments.get("drug1"):
+            drugs_list = arguments["drugs"]
+            if isinstance(drugs_list, list) and len(drugs_list) >= 2:
+                arguments = dict(arguments, drug1=drugs_list[0], drug2=drugs_list[1])
+        # Normalize stratify_by: 'age_group' → 'age'
+        if arguments.get("stratify_by") == "age_group":
+            arguments = dict(arguments, stratify_by="age")
         operation = arguments.get("operation")
         # Auto-fill operation from tool config const if not provided by user
         if not operation:
@@ -66,10 +85,10 @@ class FAERSAnalyticsTool(BaseTool):
         if "data" in result:
             return result
 
-        payload = dict(result)
-        wrapped_result = dict(result)
-        wrapped_result["data"] = payload
-        return wrapped_result
+        # Feature-81A-004: move non-status keys into data to avoid duplicating
+        # every field at both the top level and inside data.
+        data = {k: v for k, v in result.items() if k != "status"}
+        return {"status": "success", "data": data}
 
     def _calculate_disproportionality(
         self, arguments: Dict[str, Any]
@@ -191,10 +210,10 @@ class FAERSAnalyticsTool(BaseTool):
             adverse_event = arguments.get("adverse_event")
             stratify_by = arguments.get("stratify_by", "sex")  # sex, age, country
 
-            if not drug_name or not adverse_event:
+            if not drug_name:
                 return {
                     "status": "error",
-                    "error": "Must provide drug_name and adverse_event",
+                    "error": "Must provide drug_name",
                 }
 
             if stratify_by not in ["sex", "age", "country"]:
@@ -212,8 +231,11 @@ class FAERSAnalyticsTool(BaseTool):
 
             count_field = field_map[stratify_by]
 
-            # Get stratified counts
-            base_query = f'patient.drug.openfda.generic_name:"{drug_name}"+AND+patient.reaction.reactionmeddrapt:"{adverse_event}"'
+            # Feature-121A-003: adverse_event is optional — filter by drug alone if omitted
+            if adverse_event:
+                base_query = f'patient.drug.openfda.generic_name:"{drug_name}"+AND+patient.reaction.reactionmeddrapt:"{adverse_event}"'
+            else:
+                base_query = f'patient.drug.openfda.generic_name:"{drug_name}"'
 
             url = f"{FDA_BASE_URL}?search={base_query}&count={count_field}"
 
@@ -232,9 +254,12 @@ class FAERSAnalyticsTool(BaseTool):
                 count = result.get("count", 0)
                 percentage = (count / total_count * 100) if total_count > 0 else 0
 
-                # Interpret codes
+                # Interpret codes (API returns integers; normalize to str for dict lookup)
+                term_key = str(term)
                 if stratify_by == "sex":
-                    term = {"0": "Unknown", "1": "Male", "2": "Female"}.get(term, term)
+                    term = {"0": "Unknown", "1": "Male", "2": "Female"}.get(
+                        term_key, term
+                    )
                 elif stratify_by == "age":
                     age_map = {
                         "1": "Neonate",
@@ -244,7 +269,7 @@ class FAERSAnalyticsTool(BaseTool):
                         "5": "Adult",
                         "6": "Elderly",
                     }
-                    term = age_map.get(term, term)
+                    term = age_map.get(term_key, term)
 
                 stratified_data.append(
                     {"group": term, "count": count, "percentage": round(percentage, 2)}
@@ -270,6 +295,7 @@ class FAERSAnalyticsTool(BaseTool):
         """Filter for serious adverse events (death, hospitalization, disability, life-threatening)."""
         try:
             drug_name = arguments.get("drug_name")
+            adverse_event = arguments.get("adverse_event")
             seriousness_type = arguments.get(
                 "seriousness_type", "all"
             )  # all, death, hospitalization, disability, life_threatening
@@ -279,6 +305,12 @@ class FAERSAnalyticsTool(BaseTool):
 
             # Build query for serious events
             base_query = f'patient.drug.openfda.generic_name:"{drug_name}"'
+
+            # Add specific reaction filter if provided
+            if adverse_event:
+                base_query += (
+                    f'+AND+patient.reaction.reactionmeddrapt:"{adverse_event}"'
+                )
 
             # Add seriousness filter
             seriousness_map = {
@@ -321,14 +353,16 @@ class FAERSAnalyticsTool(BaseTool):
                     {"reaction": result.get("term"), "count": result.get("count")}
                 )
 
-            return {
-                "status": "success",
+            result: Dict[str, Any] = {
                 "drug_name": drug_name,
                 "seriousness_type": seriousness_type,
                 "total_serious_events": total_serious,
                 "top_serious_reactions": serious_reactions,
                 "note": f"Serious events: {'All' if seriousness_type == 'all' else seriousness_type.replace('_', ' ')}",
             }
+            if adverse_event:
+                result["adverse_event_filter"] = adverse_event.upper()
+            return {"status": "success", "data": result}
 
         except requests.exceptions.RequestException as e:
             return {"status": "error", "error": f"API request failed: {str(e)}"}
@@ -437,7 +471,8 @@ class FAERSAnalyticsTool(BaseTool):
             # Parse and aggregate by year
             yearly_counts = {}
             for result in results:
-                date_str = result.get("term", "")
+                # OpenFDA count=receivedate returns "time" key, not "term"
+                date_str = result.get("time") or result.get("term", "")
                 if len(date_str) >= 4:
                     year = date_str[:4]
                     count = result.get("count", 0)
@@ -514,13 +549,15 @@ class FAERSAnalyticsTool(BaseTool):
 
             return {
                 "status": "success",
-                "drug_name": drug_name,
-                "meddra_hierarchy": {
-                    "PT_level": pt_level,
-                    "total_unique_PTs": len(pt_level),
+                "data": {
+                    "drug_name": drug_name,
+                    "meddra_hierarchy": {
+                        "PT_level": pt_level,
+                        "total_unique_PTs": len(pt_level),
+                    },
+                    "note": "Full MedDRA hierarchy (HLT, SOC) requires MedDRA license. Showing Preferred Term (PT) level only.",
+                    "recommendation": "Use MedDRA dictionary to map PTs to higher-level terms for system organ class analysis",
                 },
-                "note": "Full MedDRA hierarchy (HLT, SOC) requires MedDRA license. Showing Preferred Term (PT) level only.",
-                "recommendation": "Use MedDRA dictionary to map PTs to higher-level terms for system organ class analysis",
             }
 
         except requests.exceptions.RequestException as e:

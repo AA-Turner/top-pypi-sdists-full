@@ -8,7 +8,7 @@ API Documentation: https://api.pharmgkb.org/v1/
 """
 
 import requests
-from typing import Dict, Any, List
+from typing import Dict, Any
 from .base_tool import BaseTool
 from .tool_registry import register_tool
 from .http_utils import request_with_retry
@@ -59,7 +59,7 @@ class PharmGKBTool(BaseTool):
             return self._error(f"Unknown operation: {operation}")
 
     def _error(self, message: str) -> Dict[str, Any]:
-        return {"status": "error", "error": message, "data": {"error": message}}
+        return {"status": "error", "error": message}
 
     def _request_json(
         self, url: str, params: Dict[str, Any]
@@ -107,13 +107,16 @@ class PharmGKBTool(BaseTool):
         self, entity_type: str, arguments: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Search for drugs, genes, or variants."""
-        query = arguments.get("query", "")
+        query = (
+            arguments.get("query")
+            or arguments.get("drug_name")
+            or arguments.get("name")
+            or arguments.get("drug")
+            or ""
+        )
         if not query:
             return self._error("query parameter is required")
 
-        params = {"name": query, "view": "base"}
-
-        # PharmGKB uses specific endpoints for filtered searches
         params = {"view": "base"}
         if entity_type == "Gene":
             params["symbol"] = query
@@ -178,19 +181,42 @@ class PharmGKBTool(BaseTool):
             result = api_response.get("data", api_response)
             return {"status": "success", "data": result}
 
-        # Feature-68A-003: relatedGenes.id filter returns HTTP 400 from PharmGKB API.
-        # Return a clear error rather than false success.
+        # Feature-121A-001: auto-resolve gene symbol to PharmGKB PA ID for a targeted URL.
+        # The API rejects relatedGenes.id filter (HTTP 400); provide a direct page URL instead.
+        gene_symbol = arguments.get("gene") or arguments.get("gene_symbol")
         gene_id = arguments.get("gene_id")
-        if gene_id:
+
+        if gene_symbol and not gene_id:
+            _, gene_resp, err = self._request_json(
+                f"{PHARMGKB_BASE_URL}/data/gene",
+                {"symbol": gene_symbol, "view": "min"},
+            )
+            if not err:
+                genes = (
+                    gene_resp.get("data", [])
+                    if isinstance(gene_resp.get("data"), list)
+                    else []
+                )
+                if genes:
+                    gene_id = genes[0].get("id", "")
+
+        if gene_symbol or gene_id:
+            target_id = gene_id or gene_symbol
+            url = (
+                f"https://www.pharmgkb.org/gene/{target_id}/clinicalAnnotation"
+                if gene_id
+                else f"https://www.pharmgkb.org/gene?symbol={gene_symbol}"
+            )
             return self._error(
-                f"PharmGKB does not support gene-based clinical annotation lookup. "
-                f"Use PharmGKB_search_genes to find gene '{gene_id}' and obtain "
-                f"annotation IDs, then use annotation_id parameter."
+                f"PharmGKB API does not support listing annotations by gene symbol. "
+                f"Browse {url} to find annotation IDs, then call with annotation_id=<id>. "
+                f"For drug-gene dosing guidelines, use CPIC_list_guidelines instead."
             )
 
         return self._error(
-            "annotation_id is required. Use PharmGKB_search_genes or "
-            "PharmGKB_search_drugs to find relevant annotation IDs."
+            "annotation_id is required (e.g., '1447954390'). "
+            "Browse https://www.pharmgkb.org/clinicalAnnotation to find annotation IDs, "
+            "or use CPIC_get_guidelines for drug-gene dosing recommendations."
         )
 
     def _get_dosing_guidelines(self, arguments: Dict[str, Any]) -> Dict[str, Any]:

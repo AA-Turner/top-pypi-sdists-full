@@ -66,6 +66,7 @@ use std::sync::Arc;
 ///             quality_score: None,
 ///             processing_warnings: vec![],
 ///             annotations: None,
+///             children: None,
 ///         })
 ///     }
 ///
@@ -84,9 +85,7 @@ pub fn register_extractor(extractor: Arc<dyn DocumentExtractor>) -> crate::Resul
     use crate::plugins::registry::get_document_extractor_registry;
 
     let registry = get_document_extractor_registry();
-    let mut registry = registry
-        .write()
-        .expect("~keep Failed to acquire write lock on extractor registry"); // ~keep
+    let mut registry = registry.write();
 
     registry.register(extractor)
 }
@@ -118,9 +117,7 @@ pub fn unregister_extractor(name: &str) -> crate::Result<()> {
     use crate::plugins::registry::get_document_extractor_registry;
 
     let registry = get_document_extractor_registry();
-    let mut registry = registry
-        .write()
-        .expect("~keep Failed to acquire write lock on extractor registry"); // ~keep
+    let mut registry = registry.write();
 
     registry.remove(name)
 }
@@ -150,9 +147,7 @@ pub fn list_extractors() -> crate::Result<Vec<String>> {
     use crate::plugins::registry::get_document_extractor_registry;
 
     let registry = get_document_extractor_registry();
-    let registry = registry
-        .read()
-        .expect("~keep Failed to acquire read lock on extractor registry"); // ~keep
+    let registry = registry.read();
 
     Ok(registry.list())
 }
@@ -180,9 +175,7 @@ pub fn clear_extractors() -> crate::Result<()> {
     use crate::plugins::registry::get_document_extractor_registry;
 
     let registry = get_document_extractor_registry();
-    let mut registry = registry
-        .write()
-        .expect("~keep Failed to acquire write lock on extractor registry"); // ~keep
+    let mut registry = registry.write();
 
     registry.shutdown_all()
 }
@@ -247,6 +240,7 @@ mod tests {
                 quality_score: None,
                 processing_warnings: Vec::new(),
                 annotations: None,
+                children: None,
             })
         }
 
@@ -393,6 +387,7 @@ mod tests {
                     quality_score: None,
                     processing_warnings: Vec::new(),
                     annotations: None,
+                    children: None,
                 })
             }
 
@@ -448,6 +443,7 @@ mod tests {
                     quality_score: None,
                     processing_warnings: Vec::new(),
                     annotations: None,
+                    children: None,
                 })
             }
 

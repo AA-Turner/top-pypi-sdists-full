@@ -1,19 +1,22 @@
 //! Core cache implementation with GenericCache struct.
 //!
-//! # Lock Poisoning Handling
+//! # Lock Strategy
 //!
-//! This module uses `Arc<Mutex<T>>` for thread-safe state management and implements
-//! explicit lock poisoning recovery throughout all public methods.
+//! This module uses `Arc<parking_lot::RwLock<T>>` for thread-safe state management.
+//! Read-heavy operations (membership checks on every `get`/`is_processing` call) acquire
+//! a shared read lock; mutations (insert/remove) acquire an exclusive write lock.
 //!
-//! All `.lock()` calls use `.map_err()` to convert `PoisonError` into `KreuzbergError::LockPoisoned`.
-//! The error propagates to callers via `Result` returns (never `.unwrap()` on locks).
+//! `parking_lot::RwLock` is preferred over `std::sync::RwLock` because it is not
+//! susceptible to lock poisoning, making the API infallible and avoiding
+//! `KreuzbergError::LockPoisoned` error paths for these fields.
 
 use crate::error::{KreuzbergError, Result};
+use ahash::AHashSet;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use super::cleanup::smart_cleanup_cache;
@@ -48,9 +51,9 @@ pub struct GenericCache {
     max_age_days: f64,
     max_cache_size_mb: f64,
     min_free_space_mb: f64,
-    processing_locks: Arc<Mutex<HashSet<String>>>,
+    processing_locks: Arc<RwLock<AHashSet<String>>>,
     /// Tracks cache keys being deleted to prevent read-during-delete race conditions
-    deleting_files: Arc<Mutex<HashSet<PathBuf>>>,
+    deleting_files: Arc<RwLock<AHashSet<PathBuf>>>,
 }
 
 impl GenericCache {
@@ -78,9 +81,31 @@ impl GenericCache {
             max_age_days,
             max_cache_size_mb,
             min_free_space_mb,
-            processing_locks: Arc::new(Mutex::new(HashSet::new())),
-            deleting_files: Arc::new(Mutex::new(HashSet::new())),
+            processing_locks: Arc::new(RwLock::new(AHashSet::new())),
+            deleting_files: Arc::new(RwLock::new(AHashSet::new())),
         })
+    }
+
+    /// Acquire a shared read guard on `processing_locks`.
+    ///
+    /// `parking_lot::RwLock` is infallible (no poisoning), so this never returns an error.
+    fn read_processing_locks(&self) -> parking_lot::RwLockReadGuard<'_, AHashSet<String>> {
+        self.processing_locks.read()
+    }
+
+    /// Acquire an exclusive write guard on `processing_locks`.
+    fn write_processing_locks(&self) -> parking_lot::RwLockWriteGuard<'_, AHashSet<String>> {
+        self.processing_locks.write()
+    }
+
+    /// Acquire a shared read guard on `deleting_files`.
+    fn read_deleting_files(&self) -> parking_lot::RwLockReadGuard<'_, AHashSet<PathBuf>> {
+        self.deleting_files.read()
+    }
+
+    /// Acquire an exclusive write guard on `deleting_files`.
+    fn write_deleting_files(&self) -> parking_lot::RwLockWriteGuard<'_, AHashSet<PathBuf>> {
+        self.deleting_files.write()
     }
 
     /// Resolve the directory for a cache key, optionally within a namespace subdirectory.
@@ -137,7 +162,9 @@ impl GenericCache {
                 if let Ok(cached_meta_bytes) = fs::read(&meta_path)
                     && cached_meta_bytes.len() >= 16
                 {
+                    // SAFETY: slice is exactly 8 bytes; guaranteed by the `cached_meta_bytes.len() >= 16` check above.
                     let cached_size = u64::from_le_bytes(cached_meta_bytes[0..8].try_into().unwrap());
+                    // SAFETY: slice is exactly 8 bytes; guaranteed by the `cached_meta_bytes.len() >= 16` check above.
                     let cached_mtime = u64::from_le_bytes(cached_meta_bytes[8..16].try_into().unwrap());
 
                     if let Ok(source_metadata) = fs::metadata(source_path) {
@@ -168,6 +195,7 @@ impl GenericCache {
         let meta_path = self.get_metadata_path(file_stem, namespace.as_deref());
         let bytes = fs::read(&meta_path).ok()?;
         if bytes.len() >= 24 {
+            // SAFETY: slice is exactly 8 bytes; guaranteed by the `bytes.len() >= 24` check above.
             Some(u64::from_le_bytes(bytes[16..24].try_into().unwrap()))
         } else {
             None // Old-format 16-byte .meta, no TTL stored
@@ -236,10 +264,7 @@ impl GenericCache {
         let cache_path = self.get_cache_path(cache_key, namespace);
 
         {
-            let deleting = self
-                .deleting_files
-                .lock()
-                .map_err(|e| KreuzbergError::LockPoisoned(format!("Deleting files mutex poisoned: {}", e)))?;
+            let deleting = self.read_deleting_files();
             if deleting.contains(&cache_path) {
                 #[cfg(feature = "otel")]
                 tracing::Span::current().record("cache.hit", false);
@@ -275,7 +300,7 @@ impl GenericCache {
     }
 
     /// Backward-compatible get without namespace/TTL.
-    pub fn get_simple(&self, cache_key: &str, source_file: Option<&str>) -> Result<Option<Vec<u8>>> {
+    pub fn get_default(&self, cache_key: &str, source_file: Option<&str>) -> Result<Option<Vec<u8>>> {
         self.get(cache_key, source_file, None, None)
     }
 
@@ -322,7 +347,7 @@ impl GenericCache {
     }
 
     /// Backward-compatible set without namespace/TTL.
-    pub fn set_simple(&self, cache_key: &str, data: Vec<u8>, source_file: Option<&str>) -> Result<()> {
+    pub fn set_default(&self, cache_key: &str, data: Vec<u8>, source_file: Option<&str>) -> Result<()> {
         self.set(cache_key, data, source_file, None, None)
     }
 
@@ -351,46 +376,26 @@ impl GenericCache {
     }
 
     pub fn is_processing(&self, cache_key: &str) -> Result<bool> {
-        let locks = self
-            .processing_locks
-            .lock()
-            .map_err(|e| KreuzbergError::LockPoisoned(format!("Processing locks mutex poisoned: {}", e)))?;
-        Ok(locks.contains(cache_key))
+        Ok(self.read_processing_locks().contains(cache_key))
     }
 
     pub fn mark_processing(&self, cache_key: String) -> Result<()> {
-        let mut locks = self
-            .processing_locks
-            .lock()
-            .map_err(|e| KreuzbergError::LockPoisoned(format!("Processing locks mutex poisoned: {}", e)))?;
-        locks.insert(cache_key);
+        self.write_processing_locks().insert(cache_key);
         Ok(())
     }
 
     pub fn mark_complete(&self, cache_key: &str) -> Result<()> {
-        let mut locks = self
-            .processing_locks
-            .lock()
-            .map_err(|e| KreuzbergError::LockPoisoned(format!("Processing locks mutex poisoned: {}", e)))?;
-        locks.remove(cache_key);
+        self.write_processing_locks().remove(cache_key);
         Ok(())
     }
 
     fn mark_for_deletion(&self, path: &Path) -> Result<()> {
-        let mut deleting = self
-            .deleting_files
-            .lock()
-            .map_err(|e| KreuzbergError::LockPoisoned(format!("Deleting files mutex poisoned: {}", e)))?;
-        deleting.insert(path.to_path_buf());
+        self.write_deleting_files().insert(path.to_path_buf());
         Ok(())
     }
 
     fn unmark_deletion(&self, path: &Path) -> Result<()> {
-        let mut deleting = self
-            .deleting_files
-            .lock()
-            .map_err(|e| KreuzbergError::LockPoisoned(format!("Deleting files mutex poisoned: {}", e)))?;
-        deleting.remove(&path.to_path_buf());
+        self.write_deleting_files().remove(&path.to_path_buf());
         Ok(())
     }
 

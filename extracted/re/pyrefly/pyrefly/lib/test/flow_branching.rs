@@ -1337,6 +1337,7 @@ def f() -> int:
 
 // elif condition only executes if the first `if` was False — walrus may not run.
 testcase!(
+    bug = "In order to fix false positives, we handled narrows differently in if/elif and introduced a false negative here",
     test_walrus_in_elif,
     r#"
 def condition() -> bool: ...
@@ -1345,7 +1346,7 @@ def f() -> bool:
         pass
     elif (x := condition()):
         pass
-    return x  # E: `x` may be uninitialized
+    return x  # False negative: x winds up getting applied as if it were in the base flow due to the negative narrow
     "#,
 );
 
@@ -1814,10 +1815,9 @@ def f(c: Color) -> str:
 );
 
 testcase!(
-    bug = "isinstance exhaustiveness not yet working for all union patterns",
     test_if_elif_isinstance_exhaustive,
     r#"
-def f(x: int | str) -> str:  # E: Function declared to return `str`, but one or more paths are missing an explicit `return`
+def f(x: int | str) -> str:
     if isinstance(x, int):
         return "int"
     elif isinstance(x, str):
@@ -1878,10 +1878,9 @@ def f(x: Literal["a", "b", "c"]) -> str:
 );
 
 testcase!(
-    bug = "mixed is/isinstance narrowing exhaustiveness not yet working",
     test_if_elif_mixed_narrowing,
     r#"
-def f(x: int | None) -> str:  # E: Function declared to return `str`, but one or more paths are missing an explicit `return`
+def f(x: int | None) -> str:
     if x is None:
         return "none"
     elif isinstance(x, int):
@@ -1910,6 +1909,91 @@ def f(x: int | str, y: int | str) -> str:  # E: Function declared to return `str
         return "y is str"
     # Different subjects in different branches - cannot determine exhaustiveness
 "#,
+);
+
+testcase!(
+    test_if_elif_mixed_subjects_one_exhaustive,
+    r#"
+from enum import Enum
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+    BLUE = 3
+
+def f(x: Color, y: int | str) -> str:
+    if x == Color.RED:
+        return "red"
+    elif isinstance(y, int):
+        return "y is int"
+    elif x == Color.GREEN:
+        return "green"
+    elif x == Color.BLUE:
+        return "blue"
+"#,
+);
+
+// Regression test for the first example bug reported in https://github.com/facebook/pyrefly/issues/1286
+testcase!(
+    test_match_can_narrow_union_to_never_in_wildcard,
+    r#"
+from typing import assert_never
+class A:...
+class B:...
+
+def go(mdl:A|B):
+    match mdl:
+        case A():
+            print('A')
+        case B():
+            print('B')
+        case _:
+            assert_never(mdl)
+    "#,
+);
+
+testcase!(
+    test_match_exhausts_literal_type,
+    r#"
+from typing import Literal, assert_never
+
+type A = Literal['A']
+
+class C:
+    def __init__(self, a: A) -> None:
+        self.a = a
+
+    def f(self) -> None:
+        match self.a:
+            case 'A':
+                pass
+            case ever:
+                assert_never(ever)
+    "#,
+);
+
+// Regression test for the third example bug reported in https://github.com/facebook/pyrefly/issues/1286
+testcase!(
+    test_enum_exhaustive_match_and_uninitialized_local,
+    r#"
+from enum import IntEnum
+
+class Rating(IntEnum):
+    Again = 1
+    Hard = 2
+    Good = 3
+    Easy = 4
+
+def foo()->Rating:
+    ...
+
+x = foo()
+match x:
+    case Rating.Again:
+        y = 1
+    case Rating.Easy | Rating.Good | Rating.Hard:
+        y = 2
+print(y)
+    "#,
 );
 
 // Issue #2406: NoReturn in except block should make variable always initialized

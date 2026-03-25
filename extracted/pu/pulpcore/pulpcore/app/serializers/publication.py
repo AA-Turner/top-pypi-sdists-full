@@ -180,10 +180,8 @@ class DistributionSerializer(ModelSerializer):
     """
     The Serializer for the Distribution model.
 
-    The serializer deliberately omits the `publication` and `repository_version` field due to
-    plugins typically requiring one or the other but not both.
-
-    To include the ``publication`` field, it is recommended plugins define the field::
+    The serializer deliberately omits the `publication` field due to not all plugins using
+    publications. To include the `publication` field, plugins should define it::
 
       publication = DetailRelatedField(
           required=False,
@@ -193,14 +191,8 @@ class DistributionSerializer(ModelSerializer):
           allow_null=True,
       )
 
-    To include the ``repository_version`` field, it is recommended plugins define the field::
-
-      repository_version = RepositoryVersionRelatedField(
-          required=False, help_text=_("RepositoryVersion to be served"), allow_null=True
-      )
-
-    Additionally, the serializer omits the ``remote`` field, which is used for pull-through caching
-    feature and only by plugins which use publications. Plugins implementing a pull-through caching
+    The serializer also omits the `remote` field, which is used for pull-through caching
+    and only by plugins which use publications. Plugins implementing pull-through caching
     should define the field in their derived serializer class like this::
 
       remote = DetailRelatedField(
@@ -216,10 +208,8 @@ class DistributionSerializer(ModelSerializer):
     pulp_labels = serializers.HStoreField(required=False, validators=[pulp_labels_validator])
 
     base_path = serializers.CharField(
-        help_text=_(
-            'The base (relative) path component of the published url. Avoid paths that \
-                    overlap with other distribution base paths (e.g. "foo" and "foo/bar")'
-        ),
+        help_text=_('The base (relative) path component of the published url. Avoid paths that \
+                    overlap with other distribution base paths (e.g. "foo" and "foo/bar")'),
         validators=[DomainUniqueValidator(queryset=models.Distribution.objects.all())],
     )
     base_url = BaseURLField(
@@ -234,6 +224,9 @@ class DistributionSerializer(ModelSerializer):
         queryset=models.ContentGuard.objects.all(),
         allow_null=True,
     )
+    content_guard_prn = serializers.SerializerMethodField(
+        help_text=_("The Pulp Resource Name (PRN) of the associated optional content guard."),
+    )
     name = serializers.CharField(
         help_text=_("A unique name. Ex, `rawhide` and `stable`."),
         validators=[DomainUniqueValidator(queryset=models.Distribution.objects.all())],
@@ -244,6 +237,9 @@ class DistributionSerializer(ModelSerializer):
         view_name_pattern=r"repositories(-.*/.*)?-detail",
         queryset=models.Repository.objects.all(),
         allow_null=True,
+    )
+    repository_version = RepositoryVersionRelatedField(
+        required=False, help_text=_("RepositoryVersion to be served"), allow_null=True
     )
     hidden = serializers.BooleanField(
         default=False, help_text=_("Whether this distribution should be shown in the content app.")
@@ -261,11 +257,13 @@ class DistributionSerializer(ModelSerializer):
             "base_path",
             "base_url",
             "content_guard",
+            "content_guard_prn",
             "no_content_change_since",
             "hidden",
             "pulp_labels",
             "name",
             "repository",
+            "repository_version",
         )
 
     def _validate_path_overlap(self, path):
@@ -368,6 +366,9 @@ class DistributionSerializer(ModelSerializer):
             )
 
         return data
+
+    def get_content_guard_prn(self, obj):
+        return get_prn(obj.content_guard) if obj.content_guard else None
 
     def get_no_content_change_since(self, obj):
         publication = obj.publication

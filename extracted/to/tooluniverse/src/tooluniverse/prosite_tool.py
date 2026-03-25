@@ -57,13 +57,22 @@ class PROSITETool(BaseTool):
             elif self.endpoint == "scan_sequence":
                 return self._scan_sequence(arguments)
             else:
-                return {"error": f"Unknown endpoint: {self.endpoint}"}
+                return {
+                    "status": "error",
+                    "error": f"Unknown endpoint: {self.endpoint}",
+                }
         except requests.exceptions.Timeout:
-            return {"error": f"PROSITE API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"PROSITE API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to PROSITE/InterPro API"}
+            return {
+                "status": "error",
+                "error": "Failed to connect to PROSITE/InterPro API",
+            }
         except Exception as e:
-            return {"error": f"PROSITE API error: {str(e)}"}
+            return {"status": "error", "error": f"PROSITE API error: {str(e)}"}
 
     def _parse_prosite_text(self, text: str) -> Dict[str, Any]:
         """
@@ -156,14 +165,16 @@ class PROSITETool(BaseTool):
         accession = arguments.get("accession", "").strip()
         if not accession:
             return {
-                "error": "accession parameter is required (e.g., PS00001, PS00028, PS51420)"
+                "status": "error",
+                "error": "accession parameter is required (e.g., PS00001, PS00028, PS51420)",
             }
 
         # Ensure accession has correct format
         acc_upper = accession.upper()
         if not acc_upper.startswith("PS"):
             return {
-                "error": f"Invalid PROSITE accession: {accession}. Must start with 'PS' (e.g., PS00001)"
+                "status": "error",
+                "error": f"Invalid PROSITE accession: {accession}. Must start with 'PS' (e.g., PS00001)",
             }
 
         # Fetch text format from ExPASy
@@ -171,7 +182,7 @@ class PROSITETool(BaseTool):
         response = requests.get(url, timeout=self.timeout)
 
         if response.status_code == 404:
-            return {"error": f"PROSITE entry {acc_upper} not found"}
+            return {"status": "error", "error": f"PROSITE entry {acc_upper} not found"}
         response.raise_for_status()
 
         # Check if response is HTML (error page) instead of text
@@ -180,15 +191,20 @@ class PROSITETool(BaseTool):
             "<html"
         ):
             return {
-                "error": f"PROSITE entry {acc_upper} not found (received HTML error page)"
+                "status": "error",
+                "error": f"PROSITE entry {acc_upper} not found (received HTML error page)",
             }
 
         # Parse text format
         entry = self._parse_prosite_text(content)
         if not entry:
-            return {"error": f"Failed to parse PROSITE entry {acc_upper}"}
+            return {
+                "status": "error",
+                "error": f"Failed to parse PROSITE entry {acc_upper}",
+            }
 
         return {
+            "status": "success",
             "data": entry,
             "metadata": {
                 "source": "PROSITE (ExPASy/SIB)",
@@ -202,7 +218,8 @@ class PROSITETool(BaseTool):
         query = arguments.get("query", "").strip()
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'zinc finger', 'kinase', 'glycosylation')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'zinc finger', 'kinase', 'glycosylation')",
             }
 
         limit = arguments.get("limit", 10)
@@ -243,6 +260,7 @@ class PROSITETool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "PROSITE via InterPro API (EBI)",
@@ -255,14 +273,18 @@ class PROSITETool(BaseTool):
         """Scan a protein sequence against all PROSITE patterns."""
         sequence = arguments.get("sequence", "").strip()
         if not sequence:
-            return {"error": "sequence parameter is required (amino acid sequence)"}
+            return {
+                "status": "error",
+                "error": "sequence parameter is required (amino acid sequence)",
+            }
 
         # Validate it looks like a protein sequence
         valid_aa = set("ACDEFGHIKLMNPQRSTVWYXBZJU")
         seq_clean = sequence.upper().replace(" ", "").replace("\n", "")
         if not all(c in valid_aa for c in seq_clean):
             return {
-                "error": "Invalid protein sequence. Must contain only standard amino acid letters."
+                "status": "error",
+                "error": "Invalid protein sequence. Must contain only standard amino acid letters.",
             }
 
         skip = arguments.get("skip_frequent", True)
@@ -293,6 +315,7 @@ class PROSITETool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": matches,
             "metadata": {
                 "source": "ScanProsite (ExPASy/SIB)",

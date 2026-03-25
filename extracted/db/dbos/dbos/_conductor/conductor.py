@@ -123,6 +123,7 @@ class ConductorWebsocket(threading.Thread):
                                 hostname=socket.gethostname(),
                                 language="python",
                                 dbos_version=GlobalParams.dbos_version,
+                                executor_metadata=self.dbos._conductor_executor_metadata,
                             )
                             websocket.send(info_response.to_json())
                             self.dbos.logger.info("Connected to DBOS conductor")
@@ -259,6 +260,46 @@ class ConductorWebsocket(threading.Thread):
                                 error_message=error_message,
                             )
                             websocket.send(fork_response.to_json())
+                        elif msg_type == p.MessageType.FORK_FROM_FAILURE:
+                            bulk_fork_message = p.ForkFromFailureRequest.from_json(
+                                message
+                            )
+                            bulk_fork_body = bulk_fork_message.body
+                            forked_workflow_ids: Optional[List[str]] = None
+                            try:
+                                forked_workflow_ids = (
+                                    self.dbos._sys_db.fork_from_failure(
+                                        bulk_fork_body["workflow_ids"],
+                                        application_version=bulk_fork_body.get(
+                                            "application_version"
+                                        ),
+                                        queue_name=bulk_fork_body.get("queue_name"),
+                                        queue_partition_key=bulk_fork_body.get(
+                                            "queue_partition_key"
+                                        ),
+                                        from_last_failure=bulk_fork_body.get(
+                                            "from_last_failure", False
+                                        ),
+                                        from_last_step=bulk_fork_body.get(
+                                            "from_last_step", False
+                                        ),
+                                        from_step=bulk_fork_body.get("from_step"),
+                                        from_step_name=bulk_fork_body.get(
+                                            "from_step_name"
+                                        ),
+                                    )
+                                )
+                            except Exception as e:
+                                error_message = f"Exception encountered when bulk forking workflows: {traceback.format_exc()}"
+                                self.dbos.logger.error(error_message)
+
+                            bulk_fork_response = p.ForkFromFailureResponse(
+                                type=p.MessageType.FORK_FROM_FAILURE,
+                                request_id=base_message.request_id,
+                                forked_workflow_ids=forked_workflow_ids,
+                                error_message=error_message,
+                            )
+                            websocket.send(bulk_fork_response.to_json())
                         elif msg_type == p.MessageType.LIST_WORKFLOWS:
                             list_workflows_message = p.ListWorkflowsRequest.from_json(
                                 message
@@ -285,10 +326,11 @@ class ConductorWebsocket(threading.Thread):
                                     workflow_id_prefix=body.get(
                                         "workflow_id_prefix", None
                                     ),
-                                    load_input=body.get("load_input", False),
-                                    load_output=body.get("load_output", False),
+                                    load_input=body.get("load_input", True),
+                                    load_output=body.get("load_output", True),
                                     executor_id=body.get("executor_id", None),
                                     queues_only=body.get("queues_only", False),
+                                    was_forked_from=body.get("was_forked_from", None),
                                 )
                             except Exception as e:
                                 error_message = f"Exception encountered when listing workflows: {traceback.format_exc()}"
@@ -330,10 +372,11 @@ class ConductorWebsocket(threading.Thread):
                                     workflow_id_prefix=q_body.get(
                                         "workflow_id_prefix", None
                                     ),
-                                    load_input=q_body.get("load_input", False),
-                                    load_output=q_body.get("load_output", False),
+                                    load_input=q_body.get("load_input", True),
+                                    load_output=q_body.get("load_output", True),
                                     executor_id=q_body.get("executor_id", None),
                                     queues_only=True,
+                                    was_forked_from=q_body.get("was_forked_from", None),
                                 )
                             except Exception as e:
                                 error_message = f"Exception encountered when listing queued workflows: {traceback.format_exc()}"
@@ -358,7 +401,10 @@ class ConductorWebsocket(threading.Thread):
                             info = None
                             try:
                                 info = get_workflow(
-                                    self.dbos._sys_db, get_workflow_message.workflow_id
+                                    self.dbos._sys_db,
+                                    get_workflow_message.workflow_id,
+                                    load_input=get_workflow_message.load_input,
+                                    load_output=get_workflow_message.load_output,
                                 )
                             except Exception as e:
                                 error_message = f"Exception encountered when getting workflow {get_workflow_message.workflow_id}: {traceback.format_exc()}"
@@ -478,7 +524,8 @@ class ConductorWebsocket(threading.Thread):
                             step_info = None
                             try:
                                 step_info = self.dbos._sys_db.list_workflow_steps(
-                                    list_steps_message.workflow_id
+                                    list_steps_message.workflow_id,
+                                    load_output=list_steps_message.load_output,
                                 )
                             except Exception as e:
                                 error_message = f"Exception encountered when getting workflow {list_steps_message.workflow_id}: {traceback.format_exc()}"
@@ -645,9 +692,12 @@ class ConductorWebsocket(threading.Thread):
                             sched_body = list_sched_msg.body
                             schedules: list[p.ScheduleOutput] = []
                             try:
+                                load_context = sched_body.get("load_context", True)
                                 schedules = [
                                     p.ScheduleOutput.from_schedule(
-                                        s, self.dbos._sys_db.serializer
+                                        s,
+                                        self.dbos._sys_db.serializer,
+                                        load_context=load_context,
                                     )
                                     for s in self.dbos._sys_db.list_schedules(
                                         status=sched_body.get("status", None),
@@ -679,7 +729,9 @@ class ConductorWebsocket(threading.Thread):
                                 )
                                 if sched is not None:
                                     output = p.ScheduleOutput.from_schedule(
-                                        sched, self.dbos._sys_db.serializer
+                                        sched,
+                                        self.dbos._sys_db.serializer,
+                                        load_context=get_sched_msg.load_context,
                                     )
                             except Exception:
                                 error_message = f"Exception encountered when getting schedule '{get_sched_msg.schedule_name}': {traceback.format_exc()}"
@@ -811,6 +863,55 @@ class ConductorWebsocket(threading.Thread):
                                     type=p.MessageType.SET_LATEST_APPLICATION_VERSION,
                                     request_id=base_message.request_id,
                                     success=success,
+                                    error_message=error_message,
+                                ).to_json()
+                            )
+                        elif msg_type == p.MessageType.GET_WORKFLOW_AGGREGATES:
+                            agg_message = p.GetWorkflowAggregatesRequest.from_json(
+                                message
+                            )
+                            agg_body = agg_message.body
+                            agg_output: list[p.WorkflowAggregateOutput] = []
+                            try:
+                                agg_rows = self.dbos._sys_db.get_workflow_aggregates(
+                                    group_by_status=agg_body.get(
+                                        "group_by_status", False
+                                    ),
+                                    group_by_name=agg_body.get("group_by_name", False),
+                                    group_by_queue_name=agg_body.get(
+                                        "group_by_queue_name", False
+                                    ),
+                                    group_by_executor_id=agg_body.get(
+                                        "group_by_executor_id", False
+                                    ),
+                                    group_by_application_version=agg_body.get(
+                                        "group_by_application_version", False
+                                    ),
+                                    status=agg_body.get("status", None),
+                                    start_time=agg_body.get("start_time", None),
+                                    end_time=agg_body.get("end_time", None),
+                                    name=agg_body.get("name", None),
+                                    app_version=agg_body.get("app_version", None),
+                                    executor_id=agg_body.get("executor_id", None),
+                                    queue_name=agg_body.get("queue_name", None),
+                                    workflow_id_prefix=agg_body.get(
+                                        "workflow_id_prefix", None
+                                    ),
+                                )
+                                agg_output = [
+                                    p.WorkflowAggregateOutput(
+                                        group=r["group"], count=r["count"]
+                                    )
+                                    for r in agg_rows
+                                ]
+                            except Exception:
+                                error_message = f"Exception encountered when getting workflow aggregates: {traceback.format_exc()}"
+                                self.dbos.logger.error(error_message)
+                            websocket.send(
+                                p.GetWorkflowAggregatesResponse(
+                                    type=p.MessageType.GET_WORKFLOW_AGGREGATES,
+                                    request_id=base_message.request_id,
+                                    output=agg_output,
                                     error_message=error_message,
                                 ).to_json()
                             )

@@ -146,6 +146,23 @@ GRPC_RETRIABLE_STATUS_CODES = (
     StatusCode.DEADLINE_EXCEEDED,
 )
 
+STREAM_PUBLISH_RETRYABLE_ERROR_DETAILS = (
+    "failed to publish stream event",
+    "failed to execute lua script",
+    "failed to load lua script",
+)
+
+
+def _is_retryable_stream_publish_error(error: AioRpcError) -> bool:
+    if error.code() in GRPC_RETRIABLE_STATUS_CODES:
+        return True
+
+    if error.code() != StatusCode.INTERNAL:
+        return False
+
+    details = (error.details() or "").lower()
+    return any(marker in details for marker in STREAM_PUBLISH_RETRYABLE_ERROR_DETAILS)
+
 
 class GrpcStreamHandler:
     """Handler for a run stream (lifecycle: subscribe -> join -> close)."""
@@ -944,6 +961,11 @@ class Runs(Authenticated):
             try:
                 await client.runs.Publish(request)
             except AioRpcError as e:
+                if _is_retryable_stream_publish_error(e):
+                    raise GrpcRetryableException(
+                        "retryable stream publish failure "
+                        f"({e.code().name}): {e.details()}"
+                    ) from e
                 _handle_grpc_error(e)
 
     @staticmethod

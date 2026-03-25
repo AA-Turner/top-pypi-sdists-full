@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: super-csv
-Version: 4.1.0
+Version: 5.0.0
 Summary: CSV Processor
 Home-page: https://github.com/openedx/super-csv
 Author: edX
@@ -9,23 +9,21 @@ License: Apache 2.0
 Keywords: Django edx
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: edx-celeryutils
-Requires-Dist: simplejson
 Requires-Dist: Django
 Requires-Dist: django-crum
 Requires-Dist: django-model-utils
-Requires-Dist: edx-django-utils>=3.12.0
 Requires-Dist: djangorestframework
+Requires-Dist: edx-celeryutils
+Requires-Dist: edx-django-utils>=3.12.0
+Requires-Dist: simplejson
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

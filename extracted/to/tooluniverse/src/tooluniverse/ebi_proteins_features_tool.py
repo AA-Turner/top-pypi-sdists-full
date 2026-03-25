@@ -40,23 +40,33 @@ class EBIProteinsFeaturesTool(BaseTool):
         try:
             return self._get_features(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"EBI Proteins API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"EBI Proteins API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to EBI Proteins API"}
+            return {"status": "error", "error": "Failed to connect to EBI Proteins API"}
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "unknown"
             if code == 404:
-                return {"error": f"Protein not found: {arguments.get('accession', '')}"}
-            return {"error": f"EBI Proteins API HTTP error: {code}"}
+                return {
+                    "status": "error",
+                    "error": f"Protein not found: {arguments.get('accession', '')}",
+                }
+            return {"status": "error", "error": f"EBI Proteins API HTTP error: {code}"}
         except Exception as e:
-            return {"error": f"Unexpected error querying EBI Proteins API: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying EBI Proteins API: {str(e)}",
+            }
 
     def _get_features(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get features for a specific category."""
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
 
         url = f"{PROTEINS_API_BASE_URL}/features/{accession}"
@@ -110,6 +120,7 @@ class EBIProteinsFeaturesTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accession"),
                 "entry_name": data.get("entryName"),

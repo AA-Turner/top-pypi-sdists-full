@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-parse
-Version: 5.6.0
+Version: 5.6.1
 Summary: Simple package to extract text with coordinates from programmatic PDFs
 Author-email: Peter Staar <taa@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>
 License-Expression: MIT

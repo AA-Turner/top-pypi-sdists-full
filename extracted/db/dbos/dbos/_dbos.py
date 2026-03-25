@@ -4,6 +4,7 @@ import asyncio
 import copy
 import hashlib
 import inspect
+import json
 import os
 import sys
 import threading
@@ -302,6 +303,7 @@ class ScheduleInput(TypedDict, total=False):
     context: Any
     automatic_backfill: bool
     cron_timezone: Optional[str]
+    queue_name: Optional[str]
 
 
 class DBOS:
@@ -395,6 +397,7 @@ class DBOS:
         self.flask: Optional["Flask"] = flask
         self._executor_field: Optional[ThreadPoolExecutor] = None
         self._background_threads: List[threading.Thread] = []
+        self._timeout_tasks: set[asyncio.Task[None]] = set()
         self.conductor_url: Optional[str] = conductor_url
         if config.get("conductor_url"):
             self.conductor_url = config.get("conductor_url")
@@ -408,6 +411,16 @@ class DBOS:
         self._alert_handler: Optional[Callable[[str, str, Dict[str, str]], None]] = None
         serializer = config.get("serializer")
         self._serializer: Serializer = serializer if serializer else DefaultSerializer()
+        self._conductor_executor_metadata: Optional[Dict[str, Any]] = config.get(
+            "conductor_executor_metadata"
+        )
+        if self._conductor_executor_metadata is not None:
+            try:
+                json.dumps(self._conductor_executor_metadata)
+            except Exception as e:
+                raise DBOSException(
+                    f"conductor_executor_metadata must be JSON-serializable: {e}"
+                )
 
         # Globally set the application version and executor ID.
         # In DBOS Cloud, instead use the values supplied through environment variables.
@@ -514,7 +527,9 @@ class DBOS:
                 self._config.get("runtimeConfig", {}).get("max_executor_threads")
                 or sys.maxsize
             )
-            self._executor_field = ThreadPoolExecutor(max_workers=max_executor_threads)
+            self._executor_field = ThreadPoolExecutor(
+                max_workers=max_executor_threads, thread_name_prefix="dbos-executor-"
+            )
 
             self._background_event_loop.start()
             assert self._config["database"]["sys_db_engine_kwargs"] is not None
@@ -720,6 +735,18 @@ class DBOS:
                     )
                 else:
                     break
+        if self._timeout_tasks:
+
+            async def cancel_timeout_tasks() -> None:
+                for task in self._timeout_tasks:
+                    task.cancel()
+                await asyncio.gather(*self._timeout_tasks, return_exceptions=True)
+                self._timeout_tasks.clear()
+
+            try:
+                self._background_event_loop.submit_coroutine(cancel_timeout_tasks())
+            except RuntimeError as e:
+                dbos_logger.warning(f"Exception cancelling timeout tasks: {e}")
         self._background_event_loop.stop()
         if self._admin_server_field is not None:
             self._admin_server_field.stop()
@@ -1075,7 +1102,7 @@ class DBOS:
         """Wait for any one of the given workflow handles to complete and return it.
 
         Polls the database until at least one workflow's status is no longer
-        PENDING or ENQUEUED, then returns the corresponding handle.
+        PENDING, ENQUEUED, or DELAYED, then returns the corresponding handle.
         """
         check_async("wait_first")
         if not handles:
@@ -1770,6 +1797,7 @@ class DBOS:
         application_version: Optional[str] = None,
         queue_name: Optional[str] = None,
         queue_partition_key: Optional[str] = None,
+        replacement_children: Optional[dict[str, str]] = None,
     ) -> WorkflowHandle[Any]:
         """Restart a workflow with a new workflow ID from a specific step"""
         check_async("fork_workflow")
@@ -1783,6 +1811,7 @@ class DBOS:
                 application_version=application_version,
                 queue_name=queue_name,
                 queue_partition_key=queue_partition_key,
+                replacement_children=replacement_children,
             )
 
         new_id = _get_dbos_instance()._sys_db.call_function_as_step(
@@ -1799,6 +1828,7 @@ class DBOS:
         application_version: Optional[str] = None,
         queue_name: Optional[str] = None,
         queue_partition_key: Optional[str] = None,
+        replacement_children: Optional[dict[str, str]] = None,
     ) -> WorkflowHandleAsync[Any]:
         """Restart a workflow with a new workflow ID from a specific step"""
         step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
@@ -1814,6 +1844,7 @@ class DBOS:
                 application_version=application_version,
                 queue_name=queue_name,
                 queue_partition_key=queue_partition_key,
+                replacement_children=replacement_children,
             )
 
         new_id = await asyncio.to_thread(
@@ -1858,6 +1889,7 @@ class DBOS:
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
+        was_forked_from: Optional[bool] = None,
     ) -> List[WorkflowStatus]:
         check_async("list_workflows")
 
@@ -1881,6 +1913,7 @@ class DBOS:
                 load_output=load_output,
                 executor_id=executor_id,
                 queues_only=queues_only,
+                was_forked_from=was_forked_from,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -1909,6 +1942,7 @@ class DBOS:
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
+        was_forked_from: Optional[bool] = None,
     ) -> List[WorkflowStatus]:
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
@@ -1933,6 +1967,7 @@ class DBOS:
                 load_output=load_output,
                 executor_id=executor_id,
                 queues_only=queues_only,
+                was_forked_from=was_forked_from,
             )
 
         return await asyncio.to_thread(
@@ -2086,6 +2121,7 @@ class DBOS:
         context: Any = None,
         automatic_backfill: bool = False,
         cron_timezone: Optional[str] = None,
+        queue_name: Optional[str] = None,
     ) -> None:
         """
         Create a cron schedule that periodically invokes a workflow function.
@@ -2101,13 +2137,18 @@ class DBOS:
             context: A context object passed as the second argument to every invocation. Defaults to ``None``.
             automatic_backfill: If ``True``, on startup the scheduler will automatically backfill missed executions since the last time the schedule fired. Defaults to ``False``.
             cron_timezone: IANA timezone name (e.g. ``"America/New_York"``) in which to evaluate the cron expression. Defaults to ``None`` (UTC).
+            queue_name: Optional name of a declared queue to enqueue scheduled workflows to. If ``None``, uses the internal queue. Defaults to ``None``.
 
         Raises:
-            DBOSException: If the cron expression is invalid, the workflow is not registered, or a schedule with the same name already exists
+            DBOSException: If the cron expression is invalid, the workflow is not registered, the queue is not declared, or a schedule with the same name already exists
         """
         if not croniter.is_valid(schedule, second_at_beginning=True):
             raise DBOSException(f"Invalid cron schedule: '{schedule}'")
         dbos = _get_dbos_instance()
+        if queue_name is not None and queue_name not in dbos._registry.queue_info_map:
+            raise DBOSException(
+                f"Queue '{queue_name}' is not declared. Please create the queue before using it in a schedule."
+            )
         workflow_name = get_dbos_func_name(workflow_fn)
         if workflow_name not in dbos._registry.workflow_info_map:
             raise DBOSException(
@@ -2139,6 +2180,7 @@ class DBOS:
             last_fired_at=None,
             automatic_backfill=automatic_backfill,
             cron_timezone=cron_timezone,
+            queue_name=queue_name,
         )
         ctx = snapshot_step_context(reserve_sleep_id=False)
         if ctx and ctx.is_workflow():
@@ -2240,6 +2282,7 @@ class DBOS:
         context: Any = None,
         automatic_backfill: bool = False,
         cron_timezone: Optional[str] = None,
+        queue_name: Optional[str] = None,
     ) -> None:
         """Async version of :meth:`create_schedule`."""
         await cls._configure_asyncio_thread_pool()
@@ -2251,6 +2294,7 @@ class DBOS:
             context=context,
             automatic_backfill=automatic_backfill,
             cron_timezone=cron_timezone,
+            queue_name=queue_name,
         )
 
     @classmethod
@@ -2367,6 +2411,14 @@ class DBOS:
                 if fi and fi.class_info and fi.func_type == DBOSFuncType.Class
                 else None
             )
+            entry_queue_name = entry.get("queue_name")
+            if (
+                entry_queue_name is not None
+                and entry_queue_name not in dbos._registry.queue_info_map
+            ):
+                raise DBOSException(
+                    f"Queue '{entry_queue_name}' is not declared. Please create the queue before using it in a schedule."
+                )
             to_apply.append(
                 WorkflowSchedule(
                     schedule_id=generate_uuid(),
@@ -2379,6 +2431,7 @@ class DBOS:
                     last_fired_at=None,
                     automatic_backfill=entry.get("automatic_backfill", False),
                     cron_timezone=entry.get("cron_timezone"),
+                    queue_name=entry_queue_name,
                 )
             )
         with dbos._sys_db.engine.begin() as c:

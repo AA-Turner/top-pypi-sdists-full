@@ -18,14 +18,13 @@ classifiers = [
     "Typing :: Typed",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 dependencies = [
     "exceptiongroup >= 1.0.2; python_version < '3.11'",
     "idna >= 2.8",
@@ -40,10 +39,7 @@ Changelog = "https://anyio.readthedocs.io/en/stable/versionhistory.html"
 "Issue tracker" = "https://github.com/agronholm/anyio/issues"
 
 [project.optional-dependencies]
-trio = [
-    "trio >= 0.32.0; python_version >= '3.10'",
-    "trio >= 0.31.0; python_version < '3.10'",
-]
+trio = ["trio >= 0.32.0"]
 
 [project.entry-points]
 pytest11 = {anyio = "anyio.pytest_plugin"}
@@ -52,13 +48,12 @@ pytest11 = {anyio = "anyio.pytest_plugin"}
 test = [
     "blockbuster >= 1.5.23",
     "coverage[toml] >= 7",
-    "exceptiongroup >= 1.2.0",
     "hypothesis >= 4.18.2",
     "psutil >= 5.9",
-    "pytest >= 7.0",
+    "pytest >= 8.4",
     "pytest-mock >= 3.14",
     "trustme >= 1.0.0",
-    "truststore >= 0.9.1; python_version >= '3.10'",
+    "truststore >= 0.9.1",
     """\
     uvloop >= 0.22.1; platform_python_implementation == 'CPython' \
     and platform_system != 'Windows' \
@@ -105,13 +100,14 @@ ignore = ["B009", "PERF203"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_tempfile.py" = ["ASYNC230"]
+"tests/*.py" = ["ASYNC240"]
 
 [tool.mypy]
 python_version = "3.14"
 strict = true
 disallow_any_generics = false
 warn_return_any = false
-disallow_untyped_decorators = false
+files = ["src", "tests"]
 
 [tool.pytest.ini_options]
 addopts = "-rsfE --tb=short --strict-config --strict-markers -p anyio -p pytest_mock -p no:asyncio -p no:trio"
@@ -122,8 +118,6 @@ filterwarnings = [
     "error",
     # Ignore resource warnings due to a CPython/Windows bug (https://bugs.python.org/issue44428)
     "ignore:unclosed transport <_ProactorSocketTransport.*:ResourceWarning",
-    # Workaround for Python 3.9.7 (see https://bugs.python.org/issue45097)
-    "ignore:The loop argument is deprecated since Python 3\\.8, and scheduled for removal in Python 3\\.10\\.:DeprecationWarning:asyncio",
 ]
 markers = [
     "network: marks tests as requiring Internet access",
@@ -144,7 +138,7 @@ exclude_also = [
 ]
 
 [tool.tox]
-env_list = ["pre-commit", "py39", "py310", "py311", "py312", "py313", "py314", "pypy3", "only_asyncio"]
+env_list = ["pre-commit", "py310", "py311", "py312", "py313", "py314", "pypy3", "only_asyncio"]
 skip_missing_interpreters = true
 requires = ["tox >= 4.22"]
 

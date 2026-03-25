@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
 
 # =============================================================================
 # Configuration and Environment Variables
@@ -8,6 +9,17 @@ SHELL := /bin/bash
 .ONESHELL:
 .EXPORT_ALL_VARIABLES:
 MAKEFLAGS += --no-print-directory
+
+DOC_TEST_FILES := \
+	docs/usage/modeling/basics.rst \
+	docs/usage/modeling/inheritance.rst \
+	docs/usage/modeling/sqlmodel.rst \
+	docs/usage/modeling/types.rst \
+	docs/usage/repositories/advanced.rst \
+	docs/usage/repositories/basics.rst \
+	docs/usage/repositories/filtering.rst \
+	docs/usage/database_seeding.rst \
+	docs/usage/services.rst
 
 # -----------------------------------------------------------------------------
 # Display Formatting and Colors
@@ -94,6 +106,31 @@ release:                                           ## Bump version and create re
 	@uv lock --upgrade-package advanced-alchemy
 	@echo "${OK} Release complete 🎉"
 
+.PHONY: pre-release
+pre-release:                                       ## Start a pre-release: make pre-release version=1.10.0a1
+	@if [ -z "$(version)" ]; then \
+		echo "${ERROR} Usage: make pre-release version=X.Y.ZaN"; \
+		echo ""; \
+		echo "Pre-release workflow:"; \
+		echo "  1. Start alpha:     make pre-release version=1.10.0a1"; \
+		echo "  2. Next alpha:      make pre-release version=1.10.0a2"; \
+		echo "  3. Move to beta:    make pre-release version=1.10.0b1"; \
+		echo "  4. Move to rc:      make pre-release version=1.10.0rc1"; \
+		echo "  5. Final release:   make release bump=pre (from rc) OR bump=patch/minor (from stable)"; \
+		exit 1; \
+	fi
+	@echo "${INFO} Preparing pre-release $(version)... 🧪"
+	@make clean
+	@make build
+	@uv run bump-my-version bump --new-version $(version) pre
+	@uv lock --upgrade-package advanced-alchemy
+	@echo "${OK} Pre-release $(version) complete 🧪"
+	@echo ""
+	@echo "${INFO} Next steps:"
+	@echo "  1. Push: git push origin HEAD"
+	@echo "  2. Create a GitHub pre-release: gh release create v$(version) --prerelease --title 'v$(version)'"
+	@echo "  3. This will publish to PyPI with pre-release tags"
+
 # =============================================================================
 # Cleaning and Maintenance
 # =============================================================================
@@ -116,16 +153,22 @@ clean:                                              ## Cleanup temporary build a
 # Testing and Quality Checks
 # =============================================================================
 
+.PHONY: docs-test
+docs-test:                                         ## Run executable documentation examples
+	@echo "${INFO} Running executable documentation examples... 📚"
+	@uv run pytest $(DOC_TEST_FILES) --quiet
+	@echo "${OK} Documentation examples passed ✨"
+
 .PHONY: test
 test:                                              ## Run the tests
 	@echo "${INFO} Running test cases... 🧪"
-	@uv run pytest --dist "loadgroup" -m "" tests -n 2 --quiet
+	@uv run pytest --dist "loadgroup" -m "" -n 2 --quiet
 	@echo "${OK} Tests passed ✨"
 
 .PHONY: coverage
 coverage:                                          ## Run tests with coverage report
 	@echo "${INFO} Running tests with coverage... 📊"
-	@uv run pytest tests --dist "loadgroup" -m "" --cov=advanced_alchemy --cov-report=xml -n 2 --quiet
+	@uv run pytest --dist "loadgroup" -m "" --cov=advanced_alchemy --cov-report=xml -n 2 --quiet
 	@uv run coverage html >/dev/null 2>&1
 	@echo "${OK} Coverage report generated ✨"
 

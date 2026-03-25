@@ -646,3 +646,35 @@ class User(Base):
         self.name = name
     "#,
 );
+
+testcase!(
+    test_overloaded_descriptor_get_with_bounded_typevar,
+    r#"
+from typing import Callable, overload
+
+class MyDescriptor[_ModelT, _RT]:
+    def __init__(self, fget: Callable[[type[_ModelT]], _RT], /) -> None:
+        self.fget = fget
+
+    @overload
+    def __get__(self, instance: None, objtype: type[_ModelT]) -> _RT: ...
+    @overload
+    def __get__(self, instance: _ModelT, objtype: type[_ModelT]) -> _RT: ...
+    def __get__(self, instance: _ModelT | None, objtype: type[_ModelT]) -> _RT:
+        return self.fget.__get__(instance, objtype)()
+
+class A:
+    @MyDescriptor
+    @classmethod
+    def x(cls) -> dict[str, int]:
+        return {"x": 0}
+
+class B[T: A]:
+    def __init__(self, a: type[T]):
+        self.a = a
+
+    def f(self):
+        for k in self.a.x:
+            print(k)
+    "#,
+);

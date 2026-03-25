@@ -40,17 +40,14 @@ use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
-use crate::report::pysa::ModuleContext;
 use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::call_graph::resolve_decorator_callees;
 use crate::report::pysa::collect::CollectNoDuplicateKeys;
-use crate::report::pysa::function::FunctionBaseDefinition;
+use crate::report::pysa::context::ModuleAnswersContext;
+use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionRef;
-use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
-use crate::report::pysa::module::ModuleIds;
-use crate::report::pysa::module_index::WholeProgramPysaModuleIndex;
 use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::scope::get_scope_parent;
 use crate::report::pysa::types::PysaType;
@@ -83,9 +80,12 @@ pub struct ClassRef {
 }
 
 impl ClassRef {
-    pub fn from_class(class: &Class, module_ids: &ModuleIds) -> ClassRef {
+    pub fn from_class(class: &Class, context: &ModuleContext) -> ClassRef {
         ClassRef {
-            module_id: module_ids.get_from_module(class.module()),
+            module_id: context.module_ids().get_from_module(
+                class.module(),
+                context.answers_context.handle.sys_info().dupe(),
+            ),
             class_id: ClassId::from_class(class),
             class: class.clone(),
         }
@@ -232,7 +232,7 @@ impl ClassDefinition {
     }
 }
 
-pub fn get_all_classes(context: &ModuleContext) -> impl Iterator<Item = Class> {
+pub fn get_all_classes(context: &ModuleAnswersContext) -> impl Iterator<Item = Class> {
     context
         .bindings
         .keys::<KeyClass>()
@@ -242,14 +242,29 @@ pub fn get_all_classes(context: &ModuleContext) -> impl Iterator<Item = Class> {
 pub fn get_class_field_from_current_class_only(
     class: &Class,
     field_name: &Name,
-    context: &ModuleContext,
+    context: &ModuleAnswersContext,
 ) -> Option<Arc<ClassField>> {
-    context
-        .transaction
-        .ad_hoc_solve(&context.handle, "pysa_class_field", |solver| {
-            solver.get_field_from_current_class_only(class, field_name)
-        })
-        .unwrap()
+    // This inlines the logic from `AnswersSolver::get_field_from_current_class_only`,
+    // `get_non_synthesized_field_from_current_class_only`, and
+    // `get_synthesized_field_from_current_class_only`.
+    assert!(class.module() == &context.module_info);
+
+    // Non-synthesized field: check class fields list, then look up the answer.
+    let class_fields = &context.bindings.metadata().get_class(class.index()).fields;
+    if class_fields.contains(field_name) {
+        let key = KeyClassField(class.index(), field_name.clone());
+        if let Some(idx) = context.bindings.key_to_idx_hashed_opt(Hashed::new(&key))
+            && let Some(field) = context.answers.get_idx(idx)
+        {
+            return Some(field);
+        }
+    }
+
+    // Synthesized field (e.g., dataclass fields).
+    let key = KeyClassSynthesizedFields(class.index());
+    let idx = context.bindings.key_to_idx_hashed_opt(Hashed::new(&key))?;
+    let synthesized_fields = context.answers.get_idx(idx)?;
+    Some(synthesized_fields.get(field_name)?.inner.dupe())
 }
 
 pub fn get_super_class_member(
@@ -259,8 +274,8 @@ pub fn get_super_class_member(
     context: &ModuleContext,
 ) -> Option<WithDefiningClass<Arc<ClassField>>> {
     context
-        .transaction
-        .ad_hoc_solve(&context.handle, "pysa_super_class_member", |solver| {
+        .resolver
+        .with_solver("pysa_super_class_member", |solver| {
             solver.get_super_class_member(class, start_lookup_cls, field_name)
         })
         .flatten()
@@ -269,7 +284,7 @@ pub fn get_super_class_member(
 pub fn get_class_field_declaration<'a>(
     class: &Class,
     field_name: &Name,
-    context: &'a ModuleContext,
+    context: &'a ModuleAnswersContext,
 ) -> Option<&'a BindingClassField> {
     assert_eq!(class.module(), &context.module_info);
     let key_class_field = KeyClassField(class.index(), field_name.clone());
@@ -280,7 +295,7 @@ pub fn get_class_field_declaration<'a>(
         .map(|idx| context.bindings.get(idx))
 }
 
-pub fn get_class_mro(class: &Class, context: &ModuleContext) -> Arc<ClassMro> {
+pub fn get_class_mro(class: &Class, context: &ModuleAnswersContext) -> Arc<ClassMro> {
     assert_eq!(class.module(), &context.module_info);
     context
         .answers
@@ -290,7 +305,7 @@ pub fn get_class_mro(class: &Class, context: &ModuleContext) -> Arc<ClassMro> {
 
 pub fn get_class_fields<'a>(
     class: &'a Class,
-    context: &'a ModuleContext<'a>,
+    context: &'a ModuleAnswersContext,
 ) -> impl Iterator<Item = (Cow<'a, Name>, Arc<ClassField>)> {
     let class_fields = context
         .bindings
@@ -368,11 +383,11 @@ fn export_class_fields(
     context: &ModuleContext,
     ann_assign_map: &AnnAssignMap,
 ) -> HashMap<Name, PysaClassField> {
-    assert_eq!(class.module(), &context.module_info);
-    get_class_fields(class, context)
+    assert_eq!(class.module(), &context.answers_context.module_info);
+    get_class_fields(class, &context.answers_context)
         .filter(|(_, field)| !is_callable_like(&field.ty()))
         .filter_map(|(name, field)| {
-            let field_binding = get_class_field_declaration(class, &name, context);
+            let field_binding = get_class_field_declaration(class, &name, &context.answers_context);
 
             let explicit_annotation = match field_binding {
                 Some(BindingClassField {
@@ -389,7 +404,7 @@ fn export_class_fields(
                 }) => *annotation,
                 _ => None,
             }
-            .map(|idx| context.bindings.idx_to_key(idx))
+            .map(|idx| context.answers_context.bindings.idx_to_key(idx))
             .and_then(|key_annotation| match key_annotation {
                 // We want to export the annotation as it is in the source code.
                 // We cannot use the answer for `key_annotation` (which wraps a `Type`),
@@ -398,11 +413,19 @@ fn export_class_fields(
                 KeyAnnotation::Annotation(identifier) => ann_assign_map
                     .get(identifier.range().start())
                     .map(|annotation_range| {
-                        context.module_info.code_at(*annotation_range).to_owned()
+                        context
+                            .answers_context
+                            .module_info
+                            .code_at(*annotation_range)
+                            .to_owned()
                     }),
-                KeyAnnotation::AttrAnnotation(range) => {
-                    Some(context.module_info.code_at(*range).to_owned())
-                }
+                KeyAnnotation::AttrAnnotation(range) => Some(
+                    context
+                        .answers_context
+                        .module_info
+                        .code_at(*range)
+                        .to_owned(),
+                ),
                 _ => None,
             });
 
@@ -421,7 +444,10 @@ fn export_class_fields(
                     PysaClassField {
                         type_: PysaType::from_type(&field.ty(), context),
                         explicit_annotation,
-                        location: Some(PysaLocation::from_text_range(*range, &context.module_info)),
+                        location: Some(PysaLocation::from_text_range(
+                            *range,
+                            &context.answers_context.module_info,
+                        )),
                         declaration_kind: PysaClassFieldDeclaration::from(definition),
                     },
                 )),
@@ -444,8 +470,8 @@ fn find_definition_ast<'a>(
     class: &Class,
     context: &'a ModuleContext<'a>,
 ) -> Option<&'a StmtClassDef> {
-    assert_eq!(class.module(), &context.module_info);
-    Ast::locate_node(&context.ast, class.qname().range().start())
+    assert_eq!(class.module(), &context.answers_context.module_info);
+    Ast::locate_node(&context.answers_context.ast, class.qname().range().start())
         .iter()
         .find_map(|node| match node {
             AnyNodeRef::StmtClassDef(stmt) if stmt.name.range == class.qname().range() => {
@@ -457,33 +483,23 @@ fn find_definition_ast<'a>(
 
 fn get_decorator_callees(
     class: &Class,
-    pysa_module_index: &WholeProgramPysaModuleIndex,
-    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     context: &ModuleContext,
 ) -> HashMap<PysaLocation, Vec<Target<FunctionRef>>> {
-    assert_eq!(class.module(), &context.module_info);
+    assert_eq!(class.module(), &context.answers_context.module_info);
     if let Some(class_def) = find_definition_ast(class, context) {
-        resolve_decorator_callees(
-            &class_def.decorator_list,
-            pysa_module_index,
-            function_base_definitions,
-            context,
-        )
+        resolve_decorator_callees(&class_def.decorator_list, context)
     } else {
         HashMap::new()
     }
 }
 
-pub fn export_all_classes(
-    pysa_module_index: &WholeProgramPysaModuleIndex,
-    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
-    context: &ModuleContext,
-) -> HashMap<PysaLocation, ClassDefinition> {
+pub fn export_all_classes(context: &ModuleContext) -> HashMap<PysaLocation, ClassDefinition> {
     let mut class_definitions = HashMap::new();
-    let ann_assign_map = AnnAssignMap::build(&context.ast);
+    let ann_assign_map = AnnAssignMap::build(&context.answers_context.ast);
 
-    for class_idx in context.bindings.keys::<KeyClass>() {
+    for class_idx in context.answers_context.bindings.keys::<KeyClass>() {
         let class = context
+            .answers_context
             .answers
             .get_idx(class_idx)
             .unwrap()
@@ -491,13 +507,23 @@ pub fn export_all_classes(
             .dupe()
             .unwrap();
         let class_index = class.index();
-        let parent = get_scope_parent(&context.ast, &context.module_info, class.qname().range());
+        let parent = get_scope_parent(
+            &context.answers_context.ast,
+            &context.answers_context.module_info,
+            class.qname().range(),
+        );
         let metadata = context
+            .answers_context
             .answers
-            .get_idx(context.bindings.key_to_idx(&KeyClassMetadata(class_index)))
+            .get_idx(
+                context
+                    .answers_context
+                    .bindings
+                    .key_to_idx(&KeyClassMetadata(class_index)),
+            )
             .unwrap();
 
-        let is_synthesized = match context.bindings.get(class_idx) {
+        let is_synthesized = match context.answers_context.bindings.get(class_idx) {
             BindingClass::FunctionalClassDef(_, _, _) => true,
             BindingClass::ClassDef(_) => false,
         };
@@ -507,26 +533,19 @@ pub fn export_all_classes(
         let bases = metadata
             .base_class_objects()
             .iter()
-            .map(|base_class| ClassRef::from_class(base_class, context.module_ids))
+            .map(|base_class| ClassRef::from_class(base_class, context))
             .collect::<Vec<_>>();
 
-        let mro = match &*get_class_mro(&class, context) {
+        let mro = match &*get_class_mro(&class, &context.answers_context) {
             ClassMro::Resolved(mro) => PysaClassMro::Resolved(
                 mro.iter()
-                    .map(|class_type| {
-                        ClassRef::from_class(class_type.class_object(), context.module_ids)
-                    })
+                    .map(|class_type| ClassRef::from_class(class_type.class_object(), context))
                     .collect::<Vec<_>>(),
             ),
             ClassMro::Cyclic => PysaClassMro::Cyclic,
         };
 
-        let decorator_callees = get_decorator_callees(
-            &class,
-            pysa_module_index,
-            function_base_definitions,
-            context,
-        );
+        let decorator_callees = get_decorator_callees(&class, context);
 
         let class_definition = ClassDefinition {
             class_id: ClassId::from_class(&class),
@@ -545,7 +564,10 @@ pub fn export_all_classes(
         assert!(
             class_definitions
                 .insert(
-                    PysaLocation::from_text_range(class.qname().range(), &context.module_info),
+                    PysaLocation::from_text_range(
+                        class.qname().range(),
+                        &context.answers_context.module_info
+                    ),
                     class_definition
                 )
                 .is_none(),

@@ -12,7 +12,6 @@ from abstra_internals.utils import serialize
 class HookClient(ExecutionClient):
     context: HookContext
     conn: ConnectionProtocol
-    response: Response
     production_mode: bool
 
     def __init__(
@@ -20,8 +19,11 @@ class HookClient(ExecutionClient):
     ) -> None:
         self.context = context
         self.conn = conn
-        self.response = Response(headers={}, status=200, body="")
         self.production_mode = production_mode
+
+    @property
+    def response(self) -> Response:
+        return self.context.response
 
     def handle_failure(self, e: Exception) -> None:
         self.set_response(500, "An exception occurred during execution.", {})
@@ -41,7 +43,7 @@ class HookClient(ExecutionClient):
             pass
 
     def set_response(self, status: int, body: str, headers: Dict[str, str]) -> None:
-        self.response = Response(
+        self.context.response = Response(
             status=status,
             body=body,
             headers=headers,

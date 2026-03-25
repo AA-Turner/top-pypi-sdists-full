@@ -128,6 +128,7 @@ def schedule(
 
     if isinstance(res, QuotaInfos): # pragma: no cover
         requested = duration.seconds if duration is not None else DEFAULT_SCHEDULE_DURATION
+        requested *= 2 if gpu_size == 'xlarge' else 1
         if res.wait < timedelta(0):
             message = (
                 f"The requested GPU duration ({requested}s) "

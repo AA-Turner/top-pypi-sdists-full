@@ -38,12 +38,23 @@ from langgraph_runtime.retry import RETRIABLE_EXCEPTIONS
 
 if IS_POSTGRES_OR_GRPC_BACKEND:
     from langgraph_api.grpc.ops import Runs, Threads
+    from langgraph_api.grpc.ops.runs import GrpcRetryableException
+
+    GRPC_RETRIABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
+        GrpcRetryableException,
+    )
 else:
     from langgraph_runtime.ops import Runs, Threads
 
+    GRPC_RETRIABLE_EXCEPTIONS = ()
+
 logger = structlog.stdlib.get_logger(__name__)
 
-ALL_RETRIABLE_EXCEPTIONS = (asyncio.CancelledError, *RETRIABLE_EXCEPTIONS)
+ALL_RETRIABLE_EXCEPTIONS = (
+    asyncio.CancelledError,
+    *RETRIABLE_EXCEPTIONS,
+    *GRPC_RETRIABLE_EXCEPTIONS,
+)
 
 
 class WorkerResult(TypedDict):
@@ -409,9 +420,19 @@ async def worker(
                 if isinstance(exception, UserTimeout):
                     exception = exception.timeout_error
 
-                await logger.aexception(
+                # We're outside the original `except` block, so build exc_info manually.
+                # This preserves traceback logging for non-remote exceptions.
+                exc_info = None
+                if not isinstance(exception, RemoteException):
+                    exc_info = (
+                        type(exception),
+                        exception,
+                        exception.__traceback__,
+                    )
+
+                await logger.aerror(
                     f"Background run failed. Exception: {type(exception)}({exception})",
-                    exc_info=not isinstance(exception, RemoteException),
+                    exc_info=exc_info,
                     **log_info,
                 )
                 if not temporary:

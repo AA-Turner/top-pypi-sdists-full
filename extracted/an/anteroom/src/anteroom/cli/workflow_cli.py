@@ -443,6 +443,14 @@ def _make_progress_callback(*, show_transcript: bool = True) -> Any:
             icon = status_icon(result)
             color = status_color(result)
             console.print(f"  [{color}]{icon}[/{color}] {step_id}  {dur}")
+        elif event_type == "step_continued" and step_id:
+            icon = status_icon("failed")
+            reason = _summarize_step_reason(payload, max_len=90)
+            console.print(
+                f"  [{status_color('failed')}]{icon}[/{status_color('failed')}] {step_id}  [yellow](continued)[/yellow]"
+            )
+            if reason:
+                console.print(f"    [yellow]reason:[/yellow] {reason}")
         elif event_type == "step_failed" and step_id:
             icon = status_icon("failed")
             reason = _summarize_step_reason(payload, max_len=90)
@@ -1182,6 +1190,7 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
     # Detail table
     if steps:
         console.print("\n[bold]Detail:[/bold]")
+        has_outputs = any(step.get("result_outputs") for step in steps)
         table = Table(show_header=True)
         table.add_column("Step", style="bold")
         table.add_column("Type")
@@ -1191,6 +1200,8 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
         table.add_column("Duration")
         table.add_column("Tokens")
         table.add_column("Idem. Key", max_width=30)
+        if has_outputs:
+            table.add_column("Outputs", max_width=40)
         table.add_column("Summary", max_width=50)
         for step in steps:
             dur = format_duration_ms(step.get("duration_ms"))
@@ -1208,7 +1219,7 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
                 summary += " (cached)"
             elif artifacts.get("fallback_used"):
                 summary += f" (fallback: {artifacts['model']})"
-            table.add_row(
+            row: list[str] = [
                 step_id_display,
                 step_type_display,
                 step.get("runner_type") or "-",
@@ -1217,8 +1228,13 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
                 dur,
                 tokens,
                 idem_key[:30] if len(idem_key) > 30 else idem_key,
-                summary,
-            )
+            ]
+            if has_outputs:
+                outputs = step.get("result_outputs") or {}
+                outputs_display = ", ".join(f"{k}={v}" for k, v in outputs.items())[:40] if outputs else "-"
+                row.append(outputs_display)
+            row.append(summary)
+            table.add_row(*row)
         console.print(table)
 
     checkpoints = list_checkpoints(db, run["id"])
@@ -1343,10 +1359,10 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
     # Recover any stale runs first (on-demand recovery)
     asyncio.run(engine.recover_interrupted_runs())
 
-    if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input"):
+    if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input", "compensating", "failed"):
         console.print(
             f"[red]Error:[/red] Run is not resumable (status: {run['status']}). "
-            "Only paused or waiting_for_approval runs can be resumed."
+            "Only paused, waiting_for_approval, waiting_for_input, compensating, or failed runs can be resumed."
         )
         return
 

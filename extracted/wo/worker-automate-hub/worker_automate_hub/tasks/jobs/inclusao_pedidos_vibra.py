@@ -407,3 +407,22 @@ async def inclusao_pedidos_vibra(task: RpaProcessoEntradaDTO):
         )
     finally:
         await browser.close()
+
+
+
+if __name__ == "__main__":
+    task = RpaProcessoEntradaDTO(
+        datEntradaFila=datetime.now(),
+        configEntrada={"idsAloc":[1114605,1114606,1114610,1114611,1114612],"baseNome":"ARAUCARIA PETROBRAS","processo":"75ba49a7-4ffa-44bb-9b47-9bad07ae9ede","cnpjEmpresa":"07473735014212","nomeEmpresa":"CURITIBA CAMPO DE SANTANA","combustiveis":[{"uuidItem":"f6013927-a373-468c-bdc6-c4ce20eae7bd","quantidade":5000,"descricaoProduto":"GASOLINA ADITIVADA"},{"uuidItem":"b9de72dd-aa25-4af7-9610-c5e4a43cb8b5","quantidade":20000,"descricaoProduto":"GASOLINA COMUM"},{"uuidItem":"5366e443-cba1-4e86-bfac-150b33e73099","quantidade":5000,"descricaoProduto":"ETANOL"},{"uuidItem":"dcb90709-be2a-4c19-ab97-49d421ca881f","quantidade":5000,"descricaoProduto":"DIESEL S10"}],"dataRetirada":"2026-03-25T00:00:00.000Z","placaVeiculo":"TQZ9F82","identificador":"TQZ9F82-2971-07473735014212-1114605-1114606-1114610-1114611-1114612-123869","diasFaturamento":1},
+        uuidProcesso="",
+        nomProcesso="",
+        uuidFila="",
+        sistemas=[
+            {
+                "sistema": "EMSys",
+                "timeout": "1.0"
+            }],
+        historico_id=""
+    )
+    
+    asyncio.run(inclusao_pedidos_vibra(task))

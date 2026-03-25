@@ -23,26 +23,13 @@ from ..formatters import (fmt_argument_as_cpp_type, fmt_argument_as_name,
 
 from .utils import (callable_overloads, get_class_from_void, get_const_cast,
         get_convert_to_type_code, get_docstring_text, get_encoded_type,
-        get_enum_class_scope, get_function_table, get_named_value_decl,
-        get_normalised_cached_name, get_optional_ptr, get_type_from_void,
-        get_use_in_code, get_user_state_suffix, get_void_ptr_cast,
-        has_method_docstring, is_used_in_code, keep_py_reference, need_dealloc,
-        need_error_flag, py_scope, pyqt5_supported, pyqt6_supported,
-        release_gil, scoped_class_name, skip_overload, type_needs_user_state,
+        get_enum_class_scope, get_named_value_decl, get_normalised_cached_name,
+        get_optional_ptr, get_type_from_void, get_use_in_code,
+        get_user_state_suffix, get_void_ptr_cast, has_method_docstring,
+        is_used_in_code, keep_py_reference, need_dealloc, need_error_flag,
+        py_scope, pyqt5_supported, pyqt6_supported, release_gil,
+        scoped_class_name, skip_overload, type_needs_user_state,
         variables_in_scope)
-
-
-def g_class_method_table(backend, sf, bindings, klass):
-    """ Generate the sorted table of methods for a class and return the number
-    of entries.
-    """
-
-    if klass.iface_file.type is IfaceFileType.NAMESPACE:
-        members = get_function_table(klass.members)
-    else:
-        members = _get_method_table(klass)
-
-    return backend.g_py_method_table(sf, bindings, members, klass)
 
 
 def g_composite_module_code(backend, sf, py_debug):
@@ -721,7 +708,7 @@ def _arg_is_v13_typed_enum(spec, arg):
     # passed to or from the ABI.  The returned value is used to determine if
     # the casting is necessary.  ABI v14 instead passes a pointer to the enum
     # value (rather than the value itself) which means that it can support enum
-    # types larger than an int and doesn't need any casting.  ABU v12 does not
+    # types larger than an int and doesn't need any casting.  ABI v12 does not
     # support typed enums.
 
     return spec.target_abi[0] == 13 and arg.type is ArgumentType.ENUM and arg.definition.enum_base_type is not None
@@ -781,7 +768,7 @@ def _arg_parser(backend, sf, scope, py_signature, signature_nr, ctor=None,
     single_arg = False
 
     if spec.target_abi >= (14, 0):
-        args.append('sipModule')
+        args.append('sipMS')
 
         if overload is not None:
             member_name = overload.common.py_name.name
@@ -1493,9 +1480,7 @@ def _class_api(backend, sf, klass):
     _enum_macros(backend, sf, scope=klass)
 
     if not klass.external and not klass.is_hidden_namespace:
-        klass_name = iface_file.fq_cpp_name.as_word
-        spec_suffix = backend.get_spec_suffix()
-        sf.write(f'\nextern sipClassType{spec_suffix} sipType{spec_suffix}_{module_name}_{klass_name};\n')
+        backend.g_class_spec_extern_decl(sf, klass)
 
 
 def g_class_docstring(sf, spec, bindings, klass):
@@ -1850,40 +1835,6 @@ def _gc_ellipsis(sf, signature):
 
     if last >= 0 and signature.args[last].type is ArgumentType.ELLIPSIS:
         sf.write(f'\n            Py_DECREF(a{last});\n')
-
-
-def _get_method_table(klass):
-    """ Return a sorted list of relevant methods (either lazy or non-lazy) for
-    a class.
-    """
-
-    # Only provide an entry point if there is at least one overload that is
-    # defined in this class and is a non-abstract function or slot.  We allow
-    # private (even though we don't actually generate code) because we need to
-    # intercept the name before it reaches a more public version further up the
-    # class hierarchy.  We add the ctor and any variable handlers as special
-    # entries.
-
-    members = []
-
-    for visible_member in klass.visible_members:
-        if visible_member.member.py_slot is not None:
-            continue
-
-        need_member = False
-
-        for overload in visible_member.scope.overloads:
-            # Skip protected methods if we don't have the means to handle them.
-            if overload.access_specifier is AccessSpecifier.PROTECTED and not klass.has_shadow:
-                continue
-
-            if not skip_overload(overload, visible_member.member, klass, visible_member.scope):
-                need_member = True
-
-        if need_member:
-            members.append(visible_member.member)
-
-    return get_function_table(members)
 
 
 def _get_subformat_char(arg):
@@ -2717,7 +2668,7 @@ f'''    if (!PyObject_TypeCheck(sipSelf, sipTypeAsPyTypeObject(sip{prefix}_{fq_c
             if isinstance(scope, WrappedClass):
                 cpp_name = scoped_class_name(spec, scope)
                 type_ref = backend.get_type_ref(scope)
-                sip_module = 'sipModule, ' if spec.target_abi >= (14, 0) else ''
+                sip_module = 'sipMS, ' if spec.target_abi >= (14, 0) else ''
 
                 sf.write(
 f'''    {cpp_name} *sipCpp = reinterpret_cast<{cpp_name} *>(sipGetCppPtr({sip_module}{backend.get_wrapper_type_cast()}sipSelf, {type_ref}));
@@ -2780,7 +2731,7 @@ f'''
 
                 if is_number_slot(member.py_slot) or is_rich_compare_slot(member.py_slot):
                     if spec.target_abi >= (14, 0):
-                        extend_context = 'sipModule'
+                        extend_context = 'sipMS'
                     else:
                         extend_context = f'&sipModuleAPI_{spec.module.py_name}'
 
@@ -3893,7 +3844,14 @@ f'''
     sf.write(')\n{\n')
 
     if result_is_returned:
-        result_plain_decl = fmt_argument_as_cpp_type(spec, result, plain=True)
+        decl = fmt_argument_as_cpp_type(spec, result, plain=True)
+
+        if _arg_is_v13_typed_enum(spec, result):
+            result_plain_decl = 'int'
+            result_cast = '(' + decl + ')'
+        else:
+            result_plain_decl = decl
+            result_cast = ''
 
         if result_instance_code is not None:
             sf.write(
@@ -3995,8 +3953,8 @@ f'''
 
         if result_is_returned:
             sf.write(
-'''
-    return sipRes;
+f'''
+    return {result_cast}sipRes;
 ''')
 
         sf.write('}\n')
@@ -4097,7 +4055,7 @@ f'    PyObject *sipResObj = sipCallMethod({context}SIP_NULLPTR, sipMethod, ')
 
         sf.write(
 f'''
-    return {result_ref}sipRes;
+    return {result_cast}{result_ref}sipRes;
 ''')
 
     sf.write('}\n')
@@ -4955,7 +4913,7 @@ f'''            Py_INCREF(Py_None);
         build_result_args = []
 
         if spec.target_abi >= (14, 0):
-            build_result_args.append('sipModule')
+            build_result_args.append('sipMS')
 
         build_result_args.append('0')
 

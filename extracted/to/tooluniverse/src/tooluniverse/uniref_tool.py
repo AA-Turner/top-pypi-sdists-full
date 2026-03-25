@@ -41,13 +41,19 @@ class UniRefTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"UniRef API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"UniRef API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to UniRef API"}
+            return {"status": "error", "error": "Failed to connect to UniRef API"}
         except requests.exceptions.HTTPError as e:
-            return {"error": f"UniRef API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"UniRef API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -56,14 +62,15 @@ class UniRefTool(BaseTool):
         elif self.endpoint == "search_clusters":
             return self._search_clusters(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_cluster(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get UniRef cluster details by cluster ID."""
         cluster_id = arguments.get("cluster_id", "")
         if not cluster_id:
             return {
-                "error": "cluster_id parameter is required (e.g., 'UniRef90_P04637')"
+                "status": "error",
+                "error": "cluster_id parameter is required (e.g., 'UniRef90_P04637')",
             }
 
         cluster_id = cluster_id.strip()
@@ -96,6 +103,7 @@ class UniRefTool(BaseTool):
         common_taxon = data.get("commonTaxon") or {}
 
         return {
+            "status": "success",
             "data": {
                 "cluster_id": data.get("id"),
                 "name": data.get("name"),
@@ -123,7 +131,8 @@ class UniRefTool(BaseTool):
         query = arguments.get("query", "")
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'p53', 'insulin', 'kinase Homo sapiens')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'p53', 'insulin', 'kinase Homo sapiens')",
             }
 
         cluster_type = arguments.get("cluster_type") or "UniRef90"
@@ -178,6 +187,7 @@ class UniRefTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "UniProt UniRef",

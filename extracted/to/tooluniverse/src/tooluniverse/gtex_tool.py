@@ -90,8 +90,8 @@ class GTExExpressionTool:
         )
         if not gene_input:
             return {
+                "status": "error",
                 "error": "Provide gene_symbol (e.g., 'TP53') or ensembl_gene_id (e.g., 'ENSG00000141510').",
-                "success": False,
             }
         gencode_id = _resolve_gene_id(gene_input, base, timeout)
 
@@ -113,11 +113,11 @@ class GTExExpressionTool:
                 expression_data = _extract_data_list(api_response)
 
             result = {
+                "status": "success",
                 "source": "GTEx",
                 "endpoint": "expression/clusteredMedianGeneExpression",
                 "query": query,
                 "data": {"geneExpression": expression_data},
-                "success": True,
             }
             # Provide hint when results are empty due to GENCODE version mismatch
             if not expression_data and gencode_id == gene_input:
@@ -136,10 +136,10 @@ class GTExExpressionTool:
             return result
         except Exception as e:
             return {
+                "status": "error",
                 "error": str(e),
                 "source": "GTEx",
                 "endpoint": "expression/clusteredMedianGeneExpression",
-                "success": False,
             }
 
 
@@ -190,17 +190,33 @@ class GTExEQTLTool:
         timeout = int(self.tool_config.get("settings", {}).get("timeout", 30))
 
         # Resolve gene symbol or unversioned Ensembl ID to versioned GENCODE ID
-        gene_input = arguments.get("gene_symbol") or arguments.get(
-            "ensembl_gene_id", ""
+        gene_input = (
+            arguments.get("gene_symbol")
+            or arguments.get("ensembl_gene_id")
+            or arguments.get("gene_id")  # alias: agents pass 'gene_id'
+            or arguments.get("gene")
         )
+        if not gene_input:
+            return {
+                "status": "error",
+                "error": (
+                    "Provide 'gene_symbol' (e.g. 'VKORC1'), 'ensembl_gene_id' "
+                    "(e.g. 'ENSG00000197708'), or 'gene' to query eQTLs."
+                ),
+            }
         gencode_id = _resolve_gene_id(gene_input, base, timeout)
 
         query: Dict[str, Any] = {
             "gencodeId": gencode_id,
             "datasetId": arguments.get("dataset_id", "gtex_v8"),
         }
+        # Pass tissue filter if provided (tissueSiteDetailId is case-sensitive, e.g. 'Brain_Cortex')
+        tissue = arguments.get("tissue_id") or arguments.get("tissue")
+        if tissue:
+            query["tissueSiteDetailId"] = tissue
         if "page" in arguments:
-            query["page"] = int(arguments["page"])
+            # User-facing page is 1-indexed; GTEx API is 0-indexed
+            query["page"] = max(0, int(arguments["page"]) - 1)
         if "size" in arguments:
             query["pageSize"] = int(arguments["size"])
 
@@ -212,16 +228,20 @@ class GTExEQTLTool:
             eqtl_data = _extract_data_list(api_response)
 
             return {
-                "source": "GTEx",
-                "endpoint": "association/singleTissueEqtl",
-                "query": query,
+                "status": "success",
                 "data": {"singleTissueEqtl": eqtl_data},
-                "success": True,
+                "metadata": {
+                    "source": "GTEx",
+                    "endpoint": "association/singleTissueEqtl",
+                    "query": query,
+                },
             }
         except Exception as e:
-            return {
-                "error": str(e),
-                "source": "GTEx",
-                "endpoint": "association/singleTissueEqtl",
-                "success": False,
-            }
+            err = str(e)
+            if "422" in err or "Unprocessable" in err:
+                err = (
+                    f"{err} — GTEx tissue IDs are case-sensitive "
+                    "(e.g., 'Brain_Frontal_Cortex_BA9', not 'Brain_Frontal_Cortex_Ba9'). "
+                    "Use GTEx_get_expression_summary to discover valid tissue IDs."
+                )
+            return {"status": "error", "error": err}

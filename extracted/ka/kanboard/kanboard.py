@@ -20,14 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import json
+import asyncio
 import base64
 import functools
-import asyncio
+import json
 import ssl
-from typing import Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from urllib import request as http
-
 
 DEFAULT_AUTH_HEADER = "Authorization"
 ASYNC_FUNCNAME_MARKER = "_async"
@@ -64,6 +63,7 @@ class Client:
         insecure: bool = False,
         ignore_hostname_verification: bool = False,
         user_agent: str = "Kanboard Python API Client",
+        timeout: Optional[int] = 30,
         loop: Optional[asyncio.AbstractEventLoop] = None,
     ) -> None:
         """
@@ -82,6 +82,7 @@ class Client:
                 Defaults to False.
             user_agent (str, optional): Custom User-Agent string for HTTP requests. Defaults to
                 'Kanboard Python API Client'.
+            timeout (Optional[int], optional): Request timeout in seconds. Defaults to 30. Set to None to disable.
             loop (Optional[asyncio.AbstractEventLoop], optional): Asyncio event loop to use. If None, uses the
                 current event loop or creates a new one.
         """
@@ -92,29 +93,48 @@ class Client:
         self._cafile = cafile
         self._insecure = insecure
         self._user_agent = user_agent
+        self._timeout = timeout
         self._ignore_hostname_verification = ignore_hostname_verification
 
-        if not loop:
+        if loop:
+            self._event_loop = loop
+            self._owns_event_loop = False
+        else:
             try:
                 self._event_loop = asyncio.get_event_loop()
+                self._owns_event_loop = False
             except RuntimeError:
                 self._event_loop = asyncio.new_event_loop()
+                self._owns_event_loop = True
 
-    def __getattr__(self, name: str):
+    def __enter__(self) -> "Client":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
+
+    def close(self) -> None:
+        """Close the event loop if it was created by this client."""
+        if self._owns_event_loop and not self._event_loop.is_closed():
+            self._event_loop.close()
+
+    def __getattr__(self, name: str) -> Callable[..., Any]:
         if self.is_async_method_name(name):
 
-            async def function(*args, **kwargs):
+            async def function(*args: Any, **kwargs: Any) -> Any:
                 return await self._event_loop.run_in_executor(
                     None,
                     functools.partial(
-                        self.execute, method=self._to_camel_case(self.get_funcname_from_async_name(name)), **kwargs
+                        self.execute,
+                        method=self._to_camel_case(self.get_funcname_from_async_name(name)),
+                        **kwargs,
                     ),
                 )
 
             return function
         else:
 
-            def function(*args, **kwargs):
+            def function(*args: Any, **kwargs: Any) -> Any:
                 return self.execute(method=self._to_camel_case(name), **kwargs)
 
             return function
@@ -133,21 +153,22 @@ class Client:
         return components[0] + "".join(x.title() for x in components[1:])
 
     @staticmethod
-    def _parse_response(response: bytes):
+    def _parse_response(response: bytes) -> Any:
         if not response:
             raise ClientError("Empty response from server")
         try:
             body = json.loads(response.decode(errors="ignore"))
 
-            if "error" in body:
-                message = body.get("error").get("message")
+            error = body.get("error")
+            if error:
+                message = error.get("message") if isinstance(error, dict) else str(error)
                 raise ClientError(message)
 
             return body.get("result")
         except ValueError as e:
-            raise ClientError(f"Failed to parse JSON response: {e}")
+            raise ClientError(f"Failed to parse JSON response: {e}") from e
 
-    def _do_request(self, headers: Dict[str, str], body: Dict):
+    def _do_request(self, headers: Dict[str, str], body: Dict[str, Any]) -> Any:
         try:
             request = http.Request(self._url, headers=headers, data=json.dumps(body).encode())
 
@@ -159,12 +180,12 @@ class Client:
             if self._ignore_hostname_verification:
                 ssl_context.check_hostname = False
 
-            response = http.urlopen(request, context=ssl_context).read()
+            response = http.urlopen(request, context=ssl_context, timeout=self._timeout).read()
         except Exception as e:
-            raise ClientError(str(e))
+            raise ClientError(str(e)) from e
         return self._parse_response(response)
 
-    def execute(self, method: str, **kwargs):
+    def execute(self, method: str, **kwargs: Any) -> Any:
         """
         Call a remote Kanboard API procedure.
 

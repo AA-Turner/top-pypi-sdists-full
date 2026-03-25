@@ -17,6 +17,7 @@ use pyrefly_types::dimension::ShapeError;
 use pyrefly_types::dimension::canonicalize;
 use pyrefly_types::heap::TypeHeap;
 use pyrefly_types::quantified::Quantified;
+use pyrefly_types::quantified::QuantifiedKind;
 use pyrefly_types::simplify::intersect;
 use pyrefly_types::special_form::SpecialForm;
 use pyrefly_types::tensor::TensorShape;
@@ -106,9 +107,6 @@ enum Variable {
     },
     /// A variable caused by general recursion, e.g. `x = f(); def f(): return x`.
     Recursive,
-    /// A loop-recursive variable, e.g. `x = None; while x is None: x = f()`
-    /// The Variable tracks the prior type bound to this name before the loop.
-    LoopRecursive(Type, LoopBound),
     /// A variable that used to decompose a type, e.g. getting T from Awaitable[T]
     Unwrap(Vec<Type>),
     /// A variable whose answer has been determined
@@ -123,20 +121,6 @@ impl Variable {
             Variable::PartialQuantified(q.clone())
         }
     }
-}
-
-/// The restrictions placed on a `LoopRecursive` Var during recursive solve of
-/// the loop Phi.
-#[derive(Debug)]
-enum LoopBound {
-    /// The variable may have been used recursively, and in the process we
-    /// accumulated some upper bounds on it. It is a type error if the final
-    /// solved Phi is not a subtype of these.
-    UpperBounds(Vec<Type>),
-    /// At some point we forced the Var - for example to resolve method access
-    /// or to solve a type variable in a generic function call. The type should be
-    /// exactly the loop prior. It is a type error if the final solved Phi does not match.
-    Prior,
 }
 
 impl Display for Variable {
@@ -160,7 +144,6 @@ impl Display for Variable {
                     write!(f, "{label}({k})")
                 }
             }
-            Variable::LoopRecursive(t, _) => write!(f, "LoopRecursive(prior={t}, _)"),
             Variable::Recursive => write!(f, "Recursive"),
             Variable::Unwrap(_) => write!(f, "Unwrap"),
             Variable::Answer(t) => write!(f, "{t}"),
@@ -377,7 +360,7 @@ impl Solver {
         let variables = self.variables.lock();
         let mut variable = variables.get_mut(var);
         match &mut *variable {
-            Variable::LoopRecursive(..) | Variable::Recursive | Variable::Answer(..) => {
+            Variable::Recursive | Variable::Answer(..) => {
                 // Nothing to do if we have an answer already, and we want to skip recursive Vars
                 // which do not represent placeholder types.
                 None
@@ -406,8 +389,12 @@ impl Solver {
                 Some(PinError::ImplicitPartialContained(range))
             }
             Variable::PartialContained(_) => None,
-            Variable::Unwrap(_lower_bounds) => {
-                *variable = Variable::Answer(self.heap.mk_any_implicit());
+            Variable::Unwrap(lower_bounds) => {
+                *variable = Variable::Answer(if lower_bounds.is_empty() {
+                    Type::any_implicit()
+                } else {
+                    self.solve_lower_bounds(mem::take(lower_bounds))
+                });
                 None
             }
         }
@@ -426,13 +413,17 @@ impl Solver {
         )
     }
 
-    /// Finish the type returned from a function call. This entails expanding solved variables and
-    /// erasing unsolved variables without defaults from unions.
+    /// Finish the type returned from a function call. This entails expanding solved variables,
+    /// erasing unsolved variables without defaults from unions, and canonicalizing dimension
+    /// expressions so that all-literal SizeExpr trees fold to single literals.
     pub fn finish_function_return(&self, mut t: Type) -> Type {
         self.expand_with_limit(&mut t, TYPE_LIMIT, &VarRecurser::new(), false);
         self.erase_unsolved_variables(&mut t);
         self.simplify_mut(&mut t);
-        t
+        // After variable expansion, dimension expressions may have all-literal operands
+        // (e.g., (64 + 2 - 3 - 1) // 2 + 1) that should fold to a single literal (32).
+        // Without this, Sequential chaining compounds symbolic expressions across layers.
+        self.simplify_forced_type(t)
     }
 
     /// Expand a type. All variables that have been bound will be replaced with non-Var types,
@@ -454,13 +445,12 @@ impl Solver {
 
     /// Expand, but if the resulting type will be greater than limit levels deep, return an `Any`.
     /// Avoids producing things that stack overflow later in the process.
-    #[expect(clippy::only_used_in_recursion)]
     fn expand_with_limit(
         &self,
         t: &mut Type,
         limit: usize,
         recurser: &VarRecurser,
-        expand_unfinished_quantified: bool,
+        expand_unfinished_variables: bool,
     ) {
         if limit == 0 {
             // TODO: Should probably add an error here, and use any_error,
@@ -471,16 +461,23 @@ impl Solver {
             if let Some(_guard) = lock.recurse(*x, recurser) {
                 let variable = lock.get(*x);
                 match &*variable {
-                    Variable::Answer(ty) | Variable::LoopRecursive(ty, LoopBound::Prior) => {
+                    Variable::Answer(ty) => {
                         *t = ty.clone();
                         drop(variable);
                         drop(lock);
-                        self.expand_with_limit(
-                            t,
-                            limit - 1,
-                            recurser,
-                            expand_unfinished_quantified,
-                        );
+                        self.expand_with_limit(t, limit - 1, recurser, expand_unfinished_variables);
+                    }
+                    Variable::Quantified {
+                        quantified: _,
+                        lower_bounds,
+                    }
+                    | Variable::Unwrap(lower_bounds)
+                        if expand_unfinished_variables && !lower_bounds.is_empty() =>
+                    {
+                        *t = self.solve_lower_bounds(lower_bounds.clone());
+                        drop(variable);
+                        drop(lock);
+                        self.expand_with_limit(t, limit - 1, recurser, expand_unfinished_variables);
                     }
                     _ => {}
                 }
@@ -489,8 +486,20 @@ impl Solver {
             }
         } else {
             t.recurse_mut(&mut |t| {
-                self.expand_with_limit(t, limit - 1, recurser, expand_unfinished_quantified)
+                self.expand_with_limit(t, limit - 1, recurser, expand_unfinished_variables)
             });
+        }
+    }
+
+    /// Expand `Variable::Unwrap` to its answer or its lower bounds accumulated so far.
+    pub fn expand_unwrap(&self, v: Var) -> Type {
+        let variables = self.variables.lock();
+        match &*variables.get(v) {
+            Variable::Answer(t) => t.clone(),
+            Variable::Unwrap(lower_bounds) if !lower_bounds.is_empty() => {
+                self.solve_lower_bounds(lower_bounds.clone())
+            }
+            _ => v.to_type(&self.heap),
         }
     }
 
@@ -508,17 +517,22 @@ impl Solver {
         let mut e = lock.get_mut(v);
         let result = match &mut *e {
             Variable::Answer(t) => t.clone(),
-            Variable::LoopRecursive(prior_type, bound) => {
-                *bound = LoopBound::Prior;
-                prior_type.clone()
-            }
             _ => {
                 let ty = match &mut *e {
                     Variable::Quantified {
                         quantified: q,
-                        lower_bounds: _,
-                    } => q.as_gradual_type(),
+                        lower_bounds,
+                    } => {
+                        if lower_bounds.is_empty() {
+                            q.as_gradual_type()
+                        } else {
+                            self.solve_lower_bounds(mem::take(lower_bounds))
+                        }
+                    }
                     Variable::PartialQuantified(q) => q.as_gradual_type(),
+                    Variable::Unwrap(lower_bounds) if !lower_bounds.is_empty() => {
+                        self.solve_lower_bounds(mem::take(lower_bounds))
+                    }
                     _ => self.heap.mk_any_implicit(),
                 };
                 *e = Variable::Answer(ty.clone());
@@ -883,19 +897,75 @@ impl Solver {
         }
     }
 
-    /// Add a lower bound to the variable if it is a Quantified
-    pub fn add_lower_bound(&self, v: Var, bound: Type) {
+    /// Add a lower bound to the variable if it is a Quantified or Unwrap
+    pub fn add_lower_bound(
+        &self,
+        v: Var,
+        bound: Type,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+    ) {
         let lock = self.variables.lock();
-        let mut e = lock.get_mut(v);
-        match &mut *e {
+        let e = lock.get(v);
+        let mut first_bound = None;
+        match &*e {
             Variable::Quantified {
                 quantified: _,
                 lower_bounds,
-            } => {
-                lower_bounds.push(bound);
+            }
+            | Variable::Unwrap(lower_bounds) => {
+                if let Some(first) = lower_bounds.first() {
+                    first_bound = Some(first.clone());
+                }
             }
             _ => {}
         }
+        drop(e);
+        drop(lock);
+        // Check if the new lower bound can absorb or be absorbed into the first bound.
+        // Examples: `float` absorbs `int`, `list[Any]` absorbs `list[int]`.
+        // TODO(https://github.com/facebook/pyrefly/issues/105): there are a few fishy things:
+        // * We're only checking against the first bound.
+        // * We're keeping `Any` separate so it can be filtered out in `solve_lower_bounds`.
+        // * We're relying on `is_subset` to pin vars.
+        let new_first_bound = first_bound.and_then(|first| {
+            let can_absorb = |t: &Type| !t.is_any() && t.collect_all_vars().is_empty();
+            if !can_absorb(&first) || !can_absorb(&bound) {
+                is_subset(&bound, &first); // Ignore the result, just pin vars
+                None
+            } else if is_subset(&bound.materialize(), &first) {
+                Some(first)
+            } else if is_subset(&first.materialize(), &bound) {
+                Some(bound.clone())
+            } else {
+                None
+            }
+        });
+        let lock = self.variables.lock();
+        match &mut *lock.get_mut(v) {
+            Variable::Quantified {
+                quantified: _,
+                lower_bounds,
+            }
+            | Variable::Unwrap(lower_bounds) => {
+                if let Some(new_first) = new_first_bound
+                    && let Some(old_first) = lower_bounds.first_mut()
+                {
+                    *old_first = new_first;
+                } else {
+                    lower_bounds.push(bound);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn solve_lower_bounds(&self, mut lower_bounds: Vec<Type>) -> Type {
+        // Keeping `Any` bounds causes `Any` to propagate to too many places,
+        // so we filter them out unless `Any` is the only solution.
+        if lower_bounds.iter().any(|t| !t.is_any()) {
+            lower_bounds.retain(|t| !t.is_any());
+        }
+        unions(lower_bounds, &self.heap)
     }
 
     /// Called after a quantified function has been called. Given `def f[T](x: int): list[T]`,
@@ -921,17 +991,23 @@ impl Solver {
                     }
                 }
                 Variable::Quantified {
-                    quantified: q,
+                    quantified: _,
                     lower_bounds,
-                } if infer_with_first_use && lower_bounds.is_empty() => {
-                    *e = Variable::finished(q);
+                } if !lower_bounds.is_empty() => {
+                    if let Some(e) = self.instantiation_errors.read().get(&v) {
+                        err.push(e.clone());
+                    }
+                    *e = Variable::Answer(self.solve_lower_bounds(mem::take(lower_bounds)));
                 }
                 Variable::Quantified {
                     quantified: q,
                     lower_bounds: _,
                 } => {
-                    // Either `infer_with_first_use` is false or the variable has already been solved.
-                    *e = Variable::Answer(q.as_gradual_type());
+                    *e = if infer_with_first_use {
+                        Variable::finished(q)
+                    } else {
+                        Variable::Answer(q.as_gradual_type())
+                    };
                 }
                 _ => {}
             }
@@ -1067,15 +1143,6 @@ impl Solver {
     pub fn fresh_recursive(&self, uniques: &UniqueFactory) -> Var {
         let v = Var::new(uniques);
         self.variables.lock().insert_fresh(v, Variable::Recursive);
-        v
-    }
-
-    pub fn fresh_loop_recursive(&self, uniques: &UniqueFactory, prior_type: Type) -> Var {
-        let v = Var::new(uniques);
-        self.variables.lock().insert_fresh(
-            v,
-            Variable::LoopRecursive(prior_type, LoopBound::UpperBounds(vec![])),
-        );
         v
     }
 
@@ -1230,15 +1297,6 @@ impl Solver {
                 ty
             }
             _ => {
-                // If we just recorded a LoopRecursive answer, we may now need to check the result
-                // against bounds introduced during the recursion.
-                let bounds_to_check = match &*variable {
-                    Variable::LoopRecursive(prior, LoopBound::Prior) => Some(vec![prior.clone()]),
-                    Variable::LoopRecursive(_, LoopBound::UpperBounds(bounds)) => {
-                        Some(bounds.clone())
-                    }
-                    _ => None,
-                };
                 drop(variable);
                 // If you are recording `@1 = @1 | something` then the `@1` can't contribute any
                 // possibilities, so just ignore it.
@@ -1248,27 +1306,7 @@ impl Solver {
                 // Then remove any reference to self, before unioning it back together
                 res.retain(|x| x != &Type::Var(var));
                 let ty = unions(res, &self.heap);
-                match bounds_to_check {
-                    Some(bounds) => {
-                        lock.update(var, Variable::Answer(ty.clone()));
-                        drop(lock);
-                        bounds.iter().for_each(|bound| {
-                            if self.is_subset_eq(&ty, bound, type_order).is_err() {
-                                self.error(
-                                    &ty,
-                                    bound,
-                                    errors,
-                                    range,
-                                    &|| TypeCheckContext::of_kind(TypeCheckKind::CycleBreaking),
-                                    SubsetError::Other,
-                                );
-                            }
-                        });
-                    }
-                    None => {
-                        lock.update(var, Variable::Answer(ty.clone()));
-                    }
-                }
+                lock.update(var, Variable::Answer(ty.clone()));
                 ty
             }
         }
@@ -1648,20 +1686,39 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             _ if got == want => Ok(()),
             (Type::Var(v1), Type::Var(v2)) => {
                 let variables = self.solver.variables.lock();
+                // Variable unification is destructive, so we have to copy lower bounds first.
+                let root1 = variables.get_root(*v1);
+                let root2 = variables.get_root(*v2);
+                if root1 == root2 {
+                    // same variable after unification, nothing to do
+                } else {
+                    let mut v1_mut = variables.get_mut(*v1);
+                    let mut v2_mut = variables.get_mut(*v2);
+                    match (&mut *v1_mut, &mut *v2_mut) {
+                        (
+                            Variable::Quantified {
+                                quantified: _,
+                                lower_bounds: v1_bounds,
+                            }
+                            | Variable::Unwrap(v1_bounds),
+                            Variable::Quantified {
+                                quantified: _,
+                                lower_bounds: v2_bounds,
+                            }
+                            | Variable::Unwrap(v2_bounds),
+                        ) => {
+                            v1_bounds.extend(mem::take(v2_bounds));
+                            *v2_bounds = v1_bounds.clone();
+                        }
+                        _ => {}
+                    }
+                    drop(v1_mut);
+                    drop(v2_mut);
+                }
+
                 let variable1 = variables.get(*v1);
                 let variable2 = variables.get(*v2);
                 match (&*variable1, &*variable2) {
-                    (_, Variable::LoopRecursive(t2, _)) => {
-                        // When a LoopRecursive variable appears as `want`, use its prior type instead.
-                        // This handles nested loops where an inner loop variable's prior depends on
-                        // an outer loop variable that is still being analyzed.
-                        // See: https://github.com/facebook/pyrefly/issues/1565
-                        let t2 = t2.clone();
-                        drop(variable1);
-                        drop(variable2);
-                        drop(variables);
-                        self.is_subset_eq(got, &t2)
-                    }
                     (Variable::Answer(t1), Variable::Answer(t2)) => {
                         let t1 = t1.clone();
                         let t2 = t2.clone();
@@ -1681,40 +1738,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         let t1 = t1.clone();
                         drop(variable1);
                         drop(variable2);
-                        drop(variables);
-                        self.is_subset_eq(&t1, want)
-                    }
-                    (Variable::LoopRecursive(t1, bound), _) => {
-                        // If we have to solve a type variable against a loop recursive type, it means
-                        // we need to commit to the loop recursion type, so we
-                        // should pin it to the loop prior.
-                        let already_pinned = matches!(bound, LoopBound::Prior);
-                        let mut t1 = t1.clone();
-                        drop(variable1);
-                        drop(variable2);
-                        // Note: we have to drop `variable1` and `variable2` before we can work with
-                        // a mutable reference because the `.get` with path compression requires no
-                        // mutable refs to already be taken when calling `.get` or `.get_mut`
-                        if !already_pinned {
-                            let mut variable1 = variables.get_mut(*v1);
-                            match &mut *variable1 {
-                                Variable::LoopRecursive(_, bound) => {
-                                    // TODO(stroxler): track a range here for better error messages.
-                                    *bound = LoopBound::Prior;
-                                }
-                                // Reachable through data races - if the current thread picked up a
-                                // LoopRecursive that another thread is solving, the other thread might write
-                                // the final answer while we don't hold the lock. Note that the resulting
-                                // behavior is nondeterministic.
-                                Variable::Answer(t1_answer) => {
-                                    t1 = t1_answer.clone();
-                                }
-                                _ => unreachable!(
-                                    "Did not expect a LoopRecursive to become any other Variable kind besides Answer."
-                                ),
-                            }
-                            drop(variable1)
-                        }
                         drop(variables);
                         self.is_subset_eq(&t1, want)
                     }
@@ -1812,6 +1835,18 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         self.is_subset_eq(&t1, t2)
                     }
                     Variable::Quantified {
+                        quantified: _,
+                        lower_bounds,
+                    }
+                    | Variable::Unwrap(lower_bounds)
+                        if !lower_bounds.is_empty() =>
+                    {
+                        let lower_bound = self.solver.solve_lower_bounds(lower_bounds.clone());
+                        drop(v1_ref);
+                        drop(variables);
+                        self.is_subset_eq(&lower_bound, t2)
+                    }
+                    Variable::Quantified {
                         quantified: q,
                         lower_bounds: _,
                     }
@@ -1819,8 +1854,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         let is_partial = matches!(&*v1_ref, Variable::PartialQuantified(_));
                         let name = q.name.clone();
                         let restriction = q.restriction().clone();
-                        let bound =
-                            restriction.as_type(self.type_order.stdlib(), &self.solver.heap);
+                        let bound = q.bound_type(self.type_order.stdlib(), &self.solver.heap);
                         drop(v1_ref);
 
                         // For constrained TypeVars, promote to the matching constraint type
@@ -1883,45 +1917,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         }
                         Ok(())
                     }
-                    Variable::LoopRecursive(t1, ..) => {
-                        let t1 = t1.clone();
-                        drop(v1_ref);
-                        drop(variables);
-                        match self.is_subset_eq(&t1, t2) {
-                            Ok(()) => {
-                                // If the check passed, we need to track an upper bound. That requires
-                                // retaking the locks.
-                                let variables = self.solver.variables.lock();
-                                let mut variable1 = variables.get_mut(*v1);
-                                match &mut *variable1 {
-                                    Variable::LoopRecursive(_, bound) => {
-                                        match bound {
-                                            LoopBound::UpperBounds(ubs) => ubs.push(t2.clone()),
-                                            LoopBound::Prior => {
-                                                // Nothing to do; `t1` is assignable to `t2`
-                                            }
-                                        }
-                                        Ok(())
-                                    }
-                                    // This is reachable through data races - if the current thread picked up a
-                                    // LoopRecursive that another thread is solving, the other thread might write
-                                    // the final answer while we don't hold the lock. Note that the resulting
-                                    // behavior is nondeterministic.
-                                    Variable::Answer(t1) => {
-                                        let t1 = t1.clone();
-                                        drop(variable1);
-                                        drop(variables);
-                                        self.is_subset_eq(&t1, t2)
-                                    }
-                                    _ => unreachable!(
-                                        "Did not expect a LoopRecursive variable to become {:?}",
-                                        variable1
-                                    ),
-                                }
-                            }
-                            Err(e) => Err(e),
-                        }
-                    }
                     Variable::PartialContained(_) => {
                         drop(v1_ref);
                         // When an empty container's element is pinned to None, widen to
@@ -1949,16 +1944,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let variables = self.solver.variables.lock();
                 let v2_ref = variables.get(*v2);
                 match &*v2_ref {
-                    Variable::LoopRecursive(t2, _) => {
-                        // When a LoopRecursive variable appears as `want`, use its prior type instead.
-                        // This handles nested loops where an inner loop variable's prior depends on
-                        // an outer loop variable that is still being analyzed.
-                        // See: https://github.com/facebook/pyrefly/issues/1565
-                        let t2 = t2.clone();
-                        drop(v2_ref);
-                        drop(variables);
-                        self.is_subset_eq(t1, &t2)
-                    }
                     Variable::Answer(t2) => {
                         let t2 = t2.clone();
                         drop(v2_ref);
@@ -1975,9 +1960,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                             .clone()
                             .promote_implicit_literals(self.type_order.stdlib());
                         let name = q.name.clone();
+                        let kind = q.kind();
                         let restriction = q.restriction().clone();
-                        let bound =
-                            restriction.as_type(self.type_order.stdlib(), &self.solver.heap);
+                        let bound = q.bound_type(self.type_order.stdlib(), &self.solver.heap);
                         drop(v2_ref);
                         drop(variables);
 
@@ -2049,11 +2034,22 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                             } else {
                                 variables.update(*v2, Variable::Answer(answer));
                             }
-                        } else {
+                        } else if kind != QuantifiedKind::TypeVar
+                            || matches!(restriction, Restriction::Constraints(_))
+                        {
+                            // If the TypeVar has constraints, we write the answer immediately to
+                            // enforce that we always match the same constraint.
+                            //
+                            // TODO(https://github.com/facebook/pyrefly/issues/105): figure out
+                            // what to do with ParamSpec and TypeVarTuple.
                             self.solver
                                 .variables
                                 .lock()
                                 .update(*v2, Variable::Answer(answer));
+                        } else {
+                            self.solver.add_lower_bound(*v2, answer, &mut |got, want| {
+                                self.is_subset_eq(got, want).is_ok()
+                            });
                         }
                         Ok(())
                     }
@@ -2072,7 +2068,16 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         variables.update(*v2, Variable::Answer(answer));
                         Ok(())
                     }
-                    Variable::Unwrap(_) | Variable::Recursive => {
+                    Variable::Unwrap(_) => {
+                        drop(v2_ref);
+                        drop(variables);
+                        self.solver
+                            .add_lower_bound(*v2, t1.clone(), &mut |got, want| {
+                                self.is_subset_eq(got, want).is_ok()
+                            });
+                        Ok(())
+                    }
+                    Variable::Recursive => {
                         drop(v2_ref);
                         variables.update(*v2, Variable::Answer(t1.clone()));
                         Ok(())

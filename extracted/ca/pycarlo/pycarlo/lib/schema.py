@@ -29,9 +29,11 @@ class AccessControlScope(pycarlo.lib.types.Enum):
     * `DatabricksMetadata`None
     * `DatabricksWebhook`None
     * `Global`None
+    * `Ingestion`None
     * `MCP`None
     * `OpenTelemetry`None
     * `SCIM_v2`None
+    * `UI`None
     """
 
     __schema__ = schema
@@ -44,9 +46,11 @@ class AccessControlScope(pycarlo.lib.types.Enum):
         "DatabricksMetadata",
         "DatabricksWebhook",
         "Global",
+        "Ingestion",
         "MCP",
         "OpenTelemetry",
         "SCIM_v2",
+        "UI",
     )
 
 

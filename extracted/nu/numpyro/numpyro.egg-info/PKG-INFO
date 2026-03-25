@@ -1,11 +1,13 @@
 Metadata-Version: 2.4
 Name: numpyro
-Version: 0.20.0
-Summary: Pyro PPL on NumPy
-Home-page: https://github.com/pyro-ppl/numpyro
-Author: Uber AI Labs
-License: Apache License 2.0
-Keywords: probabilistic machine learning bayesian statistics
+Version: 0.20.1
+Summary: Probabilistic programming with NumPy powered by JAX for autograd and JIT compilation to GPU/TPU/CPU.
+Author-email: Uber AI Labs <fehiepsi@gmail.com>
+Project-URL: Changelog, https://github.com/pyro-ppl/numpyro/blob/main/CHANGELOG.md
+Project-URL: Discussion, https://github.com/pyro-ppl/numpyro/discussions
+Project-URL: Homepage, https://github.com/pyro-ppl/numpyro
+Project-URL: Issues, https://github.com/pyro-ppl/numpyro/issues
+Keywords: probabilistic,machine learning,bayesian,statistics
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
@@ -16,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: jax>=0.7.0
@@ -24,64 +26,15 @@ Requires-Dist: jaxlib>=0.7.0
 Requires-Dist: multipledispatch
 Requires-Dist: numpy
 Requires-Dist: tqdm
-Provides-Extra: doc
-Requires-Dist: ipython; extra == "doc"
-Requires-Dist: nbsphinx>=0.8.9; extra == "doc"
-Requires-Dist: readthedocs-sphinx-search>=0.3.2; extra == "doc"
-Requires-Dist: sphinx>=5; extra == "doc"
-Requires-Dist: sphinx_rtd_theme; extra == "doc"
-Requires-Dist: sphinx-gallery; extra == "doc"
-Provides-Extra: test
-Requires-Dist: importlib-metadata<5.0; extra == "test"
-Requires-Dist: ruff>=0.1.8; extra == "test"
-Requires-Dist: mypy>=1.13; extra == "test"
-Requires-Dist: pytest>=4.1; extra == "test"
-Requires-Dist: pyro-api>=0.1.1; extra == "test"
-Requires-Dist: scikit-learn; extra == "test"
-Requires-Dist: scipy>=1.9; extra == "test"
-Requires-Dist: ty>=0.0.4; extra == "test"
-Provides-Extra: dev
-Requires-Dist: dm-haiku>=0.0.14; extra == "dev"
-Requires-Dist: equinox; extra == "dev"
-Requires-Dist: flax; extra == "dev"
-Requires-Dist: funsor>=0.4.1; extra == "dev"
-Requires-Dist: graphviz; extra == "dev"
-Requires-Dist: jaxns<=2.6.9,>=2.6.3; extra == "dev"
-Requires-Dist: matplotlib; extra == "dev"
-Requires-Dist: optax>=0.0.6; extra == "dev"
-Requires-Dist: pylab-sdk; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pyyaml; extra == "dev"
-Requires-Dist: requests; extra == "dev"
-Requires-Dist: tfp-nightly; extra == "dev"
-Provides-Extra: examples
-Requires-Dist: arviz; extra == "examples"
-Requires-Dist: jupyter; extra == "examples"
-Requires-Dist: matplotlib; extra == "examples"
-Requires-Dist: pandas; extra == "examples"
-Requires-Dist: seaborn; extra == "examples"
-Requires-Dist: scikit-learn; extra == "examples"
-Requires-Dist: wordcloud; extra == "examples"
 Provides-Extra: cpu
 Requires-Dist: jax[cpu]>=0.7.0; extra == "cpu"
-Provides-Extra: tpu
-Requires-Dist: jax[tpu]>=0.7.0; extra == "tpu"
 Provides-Extra: cuda12
 Requires-Dist: jax[cuda12]>=0.7.0; extra == "cuda12"
 Provides-Extra: cuda13
 Requires-Dist: jax[cuda13]>=0.7.0; extra == "cuda13"
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Provides-Extra: tpu
+Requires-Dist: jax[tpu]>=0.7.0; extra == "tpu"
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 [![Build Status](https://github.com/pyro-ppl/numpyro/workflows/CI/badge.svg)](https://github.com/pyro-ppl/numpyro/actions)
 [![Coverage Status](https://coveralls.io/repos/github/pyro-ppl/numpyro/badge.svg?branch=master&kill_cache=1)](https://coveralls.io/github/pyro-ppl/numpyro?branch=master)
@@ -147,7 +100,7 @@ Let us infer the values of the unknown parameters in our model by running MCMC u
 
 >>> nuts_kernel = NUTS(eight_schools)
 >>> mcmc = MCMC(nuts_kernel, num_warmup=500, num_samples=1000)
->>> rng_key = random.PRNGKey(0)
+>>> rng_key = random.key(0)
 >>> mcmc.run(rng_key, J, sigma, y=y, extra_fields=('potential_energy',))
 
 ```
@@ -196,7 +149,7 @@ The values above 1 for the split Gelman Rubin diagnostic (`r_hat`) indicates tha
 
 >>> nuts_kernel = NUTS(eight_schools_noncentered)
 >>> mcmc = MCMC(nuts_kernel, num_warmup=500, num_samples=1000)
->>> rng_key = random.PRNGKey(0)
+>>> rng_key = random.key(0)
 >>> mcmc.run(rng_key, J, sigma, y=y, extra_fields=('potential_energy',))
 >>> mcmc.print_summary(exclude_deterministic=False)  # doctest: +SKIP
 
@@ -246,7 +199,7 @@ Now, let us assume that we have a new school for which we have not observed any 
 ...     return numpyro.sample('obs', dist.Normal(mu, tau))
 
 >>> predictive = Predictive(new_school, mcmc.get_samples())
->>> samples_predictive = predictive(random.PRNGKey(1))
+>>> samples_predictive = predictive(random.key(1))
 >>> print(np.mean(samples_predictive['obs']))  # doctest: +SKIP
 3.9886456
 
@@ -371,18 +324,18 @@ conda install -c conda-forge numpyro
 
 1. Unlike in Pyro, `numpyro.sample('x', dist.Normal(0, 1))` does not work. Why?
 
-   You are most likely using a `numpyro.sample` statement outside an inference context. JAX does not have a global random state, and as such, distribution samplers need an explicit random number generator key ([PRNGKey](https://jax.readthedocs.io/en/latest/jax.random.html#jax.random.PRNGKey)) to generate samples from. NumPyro's inference algorithms use the [seed](https://num.pyro.ai/en/latest/handlers.html#seed) handler to thread in a random number generator key, behind the scenes.
+   You are most likely using a `numpyro.sample` statement outside an inference context. JAX does not have a global random state, and as such, distribution samplers need an explicit random number generator key ([PRNG Key](https://jax.readthedocs.io/en/latest/jax.random.html#jax.random.key)) to generate samples from. NumPyro's inference algorithms use the [seed](https://num.pyro.ai/en/latest/handlers.html#seed) handler to thread in a random number generator key, behind the scenes.
 
    Your options are:
 
-   - Call the distribution directly and provide a `PRNGKey`, e.g. `dist.Normal(0, 1).sample(PRNGKey(0))`
-   - Provide the `rng_key` argument to `numpyro.sample`. e.g. `numpyro.sample('x', dist.Normal(0, 1), rng_key=PRNGKey(0))`.
+   - Call the distribution directly and provide a PRNG key, e.g. `dist.Normal(0, 1).sample(key(0))`
+   - Provide the `rng_key` argument to `numpyro.sample`. e.g. `numpyro.sample('x', dist.Normal(0, 1), rng_key=key(0))`.
    - Wrap the code in a `seed` handler, used either as a context manager or as a function that wraps over the original callable. e.g.
 
         ```python
-        with handlers.seed(rng_seed=0):  # random.PRNGKey(0) is used
-            x = numpyro.sample('x', dist.Beta(1, 1))    # uses a PRNGKey split from random.PRNGKey(0)
-            y = numpyro.sample('y', dist.Bernoulli(x))  # uses different PRNGKey split from the last one
+        with handlers.seed(rng_seed=0):  # random.key(0) is used
+            x = numpyro.sample('x', dist.Beta(1, 1))    # uses a PRNG key split from random.key(0)
+            y = numpyro.sample('y', dist.Bernoulli(x))  # uses different PRNG key split from the last one
         ```
 
      , or as a higher order function:
@@ -403,7 +356,7 @@ conda install -c conda-forge numpyro
    - Any `torch` operation in your model will need to be written in terms of the corresponding `jax.numpy` operation. Additionally, not all `torch` operations have a `numpy` counterpart (and vice-versa), and sometimes there are minor differences in the API.
    - `pyro.sample` statements outside an inference context will need to be wrapped in a `seed` handler, as mentioned above.
    - There is no global parameter store, and as such using `numpyro.param` outside an inference context will have no effect. To retrieve the optimized parameter values from SVI, use the [SVI.get_params](https://num.pyro.ai/en/latest/svi.html#numpyro.infer.svi.SVI.get_params) method. Note that you can still use `param` statements inside a model and NumPyro will use the [substitute](https://num.pyro.ai/en/latest/handlers.html#substitute) effect handler internally to substitute values from the optimizer when running the model in SVI.
-   - PyTorch neural network modules will need to rewritten as [stax](https://github.com/jax-ml/jax#neural-net-building-with-stax), [flax](https://flax.readthedocs.io/en/latest/), or [haiku](https://dm-haiku.readthedocs.io/en/latest/) neural networks. See the [VAE](https://num.pyro.ai/en/latest/examples/vae.html) and [ProdLDA](https://num.pyro.ai/en/stable/examples/prodlda.html) examples for differences in syntax between the two backends.
+   - PyTorch neural network modules will need to rewritten as [stax](https://github.com/jax-ml/jax#neural-net-building-with-stax) or [flax](https://flax.readthedocs.io/en/latest/) neural networks. See the [VAE](https://num.pyro.ai/en/latest/examples/vae.html) and [ProdLDA](https://num.pyro.ai/en/stable/examples/prodlda.html) examples.
    - JAX works best with functional code, particularly if we would like to leverage JIT compilation, which NumPyro does internally for many inference subroutines. As such, if your model has side-effects that are not visible to the JAX tracer, it may need to rewritten in a more functional style.
 
    For most small models, changes required to run inference in NumPyro should be minor. Additionally, we are working on [pyro-api](https://github.com/pyro-ppl/pyro-api) which allows you to write the same code and dispatch it to multiple backends, including NumPyro. This will necessarily be more restrictive, but has the advantage of being backend agnostic. See the [documentation](https://pyro-api.readthedocs.io/en/latest/dispatch.html#module-pyroapi.dispatch) for an example, and let us know your feedback.

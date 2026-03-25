@@ -1223,39 +1223,6 @@ class SpinWait:
         ...
 
 
-class ThreadPoolBoundHandle(System.Object, System.IDisposable, System.Threading.IDeferredDisposable):
-    """This class has no documentation."""
-
-    @property
-    def handle(self) -> System.Runtime.InteropServices.SafeHandle:
-        ...
-
-    @overload
-    def allocate_native_overlapped(self, callback: typing.Callable[[int, int, typing.Any], typing.Any], state: typing.Any, pin_data: typing.Any) -> typing.Any:
-        ...
-
-    @overload
-    def allocate_native_overlapped(self, pre_allocated: System.Threading.PreAllocatedOverlapped) -> typing.Any:
-        ...
-
-    @staticmethod
-    def bind_handle(handle: System.Runtime.InteropServices.SafeHandle) -> System.Threading.ThreadPoolBoundHandle:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def free_native_overlapped(self, overlapped: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def get_native_overlapped_state(overlapped: typing.Any) -> System.Object:
-        ...
-
-    def unsafe_allocate_native_overlapped(self, callback: typing.Callable[[int, int, typing.Any], typing.Any], state: typing.Any, pin_data: typing.Any) -> typing.Any:
-        ...
-
-
 class SemaphoreSlim(System.Object, System.IDisposable):
     """This class has no documentation."""
 
@@ -1755,6 +1722,39 @@ class NativeOverlapped:
 
     @event_handle.setter
     def event_handle(self, value: System.IntPtr) -> None:
+        ...
+
+
+class ThreadPoolBoundHandle(System.Object, System.IDisposable, System.Threading.IDeferredDisposable):
+    """This class has no documentation."""
+
+    @property
+    def handle(self) -> System.Runtime.InteropServices.SafeHandle:
+        ...
+
+    @overload
+    def allocate_native_overlapped(self, callback: typing.Callable[[int, int, typing.Any], typing.Any], state: typing.Any, pin_data: typing.Any) -> typing.Any:
+        ...
+
+    @overload
+    def allocate_native_overlapped(self, pre_allocated: System.Threading.PreAllocatedOverlapped) -> typing.Any:
+        ...
+
+    @staticmethod
+    def bind_handle(handle: System.Runtime.InteropServices.SafeHandle) -> System.Threading.ThreadPoolBoundHandle:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def free_native_overlapped(self, overlapped: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def get_native_overlapped_state(overlapped: typing.Any) -> System.Object:
+        ...
+
+    def unsafe_allocate_native_overlapped(self, callback: typing.Callable[[int, int, typing.Any], typing.Any], state: typing.Any, pin_data: typing.Any) -> typing.Any:
         ...
 
 

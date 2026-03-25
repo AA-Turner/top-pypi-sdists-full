@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.flow_preview_value_modules_item_debouncing import FlowPreviewValueModulesItemDebouncing
     from ..models.flow_preview_value_modules_item_mock import FlowPreviewValueModulesItemMock
     from ..models.flow_preview_value_modules_item_retry import FlowPreviewValueModulesItemRetry
     from ..models.flow_preview_value_modules_item_skip_if import FlowPreviewValueModulesItemSkipIf
@@ -55,6 +56,7 @@ class FlowPreviewValueModulesItem:
         priority (Union[Unset, float]): Execution priority for this step (higher numbers run first)
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, FlowPreviewValueModulesItemRetry]): Retry configuration for failed module executions
+        debouncing (Union[Unset, FlowPreviewValueModulesItemDebouncing]): Debounce configuration for this step (EE only)
     """
 
     id: str
@@ -83,6 +85,7 @@ class FlowPreviewValueModulesItem:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "FlowPreviewValueModulesItemRetry"] = UNSET
+    debouncing: Union[Unset, "FlowPreviewValueModulesItemDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -161,6 +164,10 @@ class FlowPreviewValueModulesItem:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -197,11 +204,14 @@ class FlowPreviewValueModulesItem:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.flow_preview_value_modules_item_debouncing import FlowPreviewValueModulesItemDebouncing
         from ..models.flow_preview_value_modules_item_mock import FlowPreviewValueModulesItemMock
         from ..models.flow_preview_value_modules_item_retry import FlowPreviewValueModulesItemRetry
         from ..models.flow_preview_value_modules_item_skip_if import FlowPreviewValueModulesItemSkipIf
@@ -374,6 +384,13 @@ class FlowPreviewValueModulesItem:
         else:
             retry = FlowPreviewValueModulesItemRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, FlowPreviewValueModulesItemDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = FlowPreviewValueModulesItemDebouncing.from_dict(_debouncing)
+
         flow_preview_value_modules_item = cls(
             id=id,
             value=value,
@@ -391,6 +408,7 @@ class FlowPreviewValueModulesItem:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         flow_preview_value_modules_item.additional_properties = d

@@ -43,16 +43,24 @@ class PomBaseTool(BaseTool):
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"PomBase API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"PomBase API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to PomBase API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to PomBase API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"PomBase API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"PomBase API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying PomBase: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying PomBase: {str(e)}",
+            }
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint based on config."""
@@ -63,14 +71,18 @@ class PomBaseTool(BaseTool):
         elif self.endpoint_type == "gene_phenotypes":
             return self._gene_phenotypes(arguments)
         else:
-            return {"error": f"Unknown endpoint_type: {self.endpoint_type}"}
+            return {
+                "status": "error",
+                "error": f"Unknown endpoint_type: {self.endpoint_type}",
+            }
 
     def _gene_detail(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get detailed gene information from PomBase by systematic ID."""
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
             return {
-                "error": "gene_id parameter is required (e.g., 'SPBC11B10.09' for cdc2)"
+                "status": "error",
+                "error": "gene_id parameter is required (e.g., 'SPBC11B10.09' for cdc2)",
             }
 
         url = f"{POMBASE_BASE_URL}/gene/{gene_id}"
@@ -115,6 +127,7 @@ class PomBaseTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "PomBase",
@@ -128,7 +141,8 @@ class PomBaseTool(BaseTool):
         query = arguments.get("query", "").lower()
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'cdc2', 'kinase', 'pom1')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'cdc2', 'kinase', 'pom1')",
             }
 
         limit = min(arguments.get("limit", 10), 50)
@@ -167,6 +181,7 @@ class PomBaseTool(BaseTool):
         total_genes = len(all_genes) if isinstance(all_genes, list) else 0
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "PomBase",
@@ -182,7 +197,8 @@ class PomBaseTool(BaseTool):
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
             return {
-                "error": "gene_id parameter is required (e.g., 'SPBC11B10.09' for cdc2)"
+                "status": "error",
+                "error": "gene_id parameter is required (e.g., 'SPBC11B10.09' for cdc2)",
             }
 
         # Get full gene data
@@ -232,6 +248,7 @@ class PomBaseTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "PomBase",

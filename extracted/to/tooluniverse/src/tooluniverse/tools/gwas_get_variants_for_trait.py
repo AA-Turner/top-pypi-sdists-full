@@ -1,7 +1,7 @@
 """
 gwas_get_variants_for_trait
 
-Get all variants associated with a specific trait with pagination support.
+Search the GWAS Catalog for all genetic variants (SNPs) linked to a specific disease or trait. Ac...
 """
 
 from typing import Any, Optional, Callable
@@ -10,23 +10,28 @@ from ._shared_client import get_shared_client
 
 def gwas_get_variants_for_trait(
     disease_trait: Optional[str] = None,
+    trait: Optional[str] = None,
     efo_uri: Optional[str] = None,
     efo_id: Optional[str] = None,
     efo_trait: Optional[str] = None,
     size: Optional[int] = None,
+    limit: Optional[int] = None,
     page: Optional[int] = None,
+    p_value_threshold: Optional[float] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get all variants associated with a specific trait with pagination support.
+    Search the GWAS Catalog for all genetic variants (SNPs) linked to a specific disease or trait. Ac...
 
     Parameters
     ----------
     disease_trait : str
         Disease or trait name for text-based search (e.g., 'diabetes', 'breast cancer')
+    trait : str
+        Alias for disease_trait. Disease or trait name (e.g., 'type 2 diabetes', 'bre...
     efo_uri : str
         Full EFO ontology URI (e.g., 'http://www.ebi.ac.uk/efo/EFO_0001645')
     efo_id : str
@@ -35,6 +40,8 @@ def gwas_get_variants_for_trait(
         Exact EFO trait label. Use when you know the canonical trait string.
     size : int
         Number of results to return per page
+    limit : int
+        Alias for size. Number of results to return per page
     page : int
         Page number for pagination
     stream_callback : Callable, optional
@@ -55,11 +62,14 @@ def gwas_get_variants_for_trait(
         k: v
         for k, v in {
             "disease_trait": disease_trait,
+            "trait": trait,
             "efo_uri": efo_uri,
             "efo_id": efo_id,
             "efo_trait": efo_trait,
             "size": size,
+            "limit": limit,
             "page": page,
+            "p_value_threshold": p_value_threshold,
         }.items()
         if v is not None
     }

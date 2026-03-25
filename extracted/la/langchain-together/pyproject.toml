@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "langchain-together"
-version = "0.3.1"
+version = "0.4.0"
 description = "An integration package connecting Together AI and LangChain"
 authors = []
 readme = "README.md"
@@ -19,11 +19,19 @@ disallow_untyped_defs = "True"
 "Release Notes" = "https://github.com/langchain-ai/langchain-together/releases"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-langchain-openai = "^0.3"
-langchain-core = "^0.3.29"
-requests = "^2"
-aiohttp = "^3.9.1"
+python = ">=3.10,<4.0"
+langchain-openai = ">=1.1.12,<2"
+langchain-core = ">=1.2.22,<2"
+# CVE-2024-47081: requests < 2.32.4 leaks .netrc credentials via malicious URLs.
+requests = ">=2.32.4,<3"
+aiohttp = "^3.13.3"
+# CVE-2025-43859: h11 < 0.16.0 is vulnerable to malformed Chunked-Encoding body acceptance.
+h11 = ">=0.16.0"
+# CVE-2025-66418, CVE-2025-66471, CVE-2026-21441: urllib3 < 2.6.3 has multiple decompression bomb / redirect vulnerabilities.
+urllib3 = ">=2.6.3"
+# CVE-2026-25528: langsmith >= 0.4.10, < 0.6.3 is vulnerable to SSRF via tracing headers.
+# Remove this constraint once langchain-core pulls in langsmith >= 0.6.3 directly.
+langsmith = ">=0.6.3"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "D"]
@@ -71,8 +79,8 @@ pytest-mock = "^3.10.0"
 syrupy = "^4.0.2"
 pytest-watcher = "^0.3.4"
 pytest-asyncio = "^0.21.1"
-docarray = "^0.32.1"
-langchain-tests = "0.3.1"
+docarray = ">=0.32.1,<0.42.0"
+langchain-tests = ">=1.0"
 
 
 [tool.poetry.group.codespell.dependencies]
@@ -81,12 +89,12 @@ codespell = "^2.2.0"
 
 [tool.poetry.group.test_integration.dependencies]
 [[tool.poetry.group.test_integration.dependencies.numpy]]
-version = "^1"
-python = "<3.12"
+version = "^1.26.0"
+python = "<3.13"
 
 [[tool.poetry.group.test_integration.dependencies.numpy]]
-version = "^1.26.0"
-python = ">=3.12"
+version = "^2.1.0"
+python = ">=3.13"
 
 
 [tool.poetry.group.lint.dependencies]

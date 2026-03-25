@@ -57,19 +57,19 @@ def input_line_prefix(line_number: int, wrap_count: int) -> "StyleAndTextTuples"
 
 
 # ---------------------------------------------------------------------------
-# Input lexer — highlights /commands
+# Input lexer — highlights /commands and !shell escapes
 # ---------------------------------------------------------------------------
 
-_SLASH_CMD_RE = re.compile(r"^(/\S+)")
+_COMMAND_PREFIX_RE = re.compile(r"^([/!]\S*)")
 
 
 class InputLexer(Lexer):
-    """Highlights ``/commands`` in the input area."""
+    """Highlights first-line ``/commands`` and ``!shell`` escapes."""
 
     def lex_document(self, document: Any) -> Callable[[int], "StyleAndTextTuples"]:
         def get_line(lineno: int) -> "StyleAndTextTuples":
             line = document.lines[lineno] if lineno < len(document.lines) else ""
-            m = _SLASH_CMD_RE.match(line) if lineno == 0 else None
+            m = _COMMAND_PREFIX_RE.match(line) if lineno == 0 else None
             if m:
                 cmd_end = m.end()
                 return [

@@ -42,6 +42,19 @@ fn extract_config(config: &Bound<'_, PyAny>) -> PyResult<ptars::PtarsConfig> {
     let use_large_string: bool = config.getattr("use_large_string")?.extract()?;
     let use_large_binary: bool = config.getattr("use_large_binary")?.extract()?;
     let use_large_list: bool = config.getattr("use_large_list")?.extract()?;
+    let enum_repr: String = config.getattr("enum_repr")?.extract()?;
+
+    let enum_repr = match enum_repr.as_str() {
+        "int32" => ptars::EnumRepr::Int32,
+        "string" => ptars::EnumRepr::String,
+        "binary" => ptars::EnumRepr::Binary,
+        _ => {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Invalid enum_repr '{}', expected one of: int32, string, binary",
+                enum_repr
+            )))
+        }
+    };
 
     Ok(ptars::PtarsConfig::default()
         .with_timestamp_tz(timestamp_tz.as_deref())
@@ -55,7 +68,8 @@ fn extract_config(config: &Bound<'_, PyAny>) -> PyResult<ptars::PtarsConfig> {
         .with_map_value_nullable(map_value_nullable)
         .with_use_large_string(use_large_string)
         .with_use_large_binary(use_large_binary)
-        .with_use_large_list(use_large_list))
+        .with_use_large_list(use_large_list)
+        .with_enum_repr(enum_repr))
 }
 
 /// Read a varint from a reader. Returns None if EOF is reached at the start.
@@ -138,20 +152,19 @@ impl MessageHandler {
         values: &Bound<'_, PyList>,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let mut messages: Vec<DynamicMessage> = Vec::with_capacity(values.len());
+        let mut builder = arrow_array::builder::BinaryBuilder::new();
         for value in values.iter() {
             let bytes: &[u8] = value.extract()?;
-            let message = DynamicMessage::decode(self.message_descriptor.clone(), bytes)
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-            messages.push(message);
+            builder.append_value(bytes);
         }
-        Ok(ptars::messages_to_record_batch_with_config(
-            &messages,
+        let binary_array = builder.finish();
+        let record_batch = ptars::binary_array_to_record_batch_direct(
+            &binary_array,
             &self.message_descriptor,
             &self.config,
         )
-        .to_pyarrow(py)?
-        .unbind())
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(record_batch.to_pyarrow(py)?.unbind())
     }
 
     fn just_convert(&self, values: &Bound<'_, PyList>, _py: Python<'_>) {
@@ -184,7 +197,7 @@ impl MessageHandler {
             pyo3::exceptions::PyTypeError::new_err(format!("Failed to convert array: {}", e))
         })?;
         let arrow_array = BinaryArray::from(array_data);
-        let record_batch = ptars::binary_array_to_record_batch_with_config(
+        let record_batch = ptars::binary_array_to_record_batch_direct(
             &arrow_array,
             &self.message_descriptor,
             &self.config,
@@ -205,20 +218,18 @@ impl MessageHandler {
             pyo3::exceptions::PyIOError::new_err(format!("Failed to read file: {}", e))
         })?;
 
-        let mut messages: Vec<DynamicMessage> = Vec::with_capacity(message_bytes.len());
+        let mut builder = arrow_array::builder::BinaryBuilder::new();
         for bytes in &message_bytes {
-            let message = DynamicMessage::decode(self.message_descriptor.clone(), bytes.as_slice())
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-            messages.push(message);
+            builder.append_value(bytes);
         }
-
-        Ok(ptars::messages_to_record_batch_with_config(
-            &messages,
+        let binary_array = builder.finish();
+        let record_batch = ptars::binary_array_to_record_batch_direct(
+            &binary_array,
             &self.message_descriptor,
             &self.config,
         )
-        .to_pyarrow(py)?
-        .unbind())
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(record_batch.to_pyarrow(py)?.unbind())
     }
 }
 

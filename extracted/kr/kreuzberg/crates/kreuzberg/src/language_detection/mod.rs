@@ -83,7 +83,7 @@ fn detect_multiple_languages(text: &str, config: &LanguageDetectionConfig) -> Re
         return Ok(None);
     }
 
-    let mut lang_counts = std::collections::HashMap::new();
+    let mut lang_counts = ahash::AHashMap::new();
     let threshold = config.min_confidence.min(0.35);
 
     for chunk in &chunk_strings {
@@ -194,9 +194,7 @@ fn lang_to_iso639_3(lang: Lang) -> String {
 /// Explicit calling is optional.
 pub fn register_language_detection_processor() -> Result<()> {
     let registry = crate::plugins::registry::get_post_processor_registry();
-    let mut registry = registry
-        .write()
-        .map_err(|e| crate::KreuzbergError::Other(format!("Post-processor registry lock poisoned: {}", e)))?;
+    let mut registry = registry.write();
 
     registry.register(Arc::new(LanguageDetector), 40)?;
 

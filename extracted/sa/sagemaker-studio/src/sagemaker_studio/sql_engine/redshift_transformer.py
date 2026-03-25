@@ -14,6 +14,10 @@ class RedshiftTransformer(DatabaseTransformer):
     Redshift clusters with appropriate connection string formatting.
     """
 
+    @classmethod
+    def get_dialect(cls) -> Optional[str]:
+        return "redshift"
+
     @staticmethod
     def get_required_fields() -> List[str]:
         """

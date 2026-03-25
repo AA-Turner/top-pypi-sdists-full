@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bidsschematools
-Version: 1.2.1
+Version: 1.2.2
 Summary: Python tools for working with the BIDS schema.
 Author: bids-standard developers
 Maintainer-Email: bids-standard developers <bids.maintenance@gmail.com>
@@ -9,37 +9,28 @@ Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/bids-standard/bids-specification
-Requires-Python: >=3.9
-Requires-Dist: acres
-Requires-Dist: click
-Requires-Dist: pyyaml
-Provides-Extra: validation
-Requires-Dist: jsonschema[format]; extra == "validation"
-Provides-Extra: dev
-Requires-Dist: bidsschematools[tests]; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
+Requires-Python: >=3.10
+Requires-Dist: acres>=0.5
+Requires-Dist: click>=8.1
+Requires-Dist: pyyaml>=6.0
 Provides-Extra: expressions
-Requires-Dist: pyparsing; extra == "expressions"
+Requires-Dist: pyparsing>=3.2; extra == "expressions"
 Provides-Extra: render
-Requires-Dist: tabulate; extra == "render"
-Requires-Dist: pandas; extra == "render"
-Requires-Dist: markdown-it-py; extra == "render"
+Requires-Dist: tabulate>=0.9; extra == "render"
+Requires-Dist: numpy>=1.26; extra == "render"
+Requires-Dist: pandas>=2.0; extra == "render"
+Requires-Dist: markdown-it-py>=3.0; extra == "render"
 Requires-Dist: pymdown-extensions>=9.2; extra == "render"
-Provides-Extra: tests
-Requires-Dist: bidsschematools[expressions,render,validation]; extra == "tests"
-Requires-Dist: check-jsonschema; extra == "tests"
-Requires-Dist: codecov; extra == "tests"
-Requires-Dist: coverage[toml]; extra == "tests"
-Requires-Dist: pytest>6; extra == "tests"
-Requires-Dist: pytest-cov; extra == "tests"
+Provides-Extra: validation
+Requires-Dist: jsonschema[format]>=4.22; extra == "validation"
 Provides-Extra: all
-Requires-Dist: bidsschematools[tests]; extra == "all"
+Requires-Dist: bidsschematools[expressions,render,validation]; extra == "all"
 Description-Content-Type: text/markdown
 
 # BIDS Schema Tools

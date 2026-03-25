@@ -18,6 +18,8 @@ from pulpcore.app.views import (
     LivezView,
     OrphansView,
     PulpImporterImportCheckView,
+    DataRepair7272View,
+    DataRepair7465View,
     RepairView,
     StatusView,
 )
@@ -27,7 +29,6 @@ from pulpcore.app.viewsets import (
     OrphansCleanupViewset,
     ReclaimSpaceViewSet,
 )
-
 
 if settings.DOMAIN_ENABLED:
     API_ROOT = settings.V3_DOMAIN_API_ROOT_NO_FRONT_SLASH
@@ -156,6 +157,8 @@ for viewset in sorted_by_depth:
 special_views = [
     path("login/", LoginViewSet.as_view()),
     path("repair/", RepairView.as_view()),
+    path("datarepair/7272/", DataRepair7272View.as_view()),
+    path("datarepair/7465/", DataRepair7465View.as_view()),
     path(
         "orphans/cleanup/",
         OrphansCleanupViewset.as_view(actions={"post": "cleanup"}),

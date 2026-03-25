@@ -8,8 +8,9 @@ import os
 import sys
 import time
 from collections import deque
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -506,6 +507,53 @@ def _output_summary(output: Any) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Busy status for toolbar integration
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BusyStatus:
+    """Busy-state data for rendering in the bottom toolbar."""
+
+    thinking_text: str
+    tool_label: str | None = None
+    show_cancel_hint: bool = False
+
+
+# Footer mode: when True, thinking/tool tickers update the toolbar instead
+# of writing raw ANSI escape sequences to the terminal.  Set when _repl_mode
+# is True and no plan checklist is active.
+_footer_mode: bool = False
+
+# Callback set by repl.py to invalidate+redraw the toolbar.
+_toolbar_invalidator: Callable[[], None] | None = None
+
+
+def get_busy_status() -> BusyStatus | None:
+    """Return current busy state for toolbar rendering, or None if idle."""
+    if not _thinking_start and not _tool_ticker_summary:
+        return None
+    thinking_text = ""
+    show_cancel = False
+    if _thinking_start:
+        elapsed = time.monotonic() - _thinking_start
+        # Build plain text for the toolbar — _build_thinking_text returns raw
+        # ANSI escapes which would render as garbled text in prompt_toolkit.
+        if elapsed >= _REPL_THINKING_REVEAL_DELAY or _plan_visible:
+            suffix = _phase_suffix(elapsed)
+            thinking_text = f"Thinking... {elapsed:.0f}s"
+            if suffix:
+                thinking_text += f"  {suffix}"
+        show_cancel = elapsed >= _ESC_HINT_DELAY
+    tool_label = _tool_ticker_summary or None
+    return BusyStatus(
+        thinking_text=thinking_text,
+        tool_label=tool_label,
+        show_cancel_hint=show_cancel,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Thinking spinner
 # ---------------------------------------------------------------------------
 
@@ -528,6 +576,8 @@ async def _thinking_ticker() -> None:
                     if suffix:
                         label += f"  [{MUTED}]{suffix}[/{MUTED}]"
                     _spinner.update(label)
+                elif _footer_mode and _toolbar_invalidator:
+                    _toolbar_invalidator()
                 elif _repl_mode:
                     _write_thinking_line(elapsed)
     except asyncio.CancelledError:
@@ -544,7 +594,7 @@ def start_thinking(*, newline: bool = False) -> None:
     """
     global _thinking_start, _spinner, _last_spinner_update, _tool_batch_active, _thinking_ticker_task
     global _thinking_phase, _thinking_tokens, _streaming_chars, _last_chunk_time, _phase_start_time, _retrying_info
-    global _plan_written_lines, _thinking_cancelled, _thinking_line_visible
+    global _plan_written_lines, _thinking_cancelled, _thinking_line_visible, _footer_mode
     _flush_dedup()
     _thinking_cancelled = False
     # Emit spacing after tool call block before AI narration text (#680).
@@ -566,22 +616,30 @@ def start_thinking(*, newline: bool = False) -> None:
     # Reset plan written lines — the block will be freshly written
     _plan_written_lines = 0
     if _repl_mode:
-        # Rich Status conflicts with prompt_toolkit's patch_stdout, so
-        # we write a plain "Thinking..." line and overwrite it in-place
-        # via ANSI escape codes as the timer ticks.
-        if newline and _stdout:
-            # Atomic \n + initial thinking block prevents prompt_toolkit race (#249).
-            if _plan_visible and _plan_steps:
-                # Write newline then full plan + thinking block
-                _stdout.write("\n")
-                _stdout.flush()
-                _write_thinking_block(0.0)
-            else:
-                _stdout.write("\n")
-                _stdout.flush()
-        elif _plan_visible and _plan_steps:
-            _write_thinking_line(0.0)
-        _spinner = None
+        # Footer mode: toolbar owns the busy indicator.  Only active when
+        # no plan checklist is on screen (plan uses raw cursor-up rendering).
+        if not (_plan_visible and _plan_steps) and _toolbar_invalidator is not None:
+            _footer_mode = True
+            _spinner = None
+            _toolbar_invalidator()
+        else:
+            _footer_mode = False
+            # Rich Status conflicts with prompt_toolkit's patch_stdout, so
+            # we write a plain "Thinking..." line and overwrite it in-place
+            # via ANSI escape codes as the timer ticks.
+            if newline and _stdout:
+                # Atomic \n + initial thinking block prevents prompt_toolkit race (#249).
+                if _plan_visible and _plan_steps:
+                    # Write newline then full plan + thinking block
+                    _stdout.write("\n")
+                    _stdout.flush()
+                    _write_thinking_block(0.0)
+                else:
+                    _stdout.write("\n")
+                    _stdout.flush()
+            elif _plan_visible and _plan_steps:
+                _write_thinking_line(0.0)
+            _spinner = None
     else:
         _spinner = Status(f"[{GOLD}]Thinking...[/]", console=console, spinner="dots12")
         _spinner.start()
@@ -756,6 +814,8 @@ def _write_thinking_line(
 def _detach_thinking_line_for_output() -> bool:
     """Move subsequent normal output onto a fresh line when thinking is visible."""
     global _thinking_line_visible
+    if _footer_mode:
+        return False
     if not (_repl_mode and _stdout and _thinking_start and _thinking_line_visible):
         return False
     _stdout.write("\n")
@@ -805,7 +865,7 @@ async def stop_thinking(
     - ``quiet``: clear the current thinking line without printing a final status
     """
     global _spinner, _thinking_ticker_task, _thinking_phase, _plan_written_lines
-    global _thinking_start, _thinking_line_visible
+    global _thinking_start, _thinking_line_visible, _footer_mode
     elapsed = 0.0
     # Await ticker termination to prevent race conditions
     if _thinking_ticker_task is not None:
@@ -819,6 +879,31 @@ async def stop_thinking(
         elapsed = time.monotonic() - _thinking_start
         _spinner.stop()
         _spinner = None
+    elif _footer_mode:
+        # Footer mode: commit final status via Rich console (through
+        # patch_stdout proxy) so prompt_toolkit stays in control.
+        # Use Rich markup throughout — _build_thinking_text returns raw
+        # ANSI escapes which would render as garbled text in console.print().
+        elapsed = time.monotonic() - _thinking_start
+        if not quiet:
+            _thinking_phase = ""
+            if error_msg:
+                final = (
+                    f"[{_theme.accent}]Thinking...[/] [{_theme.chrome}]{elapsed:.0f}s[/]"
+                    f"  [{_theme.error}]{error_msg}[/]"
+                )
+            elif cancel_msg:
+                final = (
+                    f"[{_theme.accent}]Thinking...[/] [{_theme.chrome}]{elapsed:.0f}s[/]"
+                    f"  [{_theme.muted}]{cancel_msg}[/]"
+                )
+            else:
+                final = f"[{_theme.accent}]Thinking...[/] [{_theme.chrome}]{elapsed:.0f}s[/]"
+            if final:
+                console.print(final)
+        _footer_mode = False
+        if _toolbar_invalidator:
+            _toolbar_invalidator()
     else:
         elapsed = time.monotonic() - _thinking_start
         if _repl_mode and _stdout:
@@ -867,7 +952,7 @@ def stop_thinking_sync() -> float:
     Does not await the ticker — use only when an event loop is unavailable.
     """
     global _spinner, _thinking_ticker_task, _plan_written_lines, _thinking_start
-    global _thinking_cancelled, _thinking_line_visible
+    global _thinking_cancelled, _thinking_line_visible, _footer_mode
     elapsed = 0.0
     _thinking_cancelled = True  # suppress stale ticker output before cancel propagates (#937)
     if _thinking_ticker_task is not None:
@@ -877,6 +962,11 @@ def stop_thinking_sync() -> float:
         elapsed = time.monotonic() - _thinking_start
         _spinner.stop()
         _spinner = None
+    elif _footer_mode:
+        elapsed = time.monotonic() - _thinking_start
+        _footer_mode = False
+        if _toolbar_invalidator:
+            _toolbar_invalidator()
     else:
         elapsed = time.monotonic() - _thinking_start
         if _repl_mode and _stdout:
@@ -917,12 +1007,18 @@ async def thinking_countdown(
     remaining = int(delay)
     while remaining > 0:
         elapsed = time.monotonic() - _thinking_start if _thinking_start else 0.0
-        if _repl_mode and _stdout:
+        if _footer_mode and _toolbar_invalidator:
+            # In footer mode, push countdown state into the toolbar.
+            # get_busy_status() will pick up the error via _thinking_phase.
+            _toolbar_invalidator()
+        elif _repl_mode and _stdout:
             _write_thinking_line(elapsed, error_msg=error_msg, countdown=remaining)
         try:
             await asyncio.wait_for(cancel_event.wait(), timeout=1.0)
             # cancel_event fired — give up
-            if _repl_mode and _stdout:
+            if _footer_mode and _toolbar_invalidator:
+                _toolbar_invalidator()
+            elif _repl_mode and _stdout:
                 _write_thinking_line(elapsed, cancel_msg="cancelled")
                 _stdout.write("\n")
                 _stdout.flush()
@@ -1299,6 +1395,8 @@ async def _tool_ticker() -> None:
                 if _tool_spinner:
                     label = f"  [{MUTED}]{escape(_tool_ticker_summary)}  {elapsed:.0f}s[/{MUTED}]"
                     _tool_spinner.update(label)
+                elif _footer_mode and _toolbar_invalidator:
+                    _toolbar_invalidator()
                 elif _repl_mode and _stdout:
                     muted = _theme.ansi_fg("muted")
                     rst = _theme.ansi_reset
@@ -1327,16 +1425,21 @@ def start_tool_ticker(summary: str) -> None:
 
 def stop_tool_ticker_sync() -> None:
     """Stop the tool ticker synchronously (safe from sync render_tool_call_end)."""
-    global _tool_ticker_task, _tool_spinner
+    global _tool_ticker_task, _tool_spinner, _tool_ticker_summary
     if _tool_ticker_task is not None:
         _tool_ticker_task.cancel()
         _tool_ticker_task = None
     if _tool_spinner:
         _tool_spinner.stop()
         _tool_spinner = None
+    elif _footer_mode:
+        if _toolbar_invalidator:
+            _toolbar_invalidator()
     elif _repl_mode and _stdout:
         _stdout.write("\r\033[2K")
         _stdout.flush()
+    # Always clear summary so get_busy_status() doesn't return a stale tool label.
+    _tool_ticker_summary = ""
 
 
 # ---------------------------------------------------------------------------
@@ -1701,6 +1804,7 @@ def format_status_toolbar(
     working_dir: str = "",
     git_branch: str = "",
     conversation_name: str = "",
+    busy_status: BusyStatus | None = None,
 ) -> list[tuple[str, str]]:
     """Format the persistent bottom toolbar for the REPL.
 
@@ -1761,6 +1865,18 @@ def format_status_toolbar(
         if connecting:
             parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
             parts.append(("class:bottom-toolbar.mcp", f"MCP: {', '.join(connecting)}"))
+
+    # Busy state: tool label and/or thinking indicator
+    if busy_status is not None:
+        if busy_status.tool_label:
+            parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
+            parts.append(("class:bottom-toolbar.model", busy_status.tool_label))
+        if busy_status.thinking_text:
+            parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
+            parts.append(("class:bottom-toolbar.tokens-warn", busy_status.thinking_text))
+        if busy_status.show_cancel_hint:
+            parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
+            parts.append(("class:bottom-toolbar.dim", "esc to cancel"))
 
     # Strip trailing separator if present
     if parts and parts[-1][0] == "class:bottom-toolbar.sep":

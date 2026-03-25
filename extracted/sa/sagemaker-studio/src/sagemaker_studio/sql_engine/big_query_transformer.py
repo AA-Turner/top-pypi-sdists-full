@@ -1,11 +1,15 @@
 import base64
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sagemaker_studio.sql_engine.database_transformer import DatabaseTransformer
 
 
 class BigQueryTransformer(DatabaseTransformer):
+
+    @classmethod
+    def get_dialect(cls) -> Optional[str]:
+        return "bigquery"
 
     @staticmethod
     def get_required_fields() -> List[str]:

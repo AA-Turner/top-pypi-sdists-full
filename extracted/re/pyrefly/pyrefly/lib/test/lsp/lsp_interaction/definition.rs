@@ -489,7 +489,7 @@ fn goto_type_def_on_list_of_primitives_shows_selector() {
 
 #[test]
 fn test_go_to_def_constructor_calls() {
-    // Note: go-to-definition currently goes to the class definition, not __init__.
+    // go-to-definition on constructor calls should go to __init__
     let root = get_test_files_root();
     let constructor_root = root.path().join("constructor_references");
     test_go_to_def(
@@ -497,10 +497,10 @@ fn test_go_to_def_constructor_calls() {
         None,
         "usage.py",
         vec![
-            // Person("Alice", 30) - goes to class Person definition
-            (7, 7, "person.py", 6, 6, 6, 12),
-            // Person("Bob", 25) - goes to class Person definition
-            (8, 7, "person.py", 6, 6, 6, 12),
+            // Person("Alice", 30) - goes to Person.__init__ definition
+            (7, 7, "person.py", 7, 8, 7, 16),
+            // Person("Bob", 25) - goes to Person.__init__ definition
+            (8, 7, "person.py", 7, 8, 7, 16),
         ],
     );
 }
@@ -682,6 +682,28 @@ fn definition_relative_import_with_nested_config() {
         .expect_definition_response_from_root("pkg/bar.py", 0, 0, 0, 0)
         .unwrap();
     interaction.shutdown().unwrap();
+}
+
+/// Documents current behavior: go-to-definition on a symbol imported from a
+/// thrift-generated Python stub navigates to the .pyi stub file.
+/// Once thrift go-to-def is implemented, this should navigate to the .thrift file instead.
+#[test]
+fn thrift_go_to_def_currently_goes_to_stub() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("thrift_go_to_def");
+    test_go_to_def(
+        root_path,
+        None,
+        "main.py",
+        vec![
+            // `from my_thrift.ttypes import MyStruct` — cursor on MyStruct (col 29)
+            // Currently navigates to the .pyi stub, not the .thrift source
+            (5, 29, "my_thrift/ttypes.pyi", 5, 6, 5, 14),
+            // `x: MyStruct` — cursor on MyStruct (col 3)
+            // Currently navigates to the .pyi stub, not the .thrift source
+            (7, 3, "my_thrift/ttypes.pyi", 5, 6, 5, 14),
+        ],
+    );
 }
 
 /// Same as above but with workspace root above src/.

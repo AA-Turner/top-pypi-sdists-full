@@ -44,16 +44,24 @@ class BVBRCTool(BaseTool):
             return self._query(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"BV-BRC API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"BV-BRC API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to BV-BRC API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to BV-BRC API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"BV-BRC API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"BV-BRC API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying BV-BRC: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying BV-BRC: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate query method."""
@@ -85,7 +93,8 @@ class BVBRCTool(BaseTool):
             return self._search_subsystems(arguments)
         else:
             return {
-                "error": f"Unknown data_type/action: {self.data_type}/{self.action}"
+                "status": "error",
+                "error": f"Unknown data_type/action: {self.data_type}/{self.action}",
             }
 
     def _build_query_string(
@@ -120,7 +129,7 @@ class BVBRCTool(BaseTool):
         """Get a specific genome by ID."""
         genome_id = arguments.get("genome_id", "")
         if not genome_id:
-            return {"error": "genome_id parameter is required"}
+            return {"status": "error", "error": "genome_id parameter is required"}
 
         select_fields = [
             "genome_id",
@@ -151,11 +160,13 @@ class BVBRCTool(BaseTool):
 
         if not data:
             return {
+                "status": "success",
                 "data": {},
                 "metadata": {"source": "BV-BRC", "query_genome_id": genome_id},
             }
 
         return {
+            "status": "success",
             "data": data[0] if isinstance(data, list) else data,
             "metadata": {"source": "BV-BRC", "query_genome_id": genome_id},
         }
@@ -164,7 +175,7 @@ class BVBRCTool(BaseTool):
         """Search for genomes by keyword."""
         keyword = arguments.get("keyword", "")
         if not keyword:
-            return {"error": "keyword parameter is required"}
+            return {"status": "error", "error": "keyword parameter is required"}
 
         limit = min(arguments.get("limit") or 10, 100)
 
@@ -191,6 +202,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -216,7 +228,8 @@ class BVBRCTool(BaseTool):
 
         if not conditions:
             return {
-                "error": "At least one of antibiotic, genome_id, or resistant_phenotype is required"
+                "status": "error",
+                "error": "At least one of antibiotic, genome_id, or resistant_phenotype is required",
             }
 
         limit = min(arguments.get("limit") or 25, 100)
@@ -242,6 +255,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -270,7 +284,10 @@ class BVBRCTool(BaseTool):
             conditions.append(f"eq(genome_id,{genome_id})")
 
         if not gene and not product and not genome_id:
-            return {"error": "At least one of gene, product, or genome_id is required"}
+            return {
+                "status": "error",
+                "error": "At least one of gene, product, or genome_id is required",
+            }
 
         limit = min(arguments.get("limit") or 10, 100)
 
@@ -295,6 +312,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -324,7 +342,8 @@ class BVBRCTool(BaseTool):
 
         if not conditions:
             return {
-                "error": "At least one of taxon_id, protein_name, epitope_type, or organism is required"
+                "status": "error",
+                "error": "At least one of taxon_id, protein_name, epitope_type, or organism is required",
             }
 
         limit = min(arguments.get("limit") or 25, 100)
@@ -350,6 +369,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -379,7 +399,8 @@ class BVBRCTool(BaseTool):
 
         if not conditions:
             return {
-                "error": "At least one of subtype, geographic_group, host_group, or collection_country is required"
+                "status": "error",
+                "error": "At least one of subtype, geographic_group, host_group, or collection_country is required",
             }
 
         limit = min(arguments.get("limit") or 25, 100)
@@ -402,6 +423,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -433,7 +455,8 @@ class BVBRCTool(BaseTool):
 
         if not conditions:
             return {
-                "error": "At least one of gene, property, source, or taxon_id is required"
+                "status": "error",
+                "error": "At least one of gene, property, source, or taxon_id is required",
             }
 
         limit = min(arguments.get("limit") or 25, 100)
@@ -458,6 +481,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -471,7 +495,7 @@ class BVBRCTool(BaseTool):
         """Get a specific protein structure by PDB ID."""
         pdb_id = arguments.get("pdb_id", "")
         if not pdb_id:
-            return {"error": "pdb_id parameter is required"}
+            return {"status": "error", "error": "pdb_id parameter is required"}
 
         url = f"{BVBRC_BASE_URL}/protein_structure/{pdb_id}"
         headers = {"Accept": "application/json"}
@@ -481,11 +505,13 @@ class BVBRCTool(BaseTool):
 
         if not data:
             return {
+                "status": "success",
                 "data": {},
                 "metadata": {"source": "BV-BRC", "query_pdb_id": pdb_id},
             }
 
         return {
+            "status": "success",
             "data": data,
             "metadata": {"source": "BV-BRC", "query_pdb_id": pdb_id},
         }
@@ -506,7 +532,10 @@ class BVBRCTool(BaseTool):
             conditions.append(f"eq(method,{method})")
 
         if not conditions:
-            return {"error": "At least one of taxon_id, gene, or method is required"}
+            return {
+                "status": "error",
+                "error": "At least one of taxon_id, gene, or method is required",
+            }
 
         limit = min(arguments.get("limit") or 10, 100)
 
@@ -529,6 +558,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -542,7 +572,7 @@ class BVBRCTool(BaseTool):
         """Get taxonomy details by taxon ID."""
         taxon_id = arguments.get("taxon_id", "")
         if not taxon_id:
-            return {"error": "taxon_id parameter is required"}
+            return {"status": "error", "error": "taxon_id parameter is required"}
 
         url = f"{BVBRC_BASE_URL}/taxonomy/{taxon_id}"
         headers = {"Accept": "application/json"}
@@ -552,11 +582,13 @@ class BVBRCTool(BaseTool):
 
         if not data:
             return {
+                "status": "success",
                 "data": {},
                 "metadata": {"source": "BV-BRC", "query_taxon_id": str(taxon_id)},
             }
 
         return {
+            "status": "success",
             "data": data,
             "metadata": {"source": "BV-BRC", "query_taxon_id": str(taxon_id)},
         }
@@ -565,7 +597,7 @@ class BVBRCTool(BaseTool):
         """Search pathogen taxonomy."""
         keyword = arguments.get("keyword", "")
         if not keyword:
-            return {"error": "keyword parameter is required"}
+            return {"status": "error", "error": "keyword parameter is required"}
 
         limit = min(arguments.get("limit") or 10, 100)
 
@@ -587,6 +619,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -615,7 +648,8 @@ class BVBRCTool(BaseTool):
 
         if not conditions:
             return {
-                "error": "At least one of taxon_id, pathway_name, ec_number, or genome_id is required"
+                "status": "error",
+                "error": "At least one of taxon_id, pathway_name, ec_number, or genome_id is required",
             }
 
         limit = min(arguments.get("limit") or 25, 100)
@@ -638,6 +672,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",
@@ -672,7 +707,8 @@ class BVBRCTool(BaseTool):
 
         if not conditions:
             return {
-                "error": "At least one of taxon_id, superclass, subsystem_name, role_name, or genome_id is required"
+                "status": "error",
+                "error": "At least one of taxon_id, superclass, subsystem_name, role_name, or genome_id is required",
             }
 
         limit = min(arguments.get("limit") or 25, 100)
@@ -696,6 +732,7 @@ class BVBRCTool(BaseTool):
 
         results = data if isinstance(data, list) else [data] if data else []
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BV-BRC",

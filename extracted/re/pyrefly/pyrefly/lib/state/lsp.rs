@@ -204,6 +204,12 @@ pub struct FindPreference {
     /// controls whether to prioritize finding pyi or py files. if false, we will search all search paths until a .py file is found before
     /// falling back to a .pyi.
     pub prefer_pyi: bool,
+    /// When true (the default), if the cursor is on a name/attribute in call
+    /// position, resolve through `__init__`/`__new__`/`__call__` dunders
+    /// instead of returning the class or variable definition. Set to false
+    /// when callers need the raw definition (e.g., call-graph queries that
+    /// unwrap decorators like `@lru_cache`).
+    pub resolve_call_dunders: bool,
 }
 
 impl Default for FindPreference {
@@ -211,6 +217,7 @@ impl Default for FindPreference {
         Self {
             import_behavior: ImportBehavior::JumpThroughEverything,
             prefer_pyi: true,
+            resolve_call_dunders: true,
         }
     }
 }
@@ -1402,6 +1409,40 @@ impl<'a> Transaction<'a> {
         })
     }
 
+    /// When a name or attribute in a call position resolves to a class, find
+    /// `__init__` and `__new__` definitions. When it resolves to a class
+    /// instance, find `__call__`. Returns all found definitions, or empty if
+    /// neither case applies. Does not match functions/callables — those should
+    /// use the normal go-to-definition path.
+    fn find_call_target_definitions(
+        &self,
+        handle: &Handle,
+        preference: FindPreference,
+        ty: Type,
+    ) -> Vec<FindDefinitionItemWithDocstring> {
+        match &ty {
+            Type::ClassDef(_) => {
+                let mut defs = self.find_attribute_definition_for_base_type(
+                    handle,
+                    preference,
+                    ty.clone(),
+                    &dunder::INIT,
+                );
+                defs.extend(self.find_attribute_definition_for_base_type(
+                    handle,
+                    preference,
+                    ty,
+                    &dunder::NEW,
+                ));
+                defs
+            }
+            Type::ClassType(_) => {
+                self.find_attribute_definition_for_base_type(handle, preference, ty, &dunder::CALL)
+            }
+            _ => vec![],
+        }
+    }
+
     pub(crate) fn find_definition_for_base_type(
         &self,
         handle: &Handle,
@@ -1740,6 +1781,24 @@ impl<'a> Transaction<'a> {
                             .map_or(vec![], |item| vec![item])
                     }
                     ExprContext::Load | ExprContext::Del | ExprContext::Invalid => {
+                        // If this name is the callee of a call expression, jump
+                        // to constructor or __call__ definitions when applicable.
+                        if preference.resolve_call_dunders
+                            && let Some(AnyNodeRef::ExprCall(call)) = covering_nodes.get(1)
+                            && call.func.range() == id.range
+                            && let Some(bindings) = self.get_bindings(handle)
+                        {
+                            let key = Key::BoundName(ShortIdentifier::new(&id));
+                            if bindings.is_valid_key(&key)
+                                && let Some(ty) = self.get_type(handle, &key)
+                            {
+                                let defs =
+                                    self.find_call_target_definitions(handle, preference, ty);
+                                if !defs.is_empty() {
+                                    return defs;
+                                }
+                            }
+                        }
                         // This is a usage of the variable
                         self.find_definition_for_name_use(handle, &id, preference)
                             .map_or(vec![], |item| vec![item])
@@ -1900,6 +1959,19 @@ impl<'a> Transaction<'a> {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
             }) => {
+                // If this attribute is the callee of a call expression, jump
+                // to constructor or __call__ definitions when applicable.
+                if preference.resolve_call_dunders
+                    && let Some(AnyNodeRef::ExprAttribute(attr)) = covering_nodes.get(1)
+                    && let Some(AnyNodeRef::ExprCall(call)) = covering_nodes.get(2)
+                    && call.func.range() == attr.range()
+                    && let Some(ty) = self.get_type_trace(handle, attr.range())
+                {
+                    let defs = self.find_call_target_definitions(handle, preference, ty);
+                    if !defs.is_empty() {
+                        return defs;
+                    }
+                }
                 self.find_definition_for_attribute(handle, base_range, identifier.id(), preference)
             }
             Some(IdentifierWithContext {
@@ -2005,6 +2077,7 @@ impl<'a> Transaction<'a> {
             FindPreference {
                 import_behavior: ImportBehavior::StopAtEverything,
                 prefer_pyi: true,
+                ..Default::default()
             },
         );
 
@@ -2086,7 +2159,7 @@ impl<'a> Transaction<'a> {
     ) -> Option<Vec<(String, Module, TextRange, String)>> {
         let module_info = self.get_module_info(handle)?;
         let ast = self.get_ast(handle)?;
-        let errors = self.get_errors(vec![handle]).collect_errors().shown;
+        let errors = self.get_errors(vec![handle]).collect_errors().ordinary;
         let mut import_actions = Vec::new();
         let mut generate_actions = Vec::new();
         let mut other_actions = Vec::new();
@@ -2305,7 +2378,7 @@ impl<'a> Transaction<'a> {
     ) -> Option<Vec<(Module, TextRange, String)>> {
         let module_info = self.get_module_info(handle)?;
         let ast = self.get_ast(handle)?;
-        let errors = self.get_errors(vec![handle]).collect_errors().shown;
+        let errors = self.get_errors(vec![handle]).collect_errors().ordinary;
         let mut edits = Vec::new();
         for error in errors {
             if error.error_kind() != ErrorKind::RedundantCast {
@@ -2953,6 +3026,7 @@ impl<'a> Transaction<'a> {
                         FindPreference {
                             import_behavior: ImportBehavior::StopAtRenamedImports,
                             prefer_pyi: false,
+                            ..Default::default()
                         },
                     )
                     && def_handle.path() == handle.path()

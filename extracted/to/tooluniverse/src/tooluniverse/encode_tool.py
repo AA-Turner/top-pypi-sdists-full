@@ -140,6 +140,10 @@ class ENCODESearchTool:
         _param_map = {
             "organism": "replicates.library.biosample.donor.organism.scientific_name",
             "biosample_type": "biosample_ontology.classification",
+            # Feature-111A-001: biosample_term alias → biosample_term_name
+            "biosample_term": "biosample_term_name",
+            # biosample alias already in schema but map it explicitly
+            "biosample": "biosample_term_name",
         }
 
         # Add all provided arguments to query (remapping as needed)
@@ -154,6 +158,7 @@ class ENCODESearchTool:
                 url, headers={"Accept": "application/json"}, timeout=timeout
             )
             return {
+                "status": "success",
                 "source": "ENCODE",
                 "endpoint": "search",
                 "query": query,
@@ -162,6 +167,7 @@ class ENCODESearchTool:
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": str(e),
                 "source": "ENCODE",
                 "endpoint": "search",

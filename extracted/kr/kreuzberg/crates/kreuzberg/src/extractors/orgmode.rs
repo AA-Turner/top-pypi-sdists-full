@@ -21,16 +21,19 @@ use crate::core::config::ExtractionConfig;
 #[cfg(feature = "office")]
 use crate::plugins::{DocumentExtractor, Plugin};
 #[cfg(feature = "office")]
+use crate::types::builder::DocumentStructureBuilder;
+#[cfg(feature = "office")]
+use crate::types::document_structure::{AnnotationKind, DocumentStructure, TextAnnotation};
+#[cfg(feature = "office")]
 use crate::types::{ExtractionResult, Metadata, Table};
 #[cfg(feature = "office")]
 use ahash::AHashMap;
 #[cfg(feature = "office")]
 use async_trait::async_trait;
 #[cfg(feature = "office")]
-use std::borrow::Cow;
-
-#[cfg(feature = "office")]
 use org::Org;
+#[cfg(feature = "office")]
+use std::borrow::Cow;
 
 /// Org Mode document extractor.
 ///
@@ -208,6 +211,477 @@ impl OrgModeExtractor {
         }
     }
 
+    /// Strip OrgMode inline markup from text and produce annotations with byte offsets.
+    ///
+    /// Handles: `*bold*`, `/italic/`, `_underline_`, `=verbatim=`, `~code~`,
+    /// `+strikethrough+`, and `[[url][desc]]` links.
+    fn parse_inline_markup(raw: &str) -> (String, Vec<TextAnnotation>) {
+        let mut out = String::with_capacity(raw.len());
+        let mut annotations = Vec::new();
+        let bytes = raw.as_bytes();
+        let len = bytes.len();
+        let mut i = 0;
+
+        while i < len {
+            // [[url][description]] or [[url]]
+            if i + 1 < len
+                && bytes[i] == b'['
+                && bytes[i + 1] == b'['
+                && let Some((url, display, consumed_to)) = Self::parse_org_link(raw, i)
+            {
+                let start = out.len() as u32;
+                out.push_str(&display);
+                let end = out.len() as u32;
+                if start < end {
+                    annotations.push(TextAnnotation {
+                        start,
+                        end,
+                        kind: AnnotationKind::Link { url, title: None },
+                    });
+                }
+                i = consumed_to;
+                continue;
+            }
+
+            // Org markup characters: *bold*, /italic/, _underline_, =verbatim=, ~code~, +strike+
+            if bytes[i].is_ascii() && Self::is_org_markup_char(bytes[i]) {
+                let marker = bytes[i];
+                // Must be preceded by whitespace/BOL and followed by non-space
+                let preceded_ok =
+                    i == 0 || bytes[i - 1].is_ascii_whitespace() || bytes[i - 1] == b'(' || bytes[i - 1] == b'"';
+                if preceded_ok
+                    && i + 1 < len
+                    && !bytes[i + 1].is_ascii_whitespace()
+                    && let Some(close) = Self::find_org_markup_close(bytes, i + 1, marker)
+                {
+                    let inner = &raw[i + 1..close];
+                    let start = out.len() as u32;
+                    out.push_str(inner);
+                    let end_off = out.len() as u32;
+                    let kind = match marker {
+                        b'*' => AnnotationKind::Bold,
+                        b'/' => AnnotationKind::Italic,
+                        b'_' => AnnotationKind::Underline,
+                        b'=' | b'~' => AnnotationKind::Code,
+                        b'+' => AnnotationKind::Strikethrough,
+                        _ => unreachable!(),
+                    };
+                    if start < end_off {
+                        annotations.push(TextAnnotation {
+                            start,
+                            end: end_off,
+                            kind,
+                        });
+                    }
+                    i = close + 1;
+                    continue;
+                }
+            }
+
+            // Decode the current UTF-8 character properly instead of casting byte to char
+            let ch = &raw[i..];
+            let c = ch.chars().next().unwrap();
+            out.push(c);
+            i += c.len_utf8();
+        }
+
+        (out, annotations)
+    }
+
+    fn is_org_markup_char(b: u8) -> bool {
+        matches!(b, b'*' | b'/' | b'_' | b'=' | b'~' | b'+')
+    }
+
+    /// Find the closing position of an Org markup character.
+    /// The closing marker must not be preceded by whitespace.
+    fn find_org_markup_close(bytes: &[u8], from: usize, marker: u8) -> Option<usize> {
+        let mut j = from;
+        while j < bytes.len() {
+            if bytes[j] == marker && j > from && !bytes[j - 1].is_ascii_whitespace() {
+                // Must be followed by whitespace, punctuation, or EOL
+                if j + 1 >= bytes.len()
+                    || bytes[j + 1].is_ascii_whitespace()
+                    || bytes[j + 1] == b'.'
+                    || bytes[j + 1] == b','
+                    || bytes[j + 1] == b';'
+                    || bytes[j + 1] == b':'
+                    || bytes[j + 1] == b')'
+                    || bytes[j + 1] == b']'
+                    || bytes[j + 1] == b'"'
+                {
+                    return Some(j);
+                }
+            }
+            j += 1;
+        }
+        None
+    }
+
+    /// Parse `[[url][desc]]` or `[[url]]` starting at position `start` (the first `[`).
+    /// Returns `(url, display_text, end_position)`.
+    fn parse_org_link(text: &str, start: usize) -> Option<(String, String, usize)> {
+        if !text[start..].starts_with("[[") {
+            return None;
+        }
+        let after_open = start + 2;
+        let rest = &text[after_open..];
+        if let Some(desc_start) = rest.find("][") {
+            let url = &rest[..desc_start];
+            let desc_begin = after_open + desc_start + 2;
+            if let Some(close) = text[desc_begin..].find("]]") {
+                let description = &text[desc_begin..desc_begin + close];
+                return Some((url.to_string(), description.to_string(), desc_begin + close + 2));
+            }
+        } else if let Some(close) = rest.find("]]") {
+            let url = &rest[..close];
+            return Some((url.to_string(), url.to_string(), after_open + close + 2));
+        }
+        None
+    }
+
+    /// Parse `[fn:name]` footnote references from text, returning label names.
+    fn find_footnote_references(line: &str) -> Vec<String> {
+        let mut refs = Vec::new();
+        let mut search_from = 0;
+        while let Some(pos) = line[search_from..].find("[fn:") {
+            let abs_pos = search_from + pos;
+            if let Some(close) = line[abs_pos..].find(']') {
+                let label = &line[abs_pos + 4..abs_pos + close];
+                if !label.is_empty() {
+                    refs.push(label.to_string());
+                }
+                search_from = abs_pos + close + 1;
+            } else {
+                break;
+            }
+        }
+        refs
+    }
+
+    /// Build a `DocumentStructure` from Org Mode source text.
+    fn build_document_structure(org_text: &str) -> DocumentStructure {
+        let mut builder = DocumentStructureBuilder::new().source_format("orgmode");
+        let lines: Vec<&str> = org_text.lines().collect();
+        let mut i = 0;
+
+        // Collect metadata directives from preamble
+        let mut metadata_entries: Vec<(String, String)> = Vec::new();
+        while i < lines.len() {
+            let trimmed = lines[i].trim();
+            if let Some(rest) = trimmed.strip_prefix("#+") {
+                if let Some((key, val)) = rest.split_once(':') {
+                    let key_upper = key.trim().to_uppercase();
+                    let value = val.trim().to_string();
+                    if !value.is_empty() {
+                        metadata_entries.push((key_upper, value));
+                    }
+                }
+                i += 1;
+                continue;
+            }
+            // Stop collecting metadata once we hit non-directive, non-blank line
+            if !trimmed.is_empty() {
+                break;
+            }
+            i += 1;
+        }
+        if !metadata_entries.is_empty() {
+            builder.push_metadata_block(metadata_entries, None);
+        }
+
+        // Process the rest of the document
+        while i < lines.len() {
+            let trimmed = lines[i].trim();
+
+            // Skip metadata directives in the body
+            if trimmed.starts_with("#+") && !trimmed.starts_with("#+BEGIN") && !trimmed.starts_with("#+END") {
+                i += 1;
+                continue;
+            }
+
+            // Properties drawer: :PROPERTIES: ... :END:
+            if trimmed == ":PROPERTIES:" {
+                let mut props: Vec<(String, String)> = Vec::new();
+                i += 1;
+                while i < lines.len() {
+                    let pt = lines[i].trim();
+                    if pt == ":END:" {
+                        i += 1;
+                        break;
+                    }
+                    // Parse :KEY: value
+                    if pt.starts_with(':')
+                        && pt.len() > 1
+                        && let Some(colon2) = pt[1..].find(':')
+                    {
+                        let key = pt[1..1 + colon2].to_string();
+                        let value = pt[2 + colon2..].trim().to_string();
+                        if !key.is_empty() {
+                            props.push((key, value));
+                        }
+                    }
+                    i += 1;
+                }
+                if !props.is_empty() {
+                    builder.push_metadata_block(props, None);
+                }
+                continue;
+            }
+
+            // Headings: * Level 1, ** Level 2, etc. with TODO/tags
+            if trimmed.starts_with('*') {
+                let mut level: u8 = 0;
+                for ch in trimmed.chars() {
+                    if ch == '*' {
+                        level += 1;
+                    } else {
+                        break;
+                    }
+                }
+                if level > 0 && trimmed.len() > level as usize && trimmed.as_bytes()[level as usize] == b' ' {
+                    let raw_heading = trimmed[level as usize + 1..].trim();
+                    if !raw_heading.is_empty() {
+                        // Parse TODO keyword and tags
+                        let todo_keywords = ["TODO", "DONE", "NEXT", "WAITING", "CANCELLED", "CANCELED"];
+                        let mut heading_text = raw_heading;
+                        let mut todo_keyword: Option<&str> = None;
+                        let mut tags: Option<String> = None;
+
+                        // Check for TODO keyword at start
+                        for kw in &todo_keywords {
+                            if heading_text.starts_with(kw) {
+                                let after = &heading_text[kw.len()..];
+                                if after.is_empty() || after.starts_with(' ') {
+                                    todo_keyword = Some(kw);
+                                    heading_text = after.trim_start();
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Check for tags at end  :tag1:tag2:
+                        if let Some(tag_start) = heading_text.rfind(" :") {
+                            let potential_tags = &heading_text[tag_start + 1..];
+                            if potential_tags.ends_with(':')
+                                && potential_tags.len() > 2
+                                && potential_tags[1..potential_tags.len() - 1]
+                                    .chars()
+                                    .all(|c| c.is_alphanumeric() || c == ':' || c == '_' || c == '@')
+                            {
+                                tags = Some(potential_tags.to_string());
+                                heading_text = heading_text[..tag_start].trim_end();
+                            }
+                        }
+
+                        let heading_idx = builder.push_heading(level, heading_text, None, None);
+                        // Store TODO and tags as attributes
+                        if todo_keyword.is_some() || tags.is_some() {
+                            let mut attrs = AHashMap::new();
+                            if let Some(kw) = todo_keyword {
+                                attrs.insert("todo".to_string(), kw.to_string());
+                            }
+                            if let Some(t) = tags {
+                                attrs.insert("tags".to_string(), t);
+                            }
+                            builder.set_attributes(heading_idx, attrs);
+                        }
+                    }
+                    i += 1;
+                    continue;
+                }
+            }
+
+            // Code blocks: #+BEGIN_SRC lang ... #+END_SRC
+            if trimmed.starts_with("#+BEGIN_SRC") || trimmed.starts_with("#+begin_src") {
+                let language: Option<&str> = trimmed.split_whitespace().nth(1);
+                i += 1;
+                let mut code_content = String::new();
+                while i < lines.len() {
+                    let t = lines[i].trim();
+                    if t.starts_with("#+END_SRC") || t.starts_with("#+end_src") {
+                        i += 1;
+                        break;
+                    }
+                    if !code_content.is_empty() {
+                        code_content.push('\n');
+                    }
+                    code_content.push_str(lines[i]);
+                    i += 1;
+                }
+                builder.push_code(code_content.trim_end(), language, None);
+                continue;
+            }
+
+            // Quote blocks: #+BEGIN_QUOTE ... #+END_QUOTE
+            if trimmed.starts_with("#+BEGIN_QUOTE") || trimmed.starts_with("#+begin_quote") {
+                builder.push_quote(None);
+                i += 1;
+                while i < lines.len() {
+                    let t = lines[i].trim();
+                    if t.starts_with("#+END_QUOTE") || t.starts_with("#+end_quote") {
+                        i += 1;
+                        break;
+                    }
+                    if !t.is_empty() {
+                        builder.push_paragraph(t, vec![], None, None);
+                    }
+                    i += 1;
+                }
+                builder.exit_container();
+                continue;
+            }
+
+            // Other BEGIN/END blocks - push as raw
+            if trimmed.starts_with("#+BEGIN_") || trimmed.starts_with("#+begin_") {
+                let block_type = trimmed
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .strip_prefix("#+BEGIN_")
+                    .or_else(|| trimmed.split_whitespace().next().unwrap_or("").strip_prefix("#+begin_"))
+                    .unwrap_or("UNKNOWN")
+                    .to_string();
+                let end_marker_upper = format!("#+END_{}", block_type);
+                let end_marker_lower = end_marker_upper.to_lowercase();
+                i += 1;
+                let mut block_content = String::new();
+                while i < lines.len() {
+                    let t = lines[i].trim();
+                    if t.starts_with(&end_marker_upper) || t.starts_with(&end_marker_lower) {
+                        i += 1;
+                        break;
+                    }
+                    if !block_content.is_empty() {
+                        block_content.push('\n');
+                    }
+                    block_content.push_str(lines[i]);
+                    i += 1;
+                }
+                builder.push_raw_block("orgmode", block_content.trim_end(), None);
+                continue;
+            }
+
+            // Tables: | cell | cell |
+            if trimmed.starts_with('|') && trimmed.ends_with('|') {
+                let mut table_cells: Vec<Vec<String>> = Vec::new();
+                while i < lines.len() {
+                    let t = lines[i].trim();
+                    if !t.starts_with('|') || !t.ends_with('|') {
+                        break;
+                    }
+                    // Skip separator rows (|---+---|)
+                    if t.contains("---") || t.contains("+-") {
+                        i += 1;
+                        continue;
+                    }
+                    let cells: Vec<String> = t
+                        .split('|')
+                        .map(|cell| cell.trim().to_string())
+                        .filter(|cell| !cell.is_empty())
+                        .collect();
+                    if !cells.is_empty() {
+                        table_cells.push(cells);
+                    }
+                    i += 1;
+                }
+                if !table_cells.is_empty() {
+                    builder.push_table_from_cells(&table_cells, None);
+                }
+                continue;
+            }
+
+            // Lists: - item, + item, 1. item, 1) item, with checkbox support
+            if !trimmed.is_empty() && Self::is_org_list_item(trimmed) {
+                let is_ordered = Self::is_org_ordered_item(trimmed);
+                let list_idx = builder.push_list(is_ordered, None);
+                while i < lines.len() {
+                    let t = lines[i].trim();
+                    if t.is_empty() || !Self::is_org_list_item(t) {
+                        break;
+                    }
+                    let text = Self::strip_list_prefix(t);
+                    // Check for checkbox: [ ] or [x] or [X]
+                    let (item_text, checkbox_state) = if let Some(rest) = text.strip_prefix("[ ] ") {
+                        (rest, Some("unchecked"))
+                    } else if let Some(rest) = text.strip_prefix("[x] ").or_else(|| text.strip_prefix("[X] ")) {
+                        (rest, Some("checked"))
+                    } else {
+                        (text, None)
+                    };
+                    let item_idx = builder.push_list_item(list_idx, item_text, None);
+                    if let Some(state) = checkbox_state {
+                        let mut attrs = AHashMap::new();
+                        attrs.insert("checkbox".to_string(), state.to_string());
+                        builder.set_attributes(item_idx, attrs);
+                    }
+                    i += 1;
+                }
+                continue;
+            }
+
+            // Regular paragraph with inline markup
+            if !trimmed.is_empty() {
+                let footnote_refs = Self::find_footnote_references(trimmed);
+                let (stripped, annotations) = Self::parse_inline_markup(trimmed);
+                builder.push_paragraph(&stripped, annotations, None, None);
+                for fref in footnote_refs {
+                    builder.push_footnote(&format!("[fn:{}]", fref), None);
+                }
+            }
+
+            i += 1;
+        }
+
+        builder.build()
+    }
+
+    /// Check if a line is an Org list item.
+    fn is_org_list_item(line: &str) -> bool {
+        let t = line.trim_start();
+        if t.starts_with("- ") || t.starts_with("+ ") {
+            return true;
+        }
+        // Ordered: 1. or 1)
+        if let Some(space_pos) = t.find(' ')
+            && space_pos > 0
+            && space_pos < 5
+        {
+            let prefix = &t[..space_pos];
+            if (prefix.ends_with('.') || prefix.ends_with(')'))
+                && prefix[..prefix.len() - 1].chars().all(|c| c.is_numeric())
+            {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Check if a list item is ordered.
+    fn is_org_ordered_item(line: &str) -> bool {
+        let t = line.trim_start();
+        if let Some(space_pos) = t.find(' ')
+            && space_pos > 0
+            && space_pos < 5
+        {
+            let prefix = &t[..space_pos];
+            return (prefix.ends_with('.') || prefix.ends_with(')'))
+                && prefix[..prefix.len() - 1].chars().all(|c| c.is_numeric());
+        }
+        false
+    }
+
+    /// Strip list prefix (-, +, 1., 1)) from a list item line.
+    fn strip_list_prefix(line: &str) -> &str {
+        let t = line.trim_start();
+        if let Some(rest) = t.strip_prefix("- ").or_else(|| t.strip_prefix("+ ")) {
+            return rest;
+        }
+        if let Some(space_pos) = t.find(' ') {
+            return &t[space_pos + 1..];
+        }
+        t
+    }
+
     /// Convert table cells to markdown format.
     fn cells_to_markdown(cells: &[Vec<String>]) -> String {
         if cells.is_empty() {
@@ -279,7 +753,7 @@ impl DocumentExtractor for OrgModeExtractor {
     #[cfg_attr(
         feature = "otel",
         tracing::instrument(
-            skip(self, content, _config),
+            skip(self, content, config),
             fields(
                 extractor.name = self.name(),
                 content.size_bytes = content.len(),
@@ -290,7 +764,7 @@ impl DocumentExtractor for OrgModeExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let org_text = String::from_utf8_lossy(content).into_owned();
 
@@ -300,6 +774,12 @@ impl DocumentExtractor for OrgModeExtractor {
         let (metadata, extracted_content) = Self::extract_metadata_and_content(&org_text, &org);
 
         let tables = Self::extract_tables(&org);
+
+        let document = if config.include_document_structure {
+            Some(Self::build_document_structure(&org_text))
+        } else {
+            None
+        };
 
         Ok(ExtractionResult {
             content: extracted_content,
@@ -313,12 +793,13 @@ impl DocumentExtractor for OrgModeExtractor {
             pages: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
@@ -539,5 +1020,25 @@ mod tests {
             content.contains("[AT&T]"),
             "Link should be formatted as [description] when description exists"
         );
+    }
+
+    #[test]
+    fn test_emoji_and_cjk_with_inline_markup() {
+        // Multi-byte characters with OrgMode inline markup — must not panic
+        let (text, annotations) = OrgModeExtractor::parse_inline_markup("🎉 *太字* テスト");
+        assert!(text.contains("🎉"), "Emoji preserved");
+        assert!(text.contains("太字"), "Bold content present");
+        assert!(text.contains("テスト"), "Trailing CJK preserved");
+        assert!(!annotations.is_empty(), "Should have bold annotation");
+    }
+
+    #[test]
+    fn test_cjk_heading_with_markup() {
+        let org_text = "* 見出し\n\n🎉 *太字* テスト";
+        let lines: Vec<String> = org_text.lines().map(|s| s.to_string()).collect();
+        let org = Org::from_vec(&lines).expect("Failed to parse org");
+        let content = OrgModeExtractor::extract_content(&org);
+        assert!(content.contains("見出し"), "CJK heading preserved");
+        assert!(content.contains("太字"), "Bold CJK text present");
     }
 }

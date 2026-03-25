@@ -44,18 +44,24 @@ class ProteomeXchangeTool(BaseTool):
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"ProteomeXchange API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"ProteomeXchange API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to ProteomeXchange API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to ProteomeXchange API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
             return {
-                "error": f"ProteomeXchange API HTTP error: {e.response.status_code}"
+                "status": "error",
+                "error": f"ProteomeXchange API HTTP error: {e.response.status_code}",
             }
         except Exception as e:
-            return {"error": f"Unexpected error querying ProteomeXchange: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying ProteomeXchange: {str(e)}",
+            }
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint based on config."""
@@ -64,7 +70,10 @@ class ProteomeXchangeTool(BaseTool):
         elif self.endpoint_type == "search_datasets":
             return self._search_datasets(arguments)
         else:
-            return {"error": f"Unknown endpoint_type: {self.endpoint_type}"}
+            return {
+                "status": "error",
+                "error": f"Unknown endpoint_type: {self.endpoint_type}",
+            }
 
     def _extract_cv_value(self, terms, accession_prefix=None, name_match=None):
         """Extract a value from CV terms list."""
@@ -85,7 +94,10 @@ class ProteomeXchangeTool(BaseTool):
         """Get a ProteomeXchange dataset by PX identifier."""
         px_id = arguments.get("px_id", "")
         if not px_id:
-            return {"error": "px_id parameter is required (e.g., 'PXD000001')"}
+            return {
+                "status": "error",
+                "error": "px_id parameter is required (e.g., 'PXD000001')",
+            }
 
         url = f"{PX_BASE_URL}/GetDataset"
         params = {"ID": px_id, "outputMode": "JSON"}
@@ -154,6 +166,7 @@ class ProteomeXchangeTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "ProteomeXchange",
@@ -201,6 +214,7 @@ class ProteomeXchangeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": datasets,
             "metadata": {
                 "source": "ProteomeXchange/ProteomeCentral",

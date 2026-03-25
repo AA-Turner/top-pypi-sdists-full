@@ -152,6 +152,8 @@ class HumanAgreementReview(ReviewData):
     agreement_score: Annotated[float, RenderHint(widget="score_bar", label="Agreement Score")] = Field(
         ge=0.0, le=1.0, default=0.0
     )
+    machine_signal: Annotated[str, RenderHint(widget="pass_fail_badge", label="Machine Signal")] = ""
+    human_signal: Annotated[str, RenderHint(widget="pass_fail_badge", label="Human Signal")] = ""
     evidence: Annotated[str, RenderHint(widget="markdown", label="Evidence")] = ""
     machine_summary: Annotated[str, RenderHint(widget="markdown", label="Machine Review Summary")] = ""
     human_summary: Annotated[str, RenderHint(widget="markdown", label="Human Review Summary")] = ""

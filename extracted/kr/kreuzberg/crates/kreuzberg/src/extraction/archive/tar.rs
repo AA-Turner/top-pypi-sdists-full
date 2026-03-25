@@ -151,3 +151,67 @@ pub fn extract_tar_text_content(bytes: &[u8], limits: &SecurityLimits) -> Result
 
     Ok(contents)
 }
+
+/// Extract raw file bytes for all non-directory entries in a TAR archive.
+///
+/// Returns a `HashMap` mapping file paths to their raw byte content.
+/// Respects security limits for file count and total archive size.
+///
+/// # Arguments
+///
+/// * `bytes` - The TAR archive bytes
+/// * `limits` - Security limits for archive extraction
+///
+/// # Errors
+///
+/// Returns an error if the TAR archive cannot be read or if security limits are exceeded.
+pub fn extract_tar_file_bytes(bytes: &[u8], limits: &SecurityLimits) -> Result<HashMap<String, Vec<u8>>> {
+    let cursor = Cursor::new(bytes);
+    let mut archive = TarArchive::new(cursor);
+
+    let mut file_bytes = HashMap::new();
+    let mut file_count = 0usize;
+    let mut total_size = 0usize;
+
+    let entries = archive
+        .entries()
+        .map_err(|e| KreuzbergError::parsing(format!("Failed to read TAR archive: {}", e)))?;
+
+    for entry_result in entries {
+        let mut entry =
+            entry_result.map_err(|e| KreuzbergError::parsing(format!("Failed to read TAR entry: {}", e)))?;
+
+        file_count += 1;
+        if file_count > limits.max_files_in_archive {
+            return Err(KreuzbergError::validation(format!(
+                "TAR archive has too many files: {} (max: {})",
+                file_count, limits.max_files_in_archive
+            )));
+        }
+
+        if entry.header().entry_type().is_dir() {
+            continue;
+        }
+
+        let path = entry
+            .path()
+            .map_err(|e| KreuzbergError::parsing(format!("Failed to read TAR entry path: {}", e)))?
+            .to_string_lossy()
+            .to_string();
+
+        let estimated_size = (entry.size().min(10 * 1024 * 1024)) as usize;
+        let mut content = Vec::with_capacity(estimated_size);
+        if entry.read_to_end(&mut content).is_ok() {
+            total_size = total_size.saturating_add(content.len());
+            if total_size > limits.max_archive_size {
+                return Err(KreuzbergError::validation(format!(
+                    "TAR archive total extracted size exceeds limit: {} bytes (max: {} bytes)",
+                    total_size, limits.max_archive_size
+                )));
+            }
+            file_bytes.insert(path, content);
+        }
+    }
+
+    Ok(file_bytes)
+}

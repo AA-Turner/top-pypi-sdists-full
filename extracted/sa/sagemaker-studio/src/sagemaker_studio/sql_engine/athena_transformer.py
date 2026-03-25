@@ -13,6 +13,10 @@ class AthenaTransformer(DatabaseTransformer):
     workgroup configuration and S3 staging directories.
     """
 
+    @classmethod
+    def get_dialect(cls) -> Optional[str]:
+        return "presto"
+
     @staticmethod
     def get_required_fields() -> List[str]:
         """

@@ -1,6 +1,6 @@
 # Natural Language Toolkit: Interface to the CoreNLP REST API.
 #
-# Copyright (C) 2001-2025 NLTK Project
+# Copyright (C) 2001-2026 NLTK Project
 # Author: Dmitrijs Milajevs <dimazest@gmail.com>
 #
 # URL: <https://www.nltk.org/>
@@ -29,7 +29,7 @@ class CoreNLPServerError(EnvironmentError):
 
 def try_port(port=0):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("", port))
+    sock.bind(("localhost", port))
 
     p = sock.getsockname()[1]
     sock.close()
@@ -383,7 +383,7 @@ class GenericCoreNLPParser(ParserI, TokenizerI, TaggerI):
 
         return [sentences[0] for sentences in self.raw_tag_sents(sentences, properties)]
 
-    def tag(self, sentence: str, properties=None) -> List[Tuple[str, str]]:
+    def tag(self, sentence: str, properties=None) -> list[tuple[str, str]]:
         """
         Tag a list of tokens.
 

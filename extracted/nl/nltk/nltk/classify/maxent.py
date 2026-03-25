@@ -1,6 +1,6 @@
 # Natural Language Toolkit: Maximum Entropy Classifiers
 #
-# Copyright (C) 2001-2025 NLTK Project
+# Copyright (C) 2001-2026 NLTK Project
 # Author: Edward Loper <edloper@gmail.com>
 #         Dmitry Chichkov <dchichkov@gmail.com> (TypedMaxentFeatureEncoding)
 # URL: <https://www.nltk.org/>
@@ -1111,8 +1111,6 @@ def train_maxent_classifier_with_gis(
 
     except KeyboardInterrupt:
         print("      Training stopped: keyboard interrupt")
-    except:
-        raise
 
     if trace > 2:
         ll = log_likelihood(classifier, train_toks)
@@ -1231,8 +1229,6 @@ def train_maxent_classifier_with_iis(
 
     except KeyboardInterrupt:
         print("      Training stopped: keyboard interrupt")
-    except:
-        raise
 
     if trace > 2:
         ll = log_likelihood(classifier, train_toks)

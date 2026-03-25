@@ -630,7 +630,7 @@ def explain_missing_current_installation_directory(console: rich.console.Console
     console.print("")
     console.print("     [grey69]export HCLI_CURRENT_IDA_INSTALL_DIR=/path/to/IDA/installation/[/grey69] # Linux, or")
     console.print(
-        '     [grey69]export HCLI_CURRENT_IDA_INSTALL_DIR="/Applications/IDA Professional 9.2.app/Contents/MacOS/"[/grey69] # macOS, or'
+        '     [grey69]export HCLI_CURRENT_IDA_INSTALL_DIR="/Applications/IDA Professional 9.2.app/"[/grey69] # macOS, or'
     )
     console.print(
         '     [grey69]set HCLI_CURRENT_IDA_INSTALL_DIR="C:\\Program Files\\IDA Professional 9.2"[/grey69]  # Windows'
@@ -882,7 +882,7 @@ def add_instance_to_config(name: str, path: Path) -> bool:
     from hcli.lib.config import config_store
 
     # Get existing instances
-    instances: dict[str, str] = config_store.get_object("ke.ida.instances", {}) or {}
+    instances: dict[str, str] = config_store.get_object("ida.instances", {}) or {}
 
     if name in instances:
         return False  # Already exists
@@ -891,6 +891,6 @@ def add_instance_to_config(name: str, path: Path) -> bool:
     instances[name] = str(path.resolve())
 
     # Save back to config
-    config_store.set_object("ke.ida.instances", instances)
+    config_store.set_object("ida.instances", instances)
 
     return True

@@ -36,6 +36,10 @@ class Poster:
         self.animation_time = 10
         self.year_tracks_date_count_dict = defaultdict(int)
         self.year_tracks_type_dict = defaultdict(dict)
+        self.level_colors = []
+        self.level_thresholds = ()
+        self.level_thresholds_by_type = {}
+        self.use_github_level_mapping = True
 
         # for year summary
         self.is_summary = False

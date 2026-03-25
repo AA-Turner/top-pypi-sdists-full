@@ -35,7 +35,8 @@ pub struct RtDetrModel {
 impl RtDetrModel {
     /// Load a Docling RT-DETR ONNX model from a file.
     pub fn from_file(path: &str) -> Result<Self, LayoutError> {
-        let session = crate::layout::session::build_session(path, None)?;
+        let budget = crate::core::config::concurrency::resolve_thread_budget(None);
+        let session = crate::layout::session::build_session(path, None, budget)?;
         let input_names: Vec<String> = session.inputs().iter().map(|i| i.name().to_string()).collect();
         Ok(Self { session, input_names })
     }

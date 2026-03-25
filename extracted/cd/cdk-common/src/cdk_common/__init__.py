@@ -5920,6 +5920,18 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSPARTNER_PRO_SERVE_TOOLS_INDIVIDUAL_CONTRIBUTOR = "AWSPARTNER_PRO_SERVE_TOOLS_INDIVIDUAL_CONTRIBUTOR"
+    '''
+    :stability: experimental
+    '''
+    AWSPARTNER_PRO_SERVE_TOOLS_FULL_ACCESS = "AWSPARTNER_PRO_SERVE_TOOLS_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSPARTNER_PRO_SERVE_TOOLS_ORGANIZATION_READER_INDIVIDUAL_CONTRIBUTOR = "AWSPARTNER_PRO_SERVE_TOOLS_ORGANIZATION_READER_INDIVIDUAL_CONTRIBUTOR"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

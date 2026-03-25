@@ -42,21 +42,28 @@ class PubChemToxTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"PubChem API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"PubChem API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to PubChem API"}
+            return {"status": "error", "error": "Failed to connect to PubChem API"}
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "unknown"
             if code == 404:
                 cid = arguments.get("cid", arguments.get("compound_name", ""))
                 return {
-                    "error": f"No toxicity data found in PubChem for: {cid}. This heading may not exist for this compound."
+                    "status": "error",
+                    "error": f"No toxicity data found in PubChem for: {cid}. This heading may not exist for this compound.",
                 }
-            return {"error": f"PubChem API HTTP error: {code}"}
+            return {"status": "error", "error": f"PubChem API HTTP error: {code}"}
         except ValueError as e:
-            return {"error": str(e)}
+            return {"status": "error", "error": str(e)}
         except Exception as e:
-            return {"error": f"Unexpected error querying PubChem: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying PubChem: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -73,7 +80,7 @@ class PubChemToxTool(BaseTool):
         elif self.endpoint == "toxicity_summary":
             return self._get_toxicity_summary(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _resolve_cid(self, arguments: Dict[str, Any]) -> int:
         """Resolve compound name to CID if needed."""
@@ -156,6 +163,7 @@ class PubChemToxTool(BaseTool):
         ghs_info = self._extract_info_from_sections(sections, "GHS Classification")
 
         return {
+            "status": "success",
             "data": {
                 "cid": cid,
                 "compound_name": title,
@@ -182,6 +190,7 @@ class PubChemToxTool(BaseTool):
         tox_values = [item["value"] for item in raw_info if item.get("value")]
 
         return {
+            "status": "success",
             "data": {
                 "cid": cid,
                 "compound_name": title,
@@ -219,6 +228,7 @@ class PubChemToxTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": {
                 "cid": cid,
                 "compound_name": title,
@@ -244,6 +254,7 @@ class PubChemToxTool(BaseTool):
         target_organs = [item["value"] for item in raw_info if item.get("value")]
 
         return {
+            "status": "success",
             "data": {
                 "cid": cid,
                 "compound_name": title,
@@ -295,6 +306,7 @@ class PubChemToxTool(BaseTool):
                 continue
 
         return {
+            "status": "success",
             "data": {
                 "cid": cid,
                 "compound_name": title,
@@ -351,6 +363,7 @@ class PubChemToxTool(BaseTool):
                     )
 
         return {
+            "status": "success",
             "data": {
                 "cid": cid,
                 "compound_name": title,

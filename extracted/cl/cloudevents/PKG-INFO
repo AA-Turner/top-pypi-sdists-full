@@ -1,47 +1,36 @@
 Metadata-Version: 2.4
 Name: cloudevents
-Version: 1.12.1
+Version: 2.0.0
 Summary: CloudEvents Python SDK
-Home-page: https://github.com/cloudevents/sdk-python
-Author: The Cloud Events Contributors
-Author-email: cncfcloudevents@gmail.com
-License: https://www.apache.org/licenses/LICENSE-2.0
-Keywords: CloudEvents Eventing Serverless
+Project-URL: Source code, https://github.com/cloudevents/sdk-python
+Project-URL: Documentation, https://cloudevents.io
+Project-URL: Home page, https://cloudevents.io
+Author-email: The Cloud Events Contributors <cncfcloudevents@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: CloudEvents,Eventing,Serverless
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Description-Content-Type: text/markdown
-License-File: LICENSE
+Requires-Python: >=3.10
 Requires-Dist: deprecation<3.0,>=2.0
-Provides-Extra: pydantic
-Requires-Dist: pydantic<3.0,>=1.0.0; extra == "pydantic"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
+Requires-Dist: python-dateutil>=2.8.2
+Description-Content-Type: text/markdown
 
-# Python SDK for [CloudEvents](https://github.com/cloudevents/spec)
+# Python SDK v2 for [CloudEvents](https://github.com/cloudevents/spec)
 
 [![PyPI version](https://badge.fury.io/py/cloudevents.svg)](https://badge.fury.io/py/cloudevents)
 
@@ -57,8 +46,8 @@ This SDK current supports the following versions of CloudEvents:
 
 ## Python SDK
 
-Package **cloudevents** provides primitives to work with CloudEvents specification:
-https://github.com/cloudevents/spec.
+Package [**cloudevents**](src/cloudevents) provides primitives to work with
+[CloudEvents specification](https://github.com/cloudevents/spec).
 
 ### Installing
 
@@ -76,15 +65,15 @@ Below we will provide samples on how to send cloudevents using the popular
 ### Binary HTTP CloudEvent
 
 ```python
-from cloudevents.http import CloudEvent
-from cloudevents.conversion import to_binary
+from cloudevents_v1.http import CloudEvent
+from cloudevents_v1.conversion import to_binary
 import requests
 
 # Create a CloudEvent
 # - The CloudEvent "id" is generated if omitted. "specversion" defaults to "1.0".
 attributes = {
-    "type": "com.example.sampletype1",
-    "source": "https://example.com/event-producer",
+  "type": "com.example.sampletype1",
+  "source": "https://example.com/event-producer",
 }
 data = {"message": "Hello World!"}
 event = CloudEvent(attributes, data)
@@ -99,15 +88,15 @@ requests.post("<some-url>", data=body, headers=headers)
 ### Structured HTTP CloudEvent
 
 ```python
-from cloudevents.conversion import to_structured
-from cloudevents.http import CloudEvent
+from cloudevents_v1.conversion import to_structured
+from cloudevents_v1.http import CloudEvent
 import requests
 
 # Create a CloudEvent
 # - The CloudEvent "id" is generated if omitted. "specversion" defaults to "1.0".
 attributes = {
-    "type": "com.example.sampletype2",
-    "source": "https://example.com/event-producer",
+  "type": "com.example.sampletype2",
+  "source": "https://example.com/event-producer",
 }
 data = {"message": "Hello World!"}
 event = CloudEvent(attributes, data)
@@ -130,7 +119,7 @@ The code below shows how to consume a cloudevent using the popular python web fr
 ```python
 from flask import Flask, request
 
-from cloudevents.http import from_http
+from cloudevents_v1.http import from_http
 
 app = Flask(__name__)
 
@@ -138,20 +127,20 @@ app = Flask(__name__)
 # create an endpoint at http://localhost:/3000/
 @app.route("/", methods=["POST"])
 def home():
-    # create a CloudEvent
-    event = from_http(request.headers, request.get_data())
+  # create a CloudEvent
+  event = from_http(request.headers, request.get_data())
 
-    # you can access cloudevent fields as seen below
-    print(
-        f"Found {event['id']} from {event['source']} with type "
-        f"{event['type']} and specversion {event['specversion']}"
-    )
+  # you can access cloudevent fields as seen below
+  print(
+    f"Found {event['id']} from {event['source']} with type "
+    f"{event['type']} and specversion {event['specversion']}"
+  )
 
-    return "", 204
+  return "", 204
 
 
 if __name__ == "__main__":
-    app.run(port=3000)
+  app.run(port=3000)
 ```
 
 You can find a complete example of turning a CloudEvent into a HTTP request
@@ -205,18 +194,13 @@ with one of the project's SDKs, please send an email to
 
 ## Maintenance
 
-We use [black][black] and [isort][isort] for autoformatting. We set up a [tox][tox]
-environment to reformat the codebase.
-
-e.g.
-
-```bash
-pip install tox
-tox -e reformat
-```
+We use [uv][uv] for dependency and package management, [ruff][ruff] and [isort][isort]
+for autoformatting and [pre-commit][pre-commit] to automate those with commit
+hooks.
 
 For information on releasing version bumps see [RELEASING.md](RELEASING.md)
 
-[black]: https://black.readthedocs.io/
+[uv]: https://docs.astral.sh/uv/
+[ruff]: https://docs.astral.sh/ruff
 [isort]: https://pycqa.github.io/isort/
-[tox]: https://tox.wiki/
+[pre-commit]: https://pre-commit.com

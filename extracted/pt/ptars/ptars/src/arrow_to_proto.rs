@@ -7,27 +7,79 @@ use arrow_array::types::{
     TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt32Type, UInt64Type,
 };
 use arrow_array::{
-    Array, ArrayRef, ArrowPrimitiveType, BinaryArray, BooleanArray, LargeBinaryArray,
-    LargeListArray, LargeStringArray, ListArray, MapArray, PrimitiveArray, RecordBatch,
-    StringArray, StructArray,
+    Array, ArrowPrimitiveType, BinaryArray, BooleanArray, LargeBinaryArray, LargeListArray,
+    LargeStringArray, ListArray, MapArray, PrimitiveArray, RecordBatch, StringArray, StructArray,
 };
 use arrow_schema::{DataType, TimeUnit};
 use chrono::{Datelike, NaiveDate};
-use prost::Message;
-use prost_reflect::{DynamicMessage, FieldDescriptor, Kind, MapKey, MessageDescriptor, Value};
-use std::collections::HashMap;
+use prost::encoding::{encode_key, encode_varint, WireType};
+
+use prost_reflect::{EnumDescriptor, FieldDescriptor, Kind, MessageDescriptor};
+
+/// Look up enum number by name, returning 0 (proto3 default) for unknown names.
+fn enum_number_from_name(name: &str, enum_descriptor: &EnumDescriptor) -> i32 {
+    enum_descriptor
+        .get_value_by_name(name)
+        .map(|v| v.number())
+        .unwrap_or(0)
+}
 
 // Days from CE epoch to Unix epoch (1970-01-01)
 const CE_OFFSET: i32 = 719163;
 
-/// Helper enum to work with both ListArray and LargeListArray
+// ---------------------------------------------------------------------------
+// Helper column refs (abstract over Regular / Large array variants)
+// ---------------------------------------------------------------------------
+
+enum StringColumnRef<'a> {
+    Regular(&'a StringArray),
+    Large(&'a LargeStringArray),
+}
+
+impl StringColumnRef<'_> {
+    fn is_null(&self, idx: usize) -> bool {
+        match self {
+            Self::Regular(a) => a.is_null(idx),
+            Self::Large(a) => a.is_null(idx),
+        }
+    }
+    fn value(&self, idx: usize) -> &str {
+        match self {
+            Self::Regular(a) => a.value(idx),
+            Self::Large(a) => a.value(idx),
+        }
+    }
+}
+
+enum BinaryColumnRef<'a> {
+    Regular(&'a BinaryArray),
+    Large(&'a LargeBinaryArray),
+}
+
+impl BinaryColumnRef<'_> {
+    fn is_null(&self, idx: usize) -> bool {
+        match self {
+            Self::Regular(a) => a.is_null(idx),
+            Self::Large(a) => a.is_null(idx),
+        }
+    }
+    fn value(&self, idx: usize) -> &[u8] {
+        match self {
+            Self::Regular(a) => a.value(idx),
+            Self::Large(a) => a.value(idx),
+        }
+    }
+}
+
+/// Abstracts over ListArray / LargeListArray.
+#[derive(Clone, Copy)]
 enum GenericListArray<'a> {
     Regular(&'a ListArray),
     Large(&'a LargeListArray),
 }
 
 impl<'a> GenericListArray<'a> {
-    fn from_array(array: &'a ArrayRef) -> Option<Self> {
+    fn from_array(array: &'a dyn Array) -> Option<Self> {
         array
             .as_any()
             .downcast_ref::<ListArray>()
@@ -39,62 +91,30 @@ impl<'a> GenericListArray<'a> {
                     .map(GenericListArray::Large)
             })
     }
-
-    fn values(&self) -> ArrayRef {
-        match self {
-            GenericListArray::Regular(a) => a.values().clone(),
-            GenericListArray::Large(a) => a.values().clone(),
-        }
-    }
-
     fn is_null(&self, i: usize) -> bool {
         match self {
-            GenericListArray::Regular(a) => a.is_null(i),
-            GenericListArray::Large(a) => a.is_null(i),
+            Self::Regular(a) => a.is_null(i),
+            Self::Large(a) => a.is_null(i),
         }
     }
-
     fn value_offsets(&self, i: usize) -> (usize, usize) {
         match self {
-            GenericListArray::Regular(a) => {
-                let offsets = a.value_offsets();
-                (offsets[i] as usize, offsets[i + 1] as usize)
+            Self::Regular(a) => {
+                let o = a.value_offsets();
+                (o[i] as usize, o[i + 1] as usize)
             }
-            GenericListArray::Large(a) => {
-                let offsets = a.value_offsets();
-                (offsets[i] as usize, offsets[i + 1] as usize)
+            Self::Large(a) => {
+                let o = a.value_offsets();
+                (o[i] as usize, o[i + 1] as usize)
             }
         }
     }
 }
 
-/// Convert total nanoseconds to (seconds, nanos) tuple for Timestamp.
-/// Handles negative values correctly by ensuring nanos is always in [0, 999999999].
-/// This is correct for google.protobuf.Timestamp where nanos must be non-negative.
-fn nanos_to_seconds_and_nanos(nanos_total: i64) -> (i64, i32) {
-    let mut seconds = nanos_total / 1_000_000_000;
-    let mut nanos = (nanos_total % 1_000_000_000) as i32;
-    // Ensure nanos is non-negative (protobuf Timestamp requirement)
-    if nanos < 0 {
-        seconds -= 1;
-        nanos += 1_000_000_000;
-    }
-    (seconds, nanos)
-}
+// ---------------------------------------------------------------------------
+// Time conversion helpers (mirroring arrow_to_proto.rs logic)
+// ---------------------------------------------------------------------------
 
-/// Convert total nanoseconds to (seconds, nanos) tuple for Duration.
-/// For google.protobuf.Duration, seconds and nanos must have the same sign (or one is zero).
-/// This differs from Timestamp where nanos is always non-negative.
-fn nanos_to_duration_seconds_and_nanos(nanos_total: i64) -> (i64, i32) {
-    let seconds = nanos_total / 1_000_000_000;
-    let nanos = (nanos_total % 1_000_000_000) as i32;
-    // For Duration, nanos sign must match seconds sign (Rust's % preserves sign)
-    (seconds, nanos)
-}
-
-/// Convert a value from the given time unit directly to (seconds, nanos) tuple for Timestamp.
-/// This avoids overflow that would occur when converting large values to nanoseconds.
-/// Handles negative values correctly by ensuring nanos is always in [0, 999999999].
 fn time_unit_to_seconds_and_nanos(value: i64, unit: TimeUnit) -> (i64, i32) {
     match unit {
         TimeUnit::Second => (value, 0),
@@ -116,20 +136,24 @@ fn time_unit_to_seconds_and_nanos(value: i64, unit: TimeUnit) -> (i64, i32) {
             }
             (seconds, nanos)
         }
-        TimeUnit::Nanosecond => nanos_to_seconds_and_nanos(value),
+        TimeUnit::Nanosecond => {
+            let mut seconds = value / 1_000_000_000;
+            let mut nanos = (value % 1_000_000_000) as i32;
+            if nanos < 0 {
+                seconds -= 1;
+                nanos += 1_000_000_000;
+            }
+            (seconds, nanos)
+        }
     }
 }
 
-/// Convert a value from the given time unit directly to (seconds, nanos) tuple for Duration.
-/// For google.protobuf.Duration, seconds and nanos must have the same sign (or one is zero).
-/// This differs from time_unit_to_seconds_and_nanos which normalizes for Timestamp.
 fn time_unit_to_duration_seconds_and_nanos(value: i64, unit: TimeUnit) -> (i64, i32) {
     match unit {
         TimeUnit::Second => (value, 0),
         TimeUnit::Millisecond => {
             let seconds = value / 1_000;
             let nanos = ((value % 1_000) * 1_000_000) as i32;
-            // Rust's % preserves sign, so nanos will have same sign as value
             (seconds, nanos)
         }
         TimeUnit::Microsecond => {
@@ -137,12 +161,14 @@ fn time_unit_to_duration_seconds_and_nanos(value: i64, unit: TimeUnit) -> (i64, 
             let nanos = ((value % 1_000_000) * 1_000) as i32;
             (seconds, nanos)
         }
-        TimeUnit::Nanosecond => nanos_to_duration_seconds_and_nanos(value),
+        TimeUnit::Nanosecond => {
+            let seconds = value / 1_000_000_000;
+            let nanos = (value % 1_000_000_000) as i32;
+            (seconds, nanos)
+        }
     }
 }
 
-/// Convert a 32-bit time value from the given time unit to nanoseconds.
-/// Safe from overflow since i32 * 1e9 fits in i64.
 fn time32_unit_to_nanos(value: i32, unit: TimeUnit) -> i64 {
     match unit {
         TimeUnit::Second => i64::from(value) * 1_000_000_000,
@@ -151,8 +177,6 @@ fn time32_unit_to_nanos(value: i32, unit: TimeUnit) -> i64 {
     }
 }
 
-/// Convert a 64-bit time value from the given time unit to nanoseconds.
-/// Only safe for Time64 which uses Microsecond or Nanosecond units.
 fn time64_unit_to_nanos(value: i64, unit: TimeUnit) -> i64 {
     match unit {
         TimeUnit::Microsecond => value * 1_000,
@@ -161,127 +185,54 @@ fn time64_unit_to_nanos(value: i64, unit: TimeUnit) -> i64 {
     }
 }
 
-/// Cached field descriptors for google.protobuf.Timestamp
-struct TimestampFields {
-    seconds: FieldDescriptor,
-    nanos: FieldDescriptor,
-}
+// ---------------------------------------------------------------------------
+// Direct wire-format encoding helpers for well-known types
+// ---------------------------------------------------------------------------
 
-impl TimestampFields {
-    fn new(message_descriptor: &MessageDescriptor) -> Self {
-        Self {
-            seconds: message_descriptor.get_field_by_name("seconds").unwrap(),
-            nanos: message_descriptor.get_field_by_name("nanos").unwrap(),
-        }
+/// Encode a Timestamp (seconds=1, nanos=2) directly into buf.
+/// Both fields use int64/int32 varint encoding. Skips default values.
+fn encode_timestamp_fields(seconds: i64, nanos: i32, buf: &mut Vec<u8>) {
+    if seconds != 0 {
+        prost::encoding::int64::encode(1, &seconds, buf);
+    }
+    if nanos != 0 {
+        prost::encoding::int32::encode(2, &nanos, buf);
     }
 }
 
-/// Create a google.protobuf.Timestamp DynamicMessage from seconds and nanoseconds.
-fn create_timestamp_message(
-    seconds: i64,
-    nanos: i32,
-    message_descriptor: &MessageDescriptor,
-    fields: &TimestampFields,
-) -> DynamicMessage {
-    let mut msg = DynamicMessage::new(message_descriptor.clone());
-    msg.set_field(&fields.seconds, Value::I64(seconds));
-    msg.set_field(&fields.nanos, Value::I32(nanos));
-    msg
-}
-
-/// Cached field descriptors for google.protobuf.Duration
-struct DurationFields {
-    seconds: FieldDescriptor,
-    nanos: FieldDescriptor,
-}
-
-impl DurationFields {
-    fn new(message_descriptor: &MessageDescriptor) -> Self {
-        Self {
-            seconds: message_descriptor.get_field_by_name("seconds").unwrap(),
-            nanos: message_descriptor.get_field_by_name("nanos").unwrap(),
-        }
+/// Encode a Duration (seconds=1, nanos=2) directly into buf.
+fn encode_duration_fields(seconds: i64, nanos: i32, buf: &mut Vec<u8>) {
+    if seconds != 0 {
+        prost::encoding::int64::encode(1, &seconds, buf);
+    }
+    if nanos != 0 {
+        prost::encoding::int32::encode(2, &nanos, buf);
     }
 }
 
-/// Create a google.protobuf.Duration DynamicMessage from seconds and nanoseconds.
-fn create_duration_message(
-    seconds: i64,
-    nanos: i32,
-    message_descriptor: &MessageDescriptor,
-    fields: &DurationFields,
-) -> DynamicMessage {
-    let mut msg = DynamicMessage::new(message_descriptor.clone());
-    msg.set_field(&fields.seconds, Value::I64(seconds));
-    msg.set_field(&fields.nanos, Value::I32(nanos));
-    msg
-}
-
-/// Cached field descriptors for google.type.Date
-struct DateFields {
-    year: FieldDescriptor,
-    month: FieldDescriptor,
-    day: FieldDescriptor,
-}
-
-impl DateFields {
-    fn new(message_descriptor: &MessageDescriptor) -> Self {
-        Self {
-            year: message_descriptor.get_field_by_name("year").unwrap(),
-            month: message_descriptor.get_field_by_name("month").unwrap(),
-            day: message_descriptor.get_field_by_name("day").unwrap(),
-        }
-    }
-}
-
-/// Create a google.type.Date DynamicMessage from days since Unix epoch.
-/// Special case: days == 0 represents an empty/unset date (year=0, month=0, day=0).
-fn create_date_message(
-    days: i32,
-    message_descriptor: &MessageDescriptor,
-    fields: &DateFields,
-) -> DynamicMessage {
-    let mut msg = DynamicMessage::new(message_descriptor.clone());
+/// Encode a Date (year=1, month=2, day=3) directly into buf.
+fn encode_date_fields(days: i32, buf: &mut Vec<u8>) {
     if days == 0 {
-        msg.set_field(&fields.year, Value::I32(0));
-        msg.set_field(&fields.month, Value::I32(0));
-        msg.set_field(&fields.day, Value::I32(0));
-    } else {
-        let date = NaiveDate::from_num_days_from_ce_opt(days + CE_OFFSET).unwrap();
-        msg.set_field(&fields.year, Value::I32(date.year()));
-        msg.set_field(&fields.month, Value::I32(date.month() as i32));
-        msg.set_field(&fields.day, Value::I32(date.day() as i32));
+        // Special case: year=0, month=0, day=0 — all default, empty message
+        return;
     }
-    msg
-}
-
-/// Cached field descriptors for google.type.TimeOfDay
-struct TimeOfDayFields {
-    hours: FieldDescriptor,
-    minutes: FieldDescriptor,
-    seconds: FieldDescriptor,
-    nanos: FieldDescriptor,
-}
-
-impl TimeOfDayFields {
-    fn new(message_descriptor: &MessageDescriptor) -> Self {
-        Self {
-            hours: message_descriptor.get_field_by_name("hours").unwrap(),
-            minutes: message_descriptor.get_field_by_name("minutes").unwrap(),
-            seconds: message_descriptor.get_field_by_name("seconds").unwrap(),
-            nanos: message_descriptor.get_field_by_name("nanos").unwrap(),
-        }
+    let date = NaiveDate::from_num_days_from_ce_opt(days + CE_OFFSET).unwrap();
+    let year = date.year();
+    let month = date.month() as i32;
+    let day = date.day() as i32;
+    if year != 0 {
+        prost::encoding::int32::encode(1, &year, buf);
+    }
+    if month != 0 {
+        prost::encoding::int32::encode(2, &month, buf);
+    }
+    if day != 0 {
+        prost::encoding::int32::encode(3, &day, buf);
     }
 }
 
-/// Create a google.type.TimeOfDay DynamicMessage from total nanoseconds since midnight.
-fn create_time_of_day_message(
-    total_nanos: i64,
-    message_descriptor: &MessageDescriptor,
-    fields: &TimeOfDayFields,
-) -> DynamicMessage {
-    let mut msg = DynamicMessage::new(message_descriptor.clone());
-
+/// Encode a TimeOfDay (hours=1, minutes=2, seconds=3, nanos=4) directly into buf.
+fn encode_time_of_day_fields(total_nanos: i64, buf: &mut Vec<u8>) {
     let hours = (total_nanos / 3_600_000_000_000) as i32;
     let remaining = total_nanos % 3_600_000_000_000;
     let minutes = (remaining / 60_000_000_000) as i32;
@@ -289,2282 +240,2596 @@ fn create_time_of_day_message(
     let seconds = (remaining / 1_000_000_000) as i32;
     let nanos = (remaining % 1_000_000_000) as i32;
 
-    msg.set_field(&fields.hours, Value::I32(hours));
-    msg.set_field(&fields.minutes, Value::I32(minutes));
-    msg.set_field(&fields.seconds, Value::I32(seconds));
-    msg.set_field(&fields.nanos, Value::I32(nanos));
-    msg
-}
-
-pub fn extract_single_primitive<P: ArrowPrimitiveType>(
-    array: &ArrayRef,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    value_creator: &dyn Fn(P::Native) -> Value,
-) {
-    array
-        .as_any()
-        .downcast_ref::<PrimitiveArray<P>>()
-        .unwrap()
-        .iter()
-        .enumerate()
-        .for_each(|(index, value)| match value {
-            None => {}
-            Some(x) => {
-                let element: &mut DynamicMessage = messages.get_mut(index).unwrap();
-                element.set_field(field_descriptor, value_creator(x));
-            }
-        })
-}
-
-fn extract_repeated_primitive_type<P>(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    value_creator: &dyn Fn(P::Native) -> Value,
-) where
-    P: ArrowPrimitiveType,
-{
-    let values_array = list_array.values();
-    let values: &PrimitiveArray<P> = values_array
-        .as_any()
-        .downcast_ref::<PrimitiveArray<P>>()
-        .unwrap();
-
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !list_array.is_null(i) {
-            let (start, end) = list_array.value_offsets(i);
-            if start < end {
-                let slice = values.slice(start, end - start);
-                let values = slice
-                    .iter()
-                    .map(|value| match value {
-                        None => value_creator(P::default_value()),
-                        Some(x) => value_creator(x),
-                    })
-                    .collect();
-                message.set_field(field_descriptor, Value::List(values));
-            }
-        }
+    if hours != 0 {
+        prost::encoding::int32::encode(1, &hours, buf);
+    }
+    if minutes != 0 {
+        prost::encoding::int32::encode(2, &minutes, buf);
+    }
+    if seconds != 0 {
+        prost::encoding::int32::encode(3, &seconds, buf);
+    }
+    if nanos != 0 {
+        prost::encoding::int32::encode(4, &nanos, buf);
     }
 }
 
-fn extract_repeated_boolean(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-) {
-    let values_array = list_array.values();
-    let values: &BooleanArray = values_array
-        .as_any()
-        .downcast_ref::<BooleanArray>()
-        .unwrap();
-
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !list_array.is_null(i) {
-            let (start, end) = list_array.value_offsets(i);
-            if start < end {
-                let each_values = (start..end)
-                    .map(|x| values.value(x))
-                    .map(Value::Bool)
-                    .collect();
-
-                message.set_field(field_descriptor, Value::List(each_values));
-            }
-        }
-    }
+/// Write a length-delimited submessage: tag + varint(len) + bytes
+fn write_submessage(tag: u32, content: &[u8], buf: &mut Vec<u8>) {
+    encode_key(tag, WireType::LengthDelimited, buf);
+    encode_varint(content.len() as u64, buf);
+    buf.extend_from_slice(content);
 }
 
-fn extract_repeated_message(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: MessageDescriptor,
-) {
-    // Handle special message types
-    match message_descriptor.full_name() {
-        "google.protobuf.Timestamp" => {
-            extract_repeated_timestamp(list_array, messages, field_descriptor, &message_descriptor);
-            return;
-        }
-        "google.protobuf.Duration" => {
-            extract_repeated_duration(list_array, messages, field_descriptor, &message_descriptor);
-            return;
-        }
-        "google.type.Date" => {
-            extract_repeated_date(list_array, messages, field_descriptor, &message_descriptor);
-            return;
-        }
-        "google.type.TimeOfDay" => {
-            extract_repeated_time_of_day(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-            );
-            return;
-        }
-        "google.protobuf.DoubleValue" => {
-            extract_repeated_wrapper_primitive::<Float64Type>(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-                &Value::F64,
-            );
-            return;
-        }
-        "google.protobuf.FloatValue" => {
-            extract_repeated_wrapper_primitive::<Float32Type>(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-                &Value::F32,
-            );
-            return;
-        }
-        "google.protobuf.Int64Value" => {
-            extract_repeated_wrapper_primitive::<Int64Type>(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-                &Value::I64,
-            );
-            return;
-        }
-        "google.protobuf.UInt64Value" => {
-            extract_repeated_wrapper_primitive::<UInt64Type>(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-                &Value::U64,
-            );
-            return;
-        }
-        "google.protobuf.Int32Value" => {
-            extract_repeated_wrapper_primitive::<Int32Type>(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-                &Value::I32,
-            );
-            return;
-        }
-        "google.protobuf.UInt32Value" => {
-            extract_repeated_wrapper_primitive::<UInt32Type>(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-                &Value::U32,
-            );
-            return;
-        }
-        "google.protobuf.BoolValue" => {
-            extract_repeated_wrapper_bool(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-            );
-            return;
-        }
-        "google.protobuf.StringValue" => {
-            extract_repeated_wrapper_string(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-            );
-            return;
-        }
-        "google.protobuf.BytesValue" => {
-            extract_repeated_wrapper_bytes(
-                list_array,
-                messages,
-                field_descriptor,
-                &message_descriptor,
-            );
-            return;
-        }
-        _ => {}
-    }
+// ---------------------------------------------------------------------------
+// FieldEncoder: one variant per proto kind
+// ---------------------------------------------------------------------------
 
-    let values_array = list_array.values();
-    let struct_array = values_array.as_any().downcast_ref::<StructArray>().unwrap();
+enum FieldEncoder<'a> {
+    // Scalar variants
+    Double {
+        tag: u32,
+        arr: &'a PrimitiveArray<Float64Type>,
+        has_presence: bool,
+    },
+    Float {
+        tag: u32,
+        arr: &'a PrimitiveArray<Float32Type>,
+        has_presence: bool,
+    },
+    Int32 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int32Type>,
+        has_presence: bool,
+    },
+    Int64 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int64Type>,
+        has_presence: bool,
+    },
+    UInt32 {
+        tag: u32,
+        arr: &'a PrimitiveArray<UInt32Type>,
+        has_presence: bool,
+    },
+    UInt64 {
+        tag: u32,
+        arr: &'a PrimitiveArray<UInt64Type>,
+        has_presence: bool,
+    },
+    Sint32 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int32Type>,
+        has_presence: bool,
+    },
+    Sint64 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int64Type>,
+        has_presence: bool,
+    },
+    Sfixed32 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int32Type>,
+        has_presence: bool,
+    },
+    Sfixed64 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int64Type>,
+        has_presence: bool,
+    },
+    Fixed32 {
+        tag: u32,
+        arr: &'a PrimitiveArray<UInt32Type>,
+        has_presence: bool,
+    },
+    Fixed64 {
+        tag: u32,
+        arr: &'a PrimitiveArray<UInt64Type>,
+        has_presence: bool,
+    },
+    Bool {
+        tag: u32,
+        arr: &'a BooleanArray,
+        has_presence: bool,
+    },
+    String {
+        tag: u32,
+        col: StringColumnRef<'a>,
+        has_presence: bool,
+    },
+    Bytes {
+        tag: u32,
+        col: BinaryColumnRef<'a>,
+        has_presence: bool,
+    },
 
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !list_array.is_null(i) {
-            let (start, end) = list_array.value_offsets(i);
+    // Enum variants
+    EnumInt32 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int32Type>,
+        has_presence: bool,
+    },
+    EnumString {
+        tag: u32,
+        col: StringColumnRef<'a>,
+        enum_descriptor: EnumDescriptor,
+        has_presence: bool,
+    },
+    EnumBinary {
+        tag: u32,
+        col: BinaryColumnRef<'a>,
+        enum_descriptor: EnumDescriptor,
+        has_presence: bool,
+    },
 
-            if start < end {
-                // Create sub-messages for each list element
-                let mut sub_messages: Vec<DynamicMessage> = (start..end)
-                    .map(|_| DynamicMessage::new(message_descriptor.clone()))
-                    .collect();
+    // Nested message (regular)
+    Message {
+        tag: u32,
+        struct_arr: &'a StructArray,
+        sub_encoder: MessageEncoder<'a>,
+    },
 
-                // Extract fields into sub-messages
-                let mut sub_refs: Vec<&mut DynamicMessage> = sub_messages.iter_mut().collect();
+    // Well-known types (singular)
+    Timestamp {
+        tag: u32,
+        unit: TimeUnit,
+        array: WellKnownPrimitiveArray<'a>,
+    },
+    Duration {
+        tag: u32,
+        unit: TimeUnit,
+        array: WellKnownPrimitiveArray<'a>,
+    },
+    Date {
+        tag: u32,
+        arr: &'a PrimitiveArray<Date32Type>,
+    },
+    TimeOfDay {
+        tag: u32,
+        array: TimeOfDayArray<'a>,
+    },
 
-                for sub_field in message_descriptor.fields() {
-                    if let Some(column) = struct_array.column_by_name(sub_field.name()) {
-                        // Slice the column to match the range for this list
-                        let sliced = column.slice(start, end - start);
-                        extract_array(&sliced, &sub_field, &mut sub_refs);
-                    }
-                }
+    // Wrapper types (singular)
+    WrapperDouble {
+        tag: u32,
+        arr: &'a PrimitiveArray<Float64Type>,
+    },
+    WrapperFloat {
+        tag: u32,
+        arr: &'a PrimitiveArray<Float32Type>,
+    },
+    WrapperInt64 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int64Type>,
+    },
+    WrapperUInt64 {
+        tag: u32,
+        arr: &'a PrimitiveArray<UInt64Type>,
+    },
+    WrapperInt32 {
+        tag: u32,
+        arr: &'a PrimitiveArray<Int32Type>,
+    },
+    WrapperUInt32 {
+        tag: u32,
+        arr: &'a PrimitiveArray<UInt32Type>,
+    },
+    WrapperBool {
+        tag: u32,
+        arr: &'a BooleanArray,
+    },
+    WrapperString {
+        tag: u32,
+        col: StringColumnRef<'a>,
+    },
+    WrapperBytes {
+        tag: u32,
+        col: BinaryColumnRef<'a>,
+    },
 
-                // Set the repeated field as Value::List of Value::Message
-                let values: Vec<Value> = sub_messages.into_iter().map(Value::Message).collect();
-                message.set_field(field_descriptor, Value::List(values));
-            }
-        }
-    }
+    // Repeated fields
+    RepeatedPacked {
+        tag: u32,
+        list: GenericListArray<'a>,
+        encoder: PackedEncoder<'a>,
+    },
+    RepeatedBool {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a BooleanArray,
+    },
+    RepeatedString {
+        tag: u32,
+        list: GenericListArray<'a>,
+        col: StringColumnRef<'a>,
+    },
+    RepeatedBytes {
+        tag: u32,
+        list: GenericListArray<'a>,
+        col: BinaryColumnRef<'a>,
+    },
+    RepeatedEnumInt32 {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a PrimitiveArray<Int32Type>,
+    },
+    RepeatedEnumString {
+        tag: u32,
+        list: GenericListArray<'a>,
+        col: StringColumnRef<'a>,
+        enum_descriptor: EnumDescriptor,
+    },
+    RepeatedEnumBinary {
+        tag: u32,
+        list: GenericListArray<'a>,
+        col: BinaryColumnRef<'a>,
+        enum_descriptor: EnumDescriptor,
+    },
+    RepeatedMessage {
+        tag: u32,
+        list: GenericListArray<'a>,
+        sub_encoder: MessageEncoder<'a>,
+    },
+    RepeatedTimestamp {
+        tag: u32,
+        list: GenericListArray<'a>,
+        unit: TimeUnit,
+        values: WellKnownPrimitiveArray<'a>,
+    },
+    RepeatedDuration {
+        tag: u32,
+        list: GenericListArray<'a>,
+        unit: TimeUnit,
+        values: WellKnownPrimitiveArray<'a>,
+    },
+    RepeatedDate {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a PrimitiveArray<Date32Type>,
+    },
+    RepeatedTimeOfDay {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: TimeOfDayArray<'a>,
+    },
+    RepeatedWrapperDouble {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a PrimitiveArray<Float64Type>,
+    },
+    RepeatedWrapperFloat {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a PrimitiveArray<Float32Type>,
+    },
+    RepeatedWrapperInt64 {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a PrimitiveArray<Int64Type>,
+    },
+    RepeatedWrapperUInt64 {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a PrimitiveArray<UInt64Type>,
+    },
+    RepeatedWrapperInt32 {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a PrimitiveArray<Int32Type>,
+    },
+    RepeatedWrapperUInt32 {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a PrimitiveArray<UInt32Type>,
+    },
+    RepeatedWrapperBool {
+        tag: u32,
+        list: GenericListArray<'a>,
+        values: &'a BooleanArray,
+    },
+    RepeatedWrapperString {
+        tag: u32,
+        list: GenericListArray<'a>,
+        col: StringColumnRef<'a>,
+    },
+    RepeatedWrapperBytes {
+        tag: u32,
+        list: GenericListArray<'a>,
+        col: BinaryColumnRef<'a>,
+    },
+
+    // Map fields
+    Map {
+        tag: u32,
+        map_array: &'a MapArray,
+        key_encoder: MapKeyEncoder<'a>,
+        value_encoder: MapValueEncoder<'a>,
+    },
 }
 
-fn extract_repeated_timestamp(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-) {
-    let fields = TimestampFields::new(message_descriptor);
-    let values_array = list_array.values();
-
-    // Determine the time unit from the values array's data type
-    let time_unit = match values_array.data_type() {
-        DataType::Timestamp(unit, _) => *unit,
-        _ => panic!(
-            "Expected Timestamp array, got {:?}",
-            values_array.data_type()
-        ),
-    };
-
-    // Helper macro to avoid code duplication
-    macro_rules! extract_timestamps {
-        ($array_type:ty) => {{
-            let values = values_array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<$array_type>>()
-                .expect(concat!("Failed to downcast to ", stringify!($array_type)));
-
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !list_array.is_null(i) {
-                    let (start, end) = list_array.value_offsets(i);
-
-                    if start < end {
-                        // Filter out null child values - protobuf repeated fields cannot contain nulls
-                        let sub_messages: Vec<Value> = (start..end)
-                            .filter(|&idx| !values.is_null(idx))
-                            .map(|idx| {
-                                let (seconds, nanos) =
-                                    time_unit_to_seconds_and_nanos(values.value(idx), time_unit);
-                                Value::Message(create_timestamp_message(
-                                    seconds,
-                                    nanos,
-                                    message_descriptor,
-                                    &fields,
-                                ))
-                            })
-                            .collect();
-
-                        if !sub_messages.is_empty() {
-                            message.set_field(field_descriptor, Value::List(sub_messages));
-                        }
-                    }
-                }
-            }
-        }};
-    }
-
-    match time_unit {
-        TimeUnit::Second => extract_timestamps!(TimestampSecondType),
-        TimeUnit::Millisecond => extract_timestamps!(TimestampMillisecondType),
-        TimeUnit::Microsecond => extract_timestamps!(TimestampMicrosecondType),
-        TimeUnit::Nanosecond => extract_timestamps!(TimestampNanosecondType),
-    }
+/// Holds a timestamp/duration array of any time unit.
+enum WellKnownPrimitiveArray<'a> {
+    Second(&'a PrimitiveArray<TimestampSecondType>),
+    Millisecond(&'a PrimitiveArray<TimestampMillisecondType>),
+    Microsecond(&'a PrimitiveArray<TimestampMicrosecondType>),
+    Nanosecond(&'a PrimitiveArray<TimestampNanosecondType>),
+    DurSecond(&'a PrimitiveArray<DurationSecondType>),
+    DurMillisecond(&'a PrimitiveArray<DurationMillisecondType>),
+    DurMicrosecond(&'a PrimitiveArray<DurationMicrosecondType>),
+    DurNanosecond(&'a PrimitiveArray<DurationNanosecondType>),
 }
 
-fn extract_repeated_duration(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-) {
-    let fields = DurationFields::new(message_descriptor);
-    let values_array = list_array.values();
-
-    // Determine the time unit from the values array's data type
-    let time_unit = match values_array.data_type() {
-        DataType::Duration(unit) => *unit,
-        _ => panic!(
-            "Expected Duration array, got {:?}",
-            values_array.data_type()
-        ),
-    };
-
-    // Helper macro to avoid code duplication
-    macro_rules! extract_durations {
-        ($array_type:ty) => {{
-            let values = values_array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<$array_type>>()
-                .expect(concat!("Failed to downcast to ", stringify!($array_type)));
-
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !list_array.is_null(i) {
-                    let (start, end) = list_array.value_offsets(i);
-
-                    if start < end {
-                        // Filter out null child values - protobuf repeated fields cannot contain nulls
-                        let sub_messages: Vec<Value> = (start..end)
-                            .filter(|&idx| !values.is_null(idx))
-                            .map(|idx| {
-                                let (seconds, nanos) = time_unit_to_duration_seconds_and_nanos(
-                                    values.value(idx),
-                                    time_unit,
-                                );
-                                Value::Message(create_duration_message(
-                                    seconds,
-                                    nanos,
-                                    message_descriptor,
-                                    &fields,
-                                ))
-                            })
-                            .collect();
-
-                        if !sub_messages.is_empty() {
-                            message.set_field(field_descriptor, Value::List(sub_messages));
-                        }
-                    }
-                }
-            }
-        }};
+impl WellKnownPrimitiveArray<'_> {
+    fn is_null(&self, idx: usize) -> bool {
+        match self {
+            Self::Second(a) => a.is_null(idx),
+            Self::Millisecond(a) => a.is_null(idx),
+            Self::Microsecond(a) => a.is_null(idx),
+            Self::Nanosecond(a) => a.is_null(idx),
+            Self::DurSecond(a) => a.is_null(idx),
+            Self::DurMillisecond(a) => a.is_null(idx),
+            Self::DurMicrosecond(a) => a.is_null(idx),
+            Self::DurNanosecond(a) => a.is_null(idx),
+        }
     }
-
-    match time_unit {
-        TimeUnit::Second => extract_durations!(DurationSecondType),
-        TimeUnit::Millisecond => extract_durations!(DurationMillisecondType),
-        TimeUnit::Microsecond => extract_durations!(DurationMicrosecondType),
-        TimeUnit::Nanosecond => extract_durations!(DurationNanosecondType),
-    }
-}
-
-fn extract_repeated_date(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-) {
-    let values_array = list_array.values();
-    let values: &PrimitiveArray<Date32Type> = values_array
-        .as_any()
-        .downcast_ref::<PrimitiveArray<Date32Type>>()
-        .unwrap();
-    let fields = DateFields::new(message_descriptor);
-
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !list_array.is_null(i) {
-            let (start, end) = list_array.value_offsets(i);
-
-            if start < end {
-                let sub_messages: Vec<Value> = (start..end)
-                    .map(|idx| {
-                        Value::Message(create_date_message(
-                            values.value(idx),
-                            message_descriptor,
-                            &fields,
-                        ))
-                    })
-                    .collect();
-
-                message.set_field(field_descriptor, Value::List(sub_messages));
-            }
+    fn value_i64(&self, idx: usize) -> i64 {
+        match self {
+            Self::Second(a) => a.value(idx),
+            Self::Millisecond(a) => a.value(idx),
+            Self::Microsecond(a) => a.value(idx),
+            Self::Nanosecond(a) => a.value(idx),
+            Self::DurSecond(a) => a.value(idx),
+            Self::DurMillisecond(a) => a.value(idx),
+            Self::DurMicrosecond(a) => a.value(idx),
+            Self::DurNanosecond(a) => a.value(idx),
         }
     }
 }
 
-fn extract_repeated_time_of_day(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-) {
-    let fields = TimeOfDayFields::new(message_descriptor);
-    let values_array = list_array.values();
+/// Holds a time-of-day array of any time unit.
+enum TimeOfDayArray<'a> {
+    Time32Second(&'a PrimitiveArray<Time32SecondType>),
+    Time32Millisecond(&'a PrimitiveArray<Time32MillisecondType>),
+    Time64Microsecond(&'a PrimitiveArray<Time64MicrosecondType>),
+    Time64Nanosecond(&'a PrimitiveArray<Time64NanosecondType>),
+}
 
-    // Helper macro for Time64 types
-    macro_rules! extract_time64 {
-        ($array_type:ty, $time_unit:expr) => {{
-            let values = values_array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<$array_type>>()
-                .expect(concat!("Failed to downcast to ", stringify!($array_type)));
+impl TimeOfDayArray<'_> {
+    fn is_null(&self, idx: usize) -> bool {
+        match self {
+            Self::Time32Second(a) => a.is_null(idx),
+            Self::Time32Millisecond(a) => a.is_null(idx),
+            Self::Time64Microsecond(a) => a.is_null(idx),
+            Self::Time64Nanosecond(a) => a.is_null(idx),
+        }
+    }
+    fn to_nanos(&self, idx: usize) -> i64 {
+        match self {
+            Self::Time32Second(a) => time32_unit_to_nanos(a.value(idx), TimeUnit::Second),
+            Self::Time32Millisecond(a) => time32_unit_to_nanos(a.value(idx), TimeUnit::Millisecond),
+            Self::Time64Microsecond(a) => time64_unit_to_nanos(a.value(idx), TimeUnit::Microsecond),
+            Self::Time64Nanosecond(a) => time64_unit_to_nanos(a.value(idx), TimeUnit::Nanosecond),
+        }
+    }
+}
 
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !list_array.is_null(i) {
-                    let (start, end) = list_array.value_offsets(i);
+/// Encoder for packed repeated numeric fields.
+enum PackedEncoder<'a> {
+    Int32(&'a PrimitiveArray<Int32Type>),
+    Int64(&'a PrimitiveArray<Int64Type>),
+    UInt32(&'a PrimitiveArray<UInt32Type>),
+    UInt64(&'a PrimitiveArray<UInt64Type>),
+    Sint32(&'a PrimitiveArray<Int32Type>),
+    Sint64(&'a PrimitiveArray<Int64Type>),
+    Sfixed32(&'a PrimitiveArray<Int32Type>),
+    Sfixed64(&'a PrimitiveArray<Int64Type>),
+    Fixed32(&'a PrimitiveArray<UInt32Type>),
+    Fixed64(&'a PrimitiveArray<UInt64Type>),
+    Float32(&'a PrimitiveArray<Float32Type>),
+    Float64(&'a PrimitiveArray<Float64Type>),
+}
 
-                    if start < end {
-                        // Filter out null child values - protobuf repeated fields cannot contain nulls
-                        let sub_messages: Vec<Value> = (start..end)
-                            .filter(|&idx| !values.is_null(idx))
-                            .map(|idx| {
-                                let nanos = time64_unit_to_nanos(values.value(idx), $time_unit);
-                                Value::Message(create_time_of_day_message(
-                                    nanos,
-                                    message_descriptor,
-                                    &fields,
-                                ))
-                            })
-                            .collect();
-
-                        if !sub_messages.is_empty() {
-                            message.set_field(field_descriptor, Value::List(sub_messages));
-                        }
-                    }
+impl PackedEncoder<'_> {
+    /// Encode elements in [start..end) as packed wire format (no tag, just values).
+    fn encode_packed_values(&self, start: usize, end: usize, buf: &mut Vec<u8>) {
+        match self {
+            Self::Int32(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    encode_varint(v as u64, buf);
                 }
             }
-        }};
-    }
-
-    // Helper macro for Time32 types
-    macro_rules! extract_time32 {
-        ($array_type:ty, $time_unit:expr) => {{
-            let values = values_array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<$array_type>>()
-                .expect(concat!("Failed to downcast to ", stringify!($array_type)));
-
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !list_array.is_null(i) {
-                    let (start, end) = list_array.value_offsets(i);
-
-                    if start < end {
-                        // Filter out null child values - protobuf repeated fields cannot contain nulls
-                        let sub_messages: Vec<Value> = (start..end)
-                            .filter(|&idx| !values.is_null(idx))
-                            .map(|idx| {
-                                let nanos = time32_unit_to_nanos(values.value(idx), $time_unit);
-                                Value::Message(create_time_of_day_message(
-                                    nanos,
-                                    message_descriptor,
-                                    &fields,
-                                ))
-                            })
-                            .collect();
-
-                        if !sub_messages.is_empty() {
-                            message.set_field(field_descriptor, Value::List(sub_messages));
-                        }
-                    }
+            Self::Int64(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    encode_varint(v as u64, buf);
                 }
             }
-        }};
-    }
-
-    match values_array.data_type() {
-        DataType::Time32(TimeUnit::Second) => {
-            extract_time32!(Time32SecondType, TimeUnit::Second)
-        }
-        DataType::Time32(TimeUnit::Millisecond) => {
-            extract_time32!(Time32MillisecondType, TimeUnit::Millisecond)
-        }
-        DataType::Time64(TimeUnit::Microsecond) => {
-            extract_time64!(Time64MicrosecondType, TimeUnit::Microsecond)
-        }
-        DataType::Time64(TimeUnit::Nanosecond) => {
-            extract_time64!(Time64NanosecondType, TimeUnit::Nanosecond)
-        }
-        _ => panic!(
-            "Expected Time32 or Time64 array, got {:?}",
-            values_array.data_type()
-        ),
-    }
-}
-
-// Generic repeated wrapper type extraction function for primitive types
-fn extract_repeated_wrapper_primitive<P: ArrowPrimitiveType>(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    value_creator: &dyn Fn(P::Native) -> Value,
-) {
-    let values_array = list_array.values();
-    let values = values_array
-        .as_any()
-        .downcast_ref::<PrimitiveArray<P>>()
-        .unwrap();
-    let value_descriptor = message_descriptor.get_field_by_name("value").unwrap();
-
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !list_array.is_null(i) {
-            let (start, end) = list_array.value_offsets(i);
-
-            if start < end {
-                let sub_messages: Vec<Value> = (start..end)
-                    .map(|idx| {
-                        let mut sub_message = DynamicMessage::new(message_descriptor.clone());
-                        sub_message.set_field(&value_descriptor, value_creator(values.value(idx)));
-                        Value::Message(sub_message)
-                    })
-                    .collect();
-                message.set_field(field_descriptor, Value::List(sub_messages));
+            Self::UInt32(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    encode_varint(u64::from(v), buf);
+                }
+            }
+            Self::UInt64(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    encode_varint(v, buf);
+                }
+            }
+            Self::Sint32(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    // zigzag encoding
+                    encode_varint(((v << 1) ^ (v >> 31)) as u32 as u64, buf);
+                }
+            }
+            Self::Sint64(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    // zigzag encoding
+                    encode_varint(((v << 1) ^ (v >> 63)) as u64, buf);
+                }
+            }
+            Self::Sfixed32(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    buf.extend_from_slice(&v.to_le_bytes());
+                }
+            }
+            Self::Sfixed64(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    buf.extend_from_slice(&v.to_le_bytes());
+                }
+            }
+            Self::Fixed32(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    buf.extend_from_slice(&v.to_le_bytes());
+                }
+            }
+            Self::Fixed64(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0 } else { arr.value(i) };
+                    buf.extend_from_slice(&v.to_le_bytes());
+                }
+            }
+            Self::Float32(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0.0 } else { arr.value(i) };
+                    buf.extend_from_slice(&v.to_le_bytes());
+                }
+            }
+            Self::Float64(arr) => {
+                for i in start..end {
+                    let v = if arr.is_null(i) { 0.0 } else { arr.value(i) };
+                    buf.extend_from_slice(&v.to_le_bytes());
+                }
             }
         }
     }
 }
 
-fn extract_repeated_wrapper_bool(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-) {
-    let values_array = list_array.values();
-    let values = values_array
-        .as_any()
-        .downcast_ref::<BooleanArray>()
-        .unwrap();
-    let value_descriptor = message_descriptor.get_field_by_name("value").unwrap();
-
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !list_array.is_null(i) {
-            let (start, end) = list_array.value_offsets(i);
-
-            if start < end {
-                let sub_messages: Vec<Value> = (start..end)
-                    .map(|idx| {
-                        let mut sub_message = DynamicMessage::new(message_descriptor.clone());
-                        sub_message.set_field(&value_descriptor, Value::Bool(values.value(idx)));
-                        Value::Message(sub_message)
-                    })
-                    .collect();
-                message.set_field(field_descriptor, Value::List(sub_messages));
-            }
-        }
-    }
+/// Encoder for map key fields.
+/// Each variant uses the correct wire encoding for its proto type.
+enum MapKeyEncoder<'a> {
+    String(StringColumnRef<'a>),
+    Int32(&'a PrimitiveArray<Int32Type>),
+    Sint32(&'a PrimitiveArray<Int32Type>),
+    Sfixed32(&'a PrimitiveArray<Int32Type>),
+    Int64(&'a PrimitiveArray<Int64Type>),
+    Sint64(&'a PrimitiveArray<Int64Type>),
+    Sfixed64(&'a PrimitiveArray<Int64Type>),
+    UInt32(&'a PrimitiveArray<UInt32Type>),
+    Fixed32(&'a PrimitiveArray<UInt32Type>),
+    UInt64(&'a PrimitiveArray<UInt64Type>),
+    Fixed64(&'a PrimitiveArray<UInt64Type>),
+    Bool(&'a BooleanArray),
 }
 
-fn extract_repeated_wrapper_string(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-) {
-    let values_array = list_array.values();
-    let value_descriptor = message_descriptor.get_field_by_name("value").unwrap();
-
-    // Helper macro to avoid code duplication across string types
-    macro_rules! process_string_values {
-        ($arr:expr) => {{
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !list_array.is_null(i) {
-                    let (start, end) = list_array.value_offsets(i);
-
-                    if start < end {
-                        let sub_messages: Vec<Value> = (start..end)
-                            .map(|idx| {
-                                let mut sub_message =
-                                    DynamicMessage::new(message_descriptor.clone());
-                                sub_message.set_field(
-                                    &value_descriptor,
-                                    Value::String($arr.value(idx).to_string()),
-                                );
-                                Value::Message(sub_message)
-                            })
-                            .collect();
-                        message.set_field(field_descriptor, Value::List(sub_messages));
+impl MapKeyEncoder<'_> {
+    fn encode_at(&self, idx: usize, buf: &mut Vec<u8>) {
+        match self {
+            Self::String(col) => {
+                if !col.is_null(idx) {
+                    let v = col.value(idx);
+                    encode_key(1, WireType::LengthDelimited, buf);
+                    encode_varint(v.len() as u64, buf);
+                    buf.extend_from_slice(v.as_bytes());
+                }
+            }
+            Self::Int32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::int32::encode(1, &v, buf);
                     }
                 }
             }
-        }};
-    }
-
-    if let Some(arr) = values_array.as_any().downcast_ref::<StringArray>() {
-        process_string_values!(arr);
-    } else if let Some(arr) = values_array.as_any().downcast_ref::<LargeStringArray>() {
-        process_string_values!(arr);
-    } else {
-        panic!(
-            "Expected StringArray or LargeStringArray, got {:?}",
-            values_array.data_type()
-        );
-    }
-}
-
-fn extract_repeated_wrapper_bytes(
-    list_array: &GenericListArray,
-    messages: &mut [&mut DynamicMessage],
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-) {
-    let values_array = list_array.values();
-    let value_descriptor = message_descriptor.get_field_by_name("value").unwrap();
-
-    // Helper macro to avoid code duplication across binary types
-    macro_rules! process_bytes_values {
-        ($arr:expr) => {{
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !list_array.is_null(i) {
-                    let (start, end) = list_array.value_offsets(i);
-
-                    if start < end {
-                        let sub_messages: Vec<Value> = (start..end)
-                            .map(|idx| {
-                                let mut sub_message =
-                                    DynamicMessage::new(message_descriptor.clone());
-                                sub_message.set_field(
-                                    &value_descriptor,
-                                    Value::Bytes(prost::bytes::Bytes::from(
-                                        $arr.value(idx).to_vec(),
-                                    )),
-                                );
-                                Value::Message(sub_message)
-                            })
-                            .collect();
-                        message.set_field(field_descriptor, Value::List(sub_messages));
+            Self::Sint32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::sint32::encode(1, &v, buf);
                     }
                 }
             }
-        }};
-    }
-
-    if let Some(arr) = values_array.as_any().downcast_ref::<BinaryArray>() {
-        process_bytes_values!(arr);
-    } else if let Some(arr) = values_array.as_any().downcast_ref::<LargeBinaryArray>() {
-        process_bytes_values!(arr);
-    } else {
-        panic!(
-            "Expected BinaryArray or LargeBinaryArray, got {:?}",
-            values_array.data_type()
-        );
-    }
-}
-
-pub fn extract_repeated_array(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    let list_array =
-        GenericListArray::from_array(array).expect("Expected ListArray or LargeListArray");
-    let values = list_array.values();
-
-    match field_descriptor.kind() {
-        Kind::Sfixed32 | Kind::Sint32 | Kind::Int32 => {
-            extract_repeated_primitive_type::<Int32Type>(
-                &list_array,
-                messages,
-                field_descriptor,
-                &Value::I32,
-            )
-        }
-        Kind::Fixed32 | Kind::Uint32 => extract_repeated_primitive_type::<UInt32Type>(
-            &list_array,
-            messages,
-            field_descriptor,
-            &Value::U32,
-        ),
-        Kind::Sint64 | Kind::Sfixed64 | Kind::Int64 => {
-            extract_repeated_primitive_type::<Int64Type>(
-                &list_array,
-                messages,
-                field_descriptor,
-                &Value::I64,
-            )
-        }
-        Kind::Fixed64 | Kind::Uint64 => extract_repeated_primitive_type::<UInt64Type>(
-            &list_array,
-            messages,
-            field_descriptor,
-            &Value::U64,
-        ),
-        Kind::Float => extract_repeated_primitive_type::<Float32Type>(
-            &list_array,
-            messages,
-            field_descriptor,
-            &Value::F32,
-        ),
-        Kind::Double => extract_repeated_primitive_type::<Float64Type>(
-            &list_array,
-            messages,
-            field_descriptor,
-            &Value::F64,
-        ),
-        Kind::Bool => extract_repeated_boolean(&list_array, messages, field_descriptor),
-
-        Kind::String => {
-            // Helper macro to extract repeated strings
-            macro_rules! extract_repeated_strings {
-                ($array_type:ty) => {{
-                    let values_arr = values.as_any().downcast_ref::<$array_type>().unwrap();
-                    for (i, message) in messages.iter_mut().enumerate() {
-                        if !list_array.is_null(i) {
-                            let (start, end) = list_array.value_offsets(i);
-                            let values_vec: Vec<Value> = (start..end)
-                                .filter(|&idx| !values_arr.is_null(idx))
-                                .map(|idx| Value::String(values_arr.value(idx).to_string()))
-                                .collect();
-                            if !values_vec.is_empty() {
-                                message.set_field(field_descriptor, Value::List(values_vec));
-                            }
-                        }
+            Self::Sfixed32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::sfixed32::encode(1, &v, buf);
                     }
-                }};
+                }
             }
-            match values.data_type() {
-                DataType::Utf8 => extract_repeated_strings!(StringArray),
-                DataType::LargeUtf8 => extract_repeated_strings!(LargeStringArray),
-                _ => panic!("Expected Utf8 or LargeUtf8, got {:?}", values.data_type()),
-            }
-        }
-        Kind::Bytes => {
-            // Helper macro to extract repeated bytes
-            macro_rules! extract_repeated_bytes {
-                ($array_type:ty) => {{
-                    let values_arr = values.as_any().downcast_ref::<$array_type>().unwrap();
-                    for (i, message) in messages.iter_mut().enumerate() {
-                        if !list_array.is_null(i) {
-                            let (start, end) = list_array.value_offsets(i);
-                            let values_vec: Vec<Value> = (start..end)
-                                .filter(|&idx| !values_arr.is_null(idx))
-                                .map(|idx| {
-                                    Value::Bytes(prost::bytes::Bytes::from(
-                                        values_arr.value(idx).to_vec(),
-                                    ))
-                                })
-                                .collect();
-                            if !values_vec.is_empty() {
-                                message.set_field(field_descriptor, Value::List(values_vec));
-                            }
-                        }
+            Self::Int64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::int64::encode(1, &v, buf);
                     }
-                }};
-            }
-            match values.data_type() {
-                DataType::Binary => extract_repeated_bytes!(BinaryArray),
-                DataType::LargeBinary => extract_repeated_bytes!(LargeBinaryArray),
-                _ => panic!(
-                    "Expected Binary or LargeBinary, got {:?}",
-                    values.data_type()
-                ),
-            }
-        }
-        Kind::Message(message_descriptor) => {
-            extract_repeated_message(&list_array, messages, field_descriptor, message_descriptor)
-        }
-        Kind::Enum(_) => extract_repeated_primitive_type::<Int32Type>(
-            &list_array,
-            messages,
-            field_descriptor,
-            &Value::EnumNumber,
-        ),
-    }
-}
-
-pub fn extract_singular_array(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    match field_descriptor.kind() {
-        Kind::Sfixed32 | Kind::Sint32 | Kind::Int32 => {
-            extract_single_primitive::<arrow_array::types::Int32Type>(
-                array,
-                messages,
-                field_descriptor,
-                &Value::I32,
-            )
-        }
-        Kind::Fixed32 | Kind::Uint32 => extract_single_primitive::<arrow_array::types::UInt32Type>(
-            array,
-            messages,
-            field_descriptor,
-            &Value::U32,
-        ),
-        Kind::Sfixed64 | Kind::Sint64 | Kind::Int64 => {
-            extract_single_primitive::<arrow_array::types::Int64Type>(
-                array,
-                messages,
-                field_descriptor,
-                &Value::I64,
-            )
-        }
-        Kind::Fixed64 | Kind::Uint64 => extract_single_primitive::<arrow_array::types::UInt64Type>(
-            array,
-            messages,
-            field_descriptor,
-            &Value::U64,
-        ),
-        Kind::Float => extract_single_primitive::<arrow_array::types::Float32Type>(
-            array,
-            messages,
-            field_descriptor,
-            &Value::F32,
-        ),
-        Kind::Double => extract_single_primitive::<arrow_array::types::Float64Type>(
-            array,
-            messages,
-            field_descriptor,
-            &Value::F64,
-        ),
-        Kind::Bool => {
-            // BooleanType doesn't implement primitive type
-            extract_single_bool(array, field_descriptor, messages);
-        }
-        Kind::String => extract_single_string(array, field_descriptor, messages),
-        Kind::Bytes => extract_single_bytes(array, field_descriptor, messages),
-
-        Kind::Message(message_descriptor) => {
-            extract_single_message(array, field_descriptor, message_descriptor, messages)
-        }
-        Kind::Enum(_) => extract_single_primitive::<Int32Type>(
-            array,
-            messages,
-            field_descriptor,
-            &Value::EnumNumber,
-        ),
-    }
-}
-
-pub fn extract_single_string(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    // Helper to process string values from an iterator
-    fn process_strings<'a>(
-        iter: impl Iterator<Item = Option<&'a str>>,
-        field_descriptor: &FieldDescriptor,
-        messages: &mut [&mut DynamicMessage],
-    ) {
-        iter.enumerate().for_each(|(index, value)| {
-            if let Some(x) = value {
-                let element: &mut DynamicMessage = messages.get_mut(index).unwrap();
-                element.set_field(field_descriptor, Value::String(x.to_string()));
-            }
-        });
-    }
-
-    // Try StringArray first, then LargeStringArray
-    if let Some(arr) = array.as_any().downcast_ref::<StringArray>() {
-        process_strings(arr.iter(), field_descriptor, messages);
-    } else if let Some(arr) = array.as_any().downcast_ref::<LargeStringArray>() {
-        process_strings(arr.iter(), field_descriptor, messages);
-    } else {
-        panic!(
-            "Expected StringArray or LargeStringArray, got {:?}",
-            array.data_type()
-        );
-    }
-}
-
-pub fn extract_single_bytes(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    // Helper to process binary values from an iterator
-    fn process_bytes<'a>(
-        iter: impl Iterator<Item = Option<&'a [u8]>>,
-        field_descriptor: &FieldDescriptor,
-        messages: &mut [&mut DynamicMessage],
-    ) {
-        iter.enumerate().for_each(|(index, value)| {
-            if let Some(x) = value {
-                let element: &mut DynamicMessage = messages.get_mut(index).unwrap();
-                element.set_field(
-                    field_descriptor,
-                    Value::Bytes(prost::bytes::Bytes::from(x.to_vec())),
-                );
-            }
-        });
-    }
-
-    // Try BinaryArray first, then LargeBinaryArray
-    if let Some(arr) = array.as_any().downcast_ref::<BinaryArray>() {
-        process_bytes(arr.iter(), field_descriptor, messages);
-    } else if let Some(arr) = array.as_any().downcast_ref::<LargeBinaryArray>() {
-        process_bytes(arr.iter(), field_descriptor, messages);
-    } else {
-        panic!(
-            "Expected BinaryArray or LargeBinaryArray, got {:?}",
-            array.data_type()
-        );
-    }
-}
-
-pub fn extract_single_message(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    match message_descriptor.full_name() {
-        "google.protobuf.Timestamp" => {
-            extract_single_timestamp(array, field_descriptor, &message_descriptor, messages);
-            return;
-        }
-        "google.protobuf.Duration" => {
-            extract_single_duration(array, field_descriptor, &message_descriptor, messages);
-            return;
-        }
-        "google.type.Date" => {
-            extract_single_date(array, field_descriptor, &message_descriptor, messages);
-            return;
-        }
-        "google.type.TimeOfDay" => {
-            extract_single_time_of_day(array, field_descriptor, &message_descriptor, messages);
-            return;
-        }
-        "google.protobuf.DoubleValue" => {
-            extract_single_wrapper_primitive::<Float64Type>(
-                array,
-                field_descriptor,
-                &message_descriptor,
-                messages,
-                &Value::F64,
-            );
-            return;
-        }
-        "google.protobuf.FloatValue" => {
-            extract_single_wrapper_primitive::<Float32Type>(
-                array,
-                field_descriptor,
-                &message_descriptor,
-                messages,
-                &Value::F32,
-            );
-            return;
-        }
-        "google.protobuf.Int64Value" => {
-            extract_single_wrapper_primitive::<Int64Type>(
-                array,
-                field_descriptor,
-                &message_descriptor,
-                messages,
-                &Value::I64,
-            );
-            return;
-        }
-        "google.protobuf.UInt64Value" => {
-            extract_single_wrapper_primitive::<UInt64Type>(
-                array,
-                field_descriptor,
-                &message_descriptor,
-                messages,
-                &Value::U64,
-            );
-            return;
-        }
-        "google.protobuf.Int32Value" => {
-            extract_single_wrapper_primitive::<Int32Type>(
-                array,
-                field_descriptor,
-                &message_descriptor,
-                messages,
-                &Value::I32,
-            );
-            return;
-        }
-        "google.protobuf.UInt32Value" => {
-            extract_single_wrapper_primitive::<UInt32Type>(
-                array,
-                field_descriptor,
-                &message_descriptor,
-                messages,
-                &Value::U32,
-            );
-            return;
-        }
-        "google.protobuf.BoolValue" => {
-            extract_single_wrapper_bool(array, field_descriptor, &message_descriptor, messages);
-            return;
-        }
-        "google.protobuf.StringValue" => {
-            extract_single_wrapper_string(array, field_descriptor, &message_descriptor, messages);
-            return;
-        }
-        "google.protobuf.BytesValue" => {
-            extract_single_wrapper_bytes(array, field_descriptor, &message_descriptor, messages);
-            return;
-        }
-        _ => {}
-    }
-
-    let struct_array = array.as_any().downcast_ref::<StructArray>().unwrap();
-    let mut sub_messages: Vec<&mut DynamicMessage> = messages
-        .iter_mut()
-        .map(|message| {
-            message
-                .get_field_mut(field_descriptor)
-                .as_message_mut()
-                .unwrap()
-        })
-        .collect();
-
-    message_descriptor
-        .fields()
-        .for_each(|field_descriptor: FieldDescriptor| {
-            let column: Option<&ArrayRef> = struct_array.column_by_name(field_descriptor.name());
-            match column {
-                None => {}
-                Some(column) => extract_array(column, &field_descriptor, &mut sub_messages),
-            }
-        });
-    messages.iter_mut().enumerate().for_each(|(i, x)| {
-        if !struct_array.is_valid(i) {
-            x.clear_field(field_descriptor)
-        }
-    });
-}
-
-fn extract_single_timestamp(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    let fields = TimestampFields::new(message_descriptor);
-
-    // Determine the time unit from the array's data type
-    let time_unit = match array.data_type() {
-        DataType::Timestamp(unit, _) => *unit,
-        _ => panic!("Expected Timestamp array, got {:?}", array.data_type()),
-    };
-
-    // Helper macro to avoid code duplication
-    macro_rules! extract_timestamps {
-        ($array_type:ty) => {{
-            let timestamp_array = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<$array_type>>()
-                .expect(concat!("Failed to downcast to ", stringify!($array_type)));
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !timestamp_array.is_null(i) {
-                    let (seconds, nanos) =
-                        time_unit_to_seconds_and_nanos(timestamp_array.value(i), time_unit);
-                    let ts_msg =
-                        create_timestamp_message(seconds, nanos, message_descriptor, &fields);
-                    message.set_field(field_descriptor, Value::Message(ts_msg));
                 }
             }
-        }};
-    }
-
-    match time_unit {
-        TimeUnit::Second => extract_timestamps!(TimestampSecondType),
-        TimeUnit::Millisecond => extract_timestamps!(TimestampMillisecondType),
-        TimeUnit::Microsecond => extract_timestamps!(TimestampMicrosecondType),
-        TimeUnit::Nanosecond => extract_timestamps!(TimestampNanosecondType),
-    }
-}
-
-fn extract_single_duration(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    let fields = DurationFields::new(message_descriptor);
-
-    // Determine the time unit from the array's data type
-    let time_unit = match array.data_type() {
-        DataType::Duration(unit) => *unit,
-        _ => panic!("Expected Duration array, got {:?}", array.data_type()),
-    };
-
-    // Helper macro to avoid code duplication
-    macro_rules! extract_durations {
-        ($array_type:ty) => {{
-            let duration_array = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<$array_type>>()
-                .expect(concat!("Failed to downcast to ", stringify!($array_type)));
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !duration_array.is_null(i) {
-                    let (seconds, nanos) =
-                        time_unit_to_duration_seconds_and_nanos(duration_array.value(i), time_unit);
-                    let dur_msg =
-                        create_duration_message(seconds, nanos, message_descriptor, &fields);
-                    message.set_field(field_descriptor, Value::Message(dur_msg));
+            Self::Sint64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::sint64::encode(1, &v, buf);
+                    }
                 }
             }
-        }};
-    }
-
-    match time_unit {
-        TimeUnit::Second => extract_durations!(DurationSecondType),
-        TimeUnit::Millisecond => extract_durations!(DurationMillisecondType),
-        TimeUnit::Microsecond => extract_durations!(DurationMicrosecondType),
-        TimeUnit::Nanosecond => extract_durations!(DurationNanosecondType),
-    }
-}
-
-fn extract_single_date(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    let date_array = array
-        .as_any()
-        .downcast_ref::<PrimitiveArray<Date32Type>>()
-        .unwrap();
-    let fields = DateFields::new(message_descriptor);
-
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !date_array.is_null(i) {
-            let date_msg = create_date_message(date_array.value(i), message_descriptor, &fields);
-            message.set_field(field_descriptor, Value::Message(date_msg));
-        }
-    }
-}
-
-fn extract_single_time_of_day(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    let fields = TimeOfDayFields::new(message_descriptor);
-
-    // Handle Time32 (Second, Millisecond) and Time64 (Microsecond, Nanosecond)
-    match array.data_type() {
-        DataType::Time32(TimeUnit::Second) => {
-            let time_array = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<Time32SecondType>>()
-                .expect("Failed to downcast to Time32SecondType");
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !time_array.is_null(i) {
-                    let nanos = time32_unit_to_nanos(time_array.value(i), TimeUnit::Second);
-                    let time_msg = create_time_of_day_message(nanos, message_descriptor, &fields);
-                    message.set_field(field_descriptor, Value::Message(time_msg));
+            Self::Sfixed64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::sfixed64::encode(1, &v, buf);
+                    }
+                }
+            }
+            Self::UInt32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::uint32::encode(1, &v, buf);
+                    }
+                }
+            }
+            Self::Fixed32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::fixed32::encode(1, &v, buf);
+                    }
+                }
+            }
+            Self::UInt64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::uint64::encode(1, &v, buf);
+                    }
+                }
+            }
+            Self::Fixed64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::fixed64::encode(1, &v, buf);
+                    }
+                }
+            }
+            Self::Bool(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v {
+                        prost::encoding::bool::encode(1, &v, buf);
+                    }
                 }
             }
         }
-        DataType::Time32(TimeUnit::Millisecond) => {
-            let time_array = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<Time32MillisecondType>>()
-                .expect("Failed to downcast to Time32MillisecondType");
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !time_array.is_null(i) {
-                    let nanos = time32_unit_to_nanos(time_array.value(i), TimeUnit::Millisecond);
-                    let time_msg = create_time_of_day_message(nanos, message_descriptor, &fields);
-                    message.set_field(field_descriptor, Value::Message(time_msg));
+    }
+}
+
+/// Encoder for map value fields.
+enum MapValueEncoder<'a> {
+    Double(&'a PrimitiveArray<Float64Type>),
+    Float(&'a PrimitiveArray<Float32Type>),
+    Int32(&'a PrimitiveArray<Int32Type>),
+    Sint32(&'a PrimitiveArray<Int32Type>),
+    Sfixed32(&'a PrimitiveArray<Int32Type>),
+    Int64(&'a PrimitiveArray<Int64Type>),
+    Sint64(&'a PrimitiveArray<Int64Type>),
+    Sfixed64(&'a PrimitiveArray<Int64Type>),
+    UInt32(&'a PrimitiveArray<UInt32Type>),
+    Fixed32(&'a PrimitiveArray<UInt32Type>),
+    UInt64(&'a PrimitiveArray<UInt64Type>),
+    Fixed64(&'a PrimitiveArray<UInt64Type>),
+    Bool(&'a BooleanArray),
+    String(StringColumnRef<'a>),
+    Bytes(BinaryColumnRef<'a>),
+    EnumInt32(&'a PrimitiveArray<Int32Type>),
+    EnumString(StringColumnRef<'a>, EnumDescriptor),
+    EnumBinary(BinaryColumnRef<'a>, EnumDescriptor),
+    Message(&'a StructArray, MessageEncoder<'a>),
+    Timestamp(TimeUnit, WellKnownPrimitiveArray<'a>),
+    Duration(TimeUnit, WellKnownPrimitiveArray<'a>),
+    Date(&'a PrimitiveArray<Date32Type>),
+    TimeOfDay(TimeOfDayArray<'a>),
+    WrapperDouble(&'a PrimitiveArray<Float64Type>),
+    WrapperFloat(&'a PrimitiveArray<Float32Type>),
+    WrapperInt64(&'a PrimitiveArray<Int64Type>),
+    WrapperUInt64(&'a PrimitiveArray<UInt64Type>),
+    WrapperInt32(&'a PrimitiveArray<Int32Type>),
+    WrapperUInt32(&'a PrimitiveArray<UInt32Type>),
+    WrapperBool(&'a BooleanArray),
+    WrapperString(StringColumnRef<'a>),
+    WrapperBytes(BinaryColumnRef<'a>),
+}
+
+impl MapValueEncoder<'_> {
+    fn encode_at(&self, idx: usize, buf: &mut Vec<u8>) {
+        match self {
+            Self::Double(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0.0 {
+                        prost::encoding::double::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Float(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0.0 {
+                        prost::encoding::float::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Int32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::int32::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Sint32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::sint32::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Sfixed32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::sfixed32::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Int64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::int64::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Sint64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::sint64::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Sfixed64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::sfixed64::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::UInt32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::uint32::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Fixed32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::fixed32::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::UInt64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::uint64::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Fixed64(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::fixed64::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Bool(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v {
+                        prost::encoding::bool::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::String(col) => {
+                if !col.is_null(idx) {
+                    let v = col.value(idx);
+                    if !v.is_empty() {
+                        encode_key(2, WireType::LengthDelimited, buf);
+                        encode_varint(v.len() as u64, buf);
+                        buf.extend_from_slice(v.as_bytes());
+                    }
+                }
+            }
+            Self::Bytes(col) => {
+                if !col.is_null(idx) {
+                    let v = col.value(idx);
+                    if !v.is_empty() {
+                        encode_key(2, WireType::LengthDelimited, buf);
+                        encode_varint(v.len() as u64, buf);
+                        buf.extend_from_slice(v);
+                    }
+                }
+            }
+            Self::EnumInt32(arr) => {
+                if !arr.is_null(idx) {
+                    let v = arr.value(idx);
+                    if v != 0 {
+                        prost::encoding::int32::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::EnumString(col, ed) => {
+                if !col.is_null(idx) {
+                    let v = enum_number_from_name(col.value(idx), ed);
+                    if v != 0 {
+                        prost::encoding::int32::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::EnumBinary(col, ed) => {
+                if !col.is_null(idx) {
+                    let name = std::str::from_utf8(col.value(idx)).unwrap();
+                    let v = enum_number_from_name(name, ed);
+                    if v != 0 {
+                        prost::encoding::int32::encode(2, &v, buf);
+                    }
+                }
+            }
+            Self::Message(struct_arr, sub_enc) => {
+                if struct_arr.is_valid(idx) {
+                    let mut tmp = Vec::new();
+                    sub_enc.encode_row(idx, &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::Timestamp(unit, arr) => {
+                if !arr.is_null(idx) {
+                    let (s, n) = time_unit_to_seconds_and_nanos(arr.value_i64(idx), *unit);
+                    let mut tmp = Vec::new();
+                    encode_timestamp_fields(s, n, &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::Duration(unit, arr) => {
+                if !arr.is_null(idx) {
+                    let (s, n) = time_unit_to_duration_seconds_and_nanos(arr.value_i64(idx), *unit);
+                    let mut tmp = Vec::new();
+                    encode_duration_fields(s, n, &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::Date(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    encode_date_fields(arr.value(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::TimeOfDay(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    encode_time_of_day_fields(arr.to_nanos(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperDouble(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    prost::encoding::double::encode(1, &arr.value(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperFloat(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    prost::encoding::float::encode(1, &arr.value(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperInt64(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    prost::encoding::int64::encode(1, &arr.value(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperUInt64(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    prost::encoding::uint64::encode(1, &arr.value(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperInt32(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    prost::encoding::int32::encode(1, &arr.value(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperUInt32(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    prost::encoding::uint32::encode(1, &arr.value(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperBool(arr) => {
+                if !arr.is_null(idx) {
+                    let mut tmp = Vec::new();
+                    prost::encoding::bool::encode(1, &arr.value(idx), &mut tmp);
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperString(col) => {
+                if !col.is_null(idx) {
+                    let v = col.value(idx);
+                    let mut tmp = Vec::new();
+                    encode_key(1, WireType::LengthDelimited, &mut tmp);
+                    encode_varint(v.len() as u64, &mut tmp);
+                    tmp.extend_from_slice(v.as_bytes());
+                    write_submessage(2, &tmp, buf);
+                }
+            }
+            Self::WrapperBytes(col) => {
+                if !col.is_null(idx) {
+                    let v = col.value(idx);
+                    let mut tmp = Vec::new();
+                    encode_key(1, WireType::LengthDelimited, &mut tmp);
+                    encode_varint(v.len() as u64, &mut tmp);
+                    tmp.extend_from_slice(v);
+                    write_submessage(2, &tmp, buf);
                 }
             }
         }
-        DataType::Time64(TimeUnit::Microsecond) => {
-            let time_array = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<Time64MicrosecondType>>()
-                .expect("Failed to downcast to Time64MicrosecondType");
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !time_array.is_null(i) {
-                    let nanos = time64_unit_to_nanos(time_array.value(i), TimeUnit::Microsecond);
-                    let time_msg = create_time_of_day_message(nanos, message_descriptor, &fields);
-                    message.set_field(field_descriptor, Value::Message(time_msg));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FieldEncoder::encode_at — the main per-row encoding dispatch
+// ---------------------------------------------------------------------------
+
+impl FieldEncoder<'_> {
+    fn encode_at(&self, idx: usize, buf: &mut Vec<u8>) {
+        match self {
+            // ----- scalars -----
+            Self::Double {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0.0 {
+                    return;
+                }
+                prost::encoding::double::encode(*tag, &val, buf);
+            }
+            Self::Float {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0.0 {
+                    return;
+                }
+                prost::encoding::float::encode(*tag, &val, buf);
+            }
+            Self::Int32 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::int32::encode(*tag, &val, buf);
+            }
+            Self::Int64 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::int64::encode(*tag, &val, buf);
+            }
+            Self::UInt32 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::uint32::encode(*tag, &val, buf);
+            }
+            Self::UInt64 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::uint64::encode(*tag, &val, buf);
+            }
+            Self::Sint32 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::sint32::encode(*tag, &val, buf);
+            }
+            Self::Sint64 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::sint64::encode(*tag, &val, buf);
+            }
+            Self::Sfixed32 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::sfixed32::encode(*tag, &val, buf);
+            }
+            Self::Sfixed64 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::sfixed64::encode(*tag, &val, buf);
+            }
+            Self::Fixed32 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::fixed32::encode(*tag, &val, buf);
+            }
+            Self::Fixed64 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::fixed64::encode(*tag, &val, buf);
+            }
+            Self::Bool {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && !val {
+                    return;
+                }
+                prost::encoding::bool::encode(*tag, &val, buf);
+            }
+            Self::String {
+                tag,
+                col,
+                has_presence,
+            } => {
+                if col.is_null(idx) {
+                    return;
+                }
+                let val = col.value(idx);
+                if !has_presence && val.is_empty() {
+                    return;
+                }
+                encode_key(*tag, WireType::LengthDelimited, buf);
+                encode_varint(val.len() as u64, buf);
+                buf.extend_from_slice(val.as_bytes());
+            }
+            Self::Bytes {
+                tag,
+                col,
+                has_presence,
+            } => {
+                if col.is_null(idx) {
+                    return;
+                }
+                let val = col.value(idx);
+                if !has_presence && val.is_empty() {
+                    return;
+                }
+                encode_key(*tag, WireType::LengthDelimited, buf);
+                encode_varint(val.len() as u64, buf);
+                buf.extend_from_slice(val);
+            }
+
+            // ----- enums -----
+            Self::EnumInt32 {
+                tag,
+                arr,
+                has_presence,
+            } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let val = arr.value(idx);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::int32::encode(*tag, &val, buf);
+            }
+            Self::EnumString {
+                tag,
+                col,
+                enum_descriptor,
+                has_presence,
+            } => {
+                if col.is_null(idx) {
+                    return;
+                }
+                let val = enum_number_from_name(col.value(idx), enum_descriptor);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::int32::encode(*tag, &val, buf);
+            }
+            Self::EnumBinary {
+                tag,
+                col,
+                enum_descriptor,
+                has_presence,
+            } => {
+                if col.is_null(idx) {
+                    return;
+                }
+                let name = std::str::from_utf8(col.value(idx)).unwrap();
+                let val = enum_number_from_name(name, enum_descriptor);
+                if !has_presence && val == 0 {
+                    return;
+                }
+                prost::encoding::int32::encode(*tag, &val, buf);
+            }
+
+            // ----- nested message -----
+            Self::Message {
+                tag,
+                struct_arr,
+                sub_encoder,
+            } => {
+                if !struct_arr.is_valid(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                sub_encoder.encode_row(idx, &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+
+            // ----- well-known: Timestamp -----
+            Self::Timestamp { tag, unit, array } => {
+                if array.is_null(idx) {
+                    return;
+                }
+                let (s, n) = time_unit_to_seconds_and_nanos(array.value_i64(idx), *unit);
+                let mut tmp = Vec::new();
+                encode_timestamp_fields(s, n, &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            // ----- well-known: Duration -----
+            Self::Duration { tag, unit, array } => {
+                if array.is_null(idx) {
+                    return;
+                }
+                let (s, n) = time_unit_to_duration_seconds_and_nanos(array.value_i64(idx), *unit);
+                let mut tmp = Vec::new();
+                encode_duration_fields(s, n, &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            // ----- well-known: Date -----
+            Self::Date { tag, arr } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                encode_date_fields(arr.value(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            // ----- well-known: TimeOfDay -----
+            Self::TimeOfDay { tag, array } => {
+                if array.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                encode_time_of_day_fields(array.to_nanos(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+
+            // ----- wrapper types -----
+            Self::WrapperDouble { tag, arr } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                prost::encoding::double::encode(1, &arr.value(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            Self::WrapperFloat { tag, arr } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                prost::encoding::float::encode(1, &arr.value(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            Self::WrapperInt64 { tag, arr } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                prost::encoding::int64::encode(1, &arr.value(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            Self::WrapperUInt64 { tag, arr } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                prost::encoding::uint64::encode(1, &arr.value(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            Self::WrapperInt32 { tag, arr } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                prost::encoding::int32::encode(1, &arr.value(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            Self::WrapperUInt32 { tag, arr } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                prost::encoding::uint32::encode(1, &arr.value(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            Self::WrapperBool { tag, arr } => {
+                if arr.is_null(idx) {
+                    return;
+                }
+                let mut tmp = Vec::new();
+                prost::encoding::bool::encode(1, &arr.value(idx), &mut tmp);
+                write_submessage(*tag, &tmp, buf);
+            }
+            Self::WrapperString { tag, col } => {
+                if col.is_null(idx) {
+                    return;
+                }
+                let v = col.value(idx);
+                let mut tmp = Vec::new();
+                encode_key(1, WireType::LengthDelimited, &mut tmp);
+                encode_varint(v.len() as u64, &mut tmp);
+                tmp.extend_from_slice(v.as_bytes());
+                write_submessage(*tag, &tmp, buf);
+            }
+            Self::WrapperBytes { tag, col } => {
+                if col.is_null(idx) {
+                    return;
+                }
+                let v = col.value(idx);
+                let mut tmp = Vec::new();
+                encode_key(1, WireType::LengthDelimited, &mut tmp);
+                encode_varint(v.len() as u64, &mut tmp);
+                tmp.extend_from_slice(v);
+                write_submessage(*tag, &tmp, buf);
+            }
+
+            // ----- repeated packed (int32/int64/uint32/uint64/float/double) -----
+            Self::RepeatedPacked { tag, list, encoder } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                if start >= end {
+                    return;
+                }
+                let mut packed = Vec::new();
+                encoder.encode_packed_values(start, end, &mut packed);
+                encode_key(*tag, WireType::LengthDelimited, buf);
+                encode_varint(packed.len() as u64, buf);
+                buf.extend_from_slice(&packed);
+            }
+            Self::RepeatedBool { tag, list, values } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                if start >= end {
+                    return;
+                }
+                let mut packed = Vec::new();
+                for i in start..end {
+                    encode_varint(u64::from(values.value(i)), &mut packed);
+                }
+                encode_key(*tag, WireType::LengthDelimited, buf);
+                encode_varint(packed.len() as u64, buf);
+                buf.extend_from_slice(&packed);
+            }
+            Self::RepeatedString { tag, list, col } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    if col.is_null(i) {
+                        continue;
+                    }
+                    let v = col.value(i);
+                    encode_key(*tag, WireType::LengthDelimited, buf);
+                    encode_varint(v.len() as u64, buf);
+                    buf.extend_from_slice(v.as_bytes());
+                }
+            }
+            Self::RepeatedBytes { tag, list, col } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    if col.is_null(i) {
+                        continue;
+                    }
+                    let v = col.value(i);
+                    encode_key(*tag, WireType::LengthDelimited, buf);
+                    encode_varint(v.len() as u64, buf);
+                    buf.extend_from_slice(v);
+                }
+            }
+            Self::RepeatedEnumInt32 { tag, list, values } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                if start >= end {
+                    return;
+                }
+                let mut packed = Vec::new();
+                for i in start..end {
+                    let v = if values.is_null(i) {
+                        0
+                    } else {
+                        values.value(i)
+                    };
+                    encode_varint(v as u64, &mut packed);
+                }
+                encode_key(*tag, WireType::LengthDelimited, buf);
+                encode_varint(packed.len() as u64, buf);
+                buf.extend_from_slice(&packed);
+            }
+            Self::RepeatedEnumString {
+                tag,
+                list,
+                col,
+                enum_descriptor,
+            } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                if start >= end {
+                    return;
+                }
+                let mut packed = Vec::new();
+                for i in start..end {
+                    if col.is_null(i) {
+                        continue;
+                    }
+                    let v = enum_number_from_name(col.value(i), enum_descriptor);
+                    encode_varint(v as u64, &mut packed);
+                }
+                if !packed.is_empty() {
+                    encode_key(*tag, WireType::LengthDelimited, buf);
+                    encode_varint(packed.len() as u64, buf);
+                    buf.extend_from_slice(&packed);
+                }
+            }
+            Self::RepeatedEnumBinary {
+                tag,
+                list,
+                col,
+                enum_descriptor,
+            } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                if start >= end {
+                    return;
+                }
+                let mut packed = Vec::new();
+                for i in start..end {
+                    if col.is_null(i) {
+                        continue;
+                    }
+                    let name = std::str::from_utf8(col.value(i)).unwrap();
+                    let v = enum_number_from_name(name, enum_descriptor);
+                    encode_varint(v as u64, &mut packed);
+                }
+                if !packed.is_empty() {
+                    encode_key(*tag, WireType::LengthDelimited, buf);
+                    encode_varint(packed.len() as u64, buf);
+                    buf.extend_from_slice(&packed);
+                }
+            }
+            Self::RepeatedMessage {
+                tag,
+                list,
+                sub_encoder,
+            } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    let mut tmp = Vec::new();
+                    sub_encoder.encode_row(i, &mut tmp);
+                    write_submessage(*tag, &tmp, buf);
+                }
+            }
+            Self::RepeatedTimestamp {
+                tag,
+                list,
+                unit,
+                values,
+            } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    if values.is_null(i) {
+                        continue;
+                    }
+                    let (s, n) = time_unit_to_seconds_and_nanos(values.value_i64(i), *unit);
+                    let mut tmp = Vec::new();
+                    encode_timestamp_fields(s, n, &mut tmp);
+                    write_submessage(*tag, &tmp, buf);
+                }
+            }
+            Self::RepeatedDuration {
+                tag,
+                list,
+                unit,
+                values,
+            } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    if values.is_null(i) {
+                        continue;
+                    }
+                    let (s, n) =
+                        time_unit_to_duration_seconds_and_nanos(values.value_i64(i), *unit);
+                    let mut tmp = Vec::new();
+                    encode_duration_fields(s, n, &mut tmp);
+                    write_submessage(*tag, &tmp, buf);
+                }
+            }
+            Self::RepeatedDate { tag, list, values } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    let mut tmp = Vec::new();
+                    encode_date_fields(values.value(i), &mut tmp);
+                    write_submessage(*tag, &tmp, buf);
+                }
+            }
+            Self::RepeatedTimeOfDay { tag, list, values } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    if values.is_null(i) {
+                        continue;
+                    }
+                    let mut tmp = Vec::new();
+                    encode_time_of_day_fields(values.to_nanos(i), &mut tmp);
+                    write_submessage(*tag, &tmp, buf);
+                }
+            }
+            Self::RepeatedWrapperDouble { tag, list, values } => encode_repeated_wrapper_primitive(
+                idx,
+                *tag,
+                list,
+                values,
+                |v, t| prost::encoding::double::encode(1, &v, t),
+                buf,
+            ),
+            Self::RepeatedWrapperFloat { tag, list, values } => encode_repeated_wrapper_primitive(
+                idx,
+                *tag,
+                list,
+                values,
+                |v, t| prost::encoding::float::encode(1, &v, t),
+                buf,
+            ),
+            Self::RepeatedWrapperInt64 { tag, list, values } => encode_repeated_wrapper_primitive(
+                idx,
+                *tag,
+                list,
+                values,
+                |v, t| prost::encoding::int64::encode(1, &v, t),
+                buf,
+            ),
+            Self::RepeatedWrapperUInt64 { tag, list, values } => encode_repeated_wrapper_primitive(
+                idx,
+                *tag,
+                list,
+                values,
+                |v, t| prost::encoding::uint64::encode(1, &v, t),
+                buf,
+            ),
+            Self::RepeatedWrapperInt32 { tag, list, values } => encode_repeated_wrapper_primitive(
+                idx,
+                *tag,
+                list,
+                values,
+                |v, t| prost::encoding::int32::encode(1, &v, t),
+                buf,
+            ),
+            Self::RepeatedWrapperUInt32 { tag, list, values } => encode_repeated_wrapper_primitive(
+                idx,
+                *tag,
+                list,
+                values,
+                |v, t| prost::encoding::uint32::encode(1, &v, t),
+                buf,
+            ),
+            Self::RepeatedWrapperBool { tag, list, values } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    if values.is_null(i) {
+                        continue;
+                    }
+                    let mut tmp = Vec::new();
+                    prost::encoding::bool::encode(1, &values.value(i), &mut tmp);
+                    write_submessage(*tag, &tmp, buf);
+                }
+            }
+            Self::RepeatedWrapperString { tag, list, col } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    if col.is_null(i) {
+                        continue;
+                    }
+                    let v = col.value(i);
+                    let mut tmp = Vec::new();
+                    encode_key(1, WireType::LengthDelimited, &mut tmp);
+                    encode_varint(v.len() as u64, &mut tmp);
+                    tmp.extend_from_slice(v.as_bytes());
+                    write_submessage(*tag, &tmp, buf);
+                }
+            }
+            Self::RepeatedWrapperBytes { tag, list, col } => {
+                if list.is_null(idx) {
+                    return;
+                }
+                let (start, end) = list.value_offsets(idx);
+                for i in start..end {
+                    if col.is_null(i) {
+                        continue;
+                    }
+                    let v = col.value(i);
+                    let mut tmp = Vec::new();
+                    encode_key(1, WireType::LengthDelimited, &mut tmp);
+                    encode_varint(v.len() as u64, &mut tmp);
+                    tmp.extend_from_slice(v);
+                    write_submessage(*tag, &tmp, buf);
+                }
+            }
+
+            // ----- map fields -----
+            Self::Map {
+                tag,
+                map_array,
+                key_encoder,
+                value_encoder,
+            } => {
+                if map_array.is_null(idx) {
+                    return;
+                }
+                let start = map_array.value_offsets()[idx] as usize;
+                let end = map_array.value_offsets()[idx + 1] as usize;
+                for i in start..end {
+                    let mut entry = Vec::new();
+                    key_encoder.encode_at(i, &mut entry);
+                    value_encoder.encode_at(i, &mut entry);
+                    write_submessage(*tag, &entry, buf);
                 }
             }
         }
-        DataType::Time64(TimeUnit::Nanosecond) => {
-            let time_array = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<Time64NanosecondType>>()
-                .expect("Failed to downcast to Time64NanosecondType");
-            for (i, message) in messages.iter_mut().enumerate() {
-                if !time_array.is_null(i) {
-                    let time_msg = create_time_of_day_message(
-                        time_array.value(i),
-                        message_descriptor,
-                        &fields,
-                    );
-                    message.set_field(field_descriptor, Value::Message(time_msg));
-                }
-            }
-        }
-        _ => panic!(
-            "Expected Time32 or Time64 array, got {:?}",
-            array.data_type()
-        ),
     }
 }
 
-// Generic wrapper type extraction function for primitive types
-fn extract_single_wrapper_primitive<P: ArrowPrimitiveType>(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-    value_creator: &dyn Fn(P::Native) -> Value,
-) {
-    let arr = array.as_any().downcast_ref::<PrimitiveArray<P>>().unwrap();
-    let value_descriptor = message_descriptor.get_field_by_name("value").unwrap();
-
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !arr.is_null(i) {
-            let sub_message = message
-                .get_field_mut(field_descriptor)
-                .as_message_mut()
-                .unwrap();
-            sub_message.set_field(&value_descriptor, value_creator(arr.value(i)));
-        }
-    }
-}
-
-fn extract_single_wrapper_bool(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    let arr = array.as_any().downcast_ref::<BooleanArray>().unwrap();
-    let value_descriptor = message_descriptor.get_field_by_name("value").unwrap();
-
-    for (i, message) in messages.iter_mut().enumerate() {
-        if !arr.is_null(i) {
-            let sub_message = message
-                .get_field_mut(field_descriptor)
-                .as_message_mut()
-                .unwrap();
-            sub_message.set_field(&value_descriptor, Value::Bool(arr.value(i)));
-        }
-    }
-}
-
-fn extract_single_wrapper_string(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    let value_descriptor = message_descriptor.get_field_by_name("value").unwrap();
-
-    // Helper to process string values
-    fn process<'a>(
-        iter: impl Iterator<Item = Option<&'a str>>,
-        field_descriptor: &FieldDescriptor,
-        value_descriptor: &FieldDescriptor,
-        messages: &mut [&mut DynamicMessage],
-    ) {
-        for (i, value) in iter.enumerate() {
-            if let Some(v) = value {
-                let sub_message = messages[i]
-                    .get_field_mut(field_descriptor)
-                    .as_message_mut()
-                    .unwrap();
-                sub_message.set_field(value_descriptor, Value::String(v.to_string()));
-            }
-        }
-    }
-
-    if let Some(arr) = array.as_any().downcast_ref::<StringArray>() {
-        process(arr.iter(), field_descriptor, &value_descriptor, messages);
-    } else if let Some(arr) = array.as_any().downcast_ref::<LargeStringArray>() {
-        process(arr.iter(), field_descriptor, &value_descriptor, messages);
-    } else {
-        panic!(
-            "Expected StringArray or LargeStringArray, got {:?}",
-            array.data_type()
-        );
-    }
-}
-
-fn extract_single_wrapper_bytes(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    message_descriptor: &MessageDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    let value_descriptor = message_descriptor.get_field_by_name("value").unwrap();
-
-    // Helper to process binary values
-    fn process<'a>(
-        iter: impl Iterator<Item = Option<&'a [u8]>>,
-        field_descriptor: &FieldDescriptor,
-        value_descriptor: &FieldDescriptor,
-        messages: &mut [&mut DynamicMessage],
-    ) {
-        for (i, value) in iter.enumerate() {
-            if let Some(v) = value {
-                let sub_message = messages[i]
-                    .get_field_mut(field_descriptor)
-                    .as_message_mut()
-                    .unwrap();
-                sub_message.set_field(
-                    value_descriptor,
-                    Value::Bytes(prost::bytes::Bytes::from(v.to_vec())),
-                );
-            }
-        }
-    }
-
-    if let Some(arr) = array.as_any().downcast_ref::<BinaryArray>() {
-        process(arr.iter(), field_descriptor, &value_descriptor, messages);
-    } else if let Some(arr) = array.as_any().downcast_ref::<LargeBinaryArray>() {
-        process(arr.iter(), field_descriptor, &value_descriptor, messages);
-    } else {
-        panic!(
-            "Expected BinaryArray or LargeBinaryArray, got {:?}",
-            array.data_type()
-        );
-    }
-}
-
-pub fn extract_single_bool(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    array
-        .as_any()
-        .downcast_ref::<BooleanArray>()
-        .unwrap()
-        .iter()
-        .enumerate()
-        .for_each(|(index, value)| match value {
-            None => {}
-            Some(x) => {
-                let element: &mut DynamicMessage = messages.get_mut(index).unwrap();
-                element.set_field(field_descriptor, Value::Bool(x));
-            }
-        })
-}
-
-/// Extract a single map value at a given index from a MapArray.
-fn extract_single_map(
-    map_array: &MapArray,
+/// Helper for repeated wrapper primitives.
+fn encode_repeated_wrapper_primitive<P: ArrowPrimitiveType>(
     idx: usize,
-    key_field: &FieldDescriptor,
-    value_field: &FieldDescriptor,
-) -> Option<Value> {
-    if map_array.is_null(idx) {
-        return None;
-    }
-    let start = map_array.value_offsets()[idx] as usize;
-    let end = map_array.value_offsets()[idx + 1] as usize;
-    if start >= end {
-        return Some(Value::Map(HashMap::new()));
-    }
-
-    let entries = map_array.entries();
-    let key_array = entries.column_by_name("key")?;
-    // Try "value" first (default), fall back to second struct field for custom map_value_name
-    let value_array = entries
-        .column_by_name("value")
-        .or_else(|| entries.columns().get(1))?;
-
-    let mut map: HashMap<MapKey, Value> = HashMap::new();
-    for i in start..end {
-        let key = extract_map_key(key_array, i, key_field);
-        let value = extract_map_value(value_array, i, value_field);
-        if let (Some(k), Some(v)) = (key, value) {
-            map.insert(k, v);
-        }
-    }
-    Some(Value::Map(map))
-}
-
-pub fn extract_map_array(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    messages: &mut [&mut DynamicMessage],
+    tag: u32,
+    list: &GenericListArray,
+    values: &PrimitiveArray<P>,
+    encode_value: impl Fn(P::Native, &mut Vec<u8>),
+    buf: &mut Vec<u8>,
 ) {
-    let map_array = array.as_any().downcast_ref::<MapArray>().unwrap();
+    if list.is_null(idx) {
+        return;
+    }
+    let (start, end) = list.value_offsets(idx);
+    for i in start..end {
+        if values.is_null(i) {
+            continue;
+        }
+        let mut tmp = Vec::new();
+        encode_value(values.value(i), &mut tmp);
+        write_submessage(tag, &tmp, buf);
+    }
+}
 
-    // Get the key and value field descriptors from the map entry message type
-    let map_entry_descriptor = match field_descriptor.kind() {
-        Kind::Message(desc) => desc,
-        _ => return,
-    };
-    let key_field = map_entry_descriptor.get_field_by_name("key").unwrap();
-    let value_field = map_entry_descriptor.get_field_by_name("value").unwrap();
+// ---------------------------------------------------------------------------
+// MessageEncoder: holds Vec<FieldEncoder>, built from descriptor + arrays
+// ---------------------------------------------------------------------------
 
-    for (i, message) in messages.iter_mut().enumerate() {
-        if let Some(map_value) = extract_single_map(map_array, i, &key_field, &value_field) {
-            message.set_field(field_descriptor, map_value);
+/// Encodes rows directly from Arrow arrays to protobuf wire format.
+pub struct MessageEncoder<'a> {
+    encoders: Vec<FieldEncoder<'a>>,
+}
+
+impl<'a> MessageEncoder<'a> {
+    /// Build a MessageEncoder from a RecordBatch (top-level).
+    pub fn from_record_batch(descriptor: &MessageDescriptor, batch: &'a RecordBatch) -> Self {
+        let mut encoders = Vec::new();
+        for field in descriptor.fields() {
+            if let Some(column) = batch.column_by_name(field.name()) {
+                if let Some(enc) = build_field_encoder(&field, column.as_ref()) {
+                    encoders.push(enc);
+                }
+            }
+        }
+        Self { encoders }
+    }
+
+    /// Build a MessageEncoder from a StructArray (nested messages).
+    fn from_struct_array(descriptor: &MessageDescriptor, struct_arr: &'a StructArray) -> Self {
+        let mut encoders = Vec::new();
+        for field in descriptor.fields() {
+            if let Some(column) = struct_arr.column_by_name(field.name()) {
+                if let Some(enc) = build_field_encoder(&field, column.as_ref()) {
+                    encoders.push(enc);
+                }
+            }
+        }
+        Self { encoders }
+    }
+
+    /// Encode a single row into the buffer.
+    fn encode_row(&self, idx: usize, buf: &mut Vec<u8>) {
+        for encoder in &self.encoders {
+            encoder.encode_at(idx, buf);
         }
     }
 }
 
-fn extract_map_key(array: &ArrayRef, idx: usize, field: &FieldDescriptor) -> Option<MapKey> {
+// ---------------------------------------------------------------------------
+// build_field_encoder: construct a FieldEncoder from a FieldDescriptor + array
+// ---------------------------------------------------------------------------
+
+fn build_field_encoder<'a>(
+    field: &FieldDescriptor,
+    array: &'a dyn Array,
+) -> Option<FieldEncoder<'a>> {
+    if field.is_map() {
+        return build_map_encoder(field, array);
+    }
+    if field.is_list() {
+        return build_repeated_encoder(field, array);
+    }
+
+    let tag: u32 = field.number();
+    let has_presence = field.supports_presence();
+
     match field.kind() {
-        Kind::String => {
-            // Try StringArray first, then LargeStringArray
-            if let Some(arr) = array.as_any().downcast_ref::<StringArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(MapKey::String(arr.value(idx).to_string()))
-                }
-            } else if let Some(arr) = array.as_any().downcast_ref::<LargeStringArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(MapKey::String(arr.value(idx).to_string()))
-                }
-            } else {
-                None
-            }
+        Kind::Double => {
+            let arr = array
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Float64Type>>()?;
+            Some(FieldEncoder::Double {
+                tag,
+                arr,
+                has_presence,
+            })
         }
-        Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => {
+        Kind::Float => {
+            let arr = array
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Float32Type>>()?;
+            Some(FieldEncoder::Float {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        Kind::Int32 => {
             let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(MapKey::I32(arr.value(idx)))
-            }
+            Some(FieldEncoder::Int32 {
+                tag,
+                arr,
+                has_presence,
+            })
         }
-        Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 => {
+        Kind::Int64 => {
             let arr = array.as_any().downcast_ref::<PrimitiveArray<Int64Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(MapKey::I64(arr.value(idx)))
-            }
+            Some(FieldEncoder::Int64 {
+                tag,
+                arr,
+                has_presence,
+            })
         }
-        Kind::Uint32 | Kind::Fixed32 => {
+        Kind::Uint32 => {
             let arr = array
                 .as_any()
                 .downcast_ref::<PrimitiveArray<UInt32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(MapKey::U32(arr.value(idx)))
-            }
+            Some(FieldEncoder::UInt32 {
+                tag,
+                arr,
+                has_presence,
+            })
         }
-        Kind::Uint64 | Kind::Fixed64 => {
+        Kind::Uint64 => {
             let arr = array
                 .as_any()
                 .downcast_ref::<PrimitiveArray<UInt64Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(MapKey::U64(arr.value(idx)))
-            }
+            Some(FieldEncoder::UInt64 {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        Kind::Sint32 => {
+            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
+            Some(FieldEncoder::Sint32 {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        Kind::Sint64 => {
+            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int64Type>>()?;
+            Some(FieldEncoder::Sint64 {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        Kind::Sfixed32 => {
+            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
+            Some(FieldEncoder::Sfixed32 {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        Kind::Sfixed64 => {
+            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int64Type>>()?;
+            Some(FieldEncoder::Sfixed64 {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        Kind::Fixed32 => {
+            let arr = array
+                .as_any()
+                .downcast_ref::<PrimitiveArray<UInt32Type>>()?;
+            Some(FieldEncoder::Fixed32 {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        Kind::Fixed64 => {
+            let arr = array
+                .as_any()
+                .downcast_ref::<PrimitiveArray<UInt64Type>>()?;
+            Some(FieldEncoder::Fixed64 {
+                tag,
+                arr,
+                has_presence,
+            })
         }
         Kind::Bool => {
             let arr = array.as_any().downcast_ref::<BooleanArray>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(MapKey::Bool(arr.value(idx)))
-            }
+            Some(FieldEncoder::Bool {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        Kind::String => {
+            let col = make_string_col_ref(array)?;
+            Some(FieldEncoder::String {
+                tag,
+                col,
+                has_presence,
+            })
+        }
+        Kind::Bytes => {
+            let col = make_binary_col_ref(array)?;
+            Some(FieldEncoder::Bytes {
+                tag,
+                col,
+                has_presence,
+            })
+        }
+        Kind::Enum(enum_desc) => build_enum_encoder(tag, has_presence, array, &enum_desc),
+        Kind::Message(msg_desc) => build_message_encoder(tag, array, &msg_desc),
+    }
+}
+
+fn make_string_col_ref(array: &dyn Array) -> Option<StringColumnRef<'_>> {
+    array
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .map(StringColumnRef::Regular)
+        .or_else(|| {
+            array
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .map(StringColumnRef::Large)
+        })
+}
+
+fn make_binary_col_ref(array: &dyn Array) -> Option<BinaryColumnRef<'_>> {
+    array
+        .as_any()
+        .downcast_ref::<BinaryArray>()
+        .map(BinaryColumnRef::Regular)
+        .or_else(|| {
+            array
+                .as_any()
+                .downcast_ref::<LargeBinaryArray>()
+                .map(BinaryColumnRef::Large)
+        })
+}
+
+fn build_enum_encoder<'a>(
+    tag: u32,
+    has_presence: bool,
+    array: &'a dyn Array,
+    enum_descriptor: &EnumDescriptor,
+) -> Option<FieldEncoder<'a>> {
+    match array.data_type() {
+        DataType::Int32 => {
+            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
+            Some(FieldEncoder::EnumInt32 {
+                tag,
+                arr,
+                has_presence,
+            })
+        }
+        DataType::Utf8 => {
+            let a = array.as_any().downcast_ref::<StringArray>()?;
+            Some(FieldEncoder::EnumString {
+                tag,
+                col: StringColumnRef::Regular(a),
+                enum_descriptor: enum_descriptor.clone(),
+                has_presence,
+            })
+        }
+        DataType::LargeUtf8 => {
+            let a = array.as_any().downcast_ref::<LargeStringArray>()?;
+            Some(FieldEncoder::EnumString {
+                tag,
+                col: StringColumnRef::Large(a),
+                enum_descriptor: enum_descriptor.clone(),
+                has_presence,
+            })
+        }
+        DataType::Binary => {
+            let a = array.as_any().downcast_ref::<BinaryArray>()?;
+            Some(FieldEncoder::EnumBinary {
+                tag,
+                col: BinaryColumnRef::Regular(a),
+                enum_descriptor: enum_descriptor.clone(),
+                has_presence,
+            })
+        }
+        DataType::LargeBinary => {
+            let a = array.as_any().downcast_ref::<LargeBinaryArray>()?;
+            Some(FieldEncoder::EnumBinary {
+                tag,
+                col: BinaryColumnRef::Large(a),
+                enum_descriptor: enum_descriptor.clone(),
+                has_presence,
+            })
         }
         _ => None,
     }
 }
 
-fn extract_map_value(array: &ArrayRef, idx: usize, field: &FieldDescriptor) -> Option<Value> {
-    match field.kind() {
-        Kind::Double => {
+/// Build encoder for a singular message field (regular or well-known).
+fn build_message_encoder<'a>(
+    tag: u32,
+    array: &'a dyn Array,
+    msg_desc: &MessageDescriptor,
+) -> Option<FieldEncoder<'a>> {
+    match msg_desc.full_name() {
+        "google.protobuf.Timestamp" => build_timestamp_encoder(tag, array),
+        "google.protobuf.Duration" => build_duration_encoder(tag, array),
+        "google.type.Date" => {
             let arr = array
                 .as_any()
-                .downcast_ref::<PrimitiveArray<Float64Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::F64(arr.value(idx)))
-            }
+                .downcast_ref::<PrimitiveArray<Date32Type>>()?;
+            Some(FieldEncoder::Date { tag, arr })
         }
-        Kind::Float => {
-            let arr = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<Float32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::F32(arr.value(idx)))
-            }
+        "google.type.TimeOfDay" => {
+            let ta = build_time_of_day_array(array)?;
+            Some(FieldEncoder::TimeOfDay { tag, array: ta })
         }
-        Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => {
-            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::I32(arr.value(idx)))
-            }
-        }
-        Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 => {
-            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int64Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::I64(arr.value(idx)))
-            }
-        }
-        Kind::Uint32 | Kind::Fixed32 => {
-            let arr = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<UInt32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::U32(arr.value(idx)))
-            }
-        }
-        Kind::Uint64 | Kind::Fixed64 => {
-            let arr = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<UInt64Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::U64(arr.value(idx)))
-            }
-        }
-        Kind::Bool => {
-            let arr = array.as_any().downcast_ref::<BooleanArray>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::Bool(arr.value(idx)))
-            }
-        }
-        Kind::String => {
-            // Try StringArray first, then LargeStringArray
-            if let Some(arr) = array.as_any().downcast_ref::<StringArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(Value::String(arr.value(idx).to_string()))
-                }
-            } else if let Some(arr) = array.as_any().downcast_ref::<LargeStringArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(Value::String(arr.value(idx).to_string()))
-                }
-            } else {
-                None
-            }
-        }
-        Kind::Bytes => {
-            // Try BinaryArray first, then LargeBinaryArray
-            if let Some(arr) = array.as_any().downcast_ref::<BinaryArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(Value::Bytes(prost::bytes::Bytes::from(
-                        arr.value(idx).to_vec(),
-                    )))
-                }
-            } else if let Some(arr) = array.as_any().downcast_ref::<LargeBinaryArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(Value::Bytes(prost::bytes::Bytes::from(
-                        arr.value(idx).to_vec(),
-                    )))
-                }
-            } else {
-                None
-            }
-        }
-        Kind::Enum(_) => {
-            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::EnumNumber(arr.value(idx)))
-            }
-        }
-        Kind::Message(message_descriptor) => {
-            extract_map_message_value(array, idx, &message_descriptor)
-        }
-    }
-}
-
-fn extract_map_message_value(
-    array: &ArrayRef,
-    idx: usize,
-    message_descriptor: &MessageDescriptor,
-) -> Option<Value> {
-    let full_name = message_descriptor.full_name();
-
-    // Handle google.protobuf.Timestamp - detect time unit from array's DataType
-    if full_name == "google.protobuf.Timestamp" {
-        let fields = TimestampFields::new(message_descriptor);
-
-        // Helper macro to extract timestamp with proper time unit handling
-        macro_rules! extract_ts {
-            ($array_type:ty, $time_unit:expr) => {{
-                let arr = array
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<$array_type>>()?;
-                if arr.is_null(idx) {
-                    return None;
-                }
-                let (seconds, nanos) = time_unit_to_seconds_and_nanos(arr.value(idx), $time_unit);
-                return Some(Value::Message(create_timestamp_message(
-                    seconds,
-                    nanos,
-                    message_descriptor,
-                    &fields,
-                )));
-            }};
-        }
-
-        match array.data_type() {
-            DataType::Timestamp(TimeUnit::Second, _) => {
-                extract_ts!(TimestampSecondType, TimeUnit::Second)
-            }
-            DataType::Timestamp(TimeUnit::Millisecond, _) => {
-                extract_ts!(TimestampMillisecondType, TimeUnit::Millisecond)
-            }
-            DataType::Timestamp(TimeUnit::Microsecond, _) => {
-                extract_ts!(TimestampMicrosecondType, TimeUnit::Microsecond)
-            }
-            DataType::Timestamp(TimeUnit::Nanosecond, _) => {
-                extract_ts!(TimestampNanosecondType, TimeUnit::Nanosecond)
-            }
-            _ => return None,
-        }
-    }
-
-    // Handle google.protobuf.Duration - detect time unit from array's DataType
-    if full_name == "google.protobuf.Duration" {
-        let fields = DurationFields::new(message_descriptor);
-
-        // Helper macro to extract duration with proper time unit handling
-        macro_rules! extract_dur {
-            ($array_type:ty, $time_unit:expr) => {{
-                let arr = array
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<$array_type>>()?;
-                if arr.is_null(idx) {
-                    return None;
-                }
-                let (seconds, nanos) =
-                    time_unit_to_duration_seconds_and_nanos(arr.value(idx), $time_unit);
-                return Some(Value::Message(create_duration_message(
-                    seconds,
-                    nanos,
-                    message_descriptor,
-                    &fields,
-                )));
-            }};
-        }
-
-        match array.data_type() {
-            DataType::Duration(TimeUnit::Second) => {
-                extract_dur!(DurationSecondType, TimeUnit::Second)
-            }
-            DataType::Duration(TimeUnit::Millisecond) => {
-                extract_dur!(DurationMillisecondType, TimeUnit::Millisecond)
-            }
-            DataType::Duration(TimeUnit::Microsecond) => {
-                extract_dur!(DurationMicrosecondType, TimeUnit::Microsecond)
-            }
-            DataType::Duration(TimeUnit::Nanosecond) => {
-                extract_dur!(DurationNanosecondType, TimeUnit::Nanosecond)
-            }
-            _ => return None,
-        }
-    }
-
-    // Handle google.type.Date
-    if full_name == "google.type.Date" {
-        let arr = array
-            .as_any()
-            .downcast_ref::<PrimitiveArray<Date32Type>>()?;
-        if arr.is_null(idx) {
-            return None;
-        }
-        let fields = DateFields::new(message_descriptor);
-        return Some(Value::Message(create_date_message(
-            arr.value(idx),
-            message_descriptor,
-            &fields,
-        )));
-    }
-
-    // Handle google.type.TimeOfDay - detect time unit from array's DataType
-    if full_name == "google.type.TimeOfDay" {
-        let fields = TimeOfDayFields::new(message_descriptor);
-
-        match array.data_type() {
-            DataType::Time32(TimeUnit::Second) => {
-                let arr = array
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<Time32SecondType>>()?;
-                if arr.is_null(idx) {
-                    return None;
-                }
-                let nanos = time32_unit_to_nanos(arr.value(idx), TimeUnit::Second);
-                return Some(Value::Message(create_time_of_day_message(
-                    nanos,
-                    message_descriptor,
-                    &fields,
-                )));
-            }
-            DataType::Time32(TimeUnit::Millisecond) => {
-                let arr = array
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<Time32MillisecondType>>()?;
-                if arr.is_null(idx) {
-                    return None;
-                }
-                let nanos = time32_unit_to_nanos(arr.value(idx), TimeUnit::Millisecond);
-                return Some(Value::Message(create_time_of_day_message(
-                    nanos,
-                    message_descriptor,
-                    &fields,
-                )));
-            }
-            DataType::Time64(TimeUnit::Microsecond) => {
-                let arr = array
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<Time64MicrosecondType>>()?;
-                if arr.is_null(idx) {
-                    return None;
-                }
-                let nanos = time64_unit_to_nanos(arr.value(idx), TimeUnit::Microsecond);
-                return Some(Value::Message(create_time_of_day_message(
-                    nanos,
-                    message_descriptor,
-                    &fields,
-                )));
-            }
-            DataType::Time64(TimeUnit::Nanosecond) => {
-                let arr = array
-                    .as_any()
-                    .downcast_ref::<PrimitiveArray<Time64NanosecondType>>()?;
-                if arr.is_null(idx) {
-                    return None;
-                }
-                return Some(Value::Message(create_time_of_day_message(
-                    arr.value(idx),
-                    message_descriptor,
-                    &fields,
-                )));
-            }
-            _ => return None,
-        }
-    }
-
-    // Handle wrapper types
-    match full_name {
-        "google.protobuf.DoubleValue" => {
-            let arr = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<Float64Type>>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::F64(arr.value(idx)),
-            );
-            return Some(Value::Message(msg));
-        }
-        "google.protobuf.FloatValue" => {
-            let arr = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<Float32Type>>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::F32(arr.value(idx)),
-            );
-            return Some(Value::Message(msg));
-        }
-        "google.protobuf.Int64Value" => {
-            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int64Type>>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::I64(arr.value(idx)),
-            );
-            return Some(Value::Message(msg));
-        }
-        "google.protobuf.UInt64Value" => {
-            let arr = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<UInt64Type>>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::U64(arr.value(idx)),
-            );
-            return Some(Value::Message(msg));
-        }
-        "google.protobuf.Int32Value" => {
-            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::I32(arr.value(idx)),
-            );
-            return Some(Value::Message(msg));
-        }
-        "google.protobuf.UInt32Value" => {
-            let arr = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<UInt32Type>>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::U32(arr.value(idx)),
-            );
-            return Some(Value::Message(msg));
-        }
-        "google.protobuf.BoolValue" => {
-            let arr = array.as_any().downcast_ref::<BooleanArray>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::Bool(arr.value(idx)),
-            );
-            return Some(Value::Message(msg));
-        }
+        "google.protobuf.DoubleValue" => Some(FieldEncoder::WrapperDouble {
+            tag,
+            arr: array.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.FloatValue" => Some(FieldEncoder::WrapperFloat {
+            tag,
+            arr: array.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.Int64Value" => Some(FieldEncoder::WrapperInt64 {
+            tag,
+            arr: array.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.UInt64Value" => Some(FieldEncoder::WrapperUInt64 {
+            tag,
+            arr: array.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.Int32Value" => Some(FieldEncoder::WrapperInt32 {
+            tag,
+            arr: array.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.UInt32Value" => Some(FieldEncoder::WrapperUInt32 {
+            tag,
+            arr: array.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.BoolValue" => Some(FieldEncoder::WrapperBool {
+            tag,
+            arr: array.as_any().downcast_ref()?,
+        }),
         "google.protobuf.StringValue" => {
-            let arr = array.as_any().downcast_ref::<StringArray>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::String(arr.value(idx).to_string()),
-            );
-            return Some(Value::Message(msg));
+            let col = make_string_col_ref(array)?;
+            Some(FieldEncoder::WrapperString { tag, col })
         }
         "google.protobuf.BytesValue" => {
-            let arr = array.as_any().downcast_ref::<BinaryArray>()?;
-            if arr.is_null(idx) {
-                return None;
-            }
-            let mut msg = DynamicMessage::new(message_descriptor.clone());
-            msg.set_field(
-                &message_descriptor.get_field_by_name("value").unwrap(),
-                Value::Bytes(prost::bytes::Bytes::from(arr.value(idx).to_vec())),
-            );
-            return Some(Value::Message(msg));
+            let col = make_binary_col_ref(array)?;
+            Some(FieldEncoder::WrapperBytes { tag, col })
         }
-        _ => {}
-    }
-
-    // Handle regular messages (StructArray)
-    let struct_array = array.as_any().downcast_ref::<StructArray>()?;
-    if !struct_array.is_valid(idx) {
-        return None;
-    }
-
-    let mut msg = DynamicMessage::new(message_descriptor.clone());
-    for field_desc in message_descriptor.fields() {
-        if let Some(column) = struct_array.column_by_name(field_desc.name()) {
-            if let Some(value) = extract_struct_field_value(column, idx, &field_desc) {
-                msg.set_field(&field_desc, value);
-            }
+        _ => {
+            let struct_arr = array.as_any().downcast_ref::<StructArray>()?;
+            let sub_encoder = MessageEncoder::from_struct_array(msg_desc, struct_arr);
+            Some(FieldEncoder::Message {
+                tag,
+                struct_arr,
+                sub_encoder,
+            })
         }
     }
-    Some(Value::Message(msg))
 }
 
-fn extract_struct_field_value(
-    array: &ArrayRef,
-    idx: usize,
-    field: &FieldDescriptor,
-) -> Option<Value> {
-    if field.is_map() {
-        let map_array = array.as_any().downcast_ref::<MapArray>()?;
-        let map_entry_descriptor = match field.kind() {
-            Kind::Message(desc) => desc,
-            _ => return None,
-        };
-        let key_field = map_entry_descriptor.get_field_by_name("key")?;
-        let value_field = map_entry_descriptor.get_field_by_name("value")?;
-        return extract_single_map(map_array, idx, &key_field, &value_field);
-    }
-
-    if field.is_list() {
-        // Handle repeated fields - support both ListArray and LargeListArray
-        let list_array = GenericListArray::from_array(array)?;
-        if list_array.is_null(idx) {
-            return None;
+fn build_timestamp_encoder(tag: u32, array: &dyn Array) -> Option<FieldEncoder<'_>> {
+    let unit = match array.data_type() {
+        DataType::Timestamp(u, _) => *u,
+        _ => return None,
+    };
+    let wk = match unit {
+        TimeUnit::Second => WellKnownPrimitiveArray::Second(array.as_any().downcast_ref()?),
+        TimeUnit::Millisecond => {
+            WellKnownPrimitiveArray::Millisecond(array.as_any().downcast_ref()?)
         }
-        let (start, end) = list_array.value_offsets(idx);
-        if start >= end {
-            return Some(Value::List(vec![]));
+        TimeUnit::Microsecond => {
+            WellKnownPrimitiveArray::Microsecond(array.as_any().downcast_ref()?)
         }
-        let values_array = list_array.values();
-        let mut values = Vec::with_capacity(end - start);
-        for i in start..end {
-            if let Some(v) = extract_single_field_value(&values_array, i, field) {
-                values.push(v);
-            }
-        }
-        return Some(Value::List(values));
-    }
-
-    extract_single_field_value(array, idx, field)
+        TimeUnit::Nanosecond => WellKnownPrimitiveArray::Nanosecond(array.as_any().downcast_ref()?),
+    };
+    Some(FieldEncoder::Timestamp {
+        tag,
+        unit,
+        array: wk,
+    })
 }
 
-fn extract_single_field_value(
-    array: &ArrayRef,
-    idx: usize,
+fn build_duration_encoder(tag: u32, array: &dyn Array) -> Option<FieldEncoder<'_>> {
+    let unit = match array.data_type() {
+        DataType::Duration(u) => *u,
+        _ => return None,
+    };
+    let wk = match unit {
+        TimeUnit::Second => WellKnownPrimitiveArray::DurSecond(array.as_any().downcast_ref()?),
+        TimeUnit::Millisecond => {
+            WellKnownPrimitiveArray::DurMillisecond(array.as_any().downcast_ref()?)
+        }
+        TimeUnit::Microsecond => {
+            WellKnownPrimitiveArray::DurMicrosecond(array.as_any().downcast_ref()?)
+        }
+        TimeUnit::Nanosecond => {
+            WellKnownPrimitiveArray::DurNanosecond(array.as_any().downcast_ref()?)
+        }
+    };
+    Some(FieldEncoder::Duration {
+        tag,
+        unit,
+        array: wk,
+    })
+}
+
+fn build_time_of_day_array(array: &dyn Array) -> Option<TimeOfDayArray<'_>> {
+    match array.data_type() {
+        DataType::Time32(TimeUnit::Second) => {
+            Some(TimeOfDayArray::Time32Second(array.as_any().downcast_ref()?))
+        }
+        DataType::Time32(TimeUnit::Millisecond) => Some(TimeOfDayArray::Time32Millisecond(
+            array.as_any().downcast_ref()?,
+        )),
+        DataType::Time64(TimeUnit::Microsecond) => Some(TimeOfDayArray::Time64Microsecond(
+            array.as_any().downcast_ref()?,
+        )),
+        DataType::Time64(TimeUnit::Nanosecond) => Some(TimeOfDayArray::Time64Nanosecond(
+            array.as_any().downcast_ref()?,
+        )),
+        _ => None,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Repeated field encoder construction
+// ---------------------------------------------------------------------------
+
+fn build_repeated_encoder<'a>(
     field: &FieldDescriptor,
-) -> Option<Value> {
+    array: &'a dyn Array,
+) -> Option<FieldEncoder<'a>> {
+    let tag = field.number();
+    let list = GenericListArray::from_array(array)?;
+    let values: &'a dyn Array = match &list {
+        GenericListArray::Regular(a) => a.values().as_ref(),
+        GenericListArray::Large(a) => a.values().as_ref(),
+    };
+
     match field.kind() {
-        Kind::Double => {
-            let arr = array
+        Kind::Int32 => {
+            let arr = values
                 .as_any()
-                .downcast_ref::<PrimitiveArray<Float64Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::F64(arr.value(idx)))
-            }
+                .downcast_ref::<PrimitiveArray<Int32Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Int32(arr),
+            })
         }
-        Kind::Float => {
-            let arr = array
+        Kind::Sint32 => {
+            let arr = values
                 .as_any()
-                .downcast_ref::<PrimitiveArray<Float32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::F32(arr.value(idx)))
-            }
+                .downcast_ref::<PrimitiveArray<Int32Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Sint32(arr),
+            })
         }
-        Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => {
-            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::I32(arr.value(idx)))
-            }
+        Kind::Sfixed32 => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Int32Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Sfixed32(arr),
+            })
         }
-        Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 => {
-            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int64Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::I64(arr.value(idx)))
-            }
+        Kind::Int64 => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Int64Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Int64(arr),
+            })
         }
-        Kind::Uint32 | Kind::Fixed32 => {
-            let arr = array
+        Kind::Sint64 => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Int64Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Sint64(arr),
+            })
+        }
+        Kind::Sfixed64 => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Int64Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Sfixed64(arr),
+            })
+        }
+        Kind::Uint32 => {
+            let arr = values
                 .as_any()
                 .downcast_ref::<PrimitiveArray<UInt32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::U32(arr.value(idx)))
-            }
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::UInt32(arr),
+            })
         }
-        Kind::Uint64 | Kind::Fixed64 => {
-            let arr = array
+        Kind::Fixed32 => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<UInt32Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Fixed32(arr),
+            })
+        }
+        Kind::Uint64 => {
+            let arr = values
                 .as_any()
                 .downcast_ref::<PrimitiveArray<UInt64Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::U64(arr.value(idx)))
-            }
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::UInt64(arr),
+            })
+        }
+        Kind::Fixed64 => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<UInt64Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Fixed64(arr),
+            })
+        }
+        Kind::Float => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Float32Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Float32(arr),
+            })
+        }
+        Kind::Double => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Float64Type>>()?;
+            Some(FieldEncoder::RepeatedPacked {
+                tag,
+                list,
+                encoder: PackedEncoder::Float64(arr),
+            })
         }
         Kind::Bool => {
-            let arr = array.as_any().downcast_ref::<BooleanArray>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::Bool(arr.value(idx)))
-            }
+            let arr = values.as_any().downcast_ref::<BooleanArray>()?;
+            Some(FieldEncoder::RepeatedBool {
+                tag,
+                list,
+                values: arr,
+            })
         }
         Kind::String => {
-            if let Some(arr) = array.as_any().downcast_ref::<StringArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(Value::String(arr.value(idx).to_string()))
-                }
-            } else if let Some(arr) = array.as_any().downcast_ref::<LargeStringArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(Value::String(arr.value(idx).to_string()))
-                }
-            } else {
-                None
-            }
+            let col = make_string_col_ref(values)?;
+            Some(FieldEncoder::RepeatedString { tag, list, col })
         }
         Kind::Bytes => {
-            if let Some(arr) = array.as_any().downcast_ref::<BinaryArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(Value::Bytes(prost::bytes::Bytes::from(
-                        arr.value(idx).to_vec(),
-                    )))
-                }
-            } else if let Some(arr) = array.as_any().downcast_ref::<LargeBinaryArray>() {
-                if arr.is_null(idx) {
-                    None
-                } else {
-                    Some(Value::Bytes(prost::bytes::Bytes::from(
-                        arr.value(idx).to_vec(),
-                    )))
-                }
-            } else {
-                None
-            }
+            let col = make_binary_col_ref(values)?;
+            Some(FieldEncoder::RepeatedBytes { tag, list, col })
         }
-        Kind::Enum(_) => {
-            let arr = array.as_any().downcast_ref::<PrimitiveArray<Int32Type>>()?;
-            if arr.is_null(idx) {
-                None
-            } else {
-                Some(Value::EnumNumber(arr.value(idx)))
-            }
-        }
-        Kind::Message(msg_desc) => extract_map_message_value(array, idx, &msg_desc),
+        Kind::Enum(enum_desc) => build_repeated_enum_encoder(tag, list, values, &enum_desc),
+        Kind::Message(msg_desc) => build_repeated_message_encoder(tag, list, values, &msg_desc),
     }
 }
 
-pub fn extract_array(
-    array: &ArrayRef,
-    field_descriptor: &FieldDescriptor,
-    messages: &mut [&mut DynamicMessage],
-) {
-    if field_descriptor.is_map() {
-        extract_map_array(array, field_descriptor, messages)
-    } else if field_descriptor.is_list() {
-        extract_repeated_array(array, field_descriptor, messages)
-    } else {
-        extract_singular_array(array, field_descriptor, messages)
+fn build_repeated_enum_encoder<'a>(
+    tag: u32,
+    list: GenericListArray<'a>,
+    values: &'a dyn Array,
+    enum_desc: &EnumDescriptor,
+) -> Option<FieldEncoder<'a>> {
+    match values.data_type() {
+        DataType::Int32 => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Int32Type>>()?;
+            Some(FieldEncoder::RepeatedEnumInt32 {
+                tag,
+                list,
+                values: arr,
+            })
+        }
+        DataType::Utf8 | DataType::LargeUtf8 => {
+            let col = make_string_col_ref(values)?;
+            Some(FieldEncoder::RepeatedEnumString {
+                tag,
+                list,
+                col,
+                enum_descriptor: enum_desc.clone(),
+            })
+        }
+        DataType::Binary | DataType::LargeBinary => {
+            let col = make_binary_col_ref(values)?;
+            Some(FieldEncoder::RepeatedEnumBinary {
+                tag,
+                list,
+                col,
+                enum_descriptor: enum_desc.clone(),
+            })
+        }
+        _ => None,
     }
 }
 
-pub fn record_batch_to_array(
-    record_batch: &RecordBatch,
-    message_descriptor: &MessageDescriptor,
-) -> ArrayData {
-    let mut messages: Vec<DynamicMessage> = (0..record_batch.num_rows())
-        .map(|_| DynamicMessage::new(message_descriptor.clone()))
-        .collect::<Vec<DynamicMessage>>();
-    let mut references: Vec<&mut DynamicMessage> = messages.iter_mut().collect();
+fn build_repeated_message_encoder<'a>(
+    tag: u32,
+    list: GenericListArray<'a>,
+    values: &'a dyn Array,
+    msg_desc: &MessageDescriptor,
+) -> Option<FieldEncoder<'a>> {
+    match msg_desc.full_name() {
+        "google.protobuf.Timestamp" => {
+            let unit = match values.data_type() {
+                DataType::Timestamp(u, _) => *u,
+                _ => return None,
+            };
+            let wk = match unit {
+                TimeUnit::Second => {
+                    WellKnownPrimitiveArray::Second(values.as_any().downcast_ref()?)
+                }
+                TimeUnit::Millisecond => {
+                    WellKnownPrimitiveArray::Millisecond(values.as_any().downcast_ref()?)
+                }
+                TimeUnit::Microsecond => {
+                    WellKnownPrimitiveArray::Microsecond(values.as_any().downcast_ref()?)
+                }
+                TimeUnit::Nanosecond => {
+                    WellKnownPrimitiveArray::Nanosecond(values.as_any().downcast_ref()?)
+                }
+            };
+            Some(FieldEncoder::RepeatedTimestamp {
+                tag,
+                list,
+                unit,
+                values: wk,
+            })
+        }
+        "google.protobuf.Duration" => {
+            let unit = match values.data_type() {
+                DataType::Duration(u) => *u,
+                _ => return None,
+            };
+            let wk = match unit {
+                TimeUnit::Second => {
+                    WellKnownPrimitiveArray::DurSecond(values.as_any().downcast_ref()?)
+                }
+                TimeUnit::Millisecond => {
+                    WellKnownPrimitiveArray::DurMillisecond(values.as_any().downcast_ref()?)
+                }
+                TimeUnit::Microsecond => {
+                    WellKnownPrimitiveArray::DurMicrosecond(values.as_any().downcast_ref()?)
+                }
+                TimeUnit::Nanosecond => {
+                    WellKnownPrimitiveArray::DurNanosecond(values.as_any().downcast_ref()?)
+                }
+            };
+            Some(FieldEncoder::RepeatedDuration {
+                tag,
+                list,
+                unit,
+                values: wk,
+            })
+        }
+        "google.type.Date" => {
+            let arr = values
+                .as_any()
+                .downcast_ref::<PrimitiveArray<Date32Type>>()?;
+            Some(FieldEncoder::RepeatedDate {
+                tag,
+                list,
+                values: arr,
+            })
+        }
+        "google.type.TimeOfDay" => {
+            let ta = build_time_of_day_array(values)?;
+            Some(FieldEncoder::RepeatedTimeOfDay {
+                tag,
+                list,
+                values: ta,
+            })
+        }
+        "google.protobuf.DoubleValue" => Some(FieldEncoder::RepeatedWrapperDouble {
+            tag,
+            list,
+            values: values.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.FloatValue" => Some(FieldEncoder::RepeatedWrapperFloat {
+            tag,
+            list,
+            values: values.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.Int64Value" => Some(FieldEncoder::RepeatedWrapperInt64 {
+            tag,
+            list,
+            values: values.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.UInt64Value" => Some(FieldEncoder::RepeatedWrapperUInt64 {
+            tag,
+            list,
+            values: values.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.Int32Value" => Some(FieldEncoder::RepeatedWrapperInt32 {
+            tag,
+            list,
+            values: values.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.UInt32Value" => Some(FieldEncoder::RepeatedWrapperUInt32 {
+            tag,
+            list,
+            values: values.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.BoolValue" => Some(FieldEncoder::RepeatedWrapperBool {
+            tag,
+            list,
+            values: values.as_any().downcast_ref()?,
+        }),
+        "google.protobuf.StringValue" => {
+            let col = make_string_col_ref(values)?;
+            Some(FieldEncoder::RepeatedWrapperString { tag, list, col })
+        }
+        "google.protobuf.BytesValue" => {
+            let col = make_binary_col_ref(values)?;
+            Some(FieldEncoder::RepeatedWrapperBytes { tag, list, col })
+        }
+        _ => {
+            let struct_arr = values.as_any().downcast_ref::<StructArray>()?;
+            let sub_encoder = MessageEncoder::from_struct_array(msg_desc, struct_arr);
+            Some(FieldEncoder::RepeatedMessage {
+                tag,
+                list,
+                sub_encoder,
+            })
+        }
+    }
+}
 
-    message_descriptor
-        .fields()
-        .for_each(|field_descriptor: FieldDescriptor| {
-            let column: Option<&ArrayRef> = record_batch.column_by_name(field_descriptor.name());
-            match column {
-                None => {}
-                Some(column) => extract_array(column, &field_descriptor, &mut references),
-            }
-        });
+// ---------------------------------------------------------------------------
+// Map field encoder construction
+// ---------------------------------------------------------------------------
+
+fn build_map_encoder<'a>(
+    field: &FieldDescriptor,
+    array: &'a dyn Array,
+) -> Option<FieldEncoder<'a>> {
+    let tag = field.number();
+    let map_array = array.as_any().downcast_ref::<MapArray>()?;
+
+    let map_entry_descriptor = match field.kind() {
+        Kind::Message(desc) => desc,
+        _ => return None,
+    };
+    let key_field = map_entry_descriptor.get_field_by_name("key")?;
+    let value_field = map_entry_descriptor.get_field_by_name("value")?;
+
+    let entries = map_array.entries();
+    let key_array = entries.column_by_name("key")?;
+    // Try "value" first, fall back to second struct field for custom map_value_name
+    let value_array = entries
+        .column_by_name("value")
+        .or_else(|| entries.columns().get(1))?;
+
+    let key_encoder = build_map_key_encoder(key_array.as_ref(), &key_field)?;
+    let value_encoder = build_map_value_encoder(value_array.as_ref(), &value_field)?;
+
+    Some(FieldEncoder::Map {
+        tag,
+        map_array,
+        key_encoder,
+        value_encoder,
+    })
+}
+
+fn build_map_key_encoder<'a>(
+    array: &'a dyn Array,
+    field: &FieldDescriptor,
+) -> Option<MapKeyEncoder<'a>> {
+    match field.kind() {
+        Kind::String => Some(MapKeyEncoder::String(make_string_col_ref(array)?)),
+        Kind::Int32 => Some(MapKeyEncoder::Int32(array.as_any().downcast_ref()?)),
+        Kind::Sint32 => Some(MapKeyEncoder::Sint32(array.as_any().downcast_ref()?)),
+        Kind::Sfixed32 => Some(MapKeyEncoder::Sfixed32(array.as_any().downcast_ref()?)),
+        Kind::Int64 => Some(MapKeyEncoder::Int64(array.as_any().downcast_ref()?)),
+        Kind::Sint64 => Some(MapKeyEncoder::Sint64(array.as_any().downcast_ref()?)),
+        Kind::Sfixed64 => Some(MapKeyEncoder::Sfixed64(array.as_any().downcast_ref()?)),
+        Kind::Uint32 => Some(MapKeyEncoder::UInt32(array.as_any().downcast_ref()?)),
+        Kind::Fixed32 => Some(MapKeyEncoder::Fixed32(array.as_any().downcast_ref()?)),
+        Kind::Uint64 => Some(MapKeyEncoder::UInt64(array.as_any().downcast_ref()?)),
+        Kind::Fixed64 => Some(MapKeyEncoder::Fixed64(array.as_any().downcast_ref()?)),
+        Kind::Bool => Some(MapKeyEncoder::Bool(array.as_any().downcast_ref()?)),
+        _ => None,
+    }
+}
+
+fn build_map_value_encoder<'a>(
+    array: &'a dyn Array,
+    field: &FieldDescriptor,
+) -> Option<MapValueEncoder<'a>> {
+    match field.kind() {
+        Kind::Double => Some(MapValueEncoder::Double(array.as_any().downcast_ref()?)),
+        Kind::Float => Some(MapValueEncoder::Float(array.as_any().downcast_ref()?)),
+        Kind::Int32 => Some(MapValueEncoder::Int32(array.as_any().downcast_ref()?)),
+        Kind::Sint32 => Some(MapValueEncoder::Sint32(array.as_any().downcast_ref()?)),
+        Kind::Sfixed32 => Some(MapValueEncoder::Sfixed32(array.as_any().downcast_ref()?)),
+        Kind::Int64 => Some(MapValueEncoder::Int64(array.as_any().downcast_ref()?)),
+        Kind::Sint64 => Some(MapValueEncoder::Sint64(array.as_any().downcast_ref()?)),
+        Kind::Sfixed64 => Some(MapValueEncoder::Sfixed64(array.as_any().downcast_ref()?)),
+        Kind::Uint32 => Some(MapValueEncoder::UInt32(array.as_any().downcast_ref()?)),
+        Kind::Fixed32 => Some(MapValueEncoder::Fixed32(array.as_any().downcast_ref()?)),
+        Kind::Uint64 => Some(MapValueEncoder::UInt64(array.as_any().downcast_ref()?)),
+        Kind::Fixed64 => Some(MapValueEncoder::Fixed64(array.as_any().downcast_ref()?)),
+        Kind::Bool => Some(MapValueEncoder::Bool(array.as_any().downcast_ref()?)),
+        Kind::String => Some(MapValueEncoder::String(make_string_col_ref(array)?)),
+        Kind::Bytes => Some(MapValueEncoder::Bytes(make_binary_col_ref(array)?)),
+        Kind::Enum(enum_desc) => match array.data_type() {
+            DataType::Int32 => Some(MapValueEncoder::EnumInt32(array.as_any().downcast_ref()?)),
+            DataType::Utf8 | DataType::LargeUtf8 => Some(MapValueEncoder::EnumString(
+                make_string_col_ref(array)?,
+                enum_desc.clone(),
+            )),
+            DataType::Binary | DataType::LargeBinary => Some(MapValueEncoder::EnumBinary(
+                make_binary_col_ref(array)?,
+                enum_desc.clone(),
+            )),
+            _ => None,
+        },
+        Kind::Message(msg_desc) => build_map_value_message_encoder(array, &msg_desc),
+    }
+}
+
+fn build_map_value_message_encoder<'a>(
+    array: &'a dyn Array,
+    msg_desc: &MessageDescriptor,
+) -> Option<MapValueEncoder<'a>> {
+    match msg_desc.full_name() {
+        "google.protobuf.Timestamp" => {
+            let unit = match array.data_type() {
+                DataType::Timestamp(u, _) => *u,
+                _ => return None,
+            };
+            let wk = match unit {
+                TimeUnit::Second => WellKnownPrimitiveArray::Second(array.as_any().downcast_ref()?),
+                TimeUnit::Millisecond => {
+                    WellKnownPrimitiveArray::Millisecond(array.as_any().downcast_ref()?)
+                }
+                TimeUnit::Microsecond => {
+                    WellKnownPrimitiveArray::Microsecond(array.as_any().downcast_ref()?)
+                }
+                TimeUnit::Nanosecond => {
+                    WellKnownPrimitiveArray::Nanosecond(array.as_any().downcast_ref()?)
+                }
+            };
+            Some(MapValueEncoder::Timestamp(unit, wk))
+        }
+        "google.protobuf.Duration" => {
+            let unit = match array.data_type() {
+                DataType::Duration(u) => *u,
+                _ => return None,
+            };
+            let wk = match unit {
+                TimeUnit::Second => {
+                    WellKnownPrimitiveArray::DurSecond(array.as_any().downcast_ref()?)
+                }
+                TimeUnit::Millisecond => {
+                    WellKnownPrimitiveArray::DurMillisecond(array.as_any().downcast_ref()?)
+                }
+                TimeUnit::Microsecond => {
+                    WellKnownPrimitiveArray::DurMicrosecond(array.as_any().downcast_ref()?)
+                }
+                TimeUnit::Nanosecond => {
+                    WellKnownPrimitiveArray::DurNanosecond(array.as_any().downcast_ref()?)
+                }
+            };
+            Some(MapValueEncoder::Duration(unit, wk))
+        }
+        "google.type.Date" => Some(MapValueEncoder::Date(array.as_any().downcast_ref()?)),
+        "google.type.TimeOfDay" => {
+            let ta = build_time_of_day_array(array)?;
+            Some(MapValueEncoder::TimeOfDay(ta))
+        }
+        "google.protobuf.DoubleValue" => Some(MapValueEncoder::WrapperDouble(
+            array.as_any().downcast_ref()?,
+        )),
+        "google.protobuf.FloatValue" => Some(MapValueEncoder::WrapperFloat(
+            array.as_any().downcast_ref()?,
+        )),
+        "google.protobuf.Int64Value" => Some(MapValueEncoder::WrapperInt64(
+            array.as_any().downcast_ref()?,
+        )),
+        "google.protobuf.UInt64Value" => Some(MapValueEncoder::WrapperUInt64(
+            array.as_any().downcast_ref()?,
+        )),
+        "google.protobuf.Int32Value" => Some(MapValueEncoder::WrapperInt32(
+            array.as_any().downcast_ref()?,
+        )),
+        "google.protobuf.UInt32Value" => Some(MapValueEncoder::WrapperUInt32(
+            array.as_any().downcast_ref()?,
+        )),
+        "google.protobuf.BoolValue" => {
+            Some(MapValueEncoder::WrapperBool(array.as_any().downcast_ref()?))
+        }
+        "google.protobuf.StringValue" => {
+            Some(MapValueEncoder::WrapperString(make_string_col_ref(array)?))
+        }
+        "google.protobuf.BytesValue" => {
+            Some(MapValueEncoder::WrapperBytes(make_binary_col_ref(array)?))
+        }
+        _ => {
+            let struct_arr = array.as_any().downcast_ref::<StructArray>()?;
+            let sub_encoder = MessageEncoder::from_struct_array(msg_desc, struct_arr);
+            Some(MapValueEncoder::Message(struct_arr, sub_encoder))
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/// Encode a RecordBatch directly to protobuf wire format bytes.
+///
+/// Returns a BinaryArray (as ArrayData) where each element is the protobuf
+/// encoding of the corresponding row. This skips DynamicMessage allocation
+/// and writes wire format directly from Arrow arrays.
+pub fn record_batch_to_array(batch: &RecordBatch, descriptor: &MessageDescriptor) -> ArrayData {
+    let encoder = MessageEncoder::from_record_batch(descriptor, batch);
     let mut results = BinaryBuilder::new();
+    let mut row_buf = Vec::new();
 
-    messages
-        .iter()
-        .for_each(|x| results.append_value(x.encode_to_vec()));
+    for idx in 0..batch.num_rows() {
+        row_buf.clear();
+        encoder.encode_row(idx, &mut row_buf);
+        results.append_value(&row_buf);
+    }
+
     results.finish().to_data()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_nanos_to_seconds_and_nanos_positive() {
-        let (seconds, nanos) = nanos_to_seconds_and_nanos(1_500_000_000);
-        assert_eq!(seconds, 1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_nanos_to_seconds_and_nanos_negative() {
-        // -0.5 seconds = -1 second + 500_000_000 nanos (for Timestamp)
-        let (seconds, nanos) = nanos_to_seconds_and_nanos(-500_000_000);
-        assert_eq!(seconds, -1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_nanos_to_seconds_and_nanos_exact_second() {
-        let (seconds, nanos) = nanos_to_seconds_and_nanos(2_000_000_000);
-        assert_eq!(seconds, 2);
-        assert_eq!(nanos, 0);
-    }
-
-    #[test]
-    fn test_nanos_to_duration_seconds_and_nanos_positive() {
-        let (seconds, nanos) = nanos_to_duration_seconds_and_nanos(1_500_000_000);
-        assert_eq!(seconds, 1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_nanos_to_duration_seconds_and_nanos_negative() {
-        // For Duration, nanos keeps the sign
-        let (seconds, nanos) = nanos_to_duration_seconds_and_nanos(-1_500_000_000);
-        assert_eq!(seconds, -1);
-        assert_eq!(nanos, -500_000_000);
-    }
-
-    #[test]
-    fn test_time_unit_to_seconds_and_nanos_second() {
-        let (seconds, nanos) = time_unit_to_seconds_and_nanos(42, TimeUnit::Second);
-        assert_eq!(seconds, 42);
-        assert_eq!(nanos, 0);
-    }
-
-    #[test]
-    fn test_time_unit_to_seconds_and_nanos_millisecond_positive() {
-        let (seconds, nanos) = time_unit_to_seconds_and_nanos(1500, TimeUnit::Millisecond);
-        assert_eq!(seconds, 1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_time_unit_to_seconds_and_nanos_millisecond_negative() {
-        let (seconds, nanos) = time_unit_to_seconds_and_nanos(-500, TimeUnit::Millisecond);
-        assert_eq!(seconds, -1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_time_unit_to_seconds_and_nanos_microsecond_positive() {
-        let (seconds, nanos) = time_unit_to_seconds_and_nanos(1_500_000, TimeUnit::Microsecond);
-        assert_eq!(seconds, 1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_time_unit_to_seconds_and_nanos_microsecond_negative() {
-        let (seconds, nanos) = time_unit_to_seconds_and_nanos(-500_000, TimeUnit::Microsecond);
-        assert_eq!(seconds, -1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_time_unit_to_seconds_and_nanos_nanosecond() {
-        let (seconds, nanos) = time_unit_to_seconds_and_nanos(1_500_000_000, TimeUnit::Nanosecond);
-        assert_eq!(seconds, 1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_time_unit_to_duration_seconds_and_nanos_second() {
-        let (seconds, nanos) = time_unit_to_duration_seconds_and_nanos(42, TimeUnit::Second);
-        assert_eq!(seconds, 42);
-        assert_eq!(nanos, 0);
-    }
-
-    #[test]
-    fn test_time_unit_to_duration_seconds_and_nanos_millisecond() {
-        let (seconds, nanos) = time_unit_to_duration_seconds_and_nanos(1500, TimeUnit::Millisecond);
-        assert_eq!(seconds, 1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_time_unit_to_duration_seconds_and_nanos_microsecond() {
-        let (seconds, nanos) =
-            time_unit_to_duration_seconds_and_nanos(1_500_000, TimeUnit::Microsecond);
-        assert_eq!(seconds, 1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_time_unit_to_duration_seconds_and_nanos_nanosecond() {
-        let (seconds, nanos) =
-            time_unit_to_duration_seconds_and_nanos(1_500_000_000, TimeUnit::Nanosecond);
-        assert_eq!(seconds, 1);
-        assert_eq!(nanos, 500_000_000);
-    }
-
-    #[test]
-    fn test_time32_unit_to_nanos_second() {
-        let nanos = time32_unit_to_nanos(5, TimeUnit::Second);
-        assert_eq!(nanos, 5_000_000_000);
-    }
-
-    #[test]
-    fn test_time32_unit_to_nanos_millisecond() {
-        let nanos = time32_unit_to_nanos(1500, TimeUnit::Millisecond);
-        assert_eq!(nanos, 1_500_000_000);
-    }
-
-    #[test]
-    #[should_panic(expected = "Time32 only supports Second and Millisecond units")]
-    fn test_time32_unit_to_nanos_invalid_unit() {
-        time32_unit_to_nanos(1000, TimeUnit::Microsecond);
-    }
-
-    #[test]
-    fn test_time64_unit_to_nanos_microsecond() {
-        let nanos = time64_unit_to_nanos(1_500_000, TimeUnit::Microsecond);
-        assert_eq!(nanos, 1_500_000_000);
-    }
-
-    #[test]
-    fn test_time64_unit_to_nanos_nanosecond() {
-        let nanos = time64_unit_to_nanos(1_500_000_000, TimeUnit::Nanosecond);
-        assert_eq!(nanos, 1_500_000_000);
-    }
-
-    #[test]
-    #[should_panic(expected = "Time64 only supports Microsecond and Nanosecond units")]
-    fn test_time64_unit_to_nanos_invalid_unit() {
-        time64_unit_to_nanos(1000, TimeUnit::Second);
-    }
-
-    #[test]
-    fn test_date32_conversion() {
-        // Test the date conversion logic used inline
-        // 2024-01-15 = 19737 days since Unix epoch
-        let days: i32 = 19737;
-        let date = NaiveDate::from_num_days_from_ce_opt(days + CE_OFFSET).unwrap();
-        assert_eq!(date.year(), 2024);
-        assert_eq!(date.month(), 1);
-        assert_eq!(date.day(), 15);
-    }
-
-    #[test]
-    fn test_date32_conversion_unix_epoch() {
-        let days: i32 = 0;
-        let date = NaiveDate::from_num_days_from_ce_opt(days + CE_OFFSET).unwrap();
-        assert_eq!(date.year(), 1970);
-        assert_eq!(date.month(), 1);
-        assert_eq!(date.day(), 1);
-    }
-
-    #[test]
-    fn test_date32_conversion_negative() {
-        // 1969-12-31 = -1 days since Unix epoch
-        let days: i32 = -1;
-        let date = NaiveDate::from_num_days_from_ce_opt(days + CE_OFFSET).unwrap();
-        assert_eq!(date.year(), 1969);
-        assert_eq!(date.month(), 12);
-        assert_eq!(date.day(), 31);
-    }
 }

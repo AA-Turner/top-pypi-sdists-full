@@ -44,18 +44,24 @@ class EnsemblVEPTool(BaseTool):
             return self._query(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"Ensembl API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"Ensembl API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to Ensembl REST API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to Ensembl REST API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
             return {
-                "error": f"Ensembl API HTTP error: {e.response.status_code} - {e.response.text[:200]}"
+                "status": "error",
+                "error": f"Ensembl API HTTP error: {e.response.status_code} - {e.response.text[:200]}",
             }
         except Exception as e:
-            return {"error": f"Unexpected error querying Ensembl: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying Ensembl: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate Ensembl endpoint based on mode."""
@@ -66,13 +72,13 @@ class EnsemblVEPTool(BaseTool):
         elif self.mode == "variant_recoder":
             return self._variant_recoder(arguments)
         else:
-            return {"error": f"Unknown mode: {self.mode}"}
+            return {"status": "error", "error": f"Unknown mode: {self.mode}"}
 
     def _vep_hgvs(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Annotate a variant using HGVS notation."""
         hgvs = arguments.get("hgvs_notation", "")
         if not hgvs:
-            return {"error": "hgvs_notation parameter is required"}
+            return {"status": "error", "error": "hgvs_notation parameter is required"}
 
         species = arguments.get("species", "human")
         url = f"{ENSEMBL_BASE_URL}/vep/{species}/hgvs/{hgvs}"
@@ -87,6 +93,7 @@ class EnsemblVEPTool(BaseTool):
         if isinstance(data, list) and data:
             result = data[0]
             return {
+                "status": "success",
                 "data": self._format_vep_result(result),
                 "metadata": {
                     "source": "Ensembl VEP",
@@ -96,6 +103,7 @@ class EnsemblVEPTool(BaseTool):
                 },
             }
         return {
+            "status": "success",
             "data": {},
             "metadata": {
                 "source": "Ensembl VEP",
@@ -107,9 +115,13 @@ class EnsemblVEPTool(BaseTool):
 
     def _vep_id(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Annotate a variant using dbSNP rsID."""
-        variant_id = arguments.get("variant_id", "")
+        variant_id = (
+            arguments.get("variant_id")
+            or arguments.get("rsid")
+            or arguments.get("rs_id")
+        )
         if not variant_id:
-            return {"error": "variant_id parameter is required"}
+            return {"status": "error", "error": "variant_id parameter is required"}
 
         species = arguments.get("species", "human")
         url = f"{ENSEMBL_BASE_URL}/vep/{species}/id/{variant_id}"
@@ -124,6 +136,7 @@ class EnsemblVEPTool(BaseTool):
         if isinstance(data, list) and data:
             result = data[0]
             return {
+                "status": "success",
                 "data": self._format_vep_result(result),
                 "metadata": {
                     "source": "Ensembl VEP",
@@ -133,6 +146,7 @@ class EnsemblVEPTool(BaseTool):
                 },
             }
         return {
+            "status": "success",
             "data": {},
             "metadata": {
                 "source": "Ensembl VEP",
@@ -146,7 +160,7 @@ class EnsemblVEPTool(BaseTool):
         """Convert variant identifiers between formats."""
         variant_id = arguments.get("variant_id", "")
         if not variant_id:
-            return {"error": "variant_id parameter is required"}
+            return {"status": "error", "error": "variant_id parameter is required"}
 
         species = arguments.get("species", "human")
         url = f"{ENSEMBL_BASE_URL}/variant_recoder/{species}/{variant_id}"
@@ -180,6 +194,7 @@ class EnsemblVEPTool(BaseTool):
                         )
 
         return {
+            "status": "success",
             "data": alleles,
             "metadata": {
                 "source": "Ensembl Variant Recoder",

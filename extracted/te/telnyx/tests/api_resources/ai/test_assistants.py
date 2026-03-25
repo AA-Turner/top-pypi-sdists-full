@@ -78,6 +78,7 @@ class TestAssistants:
                     }
                 },
             },
+            tool_ids=["string"],
             tools=[
                 {
                     "type": "webhook",
@@ -111,6 +112,12 @@ class TestAssistants:
                             "required": ["page"],
                             "type": "object",
                         },
+                        "store_fields_as_variables": [
+                            {
+                                "name": "x",
+                                "value_path": "x",
+                            }
+                        ],
                         "timeout_ms": 500,
                     },
                 }
@@ -301,6 +308,7 @@ class TestAssistants:
                     }
                 },
             },
+            tool_ids=["string"],
             tools=[
                 {
                     "type": "webhook",
@@ -334,6 +342,12 @@ class TestAssistants:
                             "required": ["page"],
                             "type": "object",
                         },
+                        "store_fields_as_variables": [
+                            {
+                                "name": "x",
+                                "value_path": "x",
+                            }
+                        ],
                         "timeout_ms": 500,
                     },
                 }
@@ -805,6 +819,7 @@ class TestAsyncAssistants:
                     }
                 },
             },
+            tool_ids=["string"],
             tools=[
                 {
                     "type": "webhook",
@@ -838,6 +853,12 @@ class TestAsyncAssistants:
                             "required": ["page"],
                             "type": "object",
                         },
+                        "store_fields_as_variables": [
+                            {
+                                "name": "x",
+                                "value_path": "x",
+                            }
+                        ],
                         "timeout_ms": 500,
                     },
                 }
@@ -1028,6 +1049,7 @@ class TestAsyncAssistants:
                     }
                 },
             },
+            tool_ids=["string"],
             tools=[
                 {
                     "type": "webhook",
@@ -1061,6 +1083,12 @@ class TestAsyncAssistants:
                             "required": ["page"],
                             "type": "object",
                         },
+                        "store_fields_as_variables": [
+                            {
+                                "name": "x",
+                                "value_path": "x",
+                            }
+                        ],
                         "timeout_ms": 500,
                     },
                 }

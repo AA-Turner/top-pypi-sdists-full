@@ -80,9 +80,13 @@ def _sync_doc_section(
             )
             continue
         cdict = meta.to_dict(omit_none=True)
-        # Filter out 'config' and 'doc_blocks' fields added in dbt-core >= 1.9.6
-        # These contain redundant meta/tags that duplicate top-level fields
-        cdict = {k: v for k, v in cdict.items() if k not in ("config", "doc_blocks")}
+        # Filter out fields added in dbt-core >= 1.9.6.
+        # In fusion_compat mode, preserve 'config' (meta/tags will be nested inside it).
+        # In classic mode, strip 'config' (meta/tags stay at top level).
+        if context.fusion_compat:
+            cdict = {k: v for k, v in cdict.items() if k != "doc_blocks"}
+        else:
+            cdict = {k: v for k, v in cdict.items() if k not in ("config", "doc_blocks")}
         cdict["name"] = name
         from dbt_osmosis.core.introspection import _get_setting_for_node, normalize_column_name
 
@@ -100,6 +104,12 @@ def _sync_doc_section(
             node,
             name,
             fallback=context.settings.skip_add_data_types,
+        )
+        skip_merge_meta = _get_setting_for_node(
+            "skip-merge-meta",
+            node,
+            name,
+            fallback=context.settings.skip_merge_meta,
         )
 
         # Check if we should preserve unrendered descriptions from current YAML
@@ -150,6 +160,8 @@ def _sync_doc_section(
             if k == "data_type" and skip_add_types:
                 # don't add data types if told not to
                 continue
+            if k == "meta" and skip_merge_meta and current_yaml.get("meta") not in (None, {}):
+                continue
             if k == "constraints" and "constraints" in merged:
                 # keep constraints as is if present, mashumaro dumps too much info :shrug:
                 continue
@@ -160,6 +172,65 @@ def _sync_doc_section(
                 # Preserve unrendered jinja templates from current YAML (prefer-yaml-values)
                 continue
             merged[k] = v
+
+        if context.fusion_compat:
+            # Fusion mode: push top-level meta/tags INTO config block
+            config_value = merged.get("config")
+            if not isinstance(config_value, dict):
+                config_value = {}
+            meta_value = merged.pop("meta", None)
+            tags_value = merged.pop("tags", None)
+            if isinstance(meta_value, dict) and meta_value:
+                existing_config_meta = config_value.get("meta", {})
+                config_value["meta"] = {**existing_config_meta, **meta_value}
+            if isinstance(tags_value, list) and tags_value:
+                existing_config_tags = config_value.get("tags", [])
+                seen = set(existing_config_tags)
+                merged_tags = list(existing_config_tags)
+                for tag in tags_value:
+                    if tag not in seen:
+                        merged_tags.append(tag)
+                        seen.add(tag)
+                config_value["tags"] = merged_tags
+            if config_value:
+                merged["config"] = config_value
+        else:
+            # Classic mode: keep meta/tags at top level and strip config wrappers.
+            config_value = merged.get("config")
+            if isinstance(config_value, dict):
+                config_meta = config_value.get("meta")
+                if isinstance(config_meta, dict) and config_meta:
+                    existing_meta = merged.get("meta")
+                    if isinstance(existing_meta, dict):
+                        merged["meta"] = {**config_meta, **existing_meta}
+                    else:
+                        merged["meta"] = config_meta
+
+                config_tags = config_value.get("tags")
+                if isinstance(config_tags, list) and config_tags:
+                    existing_tags = merged.get("tags")
+                    if isinstance(existing_tags, list):
+                        seen = set(existing_tags)
+                        merged_tags = list(existing_tags)
+                        for tag in config_tags:
+                            if tag not in seen:
+                                merged_tags.append(tag)
+                                seen.add(tag)
+                        merged["tags"] = merged_tags
+                    else:
+                        merged["tags"] = config_tags
+
+                merged.pop("config", None)
+
+        # Clean up empty nested config entries (e.g., config: {meta: {}, tags: []})
+        if isinstance(merged.get("config"), dict):
+            config = merged["config"]
+            if config.get("meta", {}) == {}:
+                config.pop("meta", None)
+            if config.get("tags", []) == []:
+                config.pop("tags", None)
+            if not config:
+                merged.pop("config", None)
 
         if merged.get("description") is None:
             merged.pop("description", None)
@@ -199,7 +270,10 @@ def _sync_doc_section(
 
         incoming_columns.append(merged)
 
-    doc_section["columns"] = incoming_columns
+    if incoming_columns:
+        doc_section["columns"] = incoming_columns
+    else:
+        doc_section.pop("columns", None)
 
 
 def _get_resource_type_key(node: ResultNode) -> str:
@@ -477,8 +551,10 @@ def _sync_single_node_to_yaml(
             context.yaml_handler_lock,
             current_path or get_target_yaml_path(context, node),
             doc,
-            context.settings.dry_run,
-            context.register_mutations,
+            dry_run=context.settings.dry_run,
+            mutation_tracker=context.register_mutations,
+            strip_eof_blank_lines=context.settings.strip_eof_blank_lines,
+            written_file_tracker=getattr(context, "register_written_file", None),
         )
 
 

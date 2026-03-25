@@ -85,6 +85,7 @@ class MGnifyStudiesTool:
                 data_array = api_response if isinstance(api_response, list) else []
 
             return {
+                "status": "success",
                 "source": "MGnify",
                 "endpoint": "studies",
                 "query": query,
@@ -93,6 +94,7 @@ class MGnifyStudiesTool:
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": str(e),
                 "source": "MGnify",
                 "endpoint": "studies",
@@ -160,6 +162,7 @@ class MGnifyAnalysesTool:
                 data_array = api_response if isinstance(api_response, list) else []
 
             return {
+                "status": "success",
                 "source": "MGnify",
                 "endpoint": "analyses",
                 "query": query,
@@ -168,6 +171,7 @@ class MGnifyAnalysesTool:
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": str(e),
                 "source": "MGnify",
                 "endpoint": "analyses",

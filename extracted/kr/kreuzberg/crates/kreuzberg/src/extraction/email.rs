@@ -28,6 +28,7 @@ use bytes::Bytes;
 use encoding_rs::Encoding;
 
 use crate::error::{KreuzbergError, Result};
+use crate::text::utf8_validation;
 use crate::types::{EmailAttachment, EmailExtractionResult};
 use mail_parser::MimeHeaders;
 use regex::Regex;
@@ -186,6 +187,38 @@ pub fn parse_eml_content(data: &[u8]) -> Result<EmailExtractionResult> {
 
     let message_id = message.message_id().map(|id| id.to_string());
 
+    // Extract threading and additional headers
+    let reply_to: Vec<String> = message
+        .reply_to()
+        .map(|addrs| {
+            addrs
+                .iter()
+                .filter_map(|addr| {
+                    let email = addr.address()?;
+                    Some(match addr.name() {
+                        Some(name) if !name.is_empty() => format!("\"{}\" <{}>", name, email),
+                        _ => email.to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let in_reply_to: Vec<String> = message
+        .in_reply_to()
+        .as_text_list()
+        .map(|list| list.iter().map(|s| s.to_string()).collect())
+        .unwrap_or_default();
+
+    let references: Vec<String> = message
+        .references()
+        .as_text_list()
+        .map(|list| list.iter().map(|s| s.to_string()).collect())
+        .unwrap_or_default();
+
+    // Extract additional raw headers from email bytes
+    let raw_headers = extract_raw_headers(&data);
+
     // Iterate over all body parts to capture content from multipart messages.
     // Also recurse into nested message/rfc822 parts (multipart/digest emails).
     //
@@ -265,7 +298,7 @@ pub fn parse_eml_content(data: &[u8]) -> Result<EmailExtractionResult> {
         });
     }
 
-    let metadata = build_metadata(
+    let mut metadata = build_metadata(
         &subject,
         &from_email,
         &to_emails,
@@ -275,6 +308,36 @@ pub fn parse_eml_content(data: &[u8]) -> Result<EmailExtractionResult> {
         &message_id,
         &attachments,
     );
+
+    // Add threading headers to metadata
+    if !reply_to.is_empty() {
+        metadata.insert("reply_to".to_string(), reply_to.join(", "));
+    }
+    if !in_reply_to.is_empty() {
+        metadata.insert("in_reply_to".to_string(), in_reply_to.join(", "));
+    }
+    if !references.is_empty() {
+        metadata.insert("references".to_string(), references.join(", "));
+    }
+
+    // Add raw headers (Content-Type, MIME-Version, X-Mailer, List-Id, List-Unsubscribe)
+    for (key, value) in &raw_headers {
+        metadata.insert(key.clone(), value.clone());
+    }
+
+    // Add structured attachment metadata (filename, size, mime_type per attachment)
+    if !attachments.is_empty() {
+        let attachment_details: Vec<String> = attachments
+            .iter()
+            .map(|att| {
+                let name = att.filename.as_deref().or(att.name.as_deref()).unwrap_or("unnamed");
+                let mime = att.mime_type.as_deref().unwrap_or("application/octet-stream");
+                let size = att.size.unwrap_or(0);
+                format!("{}|{}|{}", name, mime, size)
+            })
+            .collect();
+        metadata.insert("attachment_details".to_string(), attachment_details.join("; "));
+    }
 
     Ok(EmailExtractionResult {
         subject,
@@ -424,6 +487,259 @@ fn pad_cfb_to_fat_size(data: &[u8]) -> std::borrow::Cow<'_, [u8]> {
     Cow::Owned(padded)
 }
 
+/// Pre-filled dictionary used by the MS-OXRTFCP compressed RTF format.
+///
+/// See [MS-OXRTFCP] section 2.1.3.1.
+const COMPRESSED_RTF_PREBUF: &[u8] = b"{\\rtf1\\ansi\\mac\\deff0\\deftab720{\\fonttbl;}\
+{\\f0\\fnil \\froman \\fswiss \\fmodern \\fscript \\fdecor MS Sans SerifSymbolArialTimes New Roman\
+Courier{\\colortbl\\red0\\green0\\blue0\r\n\\par \\pard\\plain\\f0\\fs20\\b\\i\\ul\\ob\\strike\
+\\scaps\\outline\\shadow\\imprint\\emboss\\lang1024\\sbasedon1033\\fcharset0 {\\*\\cs10 \\additive \
+Default Paragraph Font}";
+
+/// Decompress a PR_RTF_COMPRESSED stream per the MS-OXRTFCP specification.
+///
+/// Returns `None` when the data is too short, has a bad magic number, or
+/// the decompression runs past declared bounds.
+fn decompress_rtf_compressed(data: &[u8]) -> Option<Vec<u8>> {
+    if data.len() < 16 {
+        return None;
+    }
+
+    let comp_size = u32::from_le_bytes(data[0..4].try_into().ok()?) as usize;
+    let _raw_size = u32::from_le_bytes(data[4..8].try_into().ok()?);
+    let magic = u32::from_le_bytes(data[8..12].try_into().ok()?);
+    // _crc at 12..16 — we skip validation, matching common implementations.
+
+    // "LZFu" (0x75465a4c) = compressed, "MELA" (0x414c454d) = uncompressed.
+    if magic == 0x414c_454d {
+        // Uncompressed: raw RTF follows the 16-byte header.
+        return Some(data.get(16..16 + comp_size.saturating_sub(12))?.to_vec());
+    }
+    if magic != 0x75465a4c {
+        return None;
+    }
+
+    let mut dict = [0u8; 4096];
+    let prebuf_len = COMPRESSED_RTF_PREBUF.len();
+    dict[..prebuf_len].copy_from_slice(COMPRESSED_RTF_PREBUF);
+    let mut dict_write = prebuf_len;
+
+    let input = data.get(16..)?;
+    // comp_size includes the 12 bytes after the first u32, so input length should be comp_size - 12.
+    let end = (comp_size.saturating_sub(12)).min(input.len());
+
+    let mut output = Vec::with_capacity(_raw_size as usize);
+    let mut pos = 0usize;
+
+    while pos < end {
+        let control = *input.get(pos)?;
+        pos += 1;
+
+        for bit in (0..8).rev() {
+            if pos >= end {
+                return Some(output);
+            }
+
+            if control & (1 << bit) != 0 {
+                // Dictionary reference: 2 bytes, big-endian style.
+                let hi = *input.get(pos)? as u16;
+                let lo = *input.get(pos + 1)? as u16;
+                pos += 2;
+
+                let offset = ((hi << 4) | (lo >> 4)) as usize;
+                let length = (lo & 0x0F) as usize + 2;
+
+                for i in 0..length {
+                    let byte = dict[(offset + i) & 0xFFF];
+                    output.push(byte);
+                    dict[dict_write & 0xFFF] = byte;
+                    dict_write += 1;
+                }
+            } else {
+                // Literal byte.
+                let byte = *input.get(pos)?;
+                pos += 1;
+                output.push(byte);
+                dict[dict_write & 0xFFF] = byte;
+                dict_write += 1;
+            }
+        }
+    }
+
+    Some(output)
+}
+
+/// Strip RTF control sequences and extract plain text.
+///
+/// Handles `\par` → newline, `\uN` unicode escapes, `{` `}` grouping,
+/// and discards other `\command` sequences.  This is intentionally
+/// simplified — it covers the typical content produced by Outlook.
+fn strip_rtf_to_plain_text(rtf: &[u8]) -> String {
+    let text = String::from_utf8_lossy(rtf);
+    let bytes = text.as_bytes();
+    let len = bytes.len();
+    let mut output = String::with_capacity(len / 2);
+    let mut i = 0;
+    // Track brace depth; skip content inside `{\*...}` destinations.
+    let mut skip_depth: Option<usize> = None;
+    let mut depth: usize = 0;
+    // Skip the `{\rtfN ...}` header group preamble up to the first \par or body text.
+
+    while i < len {
+        match bytes[i] {
+            b'{' => {
+                depth += 1;
+                i += 1;
+                // Detect `{\*` destinations — these are metadata groups we skip.
+                if i + 1 < len && bytes[i] == b'\\' && bytes.get(i + 1) == Some(&b'*') && skip_depth.is_none() {
+                    skip_depth = Some(depth);
+                }
+                // Detect `{\fonttbl`, `{\colortbl`, `{\stylesheet`, `{\info` — skip these.
+                if skip_depth.is_none() {
+                    let rest = &text[i..];
+                    if rest.starts_with("\\fonttbl")
+                        || rest.starts_with("\\colortbl")
+                        || rest.starts_with("\\stylesheet")
+                        || rest.starts_with("\\info")
+                    {
+                        skip_depth = Some(depth);
+                    }
+                }
+            }
+            b'}' => {
+                if let Some(sd) = skip_depth
+                    && depth <= sd
+                {
+                    skip_depth = None;
+                }
+                depth = depth.saturating_sub(1);
+                i += 1;
+            }
+            b'\\' if skip_depth.is_none() => {
+                i += 1;
+                if i >= len {
+                    break;
+                }
+                match bytes[i] {
+                    // Escaped literal characters.
+                    b'\\' => {
+                        output.push('\\');
+                        i += 1;
+                    }
+                    b'{' => {
+                        output.push('{');
+                        i += 1;
+                    }
+                    b'}' => {
+                        output.push('}');
+                        i += 1;
+                    }
+                    b'\'' => {
+                        // \'XX hex escape — decode as windows-1252.
+                        i += 1;
+                        if i + 2 <= len {
+                            if let Ok(hex_str) = std::str::from_utf8(&bytes[i..i + 2])
+                                && let Ok(byte_val) = u8::from_str_radix(hex_str, 16)
+                            {
+                                let byte_arr = [byte_val];
+                                let (decoded, _, _) = encoding_rs::WINDOWS_1252.decode(&byte_arr);
+                                output.push_str(&decoded);
+                            }
+                            i += 2;
+                        }
+                    }
+                    b'u' if i + 1 < len && (bytes[i + 1].is_ascii_digit() || bytes[i + 1] == b'-') => {
+                        // \uN — unicode escape followed by an ANSI substitution char.
+                        i += 1; // skip 'u'
+                        let start = i;
+                        if i < len && bytes[i] == b'-' {
+                            i += 1;
+                        }
+                        while i < len && bytes[i].is_ascii_digit() {
+                            i += 1;
+                        }
+                        if let Ok(num_str) = std::str::from_utf8(&bytes[start..i])
+                            && let Ok(code) = num_str.parse::<i32>()
+                        {
+                            let cp = if code < 0 { (code + 65536) as u32 } else { code as u32 };
+                            if let Some(ch) = char::from_u32(cp) {
+                                output.push(ch);
+                            }
+                        }
+                        // Skip optional space delimiter after the number.
+                        if i < len && bytes[i] == b' ' {
+                            i += 1;
+                        }
+                        // Skip the ANSI substitution character (usually `?`).
+                        if i < len && bytes[i] != b'\\' && bytes[i] != b'{' && bytes[i] != b'}' {
+                            i += 1;
+                        }
+                    }
+                    _ => {
+                        // Read the control word.
+                        let word_start = i;
+                        while i < len && bytes[i].is_ascii_alphabetic() {
+                            i += 1;
+                        }
+                        let word = &text[word_start..i];
+
+                        // Skip optional numeric parameter.
+                        let _num_start = i;
+                        if i < len && (bytes[i] == b'-' || bytes[i].is_ascii_digit()) {
+                            if bytes[i] == b'-' {
+                                i += 1;
+                            }
+                            while i < len && bytes[i].is_ascii_digit() {
+                                i += 1;
+                            }
+                        }
+
+                        // Consume optional space delimiter.
+                        if i < len && bytes[i] == b' ' {
+                            i += 1;
+                        }
+
+                        match word {
+                            "par" | "line" => output.push('\n'),
+                            "tab" => output.push('\t'),
+                            // `\pard`, `\plain`, `\b`, `\i`, etc. — formatting, skip.
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            b'\r' | b'\n' if skip_depth.is_none() => {
+                // RTF uses \par for line breaks; literal newlines are ignored.
+                i += 1;
+            }
+            _ if skip_depth.is_some() => {
+                i += 1;
+            }
+            _ => {
+                output.push(bytes[i] as char);
+                i += 1;
+            }
+        }
+    }
+
+    // Collapse multiple blank lines and trim.
+    let mut result = String::with_capacity(output.len());
+    let mut prev_newline_count = 0u32;
+    for ch in output.chars() {
+        if ch == '\n' {
+            prev_newline_count += 1;
+            if prev_newline_count <= 2 {
+                result.push('\n');
+            }
+        } else {
+            prev_newline_count = 0;
+            result.push(ch);
+        }
+    }
+
+    result.trim().to_string()
+}
+
 /// Internal: extract email fields from an already-opened CFB compound file.
 fn extract_msg_from_cfb<F: std::io::Read + std::io::Seek>(
     comp: &mut cfb::CompoundFile<F>,
@@ -466,6 +782,12 @@ fn extract_msg_from_cfb<F: std::io::Read + std::io::Seek>(
     // --- recipients: read from substorages for full email addresses -----------
     let (to_emails, cc_emails, bcc_emails) = read_msg_recipients(comp, codepage);
 
+    // PR_RTF_COMPRESSED (0x1009) — binary stream, PT_BINARY (0102).
+    let rtf_body = read_msg_stream(comp, "__substg1.0_10090102")
+        .and_then(|data| decompress_rtf_compressed(&data))
+        .map(|rtf| strip_rtf_to_plain_text(&rtf))
+        .filter(|s| !s.is_empty());
+
     let plain_text = body.filter(|s| !s.is_empty());
     let html_content = html_body.filter(|s| !s.is_empty());
 
@@ -473,6 +795,8 @@ fn extract_msg_from_cfb<F: std::io::Read + std::io::Seek>(
         plain.clone()
     } else if let Some(ref html) = html_content {
         clean_html_content(html)
+    } else if let Some(ref rtf) = rtf_body {
+        rtf.clone()
     } else {
         String::new()
     };
@@ -824,7 +1148,7 @@ fn read_msg_recip_type<F: std::io::Read + std::io::Seek>(comp: &mut cfb::Compoun
 /// Scans for `Date:` in the header section (before the blank line that separates
 /// headers from body) and returns the raw value, handling continuation lines.
 fn extract_raw_date_header(data: &[u8]) -> Option<String> {
-    let text = std::str::from_utf8(data).ok()?;
+    let text = utf8_validation::from_utf8(data).ok()?;
 
     // Find the end of headers (blank line)
     let header_end = text
@@ -851,6 +1175,78 @@ fn extract_raw_date_header(data: &[u8]) -> Option<String> {
     }
 
     date_value.filter(|s| !s.is_empty())
+}
+
+/// Extract additional raw headers from email bytes.
+///
+/// Scans for Content-Type, MIME-Version, X-Mailer, User-Agent, List-Id,
+/// and List-Unsubscribe headers in the header section.
+fn extract_raw_headers(data: &[u8]) -> HashMap<String, String> {
+    let mut headers = HashMap::new();
+    let text = match utf8_validation::from_utf8(data) {
+        Ok(s) => s,
+        Err(_) => return headers,
+    };
+
+    // Find the end of headers (blank line)
+    let header_end = text
+        .find("\r\n\r\n")
+        .or_else(|| text.find("\n\n"))
+        .unwrap_or(text.len().min(16384)); // Cap scan to 16KB
+
+    let header_section = &text[..header_end];
+
+    // Headers to extract (case-insensitive key, metadata key)
+    let target_headers: &[(&str, &str)] = &[
+        ("content-type:", "content_type"),
+        ("mime-version:", "mime_version"),
+        ("x-mailer:", "x_mailer"),
+        ("user-agent:", "user_agent"),
+        ("list-id:", "list_id"),
+        ("list-unsubscribe:", "list_unsubscribe"),
+    ];
+
+    let mut current_key: Option<&str> = None;
+    let mut current_value = String::new();
+
+    for line in header_section.lines() {
+        if line.starts_with(' ') || line.starts_with('\t') {
+            // Continuation line (folded header)
+            if current_key.is_some() {
+                current_value.push(' ');
+                current_value.push_str(line.trim());
+            }
+            continue;
+        }
+
+        // Flush previous header if matched
+        if let Some(key) = current_key {
+            if !current_value.is_empty() {
+                headers.insert(key.to_string(), current_value.clone());
+            }
+            current_key = None;
+            current_value.clear();
+        }
+
+        // Check if current line matches any target header
+        let line_lower = line.to_lowercase();
+        for &(prefix, meta_key) in target_headers {
+            if line_lower.starts_with(prefix) {
+                current_key = Some(meta_key);
+                current_value = line[prefix.len()..].trim().to_string();
+                break;
+            }
+        }
+    }
+
+    // Flush last header
+    if let Some(key) = current_key
+        && !current_value.is_empty()
+    {
+        headers.insert(key.to_string(), current_value);
+    }
+
+    headers
 }
 
 /// Extract email content from either .eml or .msg format
@@ -1537,5 +1933,199 @@ mod tests {
         let result_default = parse_msg_content(data, None).unwrap();
         assert_eq!(result_invalid.subject, result_default.subject);
         assert_eq!(result_invalid.cleaned_text, result_default.cleaned_text);
+    }
+
+    #[test]
+    fn test_eml_threading_headers() {
+        let eml = b"From: alice@example.com\r\n\
+            To: bob@example.com\r\n\
+            Subject: Re: Thread test\r\n\
+            Message-ID: <msg2@example.com>\r\n\
+            In-Reply-To: <msg1@example.com>\r\n\
+            References: <msg0@example.com> <msg1@example.com>\r\n\
+            Reply-To: noreply@example.com\r\n\
+            \r\n\
+            Reply body";
+
+        let result = parse_eml_content(eml).unwrap();
+        assert!(
+            result.metadata.contains_key("in_reply_to"),
+            "Should extract In-Reply-To header"
+        );
+        assert!(
+            result.metadata.contains_key("references"),
+            "Should extract References header"
+        );
+        assert!(
+            result.metadata.contains_key("reply_to"),
+            "Should extract Reply-To header"
+        );
+        assert!(result.metadata.get("reply_to").unwrap().contains("noreply@example.com"));
+    }
+
+    #[test]
+    fn test_eml_raw_headers() {
+        let eml = b"From: alice@example.com\r\n\
+            To: bob@example.com\r\n\
+            Subject: Header test\r\n\
+            Content-Type: text/plain; charset=utf-8\r\n\
+            MIME-Version: 1.0\r\n\
+            X-Mailer: TestMailer/1.0\r\n\
+            List-Id: <test.example.com>\r\n\
+            List-Unsubscribe: <mailto:unsub@example.com>\r\n\
+            \r\n\
+            Body content";
+
+        let result = parse_eml_content(eml).unwrap();
+        assert!(
+            result.metadata.contains_key("content_type"),
+            "Should extract Content-Type"
+        );
+        assert!(result.metadata.get("content_type").unwrap().contains("text/plain"));
+        assert!(
+            result.metadata.contains_key("mime_version"),
+            "Should extract MIME-Version"
+        );
+        assert_eq!(result.metadata.get("mime_version").unwrap(), "1.0");
+        assert!(result.metadata.contains_key("x_mailer"), "Should extract X-Mailer");
+        assert!(result.metadata.get("x_mailer").unwrap().contains("TestMailer"));
+        assert!(result.metadata.contains_key("list_id"), "Should extract List-Id");
+        assert!(
+            result.metadata.contains_key("list_unsubscribe"),
+            "Should extract List-Unsubscribe"
+        );
+    }
+
+    #[test]
+    fn test_eml_attachment_details_metadata() {
+        let eml = b"From: alice@example.com\r\n\
+            To: bob@example.com\r\n\
+            Subject: With attachment\r\n\
+            MIME-Version: 1.0\r\n\
+            Content-Type: multipart/mixed; boundary=\"BOUNDARY\"\r\n\
+            \r\n\
+            --BOUNDARY\r\n\
+            Content-Type: text/plain\r\n\
+            \r\n\
+            Body text\r\n\
+            --BOUNDARY\r\n\
+            Content-Type: application/pdf\r\n\
+            Content-Disposition: attachment; filename=\"report.pdf\"\r\n\
+            \r\n\
+            FAKEPDFDATA\r\n\
+            --BOUNDARY--";
+
+        let result = parse_eml_content(eml).unwrap();
+        assert!(!result.attachments.is_empty(), "Should have attachment");
+        assert!(
+            result.metadata.contains_key("attachment_details"),
+            "Should have attachment_details"
+        );
+        let details = result.metadata.get("attachment_details").unwrap();
+        assert!(details.contains("report.pdf"), "Should contain filename");
+        assert!(details.contains("application/pdf"), "Should contain mime type");
+    }
+
+    #[test]
+    fn test_extract_raw_headers_function() {
+        let data = b"From: alice@example.com\r\n\
+            Content-Type: multipart/mixed; boundary=foo\r\n\
+            MIME-Version: 1.0\r\n\
+            X-Mailer: MyApp/2.0\r\n\
+            User-Agent: MyAgent/1.0\r\n\
+            \r\n\
+            Body";
+
+        let headers = extract_raw_headers(data);
+        assert_eq!(headers.get("content_type").unwrap(), "multipart/mixed; boundary=foo");
+        assert_eq!(headers.get("mime_version").unwrap(), "1.0");
+        assert_eq!(headers.get("x_mailer").unwrap(), "MyApp/2.0");
+        assert_eq!(headers.get("user_agent").unwrap(), "MyAgent/1.0");
+    }
+
+    #[test]
+    fn test_decompress_rtf_compressed_too_short() {
+        assert!(decompress_rtf_compressed(&[0u8; 10]).is_none());
+    }
+
+    #[test]
+    fn test_decompress_rtf_compressed_bad_magic() {
+        let mut data = [0u8; 16];
+        // Set a bogus magic value.
+        data[8..12].copy_from_slice(&0xDEAD_BEEFu32.to_le_bytes());
+        assert!(decompress_rtf_compressed(&data).is_none());
+    }
+
+    #[test]
+    fn test_decompress_rtf_compressed_uncompressed_magic() {
+        // MELA magic (0x414c454d) means the payload is uncompressed RTF.
+        let rtf_payload = b"{\\rtf1 Hello}";
+        let comp_size = (rtf_payload.len() + 12) as u32;
+        let raw_size = rtf_payload.len() as u32;
+        let mut data = Vec::new();
+        data.extend_from_slice(&comp_size.to_le_bytes());
+        data.extend_from_slice(&raw_size.to_le_bytes());
+        data.extend_from_slice(&0x414c_454du32.to_le_bytes()); // MELA
+        data.extend_from_slice(&0u32.to_le_bytes()); // CRC
+        data.extend_from_slice(rtf_payload);
+
+        let result = decompress_rtf_compressed(&data).unwrap();
+        assert_eq!(result, rtf_payload);
+    }
+
+    #[test]
+    fn test_strip_rtf_to_plain_text_basic() {
+        let rtf = b"{\\rtf1\\ansi\\deff0 Hello World}";
+        let result = strip_rtf_to_plain_text(rtf);
+        assert_eq!(result, "Hello World");
+    }
+
+    #[test]
+    fn test_strip_rtf_to_plain_text_par() {
+        let rtf = b"{\\rtf1\\ansi Line 1\\par Line 2}";
+        let result = strip_rtf_to_plain_text(rtf);
+        assert!(result.contains("Line 1"));
+        assert!(result.contains("Line 2"));
+        assert!(result.contains('\n'));
+    }
+
+    #[test]
+    fn test_strip_rtf_to_plain_text_unicode() {
+        // \u8364? is the euro sign, with `?` as ANSI substitution.
+        let rtf = b"{\\rtf1 Price: \\u8364?100}";
+        let result = strip_rtf_to_plain_text(rtf);
+        assert!(result.contains('\u{20AC}')); // Euro sign
+        assert!(result.contains("100"));
+    }
+
+    #[test]
+    fn test_strip_rtf_to_plain_text_hex_escape() {
+        // \'e9 is e-acute in windows-1252.
+        let rtf = b"{\\rtf1 caf\\'e9}";
+        let result = strip_rtf_to_plain_text(rtf);
+        assert!(result.contains("caf\u{00e9}")); // cafe with accent
+    }
+
+    #[test]
+    fn test_strip_rtf_to_plain_text_skips_fonttbl() {
+        let rtf = b"{\\rtf1{\\fonttbl{\\f0 Arial;}}{\\f0 Visible text}}";
+        let result = strip_rtf_to_plain_text(rtf);
+        assert!(!result.contains("Arial"));
+        assert!(result.contains("Visible text"));
+    }
+
+    #[test]
+    fn test_strip_rtf_to_plain_text_escaped_braces() {
+        let rtf = b"{\\rtf1 Open \\{ and close \\}}";
+        let result = strip_rtf_to_plain_text(rtf);
+        assert!(result.contains("Open {"));
+        assert!(result.contains("close }"));
+    }
+
+    #[test]
+    fn test_strip_rtf_to_plain_text_empty() {
+        let rtf = b"{\\rtf1}";
+        let result = strip_rtf_to_plain_text(rtf);
+        assert!(result.is_empty());
     }
 }

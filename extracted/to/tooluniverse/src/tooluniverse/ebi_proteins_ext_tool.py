@@ -42,13 +42,22 @@ class EBIProteinsExtTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"EBI Proteins API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"EBI Proteins API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to EBI Proteins API"}
+            return {"status": "error", "error": "Failed to connect to EBI Proteins API"}
         except requests.exceptions.HTTPError as e:
-            return {"error": f"EBI Proteins API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"EBI Proteins API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying EBI Proteins API: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying EBI Proteins API: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -67,14 +76,15 @@ class EBIProteinsExtTool(BaseTool):
         elif self.endpoint == "proteomics":
             return self._get_proteomics(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_mutagenesis(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get mutagenesis experiment data for a protein."""
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
 
         url = f"{PROTEINS_API_BASE_URL}/mutagenesis/{accession}"
@@ -110,6 +120,7 @@ class EBIProteinsExtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accession"),
                 "entry_name": data.get("entryName"),
@@ -128,7 +139,8 @@ class EBIProteinsExtTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
 
         url = f"{PROTEINS_API_BASE_URL}/proteomics-ptm/{accession}"
@@ -164,6 +176,7 @@ class EBIProteinsExtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accession"),
                 "entry_name": data.get("entryName"),
@@ -181,7 +194,8 @@ class EBIProteinsExtTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
         source_type = arguments.get("source_type")
         disease_only = arguments.get("disease_only", False)
@@ -262,6 +276,7 @@ class EBIProteinsExtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accession"),
                 "entry_name": data.get("entryName"),
@@ -281,7 +296,8 @@ class EBIProteinsExtTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
         category = arguments.get("category", "DOMAINS_AND_SITES")
 
@@ -319,6 +335,7 @@ class EBIProteinsExtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accession"),
                 "entry_name": data.get("entryName"),
@@ -338,7 +355,8 @@ class EBIProteinsExtTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
 
         url = f"{PROTEINS_API_BASE_URL}/antigen/{accession}"
@@ -372,6 +390,7 @@ class EBIProteinsExtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accession"),
                 "entry_name": data.get("entryName"),
@@ -389,7 +408,8 @@ class EBIProteinsExtTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
 
         url = f"{PROTEINS_API_BASE_URL}/coordinates/{accession}"
@@ -415,6 +435,7 @@ class EBIProteinsExtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accession"),
                 "name": data.get("name"),
@@ -433,7 +454,8 @@ class EBIProteinsExtTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
 
         url = f"{PROTEINS_API_BASE_URL}/proteomics/{accession}"
@@ -466,6 +488,7 @@ class EBIProteinsExtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accession"),
                 "entry_name": data.get("entryName"),

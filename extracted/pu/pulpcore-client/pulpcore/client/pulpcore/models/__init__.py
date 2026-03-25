@@ -28,6 +28,8 @@ from pulpcore.client.pulpcore.models.content_redirect_content_guard import Conte
 from pulpcore.client.pulpcore.models.content_redirect_content_guard_response import ContentRedirectContentGuardResponse
 from pulpcore.client.pulpcore.models.content_settings_response import ContentSettingsResponse
 from pulpcore.client.pulpcore.models.content_summary_response import ContentSummaryResponse
+from pulpcore.client.pulpcore.models.data_repair7272 import DataRepair7272
+from pulpcore.client.pulpcore.models.data_repair7465 import DataRepair7465
 from pulpcore.client.pulpcore.models.database_connection_response import DatabaseConnectionResponse
 from pulpcore.client.pulpcore.models.distribution_response import DistributionResponse
 from pulpcore.client.pulpcore.models.domain import Domain

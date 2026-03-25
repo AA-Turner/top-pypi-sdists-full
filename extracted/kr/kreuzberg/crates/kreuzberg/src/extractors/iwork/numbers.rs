@@ -8,7 +8,6 @@ use crate::types::{ExtractionResult, Metadata};
 use ahash::AHashMap;
 use async_trait::async_trait;
 use std::borrow::Cow;
-use std::io::Cursor;
 
 /// Apple Numbers spreadsheet extractor.
 ///
@@ -64,18 +63,7 @@ impl Plugin for NumbersExtractor {
 /// - `Index/Document.iwa` — document structure and sheet names
 /// - `tables/DataStore.iwa` — table cell string values
 fn parse_numbers(content: &[u8]) -> Result<String> {
-    let cursor = Cursor::new(content);
-    let mut archive = zip::ZipArchive::new(cursor)
-        .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to open Numbers ZIP: {e}")))?;
-
-    let iwa_paths: Vec<String> = (0..archive.len())
-        .filter_map(|i| {
-            archive.by_index(i).ok().and_then(|f| {
-                let name = f.name().to_string();
-                if name.ends_with(".iwa") { Some(name) } else { None }
-            })
-        })
-        .collect();
+    let iwa_paths = super::collect_iwa_paths(content)?;
 
     let mut all_texts: Vec<String> = Vec::new();
 
@@ -109,7 +97,7 @@ impl DocumentExtractor for NumbersExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let text = {
             #[cfg(feature = "tokio-runtime")]
@@ -130,6 +118,12 @@ impl DocumentExtractor for NumbersExtractor {
             parse_numbers(content)?
         };
 
+        let document = if config.include_document_structure {
+            Some(build_numbers_document_structure(&text))
+        } else {
+            None
+        };
+
         let additional: AHashMap<Cow<'static, str>, serde_json::Value> = AHashMap::new();
 
         Ok(ExtractionResult {
@@ -147,12 +141,13 @@ impl DocumentExtractor for NumbersExtractor {
             djot_content: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
@@ -163,6 +158,28 @@ impl DocumentExtractor for NumbersExtractor {
     fn priority(&self) -> i32 {
         50
     }
+}
+
+/// Build a `DocumentStructure` from extracted Numbers text.
+///
+/// Since Numbers extracts flat cell text values, we create a heading
+/// for "Sheet Data" and push each line as a paragraph.
+fn build_numbers_document_structure(text: &str) -> crate::types::document_structure::DocumentStructure {
+    use crate::types::builder::DocumentStructureBuilder;
+
+    let mut builder = DocumentStructureBuilder::new().source_format("numbers");
+
+    if !text.trim().is_empty() {
+        builder.push_heading(1, "Sheet Data", None, None);
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                builder.push_paragraph(trimmed, vec![], None, None);
+            }
+        }
+    }
+
+    builder.build()
 }
 
 #[cfg(test)]

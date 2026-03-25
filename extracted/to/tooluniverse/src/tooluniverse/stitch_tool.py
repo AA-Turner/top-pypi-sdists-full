@@ -8,16 +8,14 @@ chemicals and proteins, combining data from various sources.
 API Documentation: http://stitch.embl.de/
 """
 
-import warnings
 import requests
-import urllib3
 from typing import Dict, Any
 from .base_tool import BaseTool
 from .tool_registry import register_tool
 
 # Base URL for STITCH REST API (chemical-protein interactions)
-# NOTE: stitch.embl.de may have SSL certificate issues on some systems; use verify=False
-STITCH_BASE_URL = "https://stitch.embl.de/api"
+# NOTE: stitch.embl.de API endpoints have moved to string-db.org (same API format)
+STITCH_BASE_URL = "https://string-db.org/api"
 
 
 @register_tool("STITCHTool")
@@ -52,7 +50,7 @@ class STITCHTool(BaseTool):
         elif operation == "resolve":
             return self._resolve_identifiers(arguments)
         else:
-            return {"error": f"Unknown operation: {operation}"}
+            return {"status": "error", "error": f"Unknown operation: {operation}"}
 
     def _get_interactions(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -64,7 +62,8 @@ class STITCHTool(BaseTool):
 
         if not identifiers:
             return {
-                "error": "identifiers parameter is required (chemical names or IDs)"
+                "status": "error",
+                "error": "identifiers parameter is required (chemical names or IDs)",
             }
 
         if isinstance(identifiers, str):
@@ -78,26 +77,22 @@ class STITCHTool(BaseTool):
         }
 
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter(
-                    "ignore", urllib3.exceptions.InsecureRequestWarning
-                )
-                response = requests.get(
-                    f"{STITCH_BASE_URL}/json/interactions",
-                    params=params,
-                    timeout=self.timeout,
-                    verify=False,
-                )
+            response = requests.get(
+                f"{STITCH_BASE_URL}/json/interactions",
+                params=params,
+                timeout=self.timeout,
+            )
             if response.status_code == 404:
                 return {
+                    "status": "error",
                     "error": f"No interactions found for {identifiers} in STITCH. "
                     "Try using CID identifiers (e.g., 'CIDm00002244' for aspirin) "
-                    "or check compound names at http://stitch.embl.de/"
+                    "or check compound names at http://stitch.embl.de/",
                 }
             response.raise_for_status()
             return {"interactions": response.json()}
         except requests.RequestException as e:
-            return {"error": f"STITCH API request failed: {str(e)}"}
+            return {"status": "error", "error": f"STITCH API request failed: {str(e)}"}
 
     def _get_interactors(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -108,7 +103,7 @@ class STITCHTool(BaseTool):
         identifiers = arguments.get("identifiers", [])
 
         if not identifiers:
-            return {"error": "identifiers parameter is required"}
+            return {"status": "error", "error": "identifiers parameter is required"}
 
         if isinstance(identifiers, str):
             identifiers = [identifiers]
@@ -120,25 +115,21 @@ class STITCHTool(BaseTool):
         }
 
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter(
-                    "ignore", urllib3.exceptions.InsecureRequestWarning
-                )
-                response = requests.get(
-                    f"{STITCH_BASE_URL}/json/network",
-                    params=params,
-                    timeout=self.timeout,
-                    verify=False,
-                )
+            response = requests.get(
+                f"{STITCH_BASE_URL}/json/network",
+                params=params,
+                timeout=self.timeout,
+            )
             if response.status_code == 404:
                 return {
+                    "status": "error",
                     "error": f"No interactors found for {identifiers} in STITCH. "
-                    "Try using CID identifiers or check compound names at http://stitch.embl.de/"
+                    "Try using CID identifiers or check compound names at http://stitch.embl.de/",
                 }
             response.raise_for_status()
             return {"interactors": response.json()}
         except requests.RequestException as e:
-            return {"error": f"STITCH API request failed: {str(e)}"}
+            return {"status": "error", "error": f"STITCH API request failed: {str(e)}"}
 
     def _resolve_identifiers(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -149,27 +140,23 @@ class STITCHTool(BaseTool):
         identifier = arguments.get("identifier", "")
 
         if not identifier:
-            return {"error": "identifier parameter is required"}
+            return {"status": "error", "error": "identifier parameter is required"}
 
         params = {"identifier": identifier, "species": arguments.get("species", 9606)}
 
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter(
-                    "ignore", urllib3.exceptions.InsecureRequestWarning
-                )
-                response = requests.get(
-                    f"{STITCH_BASE_URL}/json/resolve",
-                    params=params,
-                    timeout=self.timeout,
-                    verify=False,
-                )
+            response = requests.get(
+                f"{STITCH_BASE_URL}/json/resolve",
+                params=params,
+                timeout=self.timeout,
+            )
             if response.status_code == 404:
                 return {
+                    "status": "error",
                     "error": f"Identifier '{identifier}' not found in STITCH. "
-                    "Try using CID identifiers or check at http://stitch.embl.de/"
+                    "Try using CID identifiers or check at http://stitch.embl.de/",
                 }
             response.raise_for_status()
             return {"matches": response.json()}
         except requests.RequestException as e:
-            return {"error": f"STITCH API request failed: {str(e)}"}
+            return {"status": "error", "error": f"STITCH API request failed: {str(e)}"}

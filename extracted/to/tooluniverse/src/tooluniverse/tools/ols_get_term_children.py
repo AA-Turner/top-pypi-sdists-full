@@ -1,7 +1,7 @@
 """
 ols_get_term_children
 
-Get child terms of a specific term in an ontology
+Get child terms of a specific term in an ontology. Use `term_id` with CURIE format (e.g., 'HP:000...
 """
 
 from typing import Any, Optional, Callable
@@ -9,9 +9,10 @@ from ._shared_client import get_shared_client
 
 
 def ols_get_term_children(
-    operation: str,
-    term_iri: str,
-    ontology: str,
+    operation: Optional[str] = None,
+    term_iri: Optional[str] = None,
+    term_id: Optional[str] = None,
+    ontology: Optional[str] = None,
     include_obsolete: Optional[bool] = False,
     size: Optional[int] = 20,
     *,
@@ -20,16 +21,18 @@ def ols_get_term_children(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get child terms of a specific term in an ontology
+    Get child terms of a specific term in an ontology. Use `term_id` with CURIE format (e.g., 'HP:000...
 
     Parameters
     ----------
     operation : str
         The operation to perform (get_term_children)
     term_iri : str
-        The IRI of the term to retrieve children for
+        The full IRI of the term (e.g., http://www.ebi.ac.uk/efo/EFO_0000408)
+    term_id : str
+        Short-form CURIE (e.g., 'HP:0001928', 'GO:0008150'). Ontology is auto-inferre...
     ontology : str
-        The ontology ID
+        Ontology ID (e.g., 'hp', 'go', 'efo'). Auto-inferred from term_id prefix when...
     include_obsolete : bool
         Include obsolete terms (default: false)
     size : int
@@ -53,6 +56,7 @@ def ols_get_term_children(
         for k, v in {
             "operation": operation,
             "term_iri": term_iri,
+            "term_id": term_id,
             "ontology": ontology,
             "include_obsolete": include_obsolete,
             "size": size,

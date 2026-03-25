@@ -96,10 +96,9 @@ pub fn restore_preserved_blocks(text: &str, preserved: &AHashMap<String, String>
 /// # Returns
 /// A new `String` with Markdown structure preserved
 pub fn preserve_markdown_structure(text: &str) -> String {
-    let lines: Vec<&str> = text.lines().collect();
-    let mut processed_lines = Vec::with_capacity(lines.len());
+    let mut processed_lines: Vec<&str> = Vec::new();
 
-    for line in lines {
+    for line in text.lines() {
         // Preserve headers
         if MARKDOWN_HEADERS_REGEX.is_match(line) {
             processed_lines.push(line);

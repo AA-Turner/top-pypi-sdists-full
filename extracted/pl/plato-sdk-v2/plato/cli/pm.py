@@ -1584,7 +1584,7 @@ def review_env(
             pass_datagen_iterations = 2
 
             if outcome == "pass":
-                if typer.confirm("Auto-start datagen?", default=False):
+                if typer.confirm("Auto-start datagen?", default=True):
                     pass_start_datagen = True
                     pass_datagen_iterations = int(typer.prompt("Iterations", default="2").strip() or "2")
 
@@ -2227,6 +2227,91 @@ def review_data(
                 pass
 
             console.print("\n[green]✅ Browser closed. Review session ended.[/green]")
+
+            # --- Post-review actions (mirrors env review flow) ---
+            # Re-fetch simulator to check if a review was submitted via the extension
+            try:
+                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as post_client:
+                    post_sim = await get_simulator_by_name.asyncio(
+                        client=post_client,
+                        name=simulator_name,
+                        x_api_key=api_key,
+                    )
+                post_config = post_sim.config or {}
+                post_status = post_config.get("status", "")
+                simulator_id = post_sim.id
+
+                # Check if the extension submitted a reject (status went back to data_in_progress)
+                if post_status == "data_in_progress":
+                    console.print("\n[bold yellow]Review was rejected — post-review options:[/bold yellow]")
+
+                    # Option to launch datagen world
+                    reviews = post_config.get("reviews") or []
+                    latest_reject_comments = _get_latest_rejected_data_review_comments(reviews)
+
+                    console.print("\n[bold]Launch datagen?[/bold]")
+                    console.print("  1. none")
+                    console.print("  2. fresh (new datagen run)")
+                    console.print("  3. resume (rerun with review feedback)")
+                    datagen_choice = typer.prompt("Choice [1/2/3]", default="1").strip()
+
+                    datagen_action = None
+                    datagen_iterations = 2
+                    if datagen_choice in ("2", "3"):
+                        datagen_action = "fresh" if datagen_choice == "2" else "resume"
+                        datagen_iterations = int(typer.prompt("Iterations", default="2").strip() or "2")
+
+                    # Confirm
+                    if datagen_action:
+                        console.print("\n[bold]Post-review summary:[/bold]")
+                        console.print(f"  Datagen: {datagen_action} ({datagen_iterations} iterations)")
+                        if datagen_action == "resume" and latest_reject_comments:
+                            console.print(f"  Review feedback: {len(latest_reject_comments)} comment(s)")
+
+                        if not typer.confirm("Proceed?", default=True):
+                            console.print("[yellow]Cancelled — no post-review actions taken.[/yellow]")
+                        else:
+                            async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as action_client:
+                                # Set default assignees if missing
+                                existing_data_assignees = post_config.get("data_assignees") or []
+                                existing_data_review_assignees = post_config.get("data_review_assignees") or []
+                                updates = {}
+                                if not existing_data_assignees:
+                                    updates["data_assignees"] = DEFAULT_DATA_ASSIGNEES
+                                if not existing_data_review_assignees:
+                                    updates["data_review_assignees"] = DEFAULT_DATA_REVIEW_ASSIGNEES
+                                if updates:
+                                    await update_simulator.asyncio(
+                                        client=action_client,
+                                        simulator_id=simulator_id,
+                                        body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(**updates),
+                                        x_api_key=api_key,
+                                    )
+
+                                launched_session = await _launch_datagen_world(
+                                    simulator_name=simulator_name,
+                                    artifact_id=artifact_id,
+                                    api_key=api_key,
+                                    iterations=datagen_iterations,
+                                    review_comments=latest_reject_comments if datagen_action == "resume" else None,
+                                )
+                                if launched_session:
+                                    console.print(f"[green]✅ Datagen launched: {launched_session}[/green]")
+                                    console.print(
+                                        f"[cyan]View:[/cyan] https://chronos.plato.so/sessions/{launched_session}"
+                                    )
+
+                elif post_status == "ready":
+                    console.print("\n[green]✅ Review passed — simulator is now ready[/green]")
+
+                elif post_status == "data_review_requested":
+                    console.print("\n[yellow]No review was submitted (status unchanged).[/yellow]")
+
+                else:
+                    console.print(f"\n[cyan]Current status:[/cyan] {post_status}")
+
+            except Exception as e:
+                console.print(f"[yellow]⚠️  Could not fetch post-review status: {e}[/yellow]")
 
         except Exception as e:
             console.print(f"[red]❌ Error during review session: {e}[/red]")

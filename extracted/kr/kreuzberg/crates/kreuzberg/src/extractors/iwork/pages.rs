@@ -8,7 +8,6 @@ use crate::types::{ExtractionResult, Metadata};
 use ahash::AHashMap;
 use async_trait::async_trait;
 use std::borrow::Cow;
-use std::io::Cursor;
 
 /// Apple Pages document extractor.
 ///
@@ -63,19 +62,8 @@ impl Plugin for PagesExtractor {
 /// - `Index/AnnotationAuthorStorage.iwa` — comments/annotations
 /// - Any `DataRecords/*.iwa` — embedded data blocks
 fn parse_pages(content: &[u8]) -> Result<String> {
-    let cursor = Cursor::new(content);
-    let mut archive = zip::ZipArchive::new(cursor)
-        .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to open Pages ZIP: {e}")))?;
-
     // Collect all IWA paths inside the archive
-    let iwa_paths: Vec<String> = (0..archive.len())
-        .filter_map(|i| {
-            archive.by_index(i).ok().and_then(|f| {
-                let name = f.name().to_string();
-                if name.ends_with(".iwa") { Some(name) } else { None }
-            })
-        })
-        .collect();
+    let iwa_paths = super::collect_iwa_paths(content)?;
 
     let mut all_texts: Vec<String> = Vec::new();
 
@@ -105,7 +93,7 @@ impl DocumentExtractor for PagesExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let text = {
             #[cfg(feature = "tokio-runtime")]
@@ -126,6 +114,12 @@ impl DocumentExtractor for PagesExtractor {
             parse_pages(content)?
         };
 
+        let document = if config.include_document_structure {
+            Some(build_pages_document_structure(&text))
+        } else {
+            None
+        };
+
         let additional: AHashMap<Cow<'static, str>, serde_json::Value> = AHashMap::new();
 
         Ok(ExtractionResult {
@@ -143,12 +137,13 @@ impl DocumentExtractor for PagesExtractor {
             djot_content: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
@@ -159,6 +154,37 @@ impl DocumentExtractor for PagesExtractor {
     fn priority(&self) -> i32 {
         50
     }
+}
+
+/// Build a `DocumentStructure` from extracted Pages text.
+///
+/// Maps text content to paragraphs. If the text contains blank-line separators
+/// (`\n\n`), each block becomes a paragraph. Otherwise, each non-empty line
+/// becomes its own paragraph.
+fn build_pages_document_structure(text: &str) -> crate::types::document_structure::DocumentStructure {
+    use crate::types::builder::DocumentStructureBuilder;
+
+    let mut builder = DocumentStructureBuilder::new().source_format("pages");
+
+    if text.contains("\n\n") {
+        // Multi-paragraph content separated by blank lines
+        for paragraph in text.split("\n\n") {
+            let trimmed = paragraph.trim();
+            if !trimmed.is_empty() {
+                builder.push_paragraph(trimmed, vec![], None, None);
+            }
+        }
+    } else {
+        // Single-spaced content: each line becomes a paragraph
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                builder.push_paragraph(trimmed, vec![], None, None);
+            }
+        }
+    }
+
+    builder.build()
 }
 
 #[cfg(test)]

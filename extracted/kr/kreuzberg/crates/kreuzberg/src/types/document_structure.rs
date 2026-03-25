@@ -12,6 +12,8 @@
 //! - **Content layer classification**: Each node tagged as Body, Header, Footer, or Footnote
 //! - **Deterministic IDs**: `NodeId` generated from content hash for diffing/caching
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use super::extraction::BoundingBox;
@@ -113,6 +115,13 @@ impl std::fmt::Display for NodeId {
 pub struct DocumentStructure {
     /// All nodes in document/reading order.
     pub nodes: Vec<DocumentNode>,
+
+    /// Origin format identifier (e.g. "docx", "pptx", "html", "pdf").
+    ///
+    /// Allows renderers to apply format-aware heuristics when converting
+    /// the document tree to output formats.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_format: Option<String>,
 }
 
 /// A single node in the document tree.
@@ -157,6 +166,13 @@ pub struct DocumentNode {
     /// Only meaningful for text-carrying nodes; empty for containers.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub annotations: Vec<TextAnnotation>,
+
+    /// Format-specific key-value attributes.
+    ///
+    /// Extensible bag for data that doesn't warrant a typed field: CSS classes,
+    /// LaTeX environment names, Excel cell formulas, slide layout names, etc.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attributes: Option<HashMap<String, String>>,
 }
 
 // ============================================================================
@@ -257,6 +273,46 @@ pub enum NodeContent {
 
     /// Page break marker.
     PageBreak,
+
+    /// Presentation slide container — children are the slide's content nodes.
+    Slide {
+        /// 1-indexed slide number.
+        number: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+    },
+
+    /// Definition list container — children are `DefinitionItem` nodes.
+    DefinitionList,
+
+    /// Individual definition list entry with term and definition.
+    DefinitionItem { term: String, definition: String },
+
+    /// Citation or bibliographic reference.
+    Citation { key: String, text: String },
+
+    /// Admonition / callout container (note, warning, tip, etc.).
+    ///
+    /// Children carry the admonition body content.
+    Admonition {
+        /// Kind of admonition (e.g. "note", "warning", "tip", "danger").
+        kind: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+    },
+
+    /// Raw block preserved verbatim from the source format.
+    ///
+    /// Used for content that cannot be mapped to a semantic node type
+    /// (e.g. JSX in MDX, raw LaTeX in markdown, embedded HTML).
+    RawBlock {
+        /// Source format identifier (e.g. "html", "latex", "jsx").
+        format: String,
+        content: String,
+    },
+
+    /// Structured metadata block (email headers, YAML frontmatter, etc.).
+    MetadataBlock { entries: Vec<(String, String)> },
 }
 
 // ============================================================================
@@ -341,6 +397,22 @@ pub enum AnnotationKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         title: Option<String>,
     },
+    /// Highlighted text (PDF highlights, HTML `<mark>`).
+    Highlight,
+    /// Text color (CSS-compatible value, e.g. "#ff0000", "red").
+    Color {
+        value: String,
+    },
+    /// Font size with units (e.g. "12pt", "1.2em", "16px").
+    FontSize {
+        value: String,
+    },
+    /// Extensible annotation for format-specific styling.
+    Custom {
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value: Option<String>,
+    },
 }
 
 // ============================================================================
@@ -366,9 +438,14 @@ impl From<(f32, f32, f32, f32)> for BoundingBox {
 // ============================================================================
 
 impl NodeContent {
-    /// Get the text content of this node, if it carries text.
+    /// Get the primary text content of this node, if it carries text.
     ///
-    /// Container nodes (`List`, `Quote`, `Group`, `PageBreak`) return `None`.
+    /// Text-carrying nodes: `Title`, `Heading`, `Paragraph`, `ListItem`, `Code`,
+    /// `Formula`, `Footnote`, `Citation` (returns text), `RawBlock` (returns content),
+    /// `DefinitionItem` (returns term only, not definition).
+    ///
+    /// Container/marker nodes return `None`: `List`, `Quote`, `Group`, `PageBreak`,
+    /// `Slide`, `DefinitionList`, `Admonition`, `MetadataBlock`.
     pub fn text(&self) -> Option<&str> {
         match self {
             NodeContent::Title { text }
@@ -377,13 +454,20 @@ impl NodeContent {
             | NodeContent::ListItem { text }
             | NodeContent::Code { text, .. }
             | NodeContent::Formula { text }
-            | NodeContent::Footnote { text } => Some(text),
+            | NodeContent::Footnote { text }
+            | NodeContent::Citation { text, .. }
+            | NodeContent::RawBlock { content: text, .. } => Some(text),
+            NodeContent::DefinitionItem { term, .. } => Some(term),
             NodeContent::Table { .. }
             | NodeContent::Image { .. }
             | NodeContent::List { .. }
             | NodeContent::Quote
             | NodeContent::Group { .. }
-            | NodeContent::PageBreak => None,
+            | NodeContent::PageBreak
+            | NodeContent::Slide { .. }
+            | NodeContent::DefinitionList
+            | NodeContent::Admonition { .. }
+            | NodeContent::MetadataBlock { .. } => None,
         }
     }
 
@@ -403,6 +487,13 @@ impl NodeContent {
             NodeContent::Footnote { .. } => "footnote",
             NodeContent::Group { .. } => "group",
             NodeContent::PageBreak => "page_break",
+            NodeContent::Slide { .. } => "slide",
+            NodeContent::DefinitionList => "definition_list",
+            NodeContent::DefinitionItem { .. } => "definition_item",
+            NodeContent::Citation { .. } => "citation",
+            NodeContent::Admonition { .. } => "admonition",
+            NodeContent::RawBlock { .. } => "raw_block",
+            NodeContent::MetadataBlock { .. } => "metadata_block",
         }
     }
 }
@@ -414,13 +505,17 @@ impl NodeContent {
 impl DocumentStructure {
     /// Create an empty `DocumentStructure`.
     pub fn new() -> Self {
-        Self { nodes: Vec::new() }
+        Self {
+            nodes: Vec::new(),
+            source_format: None,
+        }
     }
 
     /// Create a `DocumentStructure` with pre-allocated capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             nodes: Vec::with_capacity(capacity),
+            source_format: None,
         }
     }
 
@@ -555,6 +650,7 @@ mod tests {
             page_end: None,
             bbox: None,
             annotations: vec![],
+            attributes: None,
         }
     }
 
@@ -593,6 +689,7 @@ mod tests {
             page_end: None,
             bbox: None,
             annotations: vec![],
+            attributes: None,
         };
         let group_idx = doc.push_node(group);
 
@@ -635,6 +732,7 @@ mod tests {
             page_end: None,
             bbox: None,
             annotations: vec![],
+            attributes: None,
         };
         doc.push_node(parent);
 
@@ -664,6 +762,7 @@ mod tests {
             page_end: None,
             bbox: None,
             annotations: vec![],
+            attributes: None,
         };
         doc.push_node(parent);
 
@@ -756,6 +855,194 @@ mod tests {
             .text(),
             None
         );
+
+        // New variants
+        assert_eq!(
+            NodeContent::Slide {
+                number: 1,
+                title: Some("Slide".to_string())
+            }
+            .text(),
+            None
+        );
+        assert_eq!(NodeContent::DefinitionList.text(), None);
+        assert_eq!(
+            NodeContent::DefinitionItem {
+                term: "Term".to_string(),
+                definition: "Def".to_string()
+            }
+            .text(),
+            Some("Term")
+        );
+        assert_eq!(
+            NodeContent::Citation {
+                key: "k".to_string(),
+                text: "Text".to_string()
+            }
+            .text(),
+            Some("Text")
+        );
+        assert_eq!(
+            NodeContent::Admonition {
+                kind: "note".to_string(),
+                title: None
+            }
+            .text(),
+            None
+        );
+        assert_eq!(
+            NodeContent::RawBlock {
+                format: "html".to_string(),
+                content: "<b>hi</b>".to_string()
+            }
+            .text(),
+            Some("<b>hi</b>")
+        );
+        assert_eq!(
+            NodeContent::MetadataBlock {
+                entries: vec![("k".to_string(), "v".to_string())]
+            }
+            .text(),
+            None
+        );
+    }
+
+    #[test]
+    fn test_new_node_type_str() {
+        assert_eq!(NodeContent::Slide { number: 1, title: None }.node_type_str(), "slide");
+        assert_eq!(NodeContent::DefinitionList.node_type_str(), "definition_list");
+        assert_eq!(
+            NodeContent::DefinitionItem {
+                term: "t".to_string(),
+                definition: "d".to_string()
+            }
+            .node_type_str(),
+            "definition_item"
+        );
+        assert_eq!(
+            NodeContent::Citation {
+                key: "k".to_string(),
+                text: "t".to_string()
+            }
+            .node_type_str(),
+            "citation"
+        );
+        assert_eq!(
+            NodeContent::Admonition {
+                kind: "note".to_string(),
+                title: None
+            }
+            .node_type_str(),
+            "admonition"
+        );
+        assert_eq!(
+            NodeContent::RawBlock {
+                format: "html".to_string(),
+                content: "x".to_string()
+            }
+            .node_type_str(),
+            "raw_block"
+        );
+        assert_eq!(
+            NodeContent::MetadataBlock { entries: vec![] }.node_type_str(),
+            "metadata_block"
+        );
+    }
+
+    #[test]
+    fn test_new_annotation_serde_roundtrip() {
+        // Highlight
+        let ann = TextAnnotation {
+            start: 0,
+            end: 5,
+            kind: AnnotationKind::Highlight,
+        };
+        let json = serde_json::to_string(&ann).expect("serialize");
+        let de: TextAnnotation = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(de.kind, AnnotationKind::Highlight);
+
+        // Color
+        let ann = TextAnnotation {
+            start: 0,
+            end: 5,
+            kind: AnnotationKind::Color {
+                value: "#ff0000".to_string(),
+            },
+        };
+        let json = serde_json::to_string(&ann).expect("serialize");
+        let de: TextAnnotation = serde_json::from_str(&json).expect("deserialize");
+        match &de.kind {
+            AnnotationKind::Color { value } => assert_eq!(value, "#ff0000"),
+            _ => panic!("Expected Color"),
+        }
+
+        // FontSize
+        let ann = TextAnnotation {
+            start: 0,
+            end: 5,
+            kind: AnnotationKind::FontSize {
+                value: "12pt".to_string(),
+            },
+        };
+        let json = serde_json::to_string(&ann).expect("serialize");
+        let de: TextAnnotation = serde_json::from_str(&json).expect("deserialize");
+        match &de.kind {
+            AnnotationKind::FontSize { value } => assert_eq!(value, "12pt"),
+            _ => panic!("Expected FontSize"),
+        }
+
+        // Custom
+        let ann = TextAnnotation {
+            start: 0,
+            end: 5,
+            kind: AnnotationKind::Custom {
+                name: "bg-color".to_string(),
+                value: Some("yellow".to_string()),
+            },
+        };
+        let json = serde_json::to_string(&ann).expect("serialize");
+        let de: TextAnnotation = serde_json::from_str(&json).expect("deserialize");
+        match &de.kind {
+            AnnotationKind::Custom { name, value } => {
+                assert_eq!(name, "bg-color");
+                assert_eq!(value.as_deref(), Some("yellow"));
+            }
+            _ => panic!("Expected Custom"),
+        }
+    }
+
+    #[test]
+    fn test_new_node_content_serde_roundtrip() {
+        // Slide
+        let content = NodeContent::Slide {
+            number: 3,
+            title: Some("My Slide".to_string()),
+        };
+        let json = serde_json::to_value(&content).expect("serialize");
+        assert_eq!(json.get("node_type").unwrap(), "slide");
+        assert_eq!(json.get("number").unwrap(), 3);
+        assert_eq!(json.get("title").unwrap(), "My Slide");
+
+        // Citation
+        let content = NodeContent::Citation {
+            key: "doe2024".to_string(),
+            text: "Doe (2024)".to_string(),
+        };
+        let json = serde_json::to_value(&content).expect("serialize");
+        assert_eq!(json.get("node_type").unwrap(), "citation");
+        assert_eq!(json.get("key").unwrap(), "doe2024");
+
+        // MetadataBlock
+        let content = NodeContent::MetadataBlock {
+            entries: vec![
+                ("From".to_string(), "alice@example.com".to_string()),
+                ("Subject".to_string(), "Hello".to_string()),
+            ],
+        };
+        let json = serde_json::to_value(&content).expect("serialize");
+        assert_eq!(json.get("node_type").unwrap(), "metadata_block");
+        let entries = json.get("entries").unwrap().as_array().unwrap();
+        assert_eq!(entries.len(), 2);
     }
 
     #[test]
@@ -782,6 +1069,7 @@ mod tests {
                 y1: 50.0,
             }),
             annotations: vec![],
+            attributes: None,
         };
         let group_idx = doc.push_node(group);
 
@@ -802,6 +1090,7 @@ mod tests {
                 end: 5,
                 kind: AnnotationKind::Bold,
             }],
+            attributes: None,
         };
         let para_idx = doc.push_node(para);
         doc.add_child(group_idx, para_idx);
@@ -918,6 +1207,7 @@ mod tests {
         assert!(json.get("page_end").is_none());
         assert!(json.get("bbox").is_none());
         assert!(json.get("annotations").is_none());
+        assert!(json.get("attributes").is_none());
 
         // These should be present
         assert!(json.get("id").is_some());

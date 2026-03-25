@@ -104,28 +104,50 @@ class NCBINucleotideSearchTool(NCBIEUtilsTool):
                 "db": self.db,
                 "term": search_term,
                 "retmode": "json",
-                "retmax": arguments.get("limit", 20),
+                "retmax": arguments.get("limit") or arguments.get("max_results") or 20,
                 "sort": arguments.get("sort", "relevance"),
             }
 
-            # Make request
             result = self._make_request("/esearch.fcgi", params)
 
             if result["status"] == "error":
                 return result
 
-            # Extract UIDs from esearch response
             data = result.get("data", {})
             if isinstance(data, dict):
                 esearch_result = data.get("esearchresult", {})
                 uids = esearch_result.get("idlist", [])
                 count = int(esearch_result.get("count", 0))
-                int(esearch_result.get("retmax", 0))
+
+                # Auto-fetch accession numbers so results are immediately usable
+                accessions = []
+                if uids:
+                    try:
+                        acc_result = self._make_request(
+                            "/efetch.fcgi",
+                            {
+                                "db": self.db,
+                                "id": ",".join(uids),
+                                "rettype": "acc",
+                                "retmode": "text",
+                            },
+                        )
+                        if acc_result["status"] == "success":
+                            raw = acc_result.get("data", "")
+                            if isinstance(raw, str):
+                                accessions = [
+                                    a.strip()
+                                    for a in raw.strip().split("\n")
+                                    if a.strip()
+                                ]
+                    except Exception:
+                        pass
 
                 return {
                     "status": "success",
                     "data": {
                         "uids": uids,
+                        "accessions": accessions,
                         "count": count,
                         "returned": len(uids),
                         "search_term": search_term,

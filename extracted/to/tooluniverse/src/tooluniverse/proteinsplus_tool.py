@@ -262,6 +262,7 @@ class ProteinsPlusRESTTool(AsyncPollingTool):
     def format_result(self, result: Any) -> Dict[str, Any]:
         """Format ProteinsPlus results into standard response format."""
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "ProteinsPlus",
@@ -301,6 +302,7 @@ class ProteinsPlusRESTTool(AsyncPollingTool):
         missing = [k for k in self.required if k not in arguments]
         if missing:
             return {
+                "status": "error",
                 "error": f"Missing required parameter(s): {', '.join(missing)}",
                 "query": arguments,
             }
@@ -326,18 +328,21 @@ class ProteinsPlusRESTTool(AsyncPollingTool):
 
             if response.status_code == 404:
                 return {
+                    "status": "error",
                     "error": "Endpoint not found",
                     "detail": response.text,
                     "query": arguments,
                 }
             if response.status_code == 400:
                 return {
+                    "status": "error",
                     "error": "Bad request",
                     "detail": response.text,
                     "query": arguments,
                 }
             if response.status_code not in (200, 201):
                 return {
+                    "status": "error",
                     "error": f"API returned {response.status_code}",
                     "detail": response.text,
                     "query": arguments,
@@ -345,6 +350,7 @@ class ProteinsPlusRESTTool(AsyncPollingTool):
 
             data = response.json()
             return {
+                "status": "success",
                 "data": data,
                 "metadata": {
                     "source": "ProteinsPlus",
@@ -356,8 +362,9 @@ class ProteinsPlusRESTTool(AsyncPollingTool):
 
         except requests.Timeout:
             return {
+                "status": "error",
                 "error": "Request timeout",
                 "detail": "Request timed out after 60 seconds",
             }
         except Exception as e:
-            return {"error": "Request failed", "detail": str(e)}
+            return {"status": "error", "error": "Request failed", "detail": str(e)}

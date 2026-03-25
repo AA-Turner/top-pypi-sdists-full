@@ -43,19 +43,46 @@ class EpigenomicsTool(BaseTool):
         fields = tool_config.get("fields", {})
         self.endpoint = fields.get("endpoint", "histone_chipseq")
 
+    _ORGANISM_ALIASES = {
+        "human": "Homo sapiens",
+        "homo sapiens": "Homo sapiens",
+        "mouse": "Mus musculus",
+        "mus musculus": "Mus musculus",
+        "rat": "Rattus norvegicus",
+        "zebrafish": "Danio rerio",
+        "fly": "Drosophila melanogaster",
+        "worm": "Caenorhabditis elegans",
+    }
+
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the epigenomics API call."""
+        # Normalize organism aliases to scientific names required by ENCODE API
+        if "organism" in arguments:
+            org = arguments["organism"].lower()
+            if org in self._ORGANISM_ALIASES:
+                arguments = dict(arguments, organism=self._ORGANISM_ALIASES[org])
         try:
-            return self._dispatch(arguments)
+            result = self._dispatch(arguments)
+            if isinstance(result, dict) and "status" not in result:
+                if "error" in result:
+                    return {"status": "error", **result}
+                return {"status": "success", **result}
+            return result
         except requests.exceptions.Timeout:
-            return {"error": f"API request timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"API request timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to API. Check network connectivity."}
+            return {
+                "status": "error",
+                "error": "Failed to connect to API. Check network connectivity.",
+            }
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
-            return {"error": f"API HTTP error: {status}"}
+            return {"status": "error", "error": f"API HTTP error: {status}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint based on config."""
@@ -77,8 +104,18 @@ class EpigenomicsTool(BaseTool):
             return self._geo_dataset_details(arguments)
         elif self.endpoint == "ensembl_regulatory":
             return self._ensembl_regulatory_features(arguments)
+        elif self.endpoint == "geo_rnaseq_search":
+            return self._geo_rnaseq_search(arguments)
+        elif self.endpoint == "geo_atacseq_search":
+            return self._geo_atacseq_search(arguments)
+        elif self.endpoint == "encode_rnaseq":
+            return self._encode_rnaseq_search(arguments)
+        elif self.endpoint == "encode_hic":
+            return self._encode_hic_search(arguments)
+        elif self.endpoint == "encode_microrna":
+            return self._encode_microrna_search(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     # =========================================================================
     # ENCODE Search Tools
@@ -97,19 +134,39 @@ class EpigenomicsTool(BaseTool):
         response.raise_for_status()
         return response.json()
 
+    @staticmethod
+    def _is_histone_mark(target: str) -> bool:
+        """Return True if target looks like a histone modification (e.g. H3K27ac, H3K4me3)."""
+        import re
+
+        return bool(re.match(r"^H[1-4][A-Za-z0-9]", target))
+
     def _encode_histone_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Search ENCODE histone ChIP-seq experiments."""
+        """Search ENCODE histone or TF ChIP-seq experiments."""
+        histone_mark = arguments.get("histone_mark") or arguments.get("target")
+
+        # Auto-detect TF targets and route to the correct ENCODE assay type
+        if histone_mark and not self._is_histone_mark(histone_mark):
+            assay_title = "TF ChIP-seq"
+        else:
+            assay_title = "Histone ChIP-seq"
+
         params = {
             "type": "Experiment",
-            "assay_title": "Histone ChIP-seq",
+            "assay_title": assay_title,
             "status": "released",
         }
 
-        histone_mark = arguments.get("histone_mark")
         if histone_mark:
             params["target.label"] = histone_mark
 
-        biosample = arguments.get("biosample_term_name")
+        biosample = (
+            arguments.get("biosample_term_name")
+            or arguments.get("biosample")
+            or arguments.get("biosample_term")
+            or arguments.get("cell_type")
+            or arguments.get("tissue")
+        )
         if biosample:
             params["biosample_ontology.term_name"] = biosample
 
@@ -137,14 +194,17 @@ class EpigenomicsTool(BaseTool):
                 raw = self._encode_search(fallback_params)
             except Exception:
                 return {
+                    "status": "success",
                     "data": [],
                     "metadata": {
                         "source": "ENCODE",
                         "total": 0,
-                        "note": f"No results for biosample_term_name='{biosample}'. "
-                        "ENCODE requires ontology cell line/tissue names (e.g., 'K562', "
-                        "'HepG2', 'liver'), not disease names. Use GEO_search_chipseq_datasets "
-                        "for disease-based searches.",
+                        "note": f"No results for biosample='{biosample}'. "
+                        "ENCODE requires exact ontology names for cell lines or tissues "
+                        "(e.g., 'K562', 'HepG2', 'liver', 'brain', 'breast epithelium', 'MCF-7'). "
+                        "Common anatomy terms like 'breast' must be spelled as ENCODE uses them "
+                        "(try 'breast epithelium', 'mammary gland', or a cell line like 'MCF-7'). "
+                        "Use GEO_search_chipseq_datasets for disease-based searches.",
                     },
                 }
 
@@ -167,13 +227,14 @@ class EpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "total": raw.get("total", 0),
                 "experiments": experiments,
             },
             "metadata": {
                 "source": "ENCODE Project (encodeproject.org)",
-                "assay": "Histone ChIP-seq",
+                "assay": assay_title,
                 "histone_mark_filter": histone_mark,
                 "organism": organism,
             },
@@ -188,7 +249,13 @@ class EpigenomicsTool(BaseTool):
             "status": "released",
         }
 
-        biosample = arguments.get("biosample_term_name")
+        biosample = (
+            arguments.get("biosample_term_name")
+            or arguments.get("biosample")
+            or arguments.get("biosample_term")
+            or arguments.get("cell_type")
+            or arguments.get("tissue")
+        )
         if biosample:
             params["biosample_ontology.term_name"] = biosample
 
@@ -217,6 +284,7 @@ class EpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "total": raw.get("total", 0),
                 "experiments": experiments,
@@ -239,7 +307,13 @@ class EpigenomicsTool(BaseTool):
             "status": "released",
         }
 
-        biosample = arguments.get("biosample_term_name")
+        biosample = (
+            arguments.get("biosample_term_name")
+            or arguments.get("biosample")
+            or arguments.get("biosample_term")
+            or arguments.get("cell_type")
+            or arguments.get("tissue")
+        )
         if biosample:
             params["biosample_ontology.term_name"] = biosample
 
@@ -250,7 +324,30 @@ class EpigenomicsTool(BaseTool):
         limit = arguments.get("limit", 25)
         params["limit"] = min(int(limit), 100)
 
-        raw = self._encode_search(params)
+        # Feature-70A-003: biosample+organism combos can 404; fall back without organism.
+        try:
+            raw = self._encode_search(params)
+        except Exception:
+            fallback_params = {
+                k: v
+                for k, v in params.items()
+                if k != "replicates.library.biosample.organism.scientific_name"
+            }
+            try:
+                raw = self._encode_search(fallback_params)
+            except Exception:
+                return {
+                    "status": "success",
+                    "data": [],
+                    "metadata": {
+                        "source": "ENCODE",
+                        "total": 0,
+                        "note": f"No results for biosample='{biosample}'. "
+                        "ENCODE requires exact ontology names for cell lines or tissues "
+                        "(e.g., 'K562', 'HepG2', 'liver', 'brain', 'breast epithelium', 'MCF-7'). "
+                        "Use GEO_search_atacseq_datasets for disease-based searches.",
+                    },
+                }
 
         experiments = []
         for exp in raw.get("@graph", []):
@@ -268,6 +365,7 @@ class EpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "total": raw.get("total", 0),
                 "experiments": experiments,
@@ -290,7 +388,13 @@ class EpigenomicsTool(BaseTool):
             "status": "released",
         }
 
-        biosample = arguments.get("biosample_term_name")
+        biosample = (
+            arguments.get("biosample_term_name")
+            or arguments.get("biosample")
+            or arguments.get("biosample_term")
+            or arguments.get("cell_type")
+            or arguments.get("tissue")
+        )
         if biosample:
             params["biosample_ontology.term_name"] = biosample
 
@@ -320,6 +424,7 @@ class EpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "total": raw.get("total", 0),
                 "annotations": annotations,
@@ -342,7 +447,13 @@ class EpigenomicsTool(BaseTool):
             "status": "released",
         }
 
-        biosample = arguments.get("biosample_term_name")
+        biosample = (
+            arguments.get("biosample_term_name")
+            or arguments.get("biosample")
+            or arguments.get("biosample_term")
+            or arguments.get("cell_type")
+            or arguments.get("tissue")
+        )
         if biosample:
             params["biosample_ontology.term_name"] = biosample
 
@@ -368,6 +479,7 @@ class EpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "total": raw.get("total", 0),
                 "annotations": annotations,
@@ -454,6 +566,7 @@ class EpigenomicsTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": {
                 "total": total,
                 "datasets": datasets,
@@ -507,6 +620,7 @@ class EpigenomicsTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": {
                 "total": total,
                 "datasets": datasets,
@@ -523,14 +637,20 @@ class EpigenomicsTool(BaseTool):
         """Get detailed metadata for a GEO dataset."""
         geo_id = arguments.get("geo_id", "")
         if not geo_id:
-            return {"error": "geo_id parameter is required (e.g., '200291249')"}
+            return {
+                "status": "error",
+                "error": "geo_id parameter is required (e.g., '200291249')",
+            }
 
         summary_result = self._geo_esummary([geo_id])
         result = summary_result.get("result", {})
         uid_data = result.get(str(geo_id), {})
 
         if not isinstance(uid_data, dict) or "accession" not in uid_data:
-            return {"error": f"Dataset with ID '{geo_id}' not found in GEO"}
+            return {
+                "status": "error",
+                "error": f"Dataset with ID '{geo_id}' not found in GEO",
+            }
 
         ftplink = uid_data.get("ftplink", "")
         suppfile = uid_data.get("suppfile", "")
@@ -541,6 +661,7 @@ class EpigenomicsTool(BaseTool):
             supp_data.append(suppfile)
 
         return {
+            "status": "success",
             "data": {
                 "accession": uid_data.get("accession", ""),
                 "title": uid_data.get("title", ""),
@@ -558,6 +679,218 @@ class EpigenomicsTool(BaseTool):
             },
         }
 
+    def _geo_rnaseq_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search GEO for RNA-seq datasets."""
+        query = arguments.get("query", "")
+        organism = arguments.get("organism", "Homo sapiens")
+        limit = arguments.get("limit") or arguments.get("max_results") or 20
+
+        term_parts = [query, "RNA-seq"]
+        if organism:
+            term_parts.append(f"{organism}[Organism]")
+        term = " AND ".join(t for t in term_parts if t)
+
+        search_result = self._geo_esearch(term, limit)
+        esearch = search_result.get("esearchresult", {})
+        total = int(esearch.get("count", 0))
+        ids = esearch.get("idlist", [])
+
+        datasets = []
+        if ids:
+            summary_result = self._geo_esummary(ids)
+            result = summary_result.get("result", {})
+            for uid in ids:
+                uid_data = result.get(str(uid), {})
+                if not isinstance(uid_data, dict) or "accession" not in uid_data:
+                    continue
+                acc = uid_data.get("accession", "")
+                if acc.startswith("GPL"):
+                    continue
+                datasets.append(
+                    {
+                        "accession": acc,
+                        "title": uid_data.get("title", ""),
+                        "summary": uid_data.get("summary", "")[:500],
+                        "organism": uid_data.get("taxon", ""),
+                        "n_samples": uid_data.get("n_samples", 0),
+                        "date_published": uid_data.get("pdat"),
+                    }
+                )
+
+        return {
+            "status": "success",
+            "data": {
+                "total": total,
+                "datasets": datasets,
+            },
+            "metadata": {
+                "source": "NCBI GEO (ncbi.nlm.nih.gov/geo)",
+                "query": query,
+                "search_term": term,
+                "organism": organism,
+            },
+        }
+
+    def _geo_atacseq_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search GEO for ATAC-seq datasets (chromatin accessibility)."""
+        query = arguments.get("query", "")
+        organism = arguments.get("organism", "Homo sapiens")
+        limit = arguments.get("limit") or arguments.get("max_results") or 20
+
+        term_parts = [query, "ATAC-seq"]
+        if organism:
+            term_parts.append(f"{organism}[Organism]")
+        term = " AND ".join(t for t in term_parts if t)
+
+        search_result = self._geo_esearch(term, limit)
+        esearch = search_result.get("esearchresult", {})
+        total = int(esearch.get("count", 0))
+        ids = esearch.get("idlist", [])
+
+        datasets = []
+        if ids:
+            summary_result = self._geo_esummary(ids)
+            result = summary_result.get("result", {})
+            for uid in ids:
+                uid_data = result.get(str(uid), {})
+                if not isinstance(uid_data, dict) or "accession" not in uid_data:
+                    continue
+                acc = uid_data.get("accession", "")
+                if acc.startswith("GPL"):
+                    continue
+                datasets.append(
+                    {
+                        "accession": acc,
+                        "title": uid_data.get("title", ""),
+                        "summary": uid_data.get("summary", "")[:500],
+                        "organism": uid_data.get("taxon", ""),
+                        "n_samples": uid_data.get("n_samples", 0),
+                        "date_published": uid_data.get("pdat"),
+                    }
+                )
+
+        return {
+            "status": "success",
+            "data": {
+                "total": total,
+                "datasets": datasets,
+            },
+            "metadata": {
+                "source": "NCBI GEO (ncbi.nlm.nih.gov/geo)",
+                "query": query,
+                "search_term": term,
+                "organism": organism,
+            },
+        }
+
+    def _encode_rnaseq_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search ENCODE RNA-seq experiments by biosample, organism, or assay type."""
+        biosample = (
+            arguments.get("biosample_term_name")
+            or arguments.get("biosample")
+            or arguments.get("cell_type")
+            or arguments.get("tissue")
+        )
+        organism = arguments.get("organism", "Homo sapiens")
+        assay_type = arguments.get("assay_type", "total RNA-seq")
+        limit = arguments.get("limit", 25)
+
+        # Normalize common aliases for ENCODE RNA-seq assay titles
+        _assay_map = {
+            "total": "total RNA-seq",
+            "polya": "polyA plus RNA-seq",
+            "poly-a": "polyA plus RNA-seq",
+            "polyA": "polyA plus RNA-seq",
+            "mirna": "microRNA-seq",
+            "microrna": "microRNA-seq",
+            "small": "small RNA-seq",
+        }
+        assay_type = _assay_map.get(assay_type.lower(), assay_type)
+
+        params = {
+            "type": "Experiment",
+            "assay_title": assay_type,
+            "status": "released",
+        }
+        if biosample:
+            params["biosample_ontology.term_name"] = biosample
+        if organism:
+            params["replicates.library.biosample.organism.scientific_name"] = organism
+        params["limit"] = min(int(limit), 100)
+
+        try:
+            raw = self._encode_search(params)
+        except Exception:
+            # Fall back without organism filter (mirrors histone search fix)
+            fallback = {
+                k: v
+                for k, v in params.items()
+                if k != "replicates.library.biosample.organism.scientific_name"
+            }
+            try:
+                raw = self._encode_search(fallback)
+            except Exception:
+                return {
+                    "status": "success",
+                    "data": {"total": 0, "experiments": []},
+                    "metadata": {
+                        "source": "ENCODE",
+                        "note": (
+                            f"No results for biosample='{biosample}'. "
+                            "ENCODE requires exact ontology names (e.g., 'K562', 'HepG2', 'liver')."
+                        ),
+                    },
+                }
+
+        # If no results and assay was 'total RNA-seq', retry with 'polyA plus RNA-seq'
+        # Some cell lines (e.g. HeLa-S3) have no total RNA-seq but have polyA plus RNA-seq.
+        if raw.get("total", 0) == 0 and biosample and assay_type == "total RNA-seq":
+            polya_params = dict(params)
+            polya_params["assay_title"] = "polyA plus RNA-seq"
+            try:
+                polya_raw = self._encode_search(polya_params)
+                if polya_raw.get("total", 0) > 0:
+                    raw = polya_raw
+                    assay_type = "polyA plus RNA-seq"
+            except Exception:
+                pass
+
+        experiments = []
+        for exp in raw.get("@graph", []):
+            experiments.append(
+                {
+                    "accession": exp.get("accession", ""),
+                    "assay_title": exp.get("assay_title", ""),
+                    "biosample_summary": exp.get("biosample_summary", ""),
+                    "status": exp.get("status", ""),
+                    "lab": exp.get("lab", {}).get("title", "")
+                    if isinstance(exp.get("lab"), dict)
+                    else "",
+                    "date_released": exp.get("date_released"),
+                }
+            )
+
+        metadata: Dict[str, Any] = {
+            "source": "ENCODE Project (encodeproject.org)",
+            "assay_type": assay_type,
+            "organism": organism,
+            "note": "Available assay types: 'total RNA-seq', 'polyA plus RNA-seq', 'small RNA-seq', 'microRNA-seq'.",
+        }
+        if raw.get("total", 0) == 0 and biosample:
+            metadata["note"] = (
+                f"No results for biosample='{biosample}' with assay_type='{assay_type}'. "
+                "Try a different assay_type: 'polyA plus RNA-seq', 'small RNA-seq', 'microRNA-seq'. "
+                "ENCODE requires exact ontology names (e.g., 'K562', 'HepG2', 'liver')."
+            )
+        return {
+            "status": "success",
+            "data": {
+                "total": raw.get("total", 0),
+                "experiments": experiments,
+            },
+            "metadata": metadata,
+        }
+
     # =========================================================================
     # Ensembl Regulatory Features
     # =========================================================================
@@ -570,11 +903,17 @@ class EpigenomicsTool(BaseTool):
         end = arguments.get("end")
 
         if not chrom or start is None or end is None:
-            return {"error": "chrom, start, and end parameters are required"}
+            return {
+                "status": "error",
+                "error": "chrom, start, and end parameters are required",
+            }
 
         # Ensure region is not too large (max 5Mb)
         if end - start > 5000000:
-            return {"error": "Region too large. Maximum region size is 5 Mb."}
+            return {
+                "status": "error",
+                "error": "Region too large. Maximum region size is 5 Mb.",
+            }
 
         url = (
             f"{ENSEMBL_REST_URL}/overlap/region/{species}/{chrom}:{start}-{end}"
@@ -600,6 +939,7 @@ class EpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "species": species,
                 "region": f"{chrom}:{start}-{end}",
@@ -610,6 +950,126 @@ class EpigenomicsTool(BaseTool):
                 "source": "Ensembl Regulatory Build (rest.ensembl.org)",
                 "species": species,
                 "region": f"{chrom}:{start}-{end}",
+            },
+        }
+
+    # =========================================================================
+    # ENCODE Hi-C / 3D Genome Tools
+    # =========================================================================
+
+    def _encode_hic_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search ENCODE Hi-C and intact Hi-C experiments for 3D genome data."""
+        assay_type = arguments.get("assay_type", "intact Hi-C")
+        params = {
+            "type": "Experiment",
+            "assay_title": assay_type,
+            "status": "released",
+        }
+
+        biosample = (
+            arguments.get("biosample_term_name")
+            or arguments.get("biosample")
+            or arguments.get("cell_type")
+            or arguments.get("tissue")
+        )
+        if biosample:
+            params["biosample_ontology.term_name"] = biosample
+
+        organism = arguments.get("organism", "Homo sapiens")
+        if organism:
+            params["replicates.library.biosample.organism.scientific_name"] = organism
+
+        limit = arguments.get("limit", 25)
+        params["limit"] = min(int(limit), 100)
+
+        raw = self._encode_search(params)
+
+        experiments = []
+        for exp in raw.get("@graph", []):
+            lab = exp.get("lab", {})
+            lab_name = lab.get("title", "") if isinstance(lab, dict) else str(lab)
+
+            experiments.append(
+                {
+                    "accession": exp.get("accession", ""),
+                    "assay_title": exp.get("assay_title", ""),
+                    "biosample_summary": exp.get("biosample_summary", ""),
+                    "description": exp.get("description", ""),
+                    "status": exp.get("status", ""),
+                    "lab": lab_name,
+                    "date_released": exp.get("date_released", ""),
+                }
+            )
+
+        return {
+            "status": "success",
+            "data": {
+                "total": raw.get("total", 0),
+                "experiments": experiments,
+            },
+            "metadata": {
+                "source": "ENCODE Project (encodeproject.org)",
+                "assay": assay_type,
+                "organism": organism,
+            },
+        }
+
+    # =========================================================================
+    # ENCODE microRNA-seq Tools
+    # =========================================================================
+
+    def _encode_microrna_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search ENCODE microRNA-seq experiments."""
+        params = {
+            "type": "Experiment",
+            "assay_title": "microRNA-seq",
+            "status": "released",
+        }
+
+        biosample = (
+            arguments.get("biosample_term_name")
+            or arguments.get("biosample")
+            or arguments.get("cell_type")
+            or arguments.get("tissue")
+        )
+        if biosample:
+            params["biosample_ontology.term_name"] = biosample
+
+        organism = arguments.get("organism", "Homo sapiens")
+        if organism:
+            params["replicates.library.biosample.organism.scientific_name"] = organism
+
+        limit = arguments.get("limit", 25)
+        params["limit"] = min(int(limit), 100)
+
+        raw = self._encode_search(params)
+
+        experiments = []
+        for exp in raw.get("@graph", []):
+            lab = exp.get("lab", {})
+            lab_name = lab.get("title", "") if isinstance(lab, dict) else str(lab)
+
+            experiments.append(
+                {
+                    "accession": exp.get("accession", ""),
+                    "assay_title": exp.get("assay_title", ""),
+                    "biosample_summary": exp.get("biosample_summary", ""),
+                    "status": exp.get("status", ""),
+                    "lab": lab_name,
+                    "date_released": exp.get("date_released", ""),
+                }
+            )
+
+        return {
+            "status": "success",
+            "data": {
+                "total": raw.get("total", 0),
+                "experiments": experiments,
+            },
+            "metadata": {
+                "source": "ENCODE Project (encodeproject.org)",
+                "assay": "microRNA-seq",
+                "organism": organism,
             },
         }
 
@@ -638,14 +1098,17 @@ class UCSCEpigenomicsTool(BaseTool):
         try:
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"UCSC API request timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"UCSC API request timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to UCSC API."}
+            return {"status": "error", "error": "Failed to connect to UCSC API."}
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
-            return {"error": f"UCSC API HTTP error: {status}"}
+            return {"status": "error", "error": f"UCSC API HTTP error: {status}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -656,7 +1119,7 @@ class UCSCEpigenomicsTool(BaseTool):
         elif self.endpoint == "tf_binding":
             return self._get_tf_binding_clusters(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _ucsc_get_track(
         self, genome: str, track: str, chrom: str, start: int, end: int
@@ -678,7 +1141,10 @@ class UCSCEpigenomicsTool(BaseTool):
         end = arguments.get("end")
 
         if not chrom or start is None or end is None:
-            return {"error": "chrom, start, and end parameters are required"}
+            return {
+                "status": "error",
+                "error": "chrom, start, and end parameters are required",
+            }
 
         raw = self._ucsc_get_track(genome, "cpgIslandExt", chrom, start, end)
         items = raw.get("cpgIslandExt", [])
@@ -703,6 +1169,7 @@ class UCSCEpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "genome": genome,
                 "region": f"{chrom}:{start}-{end}",
@@ -724,7 +1191,10 @@ class UCSCEpigenomicsTool(BaseTool):
         end = arguments.get("end")
 
         if not chrom or start is None or end is None:
-            return {"error": "chrom, start, and end parameters are required"}
+            return {
+                "status": "error",
+                "error": "chrom, start, and end parameters are required",
+            }
 
         raw = self._ucsc_get_track(genome, "cCREregistry", chrom, start, end)
         items = raw.get("cCREregistry", [])
@@ -748,6 +1218,7 @@ class UCSCEpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "genome": genome,
                 "region": f"{chrom}:{start}-{end}",
@@ -769,7 +1240,10 @@ class UCSCEpigenomicsTool(BaseTool):
         end = arguments.get("end")
 
         if not chrom or start is None or end is None:
-            return {"error": "chrom, start, and end parameters are required"}
+            return {
+                "status": "error",
+                "error": "chrom, start, and end parameters are required",
+            }
 
         raw = self._ucsc_get_track(genome, "encRegTfbsClustered", chrom, start, end)
         items = raw.get("encRegTfbsClustered", [])
@@ -790,6 +1264,7 @@ class UCSCEpigenomicsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "genome": genome,
                 "region": f"{chrom}:{start}-{end}",

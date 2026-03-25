@@ -28,22 +28,48 @@ pub async fn process_images_with_ocr(
     let tess_config = ocr_config.tesseract_config.as_ref().cloned().unwrap_or_default();
     let output_format = config.output_format;
 
-    for image in &mut images {
+    use tokio::task::JoinSet;
+
+    // Each spawned task returns `(image_index, spawn_blocking_result)`.
+    // `spawn_blocking` itself may fail if the thread panics; we carry that
+    // as a `Result` so we can translate it into a `KreuzbergError` in the
+    // collection loop below, keeping the JoinSet item type concrete.
+    type OcrTaskResult = (
+        usize,
+        Result<Result<crate::types::OcrExtractionResult, crate::ocr::error::OcrError>, tokio::task::JoinError>,
+    );
+    let mut join_set: JoinSet<OcrTaskResult> = JoinSet::new();
+
+    for (idx, image) in images.iter().enumerate() {
         let image_data = image.data.clone();
         let tess_config_clone = tess_config.clone();
         let span = tracing::Span::current();
 
-        let ocr_result = tokio::task::spawn_blocking(move || {
-            let _guard = span.entered();
-            let cache_dir = std::env::var("KREUZBERG_CACHE_DIR").ok().map(std::path::PathBuf::from);
+        join_set.spawn(async move {
+            let blocking_result = tokio::task::spawn_blocking(move || {
+                let _guard = span.entered();
+                let cache_dir = std::env::var("KREUZBERG_CACHE_DIR").ok().map(std::path::PathBuf::from);
 
-            let proc = OcrProcessor::new(cache_dir)?;
-            let ocr_tess_config: crate::ocr::types::TesseractConfig = (&tess_config_clone).into();
-            proc.process_image_with_format(&image_data, &ocr_tess_config, output_format)
-        })
-        .await
-        .map_err(|e| crate::KreuzbergError::Ocr {
-            message: format!("OCR task failed: {}", e),
+                let proc = OcrProcessor::new(cache_dir)?;
+                let ocr_tess_config: crate::ocr::types::TesseractConfig = (&tess_config_clone).into();
+                proc.process_image_with_format(&image_data, &ocr_tess_config, output_format)
+            })
+            .await;
+            (idx, blocking_result)
+        });
+    }
+
+    while let Some(join_result) = join_set.join_next().await {
+        // JoinSet join error means the async wrapper itself panicked, which is
+        // not expected; propagate as a hard error.
+        let (idx, blocking_result) = join_result.map_err(|e| crate::KreuzbergError::Ocr {
+            message: format!("OCR task panicked: {}", e),
+            source: None,
+        })?;
+
+        // Translate spawn_blocking join error (thread panic) into a KreuzbergError.
+        let ocr_result = blocking_result.map_err(|e| crate::KreuzbergError::Ocr {
+            message: format!("OCR blocking task panicked: {}", e),
             source: None,
         })?;
 
@@ -67,11 +93,12 @@ pub async fn process_images_with_ocr(
                     quality_score: None,
                     processing_warnings: Vec::new(),
                     annotations: None,
+                    children: None,
                 };
-                image.ocr_result = Some(Box::new(extraction_result));
+                images[idx].ocr_result = Some(Box::new(extraction_result));
             }
             Err(_) => {
-                image.ocr_result = None;
+                images[idx].ocr_result = None;
             }
         }
     }

@@ -26,6 +26,7 @@ class NativeTrigger:
         service_config (NativeTriggerServiceConfig): Configuration for the trigger including event_type and
             service_config
         error (Union[Unset, None, str]): Error message if the trigger is in an error state
+        summary (Union[Unset, None, str]): Short summary to be displayed when listed
     """
 
     external_id: str
@@ -35,6 +36,7 @@ class NativeTrigger:
     is_flow: bool
     service_config: "NativeTriggerServiceConfig"
     error: Union[Unset, None, str] = UNSET
+    summary: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -47,6 +49,7 @@ class NativeTrigger:
         service_config = self.service_config.to_dict()
 
         error = self.error
+        summary = self.summary
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -62,6 +65,8 @@ class NativeTrigger:
         )
         if error is not UNSET:
             field_dict["error"] = error
+        if summary is not UNSET:
+            field_dict["summary"] = summary
 
         return field_dict
 
@@ -84,6 +89,8 @@ class NativeTrigger:
 
         error = d.pop("error", UNSET)
 
+        summary = d.pop("summary", UNSET)
+
         native_trigger = cls(
             external_id=external_id,
             workspace_id=workspace_id,
@@ -92,6 +99,7 @@ class NativeTrigger:
             is_flow=is_flow,
             service_config=service_config,
             error=error,
+            summary=summary,
         )
 
         native_trigger.additional_properties = d

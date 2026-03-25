@@ -43,6 +43,7 @@ class TestOpenPGPDistributionResponse(unittest.TestCase):
                 base_path = '',
                 base_url = '',
                 content_guard = '',
+                content_guard_prn = '',
                 no_content_change_since = '',
                 hidden = True,
                 pulp_labels = {

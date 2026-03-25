@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.8.6
+Version: 0.8.10
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -42,6 +42,7 @@ Requires-Dist: pyarrow==21.0.0; extra == "crewai"
 Requires-Dist: anthropic<1.0.0,~=0.71.0; extra == "crewai"
 Requires-Dist: azure-ai-inference<2.0.0,>=1.0.0b9; extra == "crewai"
 Requires-Dist: crewai[litellm]<2.0.0,>=1.1.0; extra == "crewai"
+Requires-Dist: litellm!=1.82.7,!=1.82.8,<2.0.0,>=1.72.1; extra == "crewai"
 Requires-Dist: crewai-tools[mcp]<0.77.0,>=0.69.0; extra == "crewai"
 Requires-Dist: nvidia-nat-crewai==1.4.1; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-crewai<1.0.0,>=0.40.5; extra == "crewai"
@@ -64,6 +65,7 @@ Requires-Dist: pyarrow==21.0.0; extra == "langgraph"
 Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.12; extra == "langgraph"
 Requires-Dist: langgraph<1.1.0,>=1.0.0; extra == "langgraph"
 Requires-Dist: langgraph-prebuilt<1.1.0,>=1.0.0; extra == "langgraph"
+Requires-Dist: litellm!=1.82.7,!=1.82.8,<2.0.0,>=1.72.1; extra == "langgraph"
 Requires-Dist: nvidia-nat-langchain==1.4.1; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-langchain<1.0.0,>=0.40.5; extra == "langgraph"
 Provides-Extra: llamaindex
@@ -85,6 +87,7 @@ Requires-Dist: llama-index<0.15.0,>=0.14.0; extra == "llamaindex"
 Requires-Dist: llama-index-core<0.15.0,>=0.14.0; extra == "llamaindex"
 Requires-Dist: llama-index-llms-langchain<0.8.0,>=0.6.1; extra == "llamaindex"
 Requires-Dist: llama-index-llms-litellm<0.7.0,>=0.4.1; extra == "llamaindex"
+Requires-Dist: litellm!=1.82.7,!=1.82.8,<2.0.0,>=1.72.1; extra == "llamaindex"
 Requires-Dist: llama-index-llms-openai<0.7.0,>=0.6.0; extra == "llamaindex"
 Requires-Dist: llama-index-tools-mcp<0.5.0,>=0.1.0; extra == "llamaindex"
 Requires-Dist: nvidia-nat-llama-index==1.4.1; extra == "llamaindex"
@@ -105,6 +108,7 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "na
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "nat"
 Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "nat"
 Requires-Dist: pyarrow==21.0.0; extra == "nat"
+Requires-Dist: litellm!=1.82.7,!=1.82.8,<2.0.0,>=1.72.1; extra == "nat"
 Requires-Dist: nvidia-nat==1.4.1; extra == "nat"
 Requires-Dist: nvidia-nat-a2a==1.4.1; extra == "nat"
 Requires-Dist: nvidia-nat-opentelemetry==1.4.1; extra == "nat"
@@ -176,6 +180,7 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "dr
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "dragent"
 Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "dragent"
 Requires-Dist: pyarrow==21.0.0; extra == "dragent"
+Requires-Dist: litellm!=1.82.7,!=1.82.8,<2.0.0,>=1.72.1; extra == "dragent"
 Requires-Dist: nvidia-nat==1.4.1; extra == "dragent"
 Requires-Dist: nvidia-nat-a2a==1.4.1; extra == "dragent"
 Requires-Dist: nvidia-nat-opentelemetry==1.4.1; extra == "dragent"

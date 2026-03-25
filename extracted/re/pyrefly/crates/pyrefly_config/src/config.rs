@@ -19,6 +19,7 @@ use std::time::Instant;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
+use clap::ValueEnum;
 use derivative::Derivative;
 use dupe::Dupe as _;
 use itertools::Itertools;
@@ -57,12 +58,13 @@ use tracing::debug;
 use tracing::error;
 
 use crate::base::ConfigBase;
+use crate::base::InferReturnTypes;
 use crate::base::RecursionLimitConfig;
-use crate::base::UntypedDefBehavior;
 use crate::environment::environment::PythonEnvironment;
 use crate::environment::interpreters::Interpreters;
 use crate::error::ErrorConfig;
 use crate::error::ErrorDisplayConfig;
+use crate::error_kind::Severity;
 use crate::finder::ConfigError;
 use crate::module_wildcard::Match;
 use crate::pyproject::PyProject;
@@ -102,6 +104,32 @@ pub enum ConfigSource {
     Marker(PathBuf),
     #[default]
     Synthetic,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Default,
+    ValueEnum
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum OutputFormat {
+    /// Minimal text output, one line per error
+    MinText,
+    #[default]
+    /// Full, verbose text output
+    FullText,
+    /// JSON output
+    Json,
+    /// Emit GitHub Actions workflow commands
+    Github,
+    /// Only show error count, omitting individual errors
+    OmitErrors,
 }
 
 impl ConfigSource {
@@ -478,6 +506,10 @@ pub struct ConfigFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub baseline: Option<PathBuf>,
 
+    /// Default error output format for CLI checks when `--output-format` is not set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_format: Option<OutputFormat>,
+
     /// Pyrefly's configurations around interpreter querying/finding.
     #[serde(flatten)]
     pub interpreters: Interpreters,
@@ -523,6 +555,11 @@ pub struct ConfigFile {
     #[derivative(PartialEq = "ignore")]
     pub source_db: Option<ArcId<Box<dyn SourceDatabase>>>,
 
+    /// Minimum severity level for errors to be displayed.
+    /// Errors below this severity will not be shown. Defaults to "error".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_severity: Option<Severity>,
+
     /// Should we let Pyrefly try to index the project's files? Disabling this
     /// may speed up LSP operations on large projects.
     #[serde(default, skip_serializing_if = "crate::util::skip_default_false")]
@@ -556,6 +593,8 @@ impl Default for ConfigFile {
             use_ignore_files: true,
             typeshed_path: None,
             baseline: None,
+            min_severity: None,
+            output_format: None,
             skip_lsp_config_indexing: false,
         }
     }
@@ -788,12 +827,14 @@ impl ConfigFile {
         found_match == Some(true)
     }
 
-    pub fn untyped_def_behavior(&self, path: &Path) -> UntypedDefBehavior {
-        self.get_from_sub_configs(ConfigBase::get_untyped_def_behavior, path)
-            .unwrap_or_else(||
-                 // we can use unwrap here, because the value in the root config must
-                 // be set in `ConfigFile::configure()`.
-                 self.root.untyped_def_behavior.unwrap())
+    pub fn check_unannotated_defs(&self, path: &Path) -> bool {
+        self.get_from_sub_configs(ConfigBase::get_check_unannotated_defs, path)
+            .unwrap_or_else(|| self.root.check_unannotated_defs.unwrap())
+    }
+
+    pub fn infer_return_types(&self, path: &Path) -> InferReturnTypes {
+        self.get_from_sub_configs(ConfigBase::get_infer_return_types, path)
+            .unwrap_or_else(|| self.root.infer_return_types.unwrap())
     }
 
     pub fn disable_type_errors_in_ide(&self, path: &Path) -> bool {
@@ -1087,8 +1128,11 @@ impl ConfigFile {
             self.root.ignore_missing_imports = Some(Default::default());
         }
 
-        if self.root.untyped_def_behavior.is_none() {
-            self.root.untyped_def_behavior = Some(Default::default());
+        // Resolve the deprecated untyped_def_behavior into the two new fields
+        // for both root and sub-configs.
+        self.root.resolve_legacy_untyped_def_behavior();
+        for sub in &mut self.sub_configs {
+            sub.settings.resolve_legacy_untyped_def_behavior();
         }
 
         if self.root.ignore_errors_in_generated_code.is_none() {
@@ -1378,6 +1422,7 @@ mod tests {
 
     use super::*;
     use crate::base::ExtraConfigs;
+    use crate::base::UntypedDefBehavior;
     use crate::error_kind::ErrorKind;
     use crate::error_kind::Severity;
     use crate::module_wildcard::ModuleWildcard;
@@ -1394,6 +1439,7 @@ mod tests {
              python-version = "1.2.3"
              site-package-path = ["venv/lib/python1.2.3/site-packages"]
              python-interpreter = "venv/my/python"
+             output-format = "min-text"
              replace-imports-with-any = ["fibonacci"]
              ignore-missing-imports = ["sprout"]
              ignore-errors-in-generated-code = true
@@ -1435,6 +1481,7 @@ mod tests {
                 import_root: None,
                 build_system: Default::default(),
                 use_ignore_files: true,
+                output_format: Some(OutputFormat::MinText),
                 fallback_search_path: Default::default(),
                 python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::mac()),
@@ -1470,6 +1517,8 @@ mod tests {
                     replace_imports_with_any: Some(vec![ModuleWildcard::new("fibonacci").unwrap()]),
                     ignore_missing_imports: Some(vec![ModuleWildcard::new("sprout").unwrap()]),
                     untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
+                    check_unannotated_defs: None,
+                    infer_return_types: None,
                     permissive_ignores: None,
                     enabled_ignores: None,
                     recursion_depth_limit: None,
@@ -1492,6 +1541,8 @@ mod tests {
                         replace_imports_with_any: Some(Vec::new()),
                         ignore_missing_imports: Some(Vec::new()),
                         untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnAny),
+                        check_unannotated_defs: None,
+                        infer_return_types: None,
                         permissive_ignores: None,
                         enabled_ignores: None,
                         recursion_depth_limit: None,
@@ -1500,6 +1551,7 @@ mod tests {
                 }],
                 typeshed_path: None,
                 baseline: None,
+                min_severity: None,
                 skip_lsp_config_indexing: false,
             }
         );
@@ -1581,10 +1633,11 @@ mod tests {
     #[test]
     fn deserialize_pyproject_toml() {
         let config_str = r#"
-             [tool.pyrefly]
+            [tool.pyrefly]
              project_includes = ["./tests", "./implementation"]
                  python_platform = "darwin"
                  python_version = "1.2.3"
+                 output-format = "json"
                  "#;
         let config = ConfigFile::parse_pyproject_toml(config_str)
             .unwrap()
@@ -1611,6 +1664,7 @@ mod tests {
                         .interpreter_stdlib_path
                         .clone(),
                 },
+                output_format: Some(OutputFormat::Json),
                 ..Default::default()
             }
         );
@@ -1719,6 +1773,7 @@ mod tests {
             disable_project_excludes_heuristics: false,
             import_root: None,
             use_ignore_files: true,
+            output_format: Some(OutputFormat::Json),
             fallback_search_path: Default::default(),
             python_environment: python_environment.clone(),
             interpreters: Interpreters {
@@ -1738,6 +1793,7 @@ mod tests {
             }],
             typeshed_path: Some(PathBuf::from(typeshed)),
             baseline: Some(PathBuf::from("baseline.json")),
+            min_severity: None,
             skip_lsp_config_indexing: false,
         };
 
@@ -1785,6 +1841,7 @@ mod tests {
             disable_search_path_heuristics: false,
             disable_project_excludes_heuristics: false,
             use_ignore_files: true,
+            output_format: Some(OutputFormat::Json),
             import_root: None,
             fallback_search_path: Default::default(),
             python_environment,
@@ -1797,6 +1854,7 @@ mod tests {
             }],
             typeshed_path: Some(expected_typeshed),
             baseline: Some(test_path.join("baseline.json")),
+            min_severity: None,
             skip_lsp_config_indexing: false,
         };
         assert_eq!(config, expected_config);
@@ -1831,6 +1889,15 @@ baseline = "baseline.json"
 "#;
         let config = ConfigFile::parse_config(config_str).unwrap();
         assert_eq!(config.baseline, Some(PathBuf::from("baseline.json")));
+    }
+
+    #[test]
+    fn test_output_format_config_parsing() {
+        let config_str = r#"
+output-format = "omit-errors"
+"#;
+        let config = ConfigFile::parse_config(config_str).unwrap();
+        assert_eq!(config.output_format, Some(OutputFormat::OmitErrors));
     }
 
     #[test]
@@ -1877,6 +1944,8 @@ baseline = "baseline.json"
                 replace_imports_with_any: Some(vec![ModuleWildcard::new("root").unwrap()]),
                 ignore_missing_imports: None,
                 untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
+                check_unannotated_defs: None,
+                infer_return_types: None,
                 disable_type_errors_in_ide: Some(true),
                 ignore_errors_in_generated_code: Some(false),
                 infer_with_first_use: Some(true),
@@ -2188,6 +2257,8 @@ baseline = "baseline.json"
                 ]),
                 ignore_missing_imports: None,
                 untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
+                check_unannotated_defs: None,
+                infer_return_types: None,
                 disable_type_errors_in_ide: Some(true),
                 ignore_errors_in_generated_code: Some(false),
                 infer_with_first_use: Some(true),
@@ -2224,6 +2295,8 @@ baseline = "baseline.json"
                 ]),
                 ignore_missing_imports: None,
                 untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
+                check_unannotated_defs: None,
+                infer_return_types: None,
                 disable_type_errors_in_ide: Some(true),
                 ignore_errors_in_generated_code: Some(false),
                 infer_with_first_use: Some(true),

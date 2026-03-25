@@ -115,6 +115,83 @@ TEST(Lexer, TestNumbers)
             "1e+!",
             {},
             "number 1e+!:1:1: couldn't lex number, junk after exponent sign: !");
+    testLex("number 1.2.3.4",
+            "1.2.3.4",
+            {Token(Token::Kind::NUMBER, "1.2"),
+             Token(Token::Kind::DOT, ""),
+             Token(Token::Kind::NUMBER, "3.4")},
+            "");
+    testLex("number 1e2.34",
+            "1e2.34",
+            {Token(Token::Kind::NUMBER, "1e2"),
+             Token(Token::Kind::DOT, ""),
+             Token(Token::Kind::NUMBER, "34")},
+            "");
+}
+
+TEST(Lexer, TestNumbersWithSeparators)
+{
+    testLex("number 123_456", "123_456", {Token(Token::Kind::NUMBER, "123456")}, "");
+    testLex("number 1_750_000", "1_750_000", {Token(Token::Kind::NUMBER, "1750000")}, "");
+    testLex("number 1_2_3", "1_2_3", {Token(Token::Kind::NUMBER, "123")}, "");
+    testLex("number 3.141_592", "3.141_592", {Token(Token::Kind::NUMBER, "3.141592")}, "");
+    testLex("number 01_100", "01_100", {Token(Token::Kind::NUMBER, "0"), Token(Token::Kind::NUMBER, "1100")}, "");
+    testLex("number 1_200.0", "1_200.0", {Token(Token::Kind::NUMBER, "1200.0")}, "");
+    testLex("number 0e1_01", "0e1_01", {Token(Token::Kind::NUMBER, "0e101")}, "");
+    testLex("number 10_10e3", "10_10e3", {Token(Token::Kind::NUMBER, "1010e3")}, "");
+    testLex("number 2_3e1_2", "2_3e1_2", {Token(Token::Kind::NUMBER, "23e12")}, "");
+    testLex("number 1.1_2e100", "1.1_2e100", {Token(Token::Kind::NUMBER, "1.12e100")}, "");
+    testLex("number 1.1e-10_1", "1.1e-10_1", {Token(Token::Kind::NUMBER, "1.1e-101")}, "");
+    testLex("number 9.109_383_56e-31", "9.109_383_56e-31", {Token(Token::Kind::NUMBER, "9.10938356e-31")}, "");
+    // Strange cases of adjacent tokens.
+    testLex("number 1_2.3_4.5_6.7_8",
+            "1_2.3_4.5_6.7_8",
+            {Token(Token::Kind::NUMBER, "12.34"),
+             Token(Token::Kind::DOT, ""),
+             Token(Token::Kind::NUMBER, "56.78")},
+             {});
+    testLex("number 1e2_3e4",
+            "1e2_3e4",
+            {Token(Token::Kind::NUMBER, "1e23"),
+             Token(Token::Kind::IDENTIFIER, "e4")},
+            "");
+
+    testLex("number 0_5",
+            "0_5",
+            {},
+            "number 0_5:1:1: couldn't lex number, _ not allowed after leading 0");
+    testLex("number 123456_!",
+            "123456_!",
+            {},
+            "number 123456_!:1:1: couldn't lex number, junk after _: !");
+    testLex("number 123__456",
+            "123__456",
+            {},
+            "number 123__456:1:1: couldn't lex number, junk after _: _");
+    testLex("number 1_200_.0",
+            "1_200_.0",
+            {},
+            "number 1_200_.0:1:1: couldn't lex number, junk after _: .");
+    testLex("number 1_200._0",
+            "1_200._0",
+            {},
+            "number 1_200._0:1:1: couldn't lex number, junk after decimal point: _");
+    testLex("number 1_200_e2",
+            "1_200_e2",
+            {},
+            "number 1_200_e2:1:1: couldn't lex number, junk after _: e");
+    testLex("number 1_200e_2",
+            "1_200e_2",
+            {},
+            "number 1_200e_2:1:1: couldn't lex number, junk after 'E': _");
+    testLex("number 200e-_2",
+            "200e-_2",
+            {},
+            "number 200e-_2:1:1: couldn't lex number, junk after exponent sign: _");
+    testLex("number 200e+_2",
+            "200e+_2",
+            {},
+            "number 200e+_2:1:1: couldn't lex number, junk after exponent sign: _");
 }
 
 TEST(Lexer, TestDoubleStrings)
@@ -264,7 +341,7 @@ TEST(Lexer, TestBlockStringBadIndent)
     testLex("block string bad indent",
             str,
             {},
-            "block string bad indent:1:1: text block not terminated with |||");
+            "block string bad indent:1:1: text block indentation mismatch: expected at least 2 spaces, found 1 space");
 }
 
 TEST(Lexer, TestBlockStringEof)
@@ -328,6 +405,7 @@ TEST(Lexer, TestIdentifier)
             "foo bar123",
             {Token(Token::Kind::IDENTIFIER, "foo"), Token(Token::Kind::IDENTIFIER, "bar123")},
             "");
+    testLex("identifier _123", "_123", {Token(Token::Kind::IDENTIFIER, "_123")}, "");
 }
 
 TEST(Lexer, TestComments)

@@ -39,14 +39,20 @@ class STRINGExtTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"STRING API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"STRING API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to STRING API"}
+            return {"status": "error", "error": "Failed to connect to STRING API"}
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "unknown"
-            return {"error": f"STRING API HTTP error: {code}"}
+            return {"status": "error", "error": f"STRING API HTTP error: {code}"}
         except Exception as e:
-            return {"error": f"Unexpected error querying STRING API: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying STRING API: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -55,14 +61,15 @@ class STRINGExtTool(BaseTool):
         elif self.endpoint == "enrichment":
             return self._get_enrichment(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_functional_annotations(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get functional annotations for a protein from STRING."""
         identifiers = arguments.get("identifiers", "")
         if not identifiers:
             return {
-                "error": "identifiers parameter is required (gene name or protein ID, e.g., 'TP53')"
+                "status": "error",
+                "error": "identifiers parameter is required (gene name or protein ID, e.g., 'TP53')",
             }
 
         species = arguments.get("species", 9606)
@@ -98,6 +105,7 @@ class STRINGExtTool(BaseTool):
         top_annotations = {cat: items[:15] for cat, items in by_category.items()}
 
         return {
+            "status": "success",
             "data": {
                 "identifiers": identifiers,
                 "species": species,
@@ -117,7 +125,8 @@ class STRINGExtTool(BaseTool):
         identifiers = arguments.get("identifiers", "")
         if not identifiers:
             return {
-                "error": "identifiers parameter is required (newline-separated gene names, e.g., 'BRCA1\\nTP53\\nEGFR')"
+                "status": "error",
+                "error": "identifiers parameter is required (newline-separated gene names, e.g., 'BRCA1\\nTP53\\nEGFR')",
             }
 
         species = arguments.get("species", 9606)
@@ -136,6 +145,7 @@ class STRINGExtTool(BaseTool):
         data = response.json()
 
         return {
+            "status": "success",
             "data": {
                 "identifiers": identifiers,
                 "species": species,

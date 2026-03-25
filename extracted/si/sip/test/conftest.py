@@ -29,6 +29,15 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture
+def abi_package_version(package):
+    """ This fixture extracts the ABI version used to build a test package.
+    The value is the ABI major version.
+    """
+
+    return package.sip.SIP_ABI_VERSION >> 16
+
+
+@pytest.fixture
 def abi_version(module):
     """ This fixture extracts the ABI version used to build a test module.  The
     value is the ABI major version.
@@ -292,7 +301,9 @@ def _build_test_module(sip_file, test_dir, abi_version, package, exceptions,
                 f.write(f'tags = [{tags_s}]\n')
 
     # Configure the C++11 support.
-    os.environ['CXXFLAGS'] = '-std=c++11'
+    cxxflags = os.environ.get('CXXFLAGS', '')
+    if '-std=c++11' not in cxxflags:
+        os.environ['CXXFLAGS'] = f'{cxxflags} -std=c++11'
 
     # Build and move the test module.
     _build_module(module_name, package,

@@ -43,16 +43,24 @@ class BioSamplesTool(BaseTool):
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"BioSamples API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"BioSamples API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to BioSamples API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to BioSamples API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"BioSamples API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"BioSamples API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying BioSamples: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying BioSamples: {str(e)}",
+            }
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint based on config."""
@@ -63,13 +71,19 @@ class BioSamplesTool(BaseTool):
         elif self.endpoint_type == "search_by_filter":
             return self._search_by_filter(arguments)
         else:
-            return {"error": f"Unknown endpoint_type: {self.endpoint_type}"}
+            return {
+                "status": "error",
+                "error": f"Unknown endpoint_type: {self.endpoint_type}",
+            }
 
     def _get_sample(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get a specific biological sample by accession."""
         accession = arguments.get("accession", "")
         if not accession:
-            return {"error": "accession parameter is required (e.g., 'SAMEA104228123')"}
+            return {
+                "status": "error",
+                "error": "accession parameter is required (e.g., 'SAMEA104228123')",
+            }
 
         url = f"{BIOSAMPLES_BASE_URL}/samples/{accession}"
         response = requests.get(
@@ -111,6 +125,7 @@ class BioSamplesTool(BaseTool):
             ]
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "EBI BioSamples",
@@ -124,7 +139,8 @@ class BioSamplesTool(BaseTool):
         query = arguments.get("query", "")
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'breast cancer', 'liver tissue')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'breast cancer', 'liver tissue')",
             }
 
         size = min(arguments.get("limit", 10), 50)
@@ -172,6 +188,7 @@ class BioSamplesTool(BaseTool):
         page_info = raw.get("page", {})
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "EBI BioSamples",
@@ -190,7 +207,8 @@ class BioSamplesTool(BaseTool):
         value = arguments.get("value", "")
         if not attribute or not value:
             return {
-                "error": "Both 'attribute' and 'value' parameters are required (e.g., attribute='organism', value='Homo sapiens')"
+                "status": "error",
+                "error": "Both 'attribute' and 'value' parameters are required (e.g., attribute='organism', value='Homo sapiens')",
             }
 
         size = min(arguments.get("limit", 10), 50)
@@ -245,6 +263,7 @@ class BioSamplesTool(BaseTool):
         page_info = raw.get("page", {})
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "EBI BioSamples",

@@ -22,6 +22,7 @@ from torch._inductor.package.package import package_aoti
 from torch.export.pt2_archive._package import AOTICompiledModel
 from torch.export.pt2_archive._package_weights import Weights
 
+from ..utils import read_map_files
 from ..utils import register_cleanup
 
 
@@ -48,13 +49,12 @@ def _register_aoti_cleanup():
     But the GPU worker never terminates gracefully in ZeroGPU so cleanup must be done manually
     """
     pid = os.getpid()
-    map_files = Path(f'/proc/{pid}/map_files')
-    maps_before = {f.name for f in map_files.iterdir()}
+    maps_before = {name for name, _ in read_map_files()}
     yield
-    for map_file in map_files.iterdir():
-        if map_file.name not in maps_before:
-            if (mapped := map_file.readlink()).match(ARCHIVE_SO_PATTERN):
-                package_path = Path(*mapped.parts[:3])
+    for name, path in read_map_files():
+        if name not in maps_before:
+            if path.match(ARCHIVE_SO_PATTERN):
+                package_path = Path(*path.parts[:3])
                 return register_cleanup(pid, package_path)
 
 

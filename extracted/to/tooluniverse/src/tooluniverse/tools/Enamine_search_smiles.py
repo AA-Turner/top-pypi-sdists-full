@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def Enamine_search_smiles(
-    operation: str,
     smiles: str,
+    operation: Optional[str] = None,
     search_type: Optional[str] = "similarity",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,

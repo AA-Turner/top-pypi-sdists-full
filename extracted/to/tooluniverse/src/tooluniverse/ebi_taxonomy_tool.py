@@ -43,16 +43,24 @@ class EBITaxonomyTool(BaseTool):
             return self._query(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"EBI Taxonomy API request timed out after {self.timeout}s"
+                "status": "error",
+                "error": f"EBI Taxonomy API request timed out after {self.timeout}s",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to EBI Taxonomy API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to EBI Taxonomy API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"EBI Taxonomy API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"EBI Taxonomy API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying EBI Taxonomy: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying EBI Taxonomy: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to the appropriate EBI Taxonomy endpoint."""
@@ -67,13 +75,16 @@ class EBITaxonomyTool(BaseTool):
         elif endpoint_type == "tax_suggest":
             return self._get_suggestions(arguments)
         else:
-            return {"error": f"Unknown endpoint type: {endpoint_type}"}
+            return {
+                "status": "error",
+                "error": f"Unknown endpoint type: {endpoint_type}",
+            }
 
     def _get_by_tax_id(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get taxonomy information by NCBI Taxonomy ID."""
         tax_id = arguments.get("tax_id", "")
         if not tax_id:
-            return {"error": "tax_id parameter is required"}
+            return {"status": "error", "error": "tax_id parameter is required"}
 
         url = f"{EBI_TAXONOMY_BASE}/tax-id/{tax_id}"
         response = requests.get(
@@ -83,6 +94,7 @@ class EBITaxonomyTool(BaseTool):
         data = response.json()
 
         return {
+            "status": "success",
             "data": {
                 "tax_id": data.get("taxId"),
                 "scientific_name": data.get("scientificName"),
@@ -108,7 +120,7 @@ class EBITaxonomyTool(BaseTool):
         """Get taxonomy information by scientific name."""
         name = arguments.get("scientific_name", "")
         if not name:
-            return {"error": "scientific_name parameter is required"}
+            return {"status": "error", "error": "scientific_name parameter is required"}
 
         url = f"{EBI_TAXONOMY_BASE}/scientific-name/{name}"
         response = requests.get(
@@ -134,6 +146,7 @@ class EBITaxonomyTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": items,
             "metadata": {
                 "total_results": len(items),
@@ -146,7 +159,7 @@ class EBITaxonomyTool(BaseTool):
         """Get taxonomy by any name (scientific, common, synonym)."""
         name = arguments.get("name", "")
         if not name:
-            return {"error": "name parameter is required"}
+            return {"status": "error", "error": "name parameter is required"}
 
         url = f"{EBI_TAXONOMY_BASE}/any-name/{name}"
         response = requests.get(
@@ -171,6 +184,7 @@ class EBITaxonomyTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": items,
             "metadata": {
                 "total_results": len(items),
@@ -183,7 +197,7 @@ class EBITaxonomyTool(BaseTool):
         """Get taxonomy name suggestions for search."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         url = f"{EBI_TAXONOMY_BASE}/suggest-for-search/{query}"
         response = requests.get(
@@ -206,6 +220,7 @@ class EBITaxonomyTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": items,
             "metadata": {
                 "total_results": len(items),

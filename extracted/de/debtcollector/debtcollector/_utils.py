@@ -12,8 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import annotations
+
+import builtins
+from collections.abc import Callable
 import functools
 import inspect
+import types
+from typing import Any
 import warnings
 
 # See https://docs.python.org/3/library/builtins.html
@@ -21,7 +27,11 @@ _BUILTIN_MODULES = ('builtins', 'exceptions')
 _enabled = True
 
 
-def deprecation(message, stacklevel=None, category=None):
+def deprecation(
+    message: str,
+    stacklevel: int | None = None,
+    category: type[Warning] | None = None,
+) -> None:
     """Warns about some type of deprecation that has been (or will be) made.
 
     This helper function makes it easier to interact with the warnings module
@@ -39,7 +49,7 @@ def deprecation(message, stacklevel=None, category=None):
     the deprecation warnings).
     """
     if not _enabled:
-        return
+        return None
     if category is None:
         category = DeprecationWarning
     if stacklevel is None:
@@ -47,8 +57,12 @@ def deprecation(message, stacklevel=None, category=None):
     else:
         warnings.warn(message, category=category, stacklevel=stacklevel)
 
+    return None
 
-def get_qualified_name(obj):
+
+def get_qualified_name(
+    obj: Callable[..., Any] | types.ModuleType | builtins.function,
+) -> tuple[bool, str]:
     # Prefer the py3.x name (if we can get at it...)
     try:
         return (True, obj.__qualname__)
@@ -56,32 +70,42 @@ def get_qualified_name(obj):
         return (False, obj.__name__)
 
 
-def generate_message(prefix, postfix=None, message=None,
-                     version=None, removal_version=None):
+def generate_message(
+    prefix: str,
+    postfix: str | None = None,
+    message: str | None = None,
+    version: str | None = None,
+    removal_version: str | None = None,
+) -> str:
     """Helper to generate a common message 'style' for deprecation helpers."""
     message_components = [prefix]
     if version:
-        message_components.append(" in version '%s'" % version)
+        message_components.append(f" in version '{version}'")
     if removal_version:
         if removal_version == "?":
-            message_components.append(" and will be removed in a future"
-                                      " version")
+            message_components.append(
+                " and will be removed in a future version"
+            )
         else:
-            message_components.append(" and will be removed in version '%s'"
-                                      % removal_version)
+            message_components.append(
+                f" and will be removed in version '{removal_version}'"
+            )
     if postfix:
         message_components.append(postfix)
     if message:
-        message_components.append(": %s" % message)
+        message_components.append(f": {message}")
     return ''.join(message_components)
 
 
-def get_assigned(decorator):
+def get_assigned(decorator: Any) -> tuple[str, ...]:
     """Helper to fix/workaround https://bugs.python.org/issue3445"""
     return functools.WRAPPER_ASSIGNMENTS
 
 
-def get_class_name(obj, fully_qualified=True):
+def get_class_name(
+    obj: type[Any] | Callable[..., Any],
+    fully_qualified: bool = True,
+) -> str:
     """Get class name for object.
 
     If object is a type, fully qualified name of the type is returned.
@@ -99,12 +123,12 @@ def get_class_name(obj, fully_qualified=True):
             return obj.__name__
 
     if fully_qualified and hasattr(obj, '__module__'):
-        return '%s.%s' % (obj.__module__, obj.__name__)
+        return f'{obj.__module__}.{obj.__name__}'
     else:
         return obj.__name__
 
 
-def get_method_self(method):
+def get_method_self(method: Any) -> Any:
     """Gets the ``self`` object attached to this method (or none)."""
     if not inspect.ismethod(method):
         return None
@@ -114,11 +138,12 @@ def get_method_self(method):
         return None
 
 
-def get_callable_name(function):
+def get_callable_name(function: Callable[..., Any]) -> str:
     """Generate a name from callable.
 
     Tries to do the best to guess fully qualified callable name.
     """
+    parts: tuple[str, str] | tuple[str, str, str]
     method_self = get_method_self(function)
     if method_self is not None:
         # This is a bound method.
@@ -139,14 +164,18 @@ def get_callable_name(function):
             if hasattr(function, 'im_class'):
                 # This is a unbound method, which exists only in python 2.x
                 im_class = function.im_class
-                parts = (im_class.__module__,
-                         im_class.__name__, function.__name__)
+                parts = (
+                    im_class.__module__,
+                    im_class.__name__,
+                    function.__name__,
+                )
             else:
                 parts = (function.__module__, function.__name__)
     else:
-        im_class = type(function)
-        if im_class is type:
+        if type(function) is type:
             im_class = function
+        else:
+            im_class = type(function)
         try:
             parts = (im_class.__module__, im_class.__qualname__)
         except AttributeError:

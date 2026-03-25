@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urllib3-future
-Version: 2.17.903
+Version: 2.18.900
 Summary: urllib3.future is a powerful HTTP 1.1, 2, and 3 client with both sync and async interfaces
 Project-URL: Changelog, https://github.com/jawah/urllib3.future/blob/main/CHANGES.rst
 Project-URL: Documentation, https://urllib3future.readthedocs.io
@@ -82,10 +82,10 @@ Description-Content-Type: text/markdown
 - Support for Python/PyPy 3.7+, no compromise.
 - Automatic Connection Upgrade / Downgrade.
 - Early (Informational) Responses / Hints.
+- Post-Quantum Security & ECH with QUIC.
 - HTTP/1.1, HTTP/2 and HTTP/3 support.
 - WebSocket over HTTP/2+ (RFC8441).
 - Proxy support for HTTP and SOCKS.
-- Post-Quantum Security with QUIC.
 - Detailed connection inspection.
 - HTTP/2 with prior knowledge.
 - Support for free-threaded.

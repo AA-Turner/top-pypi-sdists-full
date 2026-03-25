@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def MetaCyc_get_reaction(
-    operation: str,
     reaction_id: str,
+    operation: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

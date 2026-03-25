@@ -13,9 +13,12 @@ use pyrefly_types::dimension::canonicalize;
 use pyrefly_types::lit_int::LitInt;
 use pyrefly_types::literal::LitStyle;
 use pyrefly_types::literal::Literal;
+use pyrefly_types::quantified::Quantified;
 use pyrefly_types::quantified::QuantifiedKind;
 use pyrefly_types::tensor::TensorType;
 use pyrefly_types::tensor::broadcast_shapes;
+use pyrefly_types::type_var::Restriction;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::CmpOp;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprCompare;
@@ -91,9 +94,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
 
-        // Check if at least one operand is a symbolic dimension type
+        // Check if at least one operand is a symbolic dimension type or literal int
         let is_dim_operand = |ty: &Type| match ty {
             Type::Dim(_) | Type::Size(_) => true,
+            Type::Literal(box Literal {
+                value: Lit::Int(_), ..
+            }) => true,
             Type::QuantifiedValue(q) => {
                 matches!(q.kind, QuantifiedKind::TypeVar)
             }
@@ -144,10 +150,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => unreachable!(),
         };
 
-        // If either operand is Dim, return Dim-wrapped result
-        // Otherwise (e.g., Dim-bounded type parameters), return unwrapped dimension type
+        // If either operand is Dim, return Dim-wrapped result.
+        // If both operands are Literal[int], convert result back to Literal[int].
+        // Otherwise (e.g., Dim-bounded type parameters), return unwrapped dimension type.
         if matches!(lhs, Type::Dim(_)) || matches!(rhs, Type::Dim(_)) {
             Some(self.heap.mk_dim(result_ty))
+        } else if matches!(
+            lhs,
+            Type::Literal(box Literal {
+                value: Lit::Int(_), ..
+            })
+        ) && matches!(
+            rhs,
+            Type::Literal(box Literal {
+                value: Lit::Int(_), ..
+            })
+        ) {
+            // Both operands are Literal[int], so convert SizeExpr::Literal back to Literal[int]
+            if let Type::Size(SizeExpr::Literal(n)) = &result_ty {
+                Some(Lit::Int(LitInt::new(*n)).to_implicit_type())
+            } else {
+                Some(result_ty)
+            }
         } else {
             Some(result_ty)
         }
@@ -297,23 +321,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
-        let binop_call = |op: Operator, lhs: &Type, rhs: &Type, range: TextRange| -> Type {
-            let context = || {
-                ErrorContext::BinaryOp(
-                    op.as_str().to_owned(),
-                    self.for_display(lhs.clone()),
-                    self.for_display(rhs.clone()),
-                )
-            };
-            // Reflected operator implementation: This deviates from the runtime semantics by calling the reflected dunder if the regular dunder call errors.
-            // At runtime, the reflected dunder is called only if the regular dunder method doesn't exist or if it returns NotImplemented.
-            // This deviation is necessary, given that the typeshed stubs don't record when NotImplemented is returned
-            let calls_to_try = [
-                (&Name::new_static(op.dunder()), lhs, rhs),
-                (&Name::new_static(op.reflected_dunder()), rhs, lhs),
-            ];
-            self.try_binop_calls(&calls_to_try, range, errors, &context)
-        };
         let lhs;
         let rhs;
         if Ast::is_list_literal_or_comprehension(&x.left) && x.op == Operator::Mult {
@@ -348,8 +355,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return self.heap.mk_type_form(self.union(l, r));
         }
 
-        self.distribute_over_union(&lhs, |lhs| {
-            self.distribute_over_union(&rhs, |rhs| {
+        self.binop_types(x, &lhs, &rhs, errors)
+    }
+
+    fn binop_types(&self, x: &ExprBinOp, lhs: &Type, rhs: &Type, errors: &ErrorCollector) -> Type {
+        let binop_call = |op: Operator, lhs: &Type, rhs: &Type, range: TextRange| -> Type {
+            let context = || {
+                ErrorContext::BinaryOp(
+                    op.as_str().to_owned(),
+                    self.for_display(lhs.clone()),
+                    self.for_display(rhs.clone()),
+                )
+            };
+            // Reflected operator implementation: This deviates from the runtime semantics by calling the reflected dunder if the regular dunder call errors.
+            // At runtime, the reflected dunder is called only if the regular dunder method doesn't exist or if it returns NotImplemented.
+            // This deviation is necessary, given that the typeshed stubs don't record when NotImplemented is returned
+            let calls_to_try = [
+                (&Name::new_static(op.dunder()), lhs, rhs),
+                (&Name::new_static(op.reflected_dunder()), rhs, lhs),
+            ];
+            self.try_binop_calls(&calls_to_try, range, errors, &context)
+        };
+        self.distribute_over_union(lhs, |lhs| {
+            self.distribute_over_union(rhs, |rhs| {
                 // If an Any appears on the RHS, do not refine the return type based on the LHS.
                 // Without loss of generality, consider e1 + e2 where e1 has type int and e2 has type Any.
                 // Then e1 + e2 should have a return type of Any since e2's __radd__  signature could be
@@ -423,7 +451,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                 } else {
-                    binop_call(x.op, lhs, rhs, x.range)
+                    match (lhs, rhs) {
+                        (Type::Quantified(left_q), Type::Quantified(right_q))
+                            if left_q == right_q
+                                && let Restriction::Constraints(constraints) =
+                                    &left_q.restriction =>
+                        {
+                            self.unions(constraints.map(|constraint| {
+                                self.binop_types(x, constraint, constraint, errors)
+                            }))
+                        }
+                        // We skip non-union bounds to avoid accidentally erasing `Self` typevars.
+                        (Type::Quantified(left_q), _)
+                            if let Some(left_restriction) = self.as_union_restriction(left_q) =>
+                        {
+                            self.binop_types(x, &left_restriction, rhs, errors)
+                        }
+                        (_, Type::Quantified(right_q))
+                            if let Some(right_restriction) = self.as_union_restriction(right_q) =>
+                        {
+                            self.binop_types(x, lhs, &right_restriction, errors)
+                        }
+                        _ => binop_call(x.op, lhs, rhs, x.range),
+                    }
                 }
             })
         })
@@ -504,88 +554,155 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
             );
 
-            let result = self.distribute_over_union(&current_left, |left| {
-                self.distribute_over_union(&right, |right| {
-                    // If either operand is Any, the comparison result is Any.
-                    // This mirrors the same check in binop_infer.
-                    if let Type::Any(style) = &left {
-                        return style.propagate();
-                    }
-                    if let Type::Any(style) = &right {
-                        return style.propagate();
-                    }
-                    let context = || {
-                        ErrorContext::BinaryOp(
-                            op.as_str().to_owned(),
-                            self.for_display(left.clone()),
-                            self.for_display(right.clone()),
-                        )
-                    };
-                    match op {
-                        CmpOp::Is | CmpOp::IsNot => {
-                            // These comparisons never error.
-                            self.heap.mk_class_type(self.stdlib.bool().clone())
-                        }
-                        CmpOp::In | CmpOp::NotIn => {
-                            // See https://docs.python.org/3/reference/expressions.html#membership-test-operations.
-                            // `x in y` first tries `y.__contains__(x)`, then checks if `x` matches an element
-                            // obtained by iterating over `y`.
-                            if let Some(ret) = self.call_magic_dunder_method(
-                                right,
-                                &dunder::CONTAINS,
-                                x.range,
-                                &[CallArg::ty(left, current_left_range)],
-                                &[],
-                                errors,
-                                Some(&context),
-                            ) {
-                                ret
-                            } else {
-                                let iteration_errors = self.error_collector();
-                                let iterables =
-                                    self.iterate(right, x.range, &iteration_errors, Some(&context));
-                                if iteration_errors.is_empty() {
-                                    // Make sure `x` matches the produced type.
-                                    self.check_type(
-                                        left,
-                                        &self.get_produced_type(iterables),
-                                        x.range,
-                                        errors,
-                                        &|| TypeCheckContext {
-                                            kind: TypeCheckKind::Container,
-                                            context: Some(context()),
-                                        },
-                                    );
-                                } else {
-                                    // Iterating `y` failed.
-                                    errors.extend(iteration_errors);
-                                }
-                                self.heap.mk_class_type(self.stdlib.bool().clone())
-                            }
-                        }
-                        _ => {
-                            // We've handled the other cases above, so we know we have a rich comparison op.
-                            let calls_to_try = [
-                                (&dunder::rich_comparison_dunder(*op).unwrap(), left, right),
-                                (&dunder::rich_comparison_fallback(*op).unwrap(), right, left),
-                            ];
-                            let ret =
-                                self.try_binop_calls(&calls_to_try, x.range, errors, &context);
-                            if ret.is_error() {
-                                self.heap.mk_class_type(self.stdlib.bool().clone())
-                            } else {
-                                ret
-                            }
-                        }
-                    }
-                })
-            });
+            let result =
+                self.compare_types(x, *op, &current_left, &right, current_left_range, errors);
             results.push(result);
             // For next comparison, the current right becomes the new left
             current_left = right;
             current_left_range = comparator.range();
         }
         self.unions(results)
+    }
+
+    /// Returns the restriction on the given Quantified if the restriction is a union
+    fn as_union_restriction(&self, q: &Quantified) -> Option<Type> {
+        let restriction = q.bound_type(self.stdlib, self.heap);
+        if matches!(restriction, Type::Union(_)) {
+            Some(restriction)
+        } else {
+            None
+        }
+    }
+
+    fn compare_types(
+        &self,
+        x: &ExprCompare,
+        op: CmpOp,
+        left: &Type,
+        right: &Type,
+        current_left_range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        self.distribute_over_union(left, |left| {
+            self.distribute_over_union(right, |right| {
+                match (left, right) {
+                    // If either operand is Any, the comparison result is Any.
+                    // This mirrors the same check in binop_infer.
+                    (Type::Any(style), _) => style.propagate(),
+                    (_, Type::Any(style)) => style.propagate(),
+                    (Type::Quantified(left_q), Type::Quantified(right_q))
+                        if left_q == right_q
+                            && let Restriction::Constraints(constraints) = &left_q.restriction =>
+                    {
+                        self.unions(constraints.map(|constraint| {
+                            self.compare_types(
+                                x,
+                                op,
+                                constraint,
+                                constraint,
+                                current_left_range,
+                                errors,
+                            )
+                        }))
+                    }
+                    // We skip non-union bounds to avoid accidentally erasing `Self` typevars.
+                    (Type::Quantified(left_q), _)
+                        if let Some(left_restriction) = self.as_union_restriction(left_q) =>
+                    {
+                        self.compare_types(
+                            x,
+                            op,
+                            &left_restriction,
+                            right,
+                            current_left_range,
+                            errors,
+                        )
+                    }
+                    (_, Type::Quantified(right_q))
+                        if let Some(right_restriction) = self.as_union_restriction(right_q) =>
+                    {
+                        self.compare_types(
+                            x,
+                            op,
+                            left,
+                            &right_restriction,
+                            current_left_range,
+                            errors,
+                        )
+                    }
+                    _ => {
+                        let context = || {
+                            ErrorContext::BinaryOp(
+                                op.as_str().to_owned(),
+                                self.for_display(left.clone()),
+                                self.for_display(right.clone()),
+                            )
+                        };
+                        match op {
+                            CmpOp::Is | CmpOp::IsNot => {
+                                // These comparisons never error.
+                                self.heap.mk_class_type(self.stdlib.bool().clone())
+                            }
+                            CmpOp::In | CmpOp::NotIn => {
+                                // See https://docs.python.org/3/reference/expressions.html#membership-test-operations.
+                                // `x in y` first tries `y.__contains__(x)`, then checks if `x` matches an element
+                                // obtained by iterating over `y`.
+                                if let Some(ret) = self.call_magic_dunder_method(
+                                    right,
+                                    &dunder::CONTAINS,
+                                    x.range,
+                                    &[CallArg::ty(left, current_left_range)],
+                                    &[],
+                                    errors,
+                                    Some(&context),
+                                ) {
+                                    ret
+                                } else {
+                                    let iteration_errors = self.error_collector();
+                                    let iterables = self.iterate(
+                                        right,
+                                        x.range,
+                                        &iteration_errors,
+                                        Some(&context),
+                                    );
+                                    if iteration_errors.is_empty() {
+                                        // Make sure `x` matches the produced type.
+                                        self.check_type(
+                                            left,
+                                            &self.get_produced_type(iterables),
+                                            x.range,
+                                            errors,
+                                            &|| TypeCheckContext {
+                                                kind: TypeCheckKind::Container,
+                                                context: Some(context()),
+                                            },
+                                        );
+                                    } else {
+                                        // Iterating `y` failed.
+                                        errors.extend(iteration_errors);
+                                    }
+                                    self.heap.mk_class_type(self.stdlib.bool().clone())
+                                }
+                            }
+                            _ => {
+                                // We've handled the other cases above, so we know we have a rich comparison op.
+                                let calls_to_try = [
+                                    (&dunder::rich_comparison_dunder(op).unwrap(), left, right),
+                                    (&dunder::rich_comparison_fallback(op).unwrap(), right, left),
+                                ];
+                                let ret =
+                                    self.try_binop_calls(&calls_to_try, x.range, errors, &context);
+                                if ret.is_error() {
+                                    self.heap.mk_class_type(self.stdlib.bool().clone())
+                                } else {
+                                    ret
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+        })
     }
 
     pub fn unop_infer(&self, x: &ExprUnaryOp, errors: &ErrorCollector) -> Type {
@@ -595,7 +712,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 || ErrorContext::UnaryOp(x.op.as_str().to_owned(), self.for_display(t.clone()));
             match t {
                 Type::Literal(lit) if let Some(ret) = f(&lit.value) => ret,
-                Type::ClassType(_) | Type::SelfType(_) | Type::Quantified(_) => {
+                Type::ClassType(_)
+                | Type::SelfType(_)
+                | Type::Quantified(_)
+                | Type::Tensor(_)
+                | Type::NNModule(_) => {
                     self.call_method_or_error(t, method, x.range, &[], &[], errors, Some(&context))
                 }
                 Type::Literal(lit) if let Lit::Enum(lit_enum) = &lit.value => self

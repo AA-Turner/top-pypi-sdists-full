@@ -97,7 +97,7 @@ class GrepToolsTool(BaseTool):
             dict: Dictionary with matching tools (name + description)
         """
         if not self.tooluniverse or not hasattr(self.tooluniverse, "all_tool_dict"):
-            return {"error": "ToolUniverse not available"}
+            return {"status": "error", "error": "ToolUniverse not available"}
 
         pattern = arguments.get("pattern", "")
         field = arguments.get("field", "name")
@@ -108,7 +108,7 @@ class GrepToolsTool(BaseTool):
         categories = arguments.get("categories")
 
         if not pattern:
-            return {"error": "pattern parameter is required"}
+            return {"status": "error", "error": "pattern parameter is required"}
 
         matching_tools = []
         for tool_name, tool in self.tooluniverse.all_tool_dict.items():
@@ -141,13 +141,17 @@ class GrepToolsTool(BaseTool):
                         regex = re.compile(pattern)
                         matched = regex.search(search_text)
                     except re.error as e:
-                        return {"error": f"Invalid regex pattern: {str(e)}"}
+                        return {
+                            "status": "error",
+                            "error": f"Invalid regex pattern: {str(e)}",
+                        }
                 else:
                     return {
+                        "status": "error",
                         "error": (
                             f"Invalid search_mode: {search_mode}. "
                             "Must be 'text' or 'regex'"
-                        )
+                        ),
                     }
 
                 if matched:
@@ -239,7 +243,7 @@ class ListToolsTool(BaseTool):
             dict: Dictionary with tools in requested format
         """
         if not self.tooluniverse or not hasattr(self.tooluniverse, "all_tool_dict"):
-            return {"error": "ToolUniverse not available"}
+            return {"status": "error", "error": "ToolUniverse not available"}
 
         mode = arguments.get("mode")
         if not mode:
@@ -255,9 +259,10 @@ class ListToolsTool(BaseTool):
         ]
         if mode not in valid_modes:
             return {
+                "status": "error",
                 "error": (
                     f"Invalid mode: {mode}. Must be one of: {', '.join(valid_modes)}"
-                )
+                ),
             }
 
         categories = arguments.get("categories")
@@ -622,7 +627,10 @@ class ListToolsTool(BaseTool):
                             normalized.append(f.strip())
                     fields = normalized
                 if not fields:
-                    return {"error": ("fields parameter is required for mode='custom'")}
+                    return {
+                        "status": "error",
+                        "error": ("fields parameter is required for mode='custom'"),
+                    }
 
                 tools_info = []
                 # Feature-22A-09: track which fields are actually found in at least one tool
@@ -680,7 +688,11 @@ class ListToolsTool(BaseTool):
         except Exception as e:
             error_msg = f"Error listing tools: {str(e)}"
             self.logger.error(error_msg, exc_info=True)
-            return {"error": error_msg, "error_type": type(e).__name__}
+            return {
+                "status": "error",
+                "error": error_msg,
+                "error_type": type(e).__name__,
+            }
 
 
 @register_tool("GetToolInfo")
@@ -712,19 +724,20 @@ class GetToolInfoTool(BaseTool):
         start_time = time.time()
 
         if not self.tooluniverse:
-            return {"error": "ToolUniverse not available"}
+            return {"status": "error", "error": "ToolUniverse not available"}
 
         tool_names = arguments.get("tool_names")
         if not tool_names:
-            return {"error": "tool_names parameter is required"}
+            return {"status": "error", "error": "tool_names parameter is required"}
 
         detail_level = arguments.get("detail_level", "full")
         if detail_level not in ["description", "full"]:
             return {
+                "status": "error",
                 "error": (
                     f"Invalid detail_level: {detail_level}. "
                     "Must be 'description' or 'full'"
-                )
+                ),
             }
 
         # Normalize tool_names to list
@@ -734,7 +747,7 @@ class GetToolInfoTool(BaseTool):
         elif isinstance(tool_names, list):
             is_single = False
         else:
-            return {"error": "tool_names must be a string or list"}
+            return {"status": "error", "error": "tool_names must be a string or list"}
 
         try:
             if detail_level == "description":
@@ -776,7 +789,10 @@ class GetToolInfoTool(BaseTool):
                         tool_names[0], return_prompt=False
                     )
                     if not tool_config:
-                        return {"error": f"Tool '{tool_names[0]}' not found"}
+                        return {
+                            "status": "error",
+                            "error": f"Tool '{tool_names[0]}' not found",
+                        }
                     return tool_config
                 else:
                     # Batch: use get_tool_specification_by_names
@@ -808,6 +824,7 @@ class GetToolInfoTool(BaseTool):
             error_msg = f"Error getting tool info: {str(e)}"
             self.logger.error(f"{error_msg} (elapsed: {elapsed:.2f}s)", exc_info=True)
             return {
+                "status": "error",
                 "error": error_msg,
                 "error_type": type(e).__name__,
                 "elapsed_seconds": round(elapsed, 2),
@@ -818,6 +835,7 @@ class GetToolInfoTool(BaseTool):
             error_msg = "Tool info retrieval was interrupted"
             self.logger.warning(f"{error_msg} (elapsed: {elapsed:.2f}s)")
             return {
+                "status": "error",
                 "error": error_msg,
                 "error_type": "InterruptedError",
                 "elapsed_seconds": round(elapsed, 2),
@@ -851,7 +869,7 @@ class ExecuteToolTool(BaseTool):
                         return as dict.
         """
         if not self.tooluniverse:
-            return {"error": "ToolUniverse not available"}
+            return {"status": "error", "error": "ToolUniverse not available"}
 
         tool_name = arguments.get("tool_name")
         tool_arguments = arguments.get("arguments")
@@ -861,7 +879,11 @@ class ExecuteToolTool(BaseTool):
             error_msg = "tool_name parameter is required and cannot be empty"
             if hasattr(self, "logger"):
                 self.logger.error(f"execute_tool: {error_msg}")
-            return {"error": error_msg, "error_type": "ValidationError"}
+            return {
+                "status": "error",
+                "error": error_msg,
+                "error_type": "ValidationError",
+            }
 
         # Normalize arguments
         if tool_arguments is None:
@@ -879,7 +901,11 @@ class ExecuteToolTool(BaseTool):
                 )
                 if hasattr(self, "logger"):
                     self.logger.error(f"{tool_name}: {error_msg}")
-                return {"error": error_msg, "error_type": "ValidationError"}
+                return {
+                    "status": "error",
+                    "error": error_msg,
+                    "error_type": "ValidationError",
+                }
 
             if not isinstance(parsed_args, dict):
                 error_msg = (
@@ -889,7 +915,11 @@ class ExecuteToolTool(BaseTool):
                 )
                 if hasattr(self, "logger"):
                     self.logger.error(f"{tool_name}: {error_msg}")
-                return {"error": error_msg, "error_type": "ValidationError"}
+                return {
+                    "status": "error",
+                    "error": error_msg,
+                    "error_type": "ValidationError",
+                }
         else:
             # Provide helpful error message with examples
             received_type = type(tool_arguments).__name__
@@ -901,7 +931,11 @@ class ExecuteToolTool(BaseTool):
             )
             if hasattr(self, "logger"):
                 self.logger.error(f"{tool_name}: {error_msg}")
-            return {"error": error_msg, "error_type": "ValidationError"}
+            return {
+                "status": "error",
+                "error": error_msg,
+                "error_type": "ValidationError",
+            }
 
         # Directly use tooluniverse.run_one_function - it handles everything
         function_call = {"name": tool_name, "arguments": parsed_args}

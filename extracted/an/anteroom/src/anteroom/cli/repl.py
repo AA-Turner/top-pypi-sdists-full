@@ -371,6 +371,57 @@ def _resolve_conversation(db: Any, target: str) -> dict[str, Any] | None:
     return storage.get_conversation(db, target)
 
 
+def _sync_tool_working_dir(working_dir: str, tool_registry: Any) -> None:
+    from ..tools import bash, edit, glob_tool, grep, read, write
+
+    for module in [read, write, edit, bash, glob_tool, grep]:
+        if hasattr(module, "set_working_dir"):
+            module.set_working_dir(working_dir)
+    tool_registry._working_dir = working_dir
+
+
+def _parse_bang_command(user_input: str) -> str | None:
+    stripped = user_input.lstrip()
+    if not stripped.startswith("!"):
+        return None
+    return stripped[1:].lstrip()
+
+
+async def _run_bang_command(
+    user_input: str,
+    *,
+    working_dir: str,
+    tool_registry: Any,
+    config: AppConfig,
+) -> bool:
+    from ..tools import bash
+
+    command = _parse_bang_command(user_input)
+    if command is None:
+        return False
+    if not command:
+        renderer.console.print(f"[{CHROME}]Shell command required after ![/{CHROME}]")
+        return True
+
+    _sync_tool_working_dir(working_dir, tool_registry)
+    result = await bash.handle(
+        command=command,
+        timeout=config.safety.bash.timeout,
+        _bypass_hard_block=False,
+        _sandbox_config=config.safety.bash,
+    )
+    stdout = result.get("stdout")
+    stderr = result.get("stderr")
+    error = result.get("error")
+    if stdout:
+        renderer.console.print(stdout, end="")
+    if stderr:
+        renderer.console.print(stderr, end="")
+    if error:
+        renderer.console.print(error)
+    return True
+
+
 def _restore_working_dir(
     conv: dict[str, Any],
     tool_registry: Any,
@@ -396,13 +447,7 @@ def _restore_working_dir(
     if any(stored_dir.startswith(p) or stored_dir == p.rstrip("/") for p in _blocked_prefixes):
         logger.warning("Blocked unsafe stored working_dir: %s", stored_dir)
         return current_working_dir
-    # Re-scope tools to the stored directory
-    from ..tools import bash, edit, glob_tool, grep, read, write
-
-    for module in [read, write, edit, bash, glob_tool, grep]:
-        if hasattr(module, "set_working_dir"):
-            module.set_working_dir(stored_dir)
-    tool_registry._working_dir = stored_dir
+    _sync_tool_working_dir(stored_dir, tool_registry)
     return stored_dir
 
 
@@ -531,17 +576,29 @@ async def _drain_input_to_msg_queue(
     identity_kwargs: dict[str, Any] | None = None,
     file_max_chars: int = 100_000,
     skill_registry: Any | None = None,
+    tool_registry: Any | None = None,
+    config: AppConfig | None = None,
 ) -> None:
-    """Drain input_queue into msg_queue, filtering out / commands.
+    """Drain input_queue into msg_queue, filtering out / and ! commands.
 
     - /quit and /exit trigger cancel_event and exit_flag
     - Skill invocations are expanded and queued as user messages
+    - ! commands execute locally and are not queued as conversation messages
     - Other / commands are ignored with a warning
     - Normal text is expanded and queued as user messages
     """
     while not input_queue.empty():
         try:
             queued_text = input_queue.get_nowait()
+            if tool_registry is not None and config is not None:
+                handled = await _run_bang_command(
+                    queued_text,
+                    working_dir=working_dir,
+                    tool_registry=tool_registry,
+                    config=config,
+                )
+                if handled:
+                    continue
             if queued_text.startswith("/"):
                 cmd = queued_text.lower().split()[0]
                 if cmd in _EXIT_COMMANDS:
@@ -3226,6 +3283,7 @@ async def _run_repl(
             space_name=sn,
             plan_mode=pm,
             conversation_name=cn,
+            busy_status=renderer.get_busy_status(),
         )
 
     def invalidate_toolbar() -> None:
@@ -3233,7 +3291,7 @@ async def _run_repl(
         _toolbar_dirty[0] = True
 
     def _bottom_toolbar() -> list[tuple[str, str] | tuple[str, str, Any]]:
-        if _toolbar_dirty[0]:
+        if _toolbar_dirty[0] or renderer._footer_mode:
             _toolbar_refresh()
         return _toolbar_cache
 
@@ -3255,6 +3313,15 @@ async def _run_repl(
         _last_text_change[0] = time.monotonic()
 
     session.default_buffer.on_text_changed += _on_buffer_change
+
+    # Wire toolbar invalidator for footer-mode busy state (#1134).
+    # The ticker calls this every 0.5s so the toolbar timer stays live.
+    def _invalidate_and_redraw() -> None:
+        _toolbar_dirty[0] = True
+        if session.app:
+            session.app.invalidate()
+
+    renderer._toolbar_invalidator = _invalidate_and_redraw
 
     # Set approval mode for prompt coloring
     from anteroom.cli.layout import set_approval_mode
@@ -3847,6 +3914,14 @@ async def _run_repl(
             try:
                 user_input = await asyncio.wait_for(input_queue.get(), timeout=0.5)
             except asyncio.TimeoutError:
+                continue
+
+            if await _run_bang_command(
+                user_input,
+                working_dir=working_dir,
+                tool_registry=tool_registry,
+                config=config,
+            ):
                 continue
 
             # Handle commands
@@ -5858,6 +5933,8 @@ async def _run_repl(
                     identity_kwargs=id_kw,
                     file_max_chars=config.cli.file_reference_max_chars,
                     skill_registry=skill_registry,
+                    tool_registry=tool_registry,
+                    config=config,
                 )
 
                 while True:
@@ -5901,6 +5978,8 @@ async def _run_repl(
                             identity_kwargs=id_kw,
                             file_max_chars=config.cli.file_reference_max_chars,
                             skill_registry=skill_registry,
+                            tool_registry=tool_registry,
+                            config=config,
                         )
 
                         if event.kind == "thinking":
@@ -6199,6 +6278,10 @@ async def _run_repl(
                 await t
             except BaseException:
                 pass
+
+    # Clean up toolbar invalidator to avoid stale closure references.
+    renderer._toolbar_invalidator = None
+    renderer._footer_mode = False
 
     # Show resume hint after exit
     if conv.get("id") and not is_first_message:

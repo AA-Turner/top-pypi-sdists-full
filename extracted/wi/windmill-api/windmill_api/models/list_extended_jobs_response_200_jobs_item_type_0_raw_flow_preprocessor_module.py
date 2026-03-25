@@ -6,6 +6,9 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.list_extended_jobs_response_200_jobs_item_type_0_raw_flow_preprocessor_module_debouncing import (
+        ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleDebouncing,
+    )
     from ..models.list_extended_jobs_response_200_jobs_item_type_0_raw_flow_preprocessor_module_mock import (
         ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleMock,
     )
@@ -82,6 +85,8 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModule:
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleRetry]): Retry
             configuration for failed module executions
+        debouncing (Union[Unset, ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleDebouncing]): Debounce
+            configuration for this step (EE only)
     """
 
     id: str
@@ -112,6 +117,7 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModule:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleRetry"] = UNSET
+    debouncing: Union[Unset, "ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -198,6 +204,10 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModule:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -234,11 +244,16 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModule:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.list_extended_jobs_response_200_jobs_item_type_0_raw_flow_preprocessor_module_debouncing import (
+            ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleDebouncing,
+        )
         from ..models.list_extended_jobs_response_200_jobs_item_type_0_raw_flow_preprocessor_module_mock import (
             ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleMock,
         )
@@ -467,6 +482,15 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModule:
         else:
             retry = ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleDebouncing.from_dict(
+                _debouncing
+            )
+
         list_extended_jobs_response_200_jobs_item_type_0_raw_flow_preprocessor_module = cls(
             id=id,
             value=value,
@@ -484,6 +508,7 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModule:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         list_extended_jobs_response_200_jobs_item_type_0_raw_flow_preprocessor_module.additional_properties = d

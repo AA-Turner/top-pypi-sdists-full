@@ -1,15 +1,17 @@
 import logging
-from typing import Any, Dict, List, Optional, Type, Union
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Generator, List, Optional, Type, Union
 
 from pandas import DataFrame
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from .athena_transformer import AthenaTransformer
 from .big_query_transformer import BigQueryTransformer
 from .database_resource import DatabaseResource
-from .database_transformer import DatabaseTransformer
+from .database_transformer import DatabaseTransformer, SqlStatement
 from .dynamodb_transformer import DynamoDBTransformer
 from .mssql_transformer import MSSQLTransformer
 from .mysql_transformer import MySQLTransformer
@@ -19,7 +21,44 @@ from .resource_fetching_definition import FetchMode, SQLAlchemyMetadataAction
 from .snowflake_transformer import SnowflakeTransformer
 
 
+class ErrorStrategy(Enum):
+    """Strategy for handling errors during multi-statement execution."""
+
+    STOP_ON_ERROR = "stop_on_error"
+    CONTINUE_ON_ERROR = "continue_on_error"
+
+
+class ExecutionStatus(Enum):
+    """Status of statement execution."""
+
+    SUCCESS = "success"
+    ERROR = "error"
+
+
+@dataclass
+class ExecutionResult:
+    """
+    Result of executing a SQL statement.
+
+    The result field can contain different types depending on the execution engine:
+    - pandas.DataFrame: For SQL engines (Redshift, Athena, etc.) and DuckDB
+    - pyspark.sql.DataFrame: For Spark connections
+    - int: Row count for DML operations (INSERT, UPDATE, DELETE)
+    """
+
+    statement_index: int
+    statement: str
+    statement_type: str
+    result: Optional[Any] = None  # Can be pandas DataFrame, Spark DataFrame, or int
+    error: Optional[str] = None
+    status: str = ExecutionStatus.SUCCESS.value
+    rows_affected: Optional[int] = None
+    execution_time: Optional[float] = None
+
+
 class SqlExecutor:
+    MAX_STATEMENTS = 10
+
     def __init__(self):
         self._transformer_classes: Dict[str, Type[DatabaseTransformer]] = {
             "REDSHIFT": RedshiftTransformer,
@@ -32,14 +71,47 @@ class SqlExecutor:
             "POSTGRESQL": PostgreSQLTransformer,
         }
 
+    @staticmethod
+    def execute_statements(
+        statements: List[SqlStatement],
+        executor_func,
+        error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
+    ) -> Generator[ExecutionResult, None, None]:
+        """Execute multiple statements with error handling."""
+        if len(statements) > SqlExecutor.MAX_STATEMENTS:
+            raise ValueError(
+                f"Too many statements: {len(statements)}. Maximum allowed: {SqlExecutor.MAX_STATEMENTS}"
+            )
+
+        for i, stmt in enumerate(statements):
+            try:
+                result = executor_func(stmt.statement)
+                yield ExecutionResult(
+                    statement_index=i,
+                    statement=stmt.statement,
+                    statement_type=stmt.statement_type,
+                    result=result,
+                    status=ExecutionStatus.SUCCESS.value,
+                )
+            except Exception as e:
+                yield ExecutionResult(
+                    statement_index=i,
+                    statement=stmt.statement,
+                    statement_type=stmt.statement_type,
+                    error=str(e),
+                    status=ExecutionStatus.ERROR.value,
+                )
+                if error_strategy == ErrorStrategy.STOP_ON_ERROR:
+                    break
+
     def get_supported_connection_types(self) -> list[str]:
         """
         Returns the supported connection types as a list of strings.
         """
         return [str(key) for key in self._transformer_classes.keys()]
 
-    def create_engine(self, connection_type: str, connection_data: Dict[str, Any]) -> Engine:
-        """Create SQLAlchemy engine based on connection type and data."""
+    def _get_transformer(self, connection_type: str) -> Type[DatabaseTransformer]:
+        """Get transformer class for the given connection type and configure loggers."""
         if connection_type not in self._transformer_classes:
             raise ValueError(f"Unsupported connection type: {connection_type}")
 
@@ -49,6 +121,12 @@ class SqlExecutor:
             for logger_name in transformer.get_loggers()
         ]  # Set loggers to warn
 
+        return transformer
+
+    def create_engine(self, connection_type: str, connection_data: Dict[str, Any]) -> Engine:
+        """Create SQLAlchemy engine based on connection type and data."""
+        transformer = self._get_transformer(connection_type)
+
         config = transformer.to_sqlalchemy_config(connection_data)
 
         if "connection_string" not in config:
@@ -57,35 +135,57 @@ class SqlExecutor:
             )
 
         connect_args = config.get("connect_args", {})
-        return create_engine(config["connection_string"], connect_args=connect_args)
+        return create_engine(
+            config["connection_string"], connect_args=connect_args
+        ).execution_options(connection_type=connection_type)
 
     def execute(
         self,
         engine: Engine,
         query: str,
         parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
-    ) -> Union[DataFrame, int]:
+        error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
+    ) -> Generator[ExecutionResult, None, None]:
         """Execute SQL query with optional parameters using provided engine.
 
-        Returns:
-            Union[DataFrame, int]: DataFrame for SELECT queries, row count for non-SELECT queries.
+        Yields:
+            ExecutionResult: Result for each statement in the query.
 
         Raises:
             SQLAlchemyError: For database-specific errors (table exists, syntax errors, etc.)
+            ValueError: If query contains more than MAX_STATEMENTS statements.
         """
+        execution_options = engine.get_execution_options()
+        connection_type = execution_options.get("connection_type", "UNKNOWN")
+
+        transformer = self._get_transformer(connection_type)
+        statements = transformer.split_query(query)
+
         try:
             with engine.connect() as conn:
-                result = conn.execute(text(query), parameters or {})
-
-                # Check if query returns results (SELECT, SHOW, DESCRIBE, etc.)
-                if result.returns_rows:
-                    return DataFrame(result.fetchall(), columns=result.keys())
-                else:
-                    # For INSERT, UPDATE, DELETE, etc. - return affected row count
-                    return result.rowcount
+                yield from self.execute_statements(
+                    statements,
+                    lambda stmt: self._execute_single(conn, stmt, parameters),
+                    error_strategy,
+                )
         except SQLAlchemyError:
-            # Re-raise SQLAlchemy errors with original database error details
             raise
+
+    def _execute_single(
+        self,
+        connection: Connection,
+        statement: str,
+        parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
+    ) -> Union[DataFrame, int]:
+
+        result = connection.execute(text(statement), parameters or {})
+
+        # Check if query returns results (SELECT, SHOW, DESCRIBE, etc.)
+        if result.returns_rows:
+            return DataFrame(result.fetchall(), columns=result.keys())
+        else:
+            # For INSERT, UPDATE, DELETE, etc. - return affected row count
+            return result.rowcount
 
     def get_resources(
         self,
@@ -129,10 +229,7 @@ class SqlExecutor:
           ValueError: If the helper returns an unsupported fetching mode or an
             unsupported SQLAlchemy metadata action.
         """
-        if connection_type not in self._transformer_classes:
-            raise ValueError(f"Unsupported connection type: {connection_type}")
-
-        transformer = self._transformer_classes[connection_type]
+        transformer = self._get_transformer(connection_type)
 
         definition = transformer.get_resources_action(resource_type, parents)
 
@@ -158,7 +255,17 @@ class SqlExecutor:
 
         elif definition.mode is FetchMode.SQL_EXECUTION:
             # definition.sql is guaranteed by __post_init__
-            result_df = self.execute(engine, definition.sql, definition.sql_parameters)
+            try:
+                result = next(self.execute(engine, definition.sql, definition.sql_parameters))
+            except StopIteration:
+                raise ValueError(
+                    f"SQL execution returned no results for resource type: {resource_type}"
+                )
+
+            if result.status != ExecutionStatus.SUCCESS.value:
+                raise ValueError(f"SQL execution failed: {result.error}")
+
+            result_df = result.result if isinstance(result.result, DataFrame) else None
             resource_names = (
                 []
                 if result_df is None or result_df.shape[1] < 1

@@ -10,6 +10,101 @@ use std::borrow::Cow;
 #[cfg(feature = "tokio-runtime")]
 use std::path::Path;
 
+/// Build a `DocumentStructure` from a structured data result.
+///
+/// For JSON objects: top-level keys become group headings, nested objects become
+/// sub-groups, arrays become lists. Falls back to a code block if the content
+/// is not a JSON object (e.g. YAML/TOML where structure is less uniform).
+fn build_structured_document_structure(
+    result: &crate::extraction::structured::StructuredDataResult,
+    mime_type: &str,
+) -> crate::types::document_structure::DocumentStructure {
+    use crate::types::builder::DocumentStructureBuilder;
+
+    let source_format = match mime_type {
+        "application/json" | "text/json" | "application/csl+json" => "json",
+        "application/yaml" | "application/x-yaml" | "text/yaml" | "text/x-yaml" => "yaml",
+        "application/toml" | "text/toml" => "toml",
+        _ => "structured",
+    };
+
+    let language = match source_format {
+        "json" => Some("json"),
+        "yaml" => Some("yaml"),
+        "toml" => Some("toml"),
+        _ => None,
+    };
+
+    let mut builder = DocumentStructureBuilder::new().source_format(source_format);
+
+    // Try to build structured document for JSON objects
+    if source_format == "json"
+        && let Ok(value) = serde_json::from_str::<serde_json::Value>(&result.content)
+        && value.is_object()
+    {
+        build_json_structure(&value, &mut builder, 1);
+        return builder.build();
+    }
+
+    // Fallback: code block
+    builder.push_code(&result.content, language, None);
+    builder.build()
+}
+
+/// Recursively build document structure from a JSON value.
+fn build_json_structure(
+    value: &serde_json::Value,
+    builder: &mut crate::types::builder::DocumentStructureBuilder,
+    depth: u8,
+) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, val) in map {
+                let level = depth.min(6);
+                match val {
+                    serde_json::Value::Object(_) => {
+                        builder.push_heading(level, key, None, None);
+                        build_json_structure(val, builder, depth + 1);
+                    }
+                    serde_json::Value::Array(arr) => {
+                        builder.push_heading(level, key, None, None);
+                        let list_idx = builder.push_list(false, None);
+                        for item in arr {
+                            let text = match item {
+                                serde_json::Value::String(s) => s.clone(),
+                                other => other.to_string(),
+                            };
+                            builder.push_list_item(list_idx, &text, None);
+                        }
+                    }
+                    serde_json::Value::String(s) => {
+                        builder.push_paragraph(&format!("{}: {}", key, s), vec![], None, None);
+                    }
+                    other => {
+                        builder.push_paragraph(&format!("{}: {}", key, other), vec![], None, None);
+                    }
+                }
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            let list_idx = builder.push_list(false, None);
+            for item in arr {
+                let text = match item {
+                    serde_json::Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                };
+                builder.push_list_item(list_idx, &text, None);
+            }
+        }
+        serde_json::Value::String(s) => {
+            builder.push_paragraph(s, vec![], None, None);
+        }
+        other => {
+            builder.push_paragraph(&other.to_string(), vec![], None, None);
+        }
+    }
+}
+
 /// Structured data extractor supporting JSON, YAML, and TOML.
 pub struct StructuredExtractor;
 
@@ -47,7 +142,7 @@ impl Plugin for StructuredExtractor {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl DocumentExtractor for StructuredExtractor {
     #[cfg_attr(feature = "otel", tracing::instrument(
-        skip(self, content, _config),
+        skip(self, content, config),
         fields(
             extractor.name = self.name(),
             content.size_bytes = content.len(),
@@ -57,7 +152,7 @@ impl DocumentExtractor for StructuredExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let structured_result = match mime_type {
             "application/json" | "text/json" | "application/csl+json" => {
@@ -68,6 +163,12 @@ impl DocumentExtractor for StructuredExtractor {
             }
             "application/toml" | "text/toml" => crate::extraction::structured::parse_toml(content)?,
             _ => return Err(crate::KreuzbergError::UnsupportedFormat(mime_type.to_string())),
+        };
+
+        let document = if config.include_document_structure && !structured_result.content.trim().is_empty() {
+            Some(build_structured_document_structure(&structured_result, mime_type))
+        } else {
+            None
         };
 
         let mut additional = AHashMap::new();
@@ -99,12 +200,13 @@ impl DocumentExtractor for StructuredExtractor {
             elements: None,
             djot_content: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 

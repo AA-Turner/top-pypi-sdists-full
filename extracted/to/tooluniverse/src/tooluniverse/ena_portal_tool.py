@@ -43,16 +43,24 @@ class ENAPortalTool(BaseTool):
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"ENA Portal API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"ENA Portal API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to ENA Portal API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to ENA Portal API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"ENA Portal API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"ENA Portal API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying ENA Portal: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying ENA Portal: {str(e)}",
+            }
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint based on config."""
@@ -63,14 +71,18 @@ class ENAPortalTool(BaseTool):
         elif self.endpoint_type == "count":
             return self._count(arguments)
         else:
-            return {"error": f"Unknown endpoint_type: {self.endpoint_type}"}
+            return {
+                "status": "error",
+                "error": f"Unknown endpoint_type: {self.endpoint_type}",
+            }
 
     def _search_studies(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search ENA studies by text query or taxonomy."""
         query = arguments.get("query", "")
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'description=\"cancer\"' or 'tax_tree(9606)')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'description=\"cancer\"' or 'tax_tree(9606)')",
             }
 
         limit = min(arguments.get("limit", 10), 100)
@@ -95,13 +107,17 @@ class ENAPortalTool(BaseTool):
         raw = response.json()
 
         if isinstance(raw, dict) and "message" in raw:
-            return {"error": f"ENA Portal API error: {raw['message']}"}
+            return {
+                "status": "error",
+                "error": f"ENA Portal API error: {raw['message']}",
+            }
 
         results = []
         for item in raw[:limit]:
             results.append(item)
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "ENA Portal API",
@@ -116,7 +132,8 @@ class ENAPortalTool(BaseTool):
         query = arguments.get("query", "")
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'tax_tree(9606)' or 'description=\"liver\"')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'tax_tree(9606)' or 'description=\"liver\"')",
             }
 
         limit = min(arguments.get("limit", 10), 100)
@@ -142,13 +159,17 @@ class ENAPortalTool(BaseTool):
         raw = response.json()
 
         if isinstance(raw, dict) and "message" in raw:
-            return {"error": f"ENA Portal API error: {raw['message']}"}
+            return {
+                "status": "error",
+                "error": f"ENA Portal API error: {raw['message']}",
+            }
 
         results = []
         for item in raw[:limit]:
             results.append(item)
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "ENA Portal API",
@@ -163,7 +184,7 @@ class ENAPortalTool(BaseTool):
         query = arguments.get("query", "")
         result_type = arguments.get("result_type", "study")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         params = {
             "result": result_type,
@@ -183,6 +204,7 @@ class ENAPortalTool(BaseTool):
         count_val = int(lines[-1]) if len(lines) > 1 else int(lines[0])
 
         return {
+            "status": "success",
             "data": {
                 "count": count_val,
                 "result_type": result_type,

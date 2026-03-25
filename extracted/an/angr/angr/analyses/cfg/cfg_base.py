@@ -32,7 +32,7 @@ from archinfo.arch_arm import is_arm_arch, get_real_address_if_arm
 
 from angr.knowledge_plugins.functions.function_manager import FunctionManager
 from angr.knowledge_plugins.cfg import IndirectJump, CFGNode, CFGENode, CFGModel  # pylint:disable=unused-import
-from angr.knowledge_plugins.cfg.spilling_cfg import block_key_to_addr, get_block_key
+from angr.knowledge_plugins.cfg.spilling_cfg import block_key_to_addr, get_block_key, block_key_to_size
 from angr.procedures.stubs.UnresolvableJumpTarget import UnresolvableJumpTarget
 from angr.utils.constants import DEFAULT_STATEMENT
 from angr.procedures.procedure_dict import SIM_PROCEDURES
@@ -185,7 +185,9 @@ class CFGBase(Analysis):
         )
 
         # Get all executable memory regions
-        self._exec_mem_regions = self._executable_memory_regions(None, self._force_segment)
+        if not objects:
+            objects = self.project.loader.all_objects
+        self._exec_mem_regions = self._executable_memory_regions(objects=objects, force_segment=self._force_segment)
         self._exec_mem_region_size = sum((end - start) for start, end in self._exec_mem_regions)
 
         # initialize UnresolvableJumpTarget and UnresolvableCallTarget SimProcedure
@@ -217,11 +219,15 @@ class CFGBase(Analysis):
 
         self._function_addresses_from_symbols = self._load_func_addrs_from_symbols()
         self._function_addresses_from_eh_frame = self._load_func_addrs_from_eh_frame()
+        self._function_addr_and_names_from_hints = self._load_func_addr_and_names_from_hints()
 
         # Cache if an object has executable sections or not
         self._object_to_executable_sections = {}
         # Cache if an object has executable segments or not
         self._object_to_executable_segments = {}
+
+        # record addresses of memory data objects that are newly added during CFG recovery.
+        self._new_memory_data_addrs: set[int] = set()
 
         if model is not None:
             self._model = model
@@ -238,15 +244,10 @@ class CFGBase(Analysis):
             )
 
         if regions is None:
-            if self._skip_unmapped_addrs:
-                regions = self._executable_memory_regions(objects=objects, force_segment=force_segment)
-            else:
-                if not objects:
-                    objects = self.project.loader.all_objects
-                regions = self._executable_memory_regions(objects=objects, force_segment=force_segment)
-                if not regions:
-                    # fall back to using min and max addresses of all objects
-                    regions = [(obj.min_addr, obj.max_addr) for obj in objects]
+            regions = self._exec_mem_regions
+            if not self._skip_unmapped_addrs and not regions:
+                # fall back to using min and max addresses of all objects
+                regions = [(obj.min_addr, obj.max_addr) for obj in objects]
 
         for start, end in regions:
             if end < start:
@@ -264,12 +265,7 @@ class CFGBase(Analysis):
                 l.warning("You specified both base_state and skip_specific_regions. They may conflict with each other.")
             regions = [r for r in regions if not self._should_skip_region(r[0])]
 
-        if not regions and self.project.arch.name != "Soot":
-            raise AngrCFGError(
-                "Regions are empty, or all regions are skipped. You may want to manually specify regions."
-            )
-
-        self._regions_size = sum((end - start) for start, end in regions)
+        self._regions_size = sum((end - start) for start, end in regions) if regions else 0
         self._regions: SortedDict = SortedDict(regions)
 
         l.debug("CFG recovery covers %d regions:", len(self._regions))
@@ -427,7 +423,16 @@ class CFGBase(Analysis):
         # Put the new node into node dicts
         self._model.add_node(new_node.block_id, new_node)
 
-    def _to_snippet(self, cfg_node=None, addr=None, size=None, thumb=False, jumpkind=None, base_state=None):
+    def _to_snippet(
+        self,
+        cfg_node=None,
+        addr=None,
+        size=None,
+        thumb=False,
+        jumpkind=None,
+        base_state=None,
+        byte_string: bytes | None = None,
+    ):
         """
         Convert a CFGNode instance to a CodeNode object.
 
@@ -453,9 +458,31 @@ class CFGBase(Analysis):
             size = hooker.kwargs.get("length", 0)
             return HookNode(addr, size, hooker)
 
-        if cfg_node is not None:
-            return BlockNode(addr, size, thumb=thumb, bytestr=cfg_node.byte_string)  # pylint: disable=no-member
+        if cfg_node is not None and byte_string is None:
+            byte_string = cfg_node.byte_string
+
+        if byte_string is not None:
+            return BlockNode(addr, size, thumb=thumb, bytestr=byte_string)  # pylint: disable=no-member
         return self.project.factory.snippet(addr, size=size, jumpkind=jumpkind, thumb=thumb, backup_state=base_state)
+
+    def _node_key_to_snippet(self, node_key: K, jumpkind: str | None = None, base_state=None) -> BlockNode:
+        addr = block_key_to_addr(node_key)
+        size = block_key_to_size(node_key)
+        thumb = is_arm_arch(self.project.arch) and addr % 2 == 1
+        if not isinstance(addr, int):
+            byte_string = None
+        else:
+            byte_string = (
+                self._fast_memory_load_bytes(addr, size) if not thumb else self._fast_memory_load_bytes(addr - 1, size)
+            )
+        return self._to_snippet(
+            addr=addr,
+            size=size,
+            thumb=thumb,
+            jumpkind=jumpkind,
+            base_state=base_state,
+            byte_string=byte_string,
+        )
 
     def is_thumb_addr(self, addr):
         return addr in self._thumb_addrs
@@ -568,6 +595,18 @@ class CFGBase(Analysis):
             if get_ins_addr(suc) in can_produce_exits or get_exit_stmt_idx(suc) == DEFAULT_STATEMENT
         ]
 
+    def record_memory_data_addr(self, addr: int) -> None:
+        """
+        Record the address of a newly added memory data object.
+        """
+        self._new_memory_data_addrs.add(addr)
+
+    def reset_memory_data_addrs(self) -> None:
+        """
+        Reset the set of addresses of newly added memory data objects.
+        """
+        self._new_memory_data_addrs = set()
+
     # Methods for determining scanning scope
 
     def _inside_regions(self, address: int | None) -> bool:
@@ -593,8 +632,6 @@ class CFGBase(Analysis):
         """
 
         if not self._regions:
-            if self.project.arch.name != "Soot":
-                l.error("self._regions is empty or not properly set.")
             return None
 
         return next(self._regions.irange())
@@ -704,12 +741,14 @@ class CFGBase(Analysis):
         binaries = self.project.loader.all_objects if objects is None else objects
 
         memory_regions = []
+        has_executable = False
 
         for b in binaries:
             if not b.has_memory:
                 continue
 
             if isinstance(b, ELF):
+                has_executable = True
                 # If we have sections, we get result from sections
                 sections = []
                 if not force_segment and b.sections:
@@ -728,16 +767,20 @@ class CFGBase(Analysis):
                         max_mapped_addr = segment.min_addr + min(segment.memsize, segment.filesize)
                         tpl = (segment.min_addr, max_mapped_addr)
                         segments.append(tpl)
-                if sections and segments:
-                    # are there executable segments with no sections inside?
-                    for segment in segments:
-                        for section in sections:
-                            if segment[0] <= section[0] < segment[1]:
-                                break
-                        else:
-                            memory_regions.append(segment)
+                if force_segment:
+                    memory_regions += segments
+                else:
+                    if sections and segments:
+                        # are there executable segments with no sections inside?
+                        for segment in segments:
+                            for section in sections:
+                                if segment[0] <= section[0] < segment[1]:
+                                    break
+                            else:
+                                memory_regions.append(segment)
 
             elif isinstance(b, (Coff, PE)):
+                has_executable = True
                 for section in b.sections:
                     if section.is_executable:
                         max_mapped_addr = section.min_addr + min(section.memsize, section.filesize)
@@ -745,6 +788,7 @@ class CFGBase(Analysis):
                         memory_regions.append(tpl)
 
             elif isinstance(b, XBE):
+                has_executable = True
                 # some XBE files will mark the data sections as executable
                 for section in b.sections:
                     if (
@@ -756,6 +800,7 @@ class CFGBase(Analysis):
                         memory_regions.append(tpl)
 
             elif isinstance(b, MachO):
+                has_executable = True
                 if b.segments:
                     # Get all executable segments
                     for seg in b.segments:
@@ -812,7 +857,7 @@ class CFGBase(Analysis):
                 tpl = (b.min_addr, b.max_addr + 1)
                 memory_regions.append(tpl)
 
-        if not memory_regions:
+        if not memory_regions and not has_executable:
             memory_regions = [(start, start + len(backer)) for start, backer in self.project.loader.memory.backers()]
 
         return sorted(memory_regions, key=lambda x: x[0])
@@ -990,6 +1035,19 @@ class CFGBase(Analysis):
                     addrs.add(function_hint.addr)
         return addrs
 
+    def _load_func_addr_and_names_from_hints(self) -> set[tuple[int, str | None]]:
+        """
+        Get possible function addresses from CLE's function hints.
+
+        :return:    A set of tuples of addresses and function names that are probably functions.
+        """
+
+        addrs_and_names = set()
+        for function_hint in self._binary.function_hints:
+            if function_hint.source != FunctionHintSource.EH_FRAME:
+                addrs_and_names.add((function_hint.addr, function_hint.name))
+        return addrs_and_names
+
     #
     # Analyze function features
     #
@@ -1140,10 +1198,10 @@ class CFGBase(Analysis):
 
             if returning:
                 func.returning = True
-                changes["functions_return"].append(func)
+                changes["functions_return"].append(func.addr)
             elif returning is False:
                 func.returning = False
-                changes["functions_do_not_return"].append(func)
+                changes["functions_do_not_return"].append(func.addr)
 
             if returning is not None and func.addr in functions.callgraph:
                 # Add all callers of this function to all_functions list
@@ -1156,12 +1214,11 @@ class CFGBase(Analysis):
 
         return changes
 
-    def _iteratively_analyze_function_features(self, all_funcs_completed=False):
+    def _iteratively_analyze_function_features(self, all_funcs_completed=False) -> dict[str, set[int]]:
         """
         Iteratively analyze function features until a fixed point is reached.
 
         :return: the "changes" dict
-        :rtype:  dict
         """
 
         changes = {"functions_do_not_return": set(), "functions_return": set()}
@@ -1630,10 +1687,8 @@ class CFGBase(Analysis):
         function_nodes = set()
 
         # Find nodes for beginnings of all functions
-        for _, dst, data in self.graph.edges(data=True):
-            jumpkind = data.get("jumpkind", "")
-            if jumpkind == "Ijk_Call" or jumpkind.startswith("Ijk_Sys"):
-                function_nodes.add(dst)
+        for node in self.graph.call_destination_nodes():
+            function_nodes.add(node)
 
         entry_node = self.model.get_any_node(self._binary.entry, force_fastpath=True)
         if entry_node is not None:
@@ -1666,9 +1721,10 @@ class CFGBase(Analysis):
 
         # Remove all nodes that are adjusted
         function_nodes.difference_update(adjusted_cfgnodes)
-        for n in self.graph:
-            if n.addr in tmp_functions or n.addr in removed_functions:
-                function_nodes.add(n)
+        for node_key in self.graph.node_keys:
+            node_addr = block_key_to_addr(node_key)
+            if node_addr in tmp_functions or node_addr in removed_functions:
+                function_nodes.add(self.graph.get_node_by_key(node_key))
 
         # ensure all function nodes are mapped to their function addresses
         for func_addr in predetermined_function_addrs:
@@ -2420,23 +2476,18 @@ class CFGBase(Analysis):
             traversed.add(node_key)
 
             if self.model.node_addr_has_return(node_addr):
-                callback(
-                    g, node_addr, node_key, None, {"jumpkind": "Ijk_Ret"}, blockaddr_to_funcaddr, known_functions, None
-                )
+                callback(g, node_key, None, {"jumpkind": "Ijk_Ret"}, blockaddr_to_funcaddr, known_functions, None)
             # NOTE: A block that has_return CAN have successors that aren't the return.
             # This is particularly the case for ARM conditional instructions.  Yes, conditional rets are a thing.
 
             if g.out_degree_by_key(node_key) == 0:
                 # it's a single node
-                callback(g, node_addr, node_key, None, None, blockaddr_to_funcaddr, known_functions, None)
+                callback(g, node_key, None, None, blockaddr_to_funcaddr, known_functions, None)
 
             else:
                 all_out_edges = list(g.out_edges_by_key(node_key, data=True))
                 for _, dst_key, data in all_out_edges:
-                    dst_addr = block_key_to_addr(dst_key)
-                    callback(
-                        g, node_addr, node_key, dst_addr, data, blockaddr_to_funcaddr, known_functions, all_out_edges
-                    )
+                    callback(g, node_key, dst_key, data, blockaddr_to_funcaddr, known_functions, all_out_edges)
 
                     jumpkind = data.get("jumpkind", "")
                     if (not (jumpkind in ("Ijk_Call", "Ijk_Ret") or jumpkind.startswith("Ijk_Sys"))) and (
@@ -2460,9 +2511,8 @@ class CFGBase(Analysis):
     def _graph_traversal_handler(
         self,
         g,
-        src_addr: int | SootAddressDescriptor,
         src_node_key: K,
-        dst_addr: int | SootAddressDescriptor | None,
+        dst_node_key: int | SootAddressDescriptor | None,
         data: dict | None,
         blockaddr_to_funcaddr: dict[AddressType, MethodType],
         known_functions: FunctionManager,
@@ -2472,16 +2522,16 @@ class CFGBase(Analysis):
         Graph traversal handler. It takes in a node or an edge, and create new functions or add nodes to existing
         functions accordingly. Oh, it also creates edges on the transition map of functions.
 
-        :param g:           The control flow graph that is currently being traversed.
-        :param src_addr:    Address of the edge beginning, or a single node when dst_addr is None.
+        :param g:            The control flow graph that is currently being traversed.
         :param src_node_key: The key of the source node in the graph.
-        :param dst_addr:    Address of the edge destination. For processing a single node, `dst_addr` is None.
-        :param data:        Edge data in the CFG. 'jumpkind' should be there if it's not None.
+        :param dst_node_key: The key of the edge destination. For processing a single node, `dst_addr` is None.
+        :param data:         Edge data in the CFG. 'jumpkind' should be there if it's not None.
         :param blockaddr_to_funcaddr: A mapping between block addresses to their function addresses.
         :param known_functions: Already recovered functions.
         :param all_edges:   All edges going out from src.
         """
 
+        src_addr = block_key_to_addr(src_node_key)
         src_funcaddr = self._addr_to_funcaddr(src_addr, blockaddr_to_funcaddr, known_functions)
         src_function = self.kb.functions.get_by_addr(src_funcaddr)
 
@@ -2501,8 +2551,9 @@ class CFGBase(Analysis):
             from_node = src_addr if n is None else self._to_snippet(n)
             self.kb.functions._add_return_from(src_function.addr, from_node, None)
 
-        if dst_addr is None:
+        if dst_node_key is None:
             return
+        dst_addr = block_key_to_addr(dst_node_key)
 
         # get instruction address and statement index
         ins_addr = data.get("ins_addr")
@@ -2515,11 +2566,10 @@ class CFGBase(Analysis):
             dst_funcaddr = self._addr_to_funcaddr(dst_addr, blockaddr_to_funcaddr, known_functions)
             dst_function = self.kb.functions.get_by_addr(dst_funcaddr, meta_only=True)
 
-            n = self.model.get_any_node(src_addr, force_fastpath=True)
-            if n is None:
+            if not self.model.has_node_addr(src_addr):
                 src_snippet = self._to_snippet(addr=src_addr, base_state=self._base_state)
             else:
-                src_snippet = self._to_snippet(cfg_node=n)
+                src_snippet = self._node_key_to_snippet(src_node_key)
 
             # HACK: FIXME: We need a better way of representing unresolved calls and whether they return.
             # For now, assume UnresolvedTarget returns if we're calling to it
@@ -2575,11 +2625,8 @@ class CFGBase(Analysis):
 
         elif jumpkind in ("Ijk_Boring", "Ijk_InvalICache", "Ijk_Exception"):
             # convert src_addr and dst_addr to CodeNodes
-            n = self.model.get_any_node(src_addr, force_fastpath=True)
-            src_node = src_addr if n is None else self._to_snippet(cfg_node=n)
-
-            n = self.model.get_any_node(dst_addr, force_fastpath=True)
-            dst_node = dst_addr if n is None else self._to_snippet(cfg_node=n)
+            src_node = src_addr if not self.model.has_node_addr(src_addr) else self._node_key_to_snippet(src_node_key)
+            dst_node = dst_addr if not self.model.has_node_addr(dst_addr) else self._node_key_to_snippet(dst_node_key)
 
             if self._skip_unmapped_addrs:
                 # pre-check: if source and destination do not belong to the same section, it must be jumping to another

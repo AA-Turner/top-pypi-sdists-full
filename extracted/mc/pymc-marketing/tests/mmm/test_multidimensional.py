@@ -23,7 +23,7 @@ import xarray as xr
 from pydantic import ValidationError
 from pymc.model_graph import fast_eval
 from pymc_extras.prior import Prior
-from pytensor.tensor.basic import TensorVariable
+from pytensor.xtensor.type import XTensorVariable
 from scipy.optimize import OptimizeResult
 
 from pymc_marketing.data.idata.mmm_wrapper import MMMIDataWrapper
@@ -67,10 +67,10 @@ def df(target_column) -> pd.DataFrame:
     dates = pd.date_range("2025-01-01", periods=3, freq="W-MON").rename("date")
     df = pd.DataFrame(
         {
-            ("A", "C1"): [1, 2, 3],
-            ("B", "C1"): [4, 5, 6],
-            ("A", "C2"): [7, 8, 9],
-            ("B", "C2"): [10, 11, 12],
+            ("A", "C1"): [1, 2, 3.0],
+            ("B", "C1"): [4, 5, 6.0],
+            ("A", "C2"): [7, 8, 9.0],
+            ("B", "C2"): [10, 11, 12.0],
         },
         index=dates,
     )
@@ -296,6 +296,37 @@ def test_save_load_equality_with_all_effects(mock_pymc_sample):
     import os
 
     os.remove(file)
+
+
+def test_single_channel():
+    # Regression test for https://github.com/pymc-labs/pymc-marketing/issues/1630
+    target_column = "y"
+    mmm = MMM(
+        date_column="date_week",
+        channel_columns=["x1"],
+        target_column=target_column,
+        adstock=GeometricAdstock(l_max=3),
+        saturation=LogisticSaturation(),
+        control_columns=[
+            "event_1",
+            "event_2",
+            "t",
+        ],
+    )
+    rng = np.random.default_rng(319)
+    X = pd.DataFrame(
+        {
+            "date_week": range(7),
+            "x1": rng.uniform(size=7),
+            "event1": rng.binomial(n=1, p=0.5, size=7),
+            "event2": rng.binomial(n=1, p=0.5, size=7),
+            "t": rng.uniform(size=7),
+        }
+    )
+    y = pd.Series(rng.uniform(size=7), index=X.index, name="y")
+    mmm.build_model(X, y)
+    assert mmm.model["channel_contribution"].dims == ("date", "channel")
+    assert mmm.model["channel_contribution"].eval().shape == (7, 1)
 
 
 @pytest.fixture
@@ -550,10 +581,7 @@ def test_sample_posterior_predictive_same_data(single_dim_data, mock_pymc_sample
     """
     X, y = single_dim_data
     X_train = X.iloc[:-5]
-    _ = X.iloc[-5:]
-
     y_train = y.iloc[:-5]
-    _ = y.iloc[-5:]
 
     # Build a small model
     adstock = GeometricAdstock(l_max=2)
@@ -917,6 +945,30 @@ def test_time_varying_intercept_with_custom_hsgp_multi_dim(
     assert latent_dims == hsgp_dims
 
 
+def test_time_varying_intercept_with_batch_baseline(df, target_column):
+    # Regression test for https://github.com/pymc-labs/pymc-marketing/issues/1514
+    mmm = MMM(
+        date_column="date",
+        channel_columns=["C1", "C2"],
+        dims=("country",),
+        target_column=target_column,
+        adstock=GeometricAdstock(l_max=10),
+        saturation=LogisticSaturation(),
+        model_config={"intercept": Prior("Normal", dims=("date", "country"))},
+        time_varying_intercept=True,
+    )
+    X = df.drop(columns=[target_column])
+    y = df[target_column]
+    mmm.build_model(X, y)
+    assert mmm.model["intercept_baseline"].dims == ("date", "country")
+    assert mmm.model["intercept_contribution"].dims == ("date", "country")
+    coords = mmm.model.coords
+    assert mmm.model["intercept_contribution"].eval(mode="FAST_COMPILE").shape == (
+        len(coords["date"]),
+        len(coords["country"]),
+    )
+
+
 @pytest.mark.parametrize(
     "hsgp_dims",
     [
@@ -1208,7 +1260,7 @@ def test_create_effect_mu_effect(
     with mock_mmm.model:
         mu = effect.create_effect(mock_mmm)
 
-    assert isinstance(mu, TensorVariable)
+    assert isinstance(mu, XTensorVariable)
 
     for named_vars in ["holiday_sigma", "holiday_effect_size", "holiday_total_effect"]:
         assert named_vars in mock_mmm.model.named_vars
@@ -1702,8 +1754,8 @@ def test_add_calibration_test_measurements(multi_dim_data):
     assert "channel_contribution_original_scale" in mmm.model.named_vars
     assert "cost_per_target" not in mmm.model.named_vars
 
-    pot_names = [getattr(p, "name", None) for p in mmm.model.potentials]
-    assert "cpt_calibration" in pot_names
+    obs_names = [rv.name for rv in mmm.model.observed_RVs]
+    assert "cpt_calibration" in obs_names
 
 
 def test_add_cost_per_target_calibration_requires_model(multi_dim_data) -> None:
@@ -3017,6 +3069,31 @@ def test_set_xarray_data_preserves_dtypes(multi_dim_data, mock_pymc_sample):
     )
 
 
+def test_integer_channel_data_is_cast_to_float(multi_dim_data):
+    """Integer channel data is cast to float at construction time (GH #2340)."""
+    X, y = multi_dim_data
+
+    # Verify the fixture actually produces integer channel columns
+    assert X["channel_1"].dtype.kind == "i", "Fixture should produce int channel data"
+
+    mmm = MMM(
+        adstock=GeometricAdstock(l_max=2),
+        saturation=LogisticSaturation(),
+        date_column="date",
+        target_column="target",
+        channel_columns=["channel_1", "channel_2"],
+        dims=("country",),
+    )
+    mmm.build_model(X, y)
+
+    # xarray dataset should have float channel data
+    assert np.issubdtype(mmm.xarray_dataset["_channel"].dtype, np.floating)
+
+    # The PyTensor pm.Data node should also be float
+    channel_data_var = mmm.model["channel_data"]
+    assert np.issubdtype(np.dtype(channel_data_var.type.dtype), np.floating)
+
+
 def test_set_xarray_data_with_control_columns_preserves_dtypes(multi_dim_data):
     """Test that _set_xarray_data preserves dtypes when control columns are present."""
     X, y = multi_dim_data
@@ -3380,7 +3457,7 @@ def test_specify_time_varying_configuration(
     mmm.build_model(X, y)
 
     assert (
-        mmm.model[expected_rv["name"]].owner.op.__class__.__name__
+        mmm.model[expected_rv["name"]].owner.op.core_op.__class__.__name__
         == expected_rv["kind"]
     )
 
@@ -3828,7 +3905,7 @@ def test_calibration_spend_with_different_dtypes(multi_dim_data, mock_pymc_sampl
 
 
 def test_calibration_duplicate_name_error(multi_dim_data, mock_pymc_sample):
-    """Test that attempting to re-register calibration potentials raises a duplicate name error."""
+    """Test that attempting to re-register calibration observations raises a duplicate name error."""
     X, y = multi_dim_data
 
     # Create MMM model
@@ -3870,10 +3947,7 @@ def test_calibration_duplicate_name_error(multi_dim_data, mock_pymc_sample):
         name_prefix="cpt_calibration",
     )
 
-    # Attempting to re-register the calibration potentials should raise a duplicate name error
-    with pytest.raises(
-        ValueError, match="Variable name cpt_calibration already exists"
-    ):
+    with pytest.raises(ValueError, match="cpt_calibration"):
         mmm.add_cost_per_target_calibration(
             data=spend_df,
             calibration_data=calibration_df,
@@ -3907,13 +3981,9 @@ def test_calibration_shape_mismatch_error(multi_dim_data, mock_pymc_sample):
     spend_df = spend_df[spend_df["country"] != "Chile"].copy()
     for col in ["channel_1", "channel_2", "channel_3"]:
         spend_df[col] = spend_df[col] * 1.5
-    # print unique countries in spend_df
-    print(spend_df["country"].unique())
 
     # Create calibration data
     countries = mmm.model.coords["country"]
-    # print unique countries in countries
-    print(countries)
     calibration_df = pd.DataFrame(
         {
             "country": [countries[0], countries[1], countries[2]],
@@ -3924,7 +3994,10 @@ def test_calibration_shape_mismatch_error(multi_dim_data, mock_pymc_sample):
     )
 
     # This should raise a shape mismatch error
-    with pytest.raises(ValueError, match="shape does not match"):
+    with pytest.raises(
+        ValueError,
+        match=r"Spend data coordinates for dim 'country' do not match model coords",
+    ):
         mmm.add_cost_per_target_calibration(
             data=spend_df,
             calibration_data=calibration_df,
@@ -4264,3 +4337,545 @@ class TestDataProperty:
         assert isinstance(wrapper, MMMIDataWrapper)
         # Verify time_index variable exists in schema (indicator of time-varying)
         assert "time_index" in wrapper.schema.groups["constant_data"].variables
+
+
+class TestChannelCoordinateOrdering:
+    """Regression tests for #2417: channel coordinates must preserve
+    the user-provided channel_columns order, not be alphabetically sorted."""
+
+    NON_ALPHA_CHANNELS = ["Z_tv", "A_social", "M_radio"]
+
+    @pytest.fixture
+    def shuffled_channel_data(self):
+        n = 14
+        dates = pd.date_range("2023-01-01", periods=n, freq="W")
+        geos = ["G1", "G2"]
+        rows = []
+        rng = np.random.default_rng(42)
+        for geo in geos:
+            for date in dates:
+                rows.append(
+                    {
+                        "date": date,
+                        "geo": geo,
+                        **{
+                            ch: rng.integers(100, 500) for ch in self.NON_ALPHA_CHANNELS
+                        },
+                    }
+                )
+        df = pd.DataFrame(rows)
+        y = pd.Series(rng.integers(200, 800, size=len(df)), name="target")
+        return df, y
+
+    @pytest.fixture
+    def shuffled_mmm(self):
+        return MMM(
+            date_column="date",
+            channel_columns=list(self.NON_ALPHA_CHANNELS),
+            dims=("geo",),
+            target_column="target",
+            adstock=GeometricAdstock(l_max=4),
+            saturation=LogisticSaturation(),
+        )
+
+    def test_xarray_dataset_preserves_channel_order(
+        self, shuffled_mmm, shuffled_channel_data
+    ):
+        """Regression test for #2417: xarray_dataset channel coordinate must
+        match channel_columns order after xr.merge."""
+        X, y = shuffled_channel_data
+        shuffled_mmm.build_model(X=X, y=y)
+
+        channels = self.NON_ALPHA_CHANNELS
+        assert sorted(channels) != channels, "precondition: channels must not be sorted"
+
+        actual = list(shuffled_mmm.xarray_dataset.coords["channel"].values)
+        assert actual == channels
+
+    def test_model_coords_preserves_channel_order(
+        self, shuffled_mmm, shuffled_channel_data
+    ):
+        """Regression test for #2417: model_coords['channel'] must match
+        channel_columns order, not alphabetical."""
+        X, y = shuffled_channel_data
+        shuffled_mmm.build_model(X=X, y=y)
+
+        channels = self.NON_ALPHA_CHANNELS
+        assert sorted(channels) != channels, "precondition: channels must not be sorted"
+
+        actual = list(shuffled_mmm.model_coords["channel"])
+        assert actual == channels
+
+    def test_idata_preserves_channel_order(
+        self, shuffled_mmm, shuffled_channel_data, mock_pymc_sample
+    ):
+        """Regression test for #2417: InferenceData posterior channel coordinate
+        must match channel_columns order."""
+        X, y = shuffled_channel_data
+        shuffled_mmm.fit(X=X, y=y)
+
+        channels = self.NON_ALPHA_CHANNELS
+        assert sorted(channels) != channels, "precondition: channels must not be sorted"
+
+        posterior_channels = list(shuffled_mmm.idata.posterior.coords["channel"].values)
+        assert posterior_channels == channels
+
+    def test_data_wrapper_channels_preserves_order(
+        self, shuffled_mmm, shuffled_channel_data, mock_pymc_sample
+    ):
+        """Regression test for #2417: MMMIDataWrapper.channels must match
+        channel_columns order."""
+        X, y = shuffled_channel_data
+        shuffled_mmm.fit(X=X, y=y)
+
+        channels = self.NON_ALPHA_CHANNELS
+        assert sorted(channels) != channels, "precondition: channels must not be sorted"
+
+        wrapper = shuffled_mmm.data
+        assert isinstance(wrapper, MMMIDataWrapper)
+        assert wrapper.channels == channels
+
+    def test_posterior_predictive_data_transformation_preserves_channel_order(
+        self, shuffled_mmm, shuffled_channel_data, mock_pymc_sample
+    ):
+        """Regression test for #2417: _posterior_predictive_data_transformation
+        must return a dataset with channel coordinates in user-provided order."""
+        X, y = shuffled_channel_data
+        shuffled_mmm.fit(X=X, y=y)
+
+        channels = self.NON_ALPHA_CHANNELS
+        assert sorted(channels) != channels
+
+        dataset = shuffled_mmm._posterior_predictive_data_transformation(X=X)
+        actual = list(dataset.coords["channel"].values)
+        assert actual == channels
+
+        future_dates = pd.date_range(
+            "2023-05-01", periods=X["date"].nunique(), freq="W"
+        )
+        X_future = X.copy()
+        X_future["date"] = np.tile(future_dates, len(X) // len(future_dates))
+        dataset_with_last = shuffled_mmm._posterior_predictive_data_transformation(
+            X=X_future, include_last_observations=True
+        )
+        actual_with_last = list(dataset_with_last.coords["channel"].values)
+        assert actual_with_last == channels
+
+    def test_posterior_predictive_data_transformation_preserves_values(
+        self, mock_pymc_sample
+    ):
+        """Regression test for #2417: channel VALUES must be mapped to the
+        correct channel LABELS after _posterior_predictive_data_transformation.
+        Uses distinct spend levels per channel so a swap is detectable."""
+        channels = self.NON_ALPHA_CHANNELS
+        n = 14
+        dates = pd.date_range("2023-01-01", periods=n, freq="W")
+        geos = ["G1", "G2"]
+        rng = np.random.default_rng(99)
+        rows = []
+        for geo in geos:
+            for date in dates:
+                rows.append(
+                    {
+                        "date": date,
+                        "geo": geo,
+                        "Z_tv": rng.integers(800, 1200),
+                        "A_social": rng.integers(1, 10),
+                        "M_radio": rng.integers(100, 300),
+                    }
+                )
+        df = pd.DataFrame(rows)
+        y = pd.Series(rng.integers(200, 800, size=len(df)), name="target")
+
+        mmm = MMM(
+            date_column="date",
+            channel_columns=list(channels),
+            dims=("geo",),
+            target_column="target",
+            adstock=GeometricAdstock(l_max=4),
+            saturation=LogisticSaturation(),
+        )
+        mmm.fit(X=df, y=y)
+
+        dataset = mmm._posterior_predictive_data_transformation(X=df)
+        z_tv_mean = float(dataset._channel.sel(channel="Z_tv").mean())
+        a_social_mean = float(dataset._channel.sel(channel="A_social").mean())
+        assert z_tv_mean > a_social_mean * 10, (
+            f"Z_tv mean ({z_tv_mean:.1f}) should be >> A_social mean "
+            f"({a_social_mean:.1f}); values are likely swapped"
+        )
+
+    def test_posterior_predictive_data_transformation_preserves_control_order(
+        self, mock_pymc_sample
+    ):
+        """Regression test for #2417: control coordinate order must be
+        preserved through _posterior_predictive_data_transformation."""
+        channels = ["Z_tv", "A_social"]
+        controls = ["Z_ctrl", "A_ctrl"]
+        n = 14
+        dates = pd.date_range("2023-01-01", periods=n, freq="W")
+        geos = ["G1", "G2"]
+        rng = np.random.default_rng(42)
+        rows = []
+        for geo in geos:
+            for date in dates:
+                rows.append(
+                    {
+                        "date": date,
+                        "geo": geo,
+                        "Z_tv": rng.integers(100, 500),
+                        "A_social": rng.integers(100, 500),
+                        "Z_ctrl": rng.integers(50, 100),
+                        "A_ctrl": rng.integers(1, 5),
+                    }
+                )
+        df = pd.DataFrame(rows)
+        y = pd.Series(rng.integers(200, 800, size=len(df)), name="target")
+
+        mmm = MMM(
+            date_column="date",
+            channel_columns=channels,
+            control_columns=controls,
+            dims=("geo",),
+            target_column="target",
+            adstock=GeometricAdstock(l_max=4),
+            saturation=LogisticSaturation(),
+        )
+        mmm.fit(X=df, y=y)
+
+        dataset = mmm._posterior_predictive_data_transformation(X=df)
+        assert sorted(controls) != controls, "precondition: controls not alphabetical"
+        assert list(dataset.coords["channel"].values) == channels
+        assert list(dataset.coords["control"].values) == controls
+
+
+class TestComputeMeanContributionsOverTime:
+    """Tests for compute_mean_contributions_over_time method."""
+
+    def test_channels_only(self, single_dim_data, mock_pymc_sample) -> None:
+        """Channels + intercept only (no controls, no seasonality)."""
+        X, y = single_dim_data
+        mmm = MMM(
+            date_column="date",
+            channel_columns=["channel_1", "channel_2", "channel_3"],
+            target_column="target",
+            adstock=GeometricAdstock(l_max=2),
+            saturation=LogisticSaturation(),
+        )
+        mmm.fit(X, y)
+
+        result = mmm.compute_mean_contributions_over_time()
+
+        assert isinstance(result, pd.DataFrame)
+        n_dates = X["date"].nunique()
+        assert result.shape[0] == n_dates
+        expected_columns = ["date", "channel_1", "channel_2", "channel_3", "intercept"]
+        assert result.columns.tolist() == expected_columns
+
+    def test_with_controls_and_seasonality(
+        self, single_dim_data, mock_pymc_sample
+    ) -> None:
+        """Full model with controls and yearly seasonality."""
+        X, y = single_dim_data
+        X = X.copy()
+        X["ctrl"] = np.random.default_rng(0).uniform(size=len(X))
+        mmm = MMM(
+            date_column="date",
+            channel_columns=["channel_1", "channel_2", "channel_3"],
+            control_columns=["ctrl"],
+            target_column="target",
+            yearly_seasonality=2,
+            adstock=GeometricAdstock(l_max=2),
+            saturation=LogisticSaturation(),
+        )
+        mmm.fit(X, y)
+
+        result = mmm.compute_mean_contributions_over_time()
+
+        assert isinstance(result, pd.DataFrame)
+        expected_columns = [
+            "date",
+            "channel_1",
+            "channel_2",
+            "channel_3",
+            "ctrl",
+            "yearly_seasonality",
+            "intercept",
+        ]
+        assert result.columns.tolist() == expected_columns
+
+    def test_multi_dimensional(self, multi_dim_data, mock_pymc_sample) -> None:
+        """Extra panel dimensions (e.g. country) produce additional columns."""
+        X, y = multi_dim_data
+        mmm = MMM(
+            date_column="date",
+            channel_columns=["channel_1", "channel_2", "channel_3"],
+            target_column="target",
+            dims=("country",),
+            adstock=GeometricAdstock(l_max=2),
+            saturation=LogisticSaturation(),
+        )
+        mmm.fit(X, y)
+
+        result = mmm.compute_mean_contributions_over_time()
+
+        assert isinstance(result, pd.DataFrame)
+        assert "country" in result.columns
+        assert "date" in result.columns
+        n_dates = X["date"].nunique()
+        n_countries = X["country"].nunique()
+        assert result.shape[0] == n_dates * n_countries
+        for ch in ["channel_1", "channel_2", "channel_3"]:
+            assert ch in result.columns
+        assert "intercept" in result.columns
+
+    def test_original_scale_values(self, single_dim_data, mock_pymc_sample) -> None:
+        """Verify values match manual target_scale multiplication."""
+        X, y = single_dim_data
+        mmm = MMM(
+            date_column="date",
+            channel_columns=["channel_1", "channel_2", "channel_3"],
+            target_column="target",
+            adstock=GeometricAdstock(l_max=2),
+            saturation=LogisticSaturation(),
+        )
+        mmm.fit(X, y)
+
+        result = mmm.compute_mean_contributions_over_time()
+
+        target_scale = mmm.idata.constant_data["target_scale"].values
+        scaled_channel = mmm.idata.posterior["channel_contribution"].mean(
+            dim=("chain", "draw")
+        )
+        expected_channel = (scaled_channel * target_scale).values
+
+        actual_channel = result[["channel_1", "channel_2", "channel_3"]].values
+        np.testing.assert_allclose(actual_channel, expected_channel, rtol=1e-6)
+
+    def test_with_time_varying_intercept(
+        self, single_dim_data, mock_pymc_sample
+    ) -> None:
+        """Time-varying intercept produces a per-date intercept column."""
+        X, y = single_dim_data
+        mmm = MMM(
+            date_column="date",
+            channel_columns=["channel_1", "channel_2", "channel_3"],
+            target_column="target",
+            time_varying_intercept=True,
+            adstock=GeometricAdstock(l_max=2),
+            saturation=LogisticSaturation(),
+        )
+        mmm.fit(X, y)
+
+        result = mmm.compute_mean_contributions_over_time()
+
+        assert isinstance(result, pd.DataFrame)
+        assert "intercept" in result.columns
+        n_dates = X["date"].nunique()
+        assert result.shape[0] == n_dates
+
+        target_scale = mmm.idata.constant_data["target_scale"].values
+        scaled_intercept = mmm.idata.posterior["intercept_contribution"].mean(
+            dim=("chain", "draw")
+        )
+        expected_intercept = (scaled_intercept * target_scale).values
+
+        np.testing.assert_allclose(
+            result["intercept"].values, expected_intercept, rtol=1e-6
+        )
+
+    def test_raises_without_idata(self) -> None:
+        """Method raises ValueError before fitting."""
+        mmm = MMM(
+            date_column="date",
+            channel_columns=["ch"],
+            target_column="y",
+            adstock=GeometricAdstock(l_max=2),
+            saturation=LogisticSaturation(),
+        )
+        with pytest.raises(ValueError, match="idata"):
+            mmm.compute_mean_contributions_over_time()
+
+
+class TestChannelOrderingIntegration:
+    """End-to-end integration regression test for issues #2323 and #2417.
+
+    Exercises the complete pipeline with non-alphabetical channel and control
+    names from a single data setup: build -> fit -> predict -> optimize -> ROAS.
+    """
+
+    CHANNELS = ["Z_tv", "A_social", "M_radio"]
+    CONTROLS = ["Z_ctrl", "A_ctrl"]
+
+    @pytest.fixture(scope="class")
+    def integration_model(self, mock_pymc_sample):
+        """Build and fit an MMM with non-alphabetical channels/controls
+        and distinct per-channel spend levels."""
+        n = 14
+        dates = pd.date_range("2023-01-01", periods=n, freq="W")
+        geos = ["G1", "G2"]
+        rng = np.random.default_rng(42)
+
+        rows = []
+        for geo in geos:
+            for date in dates:
+                rows.append(
+                    {
+                        "date": date,
+                        "geo": geo,
+                        "Z_tv": rng.integers(800, 1200),
+                        "A_social": rng.integers(1, 10),
+                        "M_radio": rng.integers(100, 300),
+                        "Z_ctrl": rng.integers(50, 100),
+                        "A_ctrl": rng.integers(1, 5),
+                    }
+                )
+        df = pd.DataFrame(rows)
+        y = pd.Series(rng.integers(200, 800, size=len(df)), name="target")
+
+        mmm = MMM(
+            date_column="date",
+            channel_columns=list(self.CHANNELS),
+            control_columns=list(self.CONTROLS),
+            dims=("geo",),
+            target_column="target",
+            adstock=GeometricAdstock(l_max=4),
+            saturation=LogisticSaturation(),
+        )
+        mmm.fit(X=df, y=y, progressbar=False)
+        mmm.sample_posterior_predictive(
+            X=df, extend_idata=True, combined=True, progressbar=False
+        )
+
+        return mmm, df, y
+
+    def test_precondition_channels_not_alphabetical(self, integration_model):
+        """Guard: channels and controls must not be alphabetically sorted."""
+        mmm, _, _ = integration_model
+        assert sorted(self.CHANNELS) != self.CHANNELS
+        assert sorted(self.CONTROLS) != self.CONTROLS
+        assert list(mmm.channel_columns) == self.CHANNELS
+        assert list(mmm.control_columns) == self.CONTROLS
+
+    def test_build_preserves_channel_order(self, integration_model):
+        """xarray_dataset, model_coords, and idata must preserve user order
+        for both channels and controls."""
+        mmm, _, _ = integration_model
+        assert list(mmm.xarray_dataset.coords["channel"].values) == self.CHANNELS
+        assert list(mmm.model_coords["channel"]) == self.CHANNELS
+        assert list(mmm.idata.posterior.coords["channel"].values) == self.CHANNELS
+        assert list(mmm.xarray_dataset.coords["control"].values) == self.CONTROLS
+
+    def test_prediction_transform_preserves_order(self, integration_model):
+        """_posterior_predictive_data_transformation must preserve user order
+        for both channels and controls, with and without include_last_observations."""
+        mmm, df, _y = integration_model
+
+        dataset = mmm._posterior_predictive_data_transformation(X=df)
+        assert list(dataset.coords["channel"].values) == self.CHANNELS
+        assert list(dataset.coords["control"].values) == self.CONTROLS
+
+        future_dates = pd.date_range(
+            "2023-05-01", periods=df["date"].nunique(), freq="W"
+        )
+        df_future = df.copy()
+        df_future["date"] = np.tile(future_dates, len(df) // len(future_dates))
+        dataset_with_last = mmm._posterior_predictive_data_transformation(
+            X=df_future, include_last_observations=True
+        )
+        assert list(dataset_with_last.coords["channel"].values) == self.CHANNELS
+        assert list(dataset_with_last.coords["control"].values) == self.CONTROLS
+
+    def test_prediction_transform_values_match_channels(self, integration_model):
+        """Channel and control VALUES must be mapped to the correct LABELS.
+        Z_tv spend (800-1200) must be >> A_social spend (1-10); if alphabetical
+        sorting swapped them, this assertion fails."""
+        mmm, df, _y = integration_model
+
+        dataset = mmm._posterior_predictive_data_transformation(X=df)
+
+        z_tv_mean = float(dataset._channel.sel(channel="Z_tv").mean())
+        a_social_mean = float(dataset._channel.sel(channel="A_social").mean())
+        assert z_tv_mean > a_social_mean * 10, (
+            f"Z_tv ({z_tv_mean:.1f}) should be >> A_social ({a_social_mean:.1f}); "
+            "values are likely swapped due to alphabetical sorting"
+        )
+
+        z_ctrl_mean = float(dataset._control.sel(control="Z_ctrl").mean())
+        a_ctrl_mean = float(dataset._control.sel(control="A_ctrl").mean())
+        assert z_ctrl_mean > a_ctrl_mean * 5, (
+            f"Z_ctrl ({z_ctrl_mean:.1f}) should be >> A_ctrl ({a_ctrl_mean:.1f}); "
+            "values are likely swapped due to alphabetical sorting"
+        )
+
+    def test_optimizer_asymmetric_bounds_respected(self, integration_model):
+        """Regression for #2323: asymmetric bounds must apply to the correct
+        channels. Z_tv (first in user order) gets the tightest upper bound;
+        if bounds were applied alphabetically, it would get A_social's looser bound."""
+        mmm, _, _ = integration_model
+        channels = list(mmm.channel_columns)
+        geos = list(mmm.model_coords["geo"])
+
+        wrapper = MultiDimensionalBudgetOptimizerWrapper(
+            model=mmm,
+            start_date="2023-04-01",
+            end_date="2023-06-01",
+        )
+
+        total = 100.0
+        n_ch = len(channels)
+        bounds_dict = {
+            ch: (0.0, total * (i + 1) / n_ch) for i, ch in enumerate(channels)
+        }
+        bounds_da = xr.DataArray(
+            [[list(bounds_dict[ch]) for ch in channels] for _ in geos],
+            dims=["geo", "channel", "bound"],
+            coords={"geo": geos, "channel": channels, "bound": ["lower", "upper"]},
+        )
+
+        optimal_budgets, result = wrapper.optimize_budget(
+            budget=total, budget_bounds=bounds_da
+        )
+        assert result.success
+        for ch in channels:
+            vals = optimal_budgets.sel(channel=ch).values
+            lo, hi = bounds_dict[ch]
+            assert np.all(vals >= lo - 1e-6) and np.all(vals <= hi + 1e-6), (
+                f"{ch} allocation {vals} outside bounds [{lo}, {hi}]"
+            )
+
+    def test_roas_channel_coordinate_order(self, integration_model):
+        """ROAS result from incrementality module must have user-ordered
+        channel coordinates."""
+        mmm, _, _ = integration_model
+        roas = mmm.incrementality.contribution_over_spend(frequency="all_time").rename(
+            "roas"
+        )
+        assert list(roas.coords["channel"].values) == self.CHANNELS
+
+    def test_roas_matches_ground_truth(self, integration_model):
+        """ROAS from contribution_over_spend must equal
+        incremental_contribution / spend per channel."""
+        mmm, _, _ = integration_model
+        roas = mmm.incrementality.contribution_over_spend(frequency="all_time").rename(
+            "roas"
+        )
+
+        incremental = mmm.incrementality.compute_incremental_contribution(
+            frequency="all_time", counterfactual_spend_factor=0.0
+        )
+        spend = mmm.data.aggregate_time(
+            period="all_time", method="sum"
+        ).get_channel_spend()
+        expected_roas = incremental / xr.where(spend == 0, np.nan, spend)
+        xr.testing.assert_allclose(roas, expected_roas)
+
+    def test_sample_posterior_predictive_channel_order(self, integration_model):
+        """After sample_posterior_predictive, the data set into the model
+        must use user-ordered channel and control coordinates."""
+        mmm, df, _ = integration_model
+        mmm.sample_posterior_predictive(
+            X=df, extend_idata=False, combined=True, progressbar=False
+        )
+        assert list(mmm.new_updated_coords["channel"]) == self.CHANNELS
+        assert list(mmm.new_updated_coords["control"]) == self.CONTROLS

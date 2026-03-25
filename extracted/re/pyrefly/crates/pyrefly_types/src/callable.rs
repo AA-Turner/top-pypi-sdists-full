@@ -35,6 +35,7 @@ use crate::class::Class;
 use crate::class::ClassType;
 use crate::display::TypeDisplayContext;
 use crate::equality::TypeEq;
+use crate::equality::TypeEqCtx;
 use crate::keywords::DataclassTransformMetadata;
 use crate::type_output::TypeOutput;
 use crate::types::Type;
@@ -92,6 +93,7 @@ impl ArgCount {
 pub struct ArgCounts {
     pub positional: ArgCount,
     pub keyword: ArgCount,
+    pub overall: ArgCount,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -245,24 +247,30 @@ impl Params {
                 let mut counts = ArgCounts {
                     positional: ArgCount::none_allowed(),
                     keyword: ArgCount::none_allowed(),
+                    overall: ArgCount::none_allowed(),
                 };
                 for param in params.items() {
                     match param {
                         Param::PosOnly(_, _, req) => {
                             counts.positional.add_arg(req);
+                            counts.overall.add_arg(req);
                         }
-                        Param::Pos(..) => {
+                        Param::Pos(_, _, req) => {
                             counts.positional.add_arg(&Required::Optional(None));
                             counts.keyword.add_arg(&Required::Optional(None));
+                            counts.overall.add_arg(req);
                         }
                         Param::KwOnly(_, _, req) => {
                             counts.keyword.add_arg(req);
+                            counts.overall.add_arg(req);
                         }
                         Param::VarArg(..) => {
                             counts.positional.max = None;
+                            counts.overall.max = None;
                         }
                         Param::Kwargs(..) => {
                             counts.keyword.max = None;
+                            counts.overall.max = None;
                         }
                     }
                 }
@@ -271,6 +279,7 @@ impl Params {
             Self::Ellipsis | Self::Materialization => ArgCounts {
                 positional: ArgCount::any_allowed(),
                 keyword: ArgCount::any_allowed(),
+                overall: ArgCount::any_allowed(),
             },
             Self::ParamSpec(prefix, _) => ArgCounts {
                 positional: ArgCount {
@@ -278,6 +287,10 @@ impl Params {
                     max: None,
                 },
                 keyword: ArgCount::any_allowed(),
+                overall: ArgCount {
+                    min: prefix.len(),
+                    max: None,
+                },
             },
         }
     }
@@ -293,13 +306,63 @@ pub enum Param {
     Kwargs(Option<Name>, Type),
 }
 
+/// The default value of an optional parameter, containing its type and an optional
+/// display string for values whose types don't preserve the literal value (e.g. floats).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DefaultValue {
+    pub ty: Type,
+    /// Display string for defaults that can't be recovered from the type alone,
+    /// e.g. `"3.14"` for float literals whose type is just `float`.
+    pub display: Option<String>,
+}
+
+/// Visit/VisitMut/TypeEq delegate to `ty` only; `display` is display-only metadata.
+impl<To> Visit<To> for DefaultValue
+where
+    Type: Visit<To>,
+{
+    const RECURSE_CONTAINS: bool = <Type as Visit<To>>::RECURSE_CONTAINS;
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a To)) {
+        self.ty.recurse(f);
+    }
+}
+
+impl<To> VisitMut<To> for DefaultValue
+where
+    Type: VisitMut<To>,
+{
+    const RECURSE_CONTAINS: bool = <Type as VisitMut<To>>::RECURSE_CONTAINS;
+    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut To)) {
+        self.ty.recurse_mut(f);
+    }
+}
+
+impl TypeEq for DefaultValue {
+    fn type_eq(&self, other: &Self, ctx: &mut TypeEqCtx) -> bool {
+        self.ty.type_eq(&other.ty, ctx)
+    }
+}
+
+impl DefaultValue {
+    pub fn new(ty: Type) -> Self {
+        Self { ty, display: None }
+    }
+
+    pub fn with_display(ty: Type, display: String) -> Self {
+        Self {
+            ty,
+            display: Some(display),
+        }
+    }
+}
+
 /// Requiredness for a function parameter.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum Required {
     Required,
-    /// The parameter is optional, with the `Type` being the type of its default value, if available.
-    Optional(Option<Type>),
+    /// The parameter is optional, with the default value info if available.
+    Optional(Option<DefaultValue>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -738,10 +801,17 @@ impl Callable {
 }
 
 impl Param {
-    fn fmt_default(&self, default: &Option<Type>) -> String {
+    fn fmt_default(&self, default: &Option<DefaultValue>) -> String {
         match default {
-            Some(Type::Literal(lit)) => format!("{}", lit.value),
-            Some(Type::None) => "None".to_owned(),
+            Some(DefaultValue {
+                display: Some(text),
+                ..
+            }) => text.clone(),
+            Some(DefaultValue {
+                ty: Type::Literal(lit),
+                ..
+            }) => format!("{}", lit.value),
+            Some(DefaultValue { ty: Type::None, .. }) => "None".to_owned(),
             _ => "...".to_owned(),
         }
     }

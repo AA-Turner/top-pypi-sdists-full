@@ -48,17 +48,25 @@ class EpiGraphDBTool(BaseRESTTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"EpiGraphDB request timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"EpiGraphDB request timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to EpiGraphDB. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to EpiGraphDB. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
             return {
-                "error": f"EpiGraphDB HTTP error: {e.response.status_code} - {e.response.text[:200]}"
+                "status": "error",
+                "error": f"EpiGraphDB HTTP error: {e.response.status_code} - {e.response.text[:200]}",
             }
         except Exception as e:
-            return {"error": f"Unexpected error querying EpiGraphDB: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying EpiGraphDB: {str(e)}",
+            }
 
     def _query(self, arguments: dict) -> dict:
         """Route to the appropriate endpoint."""
@@ -80,14 +88,17 @@ class EpiGraphDBTool(BaseRESTTool):
         elif op == "opengwas_search":
             return self._search_opengwas(arguments)
         else:
-            return {"error": f"Unknown operation: {op}"}
+            return {"status": "error", "error": f"Unknown operation: {op}"}
 
     def _get_mr(self, arguments: dict) -> dict:
         """Get Mendelian Randomization results between exposure and outcome traits."""
         exposure_trait = arguments.get("exposure_trait", "").strip()
         outcome_trait = arguments.get("outcome_trait", "").strip()
         if not exposure_trait or not outcome_trait:
-            return {"error": "Both exposure_trait and outcome_trait are required"}
+            return {
+                "status": "error",
+                "error": "Both exposure_trait and outcome_trait are required",
+            }
 
         pval_threshold = float(arguments.get("pval_threshold", 1e-5))
         params = {
@@ -124,6 +135,7 @@ class EpiGraphDBTool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "mr_results": mr_results,
                 "total_count": len(results),
@@ -144,7 +156,10 @@ class EpiGraphDBTool(BaseRESTTool):
         """Get genetic correlations between a trait and other GWAS traits."""
         trait = arguments.get("trait", "").strip()
         if not trait:
-            return {"error": "trait parameter is required (e.g., 'Body mass index')"}
+            return {
+                "status": "error",
+                "error": "trait parameter is required (e.g., 'Body mass index')",
+            }
 
         pval_threshold = float(arguments.get("pval_threshold", 0.05))
         params = {
@@ -179,6 +194,7 @@ class EpiGraphDBTool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "correlations": cor_results,
                 "total_count": len(results),
@@ -196,7 +212,8 @@ class EpiGraphDBTool(BaseRESTTool):
         trait = arguments.get("trait", "").strip()
         if not trait:
             return {
-                "error": "trait parameter is required (e.g., 'Body mass index', 'LDL cholesterol')"
+                "status": "error",
+                "error": "trait parameter is required (e.g., 'Body mass index', 'LDL cholesterol')",
             }
 
         pval_threshold = float(arguments.get("pval_threshold", 1e-4))
@@ -234,6 +251,7 @@ class EpiGraphDBTool(BaseRESTTool):
         drug_list = sorted(seen_drugs.values(), key=lambda x: -x["evidence_count"])[:30]
 
         return {
+            "status": "success",
             "data": {
                 "drugs": drug_list,
                 "total_evidence_count": len(results),
@@ -255,7 +273,8 @@ class EpiGraphDBTool(BaseRESTTool):
         trait = arguments.get("trait", "").strip()
         if not trait:
             return {
-                "error": "trait parameter is required (e.g., 'Body mass index', 'coronary artery disease')"
+                "status": "error",
+                "error": "trait parameter is required (e.g., 'Body mass index', 'coronary artery disease')",
             }
 
         params = {
@@ -288,6 +307,7 @@ class EpiGraphDBTool(BaseRESTTool):
         efo_list = list(seen_efo.values())
 
         return {
+            "status": "success",
             "data": {
                 "efo_mappings": efo_list,
                 "total_count": len(efo_list),
@@ -304,7 +324,8 @@ class EpiGraphDBTool(BaseRESTTool):
         disease = arguments.get("disease", "").strip()
         if not disease:
             return {
-                "error": "disease parameter is required (e.g., 'type 2 diabetes', 'breast cancer')"
+                "status": "error",
+                "error": "disease parameter is required (e.g., 'type 2 diabetes', 'breast cancer')",
             }
 
         params = {
@@ -333,6 +354,7 @@ class EpiGraphDBTool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "disease_efo_mappings": mappings,
                 "total_count": len(results),
@@ -350,7 +372,10 @@ class EpiGraphDBTool(BaseRESTTool):
         gene_id = arguments.get("gene_id")
 
         if not gene_name and not gene_id:
-            return {"error": "Either gene_name or gene_id (Ensembl ID) is required"}
+            return {
+                "status": "error",
+                "error": "Either gene_name or gene_id (Ensembl ID) is required",
+            }
 
         params: dict[str, Any] = {"limit": min(int(arguments.get("limit", 10)), 50)}
         if gene_name:
@@ -383,6 +408,7 @@ class EpiGraphDBTool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "genes": genes,
                 "total_found": len(genes),
@@ -397,10 +423,13 @@ class EpiGraphDBTool(BaseRESTTool):
 
     def _get_gene_drugs(self, arguments: dict) -> dict:
         """Get drug-gene associations from pharmacogenomics databases."""
-        gene_name = arguments.get("gene_name", "").strip()
+        gene_name = (
+            arguments.get("gene_name") or arguments.get("gene_symbol") or ""
+        ).strip()
         if not gene_name:
             return {
-                "error": "gene_name parameter is required (e.g., 'TP53', 'BRCA1', 'EGFR')"
+                "status": "error",
+                "error": "gene_name parameter is required (e.g., 'TP53', 'BRCA1', 'EGFR')",
             }
 
         params = {
@@ -432,6 +461,7 @@ class EpiGraphDBTool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "gene_drug_associations": drug_associations,
                 "total_count": len(drug_associations),
@@ -448,7 +478,8 @@ class EpiGraphDBTool(BaseRESTTool):
         query = arguments.get("query", "").strip()
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'body mass index', 'coronary heart disease')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'body mass index', 'coronary heart disease')",
             }
 
         top_n = min(int(arguments.get("top_n", 10)), 50)
@@ -483,6 +514,7 @@ class EpiGraphDBTool(BaseRESTTool):
                 )
 
         return {
+            "status": "success",
             "data": {
                 "gwas_studies": studies,
                 "total_found": len(studies),

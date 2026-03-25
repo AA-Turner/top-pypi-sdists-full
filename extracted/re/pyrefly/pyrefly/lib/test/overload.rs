@@ -766,16 +766,44 @@ def foo() -> int: # E: Function declared to return `int` but is missing an expli
 );
 
 testcase!(
-    test_return_consistency,
+    test_return_consistency_explicit_return,
     r#"
 from typing import overload
 
 @overload
-def f(x: int) -> int: ...
+def f1(x: int) -> int: ...
 @overload
-def f(x: str) -> str: ...  # E: Overload return type `str` is not assignable to implementation return type `int`
-def f(x: int | str) -> int:
+def f1(x: str) -> str: ...  # E: Overload return type `str` is not assignable to implementation return type `int`
+def f1(x: int | str) -> int:
     return int(x)
+
+@overload
+def f2(x: int) -> int: ...
+@overload
+def f2(x: str) -> str: ...
+def f2(x: int | str) -> int | str:
+    return x
+    "#,
+);
+
+testcase!(
+    test_return_consistency_inferred_return,
+    r#"
+from typing import overload
+
+@overload
+def f1(a: int) -> int: ...
+@overload
+def f1(a: str) -> str: ...  # E: Overload return type `str` is not assignable to implementation return type `int`
+def f1(a):
+    return 1
+
+@overload
+def f2(a: int) -> int: ...
+@overload
+def f2(a: str) -> str: ...
+def f2(a):
+    return 1 if a else ""
     "#,
 );
 
@@ -1599,5 +1627,72 @@ def test(x: A[None], y: A[Any]) -> None:
     assert_type(op(x, y), A[None])
     assert_type(op(y, x), A[None])
     assert_type(op(y, y), Any)  # E: assert_type(A[None], Any)
+    "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/2043
+testcase!(
+    test_overload_paramspec_unify_with_ellipsis_callable,
+    r#"
+from collections.abc import Callable
+from typing import ParamSpec, TypeVar, overload
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+@overload
+def foo(func: Callable[P, R]) -> Callable[P, R]: ...
+@overload
+def foo() -> None: ...
+
+def foo(func: None | Callable[..., R] = None) -> None | Callable[..., R]:
+    return func
+    "#,
+);
+
+// The spec only says to eliminate overloads without variadic parameters if an indeterminate number
+// of parameters is supplied, but mypy, pyright, and ty appear to do the opposite as well:
+// if a fixed number of parameters is supplied, overloads with variadic parameters are eliminated.
+testcase!(
+    test_eliminate_variadic,
+    r#"
+from typing import assert_type, overload
+
+@overload
+def f1(x: str) -> str: ...
+@overload
+def f1(x: str, *args) -> int: ...
+def f1(x, *args) -> str | int: ...
+
+@overload
+def f2(x: str) -> str: ...
+@overload
+def f2(x: str, **kwargs) -> int: ...
+def f2(x, **kwargs) -> str | int: ...
+
+def g(x):
+    assert_type(f1(x), str)
+    assert_type(f2(x), str)
+    "#,
+);
+
+testcase!(
+    test_eliminate_overload_using_argument_count_even_with_error,
+    r#"
+from typing import assert_type, overload
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: int, y: str) -> str: ...
+def f(x, y="") -> int | str: ...
+
+def g(x: int | None):
+    # We should report the mismatch between `int` and `int | None` rather than "No matching overload",
+    # since we know only the first overload can match based on argument count.
+    e = f(x)  # E: `int | None` is not assignable to parameter `x` with type `int`
+    # Even though the call failed, we know that the second overload cannot match based on argument
+    # count, so we should use the return type from the first overload.
+    assert_type(e, int)
     "#,
 );

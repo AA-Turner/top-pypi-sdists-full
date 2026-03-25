@@ -16,12 +16,14 @@ class OpenFlowWPathValuePreprocessorModuleStopAfterIf:
         expr (str): JavaScript expression evaluated after the module runs. Can use 'result' (step's result) or
             'flow_input'. Return true to stop
         skip_if_stopped (Union[Unset, bool]): If true, following steps are skipped when this condition triggers
-        error_message (Union[Unset, str]): Custom error message shown when stopping
+        error_message (Union[Unset, None, str]): Custom error message when stopping with an error. Mutually exclusive
+            with skip_if_stopped. If set to a non-empty string, the flow stops with this error. If empty string, a default
+            error message is used. If null or omitted, no error is raised.
     """
 
     expr: str
     skip_if_stopped: Union[Unset, bool] = UNSET
-    error_message: Union[Unset, str] = UNSET
+    error_message: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:

@@ -43,20 +43,24 @@ class UniParcTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"UniParc API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"UniParc API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to UniParc API"}
+            return {"status": "error", "error": "Failed to connect to UniParc API"}
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
             if status == 404:
                 return {
-                    "error": "Entry not found in UniParc. Check the UPI identifier."
+                    "status": "error",
+                    "error": "Entry not found in UniParc. Check the UPI identifier.",
                 }
             if status == 400:
-                return {"error": "Bad request. Check query syntax."}
-            return {"error": f"UniParc API HTTP {status}"}
+                return {"status": "error", "error": "Bad request. Check query syntax."}
+            return {"status": "error", "error": f"UniParc API HTTP {status}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -65,13 +69,16 @@ class UniParcTool(BaseTool):
         elif self.endpoint == "search":
             return self._search(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_entry(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get UniParc entry by UPI identifier."""
         upi = arguments.get("upi", "")
         if not upi:
-            return {"error": "upi is required (e.g., 'UPI000002ED67' for TP53)."}
+            return {
+                "status": "error",
+                "error": "upi is required (e.g., 'UPI000002ED67' for TP53).",
+            }
 
         url = f"{UNIPARC_BASE_URL}/{upi}"
         headers = {"Accept": "application/json"}
@@ -114,6 +121,7 @@ class UniParcTool(BaseTool):
 
         seq = data.get("sequence", {})
         return {
+            "status": "success",
             "data": {
                 "uniparc_id": data.get("uniParcId"),
                 "sequence": {
@@ -138,7 +146,8 @@ class UniParcTool(BaseTool):
         query = arguments.get("query", "")
         if not query:
             return {
-                "error": "query is required (e.g., 'gene:TP53 AND organism_id:9606')."
+                "status": "error",
+                "error": "query is required (e.g., 'gene:TP53 AND organism_id:9606').",
             }
 
         size = min(arguments.get("size", 5), 10)
@@ -179,6 +188,7 @@ class UniParcTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": entries,
             "metadata": {
                 "source": "UniProt UniParc (uniprot.org/uniparc)",

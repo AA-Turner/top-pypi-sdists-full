@@ -10,8 +10,18 @@ if TYPE_CHECKING:
     from ._dbos import DBOS
 
 
-def get_workflow(sys_db: SystemDatabase, workflow_id: str) -> Optional[WorkflowStatus]:
-    infos = sys_db.list_workflows(workflow_ids=[workflow_id])
+def get_workflow(
+    sys_db: SystemDatabase,
+    workflow_id: str,
+    *,
+    load_input: bool = True,
+    load_output: bool = True,
+) -> Optional[WorkflowStatus]:
+    infos = sys_db.list_workflows(
+        workflow_ids=[workflow_id],
+        load_input=load_input,
+        load_output=load_output,
+    )
     if not infos:
         return None
     return infos[0]
@@ -25,6 +35,7 @@ def fork_workflow(
     application_version: Optional[str],
     queue_name: Optional[str] = None,
     queue_partition_key: Optional[str] = None,
+    replacement_children: Optional[dict[str, str]] = None,
 ) -> str:
 
     ctx = get_local_dbos_context()
@@ -34,12 +45,13 @@ def fork_workflow(
     else:
         forked_workflow_id = generate_uuid()
     sys_db.fork_workflow(
-        workflow_id,
-        forked_workflow_id,
-        start_step,
+        [workflow_id],
+        [forked_workflow_id],
+        [start_step],
         application_version=application_version,
         queue_name=queue_name,
         queue_partition_key=queue_partition_key,
+        replacement_children=replacement_children,
     )
     return forked_workflow_id
 
@@ -82,10 +94,11 @@ def garbage_collect(
 def global_timeout(dbos: "DBOS", cutoff_epoch_timestamp_ms: int) -> None:
     cutoff_iso = datetime.fromtimestamp(cutoff_epoch_timestamp_ms / 1000).isoformat()
     for workflow in dbos.list_workflows(
-        status=WorkflowStatusString.PENDING.value, end_time=cutoff_iso
-    ):
-        dbos.cancel_workflow(workflow.workflow_id)
-    for workflow in dbos.list_workflows(
-        status=WorkflowStatusString.ENQUEUED.value, end_time=cutoff_iso
+        status=[
+            WorkflowStatusString.PENDING.value,
+            WorkflowStatusString.ENQUEUED.value,
+            WorkflowStatusString.DELAYED.value,
+        ],
+        end_time=cutoff_iso,
     ):
         dbos.cancel_workflow(workflow.workflow_id)

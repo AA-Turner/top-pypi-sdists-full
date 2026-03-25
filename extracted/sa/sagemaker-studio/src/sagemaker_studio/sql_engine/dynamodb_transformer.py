@@ -1,9 +1,14 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sagemaker_studio.sql_engine.database_transformer import DatabaseTransformer
 
 
 class DynamoDBTransformer(DatabaseTransformer):
+
+    @classmethod
+    def get_dialect(cls) -> Optional[str]:
+        return None  # PartiQL not supported by sqlglot
+
     @staticmethod
     def get_required_fields() -> List[str]:
         return ["region"]

@@ -6,6 +6,9 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.run_flow_preview_and_wait_result_json_body_value_failure_module_debouncing import (
+        RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleDebouncing,
+    )
     from ..models.run_flow_preview_and_wait_result_json_body_value_failure_module_mock import (
         RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleMock,
     )
@@ -82,6 +85,8 @@ class RunFlowPreviewAndWaitResultJsonBodyValueFailureModule:
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetry]): Retry configuration for failed
             module executions
+        debouncing (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleDebouncing]): Debounce
+            configuration for this step (EE only)
     """
 
     id: str
@@ -112,6 +117,7 @@ class RunFlowPreviewAndWaitResultJsonBodyValueFailureModule:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetry"] = UNSET
+    debouncing: Union[Unset, "RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -198,6 +204,10 @@ class RunFlowPreviewAndWaitResultJsonBodyValueFailureModule:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -234,11 +244,16 @@ class RunFlowPreviewAndWaitResultJsonBodyValueFailureModule:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.run_flow_preview_and_wait_result_json_body_value_failure_module_debouncing import (
+            RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleDebouncing,
+        )
         from ..models.run_flow_preview_and_wait_result_json_body_value_failure_module_mock import (
             RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleMock,
         )
@@ -447,6 +462,13 @@ class RunFlowPreviewAndWaitResultJsonBodyValueFailureModule:
         else:
             retry = RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleDebouncing.from_dict(_debouncing)
+
         run_flow_preview_and_wait_result_json_body_value_failure_module = cls(
             id=id,
             value=value,
@@ -464,6 +486,7 @@ class RunFlowPreviewAndWaitResultJsonBodyValueFailureModule:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         run_flow_preview_and_wait_result_json_body_value_failure_module.additional_properties = d

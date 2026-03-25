@@ -151,7 +151,7 @@ std::uint64_t CppBgenWriter::write_variant_direct(std::vector<std::uint8_t> & da
   return var_offset;
 }
 
-// uncompress a char array with zlib
+// compress a char array with zlib
 static void zlib_compress(char * input, int input_len, std::vector<char> &output) {
   z_stream strm;
   strm.zalloc = Z_NULL;
@@ -163,16 +163,26 @@ static void zlib_compress(char * input, int input_len, std::vector<char> &output
   strm.avail_out = output.size();        // size of output
   strm.next_out = (Bytef *) &output[0]; // output char array
 
+  int ret;
   deflateInit(&strm, 6);
-  deflate(&strm, Z_FINISH);
+  ret = deflate(&strm, Z_FINISH);
   deflateEnd(&strm);
+
+  if (ret != Z_STREAM_END) {
+    throw(std::invalid_argument("zlib compression encountered an error"));
+  }
 
   output.resize(strm.total_out);
 }
 
-// uncompress a char array with zstd
+// compress a char array with zstd
 static void zstd_compress(char *input, int input_len, std::vector<char> &output) {
   std::size_t total_out = ZSTD_compress(&output[0], output.size(), input, input_len, 3);
+
+  if (ZSTD_isError(total_out)) {
+    throw(std::invalid_argument("zstd compression encountered an error"));
+  }
+
   output.resize(total_out);
 }
 
@@ -509,31 +519,23 @@ std::uint64_t CppBgenWriter::add_genotype_data(std::uint16_t n_alleles,
   std::uint64_t size;
   if (layout == 1) {
     if (compression == 0) {
-      for (auto &x : encoded) {
-        handle << x;
-      }
+      handle.write(reinterpret_cast<char *>(encoded.data()), encoded.size());
     } else {
       handle.write(reinterpret_cast<char *>(&compressed_len), 4);
-      for (auto &x : compressed) {
-        handle << x;
-      }
+      handle.write(reinterpret_cast<char *>(compressed.data()), compressed.size());
     }
   } else if (layout == 2) {
     // layout 2
     if (compression == 0) {
       size = encoded.size();
       handle.write(reinterpret_cast<char *>(&size), 4);
-      for (auto &x : encoded) {
-        handle << x;
-      }
+      handle.write(reinterpret_cast<char *>(encoded.data()), encoded.size());
     } else {
       size = compressed_len + 4;
       handle.write(reinterpret_cast<char *>(&size), 4);
       size = encoded.size();
       handle.write(reinterpret_cast<char *>(&size), 4);
-      for (auto &x : compressed) {
-        handle << x;
-      }
+      handle.write(reinterpret_cast<char *>(compressed.data()), compressed.size());
     }
   } else {
     throw std::invalid_argument("layout must be 1 or 2");

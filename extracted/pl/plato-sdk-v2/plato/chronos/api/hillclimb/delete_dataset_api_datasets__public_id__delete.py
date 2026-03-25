@@ -31,7 +31,7 @@ def sync(
     client: httpx.Client,
     public_id: str,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, bool]:
     """Delete Dataset"""
 
     request_args = _build_request_args(
@@ -48,7 +48,7 @@ async def asyncio(
     client: httpx.AsyncClient,
     public_id: str,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, bool]:
     """Delete Dataset"""
 
     request_args = _build_request_args(

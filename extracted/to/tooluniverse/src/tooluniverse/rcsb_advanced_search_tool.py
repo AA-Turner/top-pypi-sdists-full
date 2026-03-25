@@ -41,18 +41,21 @@ class RCSBAdvancedSearchTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"RCSB Search API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"RCSB Search API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to RCSB Search API"}
+            return {"status": "error", "error": "Failed to connect to RCSB Search API"}
         except requests.exceptions.HTTPError as e:
             msg = ""
             try:
                 msg = e.response.json().get("message", "")[:200]
             except Exception:
                 msg = str(e.response.status_code)
-            return {"error": f"RCSB Search API error: {msg}"}
+            return {"status": "error", "error": f"RCSB Search API error: {msg}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -61,7 +64,7 @@ class RCSBAdvancedSearchTool(BaseTool):
         elif self.endpoint == "motif_search":
             return self._motif_search(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _advanced_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search PDB by multiple attribute filters."""
@@ -71,7 +74,13 @@ class RCSBAdvancedSearchTool(BaseTool):
         experimental_method = arguments.get("experimental_method")
         polymer_description = arguments.get("polymer_description")
         min_deposition_date = arguments.get("min_deposition_date")
-        rows = min(arguments.get("rows") or 10, 50)
+        rows = min(
+            arguments.get("rows")
+            or arguments.get("limit")
+            or arguments.get("max_results")
+            or 10,
+            50,
+        )
         sort_by = arguments.get("sort_by") or "resolution"
 
         nodes = []
@@ -152,7 +161,8 @@ class RCSBAdvancedSearchTool(BaseTool):
 
         if not nodes:
             return {
-                "error": "At least one search parameter is required (query, organism, max_resolution, experimental_method, polymer_description, or min_deposition_date)"
+                "status": "error",
+                "error": "At least one search parameter is required (query, organism, max_resolution, experimental_method, polymer_description, or min_deposition_date)",
             }
 
         if len(nodes) == 1:
@@ -187,6 +197,7 @@ class RCSBAdvancedSearchTool(BaseTool):
 
         if response.status_code == 204 or len(response.content) == 0:
             return {
+                "status": "success",
                 "data": [],
                 "metadata": {
                     "source": "RCSB PDB Advanced Search",
@@ -208,6 +219,7 @@ class RCSBAdvancedSearchTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "RCSB PDB Advanced Search",
@@ -220,11 +232,17 @@ class RCSBAdvancedSearchTool(BaseTool):
         """Search PDB by sequence motif pattern."""
         pattern = arguments.get("pattern", "")
         if not pattern:
-            return {"error": "pattern parameter is required"}
+            return {"status": "error", "error": "pattern parameter is required"}
 
         pattern_type = arguments.get("pattern_type") or "prosite"
         sequence_type = arguments.get("sequence_type") or "protein"
-        rows = min(arguments.get("rows") or 10, 50)
+        rows = min(
+            arguments.get("rows")
+            or arguments.get("limit")
+            or arguments.get("max_results")
+            or 10,
+            50,
+        )
 
         request_body = {
             "query": {
@@ -249,6 +267,7 @@ class RCSBAdvancedSearchTool(BaseTool):
 
         if response.status_code == 204 or len(response.content) == 0:
             return {
+                "status": "success",
                 "data": [],
                 "metadata": {
                     "source": "RCSB PDB Motif Search",
@@ -278,6 +297,7 @@ class RCSBAdvancedSearchTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "RCSB PDB Motif Search",

@@ -64,24 +64,24 @@ pub struct TableClassifier {
 impl TableClassifier {
     /// Load the table classifier ONNX model from a file path.
     pub fn from_file(path: &str) -> Result<Self, LayoutError> {
-        let session = match build_session(path, None) {
+        let budget = crate::core::config::concurrency::resolve_thread_budget(None);
+        let session = match build_session(path, None, budget) {
             Ok(s) => s,
             Err(first_err) => {
                 tracing::warn!("TableClassifier: platform EP failed ({first_err}), retrying CPU-only");
-                Self::build_cpu_session(path)?
+                Self::build_cpu_session(path, budget)?
             }
         };
         let input_name = session.inputs()[0].name().to_string();
         Ok(Self { session, input_name })
     }
 
-    fn build_cpu_session(path: &str) -> Result<Session, LayoutError> {
+    fn build_cpu_session(path: &str, thread_budget: usize) -> Result<Session, LayoutError> {
         use ort::session::builder::GraphOptimizationLevel;
-        let num_cores = num_cpus::get();
         let mut builder = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(|e| LayoutError::Ort(ort::Error::new(e.message())))?
-            .with_intra_threads(num_cores)
+            .with_intra_threads(thread_budget)
             .map_err(|e| LayoutError::Ort(ort::Error::new(e.message())))?
             .with_inter_threads(1)
             .map_err(|e| LayoutError::Ort(ort::Error::new(e.message())))?;

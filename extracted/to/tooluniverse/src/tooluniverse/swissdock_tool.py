@@ -289,6 +289,7 @@ class SwissDockTool(AsyncPollingTool):
     def format_result(self, result: Any) -> Dict[str, Any]:
         """Format SwissDock results into standard response format."""
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "tool": self.name,
@@ -320,7 +321,7 @@ class SwissDockTool(AsyncPollingTool):
         if handler_name:
             return await getattr(self, handler_name)(arguments)
 
-        return {"error": f"Unknown operation: {self.operation}"}
+        return {"status": "error", "error": f"Unknown operation: {self.operation}"}
 
     async def _check_job_status_operation(
         self, arguments: Dict[str, Any]
@@ -329,19 +330,20 @@ class SwissDockTool(AsyncPollingTool):
         session_id = arguments.get("session_id")
 
         if not session_id:
-            return {"error": "session_id parameter is required"}
+            return {"status": "error", "error": "session_id parameter is required"}
 
         status_result = self._check_status_api(session_id)
         job_status = status_result["status"]
 
         return {
+            "status": "success",
             "data": {
                 "session_id": session_id,
                 "job_status": job_status,
                 "is_finished": job_status == "FINISHED",
                 "has_error": job_status in ["ERROR", "NOT_FOUND"],
                 "error": status_result.get("error"),
-            }
+            },
         }
 
     async def _retrieve_results_operation(
@@ -351,7 +353,7 @@ class SwissDockTool(AsyncPollingTool):
         session_id = arguments.get("session_id")
 
         if not session_id:
-            return {"error": "session_id parameter is required"}
+            return {"status": "error", "error": "session_id parameter is required"}
 
         # Check status first
         status_result = self._check_status_api(session_id)
@@ -359,11 +361,12 @@ class SwissDockTool(AsyncPollingTool):
 
         if job_status != "FINISHED":
             return {
+                "status": "success",
                 "data": {
                     "session_id": session_id,
                     "job_status": job_status,
                     "message": f"Job is not finished yet. Status: {job_status}",
-                }
+                },
             }
 
         # Retrieve results
@@ -371,4 +374,4 @@ class SwissDockTool(AsyncPollingTool):
             results = self._retrieve_results(session_id)
             return {"data": results}
         except Exception as e:
-            return {"error": f"Failed to retrieve results: {e}"}
+            return {"status": "error", "error": f"Failed to retrieve results: {e}"}

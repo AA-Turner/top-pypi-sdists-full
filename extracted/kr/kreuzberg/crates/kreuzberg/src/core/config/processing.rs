@@ -3,8 +3,8 @@
 //! Defines configuration for post-processing pipelines, text chunking,
 //! and embedding generation.
 
+use ahash::AHashSet;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// Type of text chunker to use.
@@ -13,12 +13,14 @@ use std::path::PathBuf;
 ///
 /// * `Text` - Generic text splitter, splits on whitespace and punctuation
 /// * `Markdown` - Markdown-aware splitter, preserves formatting and structure
+/// * `Yaml` - YAML-aware splitter, creates one chunk per top-level key
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ChunkerType {
     #[default]
     Text,
     Markdown,
+    Yaml,
 }
 
 /// How chunk size is measured.
@@ -63,13 +65,13 @@ pub struct PostProcessorConfig {
     #[serde(default)]
     pub disabled_processors: Option<Vec<String>>,
 
-    /// Pre-computed HashSet for O(1) enabled processor lookup
+    /// Pre-computed AHashSet for O(1) enabled processor lookup
     #[serde(skip)]
-    pub enabled_set: Option<HashSet<String>>,
+    pub enabled_set: Option<AHashSet<String>>,
 
-    /// Pre-computed HashSet for O(1) disabled processor lookup
+    /// Pre-computed AHashSet for O(1) disabled processor lookup
     #[serde(skip)]
-    pub disabled_set: Option<HashSet<String>>,
+    pub disabled_set: Option<AHashSet<String>>,
 }
 
 impl PostProcessorConfig {
@@ -507,6 +509,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "embeddings")]
     fn test_resolve_preset_balanced() {
         let config = ChunkingConfig {
             preset: Some("balanced".to_string()),
@@ -523,6 +526,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "embeddings")]
     fn test_resolve_preset_preserves_explicit_embedding() {
         let explicit_embedding = EmbeddingConfig {
             model: EmbeddingModelType::Custom {

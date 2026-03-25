@@ -112,7 +112,7 @@ def get_yld_prd(df, name_crop, cntr, region, calendar_year, region_column="ADM1_
     return val
 
 
-def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone):
+def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=None, country=None):
     """
 
     Args:
@@ -132,14 +132,16 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone):
     # Fill in the ag statistics columns with data when available
     # Compute national scale statistics
 
-    crop = df["Crop"].unique()[0]
+    if crop is None:
+        crop = df["Crop"].unique()[0]
     # Change crop to lower case and replace space by _
     crop = crop.lower().replace(" ", "_")
     season = df["Season"].unique()[0]
 
     # Read in the area stats for the crop and season
     # HACK: Bangladesh rice uses country-specific filename
-    country = df["Country"].unique()[0]
+    if country is None:
+        country = df["Country"].unique()[0]
     if crop == "rice" and country.lower() == "bangladesh":
         stat_file = dir_stats / "bangladesh_rice.xlsx"
     else:
@@ -152,9 +154,9 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone):
             continue
 
         # Loop over each Country, Region, harvest year combination and add the area
-        grp = df.groupby(["Country", "Region", "Harvest Year"], dropna=False)
+        grp = df.groupby(["Region", "Harvest Year"], dropna=False)
         for key, group in tqdm(grp, desc=f"Adding {stat} {method}", leave=False):
-            country, region, year = key
+            region, year = key
 
             df_adm0 = pd.DataFrame()
             if not df_stat.empty:
@@ -213,7 +215,7 @@ def add_statistics(
     """
     # HACK: Bangladesh rice uses GEOGLAM format
     if country == "Bangladesh" and crop == "Rice":
-        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone)
+        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country)
         # Add columns for obj.stats_cols
         for col in ["Area"]:
             df.loc[:, col] = np.nan
@@ -247,7 +249,7 @@ def add_statistics(
         df_fewsnet = df_fewsnet[df_fewsnet["qc_flag"] == 0]
 
     if mask.sum() == 0:
-        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone)
+        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country)
     else:
         # Priority-ordered season names: first match wins.
         # Season 1 = primary/longest growing season for the country/crop.

@@ -29,9 +29,14 @@ class LOINCTool(BaseTool):
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            return {"error": f"Failed to query LOINC API: {e}", "endpoint": endpoint}
+            return {
+                "status": "error",
+                "error": f"Failed to query LOINC API: {e}",
+                "endpoint": endpoint,
+            }
         except Exception as e:
             return {
+                "status": "error",
                 "error": f"Unexpected error while querying LOINC: {e}",
                 "endpoint": endpoint,
             }
@@ -47,6 +52,7 @@ class LOINCTool(BaseTool):
         """Parse the Clinical Tables response: [total_count, codes, extra_info, data]."""
         if not isinstance(api_response, list) or len(api_response) < 4:
             return {
+                "status": "error",
                 "error": "Invalid API response format",
                 "raw_response": api_response,
             }
@@ -69,7 +75,7 @@ class LOINCTool(BaseTool):
         """Search LOINC lab tests and observations by name or keywords."""
         terms = arguments.get("terms", "").strip()
         if not terms:
-            return {"error": "terms parameter is required"}
+            return {"status": "error", "error": "terms parameter is required"}
 
         max_results = min(arguments.get("max_results", 20), 500)
         exclude_copyrighted = arguments.get("exclude_copyrighted", True)
@@ -108,7 +114,7 @@ class LOINCTool(BaseTool):
         """Get detailed information for a specific LOINC code."""
         loinc_code = arguments.get("loinc_code", "").strip()
         if not loinc_code:
-            return {"error": "loinc_code parameter is required"}
+            return {"status": "error", "error": "loinc_code parameter is required"}
 
         # Get comprehensive fields for details
         fields = [
@@ -140,7 +146,10 @@ class LOINCTool(BaseTool):
         parsed = self._parse_search_results(api_response, fields)
 
         if parsed.get("count", 0) == 0:
-            return {"error": f"No details found for LOINC code: {loinc_code}"}
+            return {
+                "status": "error",
+                "error": f"No details found for LOINC code: {loinc_code}",
+            }
 
         # Return the first (and should be only) result
         result = parsed["results"][0] if parsed["results"] else {}
@@ -152,7 +161,7 @@ class LOINCTool(BaseTool):
         """Search for LOINC answer-type codes matching a search term."""
         loinc_code = arguments.get("loinc_code", "").strip()
         if not loinc_code:
-            return {"error": "loinc_code parameter is required"}
+            return {"status": "error", "error": "loinc_code parameter is required"}
 
         fields = ["LOINC_NUM", "LONG_COMMON_NAME", "COMPONENT", "SCALE_TYP"]
 
@@ -172,6 +181,7 @@ class LOINCTool(BaseTool):
 
         if parsed.get("count", 0) == 0:
             return {
+                "status": "error",
                 "error": f"No LOINC answer codes found for: {loinc_code}",
                 "loinc_code": loinc_code,
             }
@@ -183,7 +193,7 @@ class LOINCTool(BaseTool):
         """Search LOINC forms and survey instruments (e.g., PHQ-9, GAD-7)."""
         terms = arguments.get("terms", "").strip()
         if not terms:
-            return {"error": "terms parameter is required"}
+            return {"status": "error", "error": "terms parameter is required"}
 
         max_results = min(arguments.get("max_results", 20), 200)
 
@@ -238,4 +248,4 @@ class LOINCTool(BaseTool):
             if key in tool_name:
                 return getattr(self, method_name)(arguments)
 
-        return {"error": f"Unknown operation for tool: {tool_name}"}
+        return {"status": "error", "error": f"Unknown operation for tool: {tool_name}"}

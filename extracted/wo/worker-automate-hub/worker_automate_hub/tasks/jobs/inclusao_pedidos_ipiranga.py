@@ -53,8 +53,9 @@ async def inclusao_pedidos_ipiranga(task: RpaRetornoProcessoDTO):
             # Login
             logger.print(f"Logging")
             login  = config.get("login_ipiranga2") if config_entrada.get("cnpjEmpresa") == "07473735017661" else config.get("login_ipiranga")
+            password = config.get("pass_ipiranga2") if config_entrada.get("cnpjEmpresa") == "07473735017661" else config.get("pass_ipiranga")
             await page.locator('[title="Login"]').type(login)
-            await page.locator('[type="password"]').type(config.get("pass_ipiranga"))
+            await page.locator('[type="password"]').type(password)
             await page.locator('[type="submit"]').click()
             try:
                 await asyncio.sleep(5)

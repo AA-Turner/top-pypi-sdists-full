@@ -25,6 +25,7 @@ from torch.utils._pytree import tree_map_only
 from torch.utils.weak import WeakTensorKeyDictionary
 
 from ...config import Config
+from ..mmap import unmap_capture
 from ..tqdm import tqdm
 from ..utils import malloc_trim
 from . import cudart
@@ -388,11 +389,17 @@ def _pack(offload_dir: str):
     return total_size
 
 def pack():
-    shutil.rmtree(Config.zerogpu_offload_dir, ignore_errors=True)
-    Path(Config.zerogpu_offload_dir).mkdir(parents=True)
-    total_size = _pack(Config.zerogpu_offload_dir)
-    gc.collect()
-    malloc_trim()
+    if len(cuda_aliases) == 0:
+        return 0
+    mmap_addrs = [tensor.data_ptr() for tensor in cuda_aliases.values() if tensor is not None]
+    with unmap_capture(mmap_addrs) as unmapped_paths:
+        shutil.rmtree(Config.zerogpu_offload_dir, ignore_errors=True)
+        Path(Config.zerogpu_offload_dir).mkdir(parents=True)
+        total_size = _pack(Config.zerogpu_offload_dir)
+        gc.collect()
+        malloc_trim()
+    for path in unmapped_paths:
+        path.unlink(missing_ok=True)
     return total_size
 
 def init(nvidia_uuid: str):

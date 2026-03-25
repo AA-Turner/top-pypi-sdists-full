@@ -43,21 +43,31 @@ class CTDTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"CTD API request timed out after {self.timeout} seconds"}
+            return {
+                "status": "error",
+                "error": f"CTD API request timed out after {self.timeout} seconds",
+            }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to CTD API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to CTD API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"CTD API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"CTD API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying CTD: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying CTD: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a CTD batch query and return structured results."""
         input_terms = arguments.get("input_terms", "")
         if not input_terms:
-            return {"error": "input_terms parameter is required"}
+            return {"status": "error", "error": "input_terms parameter is required"}
 
         # Allow overriding input_type and report_type from arguments
         input_type = arguments.get("input_type", self.input_type)
@@ -83,6 +93,7 @@ class CTDTool(BaseTool):
 
         if not raw_text or raw_text == "[]":
             return {
+                "status": "success",
                 "data": [],
                 "metadata": {
                     "total_results": 0,
@@ -92,10 +103,26 @@ class CTDTool(BaseTool):
                 },
             }
 
+        content_type = response.headers.get("content-type", "")
         try:
             data = response.json()
         except ValueError:
-            return {"error": "CTD API returned non-JSON response"}
+            snippet = raw_text[:200]
+            is_html = "text/html" in content_type or raw_text.lstrip().startswith("<")
+            return {
+                "status": "error",
+                "error": "CTD API returned non-JSON response",
+                "content_type": content_type,
+                "response_snippet": snippet,
+                "retryable": is_html,
+                "suggestion": (
+                    "CTD may be under maintenance or rate-limiting. "
+                    "Check https://ctdbase.org for status. "
+                    "Retry in a few minutes."
+                    if is_html
+                    else "Response was truncated or malformed. Retry the request."
+                ),
+            }
 
         metadata = {
             "input_type": input_type,
@@ -116,4 +143,7 @@ class CTDTool(BaseTool):
             metadata["total_results"] = 1
             return {"data": data, "metadata": metadata}
         else:
-            return {"error": f"Unexpected CTD response type: {type(data).__name__}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected CTD response type: {type(data).__name__}",
+            }

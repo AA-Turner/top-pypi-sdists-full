@@ -3,12 +3,14 @@ from multiprocessing import Queue
 from unittest.mock import MagicMock, patch
 
 from abstra_internals.controllers.execution.executor_process import (
-    ExecuteRequest,
-    ExecutorCommand,
     ExecutorState,
-    RabbitMQParams,
     _validate_session_queues,
     handle_execute,
+)
+from abstra_internals.controllers.execution.executor_types import (
+    ExecuteRequest,
+    ExecutorCommand,
+    RabbitMQParams,
 )
 
 VALID_UUID = "550e8400-e29b-41d4-a716-446655440000"

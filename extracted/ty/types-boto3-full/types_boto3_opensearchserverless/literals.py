@@ -43,7 +43,9 @@ __all__ = (
 
 
 AccessPolicyTypeType = Literal["data"]
-CollectionStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
+CollectionStatusType = Literal[
+    "ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATE_FAILED", "UPDATING"
+]
 CollectionTypeType = Literal["SEARCH", "TIMESERIES", "VECTORSEARCH"]
 IamIdentityCenterGroupAttributeType = Literal["GroupId", "GroupName"]
 IamIdentityCenterUserAttributeType = Literal["Email", "UserId", "UserName"]

@@ -45,6 +45,10 @@ class ResourceKind(str, Enum):
     CUSTOM_AGGREGATION = 'custom_aggregation'
     CUSTOM_AGGREGATION_TEST = 'custom_aggregation_test'
     AGENT = 'agent'
+    POLICY = 'policy'
+    POLICY_ALERT_RULE = 'policy_alert_rule'
+    POLICY_ATTESTATION_RULE = 'policy_attestation_rule'
+    POLICY_ASSIGNMENT = 'policy_assignment'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

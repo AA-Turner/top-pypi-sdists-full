@@ -18,6 +18,7 @@
 
 pub mod angle_net;
 pub mod base_net;
+pub(crate) mod constants;
 pub mod crnn_net;
 pub mod db_net;
 pub mod ocr_error;

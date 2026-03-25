@@ -1,4 +1,4 @@
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 
 from bigtree._globals import Globals
 from bigtree.binarytree.binarytree import BinaryTree
@@ -36,10 +36,12 @@ from bigtree.tree.construct import (
 from bigtree.tree.export import (
     hprint_tree,
     hyield_tree,
+    iprint_tree,
     print_tree,
     tree_to_dataframe,
     tree_to_dict,
     tree_to_dot,
+    tree_to_html,
     tree_to_mermaid,
     tree_to_nested_dict,
     tree_to_nested_dict_key,

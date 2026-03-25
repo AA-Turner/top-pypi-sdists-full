@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-hijack
-Version: 3.7.6
+Version: 3.7.7
 Summary: Enable users to hijack (=login as) and work on behalf of another user.
 Keywords: Django,authentication,security,admin,impersonation
 Author-email: arteria GmbH <admin@arteria.ch>, Johannes Maron <johannes@maron.family>
@@ -25,13 +25,17 @@ Classifier: Framework :: Django :: 6.0
 License-File: LICENSE
 Requires-Dist: django>=4.2
 Requires-Dist: mkdocs==1.6.1 ; extra == "docs"
-Requires-Dist: ruff==0.14.10 ; extra == "lint"
-Requires-Dist: msgcheck==4.1.0 ; extra == "lint"
+Requires-Dist: ruff==0.15.7 ; extra == "lint"
+Requires-Dist: msgcheck==4.2.0 ; extra == "lint"
 Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: pytest-django ; extra == "test"
 Project-URL: Changelog, https://github.com/django-hijack/django-hijack/releases
-Project-URL: Project-URL, https://github.com/django-hijack/django-hijack
+Project-URL: Documentation, https://django-hijack.rtfd.io/
+Project-URL: Homepage, https://github.com/django-hijack/django-hijack
+Project-URL: Issues, https://github.com/django-hijack/django-hijack/issues
+Project-URL: Releasenotes, https://github.com/django-hijack/django-hijack/releases/latest
+Project-URL: Source, https://github.com/django-hijack/django-hijack
 Provides-Extra: docs
 Provides-Extra: lint
 Provides-Extra: test

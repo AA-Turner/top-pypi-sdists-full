@@ -250,7 +250,10 @@ pub trait DocumentExtractor: Plugin {
         #[cfg(feature = "tokio-runtime")]
         {
             use crate::core::io;
-            let bytes = io::read_file_async(path).await?;
+            // Use memory-mapped I/O for large files (> 1 MiB) to avoid an extra
+            // heap allocation.  `open_file_bytes` falls back to a plain read for
+            // small files and on WASM where mmap is unavailable.
+            let bytes = io::open_file_bytes(path)?;
             self.extract_bytes(&bytes, mime_type, config).await
         }
         #[cfg(not(feature = "tokio-runtime"))]

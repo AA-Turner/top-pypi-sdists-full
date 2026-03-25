@@ -7,6 +7,7 @@ import pendulum
 from requests.utils import cookiejar_from_dict
 
 from github_heatmap.loader.config import TIME_ZONE
+from github_heatmap.utils import make_github_level_thresholds
 
 
 class LoadError(Exception):
@@ -29,6 +30,7 @@ class BaseLoader(ABC):
         self.number_by_date_dict = defaultdict(int)
         self.special_number1 = None
         self.special_number2 = None
+        self.level_thresholds = ()
         self.number_list = []
         self.year_list = self._make_years_list()
         self.try_import_deps()
@@ -51,10 +53,10 @@ class BaseLoader(ABC):
 
     def make_special_number(self):
         """
-        This func is to make special color number for poster
-        special_number1 top 20%
-        special_number2  top 20 % - 50%
+        Keep the legacy special-number thresholds for compatibility, and
+        also compute GitHub-style quartile thresholds for five-level maps.
         """
+        self.level_thresholds = make_github_level_thresholds(self.number_list)
         # before python below 3.5 maybe need to sort
         number_list_set = sorted(list(set(self.number_list)))
         number_list_set_len = len(number_list_set)
@@ -117,8 +119,8 @@ class BaseLoader(ABC):
             dest="track_color",
             metavar="COLOR",
             type=str,
-            default="#4DD2FF",
-            help='Color of tracks (default: "#4DD2FF").',
+            default=None,
+            help="Base positive-level color (default: loader-specific color).",
         )
         group.add_argument(
             "--dom-color",
@@ -140,15 +142,15 @@ class BaseLoader(ABC):
             "--special-color1",
             dest="special_color1",
             metavar="COLOR",
-            default="yellow",
-            help='Special track color (default: "yellow").',
+            default=None,
+            help="Optional third-level color override for the five-level heatmap.",
         )
         group.add_argument(
             "--special-color2",
             dest="special_color2",
             metavar="COLOR",
-            default="red",
-            help="Secondary color of special tracks (default: red).",
+            default=None,
+            help="Optional fourth-level color override for the five-level heatmap.",
         )
         group.add_argument(
             "--special-number1",

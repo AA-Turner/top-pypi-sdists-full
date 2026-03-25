@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mini-swe-agent
-Version: 2.2.7
+Version: 2.2.8
 Summary: Nano SWE Agent - A simple AI software engineering agent
 Author-email: Kilian Lieret <kilian.lieret@posteo.de>, "Carlos E. Jimenez" <carlosej@princeton.edu>
 License: MIT License
@@ -41,7 +41,7 @@ Requires-Dist: pyyaml
 Requires-Dist: requests
 Requires-Dist: jinja2
 Requires-Dist: pydantic>=2.0
-Requires-Dist: litellm>=1.75.5
+Requires-Dist: litellm!=1.82.7,!=1.82.8,>=1.75.5
 Requires-Dist: tenacity
 Requires-Dist: rich
 Requires-Dist: python-dotenv

@@ -66,13 +66,17 @@ class FDAPharmacogenomicBiomarkersTool(BaseTool):
             limited_results = filtered_results[:limit]
 
             return {
+                "status": "success",
                 "count": len(filtered_results),
                 "shown": len(limited_results),
                 "results": limited_results,
             }
 
         except Exception as e:
-            return {"error": f"Failed to retrieve or parse FDA data: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Failed to retrieve or parse FDA data: {str(e)}",
+            }
 
     def _parse_html_table(self, html_content: str) -> List[Dict[str, str]]:
         """

@@ -207,7 +207,7 @@ pub struct Descriptor {
 #[derive(Clone, Debug)]
 pub enum DescriptorBase {
     Instance(ClassType),
-    ClassDef(Class),
+    ClassDef(ClassBase),
 }
 
 /// Correctly analyzing which attributes are visible on class objects, as well
@@ -1733,22 +1733,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.determine_read_only_reason(name, annotation.as_ref(), &metadata, field_definition);
 
         // Determine the final type, promoting literals when appropriate.
-        let mut has_implicit_literal = value_ty.is_implicit_literal();
-        if !has_implicit_literal && matches!(initialization, ClassFieldInitialization::Method) {
-            value_ty.universe(&mut |current_type_node| {
-                has_implicit_literal |= current_type_node.is_implicit_literal();
-            });
-        }
-        let ty = if annotation
-            .as_ref()
-            .and_then(|ann| ann.ty.as_ref())
-            .is_none()
-            && matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
-            && has_implicit_literal
-        {
-            value_ty.promote_implicit_literals(self.stdlib)
-        } else {
+        // Skip literal promotion for NNModule types: their fields are captured
+        // constructor args that must preserve literal types for shape inference.
+        let ty = if matches!(value_ty, Type::NNModule(_)) {
             value_ty
+        } else {
+            let mut has_implicit_literal = value_ty.is_implicit_literal();
+            if !has_implicit_literal && matches!(initialization, ClassFieldInitialization::Method) {
+                value_ty.universe(&mut |current_type_node| {
+                    has_implicit_literal |= current_type_node.is_implicit_literal();
+                });
+            }
+            if annotation
+                .as_ref()
+                .and_then(|ann| ann.ty.as_ref())
+                .is_none()
+                && matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
+                && has_implicit_literal
+            {
+                value_ty.promote_implicit_literals(self.stdlib)
+            } else {
+                value_ty
+            }
         };
 
         // Identify whether this is a descriptor
@@ -2734,10 +2740,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // When accessing a property on a class (not instance), you get the property object itself
                 bind_class_attribute(self.heap, cls, ty, None)
             }
-            ClassFieldInner::Descriptor { descriptor, .. } => ClassAttribute::descriptor(
-                descriptor,
-                DescriptorBase::ClassDef(cls.class_object().dupe()),
-            ),
+            ClassFieldInner::Descriptor { descriptor, .. } => {
+                ClassAttribute::descriptor(descriptor, DescriptorBase::ClassDef(cls.clone()))
+            }
             ClassFieldInner::Method { mut ty, .. } => {
                 // When accessing a method on a class (not instance), you get the unbound function
                 if let Some(quantified) = self_quantified {
@@ -3158,6 +3163,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 attr
+            };
+            let Some(want_attribute) = self.filter_overloads_for_override(want_attribute, cls)
+            else {
+                // All parent overloads have a `self` type incompatible with the child class;
+                // skip the override check.
+                continue;
             };
             if got_attribute.is_none() {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
@@ -3920,7 +3931,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// This lookup skips normal method binding logic (it behaves like a cross
     /// between a classmethod and a constructor; downstream code handles this
     /// using the raw callable type).
-    pub fn get_dunder_new(&self, cls: &ClassType) -> Option<Type> {
+    ///
+    /// When `preserve_self` is true, uses `Instance::of_self_type` so that
+    /// `Self` in the return type is kept as `SelfType(C)` instead of being
+    /// lowered to `ClassType(C)`. This is needed for `type(self)()`
+    /// (`TypeOfSelf` constructor kind) so that `__new__`'s `Self` return
+    /// type propagates to the call result.
+    pub fn get_dunder_new(&self, cls: &ClassType, preserve_self: bool) -> Option<Type> {
         let new_member =
             self.get_class_member_with_defining_class(cls.class_object(), &dunder::NEW)?;
         if new_member.is_defined_on("builtins", "object") {
@@ -3928,8 +3945,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // class construction; we only care about `__new__` if it is overridden.
             None
         } else {
-            Arc::unwrap_or_clone(new_member.value)
-                .as_raw_special_method_type(self.heap, &Instance::of_class(cls))
+            let instance = if preserve_self {
+                Instance::of_self_type(cls)
+            } else {
+                Instance::of_class(cls)
+            };
+            Arc::unwrap_or_clone(new_member.value).as_raw_special_method_type(self.heap, &instance)
         }
     }
 
@@ -4230,6 +4251,58 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | ClassAttribute::Descriptor(..) => {
                 // Allow deleting most attributes for now, for compatibility with mypy.
             }
+        }
+    }
+
+    /// Filter out overloads from a parent's attribute whose `self` parameter type is
+    /// incompatible with the child class. This prevents false positive `bad-override` errors.
+    fn filter_overloads_for_override(
+        &self,
+        attr: ClassAttribute,
+        child_cls: &Class,
+    ) -> Option<ClassAttribute> {
+        let child_type = self
+            .heap
+            .mk_class_type(self.as_class_type_unchecked(child_cls));
+        let filter_type = |ty: Type| -> Option<Type> {
+            match ty {
+                Type::BoundMethod(box BoundMethod {
+                    obj,
+                    func: BoundMethodType::Overload(overload),
+                }) => {
+                    let self_param = |sig: &OverloadType| match sig {
+                        OverloadType::Function(f) => f.signature.get_first_param(),
+                        OverloadType::Forall(forall) => forall.body.signature.get_first_param(),
+                    };
+                    let applicable: Vec<_> = overload
+                        .signatures
+                        .into_iter()
+                        .filter(|sig| {
+                            self_param(sig)
+                                .is_none_or(|param| self.is_subset_eq(&child_type, &param))
+                        })
+                        .collect();
+                    let signatures = vec1::Vec1::try_from_vec(applicable).ok()?;
+                    Some(
+                        BoundMethod {
+                            obj,
+                            func: BoundMethodType::Overload(Overload {
+                                signatures,
+                                metadata: overload.metadata,
+                            }),
+                        }
+                        .as_type(),
+                    )
+                }
+                other => Some(other),
+            }
+        };
+        match attr {
+            ClassAttribute::ReadWrite(ty) => Some(ClassAttribute::ReadWrite(filter_type(ty)?)),
+            ClassAttribute::ReadOnly(ty, reason) => {
+                Some(ClassAttribute::ReadOnly(filter_type(ty)?, reason))
+            }
+            other => Some(other),
         }
     }
 

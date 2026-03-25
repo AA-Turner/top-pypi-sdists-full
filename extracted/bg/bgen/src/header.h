@@ -5,7 +5,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <map>
 #include <cstdint>
 
 #include "utils.h"
@@ -20,7 +19,7 @@ public:
   Header() {}
   std::uint32_t offset;
   std::uint32_t nvariants;
-  std::uint32_t nsamples = 5;
+  std::uint32_t nsamples;
   int compression;
   int layout;
   bool has_sample_ids;

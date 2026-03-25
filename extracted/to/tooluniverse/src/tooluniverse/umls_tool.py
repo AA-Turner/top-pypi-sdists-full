@@ -41,12 +41,13 @@ class UMLSRESTTool(BaseTool):
         api_key = self._get_api_key()
         if not api_key:
             return {
+                "status": "error",
                 "error": (
                     "UMLS API key required. "
                     "Please set UMLS_API_KEY environment variable. "
                     "Register for a free API key at: "
                     "https://uts.nlm.nih.gov/uts/"
-                )
+                ),
             }
 
         url = self._build_url(arguments)
@@ -83,6 +84,7 @@ class UMLSRESTTool(BaseTool):
             resp.raise_for_status()
             data = resp.json()
             return {
+                "status": "success",
                 "data": data,
                 "metadata": {
                     "source": "UMLS (Unified Medical Language System)",
@@ -95,9 +97,9 @@ class UMLSRESTTool(BaseTool):
                 },
             }
         except requests.exceptions.RequestException as e:
-            return {"error": f"Request failed: {str(e)}"}
+            return {"status": "error", "error": f"Request failed: {str(e)}"}
         except ValueError as e:
-            return {"error": f"Failed to parse JSON: {str(e)}"}
+            return {"status": "error", "error": f"Failed to parse JSON: {str(e)}"}
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the tool with given arguments."""

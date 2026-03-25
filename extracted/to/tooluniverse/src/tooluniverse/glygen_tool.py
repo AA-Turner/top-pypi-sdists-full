@@ -44,16 +44,24 @@ class GlyGenTool(BaseTool):
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"GlyGen API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"GlyGen API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to GlyGen API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to GlyGen API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"GlyGen API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"GlyGen API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying GlyGen: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying GlyGen: {str(e)}",
+            }
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint based on config."""
@@ -69,14 +77,15 @@ class GlyGenTool(BaseTool):
             return self._site_detail(arguments)
         else:
             return {
-                "error": f"Unknown endpoint_type/query_mode: {self.endpoint_type}/{self.query_mode}"
+                "status": "error",
+                "error": f"Unknown endpoint_type/query_mode: {self.endpoint_type}/{self.query_mode}",
             }
 
     def _glycan_detail(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get detailed information about a specific glycan by GlyTouCan accession."""
         glytoucan_ac = arguments.get("glytoucan_ac", "")
         if not glytoucan_ac:
-            return {"error": "glytoucan_ac parameter is required"}
+            return {"status": "error", "error": "glytoucan_ac parameter is required"}
 
         url = f"{GLYGEN_BASE_URL}/glycan/detail/{glytoucan_ac}/"
         response = requests.post(
@@ -119,6 +128,7 @@ class GlyGenTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "GlyGen",
@@ -152,7 +162,8 @@ class GlyGenTool(BaseTool):
 
         if not query:
             return {
-                "error": "At least one search parameter required (mass_min/max, monosaccharide_min/max, glycan_type)"
+                "status": "error",
+                "error": "At least one search parameter required (mass_min/max, monosaccharide_min/max, glycan_type)",
             }
 
         # Step 1: Submit search
@@ -205,6 +216,7 @@ class GlyGenTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "total_results": list_data.get("pagination", {}).get(
@@ -221,7 +233,7 @@ class GlyGenTool(BaseTool):
         """Get glycoprotein details including glycosylation sites."""
         uniprot_ac = arguments.get("uniprot_ac", "")
         if not uniprot_ac:
-            return {"error": "uniprot_ac parameter is required"}
+            return {"status": "error", "error": "uniprot_ac parameter is required"}
 
         url = f"{GLYGEN_BASE_URL}/protein/detail/{uniprot_ac}/"
         response = requests.post(
@@ -266,6 +278,7 @@ class GlyGenTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "GlyGen",
@@ -295,7 +308,8 @@ class GlyGenTool(BaseTool):
 
         if not query:
             return {
-                "error": "At least one search parameter required (organism_id, glycosylation_evidence, glycosylation_type, protein_name, gene_name)"
+                "status": "error",
+                "error": "At least one search parameter required (organism_id, glycosylation_evidence, glycosylation_type, protein_name, gene_name)",
             }
 
         # Step 1: Submit search
@@ -348,6 +362,7 @@ class GlyGenTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "total_results": list_data.get("pagination", {}).get(
@@ -365,7 +380,8 @@ class GlyGenTool(BaseTool):
         site_id = arguments.get("site_id", "")
         if not site_id:
             return {
-                "error": "site_id parameter is required (format: UniProtAC-isoform.start.end, e.g. P02724-1.52.52)"
+                "status": "error",
+                "error": "site_id parameter is required (format: UniProtAC-isoform.start.end, e.g. P02724-1.52.52)",
             }
 
         url = f"{GLYGEN_BASE_URL}/site/detail/{site_id}/"
@@ -397,6 +413,7 @@ class GlyGenTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "GlyGen",

@@ -637,7 +637,10 @@ else:
 
 def record_batch_to_arrow_ipc(rb: pa.RecordBatch, compression: Literal["lz4", "zstd", "uncompressed"] = "lz4"):
     dest = BytesIO()
-    writer = pa_ipc.RecordBatchFileWriter(dest, rb.schema, options=pa_ipc.IpcWriteOptions(compression=compression))
+    arrow_compression = None if compression == "uncompressed" else compression
+    writer = pa_ipc.RecordBatchFileWriter(
+        dest, rb.schema, options=pa_ipc.IpcWriteOptions(compression=arrow_compression)
+    )
     writer.write_batch(rb)
     writer.close()
     dest.seek(0)

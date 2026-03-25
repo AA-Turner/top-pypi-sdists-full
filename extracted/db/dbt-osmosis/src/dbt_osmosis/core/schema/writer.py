@@ -14,12 +14,68 @@ from pathlib import Path
 import ruamel.yaml
 
 from dbt_osmosis.core import logger
-from dbt_osmosis.core.schema.reader import _YAML_BUFFER_CACHE, _YAML_BUFFER_CACHE_LOCK
+from dbt_osmosis.core.schema.reader import (
+    _YAML_BUFFER_CACHE,
+    _YAML_BUFFER_CACHE_LOCK,
+    _YAML_ORIGINAL_CACHE,
+)
 
 __all__ = [
+    "_merge_preserved_sections",
     "_write_yaml",
     "commit_yamls",
 ]
+
+
+# Keys that are filtered out by OsmosisYAML but should be preserved when writing
+_PRESERVED_KEYS = {"semantic_models", "macros", "metrics", "anchors"}
+
+
+def _merge_preserved_sections(
+    filtered_data: dict[str, t.Any], original_data: dict[str, t.Any]
+) -> dict[str, t.Any]:
+    """Merge preserved sections (semantic_models, macros, etc.) from original YAML.
+
+    When dbt-osmosis processes a YAML file, it filters out sections like semantic_models
+    and macros that it shouldn't modify. This function restores those sections from the
+    original file so they're not lost when writing back to disk.
+
+    Args:
+        filtered_data: The processed YAML data (may have models, sources, etc.)
+        original_data: The original unfiltered YAML data (may have semantic_models, macros, etc.)
+
+    Returns:
+        A merged dictionary containing both processed and preserved sections.
+
+    """
+    # Start with the filtered data (processed content)
+    merged = dict(filtered_data)
+
+    # Add back any preserved sections from the original data
+    for key in _PRESERVED_KEYS:
+        if key in original_data and key not in merged:
+            merged[key] = original_data[key]
+            logger.debug(f":recycle: Restoring preserved section '{key}' from original YAML")
+
+    return merged
+
+
+def _strip_eof_blank_lines(content: bytes) -> bytes:
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        return content
+    newline = "\r\n" if "\r\n" in text else "\n"
+    endswith_newline = text.endswith("\n")
+    lines = text.splitlines()
+    while lines and lines[-1].strip() == "":
+        lines.pop()
+    if not lines:
+        return b""
+    result = newline.join(lines)
+    if endswith_newline:
+        result += newline
+    return result.encode("utf-8")
 
 
 def _write_yaml(
@@ -29,6 +85,8 @@ def _write_yaml(
     data: dict[str, t.Any],
     dry_run: bool = False,
     mutation_tracker: t.Callable[[int], None] | None = None,
+    strip_eof_blank_lines: bool = False,
+    written_file_tracker: t.Callable[[Path], None] | None = None,
 ) -> None:
     """Write a yaml file to disk and register a mutation with the context. Clears the path from the buffer cache.
 
@@ -41,17 +99,32 @@ def _write_yaml(
     2. Validate write succeeded (file exists and non-empty)
     3. Replace original file via atomic rename
     4. If any step fails, clean up temp file and preserve original
+
+    Note: When dry_run=True, changes are detected and mutation_tracker is called,
+    but no files are written to disk. This enables --check to work with --dry-run.
     """
     logger.debug(":page_with_curl: Attempting to write YAML to => %s", path)
-    if not dry_run:
-        with yaml_handler_lock:
+    with yaml_handler_lock:
+        # Merge preserved sections from original YAML (semantic_models, macros, etc.)
+        with _YAML_BUFFER_CACHE_LOCK:
+            if path in _YAML_ORIGINAL_CACHE:
+                original_content = _YAML_ORIGINAL_CACHE[path]
+                data = _merge_preserved_sections(data, original_content)
+
+        if not dry_run:
             path.parent.mkdir(parents=True, exist_ok=True)
-            original = path.read_bytes() if path.is_file() else b""
-            # Use context manager to ensure BytesIO is properly closed
-            with io.BytesIO() as staging:
-                yaml_handler.dump(data, staging)
-                modified = staging.getvalue()
-                if modified != original:
+
+        original = path.read_bytes() if path.is_file() else b""
+        # Use context manager to ensure BytesIO is properly closed
+        with io.BytesIO() as staging:
+            yaml_handler.dump(data, staging)
+            modified = staging.getvalue()
+            if strip_eof_blank_lines:
+                modified = _strip_eof_blank_lines(modified)
+            if modified != original:
+                if dry_run:
+                    logger.info(":eyes: Would write changes to => %s (dry-run)", path)
+                else:
                     logger.info(":writing_hand: Writing changes to => %s", path)
 
                     # Write to temporary file first for safety
@@ -78,9 +151,11 @@ def _write_yaml(
                         with _YAML_BUFFER_CACHE_LOCK:
                             if path in _YAML_BUFFER_CACHE:
                                 del _YAML_BUFFER_CACHE[path]
+                            if path in _YAML_ORIGINAL_CACHE:
+                                del _YAML_ORIGINAL_CACHE[path]
 
-                        if mutation_tracker:
-                            mutation_tracker(1)
+                        if written_file_tracker:
+                            written_file_tracker(path)
 
                     except Exception as e:
                         # Clean up temp file on any error
@@ -92,12 +167,19 @@ def _write_yaml(
                         # Re-raise to signal failure
                         logger.error(":boom: Failed to write YAML to => %s: %s", path, e)
                         raise
-                else:
-                    logger.debug(":white_check_mark: Skipping write => %s (no changes)", path)
-                    # Clear cache entry even when no changes (to keep cache consistent)
+
+                # Track mutation regardless of dry_run (enables --check with --dry-run)
+                if mutation_tracker:
+                    mutation_tracker(1)
+            else:
+                logger.debug(":white_check_mark: Skipping write => %s (no changes)", path)
+                # Clear cache entry even when no changes (to keep cache consistent)
+                if not dry_run:
                     with _YAML_BUFFER_CACHE_LOCK:
                         if path in _YAML_BUFFER_CACHE:
                             del _YAML_BUFFER_CACHE[path]
+                        if path in _YAML_ORIGINAL_CACHE:
+                            del _YAML_ORIGINAL_CACHE[path]
 
 
 def _replace_atomically(temp_path: Path, target_path: Path) -> None:
@@ -121,27 +203,41 @@ def commit_yamls(
     yaml_handler_lock: threading.Lock,
     dry_run: bool = False,
     mutation_tracker: t.Callable[[int], None] | None = None,
+    strip_eof_blank_lines: bool = False,
+    written_file_tracker: t.Callable[[Path], None] | None = None,
 ) -> None:
     """Commit all files in the yaml buffer cache to disk. Clears the buffer cache and registers mutations.
 
     Uses the same write-validate-replace pattern as _write_yaml for safety.
+
+    Note: When dry_run=True, changes are detected and mutation_tracker is called,
+    but no files are written to disk. This enables --check to work with --dry-run.
     """
     logger.info(":inbox_tray: Committing all YAMLs from buffer cache to disk.")
-    if not dry_run:
-        with yaml_handler_lock:
-            with _YAML_BUFFER_CACHE_LOCK:
-                paths = list(_YAML_BUFFER_CACHE.keys())
-            for path in paths:
-                # Ensure parent directory exists before writing
+    with yaml_handler_lock:
+        with _YAML_BUFFER_CACHE_LOCK:
+            paths = list(_YAML_BUFFER_CACHE.keys())
+        for path in paths:
+            # Ensure parent directory exists before writing
+            if not dry_run:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                original = path.read_bytes() if path.is_file() else b""
-                # Use context manager to ensure BytesIO is properly closed
-                with io.BytesIO() as staging:
-                    with _YAML_BUFFER_CACHE_LOCK:
-                        data = _YAML_BUFFER_CACHE[path]
-                    yaml_handler.dump(data, staging)
-                    modified = staging.getvalue()
-                    if modified != original:
+            original = path.read_bytes() if path.is_file() else b""
+            # Use context manager to ensure BytesIO is properly closed
+            with io.BytesIO() as staging:
+                with _YAML_BUFFER_CACHE_LOCK:
+                    data = _YAML_BUFFER_CACHE[path]
+                    # Merge preserved sections from original YAML (semantic_models, macros, etc.)
+                    if path in _YAML_ORIGINAL_CACHE:
+                        original_content = _YAML_ORIGINAL_CACHE[path]
+                        data = _merge_preserved_sections(data, original_content)
+                yaml_handler.dump(data, staging)
+                modified = staging.getvalue()
+                if strip_eof_blank_lines:
+                    modified = _strip_eof_blank_lines(modified)
+                if modified != original:
+                    if dry_run:
+                        logger.info(":eyes: Would write changes to => %s (dry-run)", path)
+                    else:
                         logger.info(":writing_hand: Writing => %s", path)
 
                         # Write to temporary file first for safety
@@ -166,10 +262,13 @@ def commit_yamls(
 
                             # Clear cache entry only after successful write
                             with _YAML_BUFFER_CACHE_LOCK:
-                                del _YAML_BUFFER_CACHE[path]
+                                if path in _YAML_BUFFER_CACHE:
+                                    del _YAML_BUFFER_CACHE[path]
+                                if path in _YAML_ORIGINAL_CACHE:
+                                    del _YAML_ORIGINAL_CACHE[path]
 
-                            if mutation_tracker:
-                                mutation_tracker(1)
+                            if written_file_tracker:
+                                written_file_tracker(path)
 
                         except Exception as e:
                             # Clean up temp file on any error
@@ -181,8 +280,17 @@ def commit_yamls(
                             # Re-raise to signal failure
                             logger.error(":boom: Failed to commit YAML to => %s: %s", path, e)
                             raise
-                    else:
-                        logger.debug(":white_check_mark: Skipping => %s (no changes)", path)
-                        # Clear cache entry even when no changes (to keep cache consistent)
+
+                    # Track mutation regardless of dry_run (enables --check with --dry-run)
+                    if mutation_tracker:
+                        mutation_tracker(1)
+
+                else:
+                    logger.debug(":white_check_mark: Skipping => %s (no changes)", path)
+                    # Clear cache entry even when no changes (to keep cache consistent)
+                    if not dry_run:
                         with _YAML_BUFFER_CACHE_LOCK:
-                            del _YAML_BUFFER_CACHE[path]
+                            if path in _YAML_BUFFER_CACHE:
+                                del _YAML_BUFFER_CACHE[path]
+                            if path in _YAML_ORIGINAL_CACHE:
+                                del _YAML_ORIGINAL_CACHE[path]

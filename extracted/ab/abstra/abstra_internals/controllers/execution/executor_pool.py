@@ -12,19 +12,24 @@ from abstra_internals.controllers.execution.executor_config import (
     ExecutorConfig,
 )
 from abstra_internals.controllers.execution.executor_metrics import MetricsCollector
-from abstra_internals.controllers.execution.executor_process import (
+from abstra_internals.controllers.execution.executor_types import (
     ExecuteRequest,
     ExecutorCommand,
     ExecutorResponse,
     RabbitMQParams,
     ShutdownRequest,
     WarmupRequest,
-    executor_main,
 )
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.multiprocessing import MPContext
 from abstra_internals.repositories.project.project import StageType, StageWithFile
 from abstra_internals.utils.multiprocessing import safe_multiprocessing_queue
+
+
+def _executor_target(*args, **kwargs):
+    from abstra_internals.controllers.execution.executor_process import executor_main
+
+    executor_main(*args, **kwargs)
 
 
 class ExecutorStatus(str, Enum):
@@ -396,7 +401,7 @@ class ExecutorPool:
         response_queue = safe_multiprocessing_queue(self.mp_context)
 
         p = self.mp_context.Process(
-            target=executor_main,
+            target=_executor_target,
             name=f"Executor-{executor_id}",
             args=(
                 work_queue,

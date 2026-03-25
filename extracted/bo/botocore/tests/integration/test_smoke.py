@@ -63,7 +63,6 @@ SMOKE_TESTS = {
     'events': {'ListRules': {}},
     'firehose': {'ListDeliveryStreams': {}},
     'gamelift': {'ListBuilds': {}},
-    'glacier': {'ListVaults': {}},
     'iam': {'ListUsers': {}},
     # Does not work with session credentials so
     # importexport tests are not run.
@@ -155,7 +154,6 @@ ERROR_TESTS = {
     'emr': {'DescribeCluster': {'ClusterId': 'fake'}},
     'es': {'DescribeElasticsearchDomain': {'DomainName': 'not-a-domain'}},
     'gamelift': {'DescribeBuild': {'BuildId': 'fake-build-id'}},
-    'glacier': {'ListVaults': {'accountId': 'fake'}},
     'iam': {'GetUser': {'UserName': 'fake'}},
     'kinesis': {'DescribeStream': {'StreamName': 'fake'}},
     'kms': {'GetKeyPolicy': {'KeyId': 'fake', 'PolicyName': 'fake'}},

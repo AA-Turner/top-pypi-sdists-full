@@ -5,7 +5,7 @@ import tempfile
 import traceback
 from collections.abc import Iterator
 from pathlib import Path
-from typing import IO, Annotated, Optional
+from typing import IO, Annotated, Optional, Union
 
 import click
 import requests
@@ -110,7 +110,7 @@ def tempzip_download_ctx(url: str) -> Iterator[IPSW]:
 
 
 @contextlib.contextmanager
-def ipsw_ctx(path: str | Path) -> Iterator[IPSW]:
+def ipsw_ctx(path: Union[str, Path]) -> Iterator[IPSW]:
     yield IPSW.create_from_path(path)
 
 

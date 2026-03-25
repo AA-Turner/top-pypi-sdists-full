@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-utils
-Version: 0.2.1
+Version: 0.3.0
 Summary: Utilities for the Earthkit ecosystem
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License: Apache License Version 2.0
@@ -23,6 +23,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: array-api-compat
+Requires-Dist: pint
 Provides-Extra: dev
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -37,6 +38,7 @@ Requires-Dist: sphinx-issues; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Requires-Dist: sphinx-tabs; extra == "docs"
 Provides-Extra: test
+Requires-Dist: earthkit-data; extra == "test"
 Requires-Dist: nbconvert; extra == "test"
 Requires-Dist: nbformat; extra == "test"
 Requires-Dist: pytest; extra == "test"

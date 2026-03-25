@@ -1,7 +1,7 @@
 """
 gwas_search_snps
 
-Search for GWAS single nucleotide polymorphisms (SNPs) by rs ID or mapped gene.
+Search the GWAS Catalog for single nucleotide polymorphisms (SNPs) by rs ID (e.g., 'rs7903146') o...
 """
 
 from typing import Any, Optional, Callable
@@ -19,7 +19,7 @@ def gwas_search_snps(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Search for GWAS single nucleotide polymorphisms (SNPs) by rs ID or mapped gene.
+    Search the GWAS Catalog for single nucleotide polymorphisms (SNPs) by rs ID (e.g., 'rs7903146') o...
 
     Parameters
     ----------

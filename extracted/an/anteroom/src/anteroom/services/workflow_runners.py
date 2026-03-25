@@ -24,7 +24,7 @@ class TranscriptCallback(Protocol):
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_WORKFLOW_AGENT_MAX_ITERATIONS = 100
+_DEFAULT_WORKFLOW_AGENT_MAX_ITERATIONS = 30
 
 
 def _trim_transcript_value(value: Any, max_chars: int) -> Any:
@@ -48,6 +48,7 @@ class RunnerResult:
     artifacts: dict[str, Any] = field(default_factory=dict)
     findings: list[dict[str, Any]] = field(default_factory=list)
     duration_ms: int = 0
+    outputs: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -57,6 +58,7 @@ class RunnerResult:
             "artifacts": self.artifacts,
             "findings": self.findings,
             "duration_ms": self.duration_ms,
+            "outputs": self.outputs,
         }
 
 

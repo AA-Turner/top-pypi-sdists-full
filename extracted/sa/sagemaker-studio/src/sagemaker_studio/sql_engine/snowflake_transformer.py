@@ -6,6 +6,10 @@ from .resource_fetching_definition import ResourceFetchingDefinition
 
 class SnowflakeTransformer(DatabaseTransformer):
 
+    @classmethod
+    def get_dialect(cls) -> Optional[str]:
+        return "snowflake"
+
     @staticmethod
     def get_required_fields() -> List[str]:
         return ["account", "database", "user", "password", "warehouse"]

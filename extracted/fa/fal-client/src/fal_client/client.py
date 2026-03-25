@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import io
 import json
 import math
@@ -20,6 +21,7 @@ from functools import cached_property, partial
 from typing import (
     Any,
     AsyncIterator,
+    Awaitable,
     Dict,
     Iterator,
     TYPE_CHECKING,
@@ -544,6 +546,7 @@ class FalClientHTTPError(FalClientError):
     status_code: int
     response_headers: dict[str, str]
     response: httpx.Response
+    error_type: str | None = None
 
     def __str__(self) -> str:
         return f"{self.message}"
@@ -565,10 +568,20 @@ def _raise_for_status(response: httpx.Response) -> None:
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
+        error_type = None
+        msg = response.text
+
         try:
-            msg = response.json()["detail"]
-        except (ValueError, KeyError):
-            msg = response.text
+            body = response.json()
+        except ValueError:
+            body = None
+
+        if isinstance(body, dict):
+            msg = body.get("detail", response.text)
+            error_type = body.get("error_type")
+
+        if error_type is None:
+            error_type = response.headers.get("x-fal-error-type")
 
         raise FalClientHTTPError(
             msg,
@@ -577,6 +590,7 @@ def _raise_for_status(response: httpx.Response) -> None:
             # which means we don't support multiple values per header
             dict(response.headers),
             response=response,
+            error_type=error_type,
         ) from exc
 
 
@@ -611,6 +625,8 @@ class Completed(Status):
 
     logs: list[dict[str, Any]] | None = field()
     metrics: dict[str, Any] = field()
+    error: str | None = field(default=None)
+    error_type: str | None = field(default=None)
 
 
 @dataclass(frozen=True)
@@ -628,7 +644,12 @@ class _BaseRequestHandle:
         elif data["status"] == "COMPLETED":
             # NOTE: legacy apps might not return metrics
             metrics = data.get("metrics", {})
-            return Completed(logs=data["logs"], metrics=metrics)
+            return Completed(
+                logs=data["logs"],
+                metrics=metrics,
+                error=data.get("error"),
+                error_type=data.get("error_type"),
+            )
         else:
             raise ValueError(f"Unknown status: {data['status']}")
 
@@ -957,6 +978,12 @@ BASE_DELAY = 0.1
 MAX_DELAY = 30
 RETRY_CODES = [408, 409, 429]
 INGRESS_ERROR_CODES = [502, 503, 504]
+
+# Explicit timeout for queue polling requests (status checks and result fetching).
+# httpx's default timeout (120s) operates at the HTTP protocol layer and can fail
+# to fire when the hang is at the raw SSL socket level (ssl.read()).  Using an
+# httpx.Timeout object with a shorter connect timeout ensures we detect stalls.
+QUEUE_POLL_TIMEOUT = httpx.Timeout(120.0, connect=30.0)
 
 
 def _is_ingress_error(response: httpx.Response) -> bool:
@@ -1351,6 +1378,7 @@ class SyncRequestHandle(_BaseRequestHandle):
             params={
                 "logs": with_logs,
             },
+            timeout=QUEUE_POLL_TIMEOUT,
         )
         _raise_for_status(response)
 
@@ -1376,7 +1404,9 @@ class SyncRequestHandle(_BaseRequestHandle):
         for _ in self.iter_events(with_logs=False):
             continue
 
-        response = _maybe_retry_request(self.client, "GET", self.response_url)
+        response = _maybe_retry_request(
+            self.client, "GET", self.response_url, timeout=QUEUE_POLL_TIMEOUT
+        )
         _raise_for_status(response)
         return response.json()
 
@@ -1386,6 +1416,7 @@ class SyncRequestHandle(_BaseRequestHandle):
             self.client,
             "PUT",
             self.cancel_url,
+            timeout=QUEUE_POLL_TIMEOUT,
         )
         _raise_for_status(response)
 
@@ -1424,6 +1455,7 @@ class AsyncRequestHandle(_BaseRequestHandle):
             params={
                 "logs": with_logs,
             },
+            timeout=QUEUE_POLL_TIMEOUT,
         )
         _raise_for_status(response)
 
@@ -1453,6 +1485,7 @@ class AsyncRequestHandle(_BaseRequestHandle):
             self.client,
             "GET",
             self.response_url,
+            timeout=QUEUE_POLL_TIMEOUT,
         )
         _raise_for_status(response)
         return response.json()
@@ -1463,6 +1496,7 @@ class AsyncRequestHandle(_BaseRequestHandle):
             self.client,
             "PUT",
             self.cancel_url,
+            timeout=QUEUE_POLL_TIMEOUT,
         )
         _raise_for_status(response)
 
@@ -1646,8 +1680,8 @@ class AsyncClient:
         path: str = "",
         hint: str | None = None,
         with_logs: bool = False,
-        on_enqueue: Optional[Callable[[str], None]] = None,
-        on_queue_update: Optional[Callable[[Status], None]] = None,
+        on_enqueue: Optional[Callable[[str], None | Awaitable[None]]] = None,
+        on_queue_update: Optional[Callable[[Status], None | Awaitable[None]]] = None,
         priority: Optional[Priority] = None,
         headers: dict[str, str] = {},
         start_timeout: Optional[Union[int, float]] = None,
@@ -1689,11 +1723,15 @@ class AsyncClient:
             handle_ref[0] = handle
 
             if on_enqueue is not None:
-                on_enqueue(handle.request_id)
+                result = on_enqueue(handle.request_id)
+                if inspect.isawaitable(result):
+                    await result
 
             if on_queue_update is not None:
                 async for event in handle.iter_events(with_logs=with_logs):
-                    on_queue_update(event)
+                    result = on_queue_update(event)
+                    if inspect.isawaitable(result):
+                        await result
 
             return await handle.get()
 

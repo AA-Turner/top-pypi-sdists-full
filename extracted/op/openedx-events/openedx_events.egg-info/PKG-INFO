@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-events
-Version: 10.5.0
+Version: 11.0.0
 Summary: Open edX events from the Hooks Extensions Framework
 Home-page: https://github.com/openedx/openedx-events
 Author: edX
@@ -12,9 +12,8 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: attrs
@@ -184,6 +183,28 @@ Change Log
 
 Unreleased
 __________
+
+
+[10.6.0] - 2026-03-09
+---------------------
+
+Added
+~~~~~
+
+* Added support for complex nested types in dictionaries and lists, including ``List[Dict[str, int]]``, ``Dict[str, List[int]]``, ``List[UserData]``, and ``Dict[str, CourseData]``.
+
+Removed
+~~~~~~~
+
+* Removed 7 signals from ``KNOWN_UNSERIALIZABLE_SIGNALS`` list that are now compatible with the event bus due to improved complex type support:
+
+  * ``org.openedx.learning.discussions.configuration.changed.v1``
+  * ``org.openedx.learning.user.notification.requested.v1``
+  * ``org.openedx.learning.forum.thread.created.v1``
+  * ``org.openedx.learning.forum.thread.response.created.v1``
+  * ``org.openedx.learning.forum.thread.response.comment.created.v1``
+  * ``org.openedx.learning.course.notification.requested.v1``
+  * ``org.openedx.learning.ora.submission.created.v1``
 
 [10.5.0] - 2025-08-19
 ---------------------

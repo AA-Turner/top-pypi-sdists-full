@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import contextlib
 import functools
 import importlib.util
 import os
@@ -21,6 +22,10 @@ from ._exceptions import FailedProcessError
 from ._util import check_dependency
 
 
+if typing.TYPE_CHECKING:
+    from ._compat.importlib import metadata as importlib_metadata
+
+
 Installer = typing.Literal['pip', 'uv']
 
 INSTALLERS = typing.get_args(Installer)
@@ -39,10 +44,13 @@ class IsolatedEnv(typing.Protocol):
         """Generate additional env vars specific to the isolated environment."""
 
 
-def _has_dependency(name: str, minimum_version_str: str | None = None, /, **distargs: object) -> bool | None:
+def _has_dependency(
+    name: str, minimum_version_str: str | None = None, /, **distargs: object
+) -> importlib_metadata.Distribution | None:
     """
-    Given a distribution name, see if it is present and return True if the version is
-    sufficient for build, False if it is not, None if the package is missing.
+    Given a distribution name, see if it is present and return the distribution
+    if the version is sufficient for build, None if the package is missing or
+    too old.
     """
     from packaging.version import Version
 
@@ -54,9 +62,12 @@ def _has_dependency(name: str, minimum_version_str: str | None = None, /, **dist
         return None
 
     if minimum_version_str is None:
-        return True
+        return distribution
 
-    return Version(distribution.version) >= Version(minimum_version_str)
+    if Version(distribution.version) < Version(minimum_version_str):
+        return None
+
+    return distribution
 
 
 class DefaultIsolatedEnv(IsolatedEnv):
@@ -121,7 +132,7 @@ class DefaultIsolatedEnv(IsolatedEnv):
             else self._env_backend.scripts_dir
         }
 
-    def install(self, requirements: Collection[str]) -> None:
+    def install(self, requirements: Collection[str], constraints: Collection[str] = []) -> None:
         """
         Install packages from PEP 508 requirements in the isolated build environment.
 
@@ -134,7 +145,7 @@ class DefaultIsolatedEnv(IsolatedEnv):
             return
 
         _ctx.log('Installing packages in isolated environment:\n' + '\n'.join(f'- {r}' for r in sorted(requirements)))
-        self._env_backend.install_requirements(requirements)
+        self._env_backend.install_dependencies(requirements, constraints)
 
 
 class _EnvBackend(typing.Protocol):  # pragma: no cover
@@ -143,7 +154,7 @@ class _EnvBackend(typing.Protocol):  # pragma: no cover
 
     def create(self, path: str) -> None: ...
 
-    def install_requirements(self, requirements: Collection[str]) -> None: ...
+    def install_dependencies(self, requirements: Collection[str], constraints: Collection[str]) -> None: ...
 
     @property
     def display_name(self) -> str: ...
@@ -157,21 +168,25 @@ class _PipBackend(_EnvBackend):
     def _has_valid_outer_pip(self) -> bool | None:
         """
         This checks for a valid global pip. Returns None if pip is missing, False
-        if pip is too old, and True if it can be used.
+        if pip is too old or debundled, and True if it can be used.
         """
 
         # Version to have added the `--python` option.
-        if not _has_dependency('pip', '22.3'):  # pragma: no cover
-            return False
-
         # `pip install --python` is nonfunctional on Gentoo debundled pip.
-        # Detect that by checking if pip._vendor` module exists.  However,
-        # searching for pip could yield warnings from _distutils_hack,
-        # so silence them.
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            if importlib.util.find_spec('pip._vendor') is None:
-                return False  # pragma: no cover
+        if dist := _has_dependency('pip', '22.3'):  # pragma: no cover
+            files = dist.files
+            if files:
+                return any(str(f).startswith('pip/_vendor') for f in files)
+            # The distribution package manager deleted the RECORD file,
+            # generally to force pip to be unable to uninstall itself
+            # Only try this on 3.12+ since it can have side effects before 3.12
+            # due to _distutils_hack and pip interacting.
+            if sys.version_info >= (3, 12):
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    if importlib.util.find_spec('pip._vendor') is not None:
+                        return True
+            return False
 
         return True
 
@@ -260,13 +275,8 @@ class _PipBackend(_EnvBackend):
                 ):
                     run_subprocess([self.python_executable, '-Im', 'pip', 'uninstall', '-y', 'setuptools'])
 
-    def install_requirements(self, requirements: Collection[str]) -> None:
-        # pip does not honour environment markers in command line arguments
-        # but it does from requirement files.
-        with tempfile.NamedTemporaryFile('w', prefix='build-reqs-', suffix='.txt', delete=False, encoding='utf-8') as req_file:
-            req_file.write(os.linesep.join(requirements))
-
-        try:
+    def install_dependencies(self, requirements: Collection[str], constraints: Collection[str]) -> None:
+        with contextlib.ExitStack() as exit_stack:
             if self._has_valid_outer_pip:
                 cmd = [sys.executable, '-m', 'pip', '--python', self.python_executable]
             else:
@@ -275,18 +285,28 @@ class _PipBackend(_EnvBackend):
             if _ctx.verbosity > 1:
                 cmd += [f'-{"v" * (_ctx.verbosity - 1)}']
 
-            cmd += [
-                'install',
-                '--use-pep517',
-                '--no-warn-script-location',
-                '--no-compile',
-                '-r',
-                os.path.abspath(req_file.name),
-            ]
-            run_subprocess(cmd)
+            cmd += ['install', '--use-pep517', '--no-warn-script-location', '--no-compile']
 
-        finally:
-            os.unlink(req_file.name)
+            # pip does not honour environment markers in command line arguments
+            # but it does from requirement files.
+            with tempfile.NamedTemporaryFile(
+                'w', prefix='build-requirements-', suffix='.txt', delete=False, encoding='utf-8'
+            ) as requirement_file:
+                requirement_file.write(os.linesep.join(requirements))
+            exit_stack.callback(functools.partial(os.unlink, requirement_file.name))
+
+            cmd += ['-r', os.path.abspath(requirement_file.name)]
+
+            if constraints:
+                with tempfile.NamedTemporaryFile(
+                    'w', prefix='build-constraints-', suffix='.txt', delete=False, encoding='utf-8'
+                ) as constraint_file:
+                    constraint_file.write(os.linesep.join(constraints))
+                exit_stack.callback(functools.partial(os.unlink, constraint_file.name))
+
+                cmd += ['-c', os.path.abspath(constraint_file.name)]
+
+            run_subprocess(cmd)
 
     @property
     def display_name(self) -> str:
@@ -315,11 +335,25 @@ class _UvBackend(_EnvBackend):
         venv.EnvBuilder(symlinks=_fs_supports_symlink(), with_pip=False).create(self._env_path)
         self.python_executable, self.scripts_dir, _ = _find_executable_and_scripts(self._env_path)
 
-    def install_requirements(self, requirements: Collection[str]) -> None:
-        cmd = [self._uv_bin, 'pip']
-        if _ctx.verbosity > 1:
-            cmd += [f'-{"v" * min(2, _ctx.verbosity - 1)}']
-        run_subprocess([*cmd, 'install', *requirements], env={**os.environ, 'VIRTUAL_ENV': self._env_path})
+    def install_dependencies(self, requirements: Collection[str], constraints: Collection[str]) -> None:
+        with contextlib.ExitStack() as exit_stack:
+            cmd = [self._uv_bin, 'pip']
+
+            if _ctx.verbosity > 1:
+                cmd += [f'-{"v" * min(2, _ctx.verbosity - 1)}']
+
+            cmd += ['install', *requirements]
+
+            if constraints:
+                with tempfile.NamedTemporaryFile(
+                    'w', prefix='build-constraints-', suffix='.txt', delete=False, encoding='utf-8'
+                ) as constraint_file:
+                    constraint_file.write(os.linesep.join(constraints))
+                exit_stack.callback(functools.partial(os.unlink, constraint_file.name))
+
+                cmd += ['-c', os.path.abspath(constraint_file.name)]
+
+            run_subprocess(cmd, env={**os.environ, 'VIRTUAL_ENV': self._env_path})
 
     @property
     def display_name(self) -> str:

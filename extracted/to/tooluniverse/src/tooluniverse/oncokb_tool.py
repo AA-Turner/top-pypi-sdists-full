@@ -10,7 +10,7 @@ Requires API token: https://www.oncokb.org/apiAccess
 
 import os
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from .base_tool import BaseTool
 from .tool_registry import register_tool
 
@@ -44,6 +44,11 @@ class OncoKBTool(BaseTool):
         self.use_demo = not bool(self.api_token)
         self.base_url = ONCOKB_DEMO_URL if self.use_demo else ONCOKB_API_URL
 
+    @property
+    def _api_mode(self) -> str:
+        """Return the current API mode label."""
+        return "demo" if self.use_demo else "authenticated"
+
     def _get_headers(self) -> Dict[str, str]:
         """Get request headers with authentication."""
         headers = {
@@ -54,12 +59,65 @@ class OncoKBTool(BaseTool):
             headers["Authorization"] = f"Bearer {self.api_token}"
         return headers
 
+    def _demo_gene_note(self, gene: str) -> str:
+        return (
+            f"Demo mode: {gene} is not in the demo dataset (limited to BRAF, TP53, ROS1). "
+            "Set ONCOKB_API_TOKEN for full coverage. Get a token at https://www.oncokb.org/apiAccess"
+        )
+
+    def _apply_demo_gene_warning(
+        self, data: Dict[str, Any], metadata: Dict[str, Any], gene: str
+    ) -> None:
+        """Mutate data and metadata in-place with demo-mode warning when gene is absent."""
+        note = self._demo_gene_note(gene)
+        metadata["note"] = note
+        data["warning"] = note
+
+    def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Make a GET request to the OncoKB API with standard error handling."""
+        try:
+            response = requests.get(
+                f"{self.base_url}/{endpoint}",
+                params=params,
+                headers=self._get_headers(),
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return {"ok": True, "data": response.json()}
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code
+            if status == 401:
+                return {
+                    "ok": False,
+                    "error": "Authentication required. Set ONCOKB_API_TOKEN environment variable.",
+                }
+            if status == 403:
+                return {
+                    "ok": False,
+                    "error": "Access forbidden. Check your API token permissions.",
+                }
+            if status == 404:
+                return {"ok": False, "error": f"Not found (HTTP 404)"}
+            return {"ok": False, "error": f"HTTP error: {status}"}
+        except requests.exceptions.Timeout:
+            return {"ok": False, "error": "Request timed out"}
+        except requests.exceptions.RequestException as e:
+            return {"ok": False, "error": f"Request failed: {str(e)}"}
+        except Exception as e:
+            return {"ok": False, "error": f"Unexpected error: {str(e)}"}
+
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute OncoKB API call based on operation type."""
         operation = arguments.get("operation", "")
         # Auto-fill operation from tool config const if not provided by user
         if not operation:
             operation = self.get_schema_const_operation()
+        # Accept gene_symbol as alias for gene (consistent with other tools)
+        if not arguments.get("gene") and arguments.get("gene_symbol"):
+            arguments = dict(arguments, gene=arguments["gene_symbol"])
+        # Accept alteration as alias for variant
+        if not arguments.get("variant") and arguments.get("alteration"):
+            arguments = dict(arguments, variant=arguments["alteration"])
 
         if operation == "annotate_variant":
             return self._annotate_variant(arguments)
@@ -78,15 +136,7 @@ class OncoKBTool(BaseTool):
             }
 
     def _annotate_variant(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Annotate a specific variant for oncogenic potential and treatment implications.
-
-        Args:
-            arguments: Dict containing:
-                - gene: Gene symbol (e.g., BRAF)
-                - variant: Variant notation (e.g., V600E)
-                - tumor_type: Optional cancer type (OncoTree code)
-        """
+        """Annotate a specific variant for oncogenic potential and treatment implications."""
         gene = arguments.get("gene", "")
         variant = arguments.get("variant", "")
 
@@ -95,221 +145,152 @@ class OncoKBTool(BaseTool):
         if not variant:
             return {"status": "error", "error": "Missing required parameter: variant"}
 
-        tumor_type = arguments.get("tumor_type", "")
+        # Accept cancer_type as alias for tumor_type (both refer to OncoTree code)
+        tumor_type = arguments.get("tumor_type") or arguments.get("cancer_type") or ""
 
-        # Build query parameters
-        params = {
-            "hugoSymbol": gene,
-            "alteration": variant,
-        }
+        params: Dict[str, Any] = {"hugoSymbol": gene, "alteration": variant}
         if tumor_type:
             params["tumorType"] = tumor_type
 
-        try:
-            response = requests.get(
-                f"{self.base_url}/annotate/mutations/byProteinChange",
-                params=params,
-                headers=self._get_headers(),
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
+        resp = self._make_request("annotate/mutations/byProteinChange", params)
+        if not resp["ok"]:
+            return {"status": "error", "error": resp["error"]}
 
-            return {
-                "status": "success",
-                "data": data,
-                "metadata": {
-                    "source": "OncoKB",
-                    "api_mode": "demo" if self.use_demo else "authenticated",
-                    "gene": gene,
-                    "variant": variant,
-                },
-            }
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 401:
-                return {
-                    "status": "error",
-                    "error": "Authentication required. Set ONCOKB_API_TOKEN environment variable.",
-                }
-            elif e.response.status_code == 403:
-                return {
-                    "status": "error",
-                    "error": "Access forbidden. Check your API token permissions.",
-                }
-            return {"status": "error", "error": f"HTTP error: {e.response.status_code}"}
-        except requests.exceptions.Timeout:
-            return {"status": "error", "error": "Request timed out"}
-        except requests.exceptions.RequestException as e:
-            return {"status": "error", "error": f"Request failed: {str(e)}"}
-        except Exception as e:
-            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
+        data = resp["data"]
+        metadata: Dict[str, Any] = {
+            "source": "OncoKB",
+            "api_mode": self._api_mode,
+            "gene": gene,
+            "variant": variant,
+        }
+        # Demo API silently returns geneExist=False for genes outside its limited set.
+        if self.use_demo and not data.get("geneExist", True):
+            self._apply_demo_gene_warning(data, metadata, gene)
+        return {"status": "success", "data": data, "metadata": metadata}
 
     def _get_gene_info(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Get gene-level oncogenic information.
-
-        Args:
-            arguments: Dict containing:
-                - gene: Gene symbol (e.g., BRAF, TP53)
-        """
+        """Get gene-level oncogenic information."""
         gene = arguments.get("gene", "")
         if not gene:
-            return {"status": "error", "error": "Missing required parameter: gene"}
-
-        try:
-            # Demo API doesn't support /genes/{gene} endpoint, use /utils/allCuratedGenes instead
-            if self.use_demo:
-                response = requests.get(
-                    f"{self.base_url}/utils/allCuratedGenes",
-                    headers=self._get_headers(),
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
-                all_genes = response.json()
-
-                # Find the specific gene
-                gene_data = None
-                for g in all_genes:
-                    if g.get("hugoSymbol", "").upper() == gene.upper():
-                        gene_data = g
-                        break
-
-                if not gene_data:
-                    return {
-                        "status": "error",
-                        "error": f"Gene not found in demo data: {gene}. Demo limited to curated cancer genes.",
-                    }
-
-                return {
-                    "status": "success",
-                    "data": gene_data,
-                    "metadata": {
-                        "source": "OncoKB",
-                        "api_mode": "demo",
-                        "gene": gene,
-                        "note": "Demo mode: limited to curated cancer genes",
-                    },
-                }
-            else:
-                # Full API supports /genes/{gene}
-                response = requests.get(
-                    f"{self.base_url}/genes/{gene}",
-                    headers=self._get_headers(),
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
-                data = response.json()
-
-                return {
-                    "status": "success",
-                    "data": data,
-                    "metadata": {
-                        "source": "OncoKB",
-                        "api_mode": "authenticated",
-                        "gene": gene,
-                    },
-                }
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                return {"status": "error", "error": f"Gene not found: {gene}"}
-            if e.response.status_code == 401:
-                return {
-                    "status": "error",
-                    "error": "API authentication required. Set ONCOKB_API_TOKEN environment variable.",
-                }
-            return {"status": "error", "error": f"HTTP error: {e.response.status_code}"}
-        except requests.exceptions.RequestException as e:
-            return {"status": "error", "error": f"Request failed: {str(e)}"}
-        except Exception as e:
-            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
-
-    def _get_cancer_genes(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Get list of all cancer genes curated in OncoKB.
-
-        Returns genes classified as oncogenes and/or tumor suppressors.
-        """
-        try:
-            response = requests.get(
-                f"{self.base_url}/genes",
-                headers=self._get_headers(),
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            # Filter to only include cancer genes (oncogene or TSG)
-            cancer_genes = [g for g in data if g.get("oncogene") or g.get("tsg")]
-
-            result = {
-                "status": "success",
-                "data": {
-                    "total_genes": len(data),
-                    "cancer_genes_count": len(cancer_genes),
-                    "genes": cancer_genes,
-                },
-                "metadata": {
-                    "source": "OncoKB",
-                    "api_mode": "demo" if self.use_demo else "authenticated",
-                },
+            return {
+                "status": "error",
+                "error": "Missing required parameter: gene (or gene_symbol)",
             }
-            if self.use_demo:
-                result["metadata"]["note"] = (
-                    "Demo mode: results are limited. Set ONCOKB_API_TOKEN "
-                    "environment variable for full cancer gene list (700+ genes). "
-                    "Get a token at https://www.oncokb.org/apiAccess"
-                )
-            return result
 
-        except requests.exceptions.RequestException as e:
-            return {"status": "error", "error": f"Request failed: {str(e)}"}
-        except Exception as e:
-            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
+        # Demo API doesn't support /genes/{gene}, use /utils/allCuratedGenes instead
+        if self.use_demo:
+            resp = self._make_request("utils/allCuratedGenes", {})
+            if not resp["ok"]:
+                return {"status": "error", "error": resp["error"]}
 
-    def _get_levels(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Get information about OncoKB evidence levels.
-
-        Returns the definitions of all actionability levels (1, 2, 3A, 3B, 4, R1, R2).
-        """
-        try:
-            response = requests.get(
-                f"{self.base_url}/levels",
-                headers=self._get_headers(),
-                timeout=self.timeout,
+            gene_data = next(
+                (
+                    g
+                    for g in resp["data"]
+                    if g.get("hugoSymbol", "").upper() == gene.upper()
+                ),
+                None,
             )
-            response.raise_for_status()
-            data = response.json()
-
+            if not gene_data:
+                data: Dict[str, Any] = {}
+                metadata: Dict[str, Any] = {
+                    "source": "OncoKB",
+                    "api_mode": "demo",
+                    "gene": gene,
+                }
+                self._apply_demo_gene_warning(data, metadata, gene)
+                return {"status": "success", "data": data, "metadata": metadata}
             return {
                 "status": "success",
-                "data": data,
+                "data": gene_data,
                 "metadata": {
                     "source": "OncoKB",
-                    "api_mode": "demo" if self.use_demo else "authenticated",
-                    "description": "OncoKB evidence levels for therapeutic actionability",
+                    "api_mode": "demo",
+                    "gene": gene,
+                    "note": "Demo mode: limited to curated cancer genes",
                 },
             }
 
-        except requests.exceptions.RequestException as e:
-            return {"status": "error", "error": f"Request failed: {str(e)}"}
-        except Exception as e:
-            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
+        # Full API supports /genes/{gene}
+        resp = self._make_request(f"genes/{gene}", {})
+        if not resp["ok"]:
+            error_msg = resp["error"]
+            if "Not found" in error_msg:
+                error_msg = f"Gene not found: {gene}"
+            return {"status": "error", "error": error_msg}
+
+        return {
+            "status": "success",
+            "data": resp["data"],
+            "metadata": {
+                "source": "OncoKB",
+                "api_mode": "authenticated",
+                "gene": gene,
+            },
+        }
+
+    def _get_cancer_genes(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Get list of all cancer genes curated in OncoKB."""
+        resp = self._make_request("genes", {})
+        if not resp["ok"]:
+            return {"status": "error", "error": resp["error"]}
+
+        data = resp["data"]
+
+        # Filter to only include cancer genes (oncogene or TSG).
+        # Demo API returns geneType:"ONCOGENE"/"TSG" instead of boolean fields.
+        def _is_cancer_gene(g: dict) -> bool:
+            if g.get("oncogene") or g.get("tsg"):
+                return True
+            gene_type = (g.get("geneType") or "").upper()
+            return "ONCOGENE" in gene_type or "TSG" in gene_type
+
+        cancer_genes = [g for g in data if _is_cancer_gene(g)]
+
+        metadata: Dict[str, Any] = {
+            "source": "OncoKB",
+            "api_mode": self._api_mode,
+        }
+        if self.use_demo:
+            metadata["note"] = (
+                "Demo mode: results are limited. Set ONCOKB_API_TOKEN "
+                "environment variable for full cancer gene list (700+ genes). "
+                "Get a token at https://www.oncokb.org/apiAccess"
+            )
+        return {
+            "status": "success",
+            "data": {
+                "total_genes": len(data),
+                "cancer_genes_count": len(cancer_genes),
+                "genes": cancer_genes,
+            },
+            "metadata": metadata,
+        }
+
+    def _get_levels(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Get information about OncoKB evidence levels."""
+        resp = self._make_request("levels", {})
+        if not resp["ok"]:
+            return {"status": "error", "error": resp["error"]}
+
+        return {
+            "status": "success",
+            "data": resp["data"],
+            "metadata": {
+                "source": "OncoKB",
+                "api_mode": self._api_mode,
+                "description": "OncoKB evidence levels for therapeutic actionability",
+            },
+        }
 
     def _annotate_copy_number(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Annotate copy number alterations (amplification/deletion).
-
-        Args:
-            arguments: Dict containing:
-                - gene: Gene symbol
-                - copy_number_type: AMPLIFICATION or DELETION
-                - tumor_type: Optional cancer type (OncoTree code)
-        """
+        """Annotate copy number alterations (amplification/deletion)."""
         gene = arguments.get("gene", "")
-        cna_type = arguments.get("copy_number_type", "")
+        # Feature-120B-004: accept copy_number_alteration as alias for copy_number_type
+        cna_type = (
+            arguments.get("copy_number_type")
+            or arguments.get("copy_number_alteration", "")
+        ).upper()
 
         if not gene:
             return {"status": "error", "error": "Missing required parameter: gene"}
@@ -325,37 +306,27 @@ class OncoKBTool(BaseTool):
                 "error": "copy_number_type must be AMPLIFICATION or DELETION",
             }
 
-        tumor_type = arguments.get("tumor_type", "")
+        # Accept cancer_type as alias for tumor_type (both refer to OncoTree code)
+        tumor_type = arguments.get("tumor_type") or arguments.get("cancer_type") or ""
 
-        params = {
+        params: Dict[str, Any] = {
             "hugoSymbol": gene,
             "copyNameAlterationType": cna_type.upper(),
         }
         if tumor_type:
             params["tumorType"] = tumor_type
 
-        try:
-            response = requests.get(
-                f"{self.base_url}/annotate/copyNumberAlterations",
-                params=params,
-                headers=self._get_headers(),
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
+        resp = self._make_request("annotate/copyNumberAlterations", params)
+        if not resp["ok"]:
+            return {"status": "error", "error": resp["error"]}
 
-            return {
-                "status": "success",
-                "data": data,
-                "metadata": {
-                    "source": "OncoKB",
-                    "api_mode": "demo" if self.use_demo else "authenticated",
-                    "gene": gene,
-                    "copy_number_type": cna_type,
-                },
-            }
-
-        except requests.exceptions.RequestException as e:
-            return {"status": "error", "error": f"Request failed: {str(e)}"}
-        except Exception as e:
-            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
+        data = resp["data"]
+        metadata: Dict[str, Any] = {
+            "source": "OncoKB",
+            "api_mode": self._api_mode,
+            "gene": gene,
+            "copy_number_type": cna_type,
+        }
+        if self.use_demo and not data.get("geneExist", True):
+            self._apply_demo_gene_warning(data, metadata, gene)
+        return {"status": "success", "data": data, "metadata": metadata}

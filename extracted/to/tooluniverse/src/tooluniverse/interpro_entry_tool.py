@@ -40,18 +40,25 @@ class InterProEntryTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"InterPro API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"InterPro API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to InterPro API"}
+            return {"status": "error", "error": "Failed to connect to InterPro API"}
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "unknown"
             if code == 404:
                 return {
-                    "error": f"Not found: {arguments.get('accession', arguments.get('query', ''))}"
+                    "status": "error",
+                    "error": f"Not found: {arguments.get('accession', arguments.get('query', ''))}",
                 }
-            return {"error": f"InterPro API HTTP error: {code}"}
+            return {"status": "error", "error": f"InterPro API HTTP error: {code}"}
         except Exception as e:
-            return {"error": f"Unexpected error querying InterPro API: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying InterPro API: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -60,14 +67,15 @@ class InterProEntryTool(BaseTool):
         elif self.endpoint == "search_entries":
             return self._search_entries(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_entries_for_protein(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get all InterPro domain/family entries annotated on a protein."""
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., 'P04637')"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., 'P04637')",
             }
 
         url = f"{INTERPRO_BASE_URL}/entry/interpro/protein/uniprot/{accession}"
@@ -104,6 +112,7 @@ class InterProEntryTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "protein_accession": accession,
                 "total_entries": data.get("count", len(entries)),
@@ -120,7 +129,8 @@ class InterProEntryTool(BaseTool):
         query = arguments.get("query", "")
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'zinc finger', 'kinase', 'p53')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'zinc finger', 'kinase', 'p53')",
             }
 
         entry_type = arguments.get("entry_type", None)
@@ -169,6 +179,7 @@ class InterProEntryTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "query": query,
                 "total_results": data.get("count", len(entries)),

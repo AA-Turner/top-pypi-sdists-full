@@ -20,6 +20,7 @@ use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::small_map::SmallMap;
@@ -107,11 +108,21 @@ impl Errors {
         baseline_path: Option<&Path>,
         relative_to: &Path,
     ) -> CollectedErrors {
-        let mut errors = self.collect_errors();
+        let errors = self.collect_errors();
+        self.apply_baseline(errors, baseline_path, relative_to)
+    }
+
+    /// Apply baseline filtering to already-collected errors.
+    pub fn apply_baseline(
+        &self,
+        mut errors: CollectedErrors,
+        baseline_path: Option<&Path>,
+        relative_to: &Path,
+    ) -> CollectedErrors {
         if let Some(baseline_path) = baseline_path
             && let Ok(processor) = BaselineProcessor::from_file(baseline_path)
         {
-            processor.process_errors(&mut errors.shown, &mut errors.baseline, relative_to);
+            processor.process_errors(&mut errors.ordinary, &mut errors.baseline, relative_to);
         }
         errors
     }
@@ -129,8 +140,8 @@ impl Errors {
     /// Collects errors for unused ignore comments.
     /// Returns a vector of errors with ErrorKind::UnusedIgnore for each
     /// suppression comment that doesn't suppress any actual error.
-    pub fn collect_unused_ignore_errors(&self) -> Vec<Error> {
-        let collected = self.collect_errors();
+    /// Accepts pre-collected errors to avoid redundant error collection.
+    pub fn collect_unused_ignore_errors(&self, collected: &CollectedErrors) -> Vec<Error> {
         let mut unused_errors = Vec::new();
 
         // Build a map of which error codes were suppressed on each line, keyed by module path.
@@ -140,15 +151,29 @@ impl Errors {
             SmallMap<LineNumber, SmallSet<String>>,
         > = SmallMap::new();
 
-        // Build a map from module path to f-string ranges for lookup.
+        // Build per-module lookup maps for f-string ranges and enabled ignores.
         let fstring_ranges_by_module: SmallMap<&ModulePath, &[(LineNumber, LineNumber)]> = self
             .loads
             .iter()
             .map(|(load, _, ranges)| (load.module_info.path(), ranges.as_slice()))
             .collect();
 
+        let enabled_ignores_by_module: SmallMap<&ModulePath, SmallSet<Tool>> = self
+            .loads
+            .iter()
+            .map(|(load, config, _)| {
+                let path = load.module_info.path();
+                (path, config.enabled_ignores(path.as_path()).clone())
+            })
+            .collect();
+
         for error in &collected.suppressed {
-            if error.is_ignored(&Tool::default_enabled()) {
+            let module_path = error.path();
+            let enabled_ignores = enabled_ignores_by_module
+                .get(&module_path)
+                .cloned()
+                .unwrap_or_else(Tool::default_enabled);
+            if error.is_ignored(&enabled_ignores) {
                 let module_path = error.path();
                 let start_line = error.display_range().start.line_within_file();
                 let end_line = error.display_range().end.line_within_file();
@@ -183,29 +208,57 @@ impl Errors {
         }
 
         // Iterate over each module and check for unused ignores
-        for (load, _, _) in &self.loads {
+        for (load, config, _) in &self.loads {
             let module = &load.module_info;
             let module_path = module.path();
             let ignore = module.ignore();
+            let enabled_ignores = config.enabled_ignores(module_path.as_path());
 
             // Get the suppressed codes for this module (if any)
             let module_suppressed_codes = suppressed_codes_by_module.get(&module_path);
 
             for (applies_to_line, suppressions) in ignore.iter() {
                 for supp in suppressions {
-                    // Only check pyrefly suppressions
-                    if supp.tool() != Tool::Pyrefly {
+                    let tool = supp.tool();
+                    // Only check tools that are enabled and that we support
+                    // reporting unused ignores for (Pyrefly and Pyre).
+                    if !enabled_ignores.contains(&tool) {
                         continue;
                     }
-
-                    let declared_codes: SmallSet<String> =
-                        supp.error_codes().iter().cloned().collect();
+                    match tool {
+                        Tool::Pyrefly | Tool::Pyre => {}
+                        _ => continue,
+                    }
 
                     // Get the error codes actually suppressed on this line
                     let used_codes: SmallSet<String> = module_suppressed_codes
                         .and_then(|m| m.get(applies_to_line))
                         .cloned()
                         .unwrap_or_default();
+
+                    // For Tool::Pyre, error code filtering is not enforced
+                    // (any Pyre suppression suppresses all errors on the line),
+                    // so we only report it as unused when no errors at all were
+                    // suppressed on its line.
+                    if tool == Tool::Pyre {
+                        if !used_codes.is_empty() {
+                            continue; // Pyre suppression is used
+                        }
+                        let comment_line = supp.comment_line();
+                        let line_start = module.lined_buffer().line_start(comment_line);
+                        let range = TextRange::new(line_start, line_start + TextSize::new(1));
+                        unused_errors.push(Error::new(
+                            module.dupe(),
+                            range,
+                            vec1!["Unused pyre-fixme comment".to_owned()],
+                            ErrorKind::UnusedIgnore,
+                        ));
+                        continue;
+                    }
+
+                    // Tool::Pyrefly: check individual error codes
+                    let declared_codes: SmallSet<String> =
+                        supp.error_codes().iter().cloned().collect();
 
                     // Determine if the suppression is unused
                     let unused_codes: SmallSet<String> = if declared_codes.is_empty() {
@@ -262,26 +315,33 @@ impl Errors {
 
     /// Collects unused ignore errors for display, respecting severity configuration.
     /// Unlike `collect_unused_ignore_errors()`, this applies severity filtering so
-    /// errors with `Severity::Ignore` are not included in the shown results.
-    pub fn collect_unused_ignore_errors_for_display(&self) -> CollectedErrors {
-        let unused_errors = self.collect_unused_ignore_errors();
+    /// errors with `Severity::Ignore` are not included in the ordinary results.
+    /// Accepts pre-collected errors to avoid redundant error collection.
+    pub fn collect_unused_ignore_errors_for_display(
+        &self,
+        collected: &CollectedErrors,
+    ) -> CollectedErrors {
+        let unused_errors = self.collect_unused_ignore_errors(collected);
         let mut result = CollectedErrors::default();
 
+        // Build a path-to-config map for O(1) lookup instead of O(loads) per error.
+        let config_by_path: SmallMap<&ModulePath, &ArcId<ConfigFile>> = self
+            .loads
+            .iter()
+            .map(|(load, config, _)| (load.module_info.path(), config))
+            .collect();
+
         for error in unused_errors {
-            // Find the config for this error's module
-            for (load, config, _) in &self.loads {
-                if load.module_info.path() == error.path() {
-                    let error_config = config.get_error_config(error.path().as_path());
-                    let severity = error_config
-                        .display_config
-                        .severity(ErrorKind::UnusedIgnore);
-                    match severity {
-                        Severity::Error => result.shown.push(error.with_severity(Severity::Error)),
-                        Severity::Warn => result.shown.push(error.with_severity(Severity::Warn)),
-                        Severity::Info => result.shown.push(error.with_severity(Severity::Info)),
-                        Severity::Ignore => result.disabled.push(error),
-                    }
-                    break;
+            if let Some(config) = config_by_path.get(&error.path()) {
+                let error_config = config.get_error_config(error.path().as_path());
+                let severity = error_config
+                    .display_config
+                    .severity(ErrorKind::UnusedIgnore);
+                match severity {
+                    Severity::Error => result.ordinary.push(error.with_severity(Severity::Error)),
+                    Severity::Warn => result.ordinary.push(error.with_severity(Severity::Warn)),
+                    Severity::Info => result.ordinary.push(error.with_severity(Severity::Info)),
+                    Severity::Ignore => result.disabled.push(error),
                 }
             }
         }
@@ -295,8 +355,11 @@ impl Errors {
             let mut result = CollectedErrors::default();
             load.errors
                 .collect_into(&error_config, fstring_ranges, &mut result);
+            let mut output_errors = result.ordinary;
+            output_errors.extend(result.directives);
+            output_errors.sort_by_key(|e| (e.range().start(), e.range().end()));
             Expectation::parse(load.module_info.dupe(), load.module_info.contents())
-                .check(&result.shown)?;
+                .check(&output_errors)?;
         }
         Ok(())
     }
@@ -329,7 +392,7 @@ mod tests {
             let regex = Regex::new(r"@\d+").unwrap();
             for (load, config, _) in &self.loads {
                 let error_config = config.get_error_config(load.module_info.path().as_path());
-                let errors = load.errors.collect(&error_config).shown;
+                let errors = load.errors.collect(&error_config).ordinary;
                 for error in errors {
                     let msg = error.msg();
                     if regex.is_match(&msg) {
@@ -385,7 +448,8 @@ def f() -> int:
     return 1
 "#;
         let (errors, _tdir) = get_errors(contents);
-        let unused = errors.collect_unused_ignore_errors();
+        let collected = errors.collect_errors();
+        let unused = errors.collect_unused_ignore_errors(&collected);
         assert_eq!(unused.len(), 1);
         assert!(unused[0].msg().contains("Unused"));
     }
@@ -399,7 +463,8 @@ def f() -> int:
     return 1
 "#;
         let (errors, _tdir) = get_errors(contents);
-        let unused = errors.collect_unused_ignore_errors();
+        let collected = errors.collect_errors();
+        let unused = errors.collect_unused_ignore_errors(&collected);
         assert_eq!(unused.len(), 1);
         assert!(unused[0].msg().contains("bad-override"));
     }
@@ -413,7 +478,8 @@ def f() -> int:
     return "hello"
 "#;
         let (errors, _tdir) = get_errors(contents);
-        let unused = errors.collect_unused_ignore_errors();
+        let collected = errors.collect_errors();
+        let unused = errors.collect_unused_ignore_errors(&collected);
         assert!(unused.is_empty());
     }
 
@@ -426,7 +492,8 @@ def f() -> int:
     return "hello"
 "#;
         let (errors, _tdir) = get_errors(contents);
-        let unused = errors.collect_unused_ignore_errors();
+        let collected = errors.collect_errors();
+        let unused = errors.collect_unused_ignore_errors(&collected);
         assert_eq!(unused.len(), 1);
         assert!(unused[0].msg().contains("bad-override"));
         assert!(!unused[0].msg().contains("bad-return"));
@@ -440,7 +507,8 @@ def f() -> int:
     return 1
 "#;
         let (errors, _tdir) = get_errors(contents);
-        let unused = errors.collect_unused_ignore_errors();
+        let collected = errors.collect_errors();
+        let unused = errors.collect_unused_ignore_errors(&collected);
         assert!(unused.is_empty());
     }
 
@@ -457,7 +525,8 @@ def g() -> str:
     return "hello"
 "#;
         let (errors, _tdir) = get_errors(contents);
-        let unused = errors.collect_unused_ignore_errors();
+        let collected = errors.collect_errors();
+        let unused = errors.collect_unused_ignore_errors(&collected);
         assert_eq!(unused.len(), 2);
     }
 }

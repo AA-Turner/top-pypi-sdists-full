@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 
 
-ZEROGPU_HOME = Path.home() / '.zerogpu'
+USER_HOME = Path.home()
+ZEROGPU_HOME = USER_HOME / '.zerogpu'
 
 
 def boolean(value: str | None) -> bool:
@@ -25,6 +26,8 @@ class Settings:
             os.getenv('ZEROGPU_V2', "true"))
         self.zerogpu_offload_dir = (
             os.getenv('ZEROGPU_OFFLOAD_DIR', str(ZEROGPU_HOME / 'tensors')))
+        self.zerogpu_mmap_autoprune_pattern = (
+            os.getenv('ZEROGPU_MMAP_AUTOPRUNE_PATTERN', str(USER_HOME / '.cache/huggingface/hub/models--*/blobs/*')))
         self.zerogpu_proc_self_cgroup_path = (
             os.getenv('ZEROGPU_PROC_SELF_CGROUP_PATH', '/proc/self/cgroup'))
         self.zerogpu_cuda_device_name = (

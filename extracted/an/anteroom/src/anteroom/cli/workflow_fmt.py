@@ -157,14 +157,33 @@ def render_step_line(step: dict[str, Any], *, indent: int = 0, id_width: int = 0
     suffix = ""
     if result_status == "skipped":
         suffix = "  (skipped)"
+    elif result_status == "failed" and (step.get("result_artifacts") or {}).get("continued"):
+        suffix = "  (continued)"
     elif step.get("is_compensation"):
         suffix = "  (compensation)"
+
+    if "/_fail/" in step_id:
+        suffix = "  (failure handler)"
 
     artifacts = step.get("result_artifacts") or {}
     if artifacts.get("cache_hit"):
         suffix = "  (cached)"
     elif artifacts.get("fallback_used"):
         suffix = f"  (fallback: {artifacts.get('model', '?')})"
+
+    loop_end = artifacts.get("loop_end_reason")
+    if loop_end == "until_met":
+        suffix = "  (until met)"
+    elif loop_end == "until_not_met":
+        suffix = "  (until not met)"
+    elif loop_end == "break_when":
+        suffix = "  (break condition)"
+    elif loop_end == "exhausted":
+        suffix = "  (exhausted)"
+
+    outputs = step.get("result_outputs") or {}
+    if outputs:
+        suffix += f"  [{len(outputs)} output{'s' if len(outputs) != 1 else ''}]"
 
     # Pad step_id — account for indent so columns stay aligned
     effective_width = max(id_width - (indent * 2), len(step_id)) if id_width else len(step_id)

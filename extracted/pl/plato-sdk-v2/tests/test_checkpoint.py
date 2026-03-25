@@ -98,12 +98,9 @@ async def test_file_trigger_checkpoint():
     async def fn(label: str, *, trigger_span_id: str = "") -> None:
         calls.append((label, trigger_span_id))
 
-    server = CheckpointTriggerServer()
-    await server.start()
-
-    async def send_trigger():
+    async def send_trigger(port: int) -> None:
         await asyncio.sleep(0.1)
-        reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        _reader, writer = await asyncio.open_connection("127.0.0.1", port)
         event = CheckpointTriggerEvent(
             path="/workspace/code/progress.json",
             pattern="**/progress.json",
@@ -118,9 +115,9 @@ async def test_file_trigger_checkpoint():
         "improve",
         step=1,
         file_triggers=[FileCheckpointTrigger(pattern="**/progress.json", debounce_s=0.1)],
-        trigger_server=server,
-    ):
-        await send_trigger()
+    ) as ctx:
+        assert ctx.trigger_server is not None
+        await send_trigger(ctx.trigger_server.port)
         # Wait for debounce + processing
         await asyncio.sleep(0.5)
 
@@ -132,8 +129,6 @@ async def test_file_trigger_checkpoint():
     # Final checkpoint
     assert calls[-1][0] == "step.1.stage.improve"
 
-    await server.stop()
-
 
 @pytest.mark.asyncio
 async def test_unmatched_pattern_ignored():
@@ -143,12 +138,9 @@ async def test_unmatched_pattern_ignored():
     async def fn(label: str, **kwargs: object) -> None:
         calls.append(label)
 
-    server = CheckpointTriggerServer()
-    await server.start()
-
-    async def send_unmatched():
+    async def send_unmatched(port: int) -> None:
         await asyncio.sleep(0.1)
-        reader, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        _reader, writer = await asyncio.open_connection("127.0.0.1", port)
         event = CheckpointTriggerEvent(
             path="/workspace/code/other.txt",
             pattern="**/other.txt",
@@ -163,12 +155,10 @@ async def test_unmatched_pattern_ignored():
         "test",
         step=1,
         file_triggers=[FileCheckpointTrigger(pattern="**/progress.json")],
-        trigger_server=server,
-    ):
-        await send_unmatched()
+    ) as ctx:
+        assert ctx.trigger_server is not None
+        await send_unmatched(ctx.trigger_server.port)
         await asyncio.sleep(0.5)
 
     # Only the final checkpoint, no file trigger checkpoint
     assert calls == ["step.1.stage.test"]
-
-    await server.stop()

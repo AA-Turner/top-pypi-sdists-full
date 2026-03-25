@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -125,6 +126,31 @@ class CheckpointTriggerServer:
 
 
 # ---------------------------------------------------------------------------
+# Checkpoint context
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class CheckpointContext:
+    """Yielded by :func:`checkpoint` so callers can wire up agent runners."""
+
+    trigger_server: CheckpointTriggerServer | None = None
+    file_triggers: list[FileCheckpointTrigger] = dataclasses.field(default_factory=list)
+
+    @property
+    def trigger_url(self) -> str | None:
+        """URL for the trigger server (``runtime.plato.internal:{port}``)."""
+        if self.trigger_server is None:
+            return None
+        return f"runtime.plato.internal:{self.trigger_server.port}"
+
+    @property
+    def trigger_patterns(self) -> list[str]:
+        """Glob patterns extracted from :attr:`file_triggers`."""
+        return [t.pattern for t in self.file_triggers]
+
+
+# ---------------------------------------------------------------------------
 # Checkpoint context manager
 # ---------------------------------------------------------------------------
 
@@ -137,7 +163,6 @@ async def checkpoint(
     step: int = 0,
     interval_s: int = 0,
     file_triggers: list[FileCheckpointTrigger] | None = None,
-    trigger_server: CheckpointTriggerServer | None = None,
 ):
     """Checkpoint world state after the wrapped block completes.
 
@@ -147,13 +172,11 @@ async def checkpoint(
             await annotate(...)
 
         # With file triggers:
-        server = CheckpointTriggerServer()
-        await server.start()
         async with checkpoint(
             world.checkpoint, "improve", step=1, interval_s=300,
             file_triggers=[FileCheckpointTrigger(pattern="**/progress.json")],
-            trigger_server=server,
-        ):
+        ) as ctx:
+            agent_runner.with_file_triggers_from(ctx)
             await agent_runner.run(instruction)
 
     Args:
@@ -162,12 +185,23 @@ async def checkpoint(
         name: Stage name for the checkpoint label.
         step: Step number. Label becomes ``step.{N}.stage.{name}``.
         interval_s: If > 0, run periodic background checkpoints.
-        file_triggers: Patterns to watch for.  Requires ``trigger_server``.
-        trigger_server: Server receiving events from agent-side file watchers.
+        file_triggers: Patterns to watch for.  A trigger server is
+            auto-created and exposed via the yielded :class:`CheckpointContext`.
     """
     label = f"step.{step}.stage.{name}"
     checkpoint_lock = asyncio.Lock()
     bg_tasks: list[asyncio.Task[None]] = []
+
+    # Auto-create trigger server when file triggers are configured
+    trigger_server: CheckpointTriggerServer | None = None
+    if file_triggers:
+        trigger_server = CheckpointTriggerServer()
+        await trigger_server.start()
+
+    ctx = CheckpointContext(
+        trigger_server=trigger_server,
+        file_triggers=file_triggers or [],
+    )
 
     if interval_s > 0:
 
@@ -222,7 +256,7 @@ async def checkpoint(
         bg_tasks.append(asyncio.create_task(_watch_triggers()))
 
     try:
-        yield
+        yield ctx
     finally:
         for task in bg_tasks:
             task.cancel()
@@ -230,5 +264,7 @@ async def checkpoint(
                 await task
             except asyncio.CancelledError:
                 pass
+        if trigger_server:
+            await trigger_server.stop()
 
     await fn(label)

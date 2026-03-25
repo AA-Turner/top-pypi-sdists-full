@@ -1,4 +1,5 @@
-# pyright: reportUnknownVariableType=false, reportPrivateImportUsage=false, reportAny=false, reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false, reportPrivateImportUsage=false, reportUnknownMemberType=false
+# ruff: noqa: E402
 """dbt-osmosis core module with backwards compatibility imports."""
 
 from __future__ import annotations
@@ -39,11 +40,41 @@ from dbt_osmosis.core.introspection import (
     normalize_column_name,
 )
 
-# Natural language generation (from llm.py)
-from dbt_osmosis.core.llm import (
-    generate_dbt_model_from_nl,
-    generate_sql_from_nl,
+# Schema diff functionality
+from dbt_osmosis.core.diff import (
+    ChangeCategory,
+    ChangeSeverity,
+    ColumnAdded,
+    ColumnRemoved,
+    ColumnRenamed,
+    ColumnTypeChanged,
+    SchemaChange,
+    SchemaDiff,
+    SchemaDiffResult,
 )
+
+# Natural language generation (from llm.py) - conditional on openai availability
+_llm_available = importlib.util.find_spec("openai") is not None
+
+if _llm_available:
+    from dbt_osmosis.core.llm import (
+        generate_dbt_model_from_nl,
+        generate_sql_from_nl,
+    )
+else:
+    # Stub functions that raise helpful errors
+    def generate_dbt_model_from_nl(*args, **kwargs):  # type: ignore[misc]
+        raise ImportError(
+            "Natural language features require OpenAI. "
+            "Install with: pip install 'dbt-osmosis[openai]'"
+        )
+
+    def generate_sql_from_nl(*args, **kwargs):  # type: ignore[misc]
+        raise ImportError(
+            "Natural language features require OpenAI. "
+            "Install with: pip install 'dbt-osmosis[openai]'"
+        )
+
 
 # Node filtering and sorting
 from dbt_osmosis.core.node_filters import (
@@ -76,6 +107,9 @@ from dbt_osmosis.core.restructuring import (
     pretty_print_plan,
 )
 
+# External formatter integration
+from dbt_osmosis.core.formatting import run_external_formatter as run_external_formatter  # noqa: F401
+
 # Schema parsing and writing
 from dbt_osmosis.core.schema.parser import (
     create_yaml_instance,
@@ -100,28 +134,107 @@ from dbt_osmosis.core.sql_operations import (
     execute_sql_code,
 )
 
-# Staging operations
-from dbt_osmosis.core.staging import (
-    StagingGenerationResult,
-    generate_staging_for_all_sources,
-    generate_staging_for_source,
-    write_staging_files,
+# SQL linting
+from dbt_osmosis.core.sql_lint import (
+    KeywordCapitalizationRule,
+    LintLevel,
+    LintResult,
+    LintRule,
+    LintViolation,
+    LineLengthRule,
+    QuotedIdentifierRule,
+    SQLLinter,
+    SelectStarRule,
+    TableAliasRule,
+    lint_sql_code,
 )
+
+# Staging operations - conditional on openai availability
+if _llm_available:
+    from dbt_osmosis.core.staging import (
+        StagingGenerationResult,
+        generate_staging_for_all_sources,
+        generate_staging_for_source,
+        write_staging_files,
+    )
+else:
+    # Stub classes/functions
+    class StagingGenerationResult:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise ImportError(
+                "Staging generation requires OpenAI. "
+                "Install with: pip install 'dbt-osmosis[openai]'"
+            )
+
+    def generate_staging_for_all_sources(*args, **kwargs):  # type: ignore[misc]
+        raise ImportError(
+            "Staging generation requires OpenAI. Install with: pip install 'dbt-osmosis[openai]'"
+        )
+
+    def generate_staging_for_source(*args, **kwargs):  # type: ignore[misc]
+        raise ImportError(
+            "Staging generation requires OpenAI. Install with: pip install 'dbt-osmosis[openai]'"
+        )
+
+    def write_staging_files(*args, **kwargs):  # type: ignore[misc]
+        raise ImportError(
+            "Staging generation requires OpenAI. Install with: pip install 'dbt-osmosis[openai]'"
+        )
+
 
 # Sync operations
 from dbt_osmosis.core.sync_operations import (
     sync_node_to_yaml,
 )
 
-# Test suggestion operations
-from dbt_osmosis.core.test_suggestions import (
-    AITestSuggester,
-    ModelTestAnalysis,
-    TestPatternExtractor,
-    TestSuggestion,
-    suggest_tests_for_model,
-    suggest_tests_for_project,
-)
+# Test suggestion operations - conditional on openai availability
+if _llm_available:
+    from dbt_osmosis.core.test_suggestions import (
+        AITestSuggester,
+        ModelTestAnalysis,
+        TestPatternExtractor,
+        TestSuggestion,
+        suggest_tests_for_model,
+        suggest_tests_for_project,
+    )
+else:
+    # Stub classes/functions
+    class AITestSuggester:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise ImportError(
+                "AI test suggestions require OpenAI. "
+                "Install with: pip install 'dbt-osmosis[openai]'"
+            )
+
+    class ModelTestAnalysis:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise ImportError(
+                "AI test analysis requires OpenAI. Install with: pip install 'dbt-osmosis[openai]'"
+            )
+
+    class TestPatternExtractor:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise ImportError(
+                "Test pattern extraction requires OpenAI. "
+                "Install with: pip install 'dbt-osmosis[openai]'"
+            )
+
+    class TestSuggestion:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise ImportError(
+                "Test suggestions require OpenAI. Install with: pip install 'dbt-osmosis[openai]'"
+            )
+
+    def suggest_tests_for_model(*args, **kwargs):  # type: ignore[misc]
+        raise ImportError(
+            "AI test suggestions require OpenAI. Install with: pip install 'dbt-osmosis[openai]'"
+        )
+
+    def suggest_tests_for_project(*args, **kwargs):  # type: ignore[misc]
+        raise ImportError(
+            "AI test suggestions require OpenAI. Install with: pip install 'dbt-osmosis[openai]'"
+        )
+
 
 # Transform operations
 from dbt_osmosis.core.transforms import (
@@ -145,8 +258,6 @@ from dbt_osmosis.core.voice_learning import (
     find_similar_documented_nodes,
 )
 
-_llm_available = importlib.util.find_spec("openai") is not None
-
 # Note: process_node is imported in sql_operations.py where it's used
 
 
@@ -158,6 +269,7 @@ def commit_yamls(context: YamlRefactorContext) -> None:
         yaml_handler_lock=context.yaml_handler_lock,
         dry_run=context.settings.dry_run,
         mutation_tracker=context.register_mutations,
+        strip_eof_blank_lines=context.settings.strip_eof_blank_lines,
     )
 
 
@@ -281,6 +393,28 @@ __all__ = [
     "analyze_project_documentation_style",
     "extract_style_examples",
     "find_similar_documented_nodes",
+    # Schema diff functionality
+    "ChangeCategory",
+    "ChangeSeverity",
+    "ColumnAdded",
+    "ColumnRemoved",
+    "ColumnRenamed",
+    "ColumnTypeChanged",
+    "SchemaChange",
+    "SchemaDiff",
+    "SchemaDiffResult",
+    # SQL linting
+    "LintLevel",
+    "LintViolation",
+    "LintResult",
+    "LintRule",
+    "SQLLinter",
+    "lint_sql_code",
+    "KeywordCapitalizationRule",
+    "LineLengthRule",
+    "SelectStarRule",
+    "TableAliasRule",
+    "QuotedIdentifierRule",
 ]
 
 # Add LLM exports if available

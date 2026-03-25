@@ -184,17 +184,18 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
             log_msg = f"Erro ao identificar a janela de empresas: {str(ex)}"
             console.print(log_msg, style="bold red")
             return RpaRetornoProcessoDTO(sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
-        
+        #ok selecao empresas
         pyautogui.click(1125, 658)
-        await worker_sleep(30)
+        await worker_sleep(60)
         #Aguarda botão pesqiusar inativar
         current_try = 0
-        max_try = 10
+        max_try = 20
         while current_try < max_try:
             try:
                 pyautogui.locateOnScreen(ASSETS_BASE_PATH + 'envio_docs_b2b_pesquisar_desabilitado.png', confidence=0.9)
                 break
             except Exception as e:
+                console.print(f"Tentativa {current_try} de buscar botao pesquisar desabilitado") 
                 await worker_sleep(20)
                 current_try += 1
                 continue
@@ -205,13 +206,13 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
             return RpaRetornoProcessoDTO(sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
 
         #Desmarca titulos sem Nosso Número gerado
-        
+        await worker_sleep(10)
         #Clica para selecionar todos registros
         pyautogui.click(970,580)
-
+        await worker_sleep(10)
         #Filtra registros para aparecerem em ordem
         pyautogui.click(700,680)
-        await worker_sleep(2)
+        await worker_sleep(3)
 
         pyautogui.click(615, 700)
         #Vai para o primeiro item

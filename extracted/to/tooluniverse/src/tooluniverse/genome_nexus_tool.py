@@ -43,20 +43,27 @@ class GenomeNexusTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"Genome Nexus API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"Genome Nexus API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to Genome Nexus API"}
+            return {"status": "error", "error": "Failed to connect to Genome Nexus API"}
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
             if status == 400:
                 return {
-                    "error": "Invalid variant format. Use GRCh37/hg19 HGVS notation (e.g., '7:g.140453136A>T')."
+                    "status": "error",
+                    "error": "Invalid variant format. Use GRCh37/hg19 HGVS notation (e.g., '7:g.140453136A>T').",
                 }
             if status == 404:
-                return {"error": "Variant or gene not found in Genome Nexus."}
-            return {"error": f"Genome Nexus API HTTP {status}"}
+                return {
+                    "status": "error",
+                    "error": "Variant or gene not found in Genome Nexus.",
+                }
+            return {"status": "error", "error": f"Genome Nexus API HTTP {status}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -69,13 +76,16 @@ class GenomeNexusTool(BaseTool):
         elif self.endpoint == "annotate_mutation":
             return self._annotate_mutation(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _annotate_variant(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Annotate a variant by HGVS genomic notation."""
         hgvsg = arguments.get("hgvsg", "")
         if not hgvsg:
-            return {"error": "hgvsg is required (e.g., '7:g.140453136A>T')."}
+            return {
+                "status": "error",
+                "error": "hgvsg is required (e.g., '7:g.140453136A>T').",
+            }
 
         url = f"{GENOME_NEXUS_BASE_URL}/annotation/{hgvsg}"
         params = {"fields": "hotspots,annotation_summary,mutation_assessor"}
@@ -85,9 +95,10 @@ class GenomeNexusTool(BaseTool):
 
         if not data.get("successfully_annotated", True):
             return {
+                "status": "error",
                 "error": data.get(
                     "errorMessage", f"Failed to annotate variant '{hgvsg}'"
-                )
+                ),
             }
 
         return self._format_annotation(data)
@@ -102,7 +113,8 @@ class GenomeNexusTool(BaseTool):
 
         if not all([chromosome, start, end, ref, alt]):
             return {
-                "error": "chromosome, start, end, reference_allele, and variant_allele are all required."
+                "status": "error",
+                "error": "chromosome, start, end, reference_allele, and variant_allele are all required.",
             }
 
         # Use the genomic format endpoint
@@ -115,10 +127,11 @@ class GenomeNexusTool(BaseTool):
 
         if not data.get("successfully_annotated", True):
             return {
+                "status": "error",
                 "error": data.get(
                     "errorMessage",
                     f"Failed to annotate mutation at {chromosome}:{start}",
-                )
+                ),
             }
 
         return self._format_annotation(data)
@@ -160,6 +173,7 @@ class GenomeNexusTool(BaseTool):
             }
 
         return {
+            "status": "success",
             "data": {
                 "variant": data.get("variant"),
                 "hgvsg": data.get("hgvsg"),
@@ -179,7 +193,10 @@ class GenomeNexusTool(BaseTool):
         """Get cancer hotspot data for a variant."""
         hgvsg = arguments.get("hgvsg", "")
         if not hgvsg:
-            return {"error": "hgvsg is required (e.g., '7:g.140453136A>T')."}
+            return {
+                "status": "error",
+                "error": "hgvsg is required (e.g., '7:g.140453136A>T').",
+            }
 
         url = f"{GENOME_NEXUS_BASE_URL}/annotation/{hgvsg}"
         params = {"fields": "hotspots,annotation_summary"}
@@ -189,9 +206,10 @@ class GenomeNexusTool(BaseTool):
 
         if not data.get("successfully_annotated", True):
             return {
+                "status": "error",
                 "error": data.get(
                     "errorMessage", f"Failed to annotate variant '{hgvsg}'"
-                )
+                ),
             }
 
         # Extract gene symbol from annotation summary
@@ -227,6 +245,7 @@ class GenomeNexusTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": {
                 "variant": data.get("variant"),
                 "gene_symbol": gene_symbol,
@@ -242,7 +261,10 @@ class GenomeNexusTool(BaseTool):
         """Get canonical transcript for a gene."""
         gene_symbol = arguments.get("gene_symbol", "")
         if not gene_symbol:
-            return {"error": "gene_symbol is required (e.g., 'TP53')."}
+            return {
+                "status": "error",
+                "error": "gene_symbol is required (e.g., 'TP53').",
+            }
 
         url = f"{GENOME_NEXUS_BASE_URL}/ensembl/canonical-transcript/hgnc/{gene_symbol}"
         response = requests.get(url, timeout=self.timeout)
@@ -262,6 +284,7 @@ class GenomeNexusTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "transcriptId": data.get("transcriptId"),
                 "geneId": data.get("geneId"),

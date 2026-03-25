@@ -9,10 +9,12 @@ from ._shared_client import get_shared_client
 
 
 def Orphanet_search_by_name(
-    operation: str,
-    name: str,
+    operation: Optional[str] = None,
+    name: Optional[str] = None,
     exact: Optional[bool] = False,
     lang: Optional[str] = "en",
+    limit: Optional[int] = None,
+    query: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -31,6 +33,10 @@ def Orphanet_search_by_name(
         If true, match exact name only. Default: false
     lang : str
         Language code (default: en)
+    limit : int
+        Maximum number of results to return (default: 20, max: 200)
+    query : str
+        Alias for name. Disease name to search for in Orphanet.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -52,6 +58,8 @@ def Orphanet_search_by_name(
             "name": name,
             "exact": exact,
             "lang": lang,
+            "limit": limit,
+            "query": query,
         }.items()
         if v is not None
     }

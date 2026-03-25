@@ -70,6 +70,7 @@ mod tests {
                 quality_score: None,
                 processing_warnings: Vec::new(),
                 annotations: None,
+                children: None,
             })
         }
 
@@ -252,6 +253,7 @@ mod tests {
                     quality_score: None,
                     processing_warnings: Vec::new(),
                     annotations: None,
+                    children: None,
                 })
             }
 

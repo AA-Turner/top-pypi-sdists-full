@@ -65,10 +65,8 @@ class FDAOrangeBookTool(BaseTool):
         if "data" in result:
             return result
 
-        payload = {key: value for key, value in result.items() if key != "status"}
-        wrapped_result = {"status": "success", "data": payload}
-        wrapped_result.update(payload)
-        return wrapped_result
+        data = {k: v for k, v in result.items() if k != "status"}
+        return {"status": "success", "data": data}
 
     def _search_drug(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search for drugs by brand name, generic name, or application number."""
@@ -79,10 +77,10 @@ class FDAOrangeBookTool(BaseTool):
             if arguments.get("brand_name"):
                 search_terms.append(f'products.brand_name:"{arguments["brand_name"]}"')
 
-            if arguments.get("generic_name"):
-                search_terms.append(
-                    f'products.active_ingredients.name:"{arguments["generic_name"]}"'
-                )
+            # Feature-81B-004: accept drug_name as alias for generic_name
+            generic = arguments.get("generic_name") or arguments.get("drug_name")
+            if generic:
+                search_terms.append(f'products.active_ingredients.name:"{generic}"')
 
             if arguments.get("application_number"):
                 search_terms.append(
@@ -306,46 +304,81 @@ class FDAOrangeBookTool(BaseTool):
         """Check if generic versions are approved/available."""
         try:
             brand_name = arguments.get("brand_name")
-            generic_name = arguments.get("generic_name")
+            generic_name = arguments.get("generic_name") or arguments.get("drug_name")
 
             if not brand_name and not generic_name:
                 return {
                     "status": "error",
-                    "error": "Must provide brand_name or generic_name",
+                    "error": "Must provide brand_name, generic_name, or drug_name",
                 }
 
-            # Search for all products
-            search_result = self._search_drug(arguments)
+            # Step 1: Search by brand_name/generic_name to find the reference drug.
+            # Use limit=100 to avoid missing reference drugs beyond the default 10.
+            search_result = self._search_drug({**arguments, "limit": 100})
             if search_result.get("status") != "success":
                 return search_result
 
             drugs = search_result.get("drugs", [])
 
-            # Count reference vs generic products
+            # Step 2: If brand_name was used, extract active ingredient and do a
+            # broader ingredient-based search to capture ANDA generics (which have
+            # different brand names than the originator NDA).
+            if brand_name and not generic_name:
+                active_ingredient = None
+                for drug in drugs:
+                    for product in drug.get("products", []):
+                        ingredients = product.get("active_ingredients", [])
+                        if ingredients:
+                            active_ingredient = ingredients[0].get("name")
+                            break
+                    if active_ingredient:
+                        break
+
+                if active_ingredient:
+                    ingredient_result = self._search_drug(
+                        {"generic_name": active_ingredient, "limit": 100}
+                    )
+                    if ingredient_result.get("status") == "success":
+                        # Merge, deduplicating by application_number
+                        seen = {d["application_number"] for d in drugs}
+                        for d in ingredient_result.get("drugs", []):
+                            if d["application_number"] not in seen:
+                                drugs.append(d)
+                                seen.add(d["application_number"])
+
+            # Categorize reference vs generic products (one entry per application number)
             reference_drugs = []
             generic_drugs = []
+            seen_ref_apps: set = set()
+            seen_gen_apps: set = set()
 
             for drug in drugs:
+                app_num = drug.get("application_number", "")
                 for product in drug.get("products", []):
                     if product.get("reference_drug") == "Yes":
-                        reference_drugs.append(
-                            {
-                                "application_number": drug.get("application_number"),
-                                "brand_name": product.get("brand_name"),
-                                "sponsor": drug.get("sponsor_name"),
-                                "marketing_status": product.get("marketing_status"),
-                            }
-                        )
+                        if app_num not in seen_ref_apps:
+                            seen_ref_apps.add(app_num)
+                            reference_drugs.append(
+                                {
+                                    "application_number": app_num,
+                                    "brand_name": product.get("brand_name"),
+                                    "sponsor": drug.get("sponsor_name"),
+                                    "marketing_status": product.get("marketing_status"),
+                                }
+                            )
                     else:
-                        generic_drugs.append(
-                            {
-                                "application_number": drug.get("application_number"),
-                                "brand_name": product.get("brand_name") or "Generic",
-                                "sponsor": drug.get("sponsor_name"),
-                                "marketing_status": product.get("marketing_status"),
-                                "te_code": product.get("te_code"),
-                            }
-                        )
+                        if app_num not in seen_gen_apps:
+                            seen_gen_apps.add(app_num)
+                            generic_drugs.append(
+                                {
+                                    "application_number": app_num,
+                                    "brand_name": product.get("brand_name")
+                                    or "Generic",
+                                    "sponsor": drug.get("sponsor_name"),
+                                    "marketing_status": product.get("marketing_status"),
+                                    "te_code": product.get("te_code"),
+                                }
+                            )
 
             return {
                 "status": "success",

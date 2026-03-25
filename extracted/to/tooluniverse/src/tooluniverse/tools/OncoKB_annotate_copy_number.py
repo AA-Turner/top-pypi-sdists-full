@@ -9,9 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def OncoKB_annotate_copy_number(
-    operation: str,
     gene: str,
     copy_number_type: str,
+    operation: Optional[str] = None,
     tumor_type: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
@@ -28,7 +28,7 @@ def OncoKB_annotate_copy_number(
     gene : str
         Gene symbol (e.g., ERBB2, MYC, CDKN2A)
     copy_number_type : str
-        Type of copy number alteration
+        Type of copy number alteration (case-insensitive: AMPLIFICATION or DELETION)
     tumor_type : str
         Optional OncoTree tumor type code
     stream_callback : Callable, optional

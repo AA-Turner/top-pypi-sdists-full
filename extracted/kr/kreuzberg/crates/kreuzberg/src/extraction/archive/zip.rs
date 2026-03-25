@@ -133,3 +133,59 @@ pub fn extract_zip_text_content(bytes: &[u8], limits: &SecurityLimits) -> Result
 
     Ok(contents)
 }
+
+/// Extract raw file bytes for all non-directory entries in a ZIP archive.
+///
+/// Returns a `HashMap` mapping file paths to their raw byte content.
+/// Respects security limits for file count and total archive size.
+///
+/// # Arguments
+///
+/// * `bytes` - The ZIP archive bytes
+/// * `limits` - Security limits for archive extraction
+///
+/// # Errors
+///
+/// Returns an error if the ZIP archive cannot be read or if security limits are exceeded.
+pub fn extract_zip_file_bytes(bytes: &[u8], limits: &SecurityLimits) -> Result<HashMap<String, Vec<u8>>> {
+    let cursor = Cursor::new(bytes);
+    let mut archive =
+        ZipArchive::new(cursor).map_err(|e| KreuzbergError::parsing(format!("Failed to read ZIP archive: {}", e)))?;
+
+    if archive.len() > limits.max_files_in_archive {
+        return Err(KreuzbergError::validation(format!(
+            "ZIP archive has too many files: {} (max: {})",
+            archive.len(),
+            limits.max_files_in_archive
+        )));
+    }
+
+    let mut file_bytes = HashMap::with_capacity(archive.len());
+    let mut total_size = 0usize;
+
+    for i in 0..archive.len() {
+        let mut file = archive
+            .by_index(i)
+            .map_err(|e| KreuzbergError::parsing(format!("Failed to read ZIP entry: {}", e)))?;
+
+        if file.is_dir() {
+            continue;
+        }
+
+        let path = file.name().to_string();
+        let estimated_size = (file.size() as usize).min(limits.max_archive_size);
+        let mut content = Vec::with_capacity(estimated_size);
+        if file.read_to_end(&mut content).is_ok() {
+            total_size = total_size.saturating_add(content.len());
+            if total_size > limits.max_archive_size {
+                return Err(KreuzbergError::validation(format!(
+                    "ZIP archive total extracted size exceeds limit: {} bytes (max: {} bytes)",
+                    total_size, limits.max_archive_size
+                )));
+            }
+            file_bytes.insert(path, content);
+        }
+    }
+
+    Ok(file_bytes)
+}

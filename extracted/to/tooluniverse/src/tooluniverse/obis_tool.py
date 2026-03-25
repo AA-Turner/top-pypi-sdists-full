@@ -104,6 +104,7 @@ class OBISTaxaTool:
                 wrapped_data = {"results": [], "total": 0}
 
             return {
+                "status": "success",
                 "source": "OBIS",
                 "endpoint": "occurrence",  # Note: taxon endpoint not available, using occurrence
                 "query": query,
@@ -112,6 +113,7 @@ class OBISTaxaTool:
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": str(e),
                 "source": "OBIS",
                 "endpoint": "occurrence",
@@ -170,6 +172,7 @@ class OBISOccurrenceTool:
                 url, headers={"Accept": "application/json"}, timeout=timeout
             )
             return {
+                "status": "success",
                 "source": "OBIS",
                 "endpoint": "occurrence",
                 "query": query,
@@ -178,6 +181,7 @@ class OBISOccurrenceTool:
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": str(e),
                 "source": "OBIS",
                 "endpoint": "occurrence",

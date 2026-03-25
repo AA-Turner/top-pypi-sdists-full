@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, cast
 
+from .devbox_tunnel import run_devbox_tunnel_example
 from .example_types import ExampleResult
 from .mcp_github_tools import run_mcp_github_tools_example
 from .secrets_with_devbox import run_secrets_with_devbox_example
@@ -39,6 +40,13 @@ example_registry: list[ExampleRegistryEntry] = [
         "run": run_devbox_snapshot_resume_example,
     },
     {
+        "slug": "devbox-tunnel",
+        "title": "Devbox Tunnel (HTTP Server Access)",
+        "file_name": "devbox_tunnel.py",
+        "required_env": ["RUNLOOP_API_KEY"],
+        "run": run_devbox_tunnel_example,
+    },
+    {
         "slug": "mcp-github-tools",
         "title": "MCP Hub + Claude Code + GitHub",
         "file_name": "mcp_github_tools.py",
@@ -47,7 +55,7 @@ example_registry: list[ExampleRegistryEntry] = [
     },
     {
         "slug": "secrets-with-devbox",
-        "title": "Secrets with Devbox (Create, Inject, Verify, Delete)",
+        "title": "Secrets with Devbox and Agent Gateway",
         "file_name": "secrets_with_devbox.py",
         "required_env": ["RUNLOOP_API_KEY"],
         "run": run_secrets_with_devbox_example,

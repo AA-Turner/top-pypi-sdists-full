@@ -13,7 +13,6 @@ from django.utils.module_loading import module_has_submodule
 
 from pulpcore.exceptions.plugin import MissingPlugin
 
-
 VIEWSETS_MODULE_NAME = "viewsets"
 SERIALIZERS_MODULE_NAME = "serializers"
 URLS_MODULE_NAME = "urls"
@@ -239,7 +238,7 @@ class PulpAppConfig(PulpPluginAppConfig):
     label = "core"
 
     # The version of this app
-    version = "3.105.1"
+    version = "3.106.0"
 
     # The python package name providing this app
     python_package_name = "pulpcore"

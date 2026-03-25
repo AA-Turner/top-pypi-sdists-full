@@ -42,15 +42,25 @@ class OMATool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"OMA API request timed out after {self.timeout} seconds"}
+            return {
+                "status": "error",
+                "error": f"OMA API request timed out after {self.timeout} seconds",
+            }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to OMA API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to OMA API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"OMA API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"OMA API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying OMA: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying OMA: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate OMA endpoint."""
@@ -63,14 +73,15 @@ class OMATool(BaseTool):
         elif self.endpoint == "group":
             return self._get_group(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_protein(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get protein information by UniProt accession or OMA ID."""
         protein_id = arguments.get("protein_id", "")
         if not protein_id:
             return {
-                "error": "protein_id parameter is required (UniProt accession e.g. P04637, or OMA ID e.g. HUMAN31534)"
+                "status": "error",
+                "error": "protein_id parameter is required (UniProt accession e.g. P04637, or OMA ID e.g. HUMAN31534)",
             }
 
         url = f"{OMA_BASE_URL}/protein/{protein_id}/"
@@ -100,6 +111,7 @@ class OMATool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "OMA Browser",
@@ -112,7 +124,8 @@ class OMATool(BaseTool):
         protein_id = arguments.get("protein_id", "")
         if not protein_id:
             return {
-                "error": "protein_id parameter is required (UniProt accession e.g. P04637)"
+                "status": "error",
+                "error": "protein_id parameter is required (UniProt accession e.g. P04637)",
             }
 
         rel_type = arguments.get("rel_type")
@@ -146,6 +159,7 @@ class OMATool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "OMA Browser",
@@ -158,7 +172,10 @@ class OMATool(BaseTool):
         """Get Hierarchical Orthologous Group (HOG) information."""
         hog_id = arguments.get("hog_id", "")
         if not hog_id:
-            return {"error": "hog_id parameter is required (e.g. HOG:E0739094)"}
+            return {
+                "status": "error",
+                "error": "hog_id parameter is required (e.g. HOG:E0739094)",
+            }
 
         url = f"{OMA_BASE_URL}/hog/{hog_id}/"
         response = requests.get(url, timeout=self.timeout)
@@ -190,6 +207,7 @@ class OMATool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "OMA Browser",
@@ -203,7 +221,8 @@ class OMATool(BaseTool):
         group_id = arguments.get("group_id", "")
         if not group_id:
             return {
-                "error": "group_id parameter is required (numeric group ID, e.g. 1388790)"
+                "status": "error",
+                "error": "group_id parameter is required (numeric group ID, e.g. 1388790)",
             }
 
         url = f"{OMA_BASE_URL}/group/{group_id}/"
@@ -234,6 +253,7 @@ class OMATool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "OMA Browser",

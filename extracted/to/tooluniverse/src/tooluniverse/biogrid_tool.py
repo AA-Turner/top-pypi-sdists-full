@@ -80,6 +80,9 @@ class BioGRIDRESTTool(BaseTool):
         if "organism" in arguments:
             organism = arguments["organism"]
             params["taxId"] = self._ORGANISM_MAP.get(organism.lower(), organism)
+        else:
+            # Feature-120B-002: default to human (9606) to avoid returning multi-species results
+            params["taxId"] = 9606
 
         # Note: BioGRID API does not support filtering by "physical"/"genetic" via evidenceList.
         # The interaction_type parameter is informational only; filtering must be done client-side
@@ -127,12 +130,17 @@ class BioGRIDRESTTool(BaseTool):
                 return {"data": response.text}
 
         except requests.exceptions.RequestException as e:
-            return {"error": f"Request failed: {str(e)}"}
+            return {"status": "error", "error": f"Request failed: {str(e)}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the tool with given arguments."""
+        # Normalize singular aliases to expected list parameters
+        if not arguments.get("chemical_names") and arguments.get("chemical_name"):
+            arguments = dict(arguments, chemical_names=[arguments["chemical_name"]])
+        if not arguments.get("gene_names") and arguments.get("gene_name"):
+            arguments = dict(arguments, gene_names=[arguments["gene_name"]])
         for param in self.required:
             if param not in arguments:
                 error_msg = f"Missing required parameter: {param}"
@@ -188,4 +196,21 @@ class BioGRIDRESTTool(BaseTool):
                 "error": api_response.get("error"),
             }
 
-        return {"status": "success", "data": api_response}
+        gene_names = arguments.get("gene_names", [])
+        return {
+            "status": "success",
+            "data": api_response,
+            "metadata": {
+                "source": "BioGRID",
+                "gene_names": gene_names,
+                "interaction_count": len(api_response)
+                if isinstance(api_response, dict)
+                else 0,
+                "note": (
+                    "BioGRID chemicalList filter is not supported by the REST API; "
+                    "results reflect all protein interactions for the queried gene(s), "
+                    "not filtered by chemical. Use ChEMBL_search_mechanisms or "
+                    "DGIdb_search_interactions for drug-protein interaction data."
+                ),
+            },
+        }

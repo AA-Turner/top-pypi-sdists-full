@@ -83,15 +83,19 @@ class DoseResponseTool(BaseTool):
         y = np.array(responses, dtype=float)
 
         if len(x) < 4:
-            return {"error": "At least 4 data points required for 4PL fitting"}
+            return {
+                "status": "error",
+                "error": "At least 4 data points required for 4PL fitting",
+            }
 
         if np.any(~np.isfinite(y)):
             return {
+                "status": "error",
                 "error": (
                     "Response values contain non-finite values (NaN or inf). "
                     "All responses must be finite real numbers. "
                     "Remove or correct the affected data points before fitting."
-                )
+                ),
             }
 
         # NaN comparison always returns False: NaN <= 0 = False, so NaN bypasses the
@@ -99,15 +103,19 @@ class DoseResponseTool(BaseTool):
         # "domain error" or NaN results.  Check isfinite BEFORE the <= 0 guard.
         if np.any(~np.isfinite(x)):
             return {
+                "status": "error",
                 "error": (
                     "Concentration values contain non-finite values (NaN or inf). "
                     "All concentrations must be finite positive numbers. "
                     "Remove or correct the affected data points before fitting."
-                )
+                ),
             }
 
         if np.any(x <= 0):
-            return {"error": "All concentrations must be positive (> 0)"}
+            return {
+                "status": "error",
+                "error": "All concentrations must be positive (> 0)",
+            }
 
         # Detect all-identical concentrations: if every x value is the same, the
         # dose-response curve is unidentifiable regardless of the response values.
@@ -115,12 +123,13 @@ class DoseResponseTool(BaseTool):
         # zero dose range (no concentration gradient), not zero effect range.
         if len(np.unique(x)) < 2:
             return {
+                "status": "error",
                 "error": (
                     "All concentration values are identical (no dose range). "
                     "IC50 estimation requires at least 2 distinct concentration levels "
                     "to define the dose-response relationship. Use a dose series spanning "
                     "multiple orders of magnitude (e.g., 0.001–100 μM)."
-                )
+                ),
             }
 
         # Detect flat response data: if all responses are identical (or near-identical),
@@ -128,11 +137,12 @@ class DoseResponseTool(BaseTool):
         y_range = float(np.max(y) - np.min(y))
         if y_range < 1e-10:
             return {
+                "status": "error",
                 "error": (
                     "All response values are identical (flat data). "
                     "Cannot estimate IC50 — the dose-response relationship is not identifiable. "
                     "A sigmoidal model requires variation in response across concentrations."
-                )
+                ),
             }
 
         # Starting estimates:
@@ -289,9 +299,12 @@ class DoseResponseTool(BaseTool):
                 main_result["stimulatory_curve_warning"] = stimulatory_warning
             return main_result
         except RuntimeError:
-            return {"error": "4PL curve fitting did not converge. Check data quality."}
+            return {
+                "status": "error",
+                "error": "4PL curve fitting did not converge. Check data quality.",
+            }
         except Exception as e:
-            return {"error": f"Curve fitting failed: {str(e)}"}
+            return {"status": "error", "error": f"Curve fitting failed: {str(e)}"}
 
     def _fit_curve(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Fit 4PL dose-response curve and return all parameters."""

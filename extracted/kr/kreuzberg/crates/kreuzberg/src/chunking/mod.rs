@@ -15,6 +15,7 @@
 //!
 //! - **Text**: Generic text splitter, splits on whitespace and punctuation
 //! - **Markdown**: Markdown-aware splitter, preserves formatting and structure
+//! - **Yaml**: YAML-aware splitter, creates one chunk per top-level key
 //!
 //! # Example
 //!
@@ -61,6 +62,7 @@ pub mod processor;
 #[cfg(feature = "chunking-tokenizers")]
 mod tokenizer_cache;
 pub mod validation;
+mod yaml_section;
 
 // Re-export submodule types and functions
 pub use boundaries::{calculate_page_range, validate_page_boundaries};
@@ -100,9 +102,7 @@ pub fn ensure_initialized() -> Result<()> {
 /// Explicit calling is optional.
 pub fn register_chunking_processor() -> Result<()> {
     let registry = crate::plugins::registry::get_post_processor_registry();
-    let mut registry = registry
-        .write()
-        .map_err(|e| crate::KreuzbergError::Other(format!("Post-processor registry lock poisoned: {}", e)))?;
+    let mut registry = registry.write();
 
     registry.register(Arc::new(ChunkingProcessor), 50)?;
 

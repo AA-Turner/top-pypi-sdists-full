@@ -59,16 +59,6 @@ impl SyncExtractor for EmailExtractor {
             .filter_map(|att| att.filename.clone().or_else(|| att.name.clone()))
             .collect();
 
-        let email_metadata = EmailMetadata {
-            from_email: email_result.from_email.clone(),
-            from_name: None,
-            to_emails: email_result.to_emails.clone(),
-            cc_emails: email_result.cc_emails.clone(),
-            bcc_emails: email_result.bcc_emails.clone(),
-            message_id: email_result.message_id.clone(),
-            attachments: attachment_names,
-        };
-
         // Filter out keys already represented in EmailMetadata to avoid
         // flattened field conflicts (e.g. "attachments" as string vs Vec).
         const EMAIL_STRUCT_KEYS: &[&str] = &[
@@ -81,6 +71,10 @@ impl SyncExtractor for EmailExtractor {
             "attachments",
             "subject",
             "date",
+            "email_from",
+            "email_to",
+            "email_cc",
+            "email_bcc",
         ];
         let mut additional = AHashMap::new();
         for (key, value) in &email_result.metadata {
@@ -89,13 +83,112 @@ impl SyncExtractor for EmailExtractor {
             }
         }
 
+        // Build document structure while email_result is still fully owned,
+        // borrowing fields that will be moved into EmailMetadata/Metadata afterward.
+        let document = if config.include_document_structure {
+            use crate::types::builder::DocumentStructureBuilder;
+            let mut builder = DocumentStructureBuilder::new().source_format("email");
+
+            // Push email headers as a metadata block
+            let mut header_entries = Vec::new();
+            if let Some(ref subject) = email_result.subject {
+                header_entries.push(("Subject".to_string(), subject.clone()));
+            }
+            if let Some(ref from) = email_result.from_email {
+                header_entries.push(("From".to_string(), from.clone()));
+            }
+            if !email_result.to_emails.is_empty() {
+                header_entries.push(("To".to_string(), email_result.to_emails.join(", ")));
+            }
+            if !email_result.cc_emails.is_empty() {
+                header_entries.push(("CC".to_string(), email_result.cc_emails.join(", ")));
+            }
+            if let Some(ref date) = email_result.date {
+                header_entries.push(("Date".to_string(), date.clone()));
+            }
+            if !header_entries.is_empty() {
+                builder.push_metadata_block(header_entries, None);
+            }
+
+            // Push body content: if HTML body is available, use the HTML
+            // structure walker for rich annotations (bold, italic, links, etc.);
+            // otherwise fall back to plain text paragraph splitting.
+            if let Some(ref html) = email_result.html_content {
+                let html_doc = crate::extraction::html::structure::build_document_structure(html);
+                // Merge HTML structure nodes into the email builder.
+                for node in &html_doc.nodes {
+                    // Only merge root-level body nodes (skip the HTML wrapper structure).
+                    if node.parent.is_none() {
+                        match &node.content {
+                            crate::types::NodeContent::Paragraph { text } => {
+                                let trimmed = text.trim();
+                                if !trimmed.is_empty() {
+                                    builder.push_paragraph(trimmed, node.annotations.clone(), None, None);
+                                }
+                            }
+                            crate::types::NodeContent::Heading { level, text } => {
+                                builder.push_heading(*level, text, None, None);
+                            }
+                            crate::types::NodeContent::List { ordered } => {
+                                let list_idx = builder.push_list(*ordered, None);
+                                // Collect list item children from the HTML doc
+                                for &child_idx in &node.children {
+                                    if let Some(child) = html_doc.nodes.get(child_idx.0 as usize)
+                                        && let crate::types::NodeContent::ListItem { text } = &child.content
+                                    {
+                                        builder.push_list_item(list_idx, text, None);
+                                    }
+                                }
+                            }
+                            crate::types::NodeContent::Code { text, language } => {
+                                builder.push_code(text, language.as_deref(), None);
+                            }
+                            _ => {
+                                // For other node types, extract text if available
+                                // and push as paragraph
+                                if let Some(text) = node.content.text() {
+                                    let trimmed = text.trim();
+                                    if !trimmed.is_empty() {
+                                        builder.push_paragraph(trimmed, node.annotations.clone(), None, None);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                for paragraph in email_result.cleaned_text.split("\n\n") {
+                    let trimmed = paragraph.trim();
+                    if !trimmed.is_empty() {
+                        builder.push_paragraph(trimmed, vec![], None, None);
+                    }
+                }
+            }
+            Some(builder.build())
+        } else {
+            None
+        };
+
+        // Move fields out of email_result now that all borrows above are complete.
+        let subject = email_result.subject;
+        let created_at = email_result.date;
+        let email_metadata = EmailMetadata {
+            from_email: email_result.from_email,
+            from_name: None,
+            to_emails: email_result.to_emails,
+            cc_emails: email_result.cc_emails,
+            bcc_emails: email_result.bcc_emails,
+            message_id: email_result.message_id,
+            attachments: attachment_names,
+        };
+
         Ok(ExtractionResult {
             content: text,
             mime_type: mime_type.to_string().into(),
             metadata: Metadata {
                 format: Some(crate::types::FormatMetadata::Email(email_metadata)),
-                subject: email_result.subject.clone(),
-                created_at: email_result.date.clone(),
+                subject,
+                created_at,
                 additional,
                 ..Default::default()
             },
@@ -107,12 +200,13 @@ impl SyncExtractor for EmailExtractor {
             djot_content: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 }

@@ -33,6 +33,7 @@ pub(super) fn extract_bytes_sync_impl(
     use crate::core::mime;
 
     let cfg = config.cloned().unwrap_or_default();
+    let cfg = cfg.normalized().into_owned();
 
     let validated_mime = if let Some(mime) = mime_type {
         if mime == "application/octet-stream" {

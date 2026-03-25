@@ -42,14 +42,21 @@ class ReactomeAnalysisTool(BaseTool):
             return self._query(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"Reactome Analysis request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"Reactome Analysis request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to Reactome Analysis Service."}
+            return {
+                "status": "error",
+                "error": "Failed to connect to Reactome Analysis Service.",
+            }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"Reactome Analysis HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"Reactome Analysis HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate analysis endpoint."""
@@ -60,14 +67,15 @@ class ReactomeAnalysisTool(BaseTool):
         elif self.endpoint == "token_result":
             return self._token_result(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _pathway_enrichment(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Perform pathway overrepresentation analysis."""
         identifiers = arguments.get("identifiers", "")
         if not identifiers:
             return {
-                "error": "identifiers parameter required (newline-separated gene/protein IDs)"
+                "status": "error",
+                "error": "identifiers parameter required (newline-separated gene/protein IDs)",
             }
 
         # Ensure identifiers is newline-separated
@@ -106,7 +114,8 @@ class ReactomeAnalysisTool(BaseTool):
         identifiers = arguments.get("identifiers", "")
         if not identifiers:
             return {
-                "error": "identifiers parameter required (newline-separated gene/protein IDs)"
+                "status": "error",
+                "error": "identifiers parameter required (newline-separated gene/protein IDs)",
             }
 
         if isinstance(identifiers, list):
@@ -137,7 +146,7 @@ class ReactomeAnalysisTool(BaseTool):
         """Retrieve analysis results by token."""
         token = arguments.get("token", "")
         if not token:
-            return {"error": "token parameter is required"}
+            return {"status": "error", "error": "token parameter is required"}
 
         page_size = arguments.get("page_size", 20)
 
@@ -182,6 +191,7 @@ class ReactomeAnalysisTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "token": summary.get("token"),
                 "analysis_type": summary.get("type"),

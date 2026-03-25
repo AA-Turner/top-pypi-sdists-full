@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Crawl4AI
-Version: 0.8.5
+Version: 0.8.6
 Summary: 🚀🤖 Crawl4AI: Open-source LLM Friendly Web Crawler & scraper
 Home-page: https://github.com/unclecode/crawl4ai
 Author: Unclecode
@@ -21,7 +21,7 @@ Requires-Dist: aiohttp>=3.11.11
 Requires-Dist: aiosqlite~=0.20
 Requires-Dist: anyio>=4.0.0
 Requires-Dist: lxml~=5.3
-Requires-Dist: litellm>=1.53.1
+Requires-Dist: unclecode-litellm==1.81.13
 Requires-Dist: numpy<3,>=1.26.0
 Requires-Dist: pillow>=10.4
 Requires-Dist: playwright>=1.49.0

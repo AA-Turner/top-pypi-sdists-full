@@ -94,14 +94,14 @@ class NotionLoader(BaseLoader):
             payload["filter"]["and"].append(json.loads(self.database_filter))
         if start_cursor:
             payload.update({"start_cursor": start_cursor})
-
+        print(payload)
         headers = {
             "Accept": "application/json",
             "Notion-Version": NOTION_API_VERSION,
             "Content-Type": "application/json",
             "Authorization": "Bearer " + self.notion_token,
         }
-
+        print(headers)
         try:
             resp = requests.post(
                 NOTION_API_URL.format(database_id=self.database_id),
@@ -109,8 +109,9 @@ class NotionLoader(BaseLoader):
                 headers=headers,
             )
         except requests.RequestException:
+            print("Failed to connect to Notion API.")
             return data_list
-
+        print(resp.text)
         if not resp.ok:
             # Treat non-OK responses as an empty result set so we can still draw
             # a heatmap even when the Notion API yields no rows for the period.
@@ -119,6 +120,7 @@ class NotionLoader(BaseLoader):
             data = resp.json()
         except ValueError:
             return data_list
+        print(len(data.get("results", [])))
         results = data["results"]
         next_cursor = data["next_cursor"]
         data_list.extend(results)

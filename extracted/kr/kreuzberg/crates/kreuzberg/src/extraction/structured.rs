@@ -118,14 +118,16 @@ pub fn parse_json(data: &[u8], config: Option<JsonExtractionConfig>) -> Result<S
     let mut metadata = HashMap::new();
     let mut text_fields = Vec::new();
 
-    if config.extract_schema
-        && let Ok(schema_json) = serde_json::to_string(&extract_json_schema(&value, "", 0, &config))
-    {
-        metadata.insert("json_schema".to_string(), schema_json);
+    if config.extract_schema {
+        let mut path_buf = String::new();
+        if let Ok(schema_json) = serde_json::to_string(&extract_json_schema(&value, &mut path_buf, 0, &config)) {
+            metadata.insert("json_schema".to_string(), schema_json);
+        }
     }
 
     // Still extract text fields for metadata population
-    let _text_parts = extract_from_json_value(&value, "", &config, &mut metadata, &mut text_fields);
+    let mut path_buf = String::new();
+    let _text_parts = extract_from_json_value(&value, &mut path_buf, &config, &mut metadata, &mut text_fields);
     // Output pretty-printed JSON to preserve structure (matches ground truth format)
     let content = serde_json::to_string_pretty(&value).unwrap_or_else(|_| String::from_utf8_lossy(data).to_string());
 
@@ -139,7 +141,7 @@ pub fn parse_json(data: &[u8], config: Option<JsonExtractionConfig>) -> Result<S
 
 fn extract_json_schema(
     value: &serde_json::Value,
-    path: &str,
+    path: &mut String,
     depth: usize,
     config: &JsonExtractionConfig,
 ) -> serde_json::Value {
@@ -156,10 +158,15 @@ fn extract_json_schema(
             if arr.is_empty() {
                 serde_json::json!({"type": "array", "length": 0})
             } else if arr.len() <= config.array_item_limit {
+                // Push "[0]" suffix and recurse, then restore.
+                let base_len = path.len();
+                path.push_str("[0]");
+                let items = extract_json_schema(&arr[0], path, depth + 1, config);
+                path.truncate(base_len);
                 serde_json::json!({
                     "type": "array",
                     "length": arr.len(),
-                    "items": extract_json_schema(&arr[0], &format!("{}[0]", path), depth + 1, config)
+                    "items": items
                 })
             } else {
                 serde_json::json!({
@@ -173,12 +180,15 @@ fn extract_json_schema(
         serde_json::Value::Object(obj) => {
             let mut properties = serde_json::Map::new();
             for (key, val) in obj {
-                let key_path = if path.is_empty() {
-                    key.clone()
-                } else {
-                    format!("{}.{}", path, key)
-                };
-                properties.insert(key.clone(), extract_json_schema(val, &key_path, depth + 1, config));
+                // Extend the path buffer with ".key" (or just "key" at root).
+                let base_len = path.len();
+                if !path.is_empty() {
+                    path.push('.');
+                }
+                path.push_str(key);
+                let schema = extract_json_schema(val, path, depth + 1, config);
+                path.truncate(base_len);
+                properties.insert(key.clone(), schema);
             }
             serde_json::json!({"type": "object", "properties": properties})
         }
@@ -187,7 +197,7 @@ fn extract_json_schema(
 
 fn extract_from_json_value(
     value: &serde_json::Value,
-    prefix: &str,
+    path: &mut String,
     config: &JsonExtractionConfig,
     metadata: &mut HashMap<String, String>,
     text_fields: &mut Vec<String>,
@@ -196,38 +206,46 @@ fn extract_from_json_value(
         serde_json::Value::Object(obj) => {
             let mut text_parts = Vec::new();
             for (key, val) in obj {
-                let full_key = if prefix.is_empty() {
-                    key.clone()
-                } else {
-                    format!("{}.{}", prefix, key)
-                };
-                text_parts.extend(extract_from_json_value(val, &full_key, config, metadata, text_fields));
+                // Append ".key" (or just "key" at root) to the shared buffer.
+                let base_len = path.len();
+                if !path.is_empty() {
+                    path.push('.');
+                }
+                path.push_str(key);
+                text_parts.extend(extract_from_json_value(val, path, config, metadata, text_fields));
+                path.truncate(base_len);
             }
             text_parts
         }
         serde_json::Value::Array(arr) => {
             let mut text_parts = Vec::new();
             for (i, item) in arr.iter().enumerate() {
-                let item_key = if prefix.is_empty() {
-                    format!("item_{}", i)
+                // Append "[i]" (or "item_i" at root) to the shared buffer.
+                let base_len = path.len();
+                if path.is_empty() {
+                    path.push_str("item_");
+                    path.push_str(&i.to_string());
                 } else {
-                    format!("{}[{}]", prefix, i)
-                };
-                text_parts.extend(extract_from_json_value(item, &item_key, config, metadata, text_fields));
+                    path.push('[');
+                    path.push_str(&i.to_string());
+                    path.push(']');
+                }
+                text_parts.extend(extract_from_json_value(item, path, config, metadata, text_fields));
+                path.truncate(base_len);
             }
             text_parts
         }
         serde_json::Value::String(s) => {
             if !s.trim().is_empty() {
                 let formatted = if config.include_type_info {
-                    format!("{} (string): {}", prefix, s)
+                    format!("{} (string): {}", path, s)
                 } else {
-                    format!("{}: {}", prefix, s)
+                    format!("{}: {}", path, s)
                 };
 
-                if is_text_field(prefix, &config.custom_text_field_patterns) {
-                    metadata.insert(prefix.to_string(), s.clone());
-                    text_fields.push(prefix.to_string());
+                if is_text_field(path, &config.custom_text_field_patterns) {
+                    metadata.insert(path.clone(), s.clone());
+                    text_fields.push(path.clone());
                 }
 
                 vec![formatted]
@@ -237,17 +255,17 @@ fn extract_from_json_value(
         }
         serde_json::Value::Number(n) => {
             let formatted = if config.include_type_info {
-                format!("{} (number): {}", prefix, n)
+                format!("{} (number): {}", path, n)
             } else {
-                format!("{}: {}", prefix, n)
+                format!("{}: {}", path, n)
             };
             vec![formatted]
         }
         serde_json::Value::Bool(b) => {
             let formatted = if config.include_type_info {
-                format!("{} (bool): {}", prefix, b)
+                format!("{} (bool): {}", path, b)
             } else {
-                format!("{}: {}", prefix, b)
+                format!("{}: {}", path, b)
             };
             vec![formatted]
         }
@@ -292,7 +310,8 @@ pub fn parse_yaml(data: &[u8]) -> Result<StructuredDataResult> {
     let mut text_fields = Vec::new();
 
     // Still extract for metadata population
-    let _text_parts = extract_from_value(&value, "", &mut metadata, &mut text_fields);
+    let mut path_buf = String::new();
+    let _text_parts = extract_from_value(&value, &mut path_buf, &mut metadata, &mut text_fields);
     // Output original YAML content to preserve structure (matches ground truth format)
     let content = yaml_str.to_string();
 
@@ -306,21 +325,21 @@ pub fn parse_yaml(data: &[u8]) -> Result<StructuredDataResult> {
 
 fn extract_from_value(
     value: &serde_json::Value,
-    prefix: &str,
+    path: &mut String,
     metadata: &mut HashMap<String, String>,
     text_fields: &mut Vec<String>,
 ) -> Vec<String> {
     match value {
         serde_json::Value::Null => Vec::new(),
-        serde_json::Value::Bool(b) => vec![format!("{}: {}", prefix, b)],
-        serde_json::Value::Number(n) => vec![format!("{}: {}", prefix, n)],
+        serde_json::Value::Bool(b) => vec![format!("{}: {}", path, b)],
+        serde_json::Value::Number(n) => vec![format!("{}: {}", path, n)],
         serde_json::Value::String(s) => {
             if !s.trim().is_empty() {
-                let formatted = format!("{}: {}", prefix, s);
+                let formatted = format!("{}: {}", path, s);
 
-                if is_text_field(prefix, &[]) {
-                    metadata.insert(prefix.to_string(), s.to_string());
-                    text_fields.push(prefix.to_string());
+                if is_text_field(path, &[]) {
+                    metadata.insert(path.clone(), s.to_string());
+                    text_fields.push(path.clone());
                 }
 
                 vec![formatted]
@@ -331,24 +350,30 @@ fn extract_from_value(
         serde_json::Value::Array(arr) => {
             let mut text_parts = Vec::new();
             for (i, item) in arr.iter().enumerate() {
-                let item_key = if prefix.is_empty() {
-                    format!("item_{}", i)
+                let base_len = path.len();
+                if path.is_empty() {
+                    path.push_str("item_");
+                    path.push_str(&i.to_string());
                 } else {
-                    format!("{}[{}]", prefix, i)
-                };
-                text_parts.extend(extract_from_value(item, &item_key, metadata, text_fields));
+                    path.push('[');
+                    path.push_str(&i.to_string());
+                    path.push(']');
+                }
+                text_parts.extend(extract_from_value(item, path, metadata, text_fields));
+                path.truncate(base_len);
             }
             text_parts
         }
         serde_json::Value::Object(obj) => {
             let mut text_parts = Vec::new();
             for (key, val) in obj {
-                let full_key = if prefix.is_empty() {
-                    key.to_string()
-                } else {
-                    format!("{}.{}", prefix, key)
-                };
-                text_parts.extend(extract_from_value(val, &full_key, metadata, text_fields));
+                let base_len = path.len();
+                if !path.is_empty() {
+                    path.push('.');
+                }
+                path.push_str(key);
+                text_parts.extend(extract_from_value(val, path, metadata, text_fields));
+                path.truncate(base_len);
             }
             text_parts
         }
@@ -366,7 +391,8 @@ pub fn parse_toml(data: &[u8]) -> Result<StructuredDataResult> {
     let mut text_fields = Vec::new();
 
     // Still extract for metadata population
-    let _text_parts = extract_from_toml_value(&value, "", &mut metadata, &mut text_fields);
+    let mut path_buf = String::new();
+    let _text_parts = extract_from_toml_value(&value, &mut path_buf, &mut metadata, &mut text_fields);
     // Output original TOML content to preserve structure (matches ground truth format)
     let content = toml_str.to_string();
 
@@ -380,18 +406,18 @@ pub fn parse_toml(data: &[u8]) -> Result<StructuredDataResult> {
 
 fn extract_from_toml_value(
     value: &toml::Value,
-    prefix: &str,
+    path: &mut String,
     metadata: &mut HashMap<String, String>,
     text_fields: &mut Vec<String>,
 ) -> Vec<String> {
     match value {
         toml::Value::String(s) => {
             if !s.trim().is_empty() {
-                let formatted = format!("{}: {}", prefix, s);
+                let formatted = format!("{}: {}", path, s);
 
-                if is_text_field(prefix, &[]) {
-                    metadata.insert(prefix.to_string(), s.clone());
-                    text_fields.push(prefix.to_string());
+                if is_text_field(path, &[]) {
+                    metadata.insert(path.clone(), s.clone());
+                    text_fields.push(path.clone());
                 }
 
                 vec![formatted]
@@ -399,31 +425,37 @@ fn extract_from_toml_value(
                 Vec::new()
             }
         }
-        toml::Value::Integer(i) => vec![format!("{}: {}", prefix, i)],
-        toml::Value::Float(f) => vec![format!("{}: {}", prefix, f)],
-        toml::Value::Boolean(b) => vec![format!("{}: {}", prefix, b)],
-        toml::Value::Datetime(d) => vec![format!("{}: {}", prefix, d)],
+        toml::Value::Integer(i) => vec![format!("{}: {}", path, i)],
+        toml::Value::Float(f) => vec![format!("{}: {}", path, f)],
+        toml::Value::Boolean(b) => vec![format!("{}: {}", path, b)],
+        toml::Value::Datetime(d) => vec![format!("{}: {}", path, d)],
         toml::Value::Array(arr) => {
             let mut text_parts = Vec::new();
             for (i, item) in arr.iter().enumerate() {
-                let item_key = if prefix.is_empty() {
-                    format!("item_{}", i)
+                let base_len = path.len();
+                if path.is_empty() {
+                    path.push_str("item_");
+                    path.push_str(&i.to_string());
                 } else {
-                    format!("{}[{}]", prefix, i)
-                };
-                text_parts.extend(extract_from_toml_value(item, &item_key, metadata, text_fields));
+                    path.push('[');
+                    path.push_str(&i.to_string());
+                    path.push(']');
+                }
+                text_parts.extend(extract_from_toml_value(item, path, metadata, text_fields));
+                path.truncate(base_len);
             }
             text_parts
         }
         toml::Value::Table(table) => {
             let mut text_parts = Vec::new();
             for (key, val) in table {
-                let full_key = if prefix.is_empty() {
-                    key.clone()
-                } else {
-                    format!("{}.{}", prefix, key)
-                };
-                text_parts.extend(extract_from_toml_value(val, &full_key, metadata, text_fields));
+                let base_len = path.len();
+                if !path.is_empty() {
+                    path.push('.');
+                }
+                path.push_str(key);
+                text_parts.extend(extract_from_toml_value(val, path, metadata, text_fields));
+                path.truncate(base_len);
             }
             text_parts
         }

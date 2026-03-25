@@ -59,6 +59,15 @@ class OrphanetTool(BaseTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute Orphanet API call based on operation type."""
+        # Normalize orpha_code aliases
+        if not arguments.get("orpha_code"):
+            alias = (
+                arguments.get("orphacode")
+                or arguments.get("orpha_id")
+                or arguments.get("disease_id")
+            )
+            if alias:
+                arguments = dict(arguments, orpha_code=alias)
         operation = arguments.get("operation", "")
         # Auto-fill operation from tool config const if not provided by user
         if not operation:
@@ -104,7 +113,7 @@ class OrphanetTool(BaseTool):
         if not query:
             return {"status": "error", "error": "Missing required parameter: query"}
 
-        lang = normalize_lang(arguments.get("lang", "en"))
+        lang = normalize_lang(arguments.get("lang") or arguments.get("language", "en"))
         try:
             limit = int(arguments.get("limit", 20))
         except (TypeError, ValueError):
@@ -491,12 +500,20 @@ class OrphanetTool(BaseTool):
                 - exact: Whether to match exactly (default: False)
                 - lang: Language code (default: en)
         """
-        name = arguments.get("name", "")
+        name = arguments.get("name") or arguments.get("query", "")
         if not name:
-            return {"status": "error", "error": "Missing required parameter: name"}
+            return {
+                "status": "error",
+                "error": "Missing required parameter: name (or query)",
+            }
 
         exact = arguments.get("exact", False)
-        lang = normalize_lang(arguments.get("lang", "en"))
+        lang = normalize_lang(arguments.get("lang") or arguments.get("language", "en"))
+        try:
+            limit = int(arguments.get("limit", 20))
+        except (TypeError, ValueError):
+            limit = 20
+        limit = max(1, min(limit, 200))
 
         try:
             # URL encode the search name
@@ -528,13 +545,17 @@ class OrphanetTool(BaseTool):
             else:
                 results = [data] if data else []
 
+            total_count = len(results)
+            results = results[:limit]
             return {
                 "status": "success",
                 "data": {
                     "results": results,
                     "count": len(results),
+                    "total": total_count,
                     "search_name": name,
                     "exact_match": exact,
+                    "truncated": total_count > limit,
                 },
                 "metadata": {
                     "source": "Orphanet RDcode API",
@@ -567,12 +588,13 @@ class OrphanetTool(BaseTool):
         Args:
             arguments: Dict containing:
                 - orpha_code: Orphanet disease code (e.g., 558 for Marfan)
+                - orpha_id: Alias for orpha_code
         """
-        orpha_code = arguments.get("orpha_code", "")
+        orpha_code = arguments.get("orpha_code") or arguments.get("orpha_id")
         if not orpha_code:
             return {
                 "status": "error",
-                "error": "Missing required parameter: orpha_code",
+                "error": "Missing required parameter: orpha_code (or orpha_id)",
             }
 
         orpha_code = (
@@ -611,7 +633,7 @@ class OrphanetTool(BaseTool):
                 "status": "success",
                 "data": {
                     "orpha_code": orpha_code,
-                    "preferred_term": results.get("Preferred term", ""),
+                    "preferred_term": disorder.get("Preferred term", ""),
                     "phenotypes": phenotypes,
                     "phenotype_count": len(phenotypes),
                 },
@@ -624,14 +646,8 @@ class OrphanetTool(BaseTool):
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 return {
-                    "status": "success",
-                    "data": {
-                        "orpha_code": orpha_code,
-                        "preferred_term": "",
-                        "phenotypes": [],
-                        "phenotype_count": 0,
-                    },
-                    "metadata": {"note": "No phenotype data found"},
+                    "status": "error",
+                    "error": f"Disease ORPHA:{orpha_code} not found. Use Orphanet_search_diseases to find a valid ORPHA code.",
                 }
             return {"status": "error", "error": f"HTTP error: {e.response.status_code}"}
         except requests.exceptions.RequestException as e:
@@ -829,7 +845,8 @@ class OrphanetTool(BaseTool):
             arguments: Dict containing:
                 - gene_name: Gene symbol or name keyword (e.g., 'FBN1', 'fibrillin')
         """
-        gene_name = arguments.get("gene_name", "")
+        # Feature-83B-006: accept gene_symbol as alias for gene_name
+        gene_name = arguments.get("gene_name") or arguments.get("gene_symbol", "")
         if not gene_name:
             return {"status": "error", "error": "Missing required parameter: gene_name"}
 
@@ -914,7 +931,14 @@ class OrphanetTool(BaseTool):
                         "diseases": [],
                         "disease_count": 0,
                     },
-                    "metadata": {"note": "No diseases found for this gene name"},
+                    "metadata": {
+                        "note": (
+                            f"No diseases found for gene '{gene_name}' in Orphanet. "
+                            "Orphanet uses full gene names, not symbols. If the gene "
+                            "symbol was recently renamed (e.g. GBA→GBA1), try the "
+                            "current HGNC-approved symbol."
+                        )
+                    },
                 }
             return {"status": "error", "error": f"HTTP error: {e.response.status_code}"}
         except requests.exceptions.RequestException as e:
@@ -948,18 +972,15 @@ class OrphanetTool(BaseTool):
 
         mappings = {}
 
-        systems_to_query = []
-        if coding_system == "all":
-            systems_to_query = ["ICD10", "ICD11", "OMIM", "SNOMED-CT"]
-        elif coding_system == "icd10":
-            systems_to_query = ["ICD10"]
-        elif coding_system == "icd11":
-            systems_to_query = ["ICD11"]
-        elif coding_system == "omim":
-            systems_to_query = ["OMIM"]
-        elif coding_system == "snomed":
-            systems_to_query = ["SNOMED-CT"]
-        else:
+        coding_system_map = {
+            "all": ["ICD10", "ICD11", "OMIM", "SNOMED-CT"],
+            "icd10": ["ICD10"],
+            "icd11": ["ICD11"],
+            "omim": ["OMIM"],
+            "snomed": ["SNOMED-CT"],
+        }
+        systems_to_query = coding_system_map.get(coding_system)
+        if systems_to_query is None:
             return {
                 "status": "error",
                 "error": f"Unknown coding_system: {coding_system}. Supported: all, icd10, icd11, omim, snomed",

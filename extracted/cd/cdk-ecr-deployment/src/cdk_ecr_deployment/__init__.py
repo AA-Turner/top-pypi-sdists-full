@@ -173,6 +173,7 @@ class ECRDeployment(
         copy_image_index: typing.Optional[builtins.bool] = None,
         image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
+        retry_configs: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]] = None,
         vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
@@ -187,6 +188,7 @@ class ECRDeployment(
         :param copy_image_index: Whether to copy a source docker image index (multi-arch manifest) to the destination. When true, copies the image index and all underlying architecture-specific images in a single operation. Default: False
         :param image_arch: The image architecture to be copied. The 'amd64' architecture will be copied by default. Specify the architecture or architectures to copy here. It is currently not possible to copy more than one architecture at a time: the array you specify must contain exactly one string. Default: ['amd64']
         :param memory_limit: The amount of memory (in MiB) to allocate to the AWS Lambda function which replicates the files from the CDK bucket to the destination bucket. If you are deploying large files, you will need to increase this number accordingly. Default: - 512
+        :param retry_configs: Retry configuration to apply to when copying images such as the number of retry attemtps, the base amount of delay (in seconds) between each retry, and the max amount of delay (in seconds) between each retry. For example, { 'numAttempts': 3, 'baseDelay': 1, 'maxDelay': 5 }
         :param role: Execution role associated with this function. Default: - A role is automatically created
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
         :param vpc: The VPC network to place the deployment lambda handler in. Default: - None
@@ -203,6 +205,7 @@ class ECRDeployment(
             copy_image_index=copy_image_index,
             image_arch=image_arch,
             memory_limit=memory_limit,
+            retry_configs=retry_configs,
             role=role,
             security_groups=security_groups,
             vpc=vpc,
@@ -235,6 +238,7 @@ class ECRDeployment(
         "copy_image_index": "copyImageIndex",
         "image_arch": "imageArch",
         "memory_limit": "memoryLimit",
+        "retry_configs": "retryConfigs",
         "role": "role",
         "security_groups": "securityGroups",
         "vpc": "vpc",
@@ -251,6 +255,7 @@ class ECRDeploymentProps:
         copy_image_index: typing.Optional[builtins.bool] = None,
         image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
+        retry_configs: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]] = None,
         vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
@@ -263,6 +268,7 @@ class ECRDeploymentProps:
         :param copy_image_index: Whether to copy a source docker image index (multi-arch manifest) to the destination. When true, copies the image index and all underlying architecture-specific images in a single operation. Default: False
         :param image_arch: The image architecture to be copied. The 'amd64' architecture will be copied by default. Specify the architecture or architectures to copy here. It is currently not possible to copy more than one architecture at a time: the array you specify must contain exactly one string. Default: ['amd64']
         :param memory_limit: The amount of memory (in MiB) to allocate to the AWS Lambda function which replicates the files from the CDK bucket to the destination bucket. If you are deploying large files, you will need to increase this number accordingly. Default: - 512
+        :param retry_configs: Retry configuration to apply to when copying images such as the number of retry attemtps, the base amount of delay (in seconds) between each retry, and the max amount of delay (in seconds) between each retry. For example, { 'numAttempts': 3, 'baseDelay': 1, 'maxDelay': 5 }
         :param role: Execution role associated with this function. Default: - A role is automatically created
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
         :param vpc: The VPC network to place the deployment lambda handler in. Default: - None
@@ -278,6 +284,7 @@ class ECRDeploymentProps:
             check_type(argname="argument copy_image_index", value=copy_image_index, expected_type=type_hints["copy_image_index"])
             check_type(argname="argument image_arch", value=image_arch, expected_type=type_hints["image_arch"])
             check_type(argname="argument memory_limit", value=memory_limit, expected_type=type_hints["memory_limit"])
+            check_type(argname="argument retry_configs", value=retry_configs, expected_type=type_hints["retry_configs"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
@@ -294,6 +301,8 @@ class ECRDeploymentProps:
             self._values["image_arch"] = image_arch
         if memory_limit is not None:
             self._values["memory_limit"] = memory_limit
+        if retry_configs is not None:
+            self._values["retry_configs"] = retry_configs
         if role is not None:
             self._values["role"] = role
         if security_groups is not None:
@@ -370,6 +379,17 @@ class ECRDeploymentProps:
         '''
         result = self._values.get("memory_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def retry_configs(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, jsii.Number]]:
+        '''Retry configuration to apply to when copying images such as the number of retry attemtps, the base amount of delay (in seconds) between each retry, and the max amount of delay (in seconds) between each retry.
+
+        For example, { 'numAttempts': 3, 'baseDelay': 1, 'maxDelay': 5 }
+        '''
+        result = self._values.get("retry_configs")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, jsii.Number]], result)
 
     @builtins.property
     def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
@@ -619,6 +639,7 @@ def _typecheckingstub__d24bf38ee05e035f6d77ace8eb6a8a39c5a3ef61dbe1a8d4758949a37
     copy_image_index: typing.Optional[builtins.bool] = None,
     image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
+    retry_configs: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]] = None,
     vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
@@ -641,6 +662,7 @@ def _typecheckingstub__36cce9ade11503a84b3a05f93d6aeb623f18eb537004fb3c37776c491
     copy_image_index: typing.Optional[builtins.bool] = None,
     image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
+    retry_configs: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]] = None,
     vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,

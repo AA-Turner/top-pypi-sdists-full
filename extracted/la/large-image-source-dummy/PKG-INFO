@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: large-image-source-dummy
-Version: 1.34.0
+Version: 1.34.1
 Summary: A dummy tilesource for large_image.
 Home-page: https://github.com/girder/large_image
 Author: Kitware, Inc.
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: large-image>=1.34.0
+Requires-Dist: large-image>=1.34.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

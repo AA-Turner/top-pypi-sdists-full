@@ -55,21 +55,29 @@ class NeuroMorphoTool(BaseTool):
             elif endpoint == "neuron" and mode == "fields":
                 return self._get_field_values(arguments)
             else:
-                return {"error": f"Unknown endpoint/mode: {endpoint}/{mode}"}
+                return {
+                    "status": "error",
+                    "error": f"Unknown endpoint/mode: {endpoint}/{mode}",
+                }
 
         except requests.exceptions.Timeout:
             return {
-                "error": f"NeuroMorpho API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"NeuroMorpho API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to NeuroMorpho API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to NeuroMorpho API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response else "unknown"
-            return {"error": f"NeuroMorpho API HTTP error: {status}"}
+            return {"status": "error", "error": f"NeuroMorpho API HTTP error: {status}"}
         except Exception as e:
-            return {"error": f"Unexpected error querying NeuroMorpho: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying NeuroMorpho: {str(e)}",
+            }
 
     def _get_neuron_by_id(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get a neuron by its numeric ID or name."""
@@ -81,13 +89,17 @@ class NeuroMorphoTool(BaseTool):
         elif neuron_name:
             url = f"{NEUROMORPHO_BASE_URL}/neuron/name/{neuron_name}"
         else:
-            return {"error": "Either neuron_id or neuron_name is required"}
+            return {
+                "status": "error",
+                "error": "Either neuron_id or neuron_name is required",
+            }
 
         response = requests.get(url, timeout=self.timeout)
         response.raise_for_status()
         data = response.json()
 
         return {
+            "status": "success",
             "data": data,
             "metadata": {"total_results": 1},
         }
@@ -102,7 +114,7 @@ class NeuroMorphoTool(BaseTool):
         size = arguments.get("size", 20)
 
         if not query_value:
-            return {"error": "query_value parameter is required"}
+            return {"status": "error", "error": "query_value parameter is required"}
 
         # Clamp size to API max
         size = min(size, 500)
@@ -126,6 +138,7 @@ class NeuroMorphoTool(BaseTool):
         page_info = data.get("page", {})
 
         return {
+            "status": "success",
             "data": neurons,
             "metadata": {
                 "total_results": page_info.get("totalElements", len(neurons)),
@@ -145,13 +158,17 @@ class NeuroMorphoTool(BaseTool):
         elif neuron_name:
             url = f"{NEUROMORPHO_BASE_URL}/morphometry/name/{neuron_name}"
         else:
-            return {"error": "Either neuron_id or neuron_name is required"}
+            return {
+                "status": "error",
+                "error": "Either neuron_id or neuron_name is required",
+            }
 
         response = requests.get(url, timeout=self.timeout)
         response.raise_for_status()
         data = response.json()
 
         return {
+            "status": "success",
             "data": data,
             "metadata": {"total_results": 1},
         }
@@ -173,6 +190,7 @@ class NeuroMorphoTool(BaseTool):
         page_info = data.get("page", {})
 
         return {
+            "status": "success",
             "data": fields,
             "metadata": {
                 "field_name": field_name,

@@ -24,7 +24,7 @@ def OpenTargets_search_gwas_studies_by_disease(
     Parameters
     ----------
     diseaseIds : list[str]
-        Disease ontology IDs (e.g., ['MONDO_0005148'] for type 2 diabetes, ['EFO_0000...
+        Disease ontology IDs (e.g., ['MONDO_0005148'] for type 2 diabetes, ['MONDO_00...
     enableIndirect : bool
         Include studies for child disease terms (default true)
     size : int

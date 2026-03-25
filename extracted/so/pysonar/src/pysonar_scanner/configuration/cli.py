@@ -1,6 +1,6 @@
 #
 # Sonar Scanner Python
-# Copyright (C) 2011-2024 SonarSource SA.
+# Copyright (C) 2011-2026 SonarSource Sàrl
 # mailto:info AT sonarsource DOT com
 #
 # This program is free software; you can redistribute it and/or
@@ -142,7 +142,7 @@ class CliConfigurationLoader:
         parser.add_argument(
             "--toml-path",
             type=str,
-            help="Path to the pyproject.toml file. If not provided, it will look in the SONAR_PROJECT_BASE_DIR",
+            help="Path to the pyproject.toml file or to the folder containing it. If not provided, it will look in the SONAR_PROJECT_BASE_DIR",
         )
 
         parser.add_argument(
@@ -362,6 +362,12 @@ class CliConfigurationLoader:
             "--sonar-python-skip-unchanged",
             action=argparse.BooleanOptionalAction,
             help="Override the SonarQube configuration of skipping or not the analysis of unchanged Python files",
+        )
+        scanner_behavior_group.add_argument(
+            "--dry-run",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            help="Enable dry-run mode to validate configuration without connecting to SonarQube server or submitting analysis. See DRY_RUN_MODE.md for details",
         )
 
         jvm_group = parser.add_argument_group("JVM Settings")

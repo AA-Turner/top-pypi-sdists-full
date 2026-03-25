@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import os
 import sys
+import textwrap
 import types
 from collections.abc import Sequence
 from pathlib import Path
@@ -599,6 +600,33 @@ def test_resolve_import_from_level_beyond_package() -> None:
     node = ast.parse("from ...x import Y").body[0]
     assert isinstance(node, ast.ImportFrom)
     assert _resolve_import_from(node, "a") is None
+
+
+def test_resolve_stub_imports_handles_conditional_blocks() -> None:
+    source = textwrap.dedent("""\
+        import os
+        if sys.version_info >= (3, 11):
+            from typing import Self
+        else:
+            from typing_extensions import Self
+    """)
+    tree = ast.parse(source)
+    ns = _resolve_stub_imports(tree, "")
+    assert "os" in ns
+    assert "Self" in ns
+
+
+def test_resolve_stub_definitions_evaluates_typevars_and_classes() -> None:
+    source = textwrap.dedent("""\
+        from typing import TypeVar, TypedDict
+        _T = TypeVar("_T")
+        class MyDict(TypedDict):
+            x: int
+    """)
+    tree = ast.parse(source)
+    ns = _resolve_stub_imports(tree, "")
+    assert "_T" in ns
+    assert "MyDict" in ns
 
 
 def test_resolve_stub_imports_relative() -> None:

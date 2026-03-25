@@ -17,7 +17,7 @@ def EuropePMC_get_citations(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Get citations for an article from Europe PMC. Citations are articles that cite the specified arti...
 
@@ -40,7 +40,7 @@ def EuropePMC_get_citations(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -42,11 +42,17 @@ class RCSBGraphQLTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"RCSB Data API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"RCSB Data API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to RCSB Data API"}
+            return {"status": "error", "error": "Failed to connect to RCSB Data API"}
         except Exception as e:
-            return {"error": f"Unexpected error querying RCSB Data API: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying RCSB Data API: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate GraphQL query."""
@@ -57,7 +63,7 @@ class RCSBGraphQLTool(BaseTool):
         elif self.endpoint == "polymer_entity":
             return self._get_polymer_entity(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _execute_graphql(self, query_str: str) -> Dict[str, Any]:
         """Execute a GraphQL query against the RCSB Data API."""
@@ -72,7 +78,10 @@ class RCSBGraphQLTool(BaseTool):
 
         if "errors" in result:
             error_msgs = [e.get("message", "") for e in result["errors"]]
-            return {"error": f"GraphQL errors: {'; '.join(error_msgs)}"}
+            return {
+                "status": "error",
+                "error": f"GraphQL errors: {'; '.join(error_msgs)}",
+            }
 
         return result
 
@@ -88,7 +97,8 @@ class RCSBGraphQLTool(BaseTool):
 
         if not pdb_ids:
             return {
-                "error": "pdb_id or pdb_ids parameter is required (e.g., '4HHB' or '4HHB,1TUP')"
+                "status": "error",
+                "error": "pdb_id or pdb_ids parameter is required (e.g., '4HHB' or '4HHB,1TUP')",
             }
 
         # Uppercase PDB IDs
@@ -137,6 +147,7 @@ class RCSBGraphQLTool(BaseTool):
         entries = result.get("data", {}).get("entries", [])
         if not entries:
             return {
+                "status": "success",
                 "data": [],
                 "metadata": {
                     "source": "RCSB PDB GraphQL Data API",
@@ -182,6 +193,7 @@ class RCSBGraphQLTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": structures,
             "metadata": {
                 "source": "RCSB PDB GraphQL Data API",
@@ -195,7 +207,8 @@ class RCSBGraphQLTool(BaseTool):
         comp_id = arguments.get("comp_id", "")
         if not comp_id:
             return {
-                "error": "comp_id parameter is required (e.g., 'ATP', 'HEM', 'NAG')"
+                "status": "error",
+                "error": "comp_id parameter is required (e.g., 'ATP', 'HEM', 'NAG')",
             }
 
         comp_id = comp_id.upper().strip()
@@ -234,7 +247,10 @@ class RCSBGraphQLTool(BaseTool):
 
         comp = result.get("data", {}).get("chem_comp")
         if not comp:
-            return {"error": f"Chemical component '{comp_id}' not found in PDB"}
+            return {
+                "status": "error",
+                "error": f"Chemical component '{comp_id}' not found in PDB",
+            }
 
         basic = comp.get("chem_comp") or {}
         descriptor = comp.get("rcsb_chem_comp_descriptor") or {}
@@ -254,6 +270,7 @@ class RCSBGraphQLTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "comp_id": basic.get("id"),
                 "name": basic.get("name"),
@@ -286,7 +303,8 @@ class RCSBGraphQLTool(BaseTool):
 
         if not entity_ids:
             return {
-                "error": "pdb_id or entity_ids parameter is required (e.g., pdb_id='4HHB' or entity_ids='4HHB_1,4HHB_2')"
+                "status": "error",
+                "error": "pdb_id or entity_ids parameter is required (e.g., pdb_id='4HHB' or entity_ids='4HHB_1,4HHB_2')",
             }
 
         ids_str = '", "'.join(entity_ids)
@@ -321,6 +339,7 @@ class RCSBGraphQLTool(BaseTool):
         entities = result.get("data", {}).get("polymer_entities", [])
         if not entities:
             return {
+                "status": "success",
                 "data": [],
                 "metadata": {
                     "source": "RCSB PDB GraphQL Data API",
@@ -374,6 +393,7 @@ class RCSBGraphQLTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": polymer_list,
             "metadata": {
                 "source": "RCSB PDB GraphQL Data API",

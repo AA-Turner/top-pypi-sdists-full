@@ -58,6 +58,7 @@ from plato.chronos.api.workspace_repos import (
 from plato.chronos.api.workspace_repos import (
     list_audit_events as list_audit_events_api,
 )
+from plato.chronos.experiments import AsyncExperiments, Experiments
 from plato.chronos.models import (
     AnnotationResponse,
     AuditEventsListResponse,
@@ -257,6 +258,7 @@ class Chronos(_ChronosBase):
             timeout=timeout,
             headers={"X-API-Key": self._api_key} if self._api_key else {},
         )
+        self.experiments = Experiments(client=self._client)
 
     # -- Jobs --
 
@@ -629,6 +631,7 @@ class AsyncChronos(_ChronosBase):
             timeout=timeout,
             headers={"X-API-Key": self._api_key} if self._api_key else {},
         )
+        self.experiments = AsyncExperiments(client=self._client)
 
     # -- Jobs --
 
@@ -845,6 +848,7 @@ class AsyncChronos(_ChronosBase):
         review_type: str | None = None,
         author_type: str = "agent",
         analyzer_session_id: str | None = None,
+        scores: dict[str, float] | None = None,
     ) -> ReviewResponse:
         """Create a review on a session."""
         from plato.chronos.models import ReviewType as _ReviewType
@@ -857,8 +861,32 @@ class AsyncChronos(_ChronosBase):
             review_type=_ReviewType(review_type) if review_type else None,
             author_type=_AuthorType(author_type),
             analyzer_session_id=analyzer_session_id,
+            scores=scores,
         )
         return await create_review_api.asyncio(self._client, body=body)
+
+    async def update_review(
+        self,
+        review_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        scores: dict[str, float] | None = None,
+    ) -> ReviewResponse:
+        """Update an existing review."""
+        from plato.chronos.api.reviews import (
+            update_review_api_reviews__review_public_id__put as update_review_api,
+        )
+        from plato.chronos.models import UpdateReviewRequest
+
+        body = UpdateReviewRequest(
+            name=name,
+            description=description,
+            tags=tags,
+            scores=scores,
+        )
+        return await update_review_api.asyncio(self._client, review_public_id=review_id, body=body)
 
     async def list_reviews(
         self,

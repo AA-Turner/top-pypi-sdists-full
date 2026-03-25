@@ -9,7 +9,7 @@ from ._shared_client import get_shared_client
 
 
 def ols_search_ontologies(
-    operation: str,
+    operation: Optional[str] = None,
     search: Optional[str] = None,
     page: Optional[int] = 0,
     size: Optional[int] = 20,

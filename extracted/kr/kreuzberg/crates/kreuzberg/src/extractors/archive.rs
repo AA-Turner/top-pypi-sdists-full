@@ -3,13 +3,14 @@
 use crate::Result;
 use crate::core::config::ExtractionConfig;
 use crate::extraction::archive::{
-    ArchiveMetadata as ExtractedMetadata, extract_7z_metadata, extract_7z_text_content, extract_gzip,
-    extract_tar_metadata, extract_tar_text_content, extract_zip_metadata, extract_zip_text_content,
+    ArchiveMetadata as ExtractedMetadata, extract_7z_file_bytes, extract_7z_metadata, extract_7z_text_content,
+    extract_gzip, extract_gzip_with_bytes, extract_tar_file_bytes, extract_tar_metadata, extract_tar_text_content,
+    extract_zip_file_bytes, extract_zip_metadata, extract_zip_text_content,
 };
 use crate::extractors::SyncExtractor;
 use crate::extractors::security::ZipBombValidator;
 use crate::plugins::{DocumentExtractor, Plugin};
-use crate::types::{ArchiveMetadata, ExtractionResult, Metadata};
+use crate::types::{ArchiveMetadata, ExtractionResult, Metadata, ProcessingWarning};
 use ahash::AHashMap;
 use async_trait::async_trait;
 use std::borrow::Cow;
@@ -18,13 +19,14 @@ use std::io::Cursor;
 
 /// Build an ExtractionResult from archive metadata and text contents.
 ///
-/// This helper function eliminates duplication across ZIP/TAR/7Z extractors by centralizing
-/// the logic for transforming extracted metadata into the final result structure.
-fn build_archive_result(
+/// Shared inner function — takes pre-computed children and warnings.
+fn build_archive_result_inner(
     extraction_metadata: ExtractedMetadata,
     text_contents: HashMap<String, String>,
     format_name: &'static str,
     mime_type: &str,
+    children: Vec<crate::types::ArchiveEntry>,
+    processing_warnings: Vec<ProcessingWarning>,
 ) -> ExtractionResult {
     let file_names: Vec<String> = extraction_metadata
         .file_list
@@ -65,7 +67,7 @@ fn build_archive_result(
 
     if !text_contents.is_empty() {
         output.push_str("\n\nText File Contents:\n\n");
-        for (path, content) in text_contents {
+        for (path, content) in &text_contents {
             output.push_str(&format!("=== {} ===\n{}\n\n", path, content));
         }
     }
@@ -90,9 +92,89 @@ fn build_archive_result(
         #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
         extracted_keywords: None,
         quality_score: None,
-        processing_warnings: Vec::new(),
+        processing_warnings,
         annotations: None,
+        children: if children.is_empty() { None } else { Some(children) },
     }
+}
+
+/// Sync version — no recursive child extraction.
+fn build_archive_result_sync(
+    extraction_metadata: ExtractedMetadata,
+    text_contents: HashMap<String, String>,
+    format_name: &'static str,
+    mime_type: &str,
+) -> ExtractionResult {
+    build_archive_result_inner(
+        extraction_metadata,
+        text_contents,
+        format_name,
+        mime_type,
+        Vec::new(),
+        Vec::new(),
+    )
+}
+
+/// Async version with recursive extraction of archive children.
+///
+/// When `config.max_archive_depth > current_depth`, extracts each file in `file_bytes`
+/// by detecting its MIME type and dispatching to the appropriate extractor.
+async fn build_archive_result(
+    extraction_metadata: ExtractedMetadata,
+    text_contents: HashMap<String, String>,
+    file_bytes: HashMap<String, Vec<u8>>,
+    format_name: &'static str,
+    mime_type: &str,
+    config: &ExtractionConfig,
+    current_depth: usize,
+) -> ExtractionResult {
+    let mut children = Vec::new();
+    let mut processing_warnings = Vec::new();
+
+    if config.max_archive_depth > current_depth && !file_bytes.is_empty() {
+        for (path, bytes) in &file_bytes {
+            let detected_mime = crate::core::mime::detect_mime_type_from_bytes(bytes).ok().or_else(|| {
+                std::path::Path::new(path)
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .and_then(|ext| mime_guess::from_ext(ext).first())
+                    .map(|m| m.to_string())
+            });
+
+            let file_mime = match detected_mime {
+                Some(m) if m != "application/octet-stream" => m,
+                _ => continue,
+            };
+
+            let mut child_config = config.clone();
+            child_config.max_archive_depth = config.max_archive_depth.saturating_sub(current_depth + 1);
+
+            match crate::core::extractor::extract_bytes(bytes, &file_mime, &child_config).await {
+                Ok(result) => {
+                    children.push(crate::types::ArchiveEntry {
+                        path: path.clone(),
+                        mime_type: file_mime,
+                        result: Box::new(result),
+                    });
+                }
+                Err(e) => {
+                    processing_warnings.push(ProcessingWarning {
+                        source: Cow::Borrowed("archive_recursive_extraction"),
+                        message: Cow::Owned(format!("Failed to extract '{}': {}", path, e)),
+                    });
+                }
+            }
+        }
+    }
+
+    build_archive_result_inner(
+        extraction_metadata,
+        text_contents,
+        format_name,
+        mime_type,
+        children,
+        processing_warnings,
+    )
 }
 
 /// ZIP archive extractor.
@@ -168,12 +250,17 @@ impl DocumentExtractor for ZipExtractor {
 
         let extraction_metadata = extract_zip_metadata(content, &limits)?;
         let text_contents = extract_zip_text_content(content, &limits)?;
+        let file_bytes = extract_zip_file_bytes(content, &limits)?;
         Ok(build_archive_result(
             extraction_metadata,
             text_contents,
+            file_bytes,
             "ZIP",
             mime_type,
-        ))
+            config,
+            0,
+        )
+        .await)
     }
 
     fn supported_mime_types(&self) -> &[&str] {
@@ -202,7 +289,7 @@ impl SyncExtractor for ZipExtractor {
 
         let extraction_metadata = extract_zip_metadata(content, &limits)?;
         let text_contents = extract_zip_text_content(content, &limits)?;
-        Ok(build_archive_result(
+        Ok(build_archive_result_sync(
             extraction_metadata,
             text_contents,
             "ZIP",
@@ -274,12 +361,17 @@ impl DocumentExtractor for TarExtractor {
         let limits = config.security_limits.clone().unwrap_or_default();
         let extraction_metadata = extract_tar_metadata(content, &limits)?;
         let text_contents = extract_tar_text_content(content, &limits)?;
+        let file_bytes = extract_tar_file_bytes(content, &limits)?;
         Ok(build_archive_result(
             extraction_metadata,
             text_contents,
+            file_bytes,
             "TAR",
             mime_type,
-        ))
+            config,
+            0,
+        )
+        .await)
     }
 
     fn supported_mime_types(&self) -> &[&str] {
@@ -301,11 +393,11 @@ impl DocumentExtractor for TarExtractor {
 }
 
 impl SyncExtractor for TarExtractor {
-    fn extract_sync(&self, content: &[u8], mime_type: &str, config: &ExtractionConfig) -> Result<ExtractionResult> {
-        let limits = config.security_limits.clone().unwrap_or_default();
+    fn extract_sync(&self, content: &[u8], mime_type: &str, _config: &ExtractionConfig) -> Result<ExtractionResult> {
+        let limits = _config.security_limits.clone().unwrap_or_default();
         let extraction_metadata = extract_tar_metadata(content, &limits)?;
         let text_contents = extract_tar_text_content(content, &limits)?;
-        Ok(build_archive_result(
+        Ok(build_archive_result_sync(
             extraction_metadata,
             text_contents,
             "TAR",
@@ -377,12 +469,17 @@ impl DocumentExtractor for SevenZExtractor {
         let limits = config.security_limits.clone().unwrap_or_default();
         let extraction_metadata = extract_7z_metadata(content, &limits)?;
         let text_contents = extract_7z_text_content(content, &limits)?;
+        let file_bytes = extract_7z_file_bytes(content, &limits)?;
         Ok(build_archive_result(
             extraction_metadata,
             text_contents,
+            file_bytes,
             "7Z",
             mime_type,
-        ))
+            config,
+            0,
+        )
+        .await)
     }
 
     fn supported_mime_types(&self) -> &[&str] {
@@ -399,11 +496,11 @@ impl DocumentExtractor for SevenZExtractor {
 }
 
 impl SyncExtractor for SevenZExtractor {
-    fn extract_sync(&self, content: &[u8], mime_type: &str, config: &ExtractionConfig) -> Result<ExtractionResult> {
-        let limits = config.security_limits.clone().unwrap_or_default();
+    fn extract_sync(&self, content: &[u8], mime_type: &str, _config: &ExtractionConfig) -> Result<ExtractionResult> {
+        let limits = _config.security_limits.clone().unwrap_or_default();
         let extraction_metadata = extract_7z_metadata(content, &limits)?;
         let text_contents = extract_7z_text_content(content, &limits)?;
-        Ok(build_archive_result(
+        Ok(build_archive_result_sync(
             extraction_metadata,
             text_contents,
             "7Z",
@@ -473,13 +570,17 @@ impl DocumentExtractor for GzipExtractor {
         config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let limits = config.security_limits.clone().unwrap_or_default();
-        let (extraction_metadata, text_contents) = extract_gzip(content, &limits)?;
+        let (extraction_metadata, text_contents, file_bytes) = extract_gzip_with_bytes(content, &limits)?;
         Ok(build_archive_result(
             extraction_metadata,
             text_contents,
+            file_bytes,
             "GZIP",
             mime_type,
-        ))
+            config,
+            0,
+        )
+        .await)
     }
 
     fn supported_mime_types(&self) -> &[&str] {
@@ -496,10 +597,10 @@ impl DocumentExtractor for GzipExtractor {
 }
 
 impl SyncExtractor for GzipExtractor {
-    fn extract_sync(&self, content: &[u8], mime_type: &str, config: &ExtractionConfig) -> Result<ExtractionResult> {
-        let limits = config.security_limits.clone().unwrap_or_default();
+    fn extract_sync(&self, content: &[u8], mime_type: &str, _config: &ExtractionConfig) -> Result<ExtractionResult> {
+        let limits = _config.security_limits.clone().unwrap_or_default();
         let (extraction_metadata, text_contents) = extract_gzip(content, &limits)?;
-        Ok(build_archive_result(
+        Ok(build_archive_result_sync(
             extraction_metadata,
             text_contents,
             "GZIP",

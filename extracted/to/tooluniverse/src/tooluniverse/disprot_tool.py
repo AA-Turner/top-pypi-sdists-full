@@ -41,16 +41,25 @@ class DisProtTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"DisProt API timed out after {self.timeout}s."}
+            return {
+                "status": "error",
+                "error": f"DisProt API timed out after {self.timeout}s.",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to DisProt API (www.disprot.org)."}
+            return {
+                "status": "error",
+                "error": "Failed to connect to DisProt API (www.disprot.org).",
+            }
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
             if status == 404:
-                return {"error": "Entry not found in DisProt. Check the accession."}
-            return {"error": f"DisProt API HTTP {status}"}
+                return {
+                    "status": "error",
+                    "error": "Entry not found in DisProt. Check the accession.",
+                }
+            return {"status": "error", "error": f"DisProt API HTTP {status}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -59,13 +68,16 @@ class DisProtTool(BaseTool):
         elif self.endpoint == "get_entry":
             return self._get_entry(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search DisProt for disordered proteins."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query is required (e.g., 'TP53', 'kinase', 'amyloid')."}
+            return {
+                "status": "error",
+                "error": "query is required (e.g., 'TP53', 'kinase', 'amyloid').",
+            }
 
         params = {
             "q": query,
@@ -98,6 +110,7 @@ class DisProtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": entries,
             "metadata": {
                 "source": "DisProt (disprot.org)",
@@ -111,7 +124,8 @@ class DisProtTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession is required. Use DisProt ID (e.g., 'DP00086') or UniProt accession (e.g., 'P04637')."
+                "status": "error",
+                "error": "accession is required. Use DisProt ID (e.g., 'DP00086') or UniProt accession (e.g., 'P04637').",
             }
 
         # Determine whether it's a DisProt ID (DP*) or UniProt accession
@@ -127,7 +141,10 @@ class DisProtTool(BaseTool):
 
         results = search_result.get("data", [])
         if not results:
-            return {"error": f"Entry not found in DisProt for accession '{accession}'."}
+            return {
+                "status": "error",
+                "error": f"Entry not found in DisProt for accession '{accession}'.",
+            }
         data = results[0]
 
         # Extract regions
@@ -158,6 +175,7 @@ class DisProtTool(BaseTool):
         gene_name = genes[0].get("name", {}).get("value", "") if genes else ""
 
         return {
+            "status": "success",
             "data": {
                 "disprot_id": data.get("disprot_id"),
                 "acc": data.get("acc"),

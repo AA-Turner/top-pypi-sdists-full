@@ -1060,7 +1060,13 @@ class PageConfig:
 
     Example:
         >>> from kreuzberg import ExtractionConfig, PageConfig
-        >>> config = ExtractionConfig(pages=PageConfig(extract_pages=True))
+        >>> # Default configuration (no page extraction)
+        >>> config = ExtractionConfig(pages=PageConfig())
+        >>> # Enable page extraction and markers
+        >>> config = ExtractionConfig(pages=PageConfig(extract_pages=True, insert_page_markers=True))
+
+    Note:
+        Set `extract_pages=True` when using `result_format="element_based"` to get per-page content extraction.
     """
 
     extract_pages: bool

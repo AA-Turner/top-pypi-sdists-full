@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: hatchet-sdk
-Version: 1.29.2
+Version: 1.29.3
 Summary: This is the official Python SDK for Hatchet, a distributed, fault-tolerant task queue. The SDK allows you to easily integrate Hatchet's task scheduling and workflow orchestration capabilities into your Python applications.
 License: MIT
 Author: Alexander Belanger
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: otel
 Provides-Extra: v0-sdk
 Requires-Dist: aiohttp (>=3.10.5,<4.0.0)

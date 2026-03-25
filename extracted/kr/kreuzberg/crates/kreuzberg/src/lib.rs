@@ -42,6 +42,7 @@ pub mod extractors;
 pub mod model_cache;
 pub mod panic_context;
 pub mod plugins;
+pub mod rendering;
 pub mod text;
 pub mod types;
 pub mod utils;

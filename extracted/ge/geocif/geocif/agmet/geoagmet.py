@@ -1,5 +1,10 @@
 import ast
+import os
+import shutil
+import zipfile
 import multiprocessing as mp
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import arrow as ar
 import numpy as np
@@ -275,7 +280,7 @@ class AgmetGeo(base.BaseGeo):
             country=country_str,
             crop=crop_str,
             admin_zone=self.scale,
-            stats=["Yield (tn per ha)"],
+            stats=["Yield (tn per ha)", "Production (tn)", "Area (ha)"],
             method="",
             parser=self.parser,
         )
@@ -471,6 +476,21 @@ def _process_combination(obj, country, scale, crop, growing_season):
         tqdm.write(f"  Skipping {country} {crop} s{growing_season}: {e}")
         return
 
+    # Read boundary shapefile ONCE, filter to current country
+    boundary_gdf = None
+    try:
+        import geopandas as gpd
+        boundary_path = obj.dir_boundary_files / obj.parser.get(obj.country, "boundary_file")
+        if boundary_path.exists():
+            gdf = gpd.read_file(boundary_path, engine="pyogrio")
+            adm0_col = next((c for c in ["ADM0_NAME", "ADMIN0", "name0"] if c in gdf.columns), None)
+            if adm0_col:
+                country_norm = obj.country.replace("_", " ").lower()
+                mask = gdf[adm0_col].str.lower().str.replace("_", " ") == country_norm
+                boundary_gdf = gdf[mask].copy()
+    except Exception:
+        pass
+
     for plot_season in obj.plot_seasons:
         obj.get_closest_season(plot_season)
 
@@ -510,6 +530,9 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 sup_title=sup_title,
                 fname=f"{obj.region}.png",
                 production_pct=region_pct,
+                country=obj.country,
+                region=obj.region,
+                boundary_gdf=boundary_gdf,
             ).plot()
 
         ###############################################################
@@ -594,6 +617,9 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     sup_title=sup_title,
                     fname=f"{cal_region}.png",
                     production_pct=district_pct,
+                    country=obj.country,
+                    region=cal_region,
+                    boundary_gdf=boundary_gdf,
                 ).plot()
 
 
@@ -607,6 +633,61 @@ def _agmet_worker(args):
     obj = AgmetGeo(path_config_file)
     obj.read_statistics(read_countries=True)
     _process_combination(obj, country, scale, crop, growing_season)
+
+
+_COUNTRIES_AMIS_TO_EWCM = [
+    "vietnam", "thailand", "south_africa", "indonesia",
+    "kazakhstan", "philippines",
+]
+
+
+def _finalize_plots(plots_root):
+    """Cross-copy EWCM/AMIS country folders and create ZIP archives.
+
+    1. Copy EWCM/egypt → AMIS/egypt
+    2. Copy AMIS/{country} → EWCM/{country} for selected countries
+    3. Zip AMIS/ and EWCM/ into the parent date directory
+    """
+    tz = ZoneInfo("America/New_York")
+    today = datetime.now(tz).date()
+
+    # Find today's or yesterday's plots directory
+    plots_dir = None
+    for offset in (0, 1):
+        candidate = plots_root / (today - timedelta(days=offset)).strftime("%B_%d_%Y") / "plots"
+        if candidate.exists():
+            plots_dir = candidate
+            break
+
+    if plots_dir is None:
+        return
+
+    date_dir = plots_dir.parent
+    amis_dir = plots_dir / "AMIS"
+    ewcm_dir = plots_dir / "EWCM"
+
+    # 1. Copy egypt EWCM → AMIS
+    src_egypt = ewcm_dir / "egypt"
+    if src_egypt.exists():
+        shutil.copytree(src_egypt, amis_dir / "egypt", dirs_exist_ok=True)
+
+    # 2. Copy selected countries AMIS → EWCM
+    if amis_dir.exists():
+        for country in _COUNTRIES_AMIS_TO_EWCM:
+            src = amis_dir / country
+            if src.exists():
+                shutil.copytree(src, ewcm_dir / country, dirs_exist_ok=True)
+
+    # 3. Zip the final directories
+    for folder in (amis_dir, ewcm_dir):
+        if not folder.exists():
+            continue
+        zip_path = date_dir / f"{folder.name}.zip"
+        if zip_path.exists():
+            zip_path.unlink()
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for f in folder.rglob("*"):
+                zf.write(f, f.relative_to(folder))
 
 
 def loop_agmet(path_config_file=None):
@@ -669,6 +750,16 @@ def loop_agmet(path_config_file=None):
         for country, scale, crop, growing_season in pbar:
             pbar.set_description(f"{country} ({crop} s{growing_season})")
             _process_combination(obj, country, scale, crop, growing_season)
+
+    # Clean up empty output directories
+    plots_root = obj.dir_output / "crop_condition"
+    if plots_root.exists():
+        for dirpath, dirnames, filenames in os.walk(str(plots_root), topdown=False):
+            if not filenames and not os.listdir(dirpath):
+                os.rmdir(dirpath)
+
+    # Finalize: cross-copy EWCM/AMIS countries and create ZIP archives
+    _finalize_plots(plots_root)
 
 
 def run(path_config_files=[]):

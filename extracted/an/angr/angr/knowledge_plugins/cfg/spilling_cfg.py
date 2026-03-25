@@ -59,7 +59,6 @@ class SpillingCFGNodeDict:
     ):
         self._data: dict[K, CFGNode] = {}
         self._spilled_keys: set[K] = set()
-        self._all_keys: set[K] = set()  # all_keys == _data.keys() | _spilled_keys, used for iteration
 
         self._cache_limit: int = cache_limit
         self._db_batch_size: int = db_batch_size
@@ -112,20 +111,19 @@ class SpillingCFGNodeDict:
             del self._data[block_key]
         # Remove from spilled set if present
         self._spilled_keys.discard(block_key)
-        self._all_keys.discard(block_key)
         # Remove from LRU order
         if block_key in self._lru_order:
             del self._lru_order[block_key]
 
     def __contains__(self, block_key: K) -> bool:
-        return block_key in self._all_keys
+        return block_key in self._data or block_key in self._spilled_keys
 
     def __len__(self) -> int:
-        return len(self._all_keys)
+        return len(self._data) + len(self._spilled_keys)
 
     def __iter__(self) -> Iterator[K]:
         # Iterate over all block_keys
-        yield from self._all_keys
+        yield from list(self._data) + list(self._spilled_keys)
 
     def get(self, block_key: K, default: CFGNode | None = None) -> CFGNode | None:
         try:
@@ -148,7 +146,6 @@ class SpillingCFGNodeDict:
         self._data.clear()
         self._lru_order.clear()
         self._spilled_keys.clear()
-        self._all_keys.clear()
         self._cleanup_lmdb()
 
     def copy(self) -> SpillingCFGNodeDict:
@@ -160,8 +157,6 @@ class SpillingCFGNodeDict:
         )
         # Temporarily disable eviction during copy
         new_dict._eviction_enabled = False
-
-        new_dict._all_keys = set(self._all_keys)
 
         # Copy in-memory nodes
         for block_key, node in self._data.items():
@@ -221,7 +216,7 @@ class SpillingCFGNodeDict:
 
     @property
     def total_count(self) -> int:
-        return len(self._all_keys)
+        return len(self._spilled_keys) + len(self._data)
 
     def is_cached(self, block_key: K) -> bool:
         return block_key in self._data
@@ -237,7 +232,6 @@ class SpillingCFGNodeDict:
             self._lru_order[block_key] = None
 
     def _on_node_stored(self, block_key: K) -> None:
-        self._all_keys.add(block_key)
         self._touch(block_key)
         self._spilled_keys.discard(block_key)
 
@@ -423,7 +417,6 @@ class SpillingCFGNodeDict:
         self._cfg_model_ref = None
         self._lru_order = OrderedDict()
         self._spilled_keys = set()
-        self._all_keys = set()
         self._nodesdb = None
         self._eviction_enabled = True
         self._loading_from_lmdb = False
@@ -648,16 +641,14 @@ class _OutDegreeView:
 
     def __getitem__(self, node: CFGNode) -> int:
         block_key = get_block_key(node)
-        if block_key not in self._graph._graph:
-            return 0
-        return self._graph._graph.out_degree(block_key)
+        return self._graph._out_degree_cache.get(block_key, 0)
 
     def __iter__(self) -> Iterator[tuple[CFGNode, int]]:
-        for block_key, deg in self._graph._graph.out_degree():
+        for block_key, deg in self._graph._out_degree_cache.items():
             yield self._graph.get_node_by_key(block_key), deg
 
     def __len__(self) -> int:
-        return len(self._graph._graph)
+        return len(self._graph._out_degree_cache)
 
 
 @overload
@@ -695,7 +686,7 @@ def block_key_to_addr(block_key: CFGNODE_K | CFGENODE_K) -> int: ...
 def block_key_to_addr(block_key: SOOTNODE_K) -> SootAddressDescriptor: ...
 
 
-def block_key_to_addr(block_key: K) -> int:
+def block_key_to_addr(block_key: K) -> int | SootAddressDescriptor:
     """Extract the address from a block key."""
     if isinstance(block_key, SootAddressDescriptor):
         return block_key
@@ -705,6 +696,16 @@ def block_key_to_addr(block_key: K) -> int:
             return item.addr
         assert isinstance(item, int)
         return item
+    raise ValueError(f"Invalid block key format: {block_key!r}")
+
+
+def block_key_to_size(block_key: K) -> int | None:
+    """Extract the size from a block key, if present."""
+    if isinstance(block_key, SootAddressDescriptor):
+        return None
+    if isinstance(block_key, tuple) and len(block_key) >= 2:
+        size = block_key[1]
+        return size if size != -1 else None
     raise ValueError(f"Invalid block key format: {block_key!r}")
 
 
@@ -718,6 +719,8 @@ class SpillingCFG:
     addr_type must be "int", "block_id", or "soot". You can change addr_type before the first node is inserted but not
     after, since it affects how keys are serialized and deserialized.
     """
+
+    _addr_type: CFG_ADDR_TYPES
 
     def __init__(
         self,
@@ -756,6 +759,8 @@ class SpillingCFG:
             db_batch_size=db_batch_size,
         )
         self._keys_by_addr: dict[int, set[K]] = defaultdict(set)
+        self._call_dst_keys: set[K] = set()
+        self._out_degree_cache: dict[K, int] = {}
         self._spilling_enabled = cache_limit is not None
         self._edge_spilling_enabled = edge_cache_limit is not None
 
@@ -814,7 +819,29 @@ class SpillingCFG:
         if not self._keys_by_addr.get(node.addr):
             self._keys_by_addr.pop(node.addr, None)
         if block_key in self._graph:
+            # Update call destination cache: remove this node as a destination
+            self._call_dst_keys.discard(block_key)
+            # For each outgoing call edge, check if the successor loses all incoming call edges
+            for _, succ_key, edata in self._graph.out_edges(block_key, data=True):
+                ejk = edata.get("jumpkind", "")
+                if (ejk == "Ijk_Call" or ejk.startswith("Ijk_Sys")) and succ_key in self._call_dst_keys:
+                    has_other_call = False
+                    for pred_key, _, pred_edata in self._graph.in_edges(succ_key, data=True):
+                        if pred_key == block_key:
+                            continue
+                        pjk = pred_edata.get("jumpkind", "")
+                        if pjk == "Ijk_Call" or pjk.startswith("Ijk_Sys"):
+                            has_other_call = True
+                            break
+                    if not has_other_call:
+                        self._call_dst_keys.discard(succ_key)
+
+            # Decrement out_degree_cache for each predecessor
+            for pred_key in self._graph.predecessors(block_key):
+                if pred_key in self._out_degree_cache:
+                    self._out_degree_cache[pred_key] -= 1
             self._graph.remove_node(block_key)
+        self._out_degree_cache.pop(block_key, None)
 
     def has_node(self, node: CFGNode) -> bool:
         block_key = get_block_key(node)
@@ -858,6 +885,9 @@ class SpillingCFG:
         self._nodes[src_block_key] = src
         self._nodes[dst_block_key] = dst
 
+        self.add_edge_by_key(src_block_key, dst_block_key, **attr)
+
+    def add_edge_by_key(self, src_block_key: K, dst_block_key: K, **attr) -> None:
         # Ensure nodes exist in the graph structure
         if src_block_key not in self._graph:
             self._graph.add_node(src_block_key)
@@ -865,12 +895,42 @@ class SpillingCFG:
         if dst_block_key not in self._graph:
             self._graph.add_node(dst_block_key)
 
+        # Update out_degree_cache before adding edge (only increment if edge is new)
+        has_edge = self._graph.has_edge(src_block_key, dst_block_key)
         self._graph.add_edge(src_block_key, dst_block_key, **attr)
+        if not has_edge:
+            self._out_degree_cache[src_block_key] = self._out_degree_cache.get(src_block_key, 0) + 1
+
+        # Track call destination keys
+        jumpkind = attr.get("jumpkind", "")
+        if jumpkind == "Ijk_Call" or jumpkind.startswith("Ijk_Sys"):
+            self._call_dst_keys.add(dst_block_key)
 
     def remove_edge(self, src: CFGNode, dst: CFGNode) -> None:
         src_block_key = get_block_key(src)
         dst_block_key = get_block_key(dst)
+
+        # Update call destination cache before removing the edge
+        if dst_block_key in self._call_dst_keys:
+            edge_data = self._graph.get_edge_data(src_block_key, dst_block_key)
+            if edge_data is not None:
+                jk = edge_data.get("jumpkind", "")
+                if jk == "Ijk_Call" or jk.startswith("Ijk_Sys"):
+                    # Check if dst has any other incoming call edges
+                    has_other_call = False
+                    for pred_key, _, edata in self._graph.in_edges(dst_block_key, data=True):
+                        if pred_key == src_block_key:
+                            continue
+                        ejk = edata.get("jumpkind", "")
+                        if ejk == "Ijk_Call" or ejk.startswith("Ijk_Sys"):
+                            has_other_call = True
+                            break
+                    if not has_other_call:
+                        self._call_dst_keys.discard(dst_block_key)
+
         self._graph.remove_edge(src_block_key, dst_block_key)
+        if src_block_key in self._out_degree_cache:
+            self._out_degree_cache[src_block_key] -= 1
 
     def has_edge(self, src: CFGNode, dst: CFGNode) -> bool:
         src_block_key = get_block_key(src)
@@ -889,6 +949,20 @@ class SpillingCFG:
     def edges(self) -> _EdgeView:
         """Return a view of edges supporting len(), iteration, and call with data=True."""
         return _EdgeView(self)
+
+    #
+    # Call destination cache
+    #
+
+    @property
+    def call_destination_keys(self) -> set[K]:
+        """Return the set of block keys that are destinations of call/syscall edges."""
+        return self._call_dst_keys
+
+    def call_destination_nodes(self) -> Iterator[CFGNode]:
+        """Yield CFGNode for each call/syscall destination."""
+        for key in self._call_dst_keys:
+            yield self.get_node_by_key(key)
 
     #
     # Neighbor operations
@@ -935,9 +1009,7 @@ class SpillingCFG:
         yield from self._graph.out_edges(key, data=data)
 
     def out_degree_by_key(self, key: K) -> int:
-        if key not in self._graph:
-            return 0
-        return self._graph.out_degree(key)
+        return self._out_degree_cache.get(key, 0)
 
     #
     # Adjacency access
@@ -961,6 +1033,7 @@ class SpillingCFG:
             db_batch_size=self._nodes.db_batch_size,
             edge_cache_limit=self._graph._edge_cache_limit if self._edge_spilling_enabled else None,
             edge_db_batch_size=self._graph._edge_db_batch_size,
+            addr_type=self._addr_type,
         )
 
         new_graph._nodes = self._nodes.copy()
@@ -969,7 +1042,9 @@ class SpillingCFG:
         new_graph._keys_by_addr = defaultdict(set)
         for addr, keys in self._keys_by_addr.items():
             new_graph._keys_by_addr[addr] = set(keys)
+        new_graph._call_dst_keys = set(self._call_dst_keys)
         new_graph._graph = self._graph.copy()
+        new_graph._out_degree_cache = dict(self._out_degree_cache)
 
         return new_graph
 
@@ -1006,6 +1081,8 @@ class SpillingCFG:
         """
         Load graph structure from a networkx DiGraph with CFGNode instances as nodes.
         """
+        self._out_degree_cache.clear()
+        self._call_dst_keys.clear()
         self._graph.clear()
         self._nodes.clear()
 
@@ -1072,9 +1149,11 @@ class SpillingCFG:
             "spilling_enabled": self._spilling_enabled,
             "edge_spilling_enabled": self._edge_spilling_enabled,
             "db_batch_size": self._nodes.db_batch_size,
+            "addr_type": self._addr_type,
         }
 
     def __setstate__(self, state: dict):
+        self._addr_type = state.get("addr_type", "int")
         self._graph = state["graph"]
         self._spilling_enabled = state["spilling_enabled"]
         self._edge_spilling_enabled = state.get("edge_spilling_enabled", False)
@@ -1089,3 +1168,15 @@ class SpillingCFG:
         # initialize _keys_by_addr
         for node_key, node in self._nodes.items():
             self._keys_by_addr[node.addr].add(node_key)
+
+        # rebuild _out_degree_cache from the graph
+        self._out_degree_cache = {}
+        for key, deg in self._graph.out_degree():
+            self._out_degree_cache[key] = deg
+
+        # rebuild call destination keys cache from edges
+        self._call_dst_keys = set()
+        for _, dst_key, edata in self._graph.edges(data=True):
+            jk = edata.get("jumpkind", "")
+            if jk == "Ijk_Call" or jk.startswith("Ijk_Sys"):
+                self._call_dst_keys.add(dst_key)

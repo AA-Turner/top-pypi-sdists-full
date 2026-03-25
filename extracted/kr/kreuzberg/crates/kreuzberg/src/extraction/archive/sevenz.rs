@@ -136,3 +136,61 @@ pub fn extract_7z_text_content(bytes: &[u8], limits: &SecurityLimits) -> Result<
 
     Ok(contents)
 }
+
+/// Extract raw file bytes for all non-directory entries in a 7z archive.
+///
+/// Returns a `HashMap` mapping file paths to their raw byte content.
+/// Respects security limits for file count and total archive size.
+///
+/// # Arguments
+///
+/// * `bytes` - The 7z archive bytes
+/// * `limits` - Security limits for archive extraction
+///
+/// # Errors
+///
+/// Returns an error if the 7z archive cannot be read or if security limits are exceeded.
+pub fn extract_7z_file_bytes(bytes: &[u8], limits: &SecurityLimits) -> Result<HashMap<String, Vec<u8>>> {
+    let cursor = Cursor::new(bytes);
+    let mut archive = ArchiveReader::new(cursor, Password::empty())
+        .map_err(|e| KreuzbergError::parsing(format!("Failed to read 7z archive: {}", e)))?;
+
+    let file_count = archive.archive().files.len();
+    if file_count > limits.max_files_in_archive {
+        return Err(KreuzbergError::validation(format!(
+            "7z archive has too many files: {} (max: {})",
+            file_count, limits.max_files_in_archive
+        )));
+    }
+
+    let mut file_bytes = HashMap::new();
+    let max_size = limits.max_archive_size;
+    let mut total_size = 0usize;
+
+    archive
+        .for_each_entries(|entry, reader| {
+            let path = entry.name().to_string();
+
+            if !entry.is_directory() {
+                let mut content = Vec::new();
+                if reader.read_to_end(&mut content).is_ok() {
+                    total_size = total_size.saturating_add(content.len());
+                    if total_size > max_size {
+                        return Ok(false);
+                    }
+                    file_bytes.insert(path, content);
+                }
+            }
+            Ok(true)
+        })
+        .map_err(|e| KreuzbergError::parsing(format!("Failed to read 7z entries: {}", e)))?;
+
+    if total_size > max_size {
+        return Err(KreuzbergError::validation(format!(
+            "7z archive total extracted size exceeds limit: {} bytes (max: {} bytes)",
+            total_size, max_size
+        )));
+    }
+
+    Ok(file_bytes)
+}

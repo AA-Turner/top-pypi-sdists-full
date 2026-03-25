@@ -460,7 +460,17 @@ testcase!(
     test_export_all_wrongly,
     env_export_all_wrongly(),
     r#"
-from foo import bad_definition  # E: Could not import `bad_definition` from `foo`
+from foo import bad_definition
+x = bad_definition
+"#,
+);
+
+testcase!(
+    test_export_all_wrongly_missing_other_name,
+    env_export_all_wrongly(),
+    r#"
+from foo import missing_definition  # E: Could not import `missing_definition` from `foo`
+x = missing_definition
 "#,
 );
 
@@ -468,7 +478,7 @@ testcase!(
     test_export_all_wrongly_star,
     env_export_all_wrongly(),
     r#"
-from foo import *  # E: Could not import `bad_definition` from `foo`
+from foo import *
 "#,
 );
 
@@ -557,7 +567,7 @@ fn test_import_fail_to_load() {
         .transaction()
         .get_errors([&handle("foo")])
         .collect_errors()
-        .shown;
+        .ordinary;
     assert_eq!(errs.len(), 1);
     let err = &errs[0];
     assert!(err.msg().contains("Failed to load"));
@@ -808,7 +818,7 @@ fn test_interface_disagree() {
         .transaction()
         .get_errors([&h_py])
         .collect_errors()
-        .shown;
+        .ordinary;
     assert_eq!(errs.len(), 0);
 }
 

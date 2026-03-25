@@ -41,7 +41,9 @@ __all__ = (
 )
 
 AccessPolicyTypeType = Literal["data"]
-CollectionStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
+CollectionStatusType = Literal[
+    "ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATE_FAILED", "UPDATING"
+]
 CollectionTypeType = Literal["SEARCH", "TIMESERIES", "VECTORSEARCH"]
 IamIdentityCenterGroupAttributeType = Literal["GroupId", "GroupName"]
 IamIdentityCenterUserAttributeType = Literal["Email", "UserId", "UserName"]
@@ -155,6 +157,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -196,13 +199,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -242,7 +245,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -417,7 +419,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

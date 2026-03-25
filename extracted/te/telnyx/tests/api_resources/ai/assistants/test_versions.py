@@ -138,6 +138,7 @@ class TestVersions:
                     }
                 },
             },
+            tool_ids=["string"],
             tools=[
                 {
                     "type": "webhook",
@@ -171,6 +172,12 @@ class TestVersions:
                             "required": ["page"],
                             "type": "object",
                         },
+                        "store_fields_as_variables": [
+                            {
+                                "name": "x",
+                                "value_path": "x",
+                            }
+                        ],
                         "timeout_ms": 500,
                     },
                 }
@@ -535,6 +542,7 @@ class TestAsyncVersions:
                     }
                 },
             },
+            tool_ids=["string"],
             tools=[
                 {
                     "type": "webhook",
@@ -568,6 +576,12 @@ class TestAsyncVersions:
                             "required": ["page"],
                             "type": "object",
                         },
+                        "store_fields_as_variables": [
+                            {
+                                "name": "x",
+                                "value_path": "x",
+                            }
+                        ],
                         "timeout_ms": 500,
                     },
                 }

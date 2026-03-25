@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smg-grpc-proto
-Version: 0.4.4
+Version: 0.4.5
 Summary: SMG gRPC proto definitions for SGLang, vLLM, and TRT-LLM
 Author-email: Chang Su <mckvtl@gmail.com>, Simo Lin <linsimo.mark@gmail.com>, Keyang Ru <rukeyang@gmail.com>
 License: Apache-2.0

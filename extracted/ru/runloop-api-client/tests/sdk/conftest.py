@@ -23,6 +23,7 @@ TEST_IDS = {
     "object": "obj_123",
     "scorer": "sco_123",
     "agent": "agt_123",
+    "axon": "axn_123",
     "scenario": "scn_123",
     "scenario_run": "scr_123",
     "benchmark": "bmd_123",
@@ -113,6 +114,64 @@ class MockAgentView:
     create_time_ms: int = 1234567890000
     is_public: bool = False
     source: Any = None
+
+
+@dataclass
+class MockAxonView:
+    """Mock AxonView for testing."""
+
+    id: str = TEST_IDS["axon"]
+    created_at_ms: int = 1234567890000
+    name: str = "test-axon"
+
+
+@dataclass
+class MockPublishResultView:
+    """Mock PublishResultView for testing."""
+
+    sequence: int = 1
+    timestamp_ms: int = 1234567890000
+
+
+@dataclass
+class MockSqlColumnMetaView:
+    """Mock SqlColumnMetaView for testing."""
+
+    name: str = "id"
+    type: str = "INTEGER"
+
+
+@dataclass
+class MockSqlResultMetaView:
+    """Mock SqlResultMetaView for testing."""
+
+    changes: int = 0
+    duration_ms: float = 1.5
+    rows_read_limit_reached: bool = False
+
+
+@dataclass
+class MockSqlQueryResultView:
+    """Mock SqlQueryResultView for testing."""
+
+    columns: list[Any] = field(default_factory=lambda: [MockSqlColumnMetaView()])
+    meta: Any = field(default_factory=MockSqlResultMetaView)
+    rows: list[Any] = field(default_factory=lambda: [[1, "hello"]])
+
+
+@dataclass
+class MockSqlStepResultView:
+    """Mock SqlStepResultView for testing."""
+
+    success: Any = field(default_factory=lambda: MockSqlQueryResultView())
+    error: Any = None
+
+
+@dataclass
+class MockSqlBatchResultView:
+    """Mock SqlBatchResultView for testing."""
+
+    results: list[Any] = field(default_factory=lambda: [MockSqlStepResultView()])
 
 
 @dataclass
@@ -305,6 +364,12 @@ def scorer_view() -> MockScorerView:
 def agent_view() -> MockAgentView:
     """Create a mock AgentView."""
     return MockAgentView()
+
+
+@pytest.fixture
+def axon_view() -> MockAxonView:
+    """Create a mock AxonView."""
+    return MockAxonView()
 
 
 @pytest.fixture

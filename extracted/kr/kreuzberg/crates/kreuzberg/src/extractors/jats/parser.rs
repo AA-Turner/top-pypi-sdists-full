@@ -1,6 +1,7 @@
 //! XML parsing and document structure traversal for JATS documents.
 
 use crate::Result;
+use crate::text::utf8_validation;
 use quick_xml::Reader;
 use quick_xml::events::Event;
 
@@ -31,7 +32,7 @@ pub(super) fn extract_text_content(reader: &mut Reader<&[u8]>) -> Result<String>
                 }
             }
             Ok(Event::CData(t)) => {
-                let decoded = std::str::from_utf8(t.as_ref()).unwrap_or("").to_string();
+                let decoded = utf8_validation::from_utf8(t.as_ref()).unwrap_or("").to_string();
                 if !decoded.trim().is_empty() {
                     text.push_str(&decoded);
                     text.push('\n');

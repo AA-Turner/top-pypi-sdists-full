@@ -2,6 +2,7 @@
 
 // Module declarations
 pub mod annotations;
+pub mod builder;
 pub mod djot;
 pub mod document_structure;
 pub mod extraction;

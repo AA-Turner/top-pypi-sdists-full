@@ -9,7 +9,7 @@ from ._shared_client import get_shared_client
 
 
 def SAbDab_get_summary(
-    operation: str,
+    operation: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

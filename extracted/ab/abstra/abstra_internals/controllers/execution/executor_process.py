@@ -5,10 +5,7 @@ import signal
 import threading
 import time
 import traceback
-from dataclasses import dataclass
-from enum import Enum
 from multiprocessing import Queue
-from multiprocessing.connection import Connection
 from typing import Optional
 
 from abstra_internals.controllers.execution.connection_protocol import (
@@ -26,6 +23,12 @@ from abstra_internals.controllers.execution.execution_client_page import PageCli
 from abstra_internals.controllers.execution.execution_conn import (
     set_broadcast_publisher,
     set_execution_conn,
+)
+from abstra_internals.controllers.execution.executor_types import (
+    ExecuteRequest,
+    ExecutorResponse,
+    ShutdownRequest,
+    WarmupRequest,
 )
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution import ClientContext
@@ -47,11 +50,24 @@ from abstra_internals.repositories.factory import (
     build_prod_repositories,
     build_web_editor_repositories,
 )
-from abstra_internals.repositories.project.project import StageWithFile
 from abstra_internals.settings import Settings
 from abstra_internals.stdio_patcher import StdioPatcher
 from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
 from abstra_internals.utils.stdio_broadcast import StdioBroadcastPublisher
+
+# ---------------------------------------------------------------------------
+# Initialize logging once at module-load time so the forkserver pays this
+# cost during preload (shared across all forked children) instead of each
+# executor subprocess paying it individually inside handle_warmup.
+#
+# Sentry SDK registers os.register_at_fork callbacks that reinitialize the
+# background transport thread in child processes after fork, so event
+# reporting works correctly in every executor child.
+# ---------------------------------------------------------------------------
+if IS_PRODUCTION:
+    AbstraLogger.init("cloud")
+else:
+    AbstraLogger.init("local")
 
 _SESSION_QUEUE_RE = re.compile(
     r"^session_(s2w|w2s)_([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$"
@@ -79,51 +95,6 @@ def _validate_session_queues(
             raise ValueError(
                 f"Queue direction mismatch: both queues have direction '{send_m.group(1)}'"
             )
-
-
-class ExecutorCommand(str, Enum):
-    WARMUP = "warmup"
-    EXECUTE = "execute"
-    SHUTDOWN = "shutdown"
-
-
-@dataclass
-class WarmupRequest:
-    command: ExecutorCommand = ExecutorCommand.WARMUP
-
-
-@dataclass
-class ExecuteRequest:
-    command: ExecutorCommand
-    worker_id: str
-    execution_id: str
-    stage: StageWithFile
-    request: ClientContext
-    connection: Optional[Connection]
-    rabbitmq_params: Optional["RabbitMQParams"]
-    user_jwt: Optional[str] = None
-
-
-@dataclass
-class ShutdownRequest:
-    command: ExecutorCommand = ExecutorCommand.SHUTDOWN
-
-
-@dataclass
-class RabbitMQParams:
-    connection_uri: str
-    execution_id: str
-    send_queue: Optional[str] = None
-    recv_queue: Optional[str] = None
-    queue_expire_ms: Optional[int] = None
-
-
-@dataclass
-class ExecutorResponse:
-    success: bool
-    execution_id: Optional[str] = None
-    error: Optional[str] = None
-    execution_time: Optional[float] = None
 
 
 class ExecutorState:
@@ -179,11 +150,6 @@ def handle_warmup(
         Settings.set_server_port(server_port, force=True)
 
         if IS_PRODUCTION:
-            AbstraLogger.init("cloud")
-        else:
-            AbstraLogger.init("local")
-
-        if IS_PRODUCTION:
             state.repositories = build_prod_repositories()
         elif IS_DEVELOPMENT and EDITOR_MODE == "web":
             from abstra_internals.environment import RABBITMQ_CONNECTION_URI
@@ -195,7 +161,6 @@ def handle_warmup(
             state.repositories = build_editor_repositories(parent_executions_queue)
 
         state.controller = MainController(state.repositories)
-
         state.warmup_complete = True
 
         warmup_time = time.time() - warmup_start

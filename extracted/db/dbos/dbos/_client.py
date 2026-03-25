@@ -67,6 +67,7 @@ class EnqueueOptions(_EnqueueOptionsRequired, total=False):
     workflow_id: str
     app_version: str
     workflow_timeout: float
+    delay_seconds: float
     deduplication_id: str
     priority: int
     max_recovery_attempts: int
@@ -195,6 +196,12 @@ class DBOSClient:
         if workflow_id is None:
             workflow_id = generate_uuid()
         workflow_timeout = options.get("workflow_timeout", None)
+        delay_seconds = options.get("delay_seconds", None)
+        delay_until_epoch_ms: Optional[int] = (
+            int((time.time() + delay_seconds) * 1000)
+            if delay_seconds is not None
+            else None
+        )
 
         authenticated_user = options.get("authenticated_user")
         authenticated_roles = (
@@ -212,7 +219,11 @@ class DBOSClient:
 
         status: WorkflowStatusInternal = {
             "workflow_uuid": workflow_id,
-            "status": WorkflowStatusString.ENQUEUED.value,
+            "status": (
+                WorkflowStatusString.DELAYED.value
+                if delay_until_epoch_ms is not None
+                else WorkflowStatusString.ENQUEUED.value
+            ),
             "name": workflow_name,
             "class_name": options.get("class_name"),
             "queue_name": queue_name,
@@ -245,6 +256,7 @@ class DBOSClient:
             "parent_workflow_id": None,
             "started_at_epoch_ms": None,
             "owner_xid": None,
+            "delay_until_epoch_ms": delay_until_epoch_ms,
         }
 
         self._sys_db.init_workflow(
@@ -481,6 +493,7 @@ class DBOSClient:
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
+        was_forked_from: Optional[bool] = None,
     ) -> List[WorkflowStatus]:
         return self._sys_db.list_workflows(
             workflow_ids=workflow_ids,
@@ -501,6 +514,7 @@ class DBOSClient:
             load_output=load_output,
             executor_id=executor_id,
             queues_only=queues_only,
+            was_forked_from=was_forked_from,
         )
 
     async def list_workflows_async(
@@ -524,6 +538,7 @@ class DBOSClient:
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
+        was_forked_from: Optional[bool] = None,
     ) -> List[WorkflowStatus]:
         return await asyncio.to_thread(
             self.list_workflows,
@@ -545,6 +560,7 @@ class DBOSClient:
             load_output=load_output,
             executor_id=executor_id,
             queues_only=queues_only,
+            was_forked_from=was_forked_from,
         )
 
     def list_queued_workflows(
@@ -645,6 +661,7 @@ class DBOSClient:
         application_version: Optional[str] = None,
         queue_name: Optional[str] = None,
         queue_partition_key: Optional[str] = None,
+        replacement_children: Optional[dict[str, str]] = None,
     ) -> "WorkflowHandle[Any]":
         forked_workflow_id = fork_workflow(
             self._sys_db,
@@ -653,6 +670,7 @@ class DBOSClient:
             application_version=application_version,
             queue_name=queue_name,
             queue_partition_key=queue_partition_key,
+            replacement_children=replacement_children,
         )
         return WorkflowHandleClientPolling[Any](forked_workflow_id, self._sys_db)
 
@@ -664,6 +682,7 @@ class DBOSClient:
         application_version: Optional[str] = None,
         queue_name: Optional[str] = None,
         queue_partition_key: Optional[str] = None,
+        replacement_children: Optional[dict[str, str]] = None,
     ) -> "WorkflowHandleAsync[Any]":
         forked_workflow_id = await asyncio.to_thread(
             fork_workflow,
@@ -673,6 +692,7 @@ class DBOSClient:
             application_version=application_version,
             queue_name=queue_name,
             queue_partition_key=queue_partition_key,
+            replacement_children=replacement_children,
         )
         return WorkflowHandleClientAsyncPolling[Any](forked_workflow_id, self._sys_db)
 
@@ -756,6 +776,7 @@ class DBOSClient:
         workflow_class_name: Optional[str] = None,
         automatic_backfill: bool = False,
         cron_timezone: Optional[str] = None,
+        queue_name: Optional[str] = None,
     ) -> None:
         """
         Create a cron schedule that periodically invokes a workflow.
@@ -768,6 +789,7 @@ class DBOSClient:
             workflow_class_name: Class name for static class method workflows. Defaults to ``None``.
             automatic_backfill: If ``True``, on startup the scheduler will automatically backfill missed executions since the last time the schedule fired. Defaults to ``False``.
             cron_timezone: IANA timezone name (e.g. ``"America/New_York"``) in which to evaluate the cron expression. Defaults to ``None`` (UTC).
+            queue_name: Optional name of a queue to enqueue scheduled workflows to. If ``None``, uses the internal queue. Defaults to ``None``.
 
         Raises:
             DBOSException: If the cron expression is invalid or a schedule with the same name already exists.
@@ -791,6 +813,7 @@ class DBOSClient:
                 last_fired_at=None,
                 automatic_backfill=automatic_backfill,
                 cron_timezone=cron_timezone,
+                queue_name=queue_name,
             )
         )
 
@@ -841,6 +864,7 @@ class DBOSClient:
         workflow_class_name: Optional[str] = None,
         automatic_backfill: bool = False,
         cron_timezone: Optional[str] = None,
+        queue_name: Optional[str] = None,
     ) -> None:
         """Async version of :meth:`create_schedule`."""
         await asyncio.to_thread(
@@ -852,6 +876,7 @@ class DBOSClient:
             workflow_class_name=workflow_class_name,
             automatic_backfill=automatic_backfill,
             cron_timezone=cron_timezone,
+            queue_name=queue_name,
         )
 
     async def list_schedules_async(
@@ -927,6 +952,7 @@ class DBOSClient:
                     last_fired_at=None,
                     automatic_backfill=entry.get("automatic_backfill", False),
                     cron_timezone=entry.get("cron_timezone"),
+                    queue_name=entry.get("queue_name"),
                 )
             )
         with self._sys_db.engine.begin() as c:

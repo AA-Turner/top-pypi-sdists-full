@@ -342,6 +342,7 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
     result_summary TEXT,
     result_artifacts_json TEXT,
     result_findings_json TEXT,
+    result_outputs_json TEXT,
     raw_output_path TEXT,
     duration_ms INTEGER,
     created_at TEXT NOT NULL,
@@ -1575,6 +1576,7 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 result_summary TEXT,
                 result_artifacts_json TEXT,
                 result_findings_json TEXT,
+                result_outputs_json TEXT,
                 raw_output_path TEXT,
                 duration_ms INTEGER,
                 created_at TEXT NOT NULL,
@@ -1654,6 +1656,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             conn.execute("ALTER TABLE workflow_steps ADD COLUMN decision_id TEXT DEFAULT NULL")
         if "idempotency_key" not in wf_step_cols:
             conn.execute("ALTER TABLE workflow_steps ADD COLUMN idempotency_key TEXT DEFAULT NULL")
+        if "result_outputs_json" not in wf_step_cols:
+            conn.execute("ALTER TABLE workflow_steps ADD COLUMN result_outputs_json TEXT DEFAULT NULL")
 
     # Add workflow_human_decisions table if missing (#955)
     if "workflow_human_decisions" not in wf_tables:

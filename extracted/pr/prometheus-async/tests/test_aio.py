@@ -101,7 +101,9 @@ class TestTime:
             if True:
                 return 42
 
-            await asyncio.sleep(0)  # noqa: RET503
+            await asyncio.sleep(0)
+
+            return None
 
         assert 42 == await func()
         assert [1] == fake_observer._observed
@@ -467,7 +469,7 @@ test_server_stats_created """
         await server.close()
 
     @pytest.mark.parametrize("sd", [None, FakeSD()])
-    def test_start_in_thread(self, sd):
+    async def test_start_in_thread(self, sd):
         """
         Threaded version starts and exits properly, passes on service
         discovery.

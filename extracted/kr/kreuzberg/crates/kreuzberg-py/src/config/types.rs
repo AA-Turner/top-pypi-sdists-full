@@ -147,6 +147,7 @@ impl ExtractionConfig {
                 cache_ttl_secs,
                 email: email.map(Into::into),
                 concurrency: concurrency.map(Into::into),
+                max_archive_depth: 3,
             },
             html_options_dict,
         })
@@ -1865,9 +1866,20 @@ impl TesseractConfig {
 ///
 /// Controls how pages are extracted, tracked, and represented in the extraction results.
 ///
+/// Attributes:
+///     extract_pages (bool): Enable page tracking and per-page extraction. Default: False
+///     insert_page_markers (bool): Insert page markers into content. Default: False
+///     marker_format (str): Marker template containing {page_num}. Default: "\\n\\n<!-- PAGE {page_num} -->\\n\\n"
+///
 /// Example:
 ///     >>> from kreuzberg import PageConfig
+///     >>> # Default configuration (no page extraction)
+///     >>> config = PageConfig()
+///     >>> # Enable page extraction and markers
 ///     >>> config = PageConfig(extract_pages=True, insert_page_markers=True)
+///
+/// Note:
+///     Set `extract_pages=True` when using `result_format="element_based"` to get per-page content extraction.
 #[pyclass(name = "PageConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct PageConfig {

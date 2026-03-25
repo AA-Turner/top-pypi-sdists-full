@@ -252,6 +252,7 @@ class ListCheckResultResponseBodyChecks(DaraModel):
         # *   **CHECKING**: being checked
         # *   **NOT_CHECK**: not checked
         # *   **WHITELIST**: added to the whitelist
+        # *   **FAILED**: failed
         self.status = status
         # The message returned if the status of the check item is abnormal.
         self.status_message = status_message

@@ -1149,7 +1149,7 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[ListLocationsInputTypeDef]
     ) -> ListLocationsOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> Anywhere.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/list_locations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gamelift/client/#list_locations)

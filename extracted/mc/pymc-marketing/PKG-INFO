@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-marketing
-Version: 0.18.2
+Version: 0.19.0
 Summary: Marketing Statistical Models in PyMC
 Project-URL: repository, https://github.com/pymc-labs/pymc-marketing
 Project-URL: homepage, https://www.pymc-marketing.io
@@ -220,17 +220,17 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
-Requires-Dist: arviz>=0.13.0
+Requires-Dist: arviz<1.0.0,>=0.13.0
 Requires-Dist: matplotlib>=3.5.1
 Requires-Dist: narwhals
 Requires-Dist: numpy>=2.0
 Requires-Dist: pandas
 Requires-Dist: preliz>=0.20.0
 Requires-Dist: pydantic>=2.1.0
-Requires-Dist: pymc-extras<0.9,>=0.4.0
-Requires-Dist: pymc>=5.27.1
+Requires-Dist: pymc-extras>=0.9.2
+Requires-Dist: pymc>=5.28.1
 Requires-Dist: pyprojroot
-Requires-Dist: pytensor>=2.36.3
+Requires-Dist: pytensor>=2.38.2
 Requires-Dist: pyyaml
 Requires-Dist: scikit-learn>=1.1.1
 Requires-Dist: seaborn>=0.12.2
@@ -250,7 +250,6 @@ Requires-Dist: graphviz; extra == 'docs'
 Requires-Dist: ipython!=8.7.0; extra == 'docs'
 Requires-Dist: ipywidgets; extra == 'docs'
 Requires-Dist: labs-sphinx-theme; extra == 'docs'
-Requires-Dist: lifetimes; extra == 'docs'
 Requires-Dist: mlflow>=2.0.0; extra == 'docs'
 Requires-Dist: myst-nb>=1.1.2; extra == 'docs'
 Requires-Dist: myst-parser; extra == 'docs'
@@ -258,11 +257,10 @@ Requires-Dist: networkx; extra == 'docs'
 Requires-Dist: numba; extra == 'docs'
 Requires-Dist: numpydoc; extra == 'docs'
 Requires-Dist: numpyro; extra == 'docs'
-Requires-Dist: nutpie; extra == 'docs'
+Requires-Dist: nutpie>=0.16.7; extra == 'docs'
 Requires-Dist: osqp<1.0.0,>=0.6.2; extra == 'docs'
 Requires-Dist: preliz>=0.20.0; extra == 'docs'
 Requires-Dist: pylint; extra == 'docs'
-Requires-Dist: setuptools<81; extra == 'docs'
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
@@ -283,11 +281,10 @@ Requires-Dist: dowhy; extra == 'test'
 Requires-Dist: graphviz>=0.20.1; extra == 'test'
 Requires-Dist: ipykernel; extra == 'test'
 Requires-Dist: jax; extra == 'test'
-Requires-Dist: lifetimes==0.11.3; extra == 'test'
 Requires-Dist: mlflow>=2.0.0; extra == 'test'
 Requires-Dist: networkx; extra == 'test'
 Requires-Dist: numpyro; extra == 'test'
-Requires-Dist: nutpie; extra == 'test'
+Requires-Dist: nutpie>=0.16.7; extra == 'test'
 Requires-Dist: osqp<1.0.0,>=0.6.2; extra == 'test'
 Requires-Dist: papermill; extra == 'test'
 Requires-Dist: plotly>=6.3.0; extra == 'test'
@@ -299,7 +296,6 @@ Requires-Dist: pytest-cov>=3.0.0; extra == 'test'
 Requires-Dist: pytest-mock>=3.14.0; extra == 'test'
 Requires-Dist: pytest-split; extra == 'test'
 Requires-Dist: pytest>=7.0.1; extra == 'test'
-Requires-Dist: setuptools<81; extra == 'test'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -323,13 +319,14 @@ Description-Content-Type: text/markdown
 [![Downloads](https://static.pepy.tech/badge/pymc-marketing/month)](https://pepy.tech/project/pymc-marketing)
 [![Downloads](https://static.pepy.tech/badge/pymc-marketing/week)](https://pepy.tech/project/pymc-marketing)
 
-# <span style="color:limegreen">PyMC-Marketing</span>: Bayesian Marketing Mix Modeling (MMM) & Customer Lifetime Value (CLV)
+# PyMC-Marketing
+## Bayesian Tools for Marketing Analytics: Marketing Mix Modeling (MMM), Customer Lifetime Value (CLV) & Customer Choice Analysis (CSA) and more
+
+---
 
 ## Marketing Analytics Tools from [PyMC Labs](https://www.pymc-labs.com)
 
 Unlock the power of **Marketing Mix Modeling (MMM)**, **Customer Lifetime Value (CLV)** and **Customer Choice Analysis (CSA)** analytics with PyMC-Marketing. This open-source marketing analytics tool empowers businesses to make smarter, data-driven decisions for maximizing ROI in marketing campaigns.
-
-----
 
 This repository is supported by [PyMC Labs](https://www.pymc-labs.com).
 

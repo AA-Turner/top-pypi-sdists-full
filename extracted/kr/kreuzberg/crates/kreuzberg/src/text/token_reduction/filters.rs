@@ -175,10 +175,9 @@ impl FilterPipeline {
     /// # Returns
     /// A new `String` with stopwords removed but markdown structure preserved
     fn remove_stopwords_preserving_markdown(&self, text: &str) -> String {
-        let lines: Vec<&str> = text.lines().collect();
-        let mut processed_lines = Vec::with_capacity(lines.len());
+        let mut processed_lines = Vec::new();
 
-        for line in lines {
+        for line in text.lines() {
             // Preserve markdown headers
             if is_markdown_header(line) {
                 processed_lines.push(line.to_string());

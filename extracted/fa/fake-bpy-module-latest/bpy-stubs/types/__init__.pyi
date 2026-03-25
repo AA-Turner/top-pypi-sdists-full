@@ -15363,6 +15363,9 @@ class BlendData(bpy_struct):
     actions: BlendDataActions | None
     """ Action data-blocks (default None, readonly)"""
 
+    all_ids: typing.Any
+    """ Read-only list of all IDs listed in Blender data-base (default None, readonly)"""
+
     annotations: BlendDataAnnotations | None
     """ Annotation data-blocks (legacy Grease Pencil) (default None, readonly)"""
 
@@ -20126,6 +20129,43 @@ class CollectionExport(bpy_struct):
 
     name: str
     """ (default "", never None)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class CollectionImport(bpy_struct):
+    """Importer configured for the collection"""
+
+    import_properties: PropertyGroup | None
+    """ Properties associated with the configured importer (readonly)"""
+
+    is_open: bool
+    """ Whether the panel is expanded or closed (default False)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -82564,6 +82604,9 @@ class PreferencesExperimental(bpy_struct):
     use_asset_indexing: bool
     """ Disable the asset indexer, to force every asset library refresh to completely reread assets from disk (default False)"""
 
+    use_collection_importer: bool
+    """ Enables a file importer to be configured on a Collection (default False)"""
+
     use_cycles_debug: bool
     """ Enable Cycles debugging options for developers (default False)"""
 
@@ -96686,6 +96729,9 @@ class SpaceNodeEditor(Space, bpy_struct):
 class SpaceNodeOverlay(bpy_struct):
     """Settings for display of overlays in the Node Editor"""
 
+    passepartout_alpha: float
+    """ Opacity of the darkened overlay outside the render region (in [0, 1], default 0.5)"""
+
     preview_shape: typing.Literal["FLAT", "3D"]
     """ Preview shape used by the node previews (default 'FLAT')"""
 
@@ -96700,6 +96746,9 @@ class SpaceNodeOverlay(bpy_struct):
 
     show_previews: bool
     """ Display each node's preview if node is toggled (default False)"""
+
+    show_render_size: bool
+    """ Display the region of the final render (default True)"""
 
     show_reroute_auto_labels: bool
     """ Label reroute nodes based on the label of connected reroute nodes (default False)"""
@@ -98984,7 +99033,7 @@ class Strip(bpy_struct):
     """ Timeline frame where underlying strip source begins (in [-inf, inf], default 0.0)"""
 
     duration: int
-    """ Length of the strip in frames from left handle to right handle (in [-inf, inf], default 0, readonly)"""
+    """ Length of the strip in frames from left handle to right handle (in [-inf, inf], default 0)"""
 
     effect_fader: float
     """ Custom fade value (in [0, 1], default 0.0)"""
@@ -98993,7 +99042,7 @@ class Strip(bpy_struct):
     """ The length of the contents of this strip before the handles are applied (in [1, 1048574], default 0, readonly)Replaced by '.content_duration'.5.10 removal planned in version 6.0"""
 
     frame_final_duration: int
-    """ The length of the contents of this strip after the handles are applied (in [1, 1048574], default 0)Replaced by '.duration'.5.10 removal planned in version 6.0"""
+    """ The length of the contents of this strip after the handles are applied (in [-inf, inf], default 0)Replaced by '.duration'.5.10 removal planned in version 6.0"""
 
     frame_final_end: int
     """ End frame displayed in the sequence editor after offsets are applied (in [-inf, inf], default 0)Replaced by '.right_handle'.5.10 removal planned in version 6.0"""
@@ -107257,6 +107306,9 @@ class UILayout(bpy_struct):
     def template_strip_modifiers(self) -> None:
         """Generates the UI layout for the strip modifier stack"""
 
+    def template_collection_importer(self) -> None:
+        """Generates the UI layout for the collection importer"""
+
     def template_collection_exporters(self) -> None:
         """Generates the UI layout for collection exporters"""
 
@@ -114397,6 +114449,8 @@ COLLECTION_PT_collection_flags: (
 )
 
 COLLECTION_PT_exporters: bl_ui.properties_collection.COLLECTION_PT_exporters
+
+COLLECTION_PT_importer: bl_ui.properties_collection.COLLECTION_PT_importer
 
 COLLECTION_PT_instancing: bl_ui.properties_collection.COLLECTION_PT_instancing
 

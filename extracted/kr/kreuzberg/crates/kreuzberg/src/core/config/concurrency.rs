@@ -1,5 +1,7 @@
 //! Concurrency and thread pool configuration.
 
+use std::sync::Once;
+
 use serde::{Deserialize, Serialize};
 
 /// Controls thread usage for constrained environments.
@@ -27,9 +29,86 @@ pub struct ConcurrencyConfig {
     pub max_threads: Option<usize>,
 }
 
+static POOL_INIT: Once = Once::new();
+
+/// Resolve the effective thread budget from config or auto-detection.
+///
+/// User-set `max_threads` takes priority. Otherwise auto-detects from `num_cpus`,
+/// capped at 8 for sane defaults in serverless environments.
+///
+/// # Example
+///
+/// ```rust
+/// use kreuzberg::core::config::ConcurrencyConfig;
+/// use kreuzberg::core::config::concurrency::resolve_thread_budget;
+///
+/// let config = ConcurrencyConfig { max_threads: Some(4) };
+/// assert_eq!(resolve_thread_budget(Some(&config)), 4);
+/// assert!(resolve_thread_budget(None) >= 1);
+/// ```
+pub fn resolve_thread_budget(config: Option<&ConcurrencyConfig>) -> usize {
+    if let Some(n) = config.and_then(|c| c.max_threads) {
+        return n.max(1);
+    }
+    num_cpus::get().min(8)
+}
+
+/// Initialize the global Rayon thread pool with the given budget.
+///
+/// Safe to call multiple times — only the first call takes effect (subsequent
+/// calls are silently ignored).
+///
+/// # Example
+///
+/// ```rust
+/// use kreuzberg::core::config::concurrency::init_thread_pools;
+///
+/// init_thread_pools(4);
+/// init_thread_pools(2); // no-op: pool already initialized
+/// ```
+pub fn init_thread_pools(budget: usize) {
+    POOL_INIT.call_once(|| {
+        rayon::ThreadPoolBuilder::new().num_threads(budget).build_global().ok();
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_resolve_thread_budget_none() {
+        let budget = resolve_thread_budget(None);
+        assert!(budget >= 1);
+        assert!(budget <= 8);
+    }
+
+    #[test]
+    fn test_resolve_thread_budget_with_config() {
+        let config = ConcurrencyConfig { max_threads: Some(4) };
+        assert_eq!(resolve_thread_budget(Some(&config)), 4);
+    }
+
+    #[test]
+    fn test_resolve_thread_budget_clamps_to_one() {
+        let config = ConcurrencyConfig { max_threads: Some(0) };
+        assert_eq!(resolve_thread_budget(Some(&config)), 1);
+    }
+
+    #[test]
+    fn test_resolve_thread_budget_no_max() {
+        let config = ConcurrencyConfig { max_threads: None };
+        let budget = resolve_thread_budget(Some(&config));
+        assert!(budget >= 1);
+        assert!(budget <= 8);
+    }
+
+    #[test]
+    fn test_init_thread_pools_idempotent() {
+        // Should not panic when called multiple times.
+        init_thread_pools(2);
+        init_thread_pools(4);
+    }
 
     #[test]
     fn test_default() {

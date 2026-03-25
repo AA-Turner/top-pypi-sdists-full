@@ -13,7 +13,6 @@ from abstra_internals.utils import serialize
 class PageClient(ExecutionClient):
     context: PageContext
     conn: ConnectionProtocol
-    response: Response
     production_mode: bool
     _before_send: "Callable[[], None] | None"
     _streamed: bool
@@ -23,10 +22,13 @@ class PageClient(ExecutionClient):
     ) -> None:
         self.context = context
         self.conn = conn
-        self.response = Response(headers={}, status=200, body="")
         self.production_mode = production_mode
         self._before_send = None
         self._streamed = False
+
+    @property
+    def response(self) -> Response:
+        return self.context.response
 
     def handle_failure(self, e: Exception) -> None:
         if isinstance(e, AuthorizationRequired):
@@ -83,7 +85,7 @@ class PageClient(ExecutionClient):
         self.conn.send({"__page_stream__": "error", "error": error})
 
     def set_response(self, status: int, body: str, headers: Dict[str, str]) -> None:
-        self.response = Response(
+        self.context.response = Response(
             status=status,
             body=body,
             headers=headers,

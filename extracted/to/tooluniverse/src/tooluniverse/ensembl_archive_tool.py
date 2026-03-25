@@ -38,22 +38,30 @@ class EnsemblArchiveTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"Ensembl Archive API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"Ensembl Archive API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to Ensembl REST API"}
+            return {"status": "error", "error": "Failed to connect to Ensembl REST API"}
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "unknown"
             if code == 400:
                 return {
-                    "error": f"Invalid Ensembl ID format: {arguments.get('ensembl_id', '')}"
+                    "status": "error",
+                    "error": f"Invalid Ensembl ID format: {arguments.get('ensembl_id', '')}",
                 }
             if code == 404:
                 return {
-                    "error": f"Ensembl ID not found: {arguments.get('ensembl_id', '')}"
+                    "status": "error",
+                    "error": f"Ensembl ID not found: {arguments.get('ensembl_id', '')}",
                 }
-            return {"error": f"Ensembl REST API HTTP error: {code}"}
+            return {"status": "error", "error": f"Ensembl REST API HTTP error: {code}"}
         except Exception as e:
-            return {"error": f"Unexpected error querying Ensembl Archive: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying Ensembl Archive: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -62,14 +70,15 @@ class EnsemblArchiveTool(BaseTool):
         elif self.endpoint == "batch_lookup":
             return self._batch_lookup(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_id_history(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get version history for a single Ensembl stable ID."""
         ensembl_id = arguments.get("ensembl_id", "")
         if not ensembl_id:
             return {
-                "error": "ensembl_id is required (e.g., 'ENSG00000141510' for TP53)"
+                "status": "error",
+                "error": "ensembl_id is required (e.g., 'ENSG00000141510' for TP53)",
             }
 
         url = f"{ENSEMBL_BASE_URL}/archive/id/{ensembl_id}"
@@ -94,6 +103,7 @@ class EnsemblArchiveTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "Ensembl Archive",
@@ -106,12 +116,13 @@ class EnsemblArchiveTool(BaseTool):
         ids_str = arguments.get("ensembl_ids", "")
         if not ids_str:
             return {
-                "error": "ensembl_ids is required (comma-separated, e.g., 'ENSG00000141510,ENSG00000012048')"
+                "status": "error",
+                "error": "ensembl_ids is required (comma-separated, e.g., 'ENSG00000141510,ENSG00000012048')",
             }
 
         ids = [i.strip() for i in ids_str.split(",") if i.strip()]
         if len(ids) > 50:
-            return {"error": "Maximum 50 IDs per batch request"}
+            return {"status": "error", "error": "Maximum 50 IDs per batch request"}
 
         url = f"{ENSEMBL_BASE_URL}/archive/id"
         params = {"content-type": "application/json"}
@@ -145,6 +156,7 @@ class EnsemblArchiveTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": {
                 "queried_ids": len(ids),
                 "found": len(results),

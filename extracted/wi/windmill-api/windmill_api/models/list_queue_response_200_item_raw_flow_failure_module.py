@@ -6,6 +6,9 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.list_queue_response_200_item_raw_flow_failure_module_debouncing import (
+        ListQueueResponse200ItemRawFlowFailureModuleDebouncing,
+    )
     from ..models.list_queue_response_200_item_raw_flow_failure_module_mock import (
         ListQueueResponse200ItemRawFlowFailureModuleMock,
     )
@@ -81,6 +84,8 @@ class ListQueueResponse200ItemRawFlowFailureModule:
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, ListQueueResponse200ItemRawFlowFailureModuleRetry]): Retry configuration for failed module
             executions
+        debouncing (Union[Unset, ListQueueResponse200ItemRawFlowFailureModuleDebouncing]): Debounce configuration for
+            this step (EE only)
     """
 
     id: str
@@ -109,6 +114,7 @@ class ListQueueResponse200ItemRawFlowFailureModule:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "ListQueueResponse200ItemRawFlowFailureModuleRetry"] = UNSET
+    debouncing: Union[Unset, "ListQueueResponse200ItemRawFlowFailureModuleDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -195,6 +201,10 @@ class ListQueueResponse200ItemRawFlowFailureModule:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -231,11 +241,16 @@ class ListQueueResponse200ItemRawFlowFailureModule:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.list_queue_response_200_item_raw_flow_failure_module_debouncing import (
+            ListQueueResponse200ItemRawFlowFailureModuleDebouncing,
+        )
         from ..models.list_queue_response_200_item_raw_flow_failure_module_mock import (
             ListQueueResponse200ItemRawFlowFailureModuleMock,
         )
@@ -432,6 +447,13 @@ class ListQueueResponse200ItemRawFlowFailureModule:
         else:
             retry = ListQueueResponse200ItemRawFlowFailureModuleRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, ListQueueResponse200ItemRawFlowFailureModuleDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = ListQueueResponse200ItemRawFlowFailureModuleDebouncing.from_dict(_debouncing)
+
         list_queue_response_200_item_raw_flow_failure_module = cls(
             id=id,
             value=value,
@@ -449,6 +471,7 @@ class ListQueueResponse200ItemRawFlowFailureModule:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         list_queue_response_200_item_raw_flow_failure_module.additional_properties = d

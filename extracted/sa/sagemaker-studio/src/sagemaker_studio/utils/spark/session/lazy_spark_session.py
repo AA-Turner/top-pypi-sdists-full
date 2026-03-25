@@ -6,6 +6,7 @@ initialization until the first attribute access.
 """
 
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from botocore.exceptions import ClientError
@@ -62,9 +63,26 @@ class LazySparkSession:
         if self._spark is None:
             try:
                 logger.debug("Initializing SparkSession...")
+                session_start_time = time.time()
+
+                # Record session start time
+                self._session_start_time = session_start_time
 
                 # Use the session manager to create the session
                 self._spark = self._session_manager.create()
+
+                # Log session creation metric
+                try:
+                    from sagemaker_studio.utils.loggerutils import log_session_metric
+
+                    log_session_metric(
+                        metric_name="SessionCreated",
+                        session_id=self._session_manager.get_session_id(),
+                        duration_ms=int((time.time() - session_start_time) * 1000),
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to log session creation metric: {e}")
+
                 self._async_auto_mount_catalogs()
                 logger.debug("SparkSession initialized successfully")
             except Exception as e:
@@ -112,6 +130,22 @@ class LazySparkSession:
     def stop(self):
         """Stop the SparkSession and clean up resources."""
         logger.debug("Stopping lazy Spark session...")
+
+        # Log session duration metric
+        if "_session_start_time" in self.__dict__:
+            try:
+                session_duration_ms = int((time.time() - self._session_start_time) * 1000)
+                from sagemaker_studio.utils.loggerutils import log_session_metric
+
+                log_session_metric(
+                    metric_name="SessionStopped",
+                    session_id=(
+                        self._session_manager.get_session_id() if self._session_manager else None
+                    ),
+                    duration_ms=session_duration_ms,
+                )
+            except Exception as e:
+                logger.error(f"Failed to log session stop metric: {e}")
 
         # Stop the session manager if it exists
         if self._session_manager:

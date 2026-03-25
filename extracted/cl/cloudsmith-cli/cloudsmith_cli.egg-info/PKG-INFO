@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudsmith-cli
-Version: 1.15.0
+Version: 1.16.0
 Summary: Cloudsmith Command-Line Interface (CLI)
 Home-page: https://github.com/cloudsmith-io/cloudsmith-cli
 Author: Cloudsmith Ltd
@@ -31,7 +31,7 @@ Requires-Dist: click-configfile>=0.2.3
 Requires-Dist: click-didyoumean>=0.0.3
 Requires-Dist: click-spinner>=0.1.7
 Requires-Dist: json5>=0.9.0
-Requires-Dist: cloudsmith-api<3.0,>=2.0.24
+Requires-Dist: cloudsmith-api<3.0,>=2.0.25
 Requires-Dist: keyring>=25.4.1
 Requires-Dist: mcp==1.9.1
 Requires-Dist: python-toon==0.1.2

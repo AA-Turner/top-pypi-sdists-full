@@ -43,6 +43,41 @@ class TestPageClientAuthFailure(unittest.TestCase):
         self.assertIn("exception occurred", client.response.body)
 
 
+class TestPageClientContextResponseSync(unittest.TestCase):
+    def test_set_response_syncs_body_to_context(self):
+        client = _make_client()
+        client.set_response(
+            200, '{"message": "hello"}', {"Content-Type": "application/json"}
+        )
+        self.assertEqual(client.context.response.body, '{"message": "hello"}')
+
+    def test_set_response_syncs_status_to_context(self):
+        client = _make_client()
+        client.set_response(201, "created", {})
+        self.assertEqual(client.context.response.status, 201)
+
+    def test_set_response_syncs_headers_to_context(self):
+        client = _make_client()
+        client.set_response(200, "ok", {"X-Custom": "value"})
+        self.assertEqual(client.context.response.headers, {"X-Custom": "value"})
+
+    def test_context_response_is_same_object_as_response(self):
+        client = _make_client()
+        client.set_response(200, "body", {})
+        self.assertIs(client.context.response, client.response)
+
+    def test_handle_failure_syncs_500_to_context(self):
+        client = _make_client()
+        client.handle_failure(Exception("boom"))
+        self.assertEqual(client.context.response.status, 500)
+        self.assertIn("exception occurred", client.context.response.body)
+
+    def test_context_response_starts_empty(self):
+        client = _make_client()
+        self.assertEqual(client.context.response.body, "")
+        self.assertEqual(client.context.response.status, 200)
+
+
 class TestExceptionHierarchy(unittest.TestCase):
     def test_get_user_failed_is_authorization_required(self):
         self.assertTrue(issubclass(GetUserFailed, AuthorizationRequired))

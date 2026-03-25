@@ -63,6 +63,32 @@ def diagnose(
     if step_failed_match:
         failing_step_id = step_failed_match.group(1)
         step = _find_step(steps, failing_step_id)
+
+        # Loop until not met (#1125) — check before generic runner_failure
+        if step:
+            fail_artifacts = step.get("result_artifacts") or {}
+            if fail_artifacts.get("loop_end_reason") == "until_not_met":
+                return Diagnosis(
+                    category="loop_until_not_met",
+                    what=f"Loop {failing_step_id} exhausted without meeting until condition",
+                    why=_truncate(
+                        step.get("result_summary")
+                        or "All rounds completed but the until condition was never satisfied",
+                        180,
+                    ),
+                    evidence=[
+                        DiagnosisEvidence(source="stop_reason", content=stop_reason),
+                        DiagnosisEvidence(source="loop_end_reason", content="until_not_met", location=failing_step_id),
+                    ],
+                    next_actions=[
+                        f"Inspect loop output: aroom workflow history {run_id_short}",
+                        "Check the until condition and nested step outputs",
+                        f"Increase max_rounds or fix the underlying issue, then resume:"
+                        f" aroom workflow resume {run_id_short}",
+                    ],
+                    confidence="high",
+                )
+
         evidence = [DiagnosisEvidence(source="stop_reason", content=stop_reason)]
         analysis = (
             _analyze_step_output(step, step_id=failing_step_id)
@@ -73,6 +99,18 @@ def diagnose(
             )
         )
         evidence.extend(analysis.evidence)
+
+        # Note any earlier continued failures (#1126)
+        continued_events = [e for e in events if e.get("event_type") == "step_continued"]
+        if continued_events:
+            cont_ids = [e.get("step_id", "?") for e in continued_events]
+            evidence.append(
+                DiagnosisEvidence(
+                    source="continued_failures",
+                    content=f"Earlier steps continued after failure: {', '.join(cont_ids)}",
+                    location=None,
+                )
+            )
 
         return Diagnosis(
             category="runner_failure",

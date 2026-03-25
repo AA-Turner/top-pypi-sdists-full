@@ -774,3 +774,59 @@ def handle(o: object) -> int:
     return 1
 "#,
 );
+
+// Regression test for https://github.com/facebook/pyrefly/issues/2826
+testcase!(
+    test_match_sequence_pattern_on_attribute,
+    r#"
+from __future__ import annotations
+from typing import assert_type
+
+class C:
+    items: list[C]
+    def __init__(self, items: list[C]) -> None:
+        self.items = items
+
+def handle(c: C) -> None:
+    match c.items:
+        case [_]:
+            assert_type(c, C)
+    assert_type(c, C)
+"#,
+);
+
+testcase!(
+    test_match_multi_subject_with_tuple_pattern,
+    r#"
+def test_multi_match1(o1: object, o2: object) -> None:
+    match o1, o2:
+        case _, ("a", 1): pass
+        case _, ("b", 1): pass
+        case _, ("c", 1): pass
+
+def test_multi_match2(o1: object, o2: object) -> None:
+    match o1, o2:
+        case ("a", 1), _: pass
+        case ("b", 1), _: pass
+        case ("c", 1), _: pass
+"#,
+);
+
+testcase!(
+    test_match_multi_subject_with_mapping_pattern,
+    r#"
+from typing import Any
+
+def test_multi_match_mapping1(o1: object, o2: dict[str, Any]) -> None:
+    match o1, o2:
+        case _, {"a": 1}: pass
+        case _, {"b": 1}: pass
+        case _, {"c": 1}: pass
+
+def test_multi_match_mapping2(o1: dict[str, Any], o2: object) -> None:
+    match o1, o2:
+        case {"a": 1}, _: pass
+        case {"b": 1}, _: pass
+        case {"c": 1}, _: pass
+"#,
+);

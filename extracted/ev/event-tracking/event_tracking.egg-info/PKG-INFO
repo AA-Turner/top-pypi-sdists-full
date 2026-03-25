@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: event-tracking
-Version: 3.3.0
+Version: 4.0.0
 Summary: A simple event tracking system.
 Home-page: https://github.com/openedx/event-tracking
 Author: edX
@@ -9,13 +9,11 @@ License: AGPLv3 License
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content

@@ -79,14 +79,18 @@ class EOLTool(BaseTool):
         try:
             return self._query(arguments)
         except HTTPError as e:
-            return {"error": "EOL API HTTP error: %s" % e.code}
+            return {"status": "error", "error": "EOL API HTTP error: %s" % e.code}
         except URLError as e:
             return {
+                "status": "error",
                 "error": "Failed to connect to Encyclopedia of Life API: %s"
-                % str(e.reason)
+                % str(e.reason),
             }
         except Exception as e:
-            return {"error": "Unexpected error querying EOL: %s" % str(e)}
+            return {
+                "status": "error",
+                "error": "Unexpected error querying EOL: %s" % str(e),
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate EOL endpoint."""
@@ -99,13 +103,13 @@ class EOLTool(BaseTool):
         elif self.endpoint == "collections":
             return self._get_collection(arguments)
         else:
-            return {"error": "Unknown endpoint: %s" % self.endpoint}
+            return {"status": "error", "error": "Unknown endpoint: %s" % self.endpoint}
 
     def _search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search for species/taxa by name."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         page = int(arguments.get("page", 1))
         exact = arguments.get("exact", False)
@@ -129,6 +133,7 @@ class EOLTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "Encyclopedia of Life",
@@ -150,7 +155,7 @@ class EOLTool(BaseTool):
         """Get detailed species/taxon page by EOL page ID."""
         page_id = arguments.get("page_id")
         if page_id is None:
-            return {"error": "page_id parameter is required"}
+            return {"status": "error", "error": "page_id parameter is required"}
 
         images_per_page = int(arguments.get("images_per_page", 3))
         texts_per_page = int(arguments.get("texts_per_page", 2))
@@ -228,6 +233,7 @@ class EOLTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "page_id": tc.get("identifier"),
                 "scientific_name": tc.get("scientificName"),
@@ -250,7 +256,10 @@ class EOLTool(BaseTool):
         """Get taxonomy hierarchy for a specific classification entry."""
         hierarchy_entry_id = arguments.get("hierarchy_entry_id")
         if hierarchy_entry_id is None:
-            return {"error": "hierarchy_entry_id parameter is required"}
+            return {
+                "status": "error",
+                "error": "hierarchy_entry_id parameter is required",
+            }
 
         params = {"id": int(hierarchy_entry_id)}
         url = "%s/hierarchy_entries/1.0.json?%s" % (EOL_BASE_URL, urlencode(params))
@@ -292,6 +301,7 @@ class EOLTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "taxon_id": data.get("taxonID"),
                 "scientific_name": data.get("scientificName"),
@@ -315,7 +325,7 @@ class EOLTool(BaseTool):
         """Get EOL curated collection details."""
         collection_id = arguments.get("collection_id")
         if collection_id is None:
-            return {"error": "collection_id parameter is required"}
+            return {"status": "error", "error": "collection_id parameter is required"}
 
         page = int(arguments.get("page", 1))
         per_page = int(arguments.get("per_page", 50))
@@ -345,6 +355,7 @@ class EOLTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "name": data.get("name"),
                 "description": data.get("description"),

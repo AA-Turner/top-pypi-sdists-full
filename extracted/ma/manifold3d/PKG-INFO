@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: manifold3d
-Version: 3.4.0
+Version: 3.4.1
 Summary: Library for geometric robustness
 Author-Email: Emmett Lalish <elalish@gmail.com>
 Classifier: Development Status :: 5 - Production/Stable
@@ -10,7 +10,7 @@ Classifier: Programming Language :: C++
 Classifier: Topic :: Multimedia :: Graphics :: 3D Modeling
 Project-URL: Homepage, https://github.com/elalish/manifold
 Project-URL: Bug Tracker, https://github.com/elalish/manifold/issues
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: numpy; python_version < "3.12"
 Requires-Dist: numpy>=1.26.0b1; python_version >= "3.12"
 Description-Content-Type: text/markdown
@@ -41,7 +41,7 @@ Here is an incomplete list of our users, whose integrations may be anywhere from
 | [Conversation](https://james-bern.github.io/conversation.html) | [AnchorSCAD](https://github.com/owebeeone/anchorscad-core) | [Dactyl Web Configurator](https://github.com/rianadon/dactyl-configurator) |
 | [Arcol](https://arcol.io) | [Bento3D](https://bento3d.design) | [SKÅPA](https://skapa.build) |
 | [Cadova](https://github.com/tomasf/Cadova) | [BREP.io](https://github.com/mmiscool/BREP)  | [Otterplans](https://otterplans.com) |
-| [Bracket Engineer](https://bracket.engineer) | | |
+| [Bracket Engineer](https://bracket.engineer) | [Nodillo](https://nodillo3d.com) | |
 
 ### Bindings & Packages
 

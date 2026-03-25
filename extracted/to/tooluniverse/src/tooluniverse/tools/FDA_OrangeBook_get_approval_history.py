@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def FDA_OrangeBook_get_approval_history(
-    operation: str,
     application_number: str,
+    operation: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

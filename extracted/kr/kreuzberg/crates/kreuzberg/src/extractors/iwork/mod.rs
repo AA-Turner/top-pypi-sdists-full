@@ -20,29 +20,33 @@ pub mod pages;
 
 use crate::Result;
 use crate::error::KreuzbergError;
+use crate::text::utf8_validation;
 use std::io::Cursor;
 use std::io::Read;
 
 /// Maximum size for an individual IWA file to guard against decompression bombs.
 const MAX_IWA_DECOMPRESSED_SIZE: usize = 64 * 1024 * 1024; // 64 MiB
 
-/// Open a ZIP archive from bytes and collect all `.iwa` entry names.
-pub fn list_iwa_entries(content: &[u8]) -> Result<Vec<String>> {
+/// Collects all .iwa file paths from a ZIP archive.
+///
+/// Opens the ZIP from `content`, iterates every entry, and returns the names of
+/// all entries whose path ends with `.iwa`. Entries that cannot be read are
+/// silently skipped (consistent with the per-extractor `filter_map` pattern).
+pub fn collect_iwa_paths(content: &[u8]) -> Result<Vec<String>> {
     let cursor = Cursor::new(content);
     let mut archive =
         zip::ZipArchive::new(cursor).map_err(|e| KreuzbergError::parsing(format!("Failed to open iWork ZIP: {e}")))?;
 
-    let mut names = Vec::new();
-    for i in 0..archive.len() {
-        let file = archive
-            .by_index(i)
-            .map_err(|e| KreuzbergError::parsing(format!("Failed to read ZIP entry {i}: {e}")))?;
-        let name = file.name().to_string();
-        if name.ends_with(".iwa") {
-            names.push(name);
-        }
-    }
-    Ok(names)
+    let iwa_paths: Vec<String> = (0..archive.len())
+        .filter_map(|i| {
+            archive.by_index(i).ok().and_then(|f| {
+                let name = f.name().to_string();
+                if name.ends_with(".iwa") { Some(name) } else { None }
+            })
+        })
+        .collect();
+
+    Ok(iwa_paths)
 }
 
 /// Read and Snappy-decompress a single `.iwa` file from the ZIP archive.
@@ -182,7 +186,7 @@ pub fn extract_text_from_proto(data: &[u8]) -> Vec<String> {
                 i = end;
 
                 // Attempt UTF-8 decode — only keep strings ≥ 3 chars of printable content
-                if let Ok(s) = std::str::from_utf8(payload) {
+                if let Ok(s) = utf8_validation::from_utf8(payload) {
                     let trimmed = s.trim();
                     if trimmed.len() >= 3 && trimmed.chars().any(|c| c.is_alphabetic() || c.is_numeric()) {
                         texts.push(trimmed.to_string());

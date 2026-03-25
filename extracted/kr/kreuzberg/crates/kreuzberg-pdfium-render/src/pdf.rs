@@ -1,5 +1,4 @@
 pub mod action;
-pub mod appearance_mode;
 pub mod bitmap;
 pub mod color;
 pub mod color_space;

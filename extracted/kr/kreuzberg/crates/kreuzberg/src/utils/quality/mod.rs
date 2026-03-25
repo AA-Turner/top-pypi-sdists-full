@@ -138,12 +138,13 @@ fn clean_dashes_preserve_tables<'a>(text: Cow<'a, str>) -> Cow<'a, str> {
     }
 
     let mut result = String::with_capacity(text.len());
-    let lines: Vec<&str> = text.lines().collect();
+    let mut first_line = true;
 
-    for (i, line) in lines.iter().enumerate() {
-        if i > 0 {
+    for line in text.lines() {
+        if !first_line {
             result.push('\n');
         }
+        first_line = false;
 
         let trimmed = line.trim();
         let is_table_separator = trimmed.starts_with('|')

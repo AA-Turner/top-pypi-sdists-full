@@ -81,17 +81,10 @@ pub struct CoreProperties {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn extract_core_properties<R: Read + std::io::Seek>(archive: &mut ZipArchive<R>) -> Result<CoreProperties> {
-    let mut xml_content = String::new();
-
-    match archive.by_name("docProps/core.xml") {
-        Ok(mut file) => {
-            file.read_to_string(&mut xml_content)
-                .map_err(|e| KreuzbergError::parsing(format!("Failed to read core.xml: {}", e)))?;
-        }
-        Err(_) => {
-            return Ok(CoreProperties::default());
-        }
-    }
+    let xml_content = match super::read_zip_entry_to_string(archive, "docProps/core.xml", "core.xml")? {
+        Some(content) => content,
+        None => return Ok(CoreProperties::default()),
+    };
 
     let doc = roxmltree::Document::parse(&xml_content)
         .map_err(|e| KreuzbergError::parsing(format!("Failed to parse core.xml: {}", e)))?;

@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.completed_job_raw_flow_modules_item_debouncing import CompletedJobRawFlowModulesItemDebouncing
     from ..models.completed_job_raw_flow_modules_item_mock import CompletedJobRawFlowModulesItemMock
     from ..models.completed_job_raw_flow_modules_item_retry import CompletedJobRawFlowModulesItemRetry
     from ..models.completed_job_raw_flow_modules_item_skip_if import CompletedJobRawFlowModulesItemSkipIf
@@ -56,6 +57,8 @@ class CompletedJobRawFlowModulesItem:
         priority (Union[Unset, float]): Execution priority for this step (higher numbers run first)
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, CompletedJobRawFlowModulesItemRetry]): Retry configuration for failed module executions
+        debouncing (Union[Unset, CompletedJobRawFlowModulesItemDebouncing]): Debounce configuration for this step (EE
+            only)
     """
 
     id: str
@@ -84,6 +87,7 @@ class CompletedJobRawFlowModulesItem:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "CompletedJobRawFlowModulesItemRetry"] = UNSET
+    debouncing: Union[Unset, "CompletedJobRawFlowModulesItemDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -166,6 +170,10 @@ class CompletedJobRawFlowModulesItem:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -202,11 +210,14 @@ class CompletedJobRawFlowModulesItem:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.completed_job_raw_flow_modules_item_debouncing import CompletedJobRawFlowModulesItemDebouncing
         from ..models.completed_job_raw_flow_modules_item_mock import CompletedJobRawFlowModulesItemMock
         from ..models.completed_job_raw_flow_modules_item_retry import CompletedJobRawFlowModulesItemRetry
         from ..models.completed_job_raw_flow_modules_item_skip_if import CompletedJobRawFlowModulesItemSkipIf
@@ -387,6 +398,13 @@ class CompletedJobRawFlowModulesItem:
         else:
             retry = CompletedJobRawFlowModulesItemRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, CompletedJobRawFlowModulesItemDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = CompletedJobRawFlowModulesItemDebouncing.from_dict(_debouncing)
+
         completed_job_raw_flow_modules_item = cls(
             id=id,
             value=value,
@@ -404,6 +422,7 @@ class CompletedJobRawFlowModulesItem:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         completed_job_raw_flow_modules_item.additional_properties = d

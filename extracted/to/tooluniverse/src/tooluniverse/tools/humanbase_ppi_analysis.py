@@ -9,11 +9,13 @@ from ._shared_client import get_shared_client
 
 
 def humanbase_ppi_analysis(
-    gene_list: list[str],
-    tissue: str,
-    max_node: int,
-    interaction: str,
-    string_mode: bool,
+    gene_list: Optional[list[str]] = None,
+    tissue: Optional[str] = "brain",
+    max_node: Optional[int] = 10,
+    interaction: Optional[str] = None,
+    string_mode: Optional[bool] = True,
+    genes: Optional[list[str]] = None,
+    top_n: Optional[int] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -27,13 +29,17 @@ def humanbase_ppi_analysis(
     gene_list : list[str]
         List of gene names or symbols to analyze for protein-protein interactions. Th...
     tissue : str
-        Tissue type for tissue-specific interactions. Examples: 'brain', 'heart', 'li...
+        Tissue type for tissue-specific interactions. Use simple names like 'brain', ...
     max_node : int
         Maximum number of nodes to retrieve in the interaction network. Warning: the ...
     interaction : str
         Specific interaction type to filter by. Available types: 'co-expression', 'in...
     string_mode : bool
         Whether to return the result in string mode. If True, the result will be a st...
+    genes : list[str]
+        Alias for gene_list. List of gene symbols to analyze.
+    top_n : int
+        Alias for max_node. Maximum number of network nodes to retrieve.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -56,6 +62,8 @@ def humanbase_ppi_analysis(
             "max_node": max_node,
             "interaction": interaction,
             "string_mode": string_mode,
+            "genes": genes,
+            "top_n": top_n,
         }.items()
         if v is not None
     }

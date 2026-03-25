@@ -55,22 +55,29 @@ class ReactomeRESTTool(BaseTool):
     def run(
         self, arguments: dict, stream_callback=None, use_cache=False, validate=True
     ):
+        # Feature-111A-006: id is a backward alias for uniprot_id (renamed in round 68B)
+        if not arguments.get("uniprot_id") and arguments.get("id"):
+            arguments = dict(arguments, uniprot_id=arguments["id"])
+
         # Optional schema validation (when jsonschema is available)
         if validate:
             validation_error = self.validate_parameters(arguments)
             if validation_error is not None:
-                return {"error": str(validation_error)}
+                return {"status": "error", "error": str(validation_error)}
 
         # 1. Validate required parameters (check from required_params list)
         for required_param in self.required_params:
             if required_param not in arguments:
-                return {"error": f"Parameter '{required_param}' is required."}
+                return {
+                    "status": "error",
+                    "error": f"Parameter '{required_param}' is required.",
+                }
 
         # 2. Build URL, replace {xxx} placeholders
         try:
             url = self._build_url(arguments)
         except ValueError as e:
-            return {"error": str(e)}
+            return {"status": "error", "error": str(e)}
 
         # 3. Find remaining arguments besides path parameters as query parameters
         path_keys = re.findall(r"\{([^{}]+)\}", self.endpoint_template)
@@ -162,11 +169,15 @@ class ReactomeRESTTool(BaseTool):
                         backoff_seconds=0.5,
                     )
         except Exception as e:
-            return {"error": f"Failed to request Reactome Content Service: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Failed to request Reactome Content Service: {str(e)}",
+            }
 
         # 5. Check HTTP status code
         if resp.status_code != 200:
             return {
+                "status": "error",
                 "error": f"Reactome API returned HTTP {resp.status_code}",
                 "detail": resp.text,
                 "url": url,
@@ -207,7 +218,8 @@ class ReactomeRESTTool(BaseTool):
                         # Single value or simple format
                         data.append({"value": line.strip()})
 
-                return data if len(data) > 1 else (data[0] if data else {})
+                parsed = data if len(data) > 1 else (data[0] if data else {})
+                return {"status": "success", "data": parsed}
             else:
                 # Parse JSON
                 data = resp.json()
@@ -220,6 +232,7 @@ class ReactomeRESTTool(BaseTool):
                     return resp.text.strip()
 
             return {
+                "status": "error",
                 "error": "Unable to parse Reactome returned response.",
                 "content": resp.text[:500],
                 "content_type": content_type,
@@ -227,7 +240,7 @@ class ReactomeRESTTool(BaseTool):
 
         # 7. If no extract_path in config, return complete JSON
         if not self.extract_path:
-            return data
+            return {"status": "success", "data": data}
 
         # 8. Otherwise drill down according to "dot-separated path" in extract_path
         fragment = data
@@ -235,5 +248,8 @@ class ReactomeRESTTool(BaseTool):
             if isinstance(fragment, dict) and part in fragment:
                 fragment = fragment[part]
             else:
-                return {"error": f"Path '{self.extract_path}' not found in JSON."}
-        return fragment
+                return {
+                    "status": "error",
+                    "error": f"Path '{self.extract_path}' not found in JSON.",
+                }
+        return {"status": "success", "data": fragment}

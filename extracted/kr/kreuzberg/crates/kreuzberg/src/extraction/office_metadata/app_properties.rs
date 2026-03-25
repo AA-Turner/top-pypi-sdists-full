@@ -112,17 +112,10 @@ pub struct PptxAppProperties {
 ///
 /// Parses `docProps/app.xml` and extracts Word-specific metadata.
 pub fn extract_docx_app_properties<R: Read + std::io::Seek>(archive: &mut ZipArchive<R>) -> Result<DocxAppProperties> {
-    let mut xml_content = String::new();
-
-    match archive.by_name("docProps/app.xml") {
-        Ok(mut file) => {
-            file.read_to_string(&mut xml_content)
-                .map_err(|e| KreuzbergError::parsing(format!("Failed to read app.xml: {}", e)))?;
-        }
-        Err(_) => {
-            return Ok(DocxAppProperties::default());
-        }
-    }
+    let xml_content = match super::read_zip_entry_to_string(archive, "docProps/app.xml", "app.xml")? {
+        Some(content) => content,
+        None => return Ok(DocxAppProperties::default()),
+    };
 
     let doc = roxmltree::Document::parse(&xml_content)
         .map_err(|e| KreuzbergError::parsing(format!("Failed to parse app.xml: {}", e)))?;
@@ -153,17 +146,10 @@ pub fn extract_docx_app_properties<R: Read + std::io::Seek>(archive: &mut ZipArc
 ///
 /// Parses `docProps/app.xml` and extracts Excel-specific metadata including worksheet names.
 pub fn extract_xlsx_app_properties<R: Read + std::io::Seek>(archive: &mut ZipArchive<R>) -> Result<XlsxAppProperties> {
-    let mut xml_content = String::new();
-
-    match archive.by_name("docProps/app.xml") {
-        Ok(mut file) => {
-            file.read_to_string(&mut xml_content)
-                .map_err(|e| KreuzbergError::parsing(format!("Failed to read app.xml: {}", e)))?;
-        }
-        Err(_) => {
-            return Ok(XlsxAppProperties::default());
-        }
-    }
+    let xml_content = match super::read_zip_entry_to_string(archive, "docProps/app.xml", "app.xml")? {
+        Some(content) => content,
+        None => return Ok(XlsxAppProperties::default()),
+    };
 
     let doc = roxmltree::Document::parse(&xml_content)
         .map_err(|e| KreuzbergError::parsing(format!("Failed to parse app.xml: {}", e)))?;
@@ -189,17 +175,10 @@ pub fn extract_xlsx_app_properties<R: Read + std::io::Seek>(archive: &mut ZipArc
 ///
 /// Parses `docProps/app.xml` and extracts PowerPoint-specific metadata including slide information.
 pub fn extract_pptx_app_properties<R: Read + std::io::Seek>(archive: &mut ZipArchive<R>) -> Result<PptxAppProperties> {
-    let mut xml_content = String::new();
-
-    match archive.by_name("docProps/app.xml") {
-        Ok(mut file) => {
-            file.read_to_string(&mut xml_content)
-                .map_err(|e| KreuzbergError::parsing(format!("Failed to read app.xml: {}", e)))?;
-        }
-        Err(_) => {
-            return Ok(PptxAppProperties::default());
-        }
-    }
+    let xml_content = match super::read_zip_entry_to_string(archive, "docProps/app.xml", "app.xml")? {
+        Some(content) => content,
+        None => return Ok(PptxAppProperties::default()),
+    };
 
     let doc = roxmltree::Document::parse(&xml_content)
         .map_err(|e| KreuzbergError::parsing(format!("Failed to parse app.xml: {}", e)))?;

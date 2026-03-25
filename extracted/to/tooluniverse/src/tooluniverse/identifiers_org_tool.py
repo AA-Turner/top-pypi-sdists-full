@@ -39,13 +39,19 @@ class IdentifiersOrgTool(BaseRESTTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"Identifiers.org request timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"Identifiers.org request timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to Identifiers.org."}
+            return {"status": "error", "error": "Failed to connect to Identifiers.org."}
         except requests.exceptions.HTTPError as e:
-            return {"error": f"Identifiers.org HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"Identifiers.org HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: dict) -> dict:
         op = self.operation
@@ -58,14 +64,15 @@ class IdentifiersOrgTool(BaseRESTTool):
         elif op == "list_namespaces":
             return self._list_namespaces(arguments)
         else:
-            return {"error": f"Unknown operation: {op}"}
+            return {"status": "error", "error": f"Unknown operation: {op}"}
 
     def _resolve(self, arguments: dict) -> dict:
         """Resolve a compact identifier to resource URLs."""
         compact_id = arguments.get("compact_id", "").strip()
         if not compact_id:
             return {
-                "error": "compact_id parameter is required (e.g., 'uniprot:P04637')"
+                "status": "error",
+                "error": "compact_id parameter is required (e.g., 'uniprot:P04637')",
             }
 
         # Use the compact_id directly in the URL path (no URL encoding of colon)
@@ -92,6 +99,7 @@ class IdentifiersOrgTool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "compact_id": compact_id,
                 "namespace": parsed.get("namespace"),
@@ -109,7 +117,10 @@ class IdentifiersOrgTool(BaseRESTTool):
         """Get namespace details by prefix."""
         prefix = arguments.get("prefix", "").strip()
         if not prefix:
-            return {"error": "prefix parameter is required (e.g., 'uniprot', 'pdb')"}
+            return {
+                "status": "error",
+                "error": "prefix parameter is required (e.g., 'uniprot', 'pdb')",
+            }
 
         url = f"{REGISTRY_BASE}/restApi/namespaces/search/findByPrefix"
         resp = requests.get(url, params={"prefix": prefix}, timeout=self.timeout)
@@ -117,6 +128,7 @@ class IdentifiersOrgTool(BaseRESTTool):
         data = resp.json()
 
         return {
+            "status": "success",
             "data": data,
             "metadata": {
                 "prefix": prefix,
@@ -128,7 +140,7 @@ class IdentifiersOrgTool(BaseRESTTool):
         """Search namespaces by keyword."""
         content = arguments.get("content", "").strip()
         if not content:
-            return {"error": "content parameter is required"}
+            return {"status": "error", "error": "content parameter is required"}
 
         params: dict[str, Any] = {
             "content": content,
@@ -159,6 +171,7 @@ class IdentifiersOrgTool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "namespaces": ns_list,
                 "total_elements": page_info.get("totalElements"),
@@ -197,6 +210,7 @@ class IdentifiersOrgTool(BaseRESTTool):
         ]
 
         return {
+            "status": "success",
             "data": {
                 "namespaces": ns_list,
                 "total_elements": page_info.get("totalElements"),

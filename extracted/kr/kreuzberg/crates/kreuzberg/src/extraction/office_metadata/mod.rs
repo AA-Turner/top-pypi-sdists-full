@@ -45,7 +45,37 @@ pub use core_properties::{CoreProperties, extract_core_properties};
 pub use custom_properties::{CustomProperties, extract_custom_properties};
 pub use odt_properties::{OdtProperties, extract_odt_properties};
 
+use crate::error::{KreuzbergError, Result};
 use roxmltree::Node;
+use std::io::Read;
+use zip::ZipArchive;
+
+/// Read a ZIP archive entry to a `String`.
+///
+/// Returns `Ok(Some(content))` if the entry exists and was read successfully,
+/// `Ok(None)` if the entry does not exist in the archive, or an error if the
+/// entry exists but cannot be read.
+///
+/// # Arguments
+///
+/// * `archive` - ZIP archive to read from
+/// * `entry_path` - Path of the entry within the archive (e.g. `"docProps/core.xml"`)
+/// * `display_name` - Short name used in error messages (e.g. `"core.xml"`)
+pub(crate) fn read_zip_entry_to_string<R: Read + std::io::Seek>(
+    archive: &mut ZipArchive<R>,
+    entry_path: &str,
+    display_name: &str,
+) -> Result<Option<String>> {
+    match archive.by_name(entry_path) {
+        Ok(mut file) => {
+            let mut content = String::new();
+            file.read_to_string(&mut content)
+                .map_err(|e| KreuzbergError::parsing(format!("Failed to read {display_name}: {e}")))?;
+            Ok(Some(content))
+        }
+        Err(_) => Ok(None),
+    }
+}
 
 /// Parse text content from an XML element by tag name
 ///

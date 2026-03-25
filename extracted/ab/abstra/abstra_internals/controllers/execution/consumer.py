@@ -12,7 +12,7 @@ from abstra_internals.cloud.metrics_reporter import (
 from abstra_internals.controllers.execution.debug_monitor import DebugMonitor
 from abstra_internals.controllers.execution.executor_config import ExecutorConfig
 from abstra_internals.controllers.execution.executor_pool import ExecutorPool
-from abstra_internals.controllers.execution.executor_process import RabbitMQParams
+from abstra_internals.controllers.execution.executor_types import RabbitMQParams
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import (
     ABSTRA_EXECUTOR_POOL_SIZE,

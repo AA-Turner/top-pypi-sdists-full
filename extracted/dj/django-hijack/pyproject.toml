@@ -40,16 +40,21 @@ test = [
   "pytest-django",
 ]
 lint = [
-  "ruff==0.14.10",
-  "msgcheck==4.1.0",
+  "ruff==0.15.7",
+  "msgcheck==4.2.0",
 ]
 docs = [
   "mkdocs==1.6.1",
 ]
 
 [project.urls]
-Project-URL = "https://github.com/django-hijack/django-hijack"
+# https://packaging.python.org/en/latest/specifications/well-known-project-urls/#well-known-labels
+Homepage = "https://github.com/django-hijack/django-hijack"
 Changelog = "https://github.com/django-hijack/django-hijack/releases"
+Source = "https://github.com/django-hijack/django-hijack"
+Releasenotes = "https://github.com/django-hijack/django-hijack/releases/latest"
+Documentation = "https://django-hijack.rtfd.io/"
+Issues = "https://github.com/django-hijack/django-hijack/issues"
 
 [tool.flit.module]
 name = "hijack"

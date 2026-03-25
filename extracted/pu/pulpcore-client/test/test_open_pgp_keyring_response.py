@@ -48,6 +48,7 @@ class TestOpenPGPKeyringResponse(unittest.TestCase):
                 name = '',
                 description = '',
                 retain_repo_versions = 1,
+                retain_checkpoints = 1,
                 remote = ''
             )
         else:

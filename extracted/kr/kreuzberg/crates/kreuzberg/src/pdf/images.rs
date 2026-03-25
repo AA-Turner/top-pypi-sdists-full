@@ -37,6 +37,7 @@ pub struct PdfImageExtractor {
 /// | JBIG2Decode    | Pass through                                                 | `"jbig2"`   |
 /// | unknown / none | Attempt format detection via magic bytes, else pass through  | detected or `"raw"` |
 #[cfg(feature = "pdf")]
+#[allow(clippy::too_many_arguments)]
 fn decode_image_data(
     raw: &[u8],
     filters: &[String],
@@ -44,6 +45,8 @@ fn decode_image_data(
     width: i64,
     height: i64,
     bits_per_component: Option<i64>,
+    palette: Option<&[u8]>,
+    palette_base_channels: u32,
 ) -> (Bytes, String) {
     // Determine the primary filter (last applied is outermost / first to decode).
     // PDF applies filters in array order for encoding, so we decode in reverse.
@@ -58,7 +61,15 @@ fn decode_image_data(
         "FlateDecode" => {
             // Content is zlib/deflate-compressed raw pixel data.
             // Decompress, then re-encode as PNG via the `image` crate.
-            match decode_flate_to_png(raw, color_space, width, height, bits_per_component) {
+            match decode_flate_to_png(
+                raw,
+                color_space,
+                width,
+                height,
+                bits_per_component,
+                palette,
+                palette_base_channels,
+            ) {
                 Ok(png_bytes) => (Bytes::from(png_bytes), "png".to_string()),
                 Err(_) => {
                     // Fall back to raw bytes if decode fails.
@@ -108,6 +119,10 @@ fn detect_image_format(data: &[u8]) -> String {
 /// PDF FlateDecode image streams are zlib-deflated uncompressed pixel rows.  After
 /// decompression the bytes are in `width × height × channels` layout (no row-padding
 /// other than a possible PNG predictor byte per row — see PDF spec §7.4.4.4).
+///
+/// For Indexed (palette-based) color spaces, each pixel byte is a palette index.
+/// If `palette` is provided, indices are expanded to RGB (or the base color space)
+/// before PNG encoding. Otherwise, indices are treated as grayscale values.
 #[cfg(feature = "pdf")]
 fn decode_flate_to_png(
     raw: &[u8],
@@ -115,6 +130,8 @@ fn decode_flate_to_png(
     width: i64,
     height: i64,
     bits_per_component: Option<i64>,
+    palette: Option<&[u8]>,
+    palette_base_channels: u32,
 ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     use flate2::read::ZlibDecoder;
     use image::ImageEncoder;
@@ -125,12 +142,19 @@ fn decode_flate_to_png(
     let mut decompressed = Vec::new();
     decoder.read_to_end(&mut decompressed)?;
 
+    let is_indexed = color_space.map(|cs| cs.contains("Indexed")).unwrap_or(false);
+
     // Determine the number of color channels from the color space.
-    let channels: u32 = match color_space {
-        Some(cs) if cs.contains("RGB") => 3,
-        Some(cs) if cs.contains("CMYK") => 4,
-        Some(cs) if cs.contains("Gray") || cs.contains("grey") || cs.contains("grey") => 1,
-        _ => 3, // Default to RGB
+    // For Indexed images, each pixel is 1 byte (a palette index).
+    let index_channels: u32 = if is_indexed {
+        1
+    } else {
+        match color_space {
+            Some(cs) if cs.contains("RGB") => 3,
+            Some(cs) if cs.contains("CMYK") => 4,
+            Some(cs) if cs.contains("Gray") || cs.contains("grey") => 1,
+            _ => 3, // Default to RGB
+        }
     };
 
     let bpc = bits_per_component.unwrap_or(8) as u32;
@@ -140,7 +164,7 @@ fn decode_flate_to_png(
     // PDF FlateDecode pixel rows may carry a PNG predictor byte (value 2 = Sub,
     // etc. per PDF spec §7.4.4.4 / PNG predictor). Strip it if row-stride matches.
     let bytes_per_channel = bpc.div_ceil(8);
-    let raw_row_stride = w * channels * bytes_per_channel; // bytes per row without predictor
+    let raw_row_stride = w * index_channels * bytes_per_channel; // bytes per row without predictor
     let pred_row_stride = raw_row_stride + 1; // +1 for predictor byte
 
     let pixel_data: Vec<u8> = if h > 0 && decompressed.len() as u32 == pred_row_stride * h {
@@ -155,6 +179,77 @@ fn decode_flate_to_png(
     } else {
         decompressed
     };
+
+    // For indexed color spaces, expand palette indices to actual pixel values.
+    if is_indexed {
+        if let Some(palette_data) = palette {
+            // Determine the base color space channels (typically 3 for RGB, 4 for CMYK, 1 for Gray).
+            let base_ch = if palette_base_channels > 0 {
+                palette_base_channels
+            } else {
+                3 // Default to RGB base
+            };
+
+            // Expand each index byte to its palette RGB/Gray/CMYK color.
+            let mut expanded = Vec::with_capacity(pixel_data.len() * base_ch as usize);
+            for &idx in &pixel_data {
+                let offset = idx as usize * base_ch as usize;
+                if offset + base_ch as usize <= palette_data.len() {
+                    expanded.extend_from_slice(&palette_data[offset..offset + base_ch as usize]);
+                } else {
+                    // Out-of-range index: fill with zeros (black).
+                    expanded.extend(std::iter::repeat_n(0u8, base_ch as usize));
+                }
+            }
+
+            let color_type = match base_ch {
+                1 => image::ColorType::L8,
+                3 => image::ColorType::Rgb8,
+                4 => image::ColorType::Rgba8,
+                _ => image::ColorType::Rgb8,
+            };
+
+            let expected_len = (w * h * base_ch) as usize;
+            if expanded.len() != expected_len {
+                return Err(format!(
+                    "PDF indexed image buffer length mismatch after palette expansion: \
+                     expected {expected_len} bytes ({w}x{h} px, {base_ch} ch) but got {} bytes",
+                    expanded.len()
+                )
+                .into());
+            }
+
+            let mut png_bytes: Vec<u8> = Vec::new();
+            let mut cursor = std::io::Cursor::new(&mut png_bytes);
+            image::codecs::png::PngEncoder::new(&mut cursor)
+                .write_image(&expanded, w, h, color_type.into())
+                .map_err(|e| format!("PNG encoding failed for indexed image: {e}"))?;
+
+            return Ok(png_bytes);
+        }
+
+        // No palette available: treat indices as grayscale values.
+        let expected_len = (w * h) as usize;
+        if pixel_data.len() != expected_len {
+            return Err(format!(
+                "PDF indexed image buffer length mismatch (grayscale fallback): \
+                 expected {expected_len} bytes ({w}x{h} px, 1 ch) but got {} bytes",
+                pixel_data.len()
+            )
+            .into());
+        }
+
+        let mut png_bytes: Vec<u8> = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut png_bytes);
+        image::codecs::png::PngEncoder::new(&mut cursor)
+            .write_image(&pixel_data, w, h, image::ColorType::L8.into())
+            .map_err(|e| format!("PNG encoding failed for indexed image (grayscale fallback): {e}"))?;
+
+        return Ok(png_bytes);
+    }
+
+    // Non-indexed path: use channels directly.
+    let channels = index_channels;
 
     // Build an image::DynamicImage from the raw pixel data.
     let color_type = match (channels, bpc) {
@@ -187,6 +282,102 @@ fn decode_flate_to_png(
         .map_err(|e| format!("PNG encoding failed: {e}"))?;
 
     Ok(png_bytes)
+}
+
+/// Extract the palette (lookup table) and base color space channel count from an
+/// Indexed color space array in a PDF image dictionary.
+///
+/// PDF Indexed color spaces are arrays: `[/Indexed base hival lookup]`
+/// where `base` is the base color space (e.g. `/DeviceRGB`), `hival` is the max
+/// index, and `lookup` is the palette data (inline string or stream reference).
+///
+/// Returns `(palette_bytes, base_channels)` if extraction succeeds.
+#[cfg(feature = "pdf")]
+fn extract_indexed_palette(dict: &lopdf::Dictionary, document: &Document) -> Option<(Vec<u8>, u32)> {
+    use lopdf::Object;
+
+    let cs_obj = dict.get(b"ColorSpace").ok()?;
+    let array = match cs_obj {
+        Object::Array(arr) => arr,
+        _ => return None,
+    };
+
+    // Must be [/Indexed base hival lookup] — at least 4 elements.
+    if array.len() < 4 {
+        return None;
+    }
+
+    // Verify the first element is "Indexed".
+    let name = array[0].as_name().ok()?;
+    if name != b"Indexed" {
+        return None;
+    }
+
+    // Determine base color space channel count from the second element.
+    let base_channels = match &array[1] {
+        Object::Name(name) => {
+            let name_str = String::from_utf8_lossy(name);
+            if name_str.contains("RGB") {
+                3u32
+            } else if name_str.contains("CMYK") {
+                4
+            } else if name_str.contains("Gray") || name_str.contains("grey") {
+                1
+            } else {
+                3 // Default assumption
+            }
+        }
+        Object::Array(base_arr) => {
+            // Could be [/ICCBased <stream>] or similar — try the first name.
+            if let Some(first) = base_arr.first() {
+                let name_str = String::from_utf8_lossy(first.as_name().unwrap_or(b""));
+                if name_str.contains("ICCBased") {
+                    // ICCBased color spaces typically reference an ICC profile stream
+                    // with an /N entry specifying the number of components.
+                    if let Some(stream_ref) = base_arr.get(1)
+                        && let Ok(obj_id) = stream_ref.as_reference()
+                        && let Ok(obj) = document.get_object(obj_id)
+                        && let Ok(stream) = obj.as_stream()
+                        && let Ok(n) = stream.dict.get(b"N")
+                        && let Ok(n_val) = n.as_i64()
+                    {
+                        return extract_palette_data(&array[3], document).map(|data| (data, n_val as u32));
+                    }
+                    3 // Default ICCBased to RGB
+                } else {
+                    3
+                }
+            } else {
+                3
+            }
+        }
+        _ => 3,
+    };
+
+    extract_palette_data(&array[3], document).map(|data| (data, base_channels))
+}
+
+/// Extract raw palette bytes from the lookup element of an Indexed color space.
+/// The lookup can be an inline string/hex-string or a reference to a stream object.
+#[cfg(feature = "pdf")]
+fn extract_palette_data(lookup: &lopdf::Object, document: &Document) -> Option<Vec<u8>> {
+    use lopdf::Object;
+
+    match lookup {
+        Object::String(bytes, _) => Some(bytes.clone()),
+        Object::Reference(obj_id) => {
+            let obj = document.get_object(*obj_id).ok()?;
+            match obj {
+                Object::Stream(stream) => {
+                    // Try to get decompressed content; fall back to raw content.
+                    Some(stream.content.clone())
+                }
+                Object::String(bytes, _) => Some(bytes.clone()),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
 }
 
 impl PdfImageExtractor {
@@ -223,6 +414,11 @@ impl PdfImageExtractor {
                 let filters = img.filters.clone().unwrap_or_default();
 
                 #[cfg(feature = "pdf")]
+                let (palette, palette_base_channels) = extract_indexed_palette(img.origin_dict, &self.document)
+                    .map(|(p, ch)| (Some(p), ch))
+                    .unwrap_or((None, 0));
+
+                #[cfg(feature = "pdf")]
                 let (data, decoded_format) = decode_image_data(
                     img.content,
                     &filters,
@@ -230,6 +426,8 @@ impl PdfImageExtractor {
                     img.width,
                     img.height,
                     img.bits_per_component,
+                    palette.as_deref(),
+                    palette_base_channels,
                 );
 
                 #[cfg(not(feature = "pdf"))]
@@ -268,6 +466,11 @@ impl PdfImageExtractor {
             let filters = img.filters.clone().unwrap_or_default();
 
             #[cfg(feature = "pdf")]
+            let (palette, palette_base_channels) = extract_indexed_palette(img.origin_dict, &self.document)
+                .map(|(p, ch)| (Some(p), ch))
+                .unwrap_or((None, 0));
+
+            #[cfg(feature = "pdf")]
             let (data, decoded_format) = decode_image_data(
                 img.content,
                 &filters,
@@ -275,6 +478,8 @@ impl PdfImageExtractor {
                 img.width,
                 img.height,
                 img.bits_per_component,
+                palette.as_deref(),
+                palette_base_channels,
             );
 
             #[cfg(not(feature = "pdf"))]
@@ -357,7 +562,7 @@ mod tests {
     fn test_decode_dct_passthrough() {
         let jpeg_bytes = b"\xff\xd8\xff\xe0fake_jpeg";
         let filters = vec!["DCTDecode".to_string()];
-        let (data, format) = decode_image_data(jpeg_bytes, &filters, Some("DeviceRGB"), 100, 100, Some(8));
+        let (data, format) = decode_image_data(jpeg_bytes, &filters, Some("DeviceRGB"), 100, 100, Some(8), None, 0);
         assert_eq!(format, "jpeg");
         assert_eq!(data.as_ref(), jpeg_bytes);
     }
@@ -367,7 +572,7 @@ mod tests {
     fn test_decode_jpx_passthrough() {
         let jpx_bytes = b"\x00\x00\x00\x0cjP  fake_jpx";
         let filters = vec!["JPXDecode".to_string()];
-        let (data, format) = decode_image_data(jpx_bytes, &filters, Some("DeviceRGB"), 10, 10, Some(8));
+        let (data, format) = decode_image_data(jpx_bytes, &filters, Some("DeviceRGB"), 10, 10, Some(8), None, 0);
         assert_eq!(format, "jpeg2000");
         assert_eq!(data.as_ref(), jpx_bytes);
     }
@@ -377,7 +582,7 @@ mod tests {
     fn test_decode_unknown_filter_passthrough() {
         let raw_bytes = b"\x00\x01\x02\x03";
         let filters = vec!["RunLengthDecode".to_string()];
-        let (data, format) = decode_image_data(raw_bytes, &filters, None, 2, 2, Some(8));
+        let (data, format) = decode_image_data(raw_bytes, &filters, None, 2, 2, Some(8), None, 0);
         assert_eq!(format, "raw");
         assert_eq!(data.as_ref(), raw_bytes);
     }
@@ -387,7 +592,7 @@ mod tests {
     fn test_decode_no_filter_uses_detection() {
         let jpeg_bytes = b"\xff\xd8\xff\xe0fake";
         let filters: Vec<String> = vec![];
-        let (data, format) = decode_image_data(jpeg_bytes, &filters, None, 10, 10, None);
+        let (data, format) = decode_image_data(jpeg_bytes, &filters, None, 10, 10, None, None, 0);
         assert_eq!(format, "jpeg");
         assert_eq!(data.as_ref(), jpeg_bytes);
     }
@@ -420,7 +625,7 @@ mod tests {
         let compressed = encoder.finish().unwrap();
 
         let filters = vec!["FlateDecode".to_string()];
-        let (data, format) = decode_image_data(&compressed, &filters, Some("DeviceRGB"), 2, 2, Some(8));
+        let (data, format) = decode_image_data(&compressed, &filters, Some("DeviceRGB"), 2, 2, Some(8), None, 0);
         assert_eq!(format, "png", "FlateDecode images should be re-encoded as PNG");
         // PNG magic: \x89PNG\r\n\x1a\n
         assert!(
@@ -428,6 +633,63 @@ mod tests {
             "Decoded data should be a valid PNG (got {} bytes, first bytes: {:?})",
             data.len(),
             &data[..data.len().min(8)]
+        );
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn test_decode_flate_indexed_with_palette() {
+        use flate2::Compression;
+        use flate2::write::ZlibEncoder;
+        use std::io::Write;
+
+        // 2x2 indexed image: 4 pixels, each 1 byte (palette index).
+        let indices: Vec<u8> = vec![0, 1, 2, 0];
+
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&indices).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        // RGB palette: 3 entries x 3 channels = 9 bytes.
+        let palette: Vec<u8> = vec![
+            255, 0, 0, // index 0 = red
+            0, 255, 0, // index 1 = green
+            0, 0, 255, // index 2 = blue
+        ];
+
+        let filters = vec!["FlateDecode".to_string()];
+        let (data, format) =
+            decode_image_data(&compressed, &filters, Some("Indexed"), 2, 2, Some(8), Some(&palette), 3);
+        assert_eq!(format, "png", "Indexed FlateDecode should produce PNG");
+        assert!(
+            data.starts_with(b"\x89PNG\r\n\x1a\n"),
+            "Decoded data should be a valid PNG"
+        );
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn test_decode_flate_indexed_without_palette_grayscale_fallback() {
+        use flate2::Compression;
+        use flate2::write::ZlibEncoder;
+        use std::io::Write;
+
+        // 2x2 indexed image without palette: should fall back to grayscale.
+        let indices: Vec<u8> = vec![10, 50, 100, 200];
+
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&indices).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let filters = vec!["FlateDecode".to_string()];
+        let (data, format) = decode_image_data(&compressed, &filters, Some("Indexed"), 2, 2, Some(8), None, 0);
+        assert_eq!(
+            format, "png",
+            "Indexed without palette should still produce PNG (grayscale)"
+        );
+        assert!(
+            data.starts_with(b"\x89PNG\r\n\x1a\n"),
+            "Decoded data should be a valid PNG"
         );
     }
 }

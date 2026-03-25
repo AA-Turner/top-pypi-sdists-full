@@ -44,13 +44,22 @@ class ReactomeInteractorsTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"Reactome API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"Reactome API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to Reactome API"}
+            return {"status": "error", "error": "Failed to connect to Reactome API"}
         except requests.exceptions.HTTPError as e:
-            return {"error": f"Reactome API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"Reactome API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying Reactome: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying Reactome: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate Reactome endpoint."""
@@ -61,14 +70,15 @@ class ReactomeInteractorsTool(BaseTool):
         elif self.endpoint == "search_entity":
             return self._search_entity(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_interactors(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get protein-protein interactors for a UniProt accession."""
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession parameter is required (UniProt accession, e.g., P04637)"
+                "status": "error",
+                "error": "accession parameter is required (UniProt accession, e.g., P04637)",
             }
 
         page_size = arguments.get("page_size") or 20
@@ -83,6 +93,7 @@ class ReactomeInteractorsTool(BaseTool):
         entities = data.get("entities", [])
         if not entities:
             return {
+                "status": "success",
                 "data": {"accession": accession, "interactors": [], "total": 0},
                 "metadata": {"source": "Reactome Interactors (IntAct)"},
             }
@@ -103,6 +114,7 @@ class ReactomeInteractorsTool(BaseTool):
         interactors.sort(key=lambda x: x.get("score") or 0, reverse=True)
 
         return {
+            "status": "success",
             "data": {
                 "accession": entity.get("acc"),
                 "total_interactors": entity.get("count"),
@@ -119,7 +131,8 @@ class ReactomeInteractorsTool(BaseTool):
         entity_id = arguments.get("entity_id", "")
         if not entity_id:
             return {
-                "error": "entity_id parameter is required (Reactome stable ID, e.g., R-HSA-199420)"
+                "status": "error",
+                "error": "entity_id parameter is required (Reactome stable ID, e.g., R-HSA-199420)",
             }
 
         species = arguments.get("species") or 9606
@@ -145,6 +158,7 @@ class ReactomeInteractorsTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": pathways,
             "metadata": {
                 "source": "Reactome Content Service",
@@ -158,7 +172,7 @@ class ReactomeInteractorsTool(BaseTool):
         """Search Reactome for entities (proteins, complexes, reactions)."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         species = arguments.get("species") or "Homo sapiens"
         types = arguments.get("types")
@@ -198,6 +212,7 @@ class ReactomeInteractorsTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": results[:50],
             "metadata": {
                 "source": "Reactome Content Service",

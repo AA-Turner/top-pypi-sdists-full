@@ -20,9 +20,7 @@ use std::sync::Arc;
 /// Removed thread-local cache to avoid Tokio work-stealing scheduler issues.
 pub(in crate::core::extractor) fn get_extractor(mime_type: &str) -> Result<Arc<dyn DocumentExtractor>> {
     let registry = crate::plugins::registry::get_document_extractor_registry();
-    let registry_read = registry
-        .read()
-        .map_err(|e| KreuzbergError::Other(format!("Document extractor registry lock poisoned: {}", e)))?;
+    let registry_read = registry.read();
     registry_read.get(mime_type)
 }
 
@@ -81,6 +79,7 @@ pub(crate) fn error_extraction_result(e: &KreuzbergError, elapsed_ms: Option<u64
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     }
 }
 

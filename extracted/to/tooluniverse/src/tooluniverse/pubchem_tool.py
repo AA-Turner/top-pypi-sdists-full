@@ -90,16 +90,20 @@ class PubChemRESTTool(BaseTool):
         return full_url
 
     def run(self, arguments: dict):
+        # compound_name alias for name (more intuitive param name)
+        if "name" not in arguments and "compound_name" in arguments:
+            arguments["name"] = arguments["compound_name"]
+
         # 1. Validate required parameters
         for key, prop in self.param_schema.items():
             if prop.get("required", False) and key not in arguments:
-                return {"error": f"Parameter '{key}' is required."}
+                return {"status": "error", "error": f"Parameter '{key}' is required."}
 
         # 2. Build URL
         try:
             url = self._build_url(arguments)
         except ValueError as e:
-            return {"error": str(e)}
+            return {"status": "error", "error": str(e)}
 
         # 3. Send HTTP GET request
         try:
@@ -114,10 +118,14 @@ class PubChemRESTTool(BaseTool):
             resp = requests.get(url, timeout=30)
         except requests.Timeout:
             return {
-                "error": "Request to PubChem PUG-REST timed out, try reducing query scope or retry later."
+                "status": "error",
+                "error": "Request to PubChem PUG-REST timed out, try reducing query scope or retry later.",
             }
         except Exception as e:
-            return {"error": f"Failed to request PubChem PUG-REST: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Failed to request PubChem PUG-REST: {str(e)}",
+            }
 
         # 4. Check HTTP status code
         if resp.status_code != 200:
@@ -129,6 +137,7 @@ class PubChemRESTTool(BaseTool):
             except Exception:
                 pass
             return {
+                "status": "error",
                 "error": f"PubChem API returned HTTP {resp.status_code}",
                 "detail": error_detail,
             }
@@ -144,11 +153,16 @@ class PubChemRESTTool(BaseTool):
 
         if out_fmt == "JSON":
             try:
-                return resp.json()
+                return {"status": "success", "data": resp.json()}
             except ValueError:
+                ct = resp.headers.get("content-type", "")
                 return {
+                    "status": "error",
                     "error": "Response content cannot be parsed as JSON.",
-                    "content": resp.text,
+                    "content_type": ct,
+                    "content": resp.text[:200],
+                    "retryable": "text/html" in ct
+                    or resp.text.lstrip().startswith("<"),
                 }
         elif out_fmt in ["XML", "TXT", "CSV", "SDF"]:
             # These are all text formats

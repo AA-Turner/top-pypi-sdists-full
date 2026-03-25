@@ -31,7 +31,7 @@ limitations under the License.
  *
  * If this isn't the same as jsonnet_version() then you've got a mismatched binary / header.
  */
-#define LIB_JSONNET_VERSION "v0.21.0"
+#define LIB_JSONNET_VERSION "v0.22.0"
 
 /** Return the version string of the Jsonnet interpreter.  Conforms to semantic versioning
  * https://semver.org/ If this does not match LIB_JSONNET_VERSION then there is a mismatch between
@@ -56,6 +56,9 @@ void jsonnet_gc_growth_trigger(struct JsonnetVm *vm, double v);
 
 /** Expect a string as output and don't JSON encode it. */
 void jsonnet_string_output(struct JsonnetVm *vm, int v);
+
+/** Enable/disable trailing newline in manifested/string output. */
+void jsonnet_set_trailing_newline(struct JsonnetVm *vm, int enable);
 
 /** Callback used to load imports.
  *
@@ -218,6 +221,10 @@ void jsonnet_max_trace(struct JsonnetVm *vm, unsigned v);
 /** Add to the default import callback's library search path.
  *
  * The search order is last to first, so more recently appended paths take precedence.
+ * Note this is not an isolation mechanism or a way to restrict access to the file
+ * system. Imports can directly refer to absolute paths, or traverse 'up' the
+ * filesystem with '..' paths. They are not limited to paths below the specified
+ * search paths.
  */
 void jsonnet_jpath_add(struct JsonnetVm *vm, const char *v);
 

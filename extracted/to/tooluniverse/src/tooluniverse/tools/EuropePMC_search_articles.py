@@ -15,11 +15,12 @@ def EuropePMC_search_articles(
     fulltext_terms: Optional[list[str]] = None,
     enrich_missing_abstract: Optional[bool] = False,
     extract_terms_from_fulltext: Optional[list[str]] = None,
+    page_size: Optional[int] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     Search for articles on Europe PMC including abstracts and metadata. Europe PMC supports fielded q...
 
@@ -37,6 +38,8 @@ def EuropePMC_search_articles(
         If true, best-effort fills missing abstracts by fetching Europe PMC fullTextX...
     extract_terms_from_fulltext : list[str]
         Optional list of terms to extract from full text (open access only). When pro...
+    page_size : int
+        Alias for limit — number of results to return
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -46,7 +49,7 @@ def EuropePMC_search_articles(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 
@@ -60,6 +63,7 @@ def EuropePMC_search_articles(
             "fulltext_terms": fulltext_terms,
             "enrich_missing_abstract": enrich_missing_abstract,
             "extract_terms_from_fulltext": extract_terms_from_fulltext,
+            "page_size": page_size,
         }.items()
         if v is not None
     }

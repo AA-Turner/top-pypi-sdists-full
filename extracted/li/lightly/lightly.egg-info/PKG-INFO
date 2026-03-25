@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightly
-Version: 1.5.22
+Version: 1.5.23
 Summary: A deep learning package for self-supervised learning
 Author-email: Lightly Team <team@lightly.ai>
 License: Copyright (c) 2018 The Python Packaging Authority
@@ -109,7 +109,7 @@ Requires-Dist: aenum>=3.1.11; extra == "openapi"
 Provides-Extra: timm
 Requires-Dist: timm>=0.9.9; extra == "timm"
 Provides-Extra: video
-Requires-Dist: av>=8.0.3; extra == "video"
+Requires-Dist: av>=8.0.3; python_version >= "3.8" and extra == "video"
 Provides-Extra: matplotlib
 Requires-Dist: matplotlib>=3; extra == "matplotlib"
 Dynamic: license-file
@@ -117,13 +117,14 @@ Dynamic: license-file
 <a name="top"></a>
 ![LightlySSL self-supervised learning Logo](docs/logos/lightly_SSL_logo_crop.png)
 
-![GitHub](https://img.shields.io/github/license/lightly-ai/lightly)
-![Unit Tests](https://github.com/lightly-ai/lightly/workflows/Unit%20Tests/badge.svg)
+[![GitHub](https://img.shields.io/github/license/lightly-ai/lightly)](https://github.com/lightly-ai/lightly/blob/master/LICENSE.txt)
+[![Unit Tests](https://github.com/lightly-ai/lightly/workflows/Unit%20Tests/badge.svg)](https://github.com/lightly-ai/lightly/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/lightly)](https://pypi.org/project/lightly/)
 [![Downloads](https://static.pepy.tech/badge/lightly)](https://pepy.tech/project/lightly)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Discord](https://img.shields.io/discord/752876370337726585?logo=discord&logoColor=white&label=discord&color=7289da)](https://discord.gg/xvNJW94)
-![codecov.io](https://codecov.io/github/lightly-ai/lightly/coverage.svg?branch=master)
+[![Twitter](https://img.shields.io/twitter/follow/LightlyAI)](https://x.com/LightlyAI)
+[![codecov.io](https://codecov.io/github/lightly-ai/lightly/coverage.svg?branch=master)](https://app.codecov.io/gh/lightly-ai/lightly)
 
 
 Lightly**SSL** is a computer vision framework for self-supervised learning.
@@ -141,16 +142,16 @@ and [data curation](https://docs.lightly.ai/docs/what-is-lightly). If you're int
 Lightly Worker Solution to easily process millions of samples and run [powerful algorithms](https://docs.lightly.ai/docs/customize-a-selection)
 on your data, check out [lightly.ai](https://www.lightly.ai). It's free to get started!
 
-## Big News (April 15th, 2025) 🚀
+## News 🚀
 
-We are excited to announce that you can now leverage SSL and distillation pretraining in just a few lines of code! We've worked hard to make self-supervised learning even more accessible with our new project [LightlyTrain](https://github.com/lightly-ai/lightly-train). Head over there to get started and supercharge your models! ⚡️
+* March 23, 2026 - Check out our latest open-source project [LightlyStudio](https://github.com/lightly-ai/lightly-studio) to visualize, annotate, and manage your data with ease! 🔍
+* April 15, 2025 - We are excited to announce that you can now leverage SSL and distillation pretraining in just a few lines of code! We've worked hard to make self-supervised learning even more accessible with our new project [LightlyTrain](https://github.com/lightly-ai/lightly-train). Head over there to get started and supercharge your models! ⚡️
 
-<a href="https://github.com/lightly-ai/lightly-train">
-<p align="center">
-<img src="https://github.com/lightly-ai/lightly-train/blob/main/docs/source/_static/lightly_train_light.svg" alt="LightlyTrain" width="300"/>
+<p>
+<a href="https://github.com/lightly-ai/lightly-train"><img src="https://storage.googleapis.com/lightly-public/train/lightlytrain_standard_horizontal_dark.png" alt="LightlyTrain" height="40"/></a>
+<span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<a href="https://github.com/lightly-ai/lightly-studio"><img src="https://storage.googleapis.com/lightly-public/studio/lightlystudio_standard_horizontal_dark.png" alt="LightlyStudio" height="40"/></a>
 </p>
-</a>
-
 
 ## Features
 
@@ -177,6 +178,7 @@ and PyTorch Lightning distributed examples for all models to kickstart your proj
 | DCL & DCLW     | 2021 | [paper](https://arxiv.org/abs/2110.06848) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/dcl.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/dcl.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/dcl.ipynb) |
 | DenseCL        | 2021 | [paper](https://arxiv.org/abs/2011.09157) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/densecl.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/densecl.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/densecl.ipynb) |
 | DINO           | 2021 | [paper](https://arxiv.org/abs/2104.14294) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/dino.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/dino.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/dino.ipynb) |
+| DINOv2         | 2023 | [paper](https://arxiv.org/abs/2304.07193) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/dinov2.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/dinov2.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/dinov2.ipynb) |
 | iBOT           | 2021 | [paper](https://arxiv.org/abs/2111.07832) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/ibot.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/ibot.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/ibot.ipynb) |
 | MAE            | 2021 | [paper](https://arxiv.org/abs/2111.06377) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/mae.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/mae.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/mae.ipynb) |
 | MSN            | 2022 | [paper](https://arxiv.org/abs/2204.07141) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/msn.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/msn.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/msn.ipynb) |
@@ -527,6 +529,7 @@ make format
 
 ## Lightly in Research
 
+- [DINOv2-3D: Self-Supervised 3D Vision Transformer Pretraining](https://github.com/AIM-Harvard/DINOv2-3D-Med)
 - [Joint-Embedding vs Reconstruction: Provable Benefits of Latent Space Prediction for Self-Supervised Learning, 2025](https://arxiv.org/abs/2505.12477)
 - [Reverse Engineering Self-Supervised Learning, 2023](https://arxiv.org/abs/2305.15614)
 - [Learning Visual Representations via Language-Guided Sampling, 2023](https://arxiv.org/pdf/2302.12248.pdf)

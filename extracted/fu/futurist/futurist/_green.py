@@ -11,9 +11,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+from __future__ import annotations
+
 import sys
+from typing import TYPE_CHECKING
 
 from futurist import _utils
+
+if TYPE_CHECKING:
+    import threading as stdlib_threading
 
 try:
     from eventlet import greenpool
@@ -22,8 +29,12 @@ try:
 
     from eventlet.green import threading as greenthreading
 except ImportError:
-    greenpatcher, greenpool, greenqueue, greenthreading = (None, None,
-                                                           None, None)
+    greenpatcher, greenpool, greenqueue, greenthreading = (
+        None,
+        None,
+        None,
+        None,
+    )
 
 
 if _utils.EVENTLET_AVAILABLE:
@@ -33,37 +44,44 @@ if _utils.EVENTLET_AVAILABLE:
     is_monkey_patched = greenpatcher.is_monkey_patched
 
     class GreenThreading:
+        @staticmethod
+        def event_object() -> stdlib_threading.Event:
+            return greenthreading.Event()  # type: ignore
 
         @staticmethod
-        def event_object(*args, **kwargs):
-            return greenthreading.Event(*args, **kwargs)
+        def lock_object() -> stdlib_threading.Lock:
+            return greenthreading.Lock()  # type: ignore
 
         @staticmethod
-        def lock_object(*args, **kwargs):
-            return greenthreading.Lock(*args, **kwargs)
+        def rlock_object() -> stdlib_threading.RLock:
+            return greenthreading.RLock()  # type: ignore
 
         @staticmethod
-        def rlock_object(*args, **kwargs):
-            return greenthreading.RLock(*args, **kwargs)
+        def condition_object(
+            lock: stdlib_threading.Lock | stdlib_threading.RLock | None = None,
+        ) -> stdlib_threading.Condition:
+            return greenthreading.Condition(lock=lock)  # type: ignore
 
-        @staticmethod
-        def condition_object(*args, **kwargs):
-            return greenthreading.Condition(*args, **kwargs)
-
-    threading = GreenThreading()
+    threading: GreenThreading | None = GreenThreading()
 else:
     threading = None
     Pool = None
     Queue = None
-    is_monkey_patched = lambda mod: False
+
+    def is_monkey_patched(mod: str) -> bool:
+        return False
 
 
 class GreenWorker:
-    def __init__(self, work, work_queue):
+    def __init__(
+        self,
+        work: _utils.WorkItem,
+        work_queue: greenqueue.Queue[_utils.WorkItem],
+    ) -> None:
         self.work = work
         self.work_queue = work_queue
 
-    def __call__(self):
+    def __call__(self) -> None:
         # Run our main piece of work.
         try:
             self.work.run()

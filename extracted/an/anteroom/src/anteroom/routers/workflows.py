@@ -480,11 +480,12 @@ async def resume_workflow_run(request: Request, run_id: str) -> dict[str, Any]:
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    resumable = {"paused", "waiting_for_approval", "waiting_for_input", "compensating"}
+    resumable = {"paused", "waiting_for_approval", "waiting_for_input", "compensating", "failed"}
     if run["status"] not in resumable:
         raise HTTPException(
             status_code=409,
-            detail=f"Run is not resumable (status: {run['status']}). Only paused/waiting runs can be resumed.",
+            detail=f"Run is not resumable (status: {run['status']}). "
+            "Only paused, waiting, compensating, or failed runs can be resumed.",
         )
 
     # Validate that waiting runs have their gate resolved before resuming

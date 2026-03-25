@@ -39,6 +39,15 @@ impl PdfRenderer<'static> {
 }
 
 impl PdfRenderer<'_> {
+    /// Return the number of pages in the given PDF without rendering.
+    pub fn page_count(&self, pdf_bytes: &[u8]) -> Result<usize> {
+        let document = self
+            .pdfium
+            .load_pdf_from_byte_slice(pdf_bytes, None)
+            .map_err(|e| PdfError::InvalidPdf(super::error::format_pdfium_error(e)))?;
+        Ok(document.pages().len() as usize)
+    }
+
     pub fn render_page_to_image(
         &self,
         pdf_bytes: &[u8],

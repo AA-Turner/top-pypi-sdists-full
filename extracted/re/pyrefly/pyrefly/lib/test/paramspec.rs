@@ -521,6 +521,129 @@ def wrap(f: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
 );
 
 testcase!(
+    test_paramspec_forwarding_between_generic_helpers,
+    r#"
+from typing import Callable, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def run_and_get_code(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+def run_and_get_kernels(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    return run_and_get_code(fn, *args, **kwargs)
+"#,
+);
+
+testcase!(
+    test_paramspec_forwarding_bad_args,
+    r#"
+from typing import Callable, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def inner(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+def outer(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    return inner(fn, 1, 2)  # E: Expected *-unpacked P.args and **-unpacked P.kwargs
+"#,
+);
+
+testcase!(
+    test_paramspec_forwarding_with_concatenate,
+    r#"
+from typing import Callable, Concatenate, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def inner(fn: Callable[Concatenate[int, P], R], x: int, *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+def outer(fn: Callable[Concatenate[int, P], R], x: int, *args: P.args, **kwargs: P.kwargs) -> R:
+    return inner(fn, x, *args, **kwargs)
+"#,
+);
+
+testcase!(
+    test_paramspec_forwarding_extra_concrete_arg,
+    r#"
+from typing import Callable, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def inner(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+def outer(fn: Callable[P, R], extra: int, *args: P.args, **kwargs: P.kwargs) -> R:
+    return inner(fn, *args, **kwargs)
+"#,
+);
+
+testcase!(
+    test_paramspec_forwarding_chained,
+    r#"
+from typing import Callable, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def level1(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+def level2(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    return level1(fn, *args, **kwargs)
+
+def level3(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    return level2(fn, *args, **kwargs)
+"#,
+);
+
+testcase!(
+    test_paramspec_forwarding_extra_arg_before_star,
+    r#"
+from typing import Callable, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def inner(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+def outer(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    return inner(fn, 1, *args, **kwargs)  # E: Expected *-unpacked P.args and **-unpacked P.kwargs
+"#,
+);
+
+testcase!(
+    test_paramspec_forwarding_extra_arg_after_star,
+    r#"
+from typing import Callable, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def inner(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+def outer(fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    return inner(fn, *args, 1, **kwargs)  # E: Expected *-unpacked P.args and **-unpacked P.kwargs
+"#,
+);
+
+testcase!(
+    test_paramspec_forwarding_kwargs_only,
+    r#"
+from typing import Callable, Concatenate, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def inner(fn: Callable[Concatenate[int, P], R], x: int, *args: P.args, **kwargs: P.kwargs) -> R: ...
+
+def outer(fn: Callable[Concatenate[int, P], R], x: int, *args: P.args, **kwargs: P.kwargs) -> R:
+    return inner(fn, x, **kwargs)  # E: Expected *-unpacked P.args and **-unpacked P.kwargs
+"#,
+);
+
+testcase!(
     test_param_spec_ellipsis,
     r#"
 from typing import Callable

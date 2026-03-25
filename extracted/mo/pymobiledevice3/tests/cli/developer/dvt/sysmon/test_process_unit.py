@@ -344,5 +344,5 @@ async def test_select_process_from_sysmon_raises_when_no_usable_snapshot(monkeyp
 
     monkeypatch.setattr(process_module.Sysmontap, "create", fake_create)
 
-    with pytest.raises(typer.BadParameter, match="failed to collect a process snapshot"):
+    with pytest.raises(typer.BadParameter, match="Failed to collect a process snapshot"):
         await _select_process_from_sysmon(object(), {}, None, ProcessSelectionMode.FIRST)

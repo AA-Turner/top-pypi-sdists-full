@@ -44,15 +44,22 @@ class EuroPMCAnnotationsTool(BaseTool):
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"Europe PMC Annotations API timed out after {self.timeout}s"
+                "status": "error",
+                "error": f"Europe PMC Annotations API timed out after {self.timeout}s",
             }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to Europe PMC Annotations API"}
+            return {
+                "status": "error",
+                "error": "Failed to connect to Europe PMC Annotations API",
+            }
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response else "unknown"
-            return {"error": f"Europe PMC Annotations API HTTP error: {status}"}
+            return {
+                "status": "error",
+                "error": f"Europe PMC Annotations API HTTP error: {status}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -62,7 +69,10 @@ class EuroPMCAnnotationsTool(BaseTool):
             return self._batch_by_type(arguments)
         elif self.endpoint_type == "chemicals_shortcut":
             return self._chemicals_shortcut(arguments)
-        return {"error": f"Unknown endpoint_type: {self.endpoint_type}"}
+        return {
+            "status": "error",
+            "error": f"Unknown endpoint_type: {self.endpoint_type}",
+        }
 
     def _fetch_annotations(
         self, article_ids: str, annotation_type: str = None, page_size: int = None
@@ -82,18 +92,43 @@ class EuroPMCAnnotationsTool(BaseTool):
         response.raise_for_status()
         return response.json()
 
+    @staticmethod
+    def _normalize_article_id(article_id: str) -> str:
+        """Normalize bare PMC/PMID to API format: PMC:PMC4353746 or MED:25780448."""
+        aid = article_id.strip()
+        if aid.startswith("PMC:") or aid.startswith("MED:"):
+            return aid
+        if aid.upper().startswith("PMC"):
+            num = aid[3:]
+            return f"PMC:PMC{num}"
+        if aid.isdigit():
+            return f"MED:{aid}"
+        return aid
+
     def _by_article(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get annotations from a single article."""
-        article_id = arguments.get("article_id", "")
-        annotation_type = arguments.get("annotation_type")
+        raw_id = (
+            arguments.get("article_id")
+            or arguments.get("pmcid")
+            or arguments.get("pmid")
+            or ""
+        )
+        article_id = self._normalize_article_id(str(raw_id).strip()) if raw_id else ""
+        annotation_type = arguments.get("annotation_type") or arguments.get(
+            "entity_type"
+        )
 
         if not article_id:
-            return {"error": "article_id is required (e.g., 'PMC:PMC4353746')"}
+            return {
+                "status": "error",
+                "error": "article_id is required. Accepts: 'PMC:PMC4353746', bare 'PMC4353746', or PMID '25780448'.",
+            }
 
         raw = self._fetch_annotations(article_id, annotation_type)
 
         if not isinstance(raw, list) or len(raw) == 0:
             return {
+                "status": "success",
                 "data": {
                     "article_id": article_id,
                     "pmcid": None,
@@ -133,6 +168,7 @@ class EuroPMCAnnotationsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "article_id": article_id,
                 "pmcid": article.get("pmcid"),
@@ -154,10 +190,14 @@ class EuroPMCAnnotationsTool(BaseTool):
 
         if not article_ids:
             return {
-                "error": "article_ids is required (e.g., 'PMC:PMC4353746,PMC:PMC3531190')"
+                "status": "error",
+                "error": "article_ids is required (e.g., 'PMC:PMC4353746,PMC:PMC3531190')",
             }
         if not annotation_type:
-            return {"error": "annotation_type is required (e.g., 'Chemicals')"}
+            return {
+                "status": "error",
+                "error": "annotation_type is required (e.g., 'Chemicals')",
+            }
 
         raw = self._fetch_annotations(article_ids, annotation_type, page_size)
 
@@ -190,6 +230,7 @@ class EuroPMCAnnotationsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "article_count": len(articles),
                 "annotation_type": annotation_type,
@@ -204,15 +245,25 @@ class EuroPMCAnnotationsTool(BaseTool):
 
     def _chemicals_shortcut(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Extract chemical mentions from an article."""
-        article_id = arguments.get("article_id", "")
+        raw_id = (
+            arguments.get("article_id")
+            or arguments.get("pmcid")
+            or arguments.get("pmid")
+            or ""
+        )
+        article_id = self._normalize_article_id(str(raw_id).strip()) if raw_id else ""
 
         if not article_id:
-            return {"error": "article_id is required (e.g., 'PMC:PMC4353746')"}
+            return {
+                "status": "error",
+                "error": "article_id is required. Accepts: 'PMC:PMC4353746', bare 'PMC4353746', or PMID '25780448'.",
+            }
 
         raw = self._fetch_annotations(article_id, "Chemicals")
 
         if not isinstance(raw, list) or len(raw) == 0:
             return {
+                "status": "success",
                 "data": {
                     "article_id": article_id,
                     "chemical_count": 0,
@@ -253,6 +304,7 @@ class EuroPMCAnnotationsTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "article_id": article_id,
                 "chemical_count": len(chemicals),

@@ -29,7 +29,7 @@
 //! use kreuzberg::extraction::pptx::extract_pptx_from_path;
 //!
 //! # fn example() -> kreuzberg::Result<()> {
-//! let result = extract_pptx_from_path("presentation.pptx", true, None, false)?;
+//! let result = extract_pptx_from_path("presentation.pptx", true, None, false, false)?;
 //!
 //! println!("Slide count: {}", result.slide_count);
 //! println!("Image count: {}", result.image_count);
@@ -45,9 +45,13 @@ mod image_handling;
 mod metadata;
 mod parser;
 
+use ahash::AHashMap;
 use bytes::Bytes;
 
 use crate::error::Result;
+use crate::types::builder::{self, DocumentStructureBuilder};
+use crate::types::document_structure::TextAnnotation;
+use crate::types::extraction::BoundingBox;
 use crate::types::{ExtractedImage, PptxExtractionResult};
 
 use container::{PptxContainer, SlideIterator};
@@ -82,6 +86,8 @@ fn join_runs_with_spacing(runs: &[Run], extract: impl Fn(&Run) -> String) -> Str
 /// * `path` - Path to the PPTX file
 /// * `extract_images` - Whether to extract embedded images
 /// * `page_config` - Optional page configuration for boundary tracking
+/// * `plain` - Whether to output plain text (no markdown)
+/// * `include_structure` - Whether to build the `DocumentStructure` tree
 ///
 /// # Returns
 ///
@@ -91,9 +97,10 @@ pub fn extract_pptx_from_path(
     extract_images: bool,
     page_config: Option<&crate::core::config::PageConfig>,
     plain: bool,
+    include_structure: bool,
 ) -> Result<PptxExtractionResult> {
     let container = PptxContainer::open(path)?;
-    extract_pptx_from_container(container, extract_images, page_config, plain)
+    extract_pptx_from_container(container, extract_images, page_config, plain, include_structure)
 }
 
 /// Extract PPTX content from a byte buffer.
@@ -104,6 +111,7 @@ pub fn extract_pptx_from_path(
 /// * `extract_images` - Whether to extract embedded images
 /// * `page_config` - Optional page configuration for boundary tracking
 /// * `plain` - Whether to output plain text (no markdown)
+/// * `include_structure` - Whether to build the `DocumentStructure` tree
 ///
 /// # Returns
 ///
@@ -113,9 +121,10 @@ pub fn extract_pptx_from_bytes(
     extract_images: bool,
     page_config: Option<&crate::core::config::PageConfig>,
     plain: bool,
+    include_structure: bool,
 ) -> Result<PptxExtractionResult> {
     let container = PptxContainer::from_bytes(data)?;
-    extract_pptx_from_container(container, extract_images, page_config, plain)
+    extract_pptx_from_container(container, extract_images, page_config, plain, include_structure)
 }
 
 fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
@@ -123,6 +132,7 @@ fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
     extract_images: bool,
     page_config: Option<&crate::core::config::PageConfig>,
     plain: bool,
+    include_structure: bool,
 ) -> Result<PptxExtractionResult> {
     let config = ParserConfig {
         extract_images,
@@ -143,6 +153,12 @@ fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
     let mut total_image_count = 0;
     let mut total_table_count = 0;
     let mut extracted_images = Vec::new();
+    let mut doc_builder = if include_structure {
+        Some(DocumentStructureBuilder::new().source_format("pptx"))
+    } else {
+        None
+    };
+    let mut image_index_counter: u32 = 0;
 
     while let Some(slide) = iterator.next_slide()? {
         let byte_start = if page_config.is_some() {
@@ -162,26 +178,55 @@ fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
             content_builder.end_slide(slide.slide_number, byte_start, slide_content.clone());
         }
 
+        // Build document structure for this slide (only when requested)
+        if let Some(ref mut builder) = doc_builder {
+            build_slide_structure(&slide, builder, &mut image_index_counter);
+        }
+
         if config.extract_images
             && let Ok(image_data) = iterator.get_slide_images(&slide)
         {
-            for (_, data) in image_data {
-                let format = detect_image_format(&data);
+            // Collect image element metadata for matching
+            let image_elements: Vec<_> = slide
+                .elements
+                .iter()
+                .filter_map(|e| {
+                    if let SlideElement::Image(img_ref, pos) = e {
+                        Some((img_ref, pos))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            for (img_idx_in_slide, (_, data)) in image_data.iter().enumerate() {
+                let format = detect_image_format(data);
                 let image_index = extracted_images.len();
 
+                // Try to get dimensions and description from corresponding element
+                // EMU to pixels at 96 DPI: 1 pixel = 9525 EMU
+                let (width, height, description, bbox) =
+                    if let Some((img_ref, pos)) = image_elements.get(img_idx_in_slide) {
+                        let w = if pos.cx > 0 { Some((pos.cx / 9525) as u32) } else { None };
+                        let h = if pos.cy > 0 { Some((pos.cy / 9525) as u32) } else { None };
+                        (w, h, img_ref.description.clone(), position_to_bbox(pos))
+                    } else {
+                        (None, None, None, None)
+                    };
+
                 extracted_images.push(ExtractedImage {
-                    data: Bytes::from(data),
-                    format, // Already a Cow<'static, str> from detect_image_format
+                    data: Bytes::from(data.clone()),
+                    format,
                     image_index,
                     page_number: Some(slide.slide_number as usize),
-                    width: None,
-                    height: None,
+                    width,
+                    height,
                     colorspace: None,
                     bits_per_component: None,
                     is_mask: false,
-                    description: None,
+                    description,
                     ocr_result: None,
-                    bounding_box: None,
+                    bounding_box: bbox,
                 });
             }
         }
@@ -223,6 +268,10 @@ fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
         }),
     });
 
+    let document = doc_builder
+        .map(|b| b.build())
+        .and_then(|d| if d.is_empty() { None } else { Some(d) });
+
     Ok(PptxExtractionResult {
         content,
         metadata,
@@ -232,7 +281,180 @@ fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
         images: extracted_images,
         page_structure,
         page_contents,
+        document,
     })
+}
+
+/// Build annotations from a sequence of text runs, tracking byte offsets.
+///
+/// Returns the concatenated plain text and the corresponding annotations.
+fn runs_to_text_and_annotations(runs: &[Run]) -> (String, Vec<TextAnnotation>) {
+    let mut text = String::new();
+    let mut annotations = Vec::new();
+
+    for run in runs {
+        let run_text = &run.text;
+        if run_text.is_empty() {
+            continue;
+        }
+
+        // Insert a space between runs when needed
+        if !text.is_empty() {
+            let ends_ws = text.ends_with(|c: char| c.is_whitespace());
+            let starts_ws = run_text.starts_with(|c: char| c.is_whitespace());
+            if !ends_ws && !starts_ws {
+                text.push(' ');
+            }
+        }
+
+        let start = text.len() as u32;
+        text.push_str(run_text);
+        let end = text.len() as u32;
+
+        if run.formatting.bold {
+            annotations.push(builder::bold(start, end));
+        }
+        if run.formatting.italic {
+            annotations.push(builder::italic(start, end));
+        }
+        if run.formatting.underlined {
+            annotations.push(builder::underline(start, end));
+        }
+        if run.formatting.strikethrough {
+            annotations.push(builder::strikethrough(start, end));
+        }
+        if let Some(sz) = run.formatting.font_size {
+            // sz is in hundredths of a point; convert to "Xpt" string
+            let pts = sz as f64 / 100.0;
+            let value = if pts.fract() == 0.0 {
+                format!("{}pt", pts as u32)
+            } else {
+                format!("{:.1}pt", pts)
+            };
+            annotations.push(builder::font_size(start, end, &value));
+        }
+    }
+
+    (text, annotations)
+}
+
+/// Convert an `ElementPosition` with dimensions to a `BoundingBox`.
+///
+/// EMU coordinates are converted to points (1 inch = 914400 EMU = 72 pt).
+fn position_to_bbox(pos: &elements::ElementPosition) -> Option<BoundingBox> {
+    if pos.x == 0 && pos.y == 0 && pos.cx == 0 && pos.cy == 0 {
+        return None;
+    }
+    const EMU_PER_PT: f64 = 914_400.0 / 72.0;
+    Some(BoundingBox {
+        x0: pos.x as f64 / EMU_PER_PT,
+        y0: pos.y as f64 / EMU_PER_PT,
+        x1: (pos.x + pos.cx) as f64 / EMU_PER_PT,
+        y1: (pos.y + pos.cy) as f64 / EMU_PER_PT,
+    })
+}
+
+/// Populate the document structure builder for a single slide.
+fn build_slide_structure(
+    slide: &elements::Slide,
+    doc_builder: &mut DocumentStructureBuilder,
+    image_index_counter: &mut u32,
+) {
+    // Determine slide title: first short text element
+    let mut sorted_indices: Vec<usize> = (0..slide.elements.len()).collect();
+    sorted_indices.sort_by_key(|&i| {
+        let pos = slide.elements[i].position();
+        (pos.y, pos.x)
+    });
+
+    // Find the first text element to use as title
+    let slide_title = sorted_indices.iter().find_map(|&idx| {
+        if let SlideElement::Text(text, _) = &slide.elements[idx] {
+            let plain = join_runs_with_spacing(&text.runs, Run::extract);
+            let normalized = plain.replace('\n', " ");
+            if normalized.len() < 100 && !normalized.trim().is_empty() {
+                return Some(normalized.trim().to_string());
+            }
+        }
+        None
+    });
+
+    doc_builder.push_slide(slide.slide_number, slide_title.as_deref());
+
+    let mut first_title_seen = false;
+
+    for &idx in &sorted_indices {
+        let elem = &slide.elements[idx];
+        let pos = elem.position();
+        let bbox = position_to_bbox(&pos);
+
+        match elem {
+            SlideElement::Text(text, _) => {
+                let (plain_text, annotations) = runs_to_text_and_annotations(&text.runs);
+                let normalized = plain_text.replace('\n', " ");
+                let is_title = normalized.len() < 100 && !normalized.trim().is_empty();
+
+                if is_title && !first_title_seen {
+                    first_title_seen = true;
+                    doc_builder.push_heading(1, normalized.trim(), None, bbox);
+                } else if !plain_text.trim().is_empty() {
+                    let node_idx = doc_builder.push_paragraph(&plain_text, annotations, None, bbox);
+
+                    // Store language from first run with a non-empty lang
+                    if let Some(lang) = text.runs.iter().find_map(|r| {
+                        let l = &r.formatting.lang;
+                        if l.is_empty() { None } else { Some(l.clone()) }
+                    }) {
+                        let mut attrs = AHashMap::new();
+                        attrs.insert("lang".to_string(), lang);
+                        doc_builder.set_attributes(node_idx, attrs);
+                    }
+                }
+            }
+            SlideElement::Table(table, _) => {
+                let cells: Vec<Vec<String>> = table
+                    .rows
+                    .iter()
+                    .map(|row| {
+                        row.cells
+                            .iter()
+                            .map(|cell| join_runs_with_spacing(&cell.runs, Run::extract))
+                            .collect()
+                    })
+                    .collect();
+                if !cells.is_empty() {
+                    doc_builder.push_table_from_cells(&cells, None);
+                }
+            }
+            SlideElement::List(list, _) => {
+                if !list.items.is_empty() {
+                    let is_ordered = list.items.first().is_some_and(|item| item.is_ordered);
+                    let list_node = doc_builder.push_list(is_ordered, None);
+                    for item in &list.items {
+                        let item_text = join_runs_with_spacing(&item.runs, Run::extract);
+                        if !item_text.trim().is_empty() {
+                            doc_builder.push_list_item(list_node, item_text.trim(), None);
+                        }
+                    }
+                }
+            }
+            SlideElement::Image(img_ref, _) => {
+                // Prefer alt text description, fall back to target path
+                let desc = img_ref.description.as_deref().or({
+                    if img_ref.target.is_empty() {
+                        None
+                    } else {
+                        Some(img_ref.target.as_str())
+                    }
+                });
+                doc_builder.push_image(desc, Some(*image_index_counter), None, bbox);
+                *image_index_counter += 1;
+            }
+            SlideElement::Unknown => {}
+        }
+    }
+
+    doc_builder.exit_container();
 }
 
 // Re-export Slide implementation methods for internal use
@@ -438,7 +660,7 @@ mod tests {
     #[test]
     fn test_extract_pptx_from_bytes_single_slide() {
         let pptx_bytes = create_test_pptx_bytes(vec!["Hello World"]);
-        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false).unwrap();
+        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false, false).unwrap();
 
         assert_eq!(result.slide_count, 1);
         assert!(
@@ -453,7 +675,7 @@ mod tests {
     #[test]
     fn test_extract_pptx_from_bytes_multiple_slides() {
         let pptx_bytes = create_test_pptx_bytes(vec!["Slide 1", "Slide 2", "Slide 3"]);
-        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false).unwrap();
+        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false, false).unwrap();
 
         assert_eq!(result.slide_count, 3);
         assert!(result.content.contains("Slide 1"));
@@ -464,7 +686,7 @@ mod tests {
     #[test]
     fn test_extract_pptx_metadata() {
         let pptx_bytes = create_test_pptx_bytes(vec!["Content"]);
-        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false).unwrap();
+        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false, false).unwrap();
 
         // Metadata should be populated (slide_count should be 1 for the test content)
         assert_eq!(result.metadata.slide_count, 1);
@@ -473,7 +695,7 @@ mod tests {
     #[test]
     fn test_extract_pptx_empty_slides() {
         let pptx_bytes = create_test_pptx_bytes(vec!["", "", ""]);
-        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false).unwrap();
+        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false, false).unwrap();
 
         assert_eq!(result.slide_count, 3);
     }
@@ -483,7 +705,7 @@ mod tests {
         use crate::error::KreuzbergError;
 
         let invalid_bytes = b"not a valid pptx file";
-        let result = extract_pptx_from_bytes(invalid_bytes, false, None, false);
+        let result = extract_pptx_from_bytes(invalid_bytes, false, None, false, false);
 
         assert!(result.is_err());
         if let Err(KreuzbergError::Parsing { message: msg, .. }) = result {
@@ -496,7 +718,7 @@ mod tests {
     #[test]
     fn test_extract_pptx_from_bytes_empty_data() {
         let empty_bytes: &[u8] = &[];
-        let result = extract_pptx_from_bytes(empty_bytes, false, None, false);
+        let result = extract_pptx_from_bytes(empty_bytes, false, None, false, false);
 
         assert!(result.is_err());
     }

@@ -51,7 +51,9 @@ use pyrefly_util::prelude::VecExt;
 use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::task_heap::TaskHeap;
+use pyrefly_util::telemetry::SubTaskTelemetry;
 use pyrefly_util::telemetry::TelemetryEvent;
+use pyrefly_util::telemetry::TelemetryEventKind;
 use pyrefly_util::telemetry::TelemetryTransactionStats;
 use pyrefly_util::thread_pool::ThreadPool;
 use pyrefly_util::uniques::UniqueFactory;
@@ -126,6 +128,7 @@ use crate::state::module::ModuleStateReader;
 use crate::state::require::Require;
 use crate::state::require::RequireLevels;
 use crate::state::steps::Context;
+use crate::state::steps::PysaContext;
 use crate::state::steps::Step;
 use crate::state::steps::StepsMut;
 use crate::state::subscriber::Subscriber;
@@ -507,28 +510,30 @@ pub(crate) struct TransactionData<'a> {
     dirty: Mutex<SmallSet<ArcId<ModuleDataMut>>>,
     /// Thing to tell about each action.
     subscriber: Option<Box<dyn Subscriber + 'a>>,
+    /// When set, pysa reporting is done during answer solving and before memory eviction.
+    pysa_reporter: Option<Box<crate::report::pysa::PysaReporter>>,
 }
 
 impl<'a> TransactionData<'a> {
     /// Convert saved transaction data back into a full transaction. We can only restore if the
     /// underlying state is unchanged, otherwise the transaction data might make inconsistent
     /// assumptions, in particular about deps/rdeps.
-    pub(crate) fn restore(self) -> Option<Transaction<'a>> {
+    pub(crate) fn restore(self) -> Result<Transaction<'a>, Duration> {
         let start = Instant::now();
         let readable = self.state.state.read();
         let state_lock_blocked = start.elapsed();
         if self.base == readable.now {
-            Some(Transaction {
+            Ok(Transaction {
                 data: self,
                 stats: Mutex::new(TelemetryTransactionStats {
                     state_lock_blocked,
                     ..Default::default()
                 }),
-                ad_hoc_solve_recorder: None,
+                sub_task_telemetry: None,
                 readable,
             })
         } else {
-            None
+            Err(state_lock_blocked)
         }
     }
 }
@@ -541,10 +546,7 @@ impl<'a> TransactionData<'a> {
 pub struct Transaction<'a> {
     data: TransactionData<'a>,
     stats: Mutex<TelemetryTransactionStats>,
-    /// Optional callback that logs each ad-hoc solve event the instant it completes.
-    /// When set, each call to `ad_hoc_solve` immediately invokes this recorder with the
-    /// operation label, start time, and duration, rather than batching stats for later.
-    ad_hoc_solve_recorder: Option<Box<dyn Fn(&'static str, Instant, Duration) + Send + Sync + 'a>>,
+    sub_task_telemetry: Option<SubTaskTelemetry<'a>>,
     readable: RwLockReadGuard<'a, StateData>,
 }
 
@@ -554,7 +556,7 @@ impl<'a> Transaction<'a> {
         let Transaction {
             data,
             stats,
-            ad_hoc_solve_recorder: _,
+            sub_task_telemetry: _,
             readable,
         } = self;
         drop(readable);
@@ -566,6 +568,16 @@ impl<'a> Transaction<'a> {
 
     pub fn set_subscriber(&mut self, subscriber: Option<Box<dyn Subscriber>>) {
         self.data.subscriber = subscriber;
+    }
+
+    /// Set the pysa reporter for inline extraction during type checking.
+    pub fn set_pysa_reporter(&mut self, reporter: Option<Box<crate::report::pysa::PysaReporter>>) {
+        self.data.pysa_reporter = reporter;
+    }
+
+    /// Take the pysa reporter out of the transaction, consuming ownership.
+    pub fn take_pysa_reporter(&mut self) -> Option<Box<crate::report::pysa::PysaReporter>> {
+        self.data.pysa_reporter.take()
     }
 
     /// Mark this transaction as freshly created (not restored from saved state).
@@ -584,18 +596,20 @@ impl<'a> Transaction<'a> {
         self.stats.lock().compute_stdlib_prewarm_time
     }
 
+    pub fn add_locked_blocking_duration(&self, duration: Duration) {
+        self.stats.lock().state_lock_blocked += duration;
+    }
+
     /// Returns a handle that can be used to cancel ongoing work in this transaction.
     pub fn get_cancellation_handle(&self) -> CancellationHandle {
         self.data.todo.get_cancellation_handle()
     }
 
-    /// Sets a callback that will be invoked immediately each time an ad-hoc solve completes,
-    /// recording the operation label, start time, and duration as a telemetry event.
-    pub fn set_ad_hoc_solve_recorder(
-        &mut self,
-        recorder: Box<dyn Fn(&'static str, Instant, Duration) + Send + Sync + 'a>,
-    ) {
-        self.ad_hoc_solve_recorder = Some(recorder);
+    /// Sets an instance of a [`SubTaskTelemetry`], which will enable the creation and logging of
+    /// different sub-tasks that occur as part of this instance of a transaction before it's saved
+    /// or dropped.
+    pub fn set_sub_task_telemetry(&mut self, sub_task_telemetry: SubTaskTelemetry<'a>) {
+        self.sub_task_telemetry = Some(sub_task_telemetry);
     }
 
     pub fn get_solutions(&self, handle: &Handle) -> Option<Arc<Solutions>> {
@@ -1104,6 +1118,15 @@ impl<'a> Transaction<'a> {
             let require = guard.require();
             let stdlib = self.get_stdlib(&module_data.handle);
             let config = module_data.config.read();
+            let pysa_context = self
+                .data
+                .pysa_reporter
+                .as_ref()
+                .map(|reporter| PysaContext {
+                    handle: &module_data.handle,
+                    module_ids: &reporter.module_ids,
+                    stdlib: stdlib.dupe(),
+                });
             let ctx = Context {
                 require,
                 module: module_data.handle.module(),
@@ -1113,14 +1136,16 @@ impl<'a> Transaction<'a> {
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(module_data),
-                untyped_def_behavior: config
-                    .untyped_def_behavior(module_data.handle.path().as_path()),
+                check_unannotated_defs: config
+                    .check_unannotated_defs(module_data.handle.path().as_path()),
+                infer_return_types: config.infer_return_types(module_data.handle.path().as_path()),
                 infer_with_first_use: config
                     .infer_with_first_use(module_data.handle.path().as_path()),
                 tensor_shapes: config.tensor_shapes(module_data.handle.path().as_path()),
                 strict_callable_subtyping: config
                     .strict_callable_subtyping(module_data.handle.path().as_path()),
                 recursion_limit_config: config.recursion_limit_config(),
+                pysa_context,
             };
 
             // Compute the step. This stores the result and advances current_step,
@@ -1128,6 +1153,7 @@ impl<'a> Transaction<'a> {
             // Post-compute work (diffing, invalidation, eviction) runs without
             // the flag held.
             let post = guard.compute(&ctx);
+
             let mut load_result = None;
             // Compute which exports changed for fine-grained invalidation.
             // All diffing is done at the Solutions step, using old data
@@ -1169,11 +1195,17 @@ impl<'a> Transaction<'a> {
                     changed
                 );
             }
-            if todo == Step::Answers && !require.keep_ast() {
+            if todo == Step::Answers && !require.keep_ast() && self.data.pysa_reporter.is_none() {
                 // We have captured the Ast, and must have already built Exports (we do it serially),
                 // so won't need the Ast again.
                 post.evict_ast();
             } else if todo == Step::Solutions {
+                if let Some(pysa_reporter) = self.data.pysa_reporter.as_ref() {
+                    pysa_reporter.report_module(&module_data.handle, self);
+                    // With pysa, we delayed AST eviction past Answers (needed for
+                    // report_module). Evict it now that report_module has completed.
+                    post.evict_ast();
+                }
                 if !require.keep_bindings() && !require.keep_answers() {
                     // From now on we can use the answers directly, so evict the bindings/answers.
                     post.evict_answers();
@@ -1789,12 +1821,25 @@ impl<'a> Transaction<'a> {
             &thread_state,
             answers.1.heap(),
         );
-        let start = Instant::now();
-        let result = solve(solver);
-        let duration = start.elapsed();
-        if let Some(recorder) = &self.ad_hoc_solve_recorder {
-            recorder(label, start, duration);
-        }
+        let solve_timed = || {
+            #[cfg(target_arch = "wasm32")]
+            {
+                return solve(solver);
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let start = std::time::Instant::now();
+                let result = solve(solver);
+                if let Some(sub_task) = &self.sub_task_telemetry {
+                    let telemetry_event =
+                        sub_task.new_task(TelemetryEventKind::AdHocSolve(label), start);
+                    sub_task.finish_task(telemetry_event, None);
+                }
+                result
+            }
+        };
+        let result = solve_timed();
         Some(result)
     }
 
@@ -2011,12 +2056,14 @@ impl<'a> Transaction<'a> {
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(m),
-                untyped_def_behavior: config.untyped_def_behavior(m.handle.path().as_path()),
+                check_unannotated_defs: config.check_unannotated_defs(m.handle.path().as_path()),
+                infer_return_types: config.infer_return_types(m.handle.path().as_path()),
                 infer_with_first_use: config.infer_with_first_use(m.handle.path().as_path()),
                 tensor_shapes: config.tensor_shapes(m.handle.path().as_path()),
                 strict_callable_subtyping: config
                     .strict_callable_subtyping(m.handle.path().as_path()),
                 recursion_limit_config: config.recursion_limit_config(),
+                pysa_context: None,
             };
             while let Some(step) = alt.next_step() {
                 let start = Instant::now();
@@ -2102,6 +2149,22 @@ impl<'a> Transaction<'a> {
     pub fn get_module_docstring_range(&self, handle: &Handle) -> Option<TextRange> {
         let module_data = self.get_module(handle);
         self.lookup_export(module_data).docstring_range()
+    }
+
+    /// Demand that a module reaches Solutions and return its PysaSolutions.
+    pub fn resolve_pysa_solutions(
+        &self,
+        handle: &Handle,
+    ) -> Arc<crate::report::pysa::PysaSolutions> {
+        let module_data = self.get_module(handle);
+        self.demand(module_data, Step::last());
+        module_data
+            .state
+            .get_solutions()
+            .expect("solutions must exist after demand")
+            .pysa_solutions()
+            .expect("pysa_solutions must exist when pysa reporting is enabled")
+            .clone()
     }
 }
 
@@ -2770,7 +2833,7 @@ impl State {
                 state_lock_blocked,
                 ..Default::default()
             }),
-            ad_hoc_solve_recorder: None,
+            sub_task_telemetry: None,
             data: TransactionData {
                 state: self,
                 stdlib,
@@ -2784,6 +2847,7 @@ impl State {
                 changed: Default::default(),
                 dirty: Default::default(),
                 subscriber,
+                pysa_reporter: None,
             },
         }
     }
@@ -2838,7 +2902,7 @@ impl State {
                 Transaction {
                     readable,
                     stats,
-                    ad_hoc_solve_recorder: _,
+                    sub_task_telemetry: _,
                     data:
                         TransactionData {
                             stdlib,
@@ -2853,6 +2917,7 @@ impl State {
                             changed: _,
                             dirty,
                             subscriber: _,
+                            pysa_reporter: _,
                         },
                 },
             committing_transaction_guard,
@@ -2883,17 +2948,28 @@ impl State {
         );
         state.stdlib = stdlib;
         state.now = now;
-        for (handle, new_module_data) in updated_modules.iter_unordered() {
+        for (handle, new_module_data) in updated_modules {
             state
                 .modules
-                .insert(handle.dupe(), new_module_data.take_and_freeze());
+                .insert(handle, new_module_data.take_and_freeze());
         }
         state.memory.apply_overlay(memory_overlay);
-        for (loader_id, additional_loader) in updated_loaders.iter_unordered() {
-            state
-                .loaders
-                .insert(loader_id.dupe(), additional_loader.dupe());
+        for (loader_id, additional_loader) in updated_loaders {
+            state.loaders.insert(loader_id, additional_loader);
         }
+
+        // Garbage-collect stale loader entries. Loaders are keyed by ArcId<ConfigFile>
+        // which uses pointer-identity equality, so config reloads (via invalidate_config)
+        // create new ArcId keys and old entries accumulate without this cleanup.
+        let active_configs: HashSet<usize> =
+            state.modules.values().map(|m| m.config.id()).collect();
+        let old_loaders = std::mem::take(&mut state.loaders);
+        for (config, loader) in old_loaders {
+            if active_configs.contains(&config.id()) {
+                state.loaders.insert(config, loader);
+            }
+        }
+
         drop(committing_transaction_guard)
     }
 

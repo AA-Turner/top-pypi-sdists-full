@@ -22,7 +22,7 @@ import lmdb
 import networkx
 from archinfo.arch_soot import SootMethodDescriptor, SootAddressDescriptor
 
-from angr.protos import primitives_pb2, cfg_pb2
+from angr.protos import cfg_pb2
 from angr.utils.enums_conv import cfg_jumpkind_to_pb, cfg_jumpkind_from_pb
 from .types import K, CFG_ADDR_TYPES
 from .block_id import BlockID
@@ -219,10 +219,10 @@ class SpillingAdjDict(MutableMapping):
 
     @staticmethod
     def _serialize_edge_data(edge_data: dict) -> bytes:
-        """Serialize an edge attribute dict to Edge protobuf bytes."""
-        edge = primitives_pb2.Edge()  # type:ignore
+        """Serialize an edge attribute dict to CFGEdgeData protobuf bytes."""
+        edge = cfg_pb2.CFGEdgeData()  # type:ignore
         jk = cfg_jumpkind_to_pb(edge_data.get("jumpkind"))
-        edge.jumpkind = primitives_pb2.Edge.UnknownJumpkind if jk is None else jk  # type:ignore
+        edge.jumpkind = cfg_pb2.CFGEdgeData.UnknownJumpkind if jk is None else jk  # type:ignore
         v = edge_data.get("ins_addr")
         edge.ins_addr = v if v is not None else 0xFFFF_FFFF_FFFF_FFFF
         v = edge_data.get("stmt_idx")
@@ -231,8 +231,8 @@ class SpillingAdjDict(MutableMapping):
 
     @staticmethod
     def _deserialize_edge_data(data: bytes) -> dict:
-        """Deserialize Edge protobuf bytes to an edge attribute dict."""
-        edge = primitives_pb2.Edge()  # type:ignore
+        """Deserialize CFGEdgeData protobuf bytes to an edge attribute dict."""
+        edge = cfg_pb2.CFGEdgeData()  # type:ignore
         edge.ParseFromString(data)
         return {
             "jumpkind": cfg_jumpkind_from_pb(edge.jumpkind),
@@ -510,6 +510,7 @@ class SpillingDiGraph(networkx.DiGraph):
 
     _adj: SpillingAdjDict
     _pred: SpillingAdjDict
+    _node: dict
 
     def __init__(
         self,
@@ -561,7 +562,36 @@ class SpillingDiGraph(networkx.DiGraph):
     #  Pickling
     #
 
+    @staticmethod
+    def _rebuild_spilling_digraph(addr_type, edge_cache_limit, db_batch_size, adj, pred, node_dict):
+        """Helper for unpickling SpillingDiGraph with correct parameters."""
+        g = SpillingDiGraph(
+            rtdb=None,
+            edge_cache_limit=edge_cache_limit,
+            db_batch_size=db_batch_size,
+            addr_type=addr_type,
+        )
+        # Restore node and adjacency data
+        g._node.update(node_dict)
+        for k, v in adj.items():
+            g._adj[k] = v
+        for k, v in pred.items():
+            g._pred[k] = v
+        return g
+
     def __reduce__(self):
         # Load all spilled data before pickling
         self.load_all_spilled_edges()
-        return super().__reduce__()
+        # Reconstruct with our custom parameters so addr_type, cache settings, etc. are preserved.
+        # rtdb is not preserved across pickling.
+        return (
+            self._rebuild_spilling_digraph,
+            (
+                self._addr_type,
+                self._edge_cache_limit,
+                self._edge_db_batch_size,
+                dict(self._adj),
+                dict(self._pred),
+                dict(self._node),
+            ),
+        )

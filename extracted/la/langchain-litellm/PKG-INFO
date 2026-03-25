@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-litellm
-Version: 0.6.1
+Version: 0.6.2
 Summary: An integration package connecting LiteLLM and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/litellm
 Project-URL: Documentation, https://docs.langchain.com/oss/python/integrations/chat/litellm
@@ -31,8 +31,8 @@ Classifier: Typing :: Typed
 Requires-Python: <4.0,>=3.10
 Requires-Dist: cryptography<47.0.0,>=46.0.5
 Requires-Dist: httpx<0.29.0,>=0.28.1
-Requires-Dist: langchain-core<2.0.0,>0.3.15
-Requires-Dist: litellm<2.0.0,>=1.77.2
+Requires-Dist: langchain-core<2.0.0,>=1.2.21
+Requires-Dist: litellm!=1.82.7,!=1.82.8,<2.0.0,>=1.77.2
 Description-Content-Type: text/markdown
 
 # langchain-litellm
@@ -62,7 +62,7 @@ Description-Content-Type: text/markdown
 </td>
 
 <td align="center">
-<img src="https://img.shields.io/badge/Platform-Linux%2C%20Windows%2C%20macOS-blue" alt="Platform">
+<img src="https://img.shields.io/badge/Platform-OS%20Independent-blue" alt="Platform">
 <br>
 <a href="https://www.python.org">
 <img src="https://img.shields.io/badge/Python-3670A0?style=flat&logo=python&logoColor=ffdd54" alt="Python">
@@ -95,6 +95,8 @@ For conceptual guides, tutorials, and examples on using these classes, see the [
 
 <details>
 <summary><strong>Embeddings</strong></summary>
+
+_Supported in v0.6.1+_
 
 Use `LiteLLMEmbeddings` to embed text across 100+ providers with a single, consistent interface. All configuration is explicit -- no environment variables required.
 

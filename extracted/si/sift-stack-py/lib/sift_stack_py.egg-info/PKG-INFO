@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sift_stack_py
-Version: 0.12.0
+Version: 0.13.0
 Summary: Python client library for the Sift API
 Maintainer-email: Sift Software Engineers <engineering@siftstack.com>
 License: Copyright (c) 2024 Azimuth Industries Inc.
@@ -29,7 +29,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: grpcio~=1.13
 Requires-Dist: PyYAML~=6.0
-Requires-Dist: pandas~=2.0
+Requires-Dist: pandas<3.1,>=2.0
 Requires-Dist: protobuf>=5.0
 Requires-Dist: pydantic~=2.10
 Requires-Dist: eval-type-backport~=0.2
@@ -37,7 +37,7 @@ Requires-Dist: pydantic_core~=2.3
 Requires-Dist: requests~=2.25
 Requires-Dist: requests-toolbelt~=1.0
 Requires-Dist: alive-progress~=3.0
-Requires-Dist: pandas-stubs~=2.0
+Requires-Dist: pandas-stubs<4.0,>=2.0
 Requires-Dist: types-PyYAML~=6.0
 Requires-Dist: types-protobuf>=5.0
 Requires-Dist: typing-extensions~=4.6
@@ -50,7 +50,7 @@ Requires-Dist: polars~=1.8; extra == "all"
 Requires-Dist: pyOpenSSL<24.0.0; extra == "all"
 Requires-Dist: pyarrow>=17.0.0; extra == "all"
 Requires-Dist: rosbags~=0.0; extra == "all"
-Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "all"
+Requires-Dist: sift-stream-bindings==0.2.2; extra == "all"
 Requires-Dist: types-pyOpenSSL<24.0.0; extra == "all"
 Provides-Extra: build
 Requires-Dist: build==1.2.1; extra == "build"
@@ -87,7 +87,7 @@ Requires-Dist: pytest-mock==3.14.0; extra == "dev-all"
 Requires-Dist: pytest==8.2.2; extra == "dev-all"
 Requires-Dist: rosbags~=0.0; extra == "dev-all"
 Requires-Dist: ruff~=0.12.10; extra == "dev-all"
-Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "dev-all"
+Requires-Dist: sift-stream-bindings==0.2.2; extra == "dev-all"
 Requires-Dist: tomlkit~=0.13.3; extra == "dev-all"
 Requires-Dist: types-pyOpenSSL<24.0.0; extra == "dev-all"
 Provides-Extra: development
@@ -102,27 +102,27 @@ Requires-Dist: pytest==8.2.2; extra == "development"
 Requires-Dist: ruff~=0.12.10; extra == "development"
 Requires-Dist: tomlkit~=0.13.3; extra == "development"
 Provides-Extra: docs
-Requires-Dist: griffe-pydantic; extra == "docs"
-Requires-Dist: mike; extra == "docs"
-Requires-Dist: mkdocs; extra == "docs"
-Requires-Dist: mkdocs-api-autonav; extra == "docs"
-Requires-Dist: mkdocs-include-markdown-plugin; extra == "docs"
-Requires-Dist: mkdocs-jupyter; extra == "docs"
-Requires-Dist: mkdocs-material; extra == "docs"
-Requires-Dist: mkdocstrings[python]; extra == "docs"
+Requires-Dist: griffe-pydantic==1.3.1; extra == "docs"
+Requires-Dist: mike==2.1.3; extra == "docs"
+Requires-Dist: mkdocs-api-autonav==0.4.0; extra == "docs"
+Requires-Dist: mkdocs-include-markdown-plugin==7.1.6; extra == "docs"
+Requires-Dist: mkdocs-jupyter==0.25.1; extra == "docs"
+Requires-Dist: mkdocs-material==9.7.5; extra == "docs"
+Requires-Dist: mkdocs==1.6.1; extra == "docs"
+Requires-Dist: mkdocstrings[python]==1.0.3; extra == "docs"
 Provides-Extra: docs-build
 Requires-Dist: build==1.2.1; extra == "docs-build"
 Requires-Dist: cffi~=1.14; extra == "docs-build"
-Requires-Dist: griffe-pydantic; extra == "docs-build"
+Requires-Dist: griffe-pydantic==1.3.1; extra == "docs-build"
 Requires-Dist: grpcio-testing~=1.13; extra == "docs-build"
 Requires-Dist: h5py~=3.11; extra == "docs-build"
-Requires-Dist: mike; extra == "docs-build"
-Requires-Dist: mkdocs; extra == "docs-build"
-Requires-Dist: mkdocs-api-autonav; extra == "docs-build"
-Requires-Dist: mkdocs-include-markdown-plugin; extra == "docs-build"
-Requires-Dist: mkdocs-jupyter; extra == "docs-build"
-Requires-Dist: mkdocs-material; extra == "docs-build"
-Requires-Dist: mkdocstrings[python]; extra == "docs-build"
+Requires-Dist: mike==2.1.3; extra == "docs-build"
+Requires-Dist: mkdocs-api-autonav==0.4.0; extra == "docs-build"
+Requires-Dist: mkdocs-include-markdown-plugin==7.1.6; extra == "docs-build"
+Requires-Dist: mkdocs-jupyter==0.25.1; extra == "docs-build"
+Requires-Dist: mkdocs-material==9.7.5; extra == "docs-build"
+Requires-Dist: mkdocs==1.6.1; extra == "docs-build"
+Requires-Dist: mkdocstrings[python]==1.0.3; extra == "docs-build"
 Requires-Dist: mypy==1.10.0; extra == "docs-build"
 Requires-Dist: npTDMS~=1.9; extra == "docs-build"
 Requires-Dist: pdoc==14.5.0; extra == "docs-build"
@@ -137,7 +137,7 @@ Requires-Dist: pytest-mock==3.14.0; extra == "docs-build"
 Requires-Dist: pytest==8.2.2; extra == "docs-build"
 Requires-Dist: rosbags~=0.0; extra == "docs-build"
 Requires-Dist: ruff~=0.12.10; extra == "docs-build"
-Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "docs-build"
+Requires-Dist: sift-stream-bindings==0.2.2; extra == "docs-build"
 Requires-Dist: tomlkit~=0.13.3; extra == "docs-build"
 Requires-Dist: types-pyOpenSSL<24.0.0; extra == "docs-build"
 Provides-Extra: file-imports
@@ -155,9 +155,9 @@ Requires-Dist: types-pyOpenSSL<24.0.0; extra == "openssl"
 Provides-Extra: rosbags
 Requires-Dist: rosbags~=0.0; extra == "rosbags"
 Provides-Extra: sift-stream
-Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "sift-stream"
+Requires-Dist: sift-stream-bindings==0.2.2; extra == "sift-stream"
 Provides-Extra: sift-stream-bindings
-Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "sift-stream-bindings"
+Requires-Dist: sift-stream-bindings==0.2.2; extra == "sift-stream-bindings"
 Provides-Extra: tdms
 Requires-Dist: npTDMS~=1.9; extra == "tdms"
 

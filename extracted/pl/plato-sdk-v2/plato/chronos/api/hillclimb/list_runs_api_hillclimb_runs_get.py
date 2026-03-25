@@ -11,10 +11,21 @@ from plato.chronos.models import HillclimbRunResponse
 
 
 def _build_request_args(
+    created_by: str | None = None,
+    tags: list[str] | None = None,
+    tags_mode: str | None = "or",
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = "/api/hillclimb-runs"
+
+    params: dict[str, Any] = {}
+    if created_by is not None:
+        params["created_by"] = created_by
+    if tags is not None:
+        params["tags"] = tags
+    if tags_mode is not None:
+        params["tags_mode"] = tags_mode
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -23,17 +34,24 @@ def _build_request_args(
     return {
         "method": "GET",
         "url": url,
+        "params": params,
         "headers": headers,
     }
 
 
 def sync(
     client: httpx.Client,
+    created_by: str | None = None,
+    tags: list[str] | None = None,
+    tags_mode: str | None = "or",
     x_api_key: str | None = None,
 ) -> list[HillclimbRunResponse]:
     """List Runs"""
 
     request_args = _build_request_args(
+        created_by=created_by,
+        tags=tags,
+        tags_mode=tags_mode,
         x_api_key=x_api_key,
     )
 
@@ -44,11 +62,17 @@ def sync(
 
 async def asyncio(
     client: httpx.AsyncClient,
+    created_by: str | None = None,
+    tags: list[str] | None = None,
+    tags_mode: str | None = "or",
     x_api_key: str | None = None,
 ) -> list[HillclimbRunResponse]:
     """List Runs"""
 
     request_args = _build_request_args(
+        created_by=created_by,
+        tags=tags,
+        tags_mode=tags_mode,
         x_api_key=x_api_key,
     )
 

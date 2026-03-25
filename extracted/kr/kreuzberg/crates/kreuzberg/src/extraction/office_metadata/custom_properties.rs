@@ -49,17 +49,10 @@ pub type CustomProperties = HashMap<String, Value>;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn extract_custom_properties<R: Read + std::io::Seek>(archive: &mut ZipArchive<R>) -> Result<CustomProperties> {
-    let mut xml_content = String::new();
-
-    match archive.by_name("docProps/custom.xml") {
-        Ok(mut file) => {
-            file.read_to_string(&mut xml_content)
-                .map_err(|e| KreuzbergError::parsing(format!("Failed to read custom.xml: {}", e)))?;
-        }
-        Err(_) => {
-            return Ok(HashMap::new());
-        }
-    }
+    let xml_content = match super::read_zip_entry_to_string(archive, "docProps/custom.xml", "custom.xml")? {
+        Some(content) => content,
+        None => return Ok(HashMap::new()),
+    };
 
     let doc = roxmltree::Document::parse(&xml_content)
         .map_err(|e| KreuzbergError::parsing(format!("Failed to parse custom.xml: {}", e)))?;

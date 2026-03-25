@@ -25,13 +25,15 @@ def _resolve_gencode_id(gene_input: str, timeout: int = 30) -> str:
     If already versioned (contains '.'), returns as-is.
     Otherwise queries /reference/gene with gencodeVersion=v26 (used by gtex_v8).
     """
-    if not gene_input or "." in gene_input:
+    if not gene_input:
         return gene_input
+    # Strip version suffix so versioned IDs (e.g. ENSG00000012048.23) resolve to correct v26 ID
+    base_id = gene_input.split(".")[0] if "." in gene_input else gene_input
     url = f"{GTEX_BASE_URL}/reference/gene"
     try:
         resp = requests.get(
             url,
-            params={"geneId": gene_input, "gencodeVersion": "v26"},
+            params={"geneId": base_id, "gencodeVersion": "v26"},
             timeout=timeout,
         )
         if resp.status_code == 200:
@@ -70,11 +72,20 @@ class GTExV2Tool(BaseTool):
                     "error": f"Missing required parameter: {param}",
                 }
 
-        operation = arguments.get("operation")
-        if not operation:
-            return {"status": "error", "error": "Missing required parameter: operation"}
+        if "gencode_id" not in arguments:
+            arguments["gencode_id"] = arguments.get("gene_symbol") or arguments.get(
+                "geneSymbol"
+            )
+        if "dataset_id" not in arguments and "datasetId" in arguments:
+            arguments["dataset_id"] = arguments["datasetId"]
 
-        # Route to appropriate operation handler
+        operation = arguments.get("operation") or self.get_schema_const_operation()
+        if not operation:
+            return {
+                "status": "error",
+                "error": "Missing required parameter: operation",
+            }
+
         operation_handlers = {
             "get_median_gene_expression": self._get_median_gene_expression,
             "get_gene_expression": self._get_gene_expression,
@@ -107,7 +118,13 @@ class GTExV2Tool(BaseTool):
 
     def _get_median_gene_expression(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get median gene expression across tissues."""
-        gencode_ids = arguments.get("gencode_id")
+        # Accept gene_id as alias for gencode_id
+        gencode_ids = arguments.get("gencode_id") or arguments.get("gene_id")
+        if not gencode_ids:
+            return {
+                "status": "error",
+                "error": "gencode_id (or gene_symbol) is required. Provide a gene symbol (e.g., 'TP53') or Ensembl ID (e.g., 'ENSG00000141510').",
+            }
         if isinstance(gencode_ids, str):
             gencode_ids = [gencode_ids]
         # Resolve gene symbols/unversioned IDs to versioned GENCODE IDs
@@ -116,7 +133,9 @@ class GTExV2Tool(BaseTool):
         # Feature-69A-002: gtex_v10 returns empty results for medianGeneExpression.
         # Default to gtex_v8 which is stable and returns correct tissue expression.
         dataset_id = arguments.get("dataset_id", "gtex_v8")
-        tissue_ids = arguments.get("tissue_site_detail_id", [])
+        tissue_ids = arguments.get("tissue_site_detail_id")
+        if tissue_ids is None:
+            tissue_ids = arguments.get("tissue_id") or []
 
         if isinstance(tissue_ids, str):
             tissue_ids = [tissue_ids]
@@ -146,6 +165,17 @@ class GTExV2Tool(BaseTool):
                 "data": results,
                 "paging_info": data.get("paging_info", {}),
                 "num_results": len(results),
+            }
+        elif response.status_code == 422 and tissue_ids:
+            return {
+                "status": "error",
+                "error": (
+                    f"GTEx API rejected tissue IDs (HTTP 422). Tissue IDs are case-sensitive. "
+                    f"Provided: {tissue_ids}. "
+                    "Use exact GTEx tissue IDs, e.g. 'Brain_Frontal_Cortex_BA9' (not 'Ba9'), "
+                    "'Brain_Anterior_cingulate_cortex_BA24'. "
+                    "Omit tissue_site_detail_id to get all tissues, then pick valid IDs from the response."
+                ),
             }
         else:
             return {

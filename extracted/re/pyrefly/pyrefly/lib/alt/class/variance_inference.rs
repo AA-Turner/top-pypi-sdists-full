@@ -241,6 +241,12 @@ fn on_type(
                 }
             }
         }
+        Type::NNModule(module) => {
+            // NNModule fields are invariant
+            for (_, ty) in module.fields.iter() {
+                on_type(Variance::Invariant, inj, ty, on_edge, on_var);
+            }
+        }
         Type::Callable(t) => {
             // Walk return type covariantly
             on_type(variance, inj, &t.ret, on_edge, on_var);
@@ -289,7 +295,8 @@ fn on_type(
                 SizeExpr::Add(l, r)
                 | SizeExpr::Sub(l, r)
                 | SizeExpr::Mul(l, r)
-                | SizeExpr::FloorDiv(l, r) => {
+                | SizeExpr::FloorDiv(l, r)
+                | SizeExpr::Pow(l, r) => {
                     on_type(Variance::Invariant, inj, l, on_edge, on_var);
                     on_type(Variance::Invariant, inj, r, on_edge, on_var);
                 }

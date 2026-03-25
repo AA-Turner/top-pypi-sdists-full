@@ -60,6 +60,7 @@ class RNAcentralSearchTool:
                 url, headers={"Accept": "application/json"}, timeout=timeout
             )
             return {
+                "status": "success",
                 "source": "RNAcentral",
                 "endpoint": "rna",
                 "query": query,
@@ -68,6 +69,7 @@ class RNAcentralSearchTool:
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": str(e),
                 "source": "RNAcentral",
                 "endpoint": "rna",
@@ -108,6 +110,7 @@ class RNAcentralGetTool:
                 url, headers={"Accept": "application/json"}, timeout=timeout
             )
             return {
+                "status": "success",
                 "source": "RNAcentral",
                 "endpoint": "rna/{accession}",
                 "accession": acc,
@@ -116,6 +119,7 @@ class RNAcentralGetTool:
             }
         except Exception as e:
             return {
+                "status": "error",
                 "error": str(e),
                 "source": "RNAcentral",
                 "endpoint": "rna/{accession}",

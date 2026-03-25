@@ -10,7 +10,7 @@ from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 from sqlalchemy.exc import OperationalError
-from starlette.concurrency import run_in_threadpool
+from starlette.concurrency import run_in_threadpool  # pyright: ignore[reportUnknownVariableType]
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing_extensions import Literal
 
@@ -19,6 +19,7 @@ from advanced_alchemy.base import metadata_registry
 from advanced_alchemy.config import EngineConfig as _EngineConfig
 from advanced_alchemy.config.asyncio import SQLAlchemyAsyncConfig as _SQLAlchemyAsyncConfig
 from advanced_alchemy.config.sync import SQLAlchemySyncConfig as _SQLAlchemySyncConfig
+from advanced_alchemy.routing.context import reset_routing_context
 from advanced_alchemy.service import schema_dump
 
 if TYPE_CHECKING:
@@ -151,7 +152,7 @@ class SQLAlchemyAsyncConfig(_SQLAlchemyAsyncConfig):
             app, f"advanced_alchemy_async_session_maker_{self.session_maker_key}"
         )
 
-        app.add_middleware(BaseHTTPMiddleware, dispatch=self.middleware_dispatch)
+        app.add_middleware(BaseHTTPMiddleware, dispatch=self.middleware_dispatch)  # pyright: ignore[reportUnknownMemberType]
 
     async def on_startup(self) -> None:
         """Initialize the Starlette application with this configuration."""
@@ -210,6 +211,10 @@ class SQLAlchemyAsyncConfig(_SQLAlchemyAsyncConfig):
         Processes the request, invokes the next middleware or route handler, and
         applies the session handler after the response is generated.
 
+        For generator-managed sessions (e.g., from provide_service()), the middleware
+        stores the response status but skips cleanup, allowing the generator to handle
+        commit/rollback/close operations properly.
+
         Args:
             request (starlette.requests.Request): The incoming HTTP request.
             call_next (starlette.middleware.base.RequestResponseEndpoint):
@@ -218,9 +223,21 @@ class SQLAlchemyAsyncConfig(_SQLAlchemyAsyncConfig):
         Returns:
             starlette.responses.Response: The HTTP response.
         """
+        # Reset routing context for request-scoped isolation
+        reset_routing_context()
+
         response = await call_next(request)
+
+        # Store response status for generator dependencies to access during cleanup
+        setattr(request.state, f"{self.session_key}_response_status", response.status_code)
+
         session = cast("Optional[AsyncSession]", getattr(request.state, self.session_key, None))
-        if session is not None:
+
+        # Check if session is managed by a generator dependency (e.g., provide_service)
+        is_generator_managed = getattr(request.state, f"{self.session_key}_generator_managed", False)
+
+        if session is not None and not is_generator_managed:
+            # Only handle cleanup for non-generator-managed sessions
             await self.session_handler(session=session, request=request, response=response)
 
         return response
@@ -272,7 +289,9 @@ class SQLAlchemySyncConfig(_SQLAlchemySyncConfig):
         with self.engine_instance.begin() as conn:
             try:
                 await run_in_threadpool(
-                    metadata_registry.get(None if self.bind_key == "default" else self.bind_key).create_all, conn
+                    lambda: metadata_registry.get(None if self.bind_key == "default" else self.bind_key).create_all(
+                        conn
+                    )
                 )
             except OperationalError as exc:
                 _echo(f" * Could not create target metadata. Reason: {exc}")
@@ -291,7 +310,7 @@ class SQLAlchemySyncConfig(_SQLAlchemySyncConfig):
             app, f"advanced_alchemy_sync_session_maker_{self.session_maker_key}"
         )
         _ = self.create_session_maker()
-        app.add_middleware(BaseHTTPMiddleware, dispatch=self.middleware_dispatch)
+        app.add_middleware(BaseHTTPMiddleware, dispatch=self.middleware_dispatch)  # pyright: ignore[reportUnknownMemberType]
 
     async def on_startup(self) -> None:
         """Initialize the Starlette application with this configuration."""
@@ -350,6 +369,10 @@ class SQLAlchemySyncConfig(_SQLAlchemySyncConfig):
         Processes the request, invokes the next middleware or route handler, and
         applies the session handler after the response is generated.
 
+        For generator-managed sessions (e.g., from provide_service()), the middleware
+        stores the response status but skips cleanup, allowing the generator to handle
+        commit/rollback/close operations properly.
+
         Args:
             request (starlette.requests.Request): The incoming HTTP request.
             call_next (starlette.middleware.base.RequestResponseEndpoint):
@@ -358,9 +381,21 @@ class SQLAlchemySyncConfig(_SQLAlchemySyncConfig):
         Returns:
             starlette.responses.Response: The HTTP response.
         """
+        # Reset routing context for request-scoped isolation
+        reset_routing_context()
+
         response = await call_next(request)
+
+        # Store response status for generator dependencies to access during cleanup
+        setattr(request.state, f"{self.session_key}_response_status", response.status_code)
+
         session = cast("Optional[Session]", getattr(request.state, self.session_key, None))
-        if session is not None:
+
+        # Check if session is managed by a generator dependency (e.g., provide_service)
+        is_generator_managed = getattr(request.state, f"{self.session_key}_generator_managed", False)
+
+        if session is not None and not is_generator_managed:
+            # Only handle cleanup for non-generator-managed sessions
             await self.session_handler(session=session, request=request, response=response)
 
         return response

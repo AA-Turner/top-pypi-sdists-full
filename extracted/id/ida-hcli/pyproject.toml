@@ -1,6 +1,6 @@
 [project]
 name = "ida-hcli"
-version = "0.16.4"
+version = "0.17.0"
 description = "HCLI - Hex-Rays CLI Utility"
 requires-python = ">=3.10"
 license = "MIT"
@@ -15,18 +15,14 @@ dependencies = [
     "rich",
     "rich-click",
     "httpx",
-    "supabase",
     "pydantic>=2.11.0",
     "platformdirs",
     "packaging",
     "questionary",
     "semantic-version>=2.10.0",
-    "requests>=2.32.4",
     "idapro>=0.0.5",
-    "gotrue>=2.12.0",
     "pip>=25.2",
     "tomli>=1.2.0; python_version<'3.11'",
-    "pyyaml>=6.0.2",
     "tenacity>=8.0.0",
 ]
 
@@ -54,8 +50,6 @@ build-backend = "setuptools.build_meta"
 [dependency-groups]
 dev = [
     "types-pexpect>=4.9.0.20250809",
-    "types-pyyaml>=6.0.12.20250915",
-    "types-requests>=2.32.4.20250809",
 ]
 
 [project.optional-dependencies]

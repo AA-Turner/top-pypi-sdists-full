@@ -168,7 +168,7 @@ impl DocOrientationDetector {
 
             crate::ort_discovery::ensure_ort_available();
 
-            let num_threads = num_cpus::get().min(4);
+            let num_threads = crate::core::config::concurrency::resolve_thread_budget(None).min(4);
             let session = SessionBuilder::new()
                 .map_err(|e| KreuzbergError::Ocr {
                     message: format!("Failed to create doc_ori session builder: {e}"),

@@ -256,6 +256,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
+    /// Narrow a type by removing values identity-equal to `right` (`is not` semantics).
+    fn narrow_is_not(&self, ty: &Type, right: &Type) -> Type {
+        self.distribute_over_union(ty, |t| match (t, right) {
+            (
+                _,
+                Type::None
+                | Type::Ellipsis
+                | Type::Literal(box Literal {
+                    value: Lit::Bool(_) | Lit::Enum(_),
+                    ..
+                }),
+            ) if self.literal_equal(t, right) => self.heap.mk_never(),
+            (Type::ClassType(cls), Type::Literal(lit))
+                if cls.is_builtin("bool")
+                    && let Lit::Bool(b) = &lit.value =>
+            {
+                Lit::Bool(!b).to_implicit_type()
+            }
+            (Type::ClassType(left_cls), Type::Literal(right))
+                if let Lit::Enum(right) = &right.value
+                    && left_cls == &right.class =>
+            {
+                self.subtract_enum_member(left_cls, &right.member)
+            }
+            _ => t.clone(),
+        })
+    }
+
     fn resolve_narrowing_call(
         &self,
         func: &Expr,
@@ -413,7 +441,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let result = if let Type::Quantified(q) = l
                         && let Restriction::Constraints(_) = q.restriction()
                     {
-                        let concrete = q.restriction().as_type(self.stdlib, self.heap);
+                        let concrete = q.bound_type(self.stdlib, self.heap);
                         self.subtract(&concrete, &right)
                     } else {
                         self.subtract(l, &right)
@@ -552,7 +580,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 for q in quantifieds {
                     // The only time it's safe to simplify a quantified away is when the entire intersection is Never.
                     let intersection = narrow(
-                        &q.restriction().as_type(self.stdlib, self.heap),
+                        &q.bound_type(self.stdlib, self.heap),
                         right_unwrapped.clone(),
                     );
                     res.push(if matches!(&intersection, Type::Type(t) if t.is_never()) {
@@ -650,6 +678,74 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
+    /// Narrow a union by keeping only members whose facet is identity-compatible with `right`.
+    fn narrow_facet_is(
+        &self,
+        base: &Type,
+        right: &Type,
+        facet: &FacetKind,
+        range: TextRange,
+    ) -> Type {
+        self.distribute_over_union(base, |t| {
+            let base_info = TypeInfo::of_ty(t.clone());
+            let facet_ty = self.get_facet_chain_type(
+                &base_info,
+                &FacetChain::new(Vec1::new(facet.clone())),
+                range,
+            );
+            match right {
+                Type::None
+                | Type::Ellipsis
+                | Type::Literal(box Literal {
+                    value: Lit::Bool(_) | Lit::Enum(_),
+                    ..
+                }) => {
+                    if self.is_subset_eq(right, &facet_ty) {
+                        t.clone()
+                    } else {
+                        self.heap.mk_never()
+                    }
+                }
+                _ => t.clone(),
+            }
+        })
+    }
+
+    /// Narrow a union by removing members whose facet is identity-equal to `right`.
+    fn narrow_facet_is_not(
+        &self,
+        base: &Type,
+        right: &Type,
+        facet: &FacetKind,
+        range: TextRange,
+    ) -> Type {
+        self.distribute_over_union(base, |t| {
+            let base_info = TypeInfo::of_ty(t.clone());
+            let facet_ty = self.get_facet_chain_type(
+                &base_info,
+                &FacetChain::new(Vec1::new(facet.clone())),
+                range,
+            );
+            match (&facet_ty, right) {
+                (
+                    Type::None
+                    | Type::Ellipsis
+                    | Type::Literal(box Literal {
+                        value: Lit::Bool(_) | Lit::Enum(_),
+                        ..
+                    }),
+                    Type::None
+                    | Type::Ellipsis
+                    | Type::Literal(box Literal {
+                        value: Lit::Bool(_) | Lit::Enum(_),
+                        ..
+                    }),
+                ) if self.literal_equal(right, &facet_ty) => self.heap.mk_never(),
+                _ => t.clone(),
+            }
+        })
+    }
+
     // Try to narrow a type based on the type of its facet.
     // For example, if we have a `x.y == 0` check and `x` is some union,
     // we can eliminate cases from the union where `x.y` is some other
@@ -680,54 +776,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match op {
             AtomicNarrowOp::Is(v) => {
                 let right = self.expr_infer(v, errors);
-                Some(self.distribute_over_union(base, |t| {
-                    let base_info = TypeInfo::of_ty(t.clone());
-                    let facet_ty = self.get_facet_chain_type(
-                        &base_info,
-                        &FacetChain::new(Vec1::new(facet.clone())),
-                        range,
-                    );
-                    match right {
-                        Type::None
-                        | Type::Literal(box Literal {
-                            value: Lit::Bool(_) | Lit::Enum(_),
-                            ..
-                        }) => {
-                            if self.is_subset_eq(&right, &facet_ty) {
-                                t.clone()
-                            } else {
-                                self.heap.mk_never()
-                            }
-                        }
-                        _ => t.clone(),
-                    }
-                }))
+                Some(self.narrow_facet_is(base, &right, facet, range))
             }
             AtomicNarrowOp::IsNot(v) => {
                 let right = self.expr_infer(v, errors);
-                Some(self.distribute_over_union(base, |t| {
-                    let base_info = TypeInfo::of_ty(t.clone());
-                    let facet_ty = self.get_facet_chain_type(
-                        &base_info,
-                        &FacetChain::new(Vec1::new(facet.clone())),
-                        range,
-                    );
-                    match (&facet_ty, &right) {
-                        (
-                            Type::None
-                            | Type::Literal(box Literal {
-                                value: Lit::Bool(_) | Lit::Enum(_),
-                                ..
-                            }),
-                            Type::None
-                            | Type::Literal(box Literal {
-                                value: Lit::Bool(_) | Lit::Enum(_),
-                                ..
-                            }),
-                        ) if self.literal_equal(&right, &facet_ty) => self.heap.mk_never(),
-                        _ => t.clone(),
-                    }
-                }))
+                Some(self.narrow_facet_is_not(base, &right, facet, range))
             }
             AtomicNarrowOp::Eq(v) => {
                 let right = self.expr_infer(v, errors);
@@ -739,7 +792,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                     );
                     match right {
-                        Type::None | Type::Literal(_) => {
+                        Type::None | Type::Ellipsis | Type::Literal(_) => {
                             if self.is_subset_eq(&right, &facet_ty) {
                                 t.clone()
                             } else {
@@ -760,11 +813,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                     );
                     match (&facet_ty, &right) {
-                        (Type::None | Type::Literal(_), Type::None | Type::Literal(_))
-                            if self.literal_equal(&right, &facet_ty) =>
-                        {
-                            self.heap.mk_never()
-                        }
+                        (
+                            Type::None | Type::Ellipsis | Type::Literal(_),
+                            Type::None | Type::Ellipsis | Type::Literal(_),
+                        ) if self.literal_equal(&right, &facet_ty) => self.heap.mk_never(),
                         _ => t.clone(),
                     }
                 }))
@@ -1129,33 +1181,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::IsNot(v) => {
                 let right = self.expr_infer(v, errors);
-                // Get our best approximation of ty - right.
-                self.distribute_over_union(ty, |t| {
-                    // Only certain literal types can be compared by identity.
-                    match (t, &right) {
-                        (
-                            _,
-                            Type::None
-                            | Type::Literal(box Literal {
-                                value: Lit::Bool(_) | Lit::Enum(_),
-                                ..
-                            }),
-                        ) if self.literal_equal(t, &right) => self.heap.mk_never(),
-                        (Type::ClassType(cls), Type::Literal(lit))
-                            if cls.is_builtin("bool")
-                                && let Lit::Bool(b) = &lit.value =>
-                        {
-                            Lit::Bool(!b).to_implicit_type()
-                        }
-                        (Type::ClassType(left_cls), Type::Literal(right))
-                            if let Lit::Enum(right) = &right.value
-                                && left_cls == &right.class =>
-                        {
-                            self.subtract_enum_member(left_cls, &right.member)
-                        }
-                        _ => t.clone(),
-                    }
-                })
+                self.narrow_is_not(ty, &right)
             }
             AtomicNarrowOp::IsInstance(v, source) => {
                 let right = self.expr_infer(v, errors);
@@ -1323,7 +1349,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::Eq(v) => {
                 let right = self.expr_infer(v, errors);
-                if matches!(right, Type::Literal(_) | Type::None) {
+                if matches!(right, Type::Literal(_) | Type::None | Type::Ellipsis) {
                     self.intersect(ty, &right)
                 } else {
                     ty.clone()
@@ -1331,7 +1357,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::NotEq(v) => {
                 let right = self.expr_infer(v, errors);
-                if matches!(right, Type::Literal(_) | Type::None) {
+                if matches!(right, Type::Literal(_) | Type::None | Type::Ellipsis) {
                     self.distribute_over_union(ty, |t| match (t, &right) {
                         (_, _) if self.literal_equal(t, &right) => self.heap.mk_never(),
                         (Type::ClassType(cls), Type::Literal(lit))
@@ -1928,6 +1954,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn literal_equal(&self, left: &Type, right: &Type) -> bool {
         match (left, right) {
             (Type::None, Type::None) => true,
+            (Type::Ellipsis, Type::Ellipsis) => true,
             (Type::Literal(left), Type::Literal(right)) => left.value == right.value,
             _ => false,
         }

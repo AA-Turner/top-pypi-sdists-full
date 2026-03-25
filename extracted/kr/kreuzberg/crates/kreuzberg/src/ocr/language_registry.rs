@@ -20,7 +20,7 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
+use ahash::AHashMap;
 use std::sync::OnceLock;
 
 use super::backends;
@@ -34,7 +34,7 @@ static LANGUAGE_REGISTRY: OnceLock<LanguageRegistry> = OnceLock::new();
 /// This is the single source of truth for language support across all bindings.
 #[derive(Debug, Clone)]
 pub struct LanguageRegistry {
-    backends: HashMap<String, Vec<String>>,
+    backends: AHashMap<String, Vec<String>>,
 }
 
 impl LanguageRegistry {
@@ -45,7 +45,7 @@ impl LanguageRegistry {
     /// A new `LanguageRegistry` with EasyOCR, PaddleOCR, and Tesseract languages pre-populated.
     pub fn new() -> Self {
         let mut registry = Self {
-            backends: HashMap::new(),
+            backends: AHashMap::new(),
         };
 
         registry

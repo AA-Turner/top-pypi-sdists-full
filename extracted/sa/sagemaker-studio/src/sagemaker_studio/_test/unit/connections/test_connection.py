@@ -11,10 +11,7 @@ from botocore.exceptions import ClientError
 from sagemaker_studio import ClientConfig
 from sagemaker_studio.connections import Connection
 from sagemaker_studio.connections.catalog import Catalog
-from sagemaker_studio.connections.connection import (
-    ConnectionCredentials,
-    PhysicalEndpoint,
-)
+from sagemaker_studio.connections.connection import ConnectionCredentials, PhysicalEndpoint
 
 GET_CATALOGS_RESPONSE: Dict[str, Any] = {
     "CatalogList": [

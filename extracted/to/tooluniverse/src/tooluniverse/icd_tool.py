@@ -74,7 +74,9 @@ class ICDTool(BaseTool):
         for placeholder, arg_key in self._PLACEHOLDER_KEYS.items():
             if placeholder in endpoint:
                 default = self.linearization if arg_key == "linearization" else ""
-                endpoint = endpoint.replace(placeholder, arguments.get(arg_key, default))
+                endpoint = endpoint.replace(
+                    placeholder, arguments.get(arg_key, default)
+                )
 
         if "{search_term}" in endpoint:
             search_term = url_quote(arguments.get("query", ""))
@@ -92,11 +94,12 @@ class ICDTool(BaseTool):
         access_token = self._get_access_token()
         if not access_token:
             return {
+                "status": "error",
                 "error": (
                     "ICD API authentication required. "
                     "Set ICD_CLIENT_ID and ICD_CLIENT_SECRET environment variables. "
                     "Register at: https://icd.who.int/icdapi"
-                )
+                ),
             }
 
         url = self._build_url(arguments)
@@ -116,6 +119,7 @@ class ICDTool(BaseTool):
             resp = requests.get(url, headers=headers, params=params, timeout=30)
             resp.raise_for_status()
             return {
+                "status": "success",
                 "data": resp.json(),
                 "metadata": {
                     "source": "WHO ICD-11 API",
@@ -125,9 +129,9 @@ class ICDTool(BaseTool):
                 },
             }
         except requests.exceptions.RequestException as e:
-            return {"error": f"Request failed: {e}"}
+            return {"status": "error", "error": f"Request failed: {e}"}
         except ValueError as e:
-            return {"error": f"Failed to parse JSON: {e}"}
+            return {"status": "error", "error": f"Failed to parse JSON: {e}"}
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the tool with given arguments."""
@@ -180,37 +184,33 @@ class ICD10Tool(BaseTool):
                 formatted_results = []
                 for item in results:
                     if len(item) >= 2:
-                        formatted_results.append({
-                            "code": item[0],
-                            "name": item[1]
-                        })
+                        formatted_results.append({"code": item[0], "name": item[1]})
 
                 return {
-                    "data": {
-                        "total": total,
-                        "results": formatted_results
-                    },
+                    "status": "success",
+                    "data": {"total": total, "results": formatted_results},
                     "metadata": {
                         "source": "NLM Clinical Tables - ICD-10-CM",
                         "endpoint": url,
                         "version": "2026 ICD-10-CM codes",
-                        "note": "ICD-10-CM is the US clinical modification of ICD-10"
-                    }
+                        "note": "ICD-10-CM is the US clinical modification of ICD-10",
+                    },
                 }
 
             # Direct code lookup
             return {
+                "status": "success",
                 "data": data,
                 "metadata": {
                     "source": "NLM Clinical Tables - ICD-10-CM",
-                    "endpoint": url
-                }
+                    "endpoint": url,
+                },
             }
 
         except requests.exceptions.RequestException as e:
-            return {"error": f"Request failed: {str(e)}"}
+            return {"status": "error", "error": f"Request failed: {str(e)}"}
         except (ValueError, IndexError) as e:
-            return {"error": f"Failed to parse response: {str(e)}"}
+            return {"status": "error", "error": f"Failed to parse response: {str(e)}"}
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the tool with given arguments."""

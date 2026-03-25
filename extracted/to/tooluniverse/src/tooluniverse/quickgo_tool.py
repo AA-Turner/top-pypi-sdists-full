@@ -42,16 +42,24 @@ class QuickGOTool(BaseTool):
             return self._query(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"QuickGO API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"QuickGO API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to QuickGO API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to QuickGO API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"QuickGO API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"QuickGO API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying QuickGO: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying QuickGO: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate QuickGO endpoint."""
@@ -64,25 +72,26 @@ class QuickGOTool(BaseTool):
         elif self.endpoint == "term_children":
             return self._term_children(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _annotation_by_gene(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search GO annotations for a specific gene product."""
         gene_product_id = arguments.get("gene_product_id", "")
         if not gene_product_id:
-            return {"error": "gene_product_id parameter is required"}
+            return {"status": "error", "error": "gene_product_id parameter is required"}
 
         # Feature-25B-05: detect bare gene symbols (e.g. "TP53") and explain the correct format.
         # QuickGO requires "DB:Accession" format such as "UniProtKB:P04637".
         if ":" not in gene_product_id:
             return {
+                "status": "error",
                 "error": (
                     f"Invalid gene_product_id format: '{gene_product_id}'. "
                     "QuickGO requires accession format 'DB:Accession', "
                     "e.g. 'UniProtKB:P04637' for human TP53. "
                     "Use `tu run UniProt_search query=TP53` to find the UniProt accession "
                     "for your gene."
-                )
+                ),
             }
 
         url = f"{QUICKGO_BASE_URL}/annotation/search"
@@ -153,6 +162,7 @@ class QuickGOTool(BaseTool):
                 pass  # Best-effort; don't fail if name resolution fails
 
         return {
+            "status": "success",
             "data": annotations,
             "metadata": {
                 "source": "QuickGO",
@@ -166,7 +176,7 @@ class QuickGOTool(BaseTool):
         """Search GO annotations for a specific GO term."""
         go_id = arguments.get("go_id", "")
         if not go_id:
-            return {"error": "go_id parameter is required"}
+            return {"status": "error", "error": "go_id parameter is required"}
 
         url = f"{QUICKGO_BASE_URL}/annotation/search"
         params = {
@@ -203,6 +213,7 @@ class QuickGOTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": annotations,
             "metadata": {
                 "source": "QuickGO",
@@ -216,7 +227,7 @@ class QuickGOTool(BaseTool):
         """Get detailed information about a GO term."""
         go_id = arguments.get("go_id", "")
         if not go_id:
-            return {"error": "go_id parameter is required"}
+            return {"status": "error", "error": "go_id parameter is required"}
 
         url = f"{QUICKGO_BASE_URL}/ontology/go/terms/{go_id}"
         headers = {"Accept": "application/json"}
@@ -228,6 +239,7 @@ class QuickGOTool(BaseTool):
 
         if not results:
             return {
+                "status": "success",
                 "data": {},
                 "metadata": {
                     "source": "QuickGO",
@@ -278,6 +290,7 @@ class QuickGOTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "QuickGO",
@@ -290,7 +303,7 @@ class QuickGOTool(BaseTool):
         """Get child terms of a GO term."""
         go_id = arguments.get("go_id", "")
         if not go_id:
-            return {"error": "go_id parameter is required"}
+            return {"status": "error", "error": "go_id parameter is required"}
 
         url = f"{QUICKGO_BASE_URL}/ontology/go/terms/{go_id}/children"
         headers = {"Accept": "application/json"}
@@ -313,6 +326,7 @@ class QuickGOTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": children,
             "metadata": {
                 "source": "QuickGO",

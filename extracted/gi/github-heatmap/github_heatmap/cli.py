@@ -12,8 +12,9 @@ from github_heatmap.drawer import Drawer
 from github_heatmap.err import DepNotInstalledError
 from github_heatmap.loader import LOADER_DICT
 from github_heatmap.poster import Poster
-from github_heatmap.utils import parse_years, reduce_year_list
+from github_heatmap.utils import build_level_colors, parse_years, reduce_year_list
 from github_heatmap.config import (
+    GITHUB_LEVEL_COLORS,
     HEAD_FONT_SIZE,
     YEAR_FONT_SIZE,
     MONTH_FONT_SIZE,
@@ -50,16 +51,31 @@ def run():
     args = args_parser.parse_args()
     # without title
     no_title_types = ("issue", "multiple", "json")
+    base_track_color = args.track_color or args.loader.track_color or "#4DD2FF"
+    use_exact_github_colors = (
+        args.type == "github"
+        and not args.track_color
+        and not args.special_color1
+        and not args.special_color2
+    )
+    level_colors = (
+        list(GITHUB_LEVEL_COLORS)
+        if use_exact_github_colors
+        else build_level_colors(
+            base_track_color, args.special_color1, args.special_color2
+        )
+    )
 
     p.colors = {
         "background": args.background_color,
-        "track": args.track_color
-        or args.loader.track_color,  # some type has default color
-        "special": args.special_color1,
-        "special2": args.special_color2 or args.special_color,
+        "track": base_track_color,
+        "special": level_colors[2],
+        "special2": level_colors[3],
         "text": args.text_color,
         "dom": args.dom_color,
     }
+    p.level_colors = level_colors
+    p.use_github_level_mapping = not (args.special_number1 or args.special_number2)
 
     p.tooltip_template = args.tooltip_template or None
 
@@ -68,6 +84,7 @@ def run():
         p.colors["track"] = "#025DB8"
         p.colors["special"] = "#FFD100"
         p.colors["special2"] = "#FFD100"
+        p.level_colors = build_level_colors("#025DB8", "#FFD100", "#FFD100")
 
     # set animate
     p.set_with_animation(args.with_animation)
@@ -111,6 +128,7 @@ def run():
         else:
             p.units = args.loader.unit
         p.tooltip_by_date = getattr(loader, "tooltip_by_date_dict", {}) or {}
+        p.level_thresholds = getattr(loader, "level_thresholds", ())
         p.set_tracks(tracks, years, type_list)
     else:
         if args.unit:
@@ -119,6 +137,10 @@ def run():
             p.units = args.loader.unit
         p.set_tracks({}, [to_year], type_list)
         p.tooltip_by_date = {}
+        p.level_thresholds_by_type = {
+            child_loader._type: getattr(child_loader, "level_thresholds", ())
+            for child_loader in loader.loader_list
+        }
 
     # set title
     # we don't know issue content so use name

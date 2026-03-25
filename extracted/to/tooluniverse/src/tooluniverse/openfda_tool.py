@@ -1,8 +1,12 @@
-import requests
-from .base_tool import BaseTool
-from .tool_registry import register_tool
 import copy
 import re
+from typing import Any, Dict
+
+import requests
+
+from .base_rest_tool import BaseRESTTool
+from .base_tool import BaseTool
+from .tool_registry import register_tool
 import os
 import urllib.parse
 
@@ -318,7 +322,8 @@ def search_openfda(
         or search_fields
     ):
         return {
-            "error": "You must provide at least one of 'search', 'count', or 'sort' parameters."
+            "status": "error",
+            "error": "You must provide at least one of 'search', 'count', or 'sort' parameters.",
         }
 
     # Set additional query parameters
@@ -514,7 +519,10 @@ def search_openfda(
         try:
             return resp.json()
         except Exception:
-            return {"error": {"code": "BAD_JSON", "message": "Non-JSON response"}}
+            return {
+                "status": "error",
+                "error": {"code": "BAD_JSON", "message": "Non-JSON response"},
+            }
 
     # Only run fallbacks on NOT_FOUND
     if (
@@ -735,6 +743,7 @@ def search_openfda(
             )
             suggestion = " ".join(suggestion_parts)
             return {
+                "status": "error",
                 "error": err,
                 "suggestion": suggestion,
                 "meta": {
@@ -955,7 +964,7 @@ class FDADrugLabelTool(FDATool):
                         f"compound is actually approved as a pharmaceutical "
                         f"drug."
                     )
-                    return {"error": error_msg}
+                    return {"status": "error", "error": error_msg}
             else:
                 # Not a ChEMBL ID, use original value (strip whitespace)
                 arguments["drug_name"] = drug_name
@@ -1299,7 +1308,10 @@ class FDADrugLabelFieldValueTool(BaseTool):
         field = arguments.pop("field", None)
         field_value = arguments.pop("field_value", None)
         if not field or not field_value:
-            return {"error": "`field` and `field_value` are required."}
+            return {
+                "status": "error",
+                "error": "`field` and `field_value` are required.",
+            }
 
         # Runtime enforcement: keep the JSON config small by not inlining
         # huge enums, but still validate inputs against a known allow-list.
@@ -1401,10 +1413,11 @@ class FDADrugLabelFieldValueTool(BaseTool):
 
         if field not in allowed_fields:
             return {
+                "status": "error",
                 "error": (
                     f"Invalid `field`: {field}. "
                     "Use one of the documented FDA drug label fields."
-                )
+                ),
             }
 
         return_fields = arguments.pop("return_fields", None)
@@ -1418,15 +1431,19 @@ class FDADrugLabelFieldValueTool(BaseTool):
             ]
         if return_fields != "ALL":
             if not isinstance(return_fields, list) or not return_fields:
-                return {"error": ('`return_fields` must be "ALL" or a non-empty list.')}
+                return {
+                    "status": "error",
+                    "error": ('`return_fields` must be "ALL" or a non-empty list.'),
+                }
             invalid = [rf for rf in return_fields if rf not in allowed_fields]
             if invalid:
                 return {
+                    "status": "error",
                     "error": (
                         "Invalid `return_fields` value(s): "
                         + ", ".join(invalid)
                         + ". Use only documented FDA drug label fields."
-                    )
+                    ),
                 }
 
         # Build openFDA search_fields mapping expected by search_openfda()
@@ -1535,7 +1552,7 @@ class FDADrugLabelGetDrugNamesByIndicationAggregated(FDADrugLabelTool):
         indication = arguments.get("indication")
 
         if not indication:
-            return {"error": "indication parameter is required"}
+            return {"status": "error", "error": "indication parameter is required"}
 
         # Dictionary to aggregate results by generic name
         # Key: generic_name (normalized), Value: set of brand names
@@ -1666,7 +1683,7 @@ class FDADrugLabelGetDrugNamesByIndicationStats(FDADrugLabelTool):
         indication = arguments.get("indication")
 
         if not indication:
-            return {"error": "indication parameter is required"}
+            return {"status": "error", "error": "indication parameter is required"}
 
         # Step 1: Get all unique generic names using count API
         # Build search query for indication
@@ -1774,3 +1791,65 @@ class FDADrugLabelGetDrugNamesByIndicationStats(FDADrugLabelTool):
                 "brand_names": brand_names_list,
             },
         }
+
+
+@register_tool("OpenFDADrugEventsTool")
+class OpenFDADrugEventsTool(BaseRESTTool):
+    """OpenFDA drug adverse event search with convenience parameters.
+
+    Accepts either a raw Lucene 'search' string or the convenience parameters
+    'drug_name' and 'reaction' (which are assembled into a Lucene query).
+
+    Note: MedDRA terms in FAERS use British English spelling (e.g.
+    'haemorrhage' not 'hemorrhage', 'haematoma' not 'hematoma').
+    """
+
+    # Valid OpenFDA drug/event.json query parameters
+    _VALID_API_PARAMS = frozenset({"search", "limit", "count", "skip", "api_key"})
+
+    def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        args = dict(arguments)
+        drug_name = args.pop("drug_name", None)
+        reaction = args.pop("reaction", None) or args.pop("adverse_event", None)
+
+        # Strip params unknown to openFDA to avoid HTTP 400 "Invalid parameter".
+        args = {k: v for k, v in args.items() if k in self._VALID_API_PARAMS}
+
+        # Build Lucene query from convenience params when
+        # 'search' is not provided directly.
+        if not args.get("search"):
+            if not drug_name:
+                return {
+                    "status": "error",
+                    "error": (
+                        "Provide either 'search' (Lucene query) or 'drug_name'. "
+                        "Example: drug_name='warfarin', reaction='haemorrhage'. "
+                        "Note: MedDRA terms use British spelling (haemorrhage, haematoma, etc.)."
+                    ),
+                }
+            parts = [f'patient.drug.medicinalproduct:"{drug_name}"']
+            if reaction:
+                parts.append(f'patient.reaction.reactionmeddrapt:"{reaction}"')
+            args["search"] = " AND ".join(parts)
+
+        result = super().run(args)
+        # OpenFDA returns 404 when no records match the query (not a server error).
+        # Convert to an actionable no-results message.
+        if result.get("status") == "error" and result.get("status_code") == 404:
+            query_desc = drug_name or args.get("search", "")
+            reaction_hint = (
+                " MedDRA terms are case-sensitive and use British spelling "
+                "(e.g., 'Anaphylactic reaction' not 'anaphylaxis', "
+                "'Haemorrhage' not 'hemorrhage')."
+                if reaction
+                else ""
+            )
+            return {
+                "status": "success",
+                "data": {"results": [], "total": 0},
+                "metadata": {
+                    "query": args.get("search"),
+                    "note": f"No FAERS reports found for '{query_desc}'.{reaction_hint}",
+                },
+            }
+        return result

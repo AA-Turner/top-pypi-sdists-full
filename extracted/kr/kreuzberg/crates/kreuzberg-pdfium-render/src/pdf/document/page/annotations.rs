@@ -9,7 +9,6 @@ use crate::pdf::document::page::annotation::free_text::PdfPageFreeTextAnnotation
 use crate::pdf::document::page::annotation::highlight::PdfPageHighlightAnnotation;
 use crate::pdf::document::page::annotation::ink::PdfPageInkAnnotation;
 use crate::pdf::document::page::annotation::link::PdfPageLinkAnnotation;
-use crate::pdf::document::page::annotation::popup::PdfPagePopupAnnotation;
 use crate::pdf::document::page::annotation::private::internal::PdfPageAnnotationPrivate;
 use crate::pdf::document::page::annotation::square::PdfPageSquareAnnotation;
 use crate::pdf::document::page::annotation::squiggly::PdfPageSquigglyAnnotation;
@@ -233,17 +232,6 @@ impl<'a> PdfPageAnnotations<'a> {
         annotation.set_link(uri)?;
 
         Ok(annotation)
-    }
-
-    /// Creates a new [PdfPagePopupAnnotation] annotation in this [PdfPageAnnotations] collection,
-    /// returning the newly created annotation.
-    ///
-    /// If the containing `PdfPage` has a content regeneration strategy of
-    /// `PdfPageContentRegenerationStrategy::AutomaticOnEveryChange` then content regeneration
-    /// will be triggered on the page.
-    #[inline]
-    pub fn create_popup_annotation(&mut self) -> Result<PdfPagePopupAnnotation<'a>, PdfiumError> {
-        self.create_annotation(PdfPageAnnotationType::Popup, PdfPagePopupAnnotation::from_pdfium)
     }
 
     /// Creates a new [PdfPageSquareAnnotation] annotation in this [PdfPageAnnotations] collection,

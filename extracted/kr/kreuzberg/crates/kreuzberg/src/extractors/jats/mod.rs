@@ -20,12 +20,314 @@ mod parser;
 use crate::Result;
 use crate::core::config::ExtractionConfig;
 use crate::plugins::{DocumentExtractor, Plugin};
+use crate::text::utf8_validation;
 use crate::types::{ExtractionResult, Metadata};
 use async_trait::async_trait;
+use quick_xml::Reader;
+use quick_xml::events::Event;
 #[cfg(feature = "tokio-runtime")]
 use std::path::Path;
 
 use elements::extract_jats_all_in_one;
+use parser::extract_text_content as jats_extract_text;
+
+/// Extract text and inline annotations from a JATS `<p>` element.
+///
+/// Recognizes:
+/// - `<italic>` → italic
+/// - `<bold>` → bold
+/// - `<underline>` → underline
+/// - `<sub>` → subscript
+/// - `<sup>` → superscript
+/// - `<ext-link>` → link (with xlink:href)
+fn extract_para_with_annotations_jats(
+    reader: &mut Reader<&[u8]>,
+) -> crate::Result<(String, Vec<crate::types::document_structure::TextAnnotation>)> {
+    use crate::types::builder;
+
+    let mut text = String::new();
+    let mut annotations = Vec::new();
+    let mut depth: u32 = 0;
+
+    // Stack of (kind, depth_at_open, start_byte_offset, optional_href).
+    let mut inline_stack: Vec<(&'static str, u32, u32, Option<String>)> = Vec::new();
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(e)) => {
+                depth += 1;
+
+                let name = e.name();
+                let tag = crate::utils::xml_tag_name(name.as_ref());
+
+                match tag.as_ref() {
+                    "italic" => {
+                        inline_stack.push(("italic", depth, text.len() as u32, None));
+                    }
+                    "bold" => {
+                        inline_stack.push(("bold", depth, text.len() as u32, None));
+                    }
+                    "underline" => {
+                        inline_stack.push(("underline", depth, text.len() as u32, None));
+                    }
+                    "sub" => {
+                        inline_stack.push(("subscript", depth, text.len() as u32, None));
+                    }
+                    "sup" => {
+                        inline_stack.push(("superscript", depth, text.len() as u32, None));
+                    }
+                    "ext-link" => {
+                        let mut href = None;
+                        for attr in e.attributes().flatten() {
+                            let key = String::from_utf8_lossy(attr.key.as_ref());
+                            if key == "xlink:href" || key.ends_with(":href") || key == "href" {
+                                href = Some(String::from_utf8_lossy(attr.value.as_ref()).to_string());
+                            }
+                        }
+                        inline_stack.push(("link", depth, text.len() as u32, href));
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::End(_)) => {
+                if depth == 0 {
+                    break;
+                }
+
+                // Check if this closes an inline element on our stack
+                if let Some(&(kind, open_depth, start, ref href)) = inline_stack.last()
+                    && open_depth == depth
+                {
+                    let end = text.len() as u32;
+                    // Skip any leading whitespace separator that was prepended
+                    let actual_start = if (start as usize) < text.len() {
+                        let span = &text[start as usize..end as usize];
+                        let trimmed = span.trim_start();
+                        end - trimmed.len() as u32
+                    } else {
+                        start
+                    };
+                    if end > actual_start {
+                        let href_clone = href.clone();
+                        let annotation = match kind {
+                            "bold" => builder::bold(actual_start, end),
+                            "italic" => builder::italic(actual_start, end),
+                            "underline" => builder::underline(actual_start, end),
+                            "subscript" => builder::subscript(actual_start, end),
+                            "superscript" => builder::superscript(actual_start, end),
+                            "link" => {
+                                let url = href_clone.as_deref().unwrap_or("");
+                                builder::link(actual_start, end, url, None)
+                            }
+                            _ => unreachable!(),
+                        };
+                        annotations.push(annotation);
+                    }
+                    inline_stack.pop();
+                }
+
+                depth -= 1;
+            }
+            Ok(Event::Text(t)) => {
+                let decoded = String::from_utf8_lossy(t.as_ref()).to_string();
+                if !decoded.trim().is_empty() {
+                    if !text.is_empty() && !text.ends_with(' ') && !text.ends_with('\n') {
+                        text.push(' ');
+                    }
+                    text.push_str(decoded.trim());
+                }
+            }
+            Ok(Event::CData(t)) => {
+                let decoded = utf8_validation::from_utf8(t.as_ref()).unwrap_or("").to_string();
+                if !decoded.trim().is_empty() {
+                    if !text.is_empty() {
+                        text.push(' ');
+                    }
+                    text.push_str(decoded.trim());
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return Err(crate::error::KreuzbergError::parsing(format!(
+                    "XML parsing error: {}",
+                    e
+                )));
+            }
+            _ => {}
+        }
+    }
+
+    Ok((text.trim().to_string(), annotations))
+}
+
+/// Build a `DocumentStructure` from JATS XML content.
+fn build_jats_document_structure(content: &str) -> crate::Result<crate::types::document_structure::DocumentStructure> {
+    use crate::types::builder::DocumentStructureBuilder;
+
+    let mut reader = Reader::from_str(content);
+    let mut builder = DocumentStructureBuilder::new().source_format("jats");
+
+    let mut in_article_meta = false;
+    let mut in_body = false;
+    let mut in_ref_list = false;
+    let mut in_table = false;
+    let mut in_thead = false;
+    let mut in_tbody = false;
+    let mut in_row = false;
+    let mut current_table: Vec<Vec<String>> = Vec::new();
+    let mut current_row: Vec<String> = Vec::new();
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(e)) => {
+                let name = e.name();
+                let tag = crate::utils::xml_tag_name(name.as_ref());
+
+                match tag.as_ref() {
+                    "article-meta" => {
+                        in_article_meta = true;
+                    }
+                    "article-title" if in_article_meta => {
+                        let text = jats_extract_text(&mut reader)?;
+                        if !text.is_empty() {
+                            builder.push_heading(1, &text, None, None);
+                        }
+                        continue;
+                    }
+                    "body" => {
+                        in_body = true;
+                    }
+                    "sec" if in_body => {
+                        // sections are handled via their title children
+                    }
+                    "title" if in_body && !in_article_meta => {
+                        let text = jats_extract_text(&mut reader)?;
+                        if !text.is_empty() {
+                            builder.push_heading(2, &text, None, None);
+                        }
+                        continue;
+                    }
+                    "p" if in_body => {
+                        let (text, annotations) = extract_para_with_annotations_jats(&mut reader)?;
+                        if !text.is_empty() {
+                            builder.push_paragraph(&text, annotations, None, None);
+                        }
+                        continue;
+                    }
+                    "fig" if in_body => {
+                        let text = jats_extract_text(&mut reader)?;
+                        let desc = if text.is_empty() { None } else { Some(text.as_str()) };
+                        builder.push_image(desc, None, None, None);
+                        continue;
+                    }
+                    "disp-formula" if in_body => {
+                        let text = jats_extract_text(&mut reader)?;
+                        if !text.is_empty() {
+                            builder.push_formula(&text, None);
+                        }
+                        continue;
+                    }
+                    "inline-formula" if in_body => {
+                        let text = jats_extract_text(&mut reader)?;
+                        if !text.is_empty() {
+                            builder.push_formula(&text, None);
+                        }
+                        continue;
+                    }
+                    "table-wrap" if in_body => {
+                        // table-wrap contains <table>; let inner table handling deal with it
+                    }
+                    "table" => {
+                        in_table = true;
+                        current_table.clear();
+                    }
+                    "thead" if in_table => {
+                        in_thead = true;
+                    }
+                    "tbody" if in_table => {
+                        in_tbody = true;
+                    }
+                    "tr" if (in_thead || in_tbody) && in_table => {
+                        in_row = true;
+                        current_row.clear();
+                    }
+                    "td" | "th" if in_row => {
+                        let text = jats_extract_text(&mut reader)?;
+                        current_row.push(text);
+                        continue;
+                    }
+                    "ref-list" => {
+                        in_ref_list = true;
+                    }
+                    "ref" if in_ref_list => {
+                        // Extract citation key from id attribute
+                        let mut ref_id = String::new();
+                        for attr in e.attributes() {
+                            if let Ok(attr) = attr
+                                && String::from_utf8_lossy(attr.key.as_ref()) == "id"
+                            {
+                                ref_id = String::from_utf8_lossy(attr.value.as_ref()).to_string();
+                            }
+                        }
+                        let text = jats_extract_text(&mut reader)?;
+                        if !text.is_empty() {
+                            let key = if ref_id.is_empty() { "ref" } else { &ref_id };
+                            builder.push_citation(key, &text, None);
+                        }
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::End(e)) => {
+                let name = e.name();
+                let tag = crate::utils::xml_tag_name(name.as_ref());
+
+                match tag.as_ref() {
+                    "article-meta" => {
+                        in_article_meta = false;
+                    }
+                    "body" => {
+                        in_body = false;
+                    }
+                    "ref-list" => {
+                        in_ref_list = false;
+                    }
+                    "table" if in_table => {
+                        if !current_table.is_empty() {
+                            builder.push_table_from_cells(&current_table, None);
+                            current_table.clear();
+                        }
+                        in_table = false;
+                    }
+                    "thead" if in_thead => {
+                        in_thead = false;
+                    }
+                    "tbody" if in_tbody => {
+                        in_tbody = false;
+                    }
+                    "tr" if in_row => {
+                        if !current_row.is_empty() {
+                            current_table.push(std::mem::take(&mut current_row));
+                        }
+                        in_row = false;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return Err(crate::error::KreuzbergError::parsing(format!(
+                    "XML parsing error: {}",
+                    e
+                )));
+            }
+            _ => {}
+        }
+    }
+
+    Ok(builder.build())
+}
 
 /// JATS document extractor.
 ///
@@ -82,8 +384,7 @@ impl DocumentExtractor for JatsExtractor {
         mime_type: &str,
         config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
-        let _ = config;
-        let jats_content = std::str::from_utf8(content)
+        let jats_content = utf8_validation::from_utf8(content)
             .map(|s| s.to_string())
             .unwrap_or_else(|_| String::from_utf8_lossy(content).to_string());
 
@@ -154,9 +455,57 @@ impl DocumentExtractor for JatsExtractor {
             subject_parts.push(format!("Corresponding Author: {}", corresp_author));
         }
 
+        // History dates
+        if !jats_metadata.history_dates.is_empty() {
+            for (date_type, date_val) in &jats_metadata.history_dates {
+                subject_parts.push(format!(
+                    "{}: {}",
+                    date_type[..1].to_uppercase() + &date_type[1..],
+                    date_val
+                ));
+                metadata.additional.insert(
+                    std::borrow::Cow::Owned(format!("date_{}", date_type)),
+                    serde_json::json!(date_val),
+                );
+            }
+        }
+
+        // Permissions
+        if let Some(copyright) = &jats_metadata.copyright_statement {
+            subject_parts.push(format!("Copyright: {}", copyright));
+            metadata
+                .additional
+                .insert(std::borrow::Cow::Borrowed("copyright"), serde_json::json!(copyright));
+        }
+
+        if let Some(license) = &jats_metadata.license {
+            metadata
+                .additional
+                .insert(std::borrow::Cow::Borrowed("license"), serde_json::json!(license));
+        }
+
+        // Contributor roles
+        if !jats_metadata.contributor_roles.is_empty() {
+            let roles: Vec<serde_json::Value> = jats_metadata
+                .contributor_roles
+                .iter()
+                .map(|(name, role)| serde_json::json!({"name": name, "role": role}))
+                .collect();
+            metadata.additional.insert(
+                std::borrow::Cow::Borrowed("contributor_roles"),
+                serde_json::json!(roles),
+            );
+        }
+
         if !subject_parts.is_empty() {
             metadata.subject = Some(subject_parts.join(" | "));
         }
+
+        let document = if config.include_document_structure {
+            Some(build_jats_document_structure(&jats_content)?)
+        } else {
+            None
+        };
 
         Ok(ExtractionResult {
             content: extracted_content,
@@ -170,12 +519,13 @@ impl DocumentExtractor for JatsExtractor {
             djot_content: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
@@ -189,7 +539,6 @@ impl DocumentExtractor for JatsExtractor {
             )
         )
     )]
-    #[cfg(feature = "tokio-runtime")]
     async fn extract_file(&self, path: &Path, mime_type: &str, config: &ExtractionConfig) -> Result<ExtractionResult> {
         let bytes = tokio::fs::read(path).await?;
         self.extract_bytes(&bytes, mime_type, config).await
@@ -419,7 +768,7 @@ mod tests {
 
         let (metadata, _content, _title, _tables) = extract_jats_all_in_one(jats).expect("Metadata extraction failed");
         assert!(metadata.abstract_text.is_some());
-        let abstract_text = metadata.abstract_text.unwrap();
+        let abstract_text = metadata.abstract_text.expect("abstract_text should be present");
         assert!(abstract_text.contains("background"));
         assert!(abstract_text.contains("quantitative"));
     }
@@ -472,7 +821,9 @@ mod tests {
 
         let (metadata, _content, _title, _tables) = extract_jats_all_in_one(jats).expect("Metadata extraction failed");
         assert!(metadata.corresponding_author.is_some());
-        let corresp = metadata.corresponding_author.unwrap();
+        let corresp = metadata
+            .corresponding_author
+            .expect("corresponding_author should be present");
         assert!(corresp.contains("rwilliams"));
     }
 
@@ -656,5 +1007,127 @@ mod tests {
         assert_eq!(metadata.article_type, Some("research-article".to_string()));
         assert!(metadata.abstract_text.is_some());
         assert!(metadata.corresponding_author.is_some());
+    }
+
+    #[test]
+    fn test_extract_jats_history_dates() {
+        let jats = r#"<?xml version="1.0" encoding="UTF-8"?>
+<article>
+  <front>
+    <article-meta>
+      <article-title>Test Article</article-title>
+      <history>
+        <date date-type="received">
+          <day>15</day>
+          <month>01</month>
+          <year>2024</year>
+        </date>
+        <date date-type="accepted">
+          <day>20</day>
+          <month>03</month>
+          <year>2024</year>
+        </date>
+      </history>
+    </article-meta>
+  </front>
+</article>"#;
+
+        let (metadata, _content, _title, _tables) = extract_jats_all_in_one(jats).expect("Parse failed");
+        assert_eq!(metadata.history_dates.len(), 2);
+        assert_eq!(metadata.history_dates[0].0, "received");
+        assert!(metadata.history_dates[0].1.contains("2024"));
+        assert_eq!(metadata.history_dates[1].0, "accepted");
+    }
+
+    #[test]
+    fn test_extract_jats_permissions() {
+        let jats = r#"<?xml version="1.0" encoding="UTF-8"?>
+<article>
+  <front>
+    <article-meta>
+      <article-title>Test Article</article-title>
+      <permissions>
+        <copyright-statement>Copyright 2024 The Authors</copyright-statement>
+        <license>
+          <license-p>This is an open-access article distributed under the CC BY 4.0 license.</license-p>
+        </license>
+      </permissions>
+    </article-meta>
+  </front>
+</article>"#;
+
+        let (metadata, _content, _title, _tables) = extract_jats_all_in_one(jats).expect("Parse failed");
+        assert_eq!(
+            metadata.copyright_statement,
+            Some("Copyright 2024 The Authors".to_string())
+        );
+        assert!(metadata.license.is_some());
+        assert!(
+            metadata
+                .license
+                .expect("license should be present")
+                .contains("CC BY 4.0")
+        );
+    }
+
+    #[test]
+    fn test_extract_jats_inline_formula() {
+        let jats = r#"<?xml version="1.0" encoding="UTF-8"?>
+<article>
+  <front>
+    <article-meta>
+      <article-title>Formula Test</article-title>
+    </article-meta>
+  </front>
+  <body>
+    <p>The equation <inline-formula>E = mc^2</inline-formula> is famous.</p>
+  </body>
+</article>"#;
+
+        let (_metadata, content, _title, _tables) = extract_jats_all_in_one(jats).expect("Parse failed");
+        assert!(content.contains("E = mc^2"), "expected inline formula, got: {content}");
+    }
+
+    #[test]
+    fn test_extract_jats_contributor_roles() {
+        let jats = r#"<?xml version="1.0" encoding="UTF-8"?>
+<article>
+  <front>
+    <article-meta>
+      <article-title>Test Article</article-title>
+      <contrib-group>
+        <contrib contrib-type="author">
+          <name>
+            <surname>Smith</surname>
+            <given-names>John</given-names>
+          </name>
+        </contrib>
+        <contrib contrib-type="editor">
+          <name>
+            <surname>Jones</surname>
+            <given-names>Mary</given-names>
+          </name>
+        </contrib>
+      </contrib-group>
+    </article-meta>
+  </front>
+</article>"#;
+
+        let (metadata, _content, _title, _tables) = extract_jats_all_in_one(jats).expect("Parse failed");
+        assert_eq!(metadata.contributor_roles.len(), 2);
+
+        let author_role = metadata
+            .contributor_roles
+            .iter()
+            .find(|(_, role)| role == "author")
+            .expect("expected author role");
+        assert!(author_role.0.contains("Smith"));
+
+        let editor_role = metadata
+            .contributor_roles
+            .iter()
+            .find(|(_, role)| role == "editor")
+            .expect("expected editor role");
+        assert!(editor_role.0.contains("Jones"));
     }
 }

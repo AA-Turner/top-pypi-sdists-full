@@ -19,6 +19,7 @@ def test_cli_group(runner: CliRunner) -> None:
     assert "dbt-osmosis" in result.output
     assert "yaml" in result.output
     assert "sql" in result.output
+    assert "test" in result.output
     assert "workbench" in result.output
 
 
@@ -50,6 +51,17 @@ def test_yaml_refactor_help(runner: CliRunner) -> None:
     assert "--dry-run" in result.output
     assert "--check" in result.output
     assert "--synthesize" in result.output
+    assert "--fusion-compat" in result.output
+
+
+def test_fusion_compat_flag_in_yaml_commands(runner: CliRunner) -> None:
+    """Test that --fusion-compat and --no-fusion-compat flags appear in yaml commands."""
+    for cmd in ["refactor", "organize", "document"]:
+        result = runner.invoke(cli, ["yaml", cmd, "--help"])
+        assert result.exit_code == 0
+        assert "--fusion-compat" in result.output, (
+            f"--fusion-compat flag missing from yaml {cmd} command"
+        )
 
 
 def test_yaml_organize_help(runner: CliRunner) -> None:
@@ -74,6 +86,24 @@ def test_sql_run_help(runner: CliRunner) -> None:
     result = runner.invoke(cli, ["sql", "run", "--help"])
     assert result.exit_code == 0
     assert "SQL" in result.output
+
+
+def test_test_group(runner: CliRunner) -> None:
+    """Test that the test command group is accessible."""
+    result = runner.invoke(cli, ["test", "--help"])
+    assert result.exit_code == 0
+    assert "Suggest and generate dbt tests" in result.output
+    assert "suggest" in result.output
+
+
+def test_test_suggest_help(runner: CliRunner) -> None:
+    """Test that the test suggest command shows help."""
+    result = runner.invoke(cli, ["test", "suggest", "--help"])
+    assert result.exit_code == 0
+    assert "--project-dir" in result.output
+    assert "--use-ai" in result.output
+    assert "--pattern-only" in result.output
+    assert "--format" in result.output
 
 
 def test_sql_compile_help(runner: CliRunner) -> None:
@@ -106,6 +136,14 @@ def test_version_option(runner: CliRunner) -> None:
     """Test that --version works."""
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
+
+
+def test_formatter_flag_in_yaml_commands(runner: CliRunner) -> None:
+    """Test that --formatter flag appears in help for all yaml subcommands."""
+    for cmd in ["refactor", "organize", "document"]:
+        result = runner.invoke(cli, ["yaml", cmd, "--help"])
+        assert result.exit_code == 0
+        assert "--formatter" in result.output, f"--formatter flag missing from yaml {cmd} command"
 
 
 def test_invalid_command(runner: CliRunner) -> None:

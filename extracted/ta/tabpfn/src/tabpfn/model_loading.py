@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import inspect
 import json
 import logging
@@ -53,8 +54,9 @@ logger = logging.getLogger(__name__)
 # Public fallback base URL for model downloads
 FALLBACK_S3_BASE_URL = "https://storage.googleapis.com/tabpfn-v2-model-files/05152025"
 
-# Special string used to identify v2.5 models in model paths.
+# Special string used to identify model paths.
 V_2_5_IDENTIFIER = "v2.5"
+V_2_6_IDENTIFIER = "v2.6"
 
 
 class ModelType(str, Enum):  # noqa: D101
@@ -143,6 +145,28 @@ class ModelSource:  # noqa: D101
             filenames=filenames,
         )
 
+    @classmethod
+    def get_classifier_v2_6(cls) -> ModelSource:  # noqa: D102
+        filenames = [
+            "tabpfn-v2.6-classifier-v2.6_default.ckpt",
+        ]
+        return cls(
+            repo_id="Prior-Labs/tabpfn_2_6",
+            default_filename="tabpfn-v2.6-classifier-v2.6_default.ckpt",
+            filenames=filenames,
+        )
+
+    @classmethod
+    def get_regressor_v2_6(cls) -> ModelSource:  # noqa: D102
+        filenames = [
+            "tabpfn-v2.6-regressor-v2.6_default.ckpt",
+        ]
+        return cls(
+            repo_id="Prior-Labs/tabpfn_2_6",
+            default_filename="tabpfn-v2.6-regressor-v2.6_default.ckpt",
+            filenames=filenames,
+        )
+
 
 def _get_model_source(version: ModelVersion, model_type: ModelType) -> ModelSource:
     if version == ModelVersion.V2:
@@ -155,6 +179,11 @@ def _get_model_source(version: ModelVersion, model_type: ModelType) -> ModelSour
             return ModelSource.get_classifier_v2_5()
         if model_type == ModelType.REGRESSOR:
             return ModelSource.get_regressor_v2_5()
+    elif version == ModelVersion.V2_6:
+        if model_type == ModelType.CLASSIFIER:
+            return ModelSource.get_classifier_v2_6()
+        if model_type == ModelType.REGRESSOR:
+            return ModelSource.get_regressor_v2_6()
 
     raise ValueError(
         f"Unsupported version/model combination: {version.value}/{model_type.value}",
@@ -315,6 +344,8 @@ def download_all_models(to: Path) -> None:
         (ModelVersion.V2, ModelSource.get_regressor_v2(), "regressor"),
         (ModelVersion.V2_5, ModelSource.get_classifier_v2_5(), "classifier"),
         (ModelVersion.V2_5, ModelSource.get_regressor_v2_5(), "regressor"),
+        (ModelVersion.V2_6, ModelSource.get_classifier_v2_6(), "classifier"),
+        (ModelVersion.V2_6, ModelSource.get_regressor_v2_6(), "regressor"),
     ]:
         for ckpt_name in model_source.filenames:
             path = to / ckpt_name
@@ -493,7 +524,7 @@ def load_model_criterion_config(
     *,
     check_bar_distribution_criterion: Literal[False],
     cache_trainset_representation: bool,
-    version: Literal["v2", "v2.5"],
+    version: Literal["v2", "v2.5", "v2.6"],
     which: Literal["classifier"],
     download_if_not_exists: bool,
 ) -> tuple[
@@ -510,7 +541,7 @@ def load_model_criterion_config(
     *,
     check_bar_distribution_criterion: Literal[True],
     cache_trainset_representation: bool,
-    version: Literal["v2", "v2.5"],
+    version: Literal["v2", "v2.5", "v2.6"],
     which: Literal["regressor"],
     download_if_not_exists: bool,
 ) -> tuple[
@@ -527,7 +558,7 @@ def load_model_criterion_config(
     check_bar_distribution_criterion: bool,
     cache_trainset_representation: bool,
     which: Literal["regressor", "classifier"],
-    version: Literal["v2", "v2.5"] = "v2",
+    version: Literal["v2", "v2.5", "v2.6"] = "v2",
     download_if_not_exists: bool,
 ) -> tuple[
     list[Architecture],
@@ -593,9 +624,13 @@ def load_model_criterion_config(
                 model_name=resolved_model_names[i],
             )
             if res != "ok":
-                # Later: Add improved error handling here, reenabling
-                #  the old offline download (only raise when Gating)
-                raise res[0]
+                repo_type = "clf" if which == "classifier" else "reg"
+                raise RuntimeError(
+                    f"Failed to download model to {path}!\n\n"
+                    f"For offline usage, please download the model manually from:\n"
+                    f"https://huggingface.co/Prior-Labs/TabPFN-v2-{repo_type}/resolve/main/{resolved_model_names[i]}\n\n"
+                    f"Then place it at: {path}",
+                ) from res[0]
 
         loaded_model, criterion, architecture_config, inference_config = load_model(
             path=path,
@@ -635,14 +670,6 @@ def load_model_criterion_config(
             )
 
     return loaded_models, first_criterion, architecture_configs, first_inference_config
-
-
-def _resolve_model_version(model_path: ModelPath | None) -> ModelVersion:
-    if model_path is None:
-        return settings.tabpfn.model_version
-    if V_2_5_IDENTIFIER in Path(model_path).name:
-        return ModelVersion.V2_5
-    return ModelVersion.V2
 
 
 def _log_model_config(
@@ -723,6 +750,16 @@ def log_model_init_params(
             pass
 
 
+def _resolve_model_version(model_path: ModelPath | None) -> ModelVersion:
+    if model_path is None:
+        return settings.tabpfn.model_version
+    if V_2_6_IDENTIFIER in Path(model_path).name:
+        return ModelVersion.V2_6
+    if V_2_5_IDENTIFIER in Path(model_path).name:
+        return ModelVersion.V2_5
+    return ModelVersion.V2
+
+
 def resolve_model_version(
     model_path: ModelPath | list[ModelPath] | None,
 ) -> ModelVersion:
@@ -740,7 +777,7 @@ def resolve_model_version(
 def resolve_model_path(
     model_path: ModelPath | list[ModelPath] | None,
     which: Literal["regressor", "classifier"],
-    version: Literal["v2", "v2.5"] = "v2.5",
+    version: Literal["v2", "v2.5", "v2.6"] = "v2.5",
 ) -> tuple[
     list[Path],
     list[Path],
@@ -807,6 +844,23 @@ def get_loss_criterion(
     return FullSupportBarDistribution(borders, ignore_nan_targets=True)
 
 
+@functools.cache
+def _load_checkpoint(path: str) -> dict:
+    """Load and cache a checkpoint from disk.
+
+    Cached so that repeated ``load_model`` calls with the same path skip disk
+    I/O.  Use ``_load_checkpoint.cache_clear()`` to free memory.
+    """
+    # Catch the `FutureWarning` that torch raises. This should be dealt with!
+    # The warning is raised due to `torch.load`, which advises against ckpt
+    # files that contain non-tensor data.
+    # This `weights_only=None` is the default value. In the future this will
+    # default to `True`, disallowing loading of arbitrary objects.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=FutureWarning)
+        return torch.load(path, map_location="cpu", weights_only=None)
+
+
 def load_model(
     *,
     path: Path,
@@ -819,49 +873,46 @@ def load_model(
 ]:
     """Loads a model from a given path. Only for inference.
 
+    The raw checkpoint is cached so that repeated calls with the same path
+    skip disk I/O.  Each call returns a fresh model instance so callers can
+    mutate it freely (finetuning, differentiable input, KV caching, etc.).
+
     Args:
         path: Path to the checkpoint
         cache_trainset_representation: If True, the model will cache the
             trainset representation. Forwarded to get_architecture.
     """
-    # Catch the `FutureWarning` that torch raises. This should be dealt with!
-    # The warning is raised due to `torch.load`, which advises against ckpt
-    # files that contain non-tensor data.
-    # This `weightes_only=None` is the default value. In the future this will default to
-    # `True`, dissallowing loading of arbitrary objects.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=FutureWarning)
-        checkpoint: dict = torch.load(path, map_location="cpu", weights_only=None)
+    checkpoint = _load_checkpoint(str(path.resolve()))
 
     try:
         architecture_name = checkpoint["architecture_name"]
     except KeyError:
         architecture_name = "base"
     architecture = ARCHITECTURES[architecture_name]
-    state_dict = checkpoint["state_dict"]
+    full_state = checkpoint["state_dict"]
     model_config, unused_model_config = architecture.parse_config(checkpoint["config"])
     logger.debug(
         "Keys in config that were not parsed by architecture config: "
         f"{', '.join(unused_model_config.keys())}"
     )
 
-    criterion_state_keys = [k for k in state_dict if "criterion." in k]
+    criterion_state_keys = [k for k in full_state if "criterion." in k]
     loss_criterion = get_loss_criterion(model_config)
     if isinstance(loss_criterion, FullSupportBarDistribution):
-        # Remove from state dict
         criterion_state = {
-            k.replace("criterion.", ""): state_dict.pop(k) for k in criterion_state_keys
+            k.replace("criterion.", ""): full_state[k] for k in criterion_state_keys
         }
         loss_criterion.load_state_dict(criterion_state)
     else:
         assert len(criterion_state_keys) == 0, criterion_state_keys
 
+    model_state = {k: v for k, v in full_state.items() if k not in criterion_state_keys}
     model = architecture.get_architecture(
         model_config,
         n_out=get_n_out(model_config, loss_criterion),
         cache_trainset_representation=cache_trainset_representation,
     )
-    model.load_state_dict(state_dict)
+    model.load_state_dict(model_state)
     model.eval()
 
     inference_config = _get_inference_config_from_checkpoint(checkpoint, loss_criterion)
@@ -885,6 +936,7 @@ def _get_inference_config_from_checkpoint(
     #  >v2.5: "inference_config" present, so don't need to guess a default config
     if inference_config := checkpoint.get("inference_config"):
         return InferenceConfig(**inference_config)
+
     if "architecture_name" not in checkpoint:
         model_version = ModelVersion.V2
     else:

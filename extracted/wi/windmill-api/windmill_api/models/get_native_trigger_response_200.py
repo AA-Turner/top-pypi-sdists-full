@@ -28,6 +28,7 @@ class GetNativeTriggerResponse200:
             and service_config
         external_data (GetNativeTriggerResponse200ExternalData): Configuration data from the external service
         error (Union[Unset, None, str]): Error message if the trigger is in an error state
+        summary (Union[Unset, None, str]): Short summary to be displayed when listed
     """
 
     external_id: str
@@ -38,6 +39,7 @@ class GetNativeTriggerResponse200:
     service_config: "GetNativeTriggerResponse200ServiceConfig"
     external_data: "GetNativeTriggerResponse200ExternalData"
     error: Union[Unset, None, str] = UNSET
+    summary: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -52,6 +54,7 @@ class GetNativeTriggerResponse200:
         external_data = self.external_data.to_dict()
 
         error = self.error
+        summary = self.summary
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -68,6 +71,8 @@ class GetNativeTriggerResponse200:
         )
         if error is not UNSET:
             field_dict["error"] = error
+        if summary is not UNSET:
+            field_dict["summary"] = summary
 
         return field_dict
 
@@ -93,6 +98,8 @@ class GetNativeTriggerResponse200:
 
         error = d.pop("error", UNSET)
 
+        summary = d.pop("summary", UNSET)
+
         get_native_trigger_response_200 = cls(
             external_id=external_id,
             workspace_id=workspace_id,
@@ -102,6 +109,7 @@ class GetNativeTriggerResponse200:
             service_config=service_config,
             external_data=external_data,
             error=error,
+            summary=summary,
         )
 
         get_native_trigger_response_200.additional_properties = d

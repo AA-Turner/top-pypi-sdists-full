@@ -9,8 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def Orphanet_search_diseases(
-    operation: str,
     query: str,
+    operation: Optional[str] = None,
+    limit: Optional[int] = 20,
     lang: Optional[str] = "en",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
@@ -26,6 +27,8 @@ def Orphanet_search_diseases(
         Operation type (fixed: search_diseases)
     query : str
         Search query - disease name or keyword (e.g., 'Marfan', 'muscular dystrophy')
+    limit : int
+        Maximum number of results to return (default: 20, max: 200). The API may retu...
     lang : str
         Language code (en, fr, de, es, it, pt, pl, nl). Default: en
     stream_callback : Callable, optional
@@ -44,7 +47,12 @@ def Orphanet_search_diseases(
     # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
-        for k, v in {"operation": operation, "query": query, "lang": lang}.items()
+        for k, v in {
+            "operation": operation,
+            "query": query,
+            "limit": limit,
+            "lang": lang,
+        }.items()
         if v is not None
     }
     return get_shared_client().run_one_function(

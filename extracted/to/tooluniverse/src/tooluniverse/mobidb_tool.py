@@ -42,18 +42,25 @@ class MobiDBTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"MobiDB API timed out after {self.timeout}s."}
+            return {
+                "status": "error",
+                "error": f"MobiDB API timed out after {self.timeout}s.",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to MobiDB API (mobidb.org)."}
+            return {
+                "status": "error",
+                "error": "Failed to connect to MobiDB API (mobidb.org).",
+            }
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
             if status == 404:
                 return {
-                    "error": "Protein not found in MobiDB. Check the UniProt accession."
+                    "status": "error",
+                    "error": "Protein not found in MobiDB. Check the UniProt accession.",
                 }
-            return {"error": f"MobiDB API HTTP {status}"}
+            return {"status": "error", "error": f"MobiDB API HTTP {status}"}
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -62,14 +69,15 @@ class MobiDBTool(BaseTool):
         elif self.endpoint == "get_consensus":
             return self._get_consensus(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_protein(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get comprehensive disorder data for a protein from MobiDB."""
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession is required (UniProt ID, e.g., 'P04637' for TP53)."
+                "status": "error",
+                "error": "accession is required (UniProt ID, e.g., 'P04637' for TP53).",
             }
 
         url = MOBIDB_BASE_URL
@@ -97,6 +105,7 @@ class MobiDBTool(BaseTool):
             }
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("acc"),
                 "gene": data.get("gene"),
@@ -131,7 +140,8 @@ class MobiDBTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {
-                "error": "accession is required (UniProt ID, e.g., 'P04637' for TP53)."
+                "status": "error",
+                "error": "accession is required (UniProt ID, e.g., 'P04637' for TP53).",
             }
 
         url = MOBIDB_BASE_URL
@@ -159,6 +169,7 @@ class MobiDBTool(BaseTool):
                     }
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("acc"),
                 "gene": data.get("gene"),

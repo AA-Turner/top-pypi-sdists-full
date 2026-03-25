@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 
 #include "line_protocol_parser.h"
 
@@ -280,11 +282,12 @@ parse_value(struct LP_Item* item)
     errno = 0; // we need to reset, otherwise errno MIGHT be the value of the strtoll above
     candidate_u = strtoull(item->value.s, &endptr, 10);
     if (*endptr == 'u' && *(endptr + 1) == '\0') {
-        LP_FREE(item->value.s);
-        if (candidate_u == ULLONG_MAX && errno == ERANGE)
+        if (candidate_u == ULLONG_MAX && errno == ERANGE) {
             return 0;
+        }
 
-        item->value.i = candidate_u;
+        LP_FREE(item->value.s);
+        item->value.u = candidate_u;
         item->type = LP_UINTEGER;
         LP_DEBUG_PRINT("Type is uinteger: %llu\n", candidate_u);
         return 1;
@@ -304,13 +307,15 @@ parse_value(struct LP_Item* item)
     }
 
     // Try parse boolan
-    if (length == 1 && tolower(*(item->value.s)) == 't' ) {
+    if (length == 1 &&
+        tolower((unsigned char) *(item->value.s)) == 't' ) {
         LP_FREE(item->value.s);
         item->value.b = 1;
         item->type = LP_BOOLEAN;
         LP_DEBUG_PRINT("Type is boolean: %d\n", item->value.b);
         return 1;
-    } else if (length == 1 && tolower(*(item->value.s)) == 'f' ) {
+    } else if (length == 1 &&
+               tolower((unsigned char) *(item->value.s)) == 'f' ) {
         LP_FREE(item->value.s);
         item->value.b = 0;
         item->type = LP_BOOLEAN;
@@ -319,7 +324,7 @@ parse_value(struct LP_Item* item)
     } else if (length == 4 || length == 5) {
         /* Convert to lower case to reduce nr of comparisons*/
         for (i = 0; i <= length; i++) {
-            boolstr[i] = tolower(item->value.s[i]);
+            boolstr[i] = (char) tolower((unsigned char) item->value.s[i]);
         }
         if ((strcmp(boolstr, "true") == 0)) {
             LP_FREE(item->value.s);
@@ -486,6 +491,12 @@ LP_parse_line(const char *line, int *status)
     }
     goto done;
 error:
+    if (item != NULL && point != NULL &&
+        item != point->tags && item != point->fields) {
+        /* Free the in-progress tag or field chain if it was never
+           attached to the point before parsing failed. */
+        free_item(item);
+    }
     LP_free_point(point);
     point = NULL;
 done:

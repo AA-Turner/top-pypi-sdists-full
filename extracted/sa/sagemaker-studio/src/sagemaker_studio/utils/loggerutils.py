@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import traceback
 from functools import wraps
 from typing import Any, Callable
@@ -138,6 +139,74 @@ def _set_context_properties(
     context.set_property("Stage", _utils._get_datazone_stage())
     context.set_property("HTTPErrorCode", http_code)
     context.set_property("ErrorCode", error_details)
+
+
+def log_session_metric(
+    metric_name: str,
+    session_id: str = None,
+    duration_ms: int = None,
+    additional_properties: dict = None,
+) -> None:
+    """Log session-level metrics for SDK usage tracking.
+
+    Args:
+        metric_name: Metric name (SessionCreated, SessionStopped)
+        session_id: Athena Spark session ID
+        duration_ms: Session duration in milliseconds
+        additional_properties: Optional additional metadata
+    """
+    logger.info(f"Logging session metric: {metric_name}")
+
+    context = MetricsContext().empty()
+    context.namespace = METRIC_NAMESPACE
+    context.should_use_default_dimensions = False
+    context.put_dimensions({"MetricType": "SessionMetric"})
+
+    context.set_property("SessionId", session_id or "unknown")
+    try:
+        context.set_property("AccountId", _utils._get_account_id())
+    except Exception:
+        context.set_property("AccountId", "unknown")
+    try:
+        context.set_property("Userid", _utils._get_user_id())
+    except Exception:
+        context.set_property("Userid", "unknown")
+    try:
+        context.set_property("Stage", _utils._get_datazone_stage())
+    except Exception:
+        context.set_property("Stage", "unknown")
+
+    if additional_properties:
+        for key, value in additional_properties.items():
+            context.set_property(key, str(value))
+
+    context.put_metric(metric_name, 1, "Count")
+
+    if duration_ms:
+        context.put_metric("SessionDuration", duration_ms, "Milliseconds")
+
+    _metrics_logger = _get_session_metrics_logger()
+    for serialized_content in LogFileSink().serializer.serialize(context):
+        if serialized_content:
+            _metrics_logger.info(serialized_content)
+
+
+def _get_session_metrics_logger() -> logging.Logger:
+    """Get or initialize the session metrics file logger."""
+    metrics_logger = logging.getLogger("session_metrics")
+    if not metrics_logger.handlers:
+        log_file = "/var/log/studio/data-notebook-kernel-server/athena_spark_session_metrics.log"
+        try:
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            handler = logging.FileHandler(log_file)
+            handler.setFormatter(
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+            )
+            metrics_logger.addHandler(handler)
+            metrics_logger.setLevel(logging.INFO)
+        except (PermissionError, OSError) as e:
+            logger.error(f"Failed to create session metrics log file: {e}")
+    return metrics_logger
 
 
 def sync_with_metrics(operation: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:

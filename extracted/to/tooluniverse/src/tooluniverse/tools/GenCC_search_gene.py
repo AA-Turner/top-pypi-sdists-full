@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def GenCC_search_gene(
-    operation: str,
     gene_symbol: str,
+    operation: Optional[str] = None,
     classification: Optional[str] = "",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,

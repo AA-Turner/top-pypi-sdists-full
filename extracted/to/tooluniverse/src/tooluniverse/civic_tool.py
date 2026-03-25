@@ -231,11 +231,15 @@ class CIViCTool(BaseTool):
                 )
                 if not gene_name:
                     return {
-                        "error": "gene_id or gene_name is required for civic_get_variants_by_gene"
+                        "status": "error",
+                        "error": "gene_id or gene_name is required for civic_get_variants_by_gene",
                     }
                 gene_id = self._lookup_gene_id(gene_name)
                 if gene_id is None:
-                    return {"error": f"Gene '{gene_name}' not found in CIViC database"}
+                    return {
+                        "status": "error",
+                        "error": f"Gene '{gene_name}' not found in CIViC database",
+                    }
                 arguments = dict(arguments)
                 arguments["gene_id"] = gene_id
             return self._get_variants_for_gene_id(
@@ -291,6 +295,7 @@ class CIViCTool(BaseTool):
                         f"evidence ID, or civic_get_variant with the variant ID."
                     )
                 return {
+                    "status": "error",
                     "error": f"Unsupported parameter(s) for civic_search_evidence_items: {', '.join(legacy_unsupported)}. "
                     "Supported filters: molecular_profile (string, e.g. 'BRAF V600E'), "
                     "therapy, disease, status, evidence_type (PREDICTIVE, DIAGNOSTIC, "
@@ -347,7 +352,10 @@ class CIViCTool(BaseTool):
             if gene_name:
                 gene_id = self._lookup_gene_id(gene_name)
                 if gene_id is None:
-                    return {"error": f"Gene '{gene_name}' not found in CIViC database"}
+                    return {
+                        "status": "error",
+                        "error": f"Gene '{gene_name}' not found in CIViC database",
+                    }
                 # Feature-43B-01: when gene+query combined, always fetch up to 200 variants
                 # before client-side filtering; the user's limit applies to the OUTPUT,
                 # not the pre-filter fetch — otherwise alphabetically early variants may
@@ -539,6 +547,7 @@ class CIViCTool(BaseTool):
             # Check for GraphQL errors
             if "errors" in data:
                 return {
+                    "status": "error",
                     "error": "GraphQL query errors",
                     "errors": data["errors"],
                     "query": arguments,

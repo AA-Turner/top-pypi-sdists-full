@@ -1,11 +1,14 @@
-from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
+from pathlib import Path
+from typing import Generic
+
+from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
+from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
-from ._insights import InsightList, ModelSyntaxError
+from ._insights import InsightList, ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath
 
 
@@ -46,6 +49,23 @@ class ModuleSource(BaseModel):
     def as_id(self) -> ModuleId:
         return ModuleId(id=self.id, path=self.path)
 
+    @property
+    def total_files(self) -> int:
+        return sum(len(files) for files in self.resource_files_by_folder.values())
+
+
+class BuildSource(BaseModel):
+    """Class used to describe source for build"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    module_dir: Path
+    modules: list[ModuleSource]
+    insights: InsightList = Field(default_factory=InsightList)
+
+    @property
+    def total_files(self) -> int:
+        return sum(module.total_files for module in self.modules)
+
 
 class ResourceType(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -53,31 +73,46 @@ class ResourceType(BaseModel):
     resource_folder: str
     kind: str
 
+    @property
+    def crud_cls(self) -> type[ResourceCRUD]:
+        kind = self.kind
+        folder_name = self.resource_folder
+        return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
 
-class ReadResource(BaseModel):
+
+class ReadYAMLFile(BaseModel):
     source_path: AbsoluteFilePath
 
 
-class FailedReadResource(ReadResource):
-    errors: list[ModelSyntaxError] = Field(default_factory=list)
+class FailedReadYAMLFile(ReadYAMLFile):
+    code: str
+    error: str
 
 
-class SuccessfulReadResource(ReadResource):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+class ExtraFile(BaseModel):
+    source_path: AbsoluteFilePath
+    source_hash: str
+    content: str
+
+
+class ReadResource(BaseModel, Generic[T_Resource]):
+    raw: dict[str, JsonValue]
+    identifier: Identifier
+    validated: ToolkitResource | None = None
+    extra_files: list[ExtraFile] = Field(default_factory=list)
+
+
+class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
     resource_type: ResourceType
-    resource: ToolkitResource
-    insights: InsightList = Field(default_factory=InsightList)
+    resources: list[ReadResource[ToolkitResource]]
+    syntax_warning: ModelSyntaxWarning | None = None
 
-    @property
-    def crud_cls(self) -> type[ResourceCRUD]:
-        kind = self.resource_type.kind
-        folder_name = self.resource_type.resource_folder
-        return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
 
-    @property
-    def dependencies(self) -> set[tuple[type[ResourceCRUD], Identifier]]:
-        return set(self.crud_cls.get_dependencies(self.resource))
+class IgnoredFile(BaseModel):
+    filepath: Path
+    code: str
+    reason: str
 
 
 class Module(BaseModel):
@@ -85,8 +120,9 @@ class Module(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: ModuleId
-    resources: list[ReadResource] = Field(default_factory=list)
+    files: list[ReadYAMLFile] = Field(default_factory=list)
+    ignored_files: list[IgnoredFile] = Field(default_factory=list)
 
     @property
     def is_success(self) -> bool:
-        return all(isinstance(resource, SuccessfulReadResource) for resource in self.resources)
+        return all(isinstance(resource, SuccessfulReadYAMLFile) for resource in self.files)

@@ -39,32 +39,40 @@ class InterProExtTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"InterPro API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"InterPro API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to InterPro API"}
+            return {"status": "error", "error": "Failed to connect to InterPro API"}
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "unknown"
             if code == 404:
                 return {
-                    "error": f"Domain not found in InterPro: {arguments.get('domain_id', '')}"
+                    "status": "error",
+                    "error": f"Domain not found in InterPro: {arguments.get('domain_id', '')}",
                 }
-            return {"error": f"InterPro API HTTP error: {code}"}
+            return {"status": "error", "error": f"InterPro API HTTP error: {code}"}
         except Exception as e:
-            return {"error": f"Unexpected error querying InterPro API: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying InterPro API: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
         if self.endpoint == "proteins_by_domain":
             return self._get_proteins_by_domain(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_proteins_by_domain(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get proteins containing a specific InterPro domain."""
         domain_id = arguments.get("domain_id", "")
         if not domain_id:
             return {
-                "error": "domain_id parameter is required (InterPro accession, e.g., IPR011615)"
+                "status": "error",
+                "error": "domain_id parameter is required (InterPro accession, e.g., IPR011615)",
             }
 
         page_size = min(int(arguments.get("page_size", 20)), 50)
@@ -99,6 +107,7 @@ class InterProExtTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "domain_id": domain_id,
                 "total_proteins": total_count,

@@ -22,7 +22,7 @@ def EuropePMC_get_fulltext(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Optional[dict[str, Any]]:
+) -> Any:
     """
     Fetch a PMC article's full text with deterministic fallbacks: Europe PMC fullTextXML → NCBI PMC O...
 
@@ -55,7 +55,7 @@ def EuropePMC_get_fulltext(
 
     Returns
     -------
-    Optional[dict[str, Any]]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

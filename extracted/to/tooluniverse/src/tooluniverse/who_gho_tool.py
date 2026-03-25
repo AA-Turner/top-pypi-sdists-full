@@ -139,6 +139,7 @@ class WHOGHORESTTool(BaseTool):
             resp.raise_for_status()
             data = resp.json()
             return {
+                "status": "success",
                 "data": data,
                 "metadata": {
                     "source": "WHO Global Health Observatory",
@@ -147,9 +148,13 @@ class WHOGHORESTTool(BaseTool):
                 },
             }
         except requests.exceptions.RequestException as e:
-            return {"error": f"Request failed: {str(e)}"}
+            return {"status": "error", "error": f"Request failed: {str(e)}"}
         except ValueError as e:
-            return {"error": f"Failed to parse JSON: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Failed to parse JSON: {str(e)}",
+                "retryable": True,
+            }
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the tool with given arguments."""
@@ -327,7 +332,7 @@ class WHOGHORESTTool(BaseTool):
     def _make_request_for_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Make request to data using direct indicator endpoint format."""
         if "indicator_code" not in params:
-            return {"error": "indicator_code parameter is required"}
+            return {"status": "error", "error": "indicator_code parameter is required"}
 
         # Use direct indicator endpoint: /api/{IndicatorCode}
         indicator_code = params["indicator_code"]
@@ -356,9 +361,13 @@ class WHOGHORESTTool(BaseTool):
             data = resp.json()
             return {"data": data}
         except requests.exceptions.RequestException as e:
-            return {"error": f"Request failed: {str(e)}"}
+            return {"status": "error", "error": f"Request failed: {str(e)}"}
         except ValueError as e:
-            return {"error": f"Failed to parse JSON: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Failed to parse JSON: {str(e)}",
+                "retryable": True,
+            }
 
 
 @register_tool("WHOGHOQueryTool")
@@ -374,7 +383,7 @@ class WHOGHOQueryTool(WHOGHORESTTool):
         """Execute query tool with natural language processing."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "Query parameter is required"}
+            return {"status": "error", "error": "Query parameter is required"}
 
         # Parse query to extract topic, country, year
         parsed = self.parse_query(query)
@@ -401,6 +410,7 @@ class WHOGHOQueryTool(WHOGHORESTTool):
 
         if not indicators:
             return {
+                "status": "error",
                 "error": f"No indicators found for query: '{query}'",
                 "suggestion": "Try different keywords or check spelling",
             }
@@ -460,6 +470,7 @@ class WHOGHOQueryTool(WHOGHORESTTool):
 
         if not results:
             return {
+                "status": "error",
                 "error": f"No data found for query: '{query}'",
                 "matched_indicators": [
                     {"code": ind.get("IndicatorCode"), "name": ind.get("IndicatorName")}
@@ -472,6 +483,7 @@ class WHOGHOQueryTool(WHOGHORESTTool):
 
         # Return best match (first result)
         return {
+            "status": "success",
             "data": results[0] if len(results) == 1 else results,
             "metadata": {
                 "source": "WHO Global Health Observatory",
@@ -494,7 +506,7 @@ class WHOGHOTopicTool(WHOGHORESTTool):
         """Find indicators by topic."""
         topic = arguments.get("topic", "")
         if not topic:
-            return {"error": "Topic parameter is required"}
+            return {"status": "error", "error": "Topic parameter is required"}
 
         top = arguments.get("top", 10)
 
@@ -514,6 +526,7 @@ class WHOGHOTopicTool(WHOGHORESTTool):
 
         if not indicators:
             return {
+                "status": "error",
                 "error": f"No indicators found for topic: '{topic}'",
                 "suggestion": "Try different keywords or check spelling",
             }
@@ -535,6 +548,7 @@ class WHOGHOTopicTool(WHOGHORESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "indicators": result_indicators,
                 "topic": topic,
@@ -559,9 +573,9 @@ class WHOGHOStatisticTool(WHOGHORESTTool):
         year = arguments.get("year")
 
         if not indicator_name:
-            return {"error": "indicator_name parameter is required"}
+            return {"status": "error", "error": "indicator_name parameter is required"}
         if not country_code:
-            return {"error": "country_code parameter is required"}
+            return {"status": "error", "error": "country_code parameter is required"}
 
         # Step 1: Search for matching indicator
         search_result = self._make_request({"search_term": indicator_name, "top": 20})
@@ -574,6 +588,7 @@ class WHOGHOStatisticTool(WHOGHORESTTool):
 
         if not indicators:
             return {
+                "status": "error",
                 "error": f"No indicators found matching: '{indicator_name}'",
                 "suggestion": "Try different keywords or check spelling",
             }
@@ -597,6 +612,7 @@ class WHOGHOStatisticTool(WHOGHORESTTool):
 
         if "error" in data_result:
             return {
+                "status": "error",
                 "error": data_result["error"],
                 "indicator_found": {
                     "code": indicator_code,
@@ -631,6 +647,7 @@ class WHOGHOStatisticTool(WHOGHORESTTool):
 
         if not values:
             return {
+                "status": "error",
                 "error": (
                     f"No data available for '{indicator_name}' in {country_code}"
                 ),
@@ -668,6 +685,7 @@ class WHOGHOStatisticTool(WHOGHORESTTool):
         )
 
         return {
+            "status": "success",
             "data": formatted,
             "metadata": {
                 "source": "WHO Global Health Observatory",

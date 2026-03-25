@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def Enamine_search_catalog(
-    operation: str,
     query: str,
+    operation: Optional[str] = None,
     catalog: Optional[str] = "all",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,

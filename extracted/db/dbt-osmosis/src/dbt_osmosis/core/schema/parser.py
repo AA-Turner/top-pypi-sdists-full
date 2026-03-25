@@ -17,7 +17,7 @@ def _filter_yaml_content(data: dict) -> dict:
 
     This prevents the tool from processing or being aware of semantic_models, macros, etc.
     """
-    allowed_keys = {"version", "models", "sources", "seeds", "unit_tests"}
+    allowed_keys = {"version", "models", "sources", "seeds", "unit_tests", "data_tests"}
 
     # Create a new dictionary containing only the allowed keys from the parsed file
     filtered_data = {key: value for key, value in data.items() if key in allowed_keys}
@@ -107,7 +107,7 @@ def create_yaml_instance(
         if re.match(r"^(y|Y|yes|Yes|YES|n|N|no|No|NO|on|On|ON|off|Off|OFF)$", data):
             return dumper.represent_scalar("tag:yaml.org,2002:str", data, style='"')
         newlines = len(data.splitlines())
-        if newlines == 1 and len(data) > width - len(f"description{y.prefix_colon}: "):
+        if newlines == 1 and len(data) > width - len(f"description{y.prefix_colon or ''}: "):
             return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=">")
         if newlines > 1:
             return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")

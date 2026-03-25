@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-evaluation
-Version: 1.16.1
+Version: 1.16.2
 Summary: Microsoft Azure Evaluation Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -417,6 +417,16 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
+## 1.16.2 (2026-03-24)
+
+### Bugs Fixed
+- Fixed adversarial chat target incorrectly using user's callback instead of RAI service, causing callback response to appear as user message in red team scan results when using converter strategies (e.g., `DIFFICULT`, `Tense`).
+- Fixed `hate_unfairness` attack success rate always reporting 0% due to metric name mapping using legacy `hate_fairness` name instead of canonical `hate_unfairness`.
+- Fixed `TypeError` in multi-turn and crescendo attacks caused by PyRIT 0.11+ renaming `send_prompt_async` parameter from `prompt_request` to `message`.
+- Expanded endpoint normalization (`/openai/v1` suffix) to all Azure OpenAI host suffixes (including sovereign clouds), fixing 404 errors for classic AOAI endpoints with PyRIT 0.11+.
+- Added `aml-aca-token` credential fallback for agent-type seed requests when running locally without ACA managed identity.
+- Extract RAI scorer token metrics (prompt_tokens, completion_tokens, total_tokens) into Score metadata and propagate through result processing for downstream aggregation.
+
 ## 1.16.1 (2026-03-18)
 
 ### Features Added
@@ -424,7 +434,6 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 - Agentic evaluators (Groundedness, ToolCallAccuracy, ToolCallSuccess, ToolInputAccuracy, ToolOutputUtilization, ToolSelection) now accept plain string inputs directly, skipping structured parsing when string format is provided.
 
 ### Bugs Fixed
-
 - Fixed inconsistency where sample data in evaluation result items did not match the generated sample data from corresponding input rows, ensuring proper synchronization between row-level input samples and their associated evaluation output items.
 - Fixed indirect jailbreak (XPIA) `ValueError` when targeting models by converting `binary_path` file-based context prompts to inline text before invoking the callback target.
 - Fixed content-filter responses showing raw JSON API payloads in red team results by detecting blocked responses and replacing them with human-readable messages.

@@ -1,10 +1,22 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
+import sqlglot
+from sqlglot import exp
 
 from sagemaker_studio.sql_engine.resource_fetching_definition import (
     ResourceFetchingDefinition,
     SQLAlchemyMetadataAction,
 )
+
+
+@dataclass
+class SqlStatement:
+    """Represents a SQL statement with its type."""
+
+    statement: str
+    statement_type: str
 
 
 class DatabaseTransformer(ABC):
@@ -15,6 +27,23 @@ class DatabaseTransformer(ABC):
     into SQLAlchemy-compatible formats. Each concrete implementation handles
     a specific database type and its connection requirements.
     """
+
+    @classmethod
+    @abstractmethod
+    def get_dialect(cls) -> Optional[str]:
+        """
+        Get the SQL dialect for this database type.
+
+        Used by sqlglot for parsing SQL statements. Return None if
+        generic SQL parsing is sufficient.
+
+        Returns:
+            Optional[str]: Dialect name (e.g., "redshift", "postgres") or None
+                for generic SQL parsing.
+
+        Raises:
+            NotImplementedError: Must be implemented by concrete subclasses.
+        """
 
     @staticmethod
     @abstractmethod
@@ -160,3 +189,35 @@ class DatabaseTransformer(ABC):
             return parents[required_type]
         else:
             raise KeyError(f"Required parent type '{required_type}' not found in provided parents.")
+
+    @classmethod
+    def split_query(cls, query: str) -> List[SqlStatement]:
+        """
+        Split a SQL query into individual statements using sqlglot.
+
+        This method can be overridden by subclasses if sqlglot does not
+        support the specific database type.
+
+        Args:
+            query (str): The SQL query to split.
+
+        Returns:
+            List[SqlStatement]: List of SQL statement objects with statement and type.
+        """
+        try:
+            dialect = cls.get_dialect()
+            statements = sqlglot.parse(query, dialect=dialect) if dialect else sqlglot.parse(query)
+            return [
+                SqlStatement(
+                    statement=str(stmt), statement_type=stmt.key.upper() if stmt.key else "UNKNOWN"
+                )
+                for stmt in statements
+                if stmt and not isinstance(stmt, (exp.Comment, exp.Semicolon))
+            ]
+        except Exception:
+            # Fallback to simple semicolon splitting if sqlglot fails
+            return [
+                SqlStatement(statement=stmt.strip(), statement_type="UNKNOWN")
+                for stmt in query.split(";")
+                if stmt.strip()
+            ]

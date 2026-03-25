@@ -174,6 +174,7 @@ fn push_heading_group(
         page_end: None,
         bbox,
         annotations: vec![],
+        attributes: None,
     };
 
     let group_idx = doc.push_node(node);
@@ -210,6 +211,7 @@ fn push_content_node(
         page_end: None,
         bbox,
         annotations: vec![],
+        attributes: None,
     };
 
     let node_idx = doc.push_node(node);
@@ -286,6 +288,7 @@ fn process_text_content(
             page_end: None,
             bbox: None,
             annotations: vec![],
+            attributes: None,
         };
         let list_idx = doc.push_node(list_node);
 
@@ -314,6 +317,7 @@ fn process_text_content(
                 page_end: None,
                 bbox: None,
                 annotations: vec![],
+                attributes: None,
             };
             let item_idx = doc.push_node(item_node);
             doc.nodes[list_idx.0 as usize].children.push(item_idx);
@@ -496,6 +500,7 @@ mod tests {
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         }
     }
 

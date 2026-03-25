@@ -7,11 +7,13 @@ from abstra_internals.controllers.execution.execution_conn import (
     set_broadcast_publisher,
 )
 from abstra_internals.controllers.execution.executor_process import (
+    ExecutorState,
+    handle_execute,
+)
+from abstra_internals.controllers.execution.executor_types import (
     ExecuteRequest,
     ExecutorCommand,
-    ExecutorState,
     RabbitMQParams,
-    handle_execute,
 )
 
 

@@ -1,9 +1,13 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .database_transformer import DatabaseTransformer
 
 
 class MySQLTransformer(DatabaseTransformer):
+
+    @classmethod
+    def get_dialect(cls) -> Optional[str]:
+        return "mysql"
 
     @staticmethod
     def get_required_fields() -> List[str]:

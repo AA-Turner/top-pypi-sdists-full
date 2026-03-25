@@ -1,6 +1,6 @@
 # Natural Language Toolkit: WordNet
 #
-# Copyright (C) 2001-2025 NLTK Project
+# Copyright (C) 2001-2026 NLTK Project
 # Author: Steven Bethard <Steven.Bethard@colorado.edu>
 #         Steven Bird <stevenbird1@gmail.com>
 #         Edward Loper <edloper@gmail.com>
@@ -1949,7 +1949,7 @@ class WordNetCorpusReader(CorpusReader):
                     line = data_file.readline()
 
             # close the extra file handle we opened
-            except:
+            except Exception:
                 data_file.close()
                 raise
             else:
@@ -1978,7 +1978,7 @@ class WordNetCorpusReader(CorpusReader):
         try:
             with reader.open(file) as fp:
                 return fp.read()
-        except:
+        except Exception:
             if lang in self._lang_data:
                 return f"Cannot determine {file} for {lang}"
             else:

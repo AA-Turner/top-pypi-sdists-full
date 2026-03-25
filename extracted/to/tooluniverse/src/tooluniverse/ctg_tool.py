@@ -44,6 +44,8 @@ class ClinicalTrialsTool(RESTfulTool):
             "query": "query.term",  # alias: agents naturally pass 'query'
             "status": "filter.overallStatus",  # alias: agents naturally pass 'status'
             "max_results": "pageSize",  # alias: agents naturally pass 'max_results'
+            "limit": "pageSize",  # alias: agents naturally pass 'limit'
+            "keyword": "query.term",  # alias: agents naturally pass 'keyword'
         }
 
     def _map_param_names(self, arguments):
@@ -122,15 +124,21 @@ class ClinicalTrialsTool(RESTfulTool):
                 "The run method should be implemented in subclasses."
             )
         if self._operation == "search":
-            return self._run_search(arguments)
+            result = self._run_search(arguments)
         elif self._operation == "get_study":
-            return self._run_get_study(arguments)
+            result = self._run_get_study(arguments)
         elif self._operation == "stats_size":
-            return self._run_stats_size(arguments)
+            result = self._run_stats_size(arguments)
         elif self._operation == "field_values":
-            return self._run_field_values(arguments)
+            result = self._run_field_values(arguments)
         else:
-            return {"error": f"Unknown operation: {self._operation}"}
+            return {"status": "error", "error": f"Unknown operation: {self._operation}"}
+
+        if isinstance(result, dict) and "status" not in result:
+            if "error" in result:
+                return {"status": "error", **result}
+            return {"status": "success", **result}
+        return result
 
     def _run_search(self, arguments):
         """Handle search operations (search_studies, search_by_intervention, search_by_sponsor)."""
@@ -150,6 +158,7 @@ class ClinicalTrialsTool(RESTfulTool):
             "condition": "query.cond",
             "status": "filter.overallStatus",
             "query": "query.term",
+            "keyword": "query.term",
             "max_results": "pageSize",
             "limit": "pageSize",
         }
@@ -221,6 +230,7 @@ class ClinicalTrialsTool(RESTfulTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "studies": studies,
                 # totalCount may be absent from API response; fallback to len(studies)
@@ -236,7 +246,7 @@ class ClinicalTrialsTool(RESTfulTool):
 
         nct_id = arguments.get("nct_id")
         if not nct_id:
-            return {"error": "nct_id is required"}
+            return {"status": "error", "error": "nct_id is required"}
 
         resp = requests.get(
             f"{self._BASE_URL}/studies/{nct_id}",
@@ -289,6 +299,7 @@ class ClinicalTrialsTool(RESTfulTool):
         }
 
         return {
+            "status": "success",
             "data": study,
             "metadata": {
                 "source": "ClinicalTrials.gov API v2",
@@ -305,6 +316,7 @@ class ClinicalTrialsTool(RESTfulTool):
         data = resp.json()
 
         return {
+            "status": "success",
             "data": {
                 "total_studies": data.get("totalStudiesCount"),
                 "average_byte_size": data.get("averageByteSize"),
@@ -322,7 +334,7 @@ class ClinicalTrialsTool(RESTfulTool):
 
         field = arguments.get("field")
         if not field:
-            return {"error": "field is required"}
+            return {"status": "error", "error": "field is required"}
 
         # CTG API v2: endpoint is /stats/fieldValues (camelCase), param is 'fields' (plural)
         params = {"fields": field}
@@ -344,6 +356,7 @@ class ClinicalTrialsTool(RESTfulTool):
             ]
 
         return {
+            "status": "success",
             "data": {
                 "field": field,
                 "values": values,
@@ -455,9 +468,14 @@ class ClinicalTrialsSearchTool(ClinicalTrialsTool):
             if k in arguments and arguments[k] is not None:
                 query_params[k] = arguments[k]
 
-        # Add default parameters that are not shown in the schema
+        # Add default parameters that are not shown in the schema.
+        # Skip filter.advanced when a status filter is set, because filter.advanced
+        # requires HasResults=true which excludes most RECRUITING/active trials.
+        has_status_filter = "filter.overallStatus" in query_params
         for k, v in self.default_params_not_shown.items():
             if k not in query_params:
+                if k == "filter.advanced" and has_status_filter:
+                    continue
                 query_params[k] = v
 
         # Process list parameters that need to be joined
@@ -481,10 +499,16 @@ class ClinicalTrialsSearchTool(ClinicalTrialsTool):
             and len(response["studies"]) > 0
         ):
             response = self._simplify_output(response)
-        else:
-            return "No studies found for the given query parameters. Please examine your input and try different parameters."
+            return {
+                "status": "success",
+                "data": response,
+                "metadata": {"source": "ClinicalTrials.gov API v2"},
+            }
 
-        return response
+        return {
+            "status": "error",
+            "error": "No studies found for the given query parameters. Please examine your input and try different parameters.",
+        }
 
     def _simplify_output(self, response):
         new_response = []
@@ -557,7 +581,8 @@ class ClinicalTrialsDetailsTool(ClinicalTrialsTool):
             or len(nct_ids_list) == 0
         ):
             return {
-                "error": "Missing or invalid required parameter: nct_ids (must be a non-empty list)"
+                "status": "error",
+                "error": "Missing or invalid required parameter: nct_ids (must be a non-empty list)",
             }
         del arguments[
             "nct_ids"
@@ -739,9 +764,12 @@ class ClinicalTrialsDetailsTool(ClinicalTrialsTool):
             ]
 
         if sum([len(response) > 1 for response in responses]) == 0:
-            return "No relevant information found for the given NCT IDs."
+            return {
+                "status": "error",
+                "error": "No relevant information found for the given NCT IDs.",
+            }
 
-        return responses
+        return {"status": "success", "data": responses}
 
     def _simplify_output(self, study, query_type):
         """Manually extract generally most useful information"""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdm
-Version: 2.26.6
+Version: 2.26.7
 Summary: A modern Python package and dependency manager supporting the latest PEP standards
 Keywords: packaging,dependency,workflow
 Author-Email: Frost Ming <mianghong@gmail.com>
@@ -124,7 +124,7 @@ A modern Python package and dependency manager supporting the latest PEP standar
 
 ![PDM logo](https://raw.githubusercontent.com/pdm-project/pdm/main/docs/assets/logo_big.png)
 
-[![Docs](https://img.shields.io/badge/Docs-mkdocs-blue?style=for-the-badge)](https://pdm-project.org)
+[![Docs](https://img.shields.io/badge/Docs-zensical-blue?style=for-the-badge)](https://pdm-project.org)
 [![Twitter Follow](https://img.shields.io/twitter/follow/pdm_project?label=get%20updates&logo=twitter&style=for-the-badge)](https://twitter.com/pdm_project)
 [![Discord](https://img.shields.io/discord/824472774965329931?label=discord&logo=discord&style=for-the-badge)](https://discord.gg/Phn8smztpv)
 
@@ -247,6 +247,22 @@ Tell people you are using PDM in your project by including the markdown code in 
 ## PDM Eco-system
 
 [Awesome PDM](https://github.com/pdm-project/awesome-pdm) is a curated list of awesome PDM plugins and resources.
+
+## Experimental
+
+Enable [PEP 582](https://peps.python.org/pep-0582/) for a project:
+
+    pdm config python.use_venv False
+
+This makes PDM install packages into a local project folder instead of a venv (similar to how npm installs into node_modules).
+    
+Enable [uv](https://github.com/astral-sh/uv) integration:
+
+    pdm config use_uv true
+
+uv is a very fast Python package installer written in Rust.
+    
+Note: `uv` does not work with `PEP 582`.
 
 ## Sponsors
 

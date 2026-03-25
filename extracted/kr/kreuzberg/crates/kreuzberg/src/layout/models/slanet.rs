@@ -154,11 +154,12 @@ pub struct SlanetModel {
 impl SlanetModel {
     /// Load a SLANeXT ONNX model from a file path.
     pub fn from_file(path: &str) -> Result<Self, LayoutError> {
-        let session = match build_session(path, None) {
+        let budget = crate::core::config::concurrency::resolve_thread_budget(None);
+        let session = match build_session(path, None, budget) {
             Ok(s) => s,
             Err(first_err) => {
                 tracing::warn!("SLANeXT: platform EP failed ({first_err}), retrying with CPU-only");
-                match Self::build_cpu_session(path) {
+                match Self::build_cpu_session(path, budget) {
                     Ok(s) => s,
                     Err(cpu_err) => {
                         tracing::warn!("SLANeXT: CPU-only also failed: {cpu_err}");
@@ -172,13 +173,12 @@ impl SlanetModel {
     }
 
     /// Build a CPU-only ORT session (no CoreML/CUDA).
-    fn build_cpu_session(path: &str) -> Result<Session, LayoutError> {
+    fn build_cpu_session(path: &str, thread_budget: usize) -> Result<Session, LayoutError> {
         use ort::session::builder::GraphOptimizationLevel;
-        let num_cores = num_cpus::get();
         let mut builder = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(|e| LayoutError::Ort(ort::Error::new(e.message())))?
-            .with_intra_threads(num_cores)
+            .with_intra_threads(thread_budget)
             .map_err(|e| LayoutError::Ort(ort::Error::new(e.message())))?
             .with_inter_threads(1)
             .map_err(|e| LayoutError::Ort(ort::Error::new(e.message())))?;

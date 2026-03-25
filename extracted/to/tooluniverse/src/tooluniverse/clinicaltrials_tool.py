@@ -43,16 +43,24 @@ class CTGovAPITool(BaseRESTTool):
             return self._query(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"ClinicalTrials.gov request timed out after {self.timeout}s"
+                "status": "error",
+                "error": f"ClinicalTrials.gov request timed out after {self.timeout}s",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to ClinicalTrials.gov. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to ClinicalTrials.gov. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"ClinicalTrials.gov HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"ClinicalTrials.gov HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying ClinicalTrials.gov: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying ClinicalTrials.gov: {str(e)}",
+            }
 
     def _query(self, arguments: dict) -> dict:
         """Route to the appropriate endpoint."""
@@ -66,7 +74,7 @@ class CTGovAPITool(BaseRESTTool):
         elif op == "field_values":
             return self._get_field_values(arguments)
         else:
-            return {"error": f"Unknown operation: {op}"}
+            return {"status": "error", "error": f"Unknown operation: {op}"}
 
     def _search_studies(self, arguments: dict) -> dict:
         """Search for clinical trials with various filters."""
@@ -158,6 +166,7 @@ class CTGovAPITool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "studies": studies,
                 "total_count": data.get("totalCount"),
@@ -174,7 +183,10 @@ class CTGovAPITool(BaseRESTTool):
         """Get full details for a single study by NCT ID."""
         nct_id = arguments.get("nct_id", "").strip()
         if not nct_id:
-            return {"error": "nct_id parameter is required (e.g., 'NCT04280705')"}
+            return {
+                "status": "error",
+                "error": "nct_id parameter is required (e.g., 'NCT04280705')",
+            }
 
         url = f"{CLINICALTRIALS_BASE}/studies/{nct_id}"
         resp = requests.get(url, params={"format": "json"}, timeout=self.timeout)
@@ -250,6 +262,7 @@ class CTGovAPITool(BaseRESTTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "nct_id": id_mod.get("nctId"),
                 "brief_title": id_mod.get("briefTitle"),
@@ -302,6 +315,7 @@ class CTGovAPITool(BaseRESTTool):
         data = resp.json()
 
         return {
+            "status": "success",
             "data": {
                 "total_studies": data.get("totalStudies") or data.get("studiesCount"),
                 "average_byte_size": data.get("averageByteSize"),
@@ -319,7 +333,8 @@ class CTGovAPITool(BaseRESTTool):
         field = arguments.get("field", "")
         if not field:
             return {
-                "error": "field parameter is required (e.g., 'Phase', 'OverallStatus')"
+                "status": "error",
+                "error": "field parameter is required (e.g., 'Phase', 'OverallStatus')",
             }
 
         # The endpoint returns ALL fields - we filter client-side
@@ -343,7 +358,8 @@ class CTGovAPITool(BaseRESTTool):
                 :20
             ]
             return {
-                "error": f"Field '{field}' not found. Available fields include: {available}"
+                "status": "error",
+                "error": f"Field '{field}' not found. Available fields include: {available}",
             }
 
         field_obj = matching[0]
@@ -358,6 +374,7 @@ class CTGovAPITool(BaseRESTTool):
         ]
 
         return {
+            "status": "success",
             "data": {
                 "field": field_obj.get("piece"),
                 "field_path": field_obj.get("field"),

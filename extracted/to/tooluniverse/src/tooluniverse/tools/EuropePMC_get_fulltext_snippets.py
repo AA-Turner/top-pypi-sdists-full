@@ -22,7 +22,7 @@ def EuropePMC_get_fulltext_snippets(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Optional[dict[str, Any]]:
+) -> Any:
     """
     Fetch an article's full text (best-effort) and return bounded text snippets around provided terms...
 
@@ -55,7 +55,7 @@ def EuropePMC_get_fulltext_snippets(
 
     Returns
     -------
-    Optional[dict[str, Any]]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

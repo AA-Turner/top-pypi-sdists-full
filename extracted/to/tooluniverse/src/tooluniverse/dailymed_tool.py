@@ -27,9 +27,7 @@ class SearchSPLTool(BaseTool):
         self.endpoint = f"{DAILYMED_BASE}/spls.json"
 
     def run(self, arguments):
-        # Extract possible filter conditions from arguments
         params = {}
-        # Four common filter fields
         if arguments.get("drug_name"):
             params["drug_name"] = arguments["drug_name"]
         if arguments.get("ndc"):
@@ -39,24 +37,25 @@ class SearchSPLTool(BaseTool):
         if arguments.get("setid"):
             params["setid"] = arguments["setid"]
 
-        # Published date range filter
         if arguments.get("published_date_gte"):
             params["published_date[gte]"] = arguments["published_date_gte"]
         if arguments.get("published_date_eq"):
             params["published_date[eq]"] = arguments["published_date_eq"]
 
-        # Pagination parameters
         params["pagesize"] = arguments.get("pagesize", 100)
         params["page"] = arguments.get("page", 1)
 
-        # Allow query all if no filter conditions and only pagination provided (be careful with return data volume)
         try:
             resp = requests.get(self.endpoint, params=params, timeout=10)
         except Exception as e:
-            return {"error": f"Failed to request DailyMed search_spls: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Failed to request DailyMed search_spls: {str(e)}",
+            }
 
         if resp.status_code != 200:
             return {
+                "status": "error",
                 "error": f"DailyMed API access failed, HTTP {resp.status_code}",
                 "detail": resp.text,
             }
@@ -65,12 +64,17 @@ class SearchSPLTool(BaseTool):
             result = resp.json()
         except ValueError:
             return {
+                "status": "error",
                 "error": "Unable to parse DailyMed returned JSON.",
                 "content": resp.text,
             }
 
-        # Return original JSON, including metadata + data
-        return result
+        # Return with standard status envelope
+        return {
+            "status": "success",
+            "data": result.get("data", []),
+            "metadata": result.get("metadata", {}),
+        }
 
 
 @register_tool("GetSPLBySetIDTool")
@@ -88,32 +92,39 @@ class GetSPLBySetIDTool(BaseTool):
         setid = arguments.get("setid")
         fmt = arguments.get("format", "xml")
 
-        # DailyMed single SPL API only supports XML format
-        if fmt not in ("xml",):
+        if fmt != "xml":
             return {
-                "error": "DailyMed single SPL API only supports 'xml' format, JSON is not supported."
+                "status": "error",
+                "error": "DailyMed single SPL API only supports 'xml' format, JSON is not supported.",
             }
 
         url = self.endpoint_template.format(setid=setid, fmt=fmt)
         try:
             resp = requests.get(url, timeout=10)
         except Exception as e:
-            return {"error": f"Failed to request DailyMed get_spl_by_setid: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Failed to request DailyMed get_spl_by_setid: {str(e)}",
+            }
 
         if resp.status_code == 404:
-            return {"error": f"SPL label not found for Set ID={setid}."}
+            return {
+                "status": "error",
+                "error": f"SPL label not found for Set ID={setid}.",
+            }
         elif resp.status_code == 415:
             return {
-                "error": f"DailyMed API does not support requested format. Set ID={setid} only supports XML format."
+                "status": "error",
+                "error": f"DailyMed API does not support requested format. Set ID={setid} only supports XML format.",
             }
         elif resp.status_code != 200:
             return {
+                "status": "error",
                 "error": f"DailyMed API access failed, HTTP {resp.status_code}",
                 "detail": resp.text,
             }
 
-        # Return XML content
-        return {"xml": resp.text}
+        return {"status": "success", "xml": resp.text}
 
 
 @register_tool("DailyMedSPLParserTool")
@@ -143,8 +154,31 @@ class DailyMedSPLParserTool(BaseTool):
             operation = self.get_schema_const_operation()
         setid = arguments.get("setid")
 
+        # Auto-resolve drug_name to setid when only the name is provided
         if not setid:
-            return {"status": "error", "error": "Missing required parameter: setid"}
+            drug_name = arguments.get("drug_name")
+            if drug_name:
+                try:
+                    resp = requests.get(
+                        f"{DAILYMED_BASE}/spls.json",
+                        params={"drug_name": drug_name, "pagesize": 1},
+                        timeout=10,
+                    )
+                    if resp.status_code == 200:
+                        items = resp.json().get("data", [])
+                        if items:
+                            setid = items[0].get("setid")
+                except Exception:
+                    pass
+
+        if not setid:
+            return {
+                "status": "error",
+                "error": (
+                    "Missing required parameter: setid. "
+                    "Provide a DailyMed Set ID UUID, or use drug_name for automatic lookup."
+                ),
+            }
 
         if not operation:
             return {"status": "error", "error": "Missing required parameter: operation"}
@@ -178,7 +212,15 @@ class DailyMedSPLParserTool(BaseTool):
         else:
             return {"status": "error", "error": f"Unknown operation: {operation}"}
 
-        return self._with_data_payload(operation_result)
+        result = self._with_data_payload(operation_result)
+        if result.get("status") == "success":
+            result["metadata"] = {
+                "source": "DailyMed",
+                "setid": setid,
+                "drug_name": arguments.get("drug_name"),
+                "operation": operation,
+            }
+        return result
 
     def _with_data_payload(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Ensure successful operation responses include a standardized data wrapper."""
@@ -191,10 +233,8 @@ class DailyMedSPLParserTool(BaseTool):
         if "data" in result:
             return result
 
-        payload = {key: value for key, value in result.items() if key != "status"}
-        wrapped_result = {"status": "success", "data": payload}
-        wrapped_result.update(payload)
-        return wrapped_result
+        data = {k: v for k, v in result.items() if k != "status"}
+        return {"status": "success", "data": data}
 
     def _fetch_spl_xml(self, setid: str) -> Dict[str, Any]:
         """Fetch SPL XML from DailyMed API."""
@@ -300,6 +340,14 @@ class DailyMedSPLParserTool(BaseTool):
                                 {"type": "dosing_text", "content": text_content}
                             )
 
+                    # Extract list items (some drugs encode dosing as <list><item> elements)
+                    for item in text_el.xpath(".//hl7:item", namespaces=self.ns):
+                        text_content = "".join(item.itertext()).strip()
+                        if text_content and len(text_content) > 5:
+                            dosing_info.append(
+                                {"type": "dosing_text", "content": text_content}
+                            )
+
             return {
                 "status": "success",
                 "dosing_info": dosing_info,
@@ -347,7 +395,7 @@ class DailyMedSPLParserTool(BaseTool):
                         )
                         for para in paragraphs:
                             text_content = "".join(para.itertext()).strip()
-                            if text_content and len(text_content) > 10:
+                            if text_content and len(text_content) > 2:
                                 contraindications.append(
                                     {
                                         "type": "contraindication",

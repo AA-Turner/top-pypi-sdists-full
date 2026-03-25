@@ -43,13 +43,22 @@ class RheaTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"Rhea API request timed out after {self.timeout} seconds"}
+            return {
+                "status": "error",
+                "error": f"Rhea API request timed out after {self.timeout} seconds",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to Rhea API."}
+            return {"status": "error", "error": "Failed to connect to Rhea API."}
         except requests.exceptions.HTTPError as e:
-            return {"error": f"Rhea API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"Rhea API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying Rhea: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying Rhea: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate Rhea endpoint."""
@@ -60,7 +69,7 @@ class RheaTool(BaseTool):
         elif self.endpoint == "search_by_chebi":
             return self._search_by_chebi(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _parse_tsv(self, text: str) -> List[Dict[str, str]]:
         """Parse TSV response into list of dicts."""
@@ -99,7 +108,8 @@ class RheaTool(BaseTool):
         query = arguments.get("query", "")
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'glucose', 'ATP', 'kinase')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'glucose', 'ATP', 'kinase')",
             }
 
         limit = arguments.get("limit", 20)
@@ -117,6 +127,7 @@ class RheaTool(BaseTool):
         results = self._parse_tsv(response.text)
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "Rhea (SIB)",
@@ -130,7 +141,8 @@ class RheaTool(BaseTool):
         ec_number = arguments.get("ec_number", "")
         if not ec_number:
             return {
-                "error": "ec_number parameter is required (e.g., 'EC:1.1.1.1', '3.5.1.50')"
+                "status": "error",
+                "error": "ec_number parameter is required (e.g., 'EC:1.1.1.1', '3.5.1.50')",
             }
 
         # Normalize EC number format
@@ -152,6 +164,7 @@ class RheaTool(BaseTool):
         results = self._parse_tsv(response.text)
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "Rhea (SIB)",
@@ -165,7 +178,8 @@ class RheaTool(BaseTool):
         chebi_id = arguments.get("chebi_id", "")
         if not chebi_id:
             return {
-                "error": "chebi_id parameter is required (e.g., 'CHEBI:17234' for glucose)"
+                "status": "error",
+                "error": "chebi_id parameter is required (e.g., 'CHEBI:17234' for glucose)",
             }
 
         # Normalize ChEBI ID format
@@ -187,6 +201,7 @@ class RheaTool(BaseTool):
         results = self._parse_tsv(response.text)
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "Rhea (SIB)",

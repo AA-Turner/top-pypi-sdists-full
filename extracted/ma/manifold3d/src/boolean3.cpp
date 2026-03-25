@@ -371,7 +371,7 @@ Intersections Intersect12_(const Manifold::Impl& inP,
                      a.vertPos_[a.halfedge_[i].endVert])
                : Box();
   };
-  b.collider_->Collisions<false>(recorder, f, a.halfedge_.size());
+  b.collider_.Collisions<false>(recorder, f, a.halfedge_.size());
 
   Intersections result = recorder.get();
   auto& p1q2 = result.p1q2;
@@ -450,11 +450,13 @@ Vec<int> Winding03_(const Manifold::Impl& inP, const Manifold::Impl& inQ,
   Kernel02<expandP, forward> k02{a, b};
   auto recorderf = [&](int i, int b) {
     const auto [s02, z02] = k02(verts[i], b);
+    // note that i is distinct on each thread, and verts contains unique
+    // elements, so this does not require atomics
     if (std::isfinite(z02)) w03[verts[i]] += s02 * (forward ? 1 : -1);
   };
   auto recorder = MakeSimpleRecorder(recorderf);
   auto f = [&](int i) { return a.vertPos_[verts[i]]; };
-  b.collider_->Collisions<false>(recorder, f, verts.size());
+  b.collider_.Collisions<false>(recorder, f, verts.size());
   // flood fill
   for_each(autoPolicy(w03.size()), countAt(0), countAt(w03.size()),
            [&](size_t i) {
@@ -521,7 +523,7 @@ Boolean3::Boolean3(const Manifold::Impl& inP, const Manifold::Impl& inQ,
 #ifdef MANIFOLD_DEBUG
   intersections.Stop();
 
-  if (ManifoldParams().verbose) {
+  if (ManifoldParams().verbose >= 2) {
     intersections.Print("Intersections");
   }
 #endif

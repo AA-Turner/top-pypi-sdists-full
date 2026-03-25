@@ -1842,6 +1842,28 @@ class RustAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
+    CARGO_BUILD_VERBOSE = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="Show stderr output from the Rust build process",
+        default_desc="Stderr from the build process is suppressed on success",
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
+    SOLANA_SBF_ARCH = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_solana_sbf_arch,
+        help_msg="Target architecture for certora-sbf. Legal values: sbf, v0, v1, v2, v3",
+        default_desc="Default architecture chosen by certora-sbf",
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False
+    )
+
 
 class EvmRuleAttribute(AttrUtil.Attributes):
     RULE = AttrUtil.AttributeDefinition(

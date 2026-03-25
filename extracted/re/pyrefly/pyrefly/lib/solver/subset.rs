@@ -692,7 +692,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             // Resolve Vars inside Unbounded tuples and re-dispatch.
             (Tuple::Unbounded(box Type::Var(v)), Tuple::Concrete(_)) => {
-                let resolved = self.solver.expand_vars(Type::Var(*v));
+                let resolved = self.solver.expand_vars(self.solver.expand_unwrap(*v));
                 if matches!(resolved, Type::Var(_)) {
                     Err(SubsetError::Other)
                 } else {
@@ -1204,7 +1204,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::Any(_), _) => {
                 for var in want.collect_maybe_quantified_vars() {
                     // Variables in `want` now have `Any` as a lower bound.
-                    self.solver.add_lower_bound(var, got.clone());
+                    self.solver
+                        .add_lower_bound(var, got.clone(), &mut |got, want| {
+                            self.is_subset_eq(got, want).is_ok()
+                        });
                 }
                 Ok(())
             }
@@ -1543,9 +1546,23 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 &tensor.base_class.clone().to_type(),
                 &Type::ClassType(cls.clone()),
             ),
-            // Type::Dim is a subtype of int
-            // This allows Dim[N] values to be passed where int parameters are expected
-            (Type::Dim(_), Type::ClassType(cls)) if cls.is_builtin("int") => Ok(()),
+            // NNModule is subtype of its class
+            (Type::NNModule(module), Type::ClassType(cls)) => self.is_subset_eq(
+                &Type::ClassType(module.class.clone()),
+                &Type::ClassType(cls.clone()),
+            ),
+            // NNModule-to-NNModule: delegate to class subtyping
+            (Type::NNModule(got), Type::NNModule(want)) => self.is_subset_eq(
+                &Type::ClassType(got.class.clone()),
+                &Type::ClassType(want.class.clone()),
+            ),
+            // Type::Dim is a subtype of int and float (numeric tower: Dim <: int <: float)
+            // This allows Dim[N] values to be passed where int or float parameters are expected
+            (Type::Dim(_), Type::ClassType(cls))
+                if cls.is_builtin("int") || cls.is_builtin("float") =>
+            {
+                Ok(())
+            }
             (Type::Kwargs(_), _) => {
                 // We know kwargs will always be a dict w/ str keys
                 self.is_subset_eq(

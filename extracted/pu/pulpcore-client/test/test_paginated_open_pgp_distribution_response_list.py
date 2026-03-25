@@ -40,7 +40,7 @@ class TestPaginatedOpenPGPDistributionResponseList(unittest.TestCase):
                 next = 'http://api.example.org/accounts/?offset=400&limit=100',
                 previous = 'http://api.example.org/accounts/?offset=200&limit=100',
                 results = [
-                    pulpcore.client.pulpcore.models.open_pgp_distribution_response.OpenPGPDistributionResponse(
+                    pulpcore.client.pulpcore.models.distribution_response.DistributionResponse(
                         pulp_href = '', 
                         prn = '', 
                         pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -48,6 +48,7 @@ class TestPaginatedOpenPGPDistributionResponseList(unittest.TestCase):
                         base_path = '', 
                         base_url = '', 
                         content_guard = '', 
+                        content_guard_prn = '', 
                         no_content_change_since = '', 
                         hidden = True, 
                         pulp_labels = {
@@ -62,7 +63,7 @@ class TestPaginatedOpenPGPDistributionResponseList(unittest.TestCase):
             return PaginatedOpenPGPDistributionResponseList(
                 count = 123,
                 results = [
-                    pulpcore.client.pulpcore.models.open_pgp_distribution_response.OpenPGPDistributionResponse(
+                    pulpcore.client.pulpcore.models.distribution_response.DistributionResponse(
                         pulp_href = '', 
                         prn = '', 
                         pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -70,6 +71,7 @@ class TestPaginatedOpenPGPDistributionResponseList(unittest.TestCase):
                         base_path = '', 
                         base_url = '', 
                         content_guard = '', 
+                        content_guard_prn = '', 
                         no_content_change_since = '', 
                         hidden = True, 
                         pulp_labels = {

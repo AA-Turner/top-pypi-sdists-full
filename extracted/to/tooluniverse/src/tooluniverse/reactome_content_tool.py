@@ -41,20 +41,29 @@ class ReactomeContentTool(BaseTool):
             return self._query(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"Reactome Content Service timed out after {self.timeout}s"
+                "status": "error",
+                "error": f"Reactome Content Service timed out after {self.timeout}s",
             }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to Reactome Content Service"}
+            return {
+                "status": "error",
+                "error": "Failed to connect to Reactome Content Service",
+            }
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "unknown"
             if code == 404:
                 return {
-                    "error": f"Entity not found: {arguments.get('identifier', arguments.get('query', ''))}"
+                    "status": "error",
+                    "error": f"Entity not found: {arguments.get('identifier', arguments.get('query', ''))}",
                 }
-            return {"error": f"Reactome Content Service HTTP error: {code}"}
+            return {
+                "status": "error",
+                "error": f"Reactome Content Service HTTP error: {code}",
+            }
         except Exception as e:
             return {
-                "error": f"Unexpected error querying Reactome Content Service: {str(e)}"
+                "status": "error",
+                "error": f"Unexpected error querying Reactome Content Service: {str(e)}",
             }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -66,7 +75,7 @@ class ReactomeContentTool(BaseTool):
         elif self.endpoint == "enhanced_pathway":
             return self._get_enhanced_pathway(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     @staticmethod
     def _strip_html(text: Optional[str]) -> Optional[str]:
@@ -80,7 +89,8 @@ class ReactomeContentTool(BaseTool):
         query = arguments.get("query", "")
         if not query:
             return {
-                "error": "query parameter is required (e.g., 'apoptosis', 'TP53', 'cell cycle')"
+                "status": "error",
+                "error": "query parameter is required (e.g., 'apoptosis', 'TP53', 'cell cycle')",
             }
 
         species = arguments.get("species", "Homo sapiens")
@@ -121,6 +131,7 @@ class ReactomeContentTool(BaseTool):
                 )
 
         return {
+            "status": "success",
             "data": {
                 "query": query,
                 "species": species,
@@ -139,7 +150,8 @@ class ReactomeContentTool(BaseTool):
         identifier = arguments.get("identifier", "")
         if not identifier:
             return {
-                "error": "identifier parameter is required (Reactome pathway stable ID, e.g., 'R-HSA-109581')"
+                "status": "error",
+                "error": "identifier parameter is required (Reactome pathway stable ID, e.g., 'R-HSA-109581')",
             }
 
         url = f"{REACTOME_CS_BASE_URL}/data/pathway/{identifier}/containedEvents"
@@ -168,6 +180,7 @@ class ReactomeContentTool(BaseTool):
                 reactions.append(entry)
 
         return {
+            "status": "success",
             "data": {
                 "identifier": identifier,
                 "total_events": len(events),
@@ -187,7 +200,8 @@ class ReactomeContentTool(BaseTool):
         identifier = arguments.get("identifier", "")
         if not identifier:
             return {
-                "error": "identifier parameter is required (Reactome pathway stable ID, e.g., 'R-HSA-109581')"
+                "status": "error",
+                "error": "identifier parameter is required (Reactome pathway stable ID, e.g., 'R-HSA-109581')",
             }
 
         url = f"{REACTOME_CS_BASE_URL}/data/query/enhanced/{identifier}"
@@ -252,6 +266,7 @@ class ReactomeContentTool(BaseTool):
             summation = " ".join(texts)
 
         return {
+            "status": "success",
             "data": {
                 "identifier": data.get("stId"),
                 "name": data.get("displayName"),

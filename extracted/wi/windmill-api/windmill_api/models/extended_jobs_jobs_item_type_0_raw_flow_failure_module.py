@@ -6,6 +6,9 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.extended_jobs_jobs_item_type_0_raw_flow_failure_module_debouncing import (
+        ExtendedJobsJobsItemType0RawFlowFailureModuleDebouncing,
+    )
     from ..models.extended_jobs_jobs_item_type_0_raw_flow_failure_module_mock import (
         ExtendedJobsJobsItemType0RawFlowFailureModuleMock,
     )
@@ -81,6 +84,8 @@ class ExtendedJobsJobsItemType0RawFlowFailureModule:
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, ExtendedJobsJobsItemType0RawFlowFailureModuleRetry]): Retry configuration for failed module
             executions
+        debouncing (Union[Unset, ExtendedJobsJobsItemType0RawFlowFailureModuleDebouncing]): Debounce configuration for
+            this step (EE only)
     """
 
     id: str
@@ -109,6 +114,7 @@ class ExtendedJobsJobsItemType0RawFlowFailureModule:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "ExtendedJobsJobsItemType0RawFlowFailureModuleRetry"] = UNSET
+    debouncing: Union[Unset, "ExtendedJobsJobsItemType0RawFlowFailureModuleDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -195,6 +201,10 @@ class ExtendedJobsJobsItemType0RawFlowFailureModule:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -231,11 +241,16 @@ class ExtendedJobsJobsItemType0RawFlowFailureModule:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.extended_jobs_jobs_item_type_0_raw_flow_failure_module_debouncing import (
+            ExtendedJobsJobsItemType0RawFlowFailureModuleDebouncing,
+        )
         from ..models.extended_jobs_jobs_item_type_0_raw_flow_failure_module_mock import (
             ExtendedJobsJobsItemType0RawFlowFailureModuleMock,
         )
@@ -436,6 +451,13 @@ class ExtendedJobsJobsItemType0RawFlowFailureModule:
         else:
             retry = ExtendedJobsJobsItemType0RawFlowFailureModuleRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, ExtendedJobsJobsItemType0RawFlowFailureModuleDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = ExtendedJobsJobsItemType0RawFlowFailureModuleDebouncing.from_dict(_debouncing)
+
         extended_jobs_jobs_item_type_0_raw_flow_failure_module = cls(
             id=id,
             value=value,
@@ -453,6 +475,7 @@ class ExtendedJobsJobsItemType0RawFlowFailureModule:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         extended_jobs_jobs_item_type_0_raw_flow_failure_module.additional_properties = d

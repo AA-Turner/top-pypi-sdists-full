@@ -5,7 +5,6 @@ pub mod annotation;
 pub mod annotations;
 pub mod boundaries;
 pub mod extraction;
-pub mod field;
 pub(crate) mod index_cache;
 pub mod links;
 pub mod object;

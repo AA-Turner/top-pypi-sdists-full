@@ -99,6 +99,7 @@ def register_tree_plugins() -> None:
             "show": export.print_tree,
             "hshow": export.hprint_tree,
             "vshow": export.vprint_tree,
+            "ishow": export.iprint_tree,
             "yield": export.yield_tree,
             "hyield": export.hyield_tree,
             "vyield": export.vyield_tree,
@@ -107,12 +108,24 @@ def register_tree_plugins() -> None:
             "to_dict": export.tree_to_dict,
             "to_nested_dict": export.tree_to_nested_dict,
             "to_nested_dict_key": export.tree_to_nested_dict_key,
+            "to_html": export.tree_to_html,
             "to_newick": export.tree_to_newick,
             "to_dot": export.tree_to_dot,
             "to_pillow_graph": export.tree_to_pillow_graph,
             "to_pillow": export.tree_to_pillow,
             "to_mermaid": export.tree_to_mermaid,
             "to_vis": export.tree_to_vis,
+            # Iterator methods
+            "preorder_iter": iterators.preorder_iter,
+            "postorder_iter": iterators.postorder_iter,
+            "levelorder_iter": iterators.levelorder_iter,
+            "levelordergroup_iter": iterators.levelordergroup_iter,
+            "zigzag_iter": iterators.zigzag_iter,
+            "zigzaggroup_iter": iterators.zigzaggroup_iter,
+            # Modify methods
+            "shift_nodes": modify.shift_nodes,
+            "copy_nodes": modify.copy_nodes,
+            "shift_and_replace_nodes": modify.shift_and_replace_nodes,
             # Query methods
             "query": query.query_tree,
             # Search methods
@@ -130,17 +143,6 @@ def register_tree_plugins() -> None:
             "find_children": search.find_children,
             "find_child": search.find_child,
             "find_child_by_name": search.find_child_by_name,
-            # Iterator methods
-            "preorder_iter": iterators.preorder_iter,
-            "postorder_iter": iterators.postorder_iter,
-            "levelorder_iter": iterators.levelorder_iter,
-            "levelordergroup_iter": iterators.levelordergroup_iter,
-            "zigzag_iter": iterators.zigzag_iter,
-            "zigzaggroup_iter": iterators.zigzaggroup_iter,
-            # Modify methods
-            "shift_nodes": modify.shift_nodes,
-            "copy_nodes": modify.copy_nodes,
-            "shift_and_replace_nodes": modify.shift_and_replace_nodes,
         }
     )
     Tree.register_plugins(

@@ -19,7 +19,7 @@ pub use quality::{calculate_quality_score, clean_extracted_text, normalize_space
 pub use quality_processor::QualityProcessor;
 
 #[cfg(feature = "quality")]
-pub use string_utils::{calculate_text_confidence, fix_mojibake, get_encoding_cache_key, safe_decode};
+pub use string_utils::{calculate_text_confidence, fix_mojibake, safe_decode};
 
 #[cfg(feature = "quality")]
 pub use token_reduction::{

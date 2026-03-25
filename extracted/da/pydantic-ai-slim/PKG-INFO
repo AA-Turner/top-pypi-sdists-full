@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 1.70.0
+Version: 1.71.0
 Summary: Agent Framework / shim to use Pydantic with LLMs, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -34,7 +34,7 @@ Requires-Dist: genai-prices>=0.0.48
 Requires-Dist: griffelib>=2.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==1.70.0
+Requires-Dist: pydantic-graph==1.71.0
 Requires-Dist: pydantic>=2.12
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: a2a
@@ -50,6 +50,7 @@ Provides-Extra: cli
 Requires-Dist: argcomplete>=3.5.0; extra == 'cli'
 Requires-Dist: prompt-toolkit>=3; extra == 'cli'
 Requires-Dist: pyperclip>=1.9.0; extra == 'cli'
+Requires-Dist: pyyaml>=6.0.2; extra == 'cli'
 Requires-Dist: rich>=13; extra == 'cli'
 Provides-Extra: cohere
 Requires-Dist: cohere>=5.20.6; (platform_system != 'Emscripten') and extra == 'cohere'
@@ -58,7 +59,7 @@ Requires-Dist: dbos>=2.10.0; extra == 'dbos'
 Provides-Extra: duckduckgo
 Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==1.70.0; extra == 'evals'
+Requires-Dist: pydantic-evals==1.71.0; extra == 'evals'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.0.0; extra == 'exa'
 Provides-Extra: fastmcp
@@ -76,7 +77,7 @@ Requires-Dist: mcp<2.0,>=1.25.0; extra == 'mcp'
 Provides-Extra: mistral
 Requires-Dist: mistralai>=1.9.11; extra == 'mistral'
 Provides-Extra: openai
-Requires-Dist: openai>=2.25.0; extra == 'openai'
+Requires-Dist: openai>=2.29.0; extra == 'openai'
 Requires-Dist: tiktoken>=0.12.0; extra == 'openai'
 Provides-Extra: openrouter
 Requires-Dist: openai>=2.8.0; extra == 'openrouter'
@@ -102,6 +103,9 @@ Provides-Extra: retries
 Requires-Dist: tenacity>=8.2.3; extra == 'retries'
 Provides-Extra: sentence-transformers
 Requires-Dist: sentence-transformers>=5.2.0; (python_version < '3.14') and extra == 'sentence-transformers'
+Provides-Extra: spec
+Requires-Dist: pydantic-handlebars>=0.1.0; extra == 'spec'
+Requires-Dist: pyyaml>=6.0.2; extra == 'spec'
 Provides-Extra: tavily
 Requires-Dist: tavily-python>=0.5.0; extra == 'tavily'
 Provides-Extra: temporal

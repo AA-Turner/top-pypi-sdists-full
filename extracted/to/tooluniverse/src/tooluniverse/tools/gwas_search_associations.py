@@ -1,7 +1,7 @@
 """
 gwas_search_associations
 
-Search for GWAS associations by various criteria including disease trait, rs ID, accession ID, wi...
+Search the GWAS Catalog for genome-wide association study results by keyword. Accepts free-text d...
 """
 
 from typing import Any, Optional, Callable
@@ -10,11 +10,14 @@ from ._shared_client import get_shared_client
 
 def gwas_search_associations(
     disease_trait: Optional[str] = None,
+    query: Optional[str] = None,
     efo_uri: Optional[str] = None,
     efo_id: Optional[str] = None,
     efo_trait: Optional[str] = None,
     rs_id: Optional[str] = None,
     accession_id: Optional[str] = None,
+    p_value: Optional[float] = None,
+    p_value_threshold: Optional[float] = None,
     sort: Optional[str] = None,
     direction: Optional[str] = None,
     size: Optional[int] = None,
@@ -25,12 +28,14 @@ def gwas_search_associations(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Search for GWAS associations by various criteria including disease trait, rs ID, accession ID, wi...
+    Search the GWAS Catalog for genome-wide association study results by keyword. Accepts free-text d...
 
     Parameters
     ----------
     disease_trait : str
         Disease or trait name for text-based search (e.g., 'diabetes', 'coronary arte...
+    query : str
+        Alias for disease_trait. Disease or trait name (e.g., 'type 2 diabetes'). NOT...
     efo_uri : str
         Full EFO ontology URI (e.g., 'http://www.ebi.ac.uk/efo/EFO_0001645')
     efo_id : str
@@ -41,6 +46,10 @@ def gwas_search_associations(
         dbSNP rs identifier
     accession_id : str
         Study accession identifier
+    p_value : float
+        Maximum p-value threshold for filtering (e.g., 5e-8 for genome-wide significa...
+    p_value_threshold : float
+        Alias for p_value: maximum p-value threshold.
     sort : str
         Sort field (e.g., 'p_value', 'or_value')
     direction : str
@@ -67,11 +76,14 @@ def gwas_search_associations(
         k: v
         for k, v in {
             "disease_trait": disease_trait,
+            "query": query,
             "efo_uri": efo_uri,
             "efo_id": efo_id,
             "efo_trait": efo_trait,
             "rs_id": rs_id,
             "accession_id": accession_id,
+            "p_value": p_value,
+            "p_value_threshold": p_value_threshold,
             "sort": sort,
             "direction": direction,
             "size": size,

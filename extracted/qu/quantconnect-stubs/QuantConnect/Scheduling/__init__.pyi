@@ -1166,6 +1166,14 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         """
         ...
 
+    def set_event_schedule(self, event_schedule: QuantConnect.Scheduling.IEventSchedule) -> None:
+        """
+        Sets the IEventSchedule implementation
+        
+        :param event_schedule: The event schedule implementation to be used. This is the IRealTimeHandler
+        """
+        ...
+
     @overload
     def training(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, training_code: typing.Any) -> QuantConnect.Scheduling.ScheduledEvent:
         """

@@ -79,14 +79,12 @@ class ProteinsAPIRESTTool(BaseTool):
             # gene, protein, accession, organism, taxid, etc.
             if "query" in args:
                 query = args["query"]
-                # Try to intelligently map query to the right parameter
-                # If it looks like an accession (starts with letter and 5-6 chars)
+                # Feature-81B-007: always use gene param for short queries —
+                # gene names like CYP2D6 are 6 chars and were incorrectly
+                # classified as UniProt accessions. For accession lookup,
+                # use proteins_api_get_protein with an explicit accession.
                 if query and len(query) <= 10 and any(c.isalpha() for c in query):
-                    if query[0].isalpha() and len(query) == 6:
-                        params["accession"] = query
-                    else:
-                        # Default to gene parameter (works for gene names like BRCA1)
-                        params["gene"] = query
+                    params["gene"] = query
                 else:
                     # For longer queries, try protein parameter
                     params["protein"] = query
@@ -96,6 +94,8 @@ class ProteinsAPIRESTTool(BaseTool):
                 params["offset"] = args["offset"]
             # Feature-69A-007: Default to human (taxId 9606) to avoid non-human proteins
             # appearing before human proteins. User can override with organism param.
+            if "reviewed" in args:
+                params["reviewed"] = str(args["reviewed"]).lower()
             if "organism" in args:
                 params["organism"] = args["organism"]
             elif "taxid" in args:
@@ -402,6 +402,12 @@ class ProteinsAPIRESTTool(BaseTool):
             "proteins_api_get_genome_mappings",
         ]
 
+        # Feature-111B-007: gene_symbol/gene as aliases for query in proteins_api_search
+        if tool_name == "proteins_api_search" and not arguments.get("query"):
+            gene_alias = arguments.get("gene_symbol") or arguments.get("gene")
+            if gene_alias:
+                arguments = dict(arguments, query=gene_alias)
+
         if tool_name in batch_tools and "accession" in arguments:
             accession = arguments.get("accession")
             accessions = self._parse_accessions(accession)
@@ -449,6 +455,35 @@ class ProteinsAPIRESTTool(BaseTool):
 
             response.raise_for_status()
             data = response.json()
+
+            # Cap features per entry to avoid 25MB+ responses for heavily-annotated proteins
+            if tool_name == "proteins_api_get_variants" and isinstance(data, list):
+                max_variants = int(arguments.get("max_variants", 200))
+                for entry in data:
+                    if isinstance(entry, dict) and "features" in entry:
+                        features = entry["features"]
+                        if len(features) > max_variants:
+                            entry["features"] = features[:max_variants]
+                            entry["features_truncated"] = True
+                            entry["total_features"] = len(features)
+
+            # For gene-name searches, sort exact gene matches to the top
+            if (
+                tool_name == "proteins_api_search"
+                and isinstance(data, list)
+                and "query" in arguments
+            ):
+                query_upper = arguments["query"].strip().upper()
+
+                def _gene_sort_key(entry):
+                    primary = (
+                        entry.get("gene", [{}])[0].get("name", {}).get("value", "")
+                        if entry.get("gene")
+                        else ""
+                    )
+                    return 0 if primary.upper() == query_upper else 1
+
+                data = sorted(data, key=_gene_sort_key)
 
             response_data = {
                 "status": "success",

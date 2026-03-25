@@ -1,7 +1,7 @@
 """
 HMDB_get_metabolite
 
-Get human metabolite information from HMDB by ID. Returns basic chemical properties via PubChem c...
+Alias for Metabolite_get_info. Get compound information by HMDB ID, compound name, or PubChem CID.
 """
 
 from typing import Any, Optional, Callable
@@ -9,22 +9,25 @@ from ._shared_client import get_shared_client
 
 
 def HMDB_get_metabolite(
-    operation: str,
-    hmdb_id: str,
+    operation: Optional[str] = None,
+    hmdb_id: Optional[str] = None,
+    compound_name: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
-    Get human metabolite information from HMDB by ID. Returns basic chemical properties via PubChem c...
+    Alias for Metabolite_get_info. Get compound information by HMDB ID, compound name, or PubChem CID.
 
     Parameters
     ----------
     operation : str
 
     hmdb_id : str
-        HMDB ID (e.g., HMDB0000001 or 0000001)
+        HMDB ID (e.g., HMDB0000122)
+    compound_name : str
+        Compound name (e.g., glucose)
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -34,14 +37,18 @@ def HMDB_get_metabolite(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 
     # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
-        for k, v in {"operation": operation, "hmdb_id": hmdb_id}.items()
+        for k, v in {
+            "operation": operation,
+            "hmdb_id": hmdb_id,
+            "compound_name": compound_name,
+        }.items()
         if v is not None
     }
     return get_shared_client().run_one_function(

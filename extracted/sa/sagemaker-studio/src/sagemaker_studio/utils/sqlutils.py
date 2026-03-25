@@ -1,8 +1,20 @@
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union
 
 from sagemaker_studio.connections.helper_factory import HelperFactory
 from sagemaker_studio.project import Project
+from sagemaker_studio.sql_engine.sql_executor import ErrorStrategy
+
+
+class ConnectionConfig(TypedDict, total=False):
+    """Connection configuration.
+
+    Attributes:
+        type: Connection type (e.g., 'spark')
+    """
+
+    type: str
+
 
 logger = logging.getLogger()
 logger.info("Importing sqlutils")
@@ -17,30 +29,89 @@ def sql(
     parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
     connection_id: Optional[str] = None,
     connection_name: Optional[str] = None,
+    connection: Optional[ConnectionConfig] = None,
     **kwargs,
 ):
     """
-    Executes a SQL query on the specified connection and returns the result as a DataFrame.
+    Executes a SQL query on the specified connection and returns the result.
 
     Args:
         query (str): The SQL query to execute.
         parameters (Optional[Union[Dict[str, Any], List[str]]]): Optional parameters for the query.
         connection_id (Optional[str]): The ID of the DataZone connection to use for the query.
         connection_name (Optional[str]): The name of the DataZone connection to use for the query.
+        connection (Optional[ConnectionConfig]): Connection details including type (e.g., {"type": "spark"}).
 
     Returns:
-        DataFrame: The result of the SQL query as a DataFrame.
+        DataFrame: Result of the SQL query execution.
 
     Raises:
         RuntimeError: If Project is not initialized when using connection_name or if there's an error executing the SQL query.
     """
+    if _is_spark_connection(connection):
+        spark = _ensure_spark()
+        return spark.sql(query)
 
     engine = get_engine(connection_id, connection_name, **kwargs)
     if engine:
-        return _ensure_sql_executor().execute(engine, query, parameters)
+        result = next(_ensure_sql_executor().execute(engine, query, parameters))
+        return result.result
     else:
         # Execute query locally using DuckDB if no connection specified
         return (lambda x: x.df() if x else None)(_ensure_duckdb().sql(query))
+
+
+def sql_stream(
+    query: str,
+    parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
+    connection_id: Optional[str] = None,
+    connection_name: Optional[str] = None,
+    connection: Optional[ConnectionConfig] = None,
+    error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
+    **kwargs,
+):
+    """
+    Execute SQL statements and stream results progressively.
+
+    Args:
+        query (str): The SQL query to execute (can contain multiple statements).
+        parameters (Optional[Union[Dict[str, Any], List[str]]]): Optional parameters for the query.
+        connection_id (Optional[str]): The ID of the DataZone connection to use for the query.
+        connection_name (Optional[str]): The name of the DataZone connection to use for the query.
+        connection (Optional[ConnectionConfig]): Connection details including type (e.g., {"type": "spark"}).
+        error_strategy (str): Error handling strategy - STOP_ON_ERROR (default) or CONTINUE_ON_ERROR.
+
+    Returns:
+        Generator[ExecutionResult]: Generator yielding ExecutionResult for each statement.
+
+    Raises:
+        RuntimeError: If Project is not initialized when using connection_name or if there's an error executing the SQL query.
+    """
+    if _is_spark_connection(connection):
+        from sagemaker_studio.sql_engine.spark_transformer import SparkTransformer
+        from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
+
+        spark = _ensure_spark()
+        statements = SparkTransformer.split_query(query)
+        return SqlExecutor.execute_statements(
+            statements,
+            lambda stmt: spark.sql(stmt),
+            error_strategy,
+        )
+
+    engine = get_engine(connection_id, connection_name, **kwargs)
+    if engine:
+        return _ensure_sql_executor().execute(engine, query, parameters, error_strategy)
+    else:
+        from sagemaker_studio.sql_engine.duckdb_transformer import DuckDBTransformer
+        from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
+
+        statements = DuckDBTransformer.split_query(query)
+        return SqlExecutor.execute_statements(
+            statements,
+            lambda stmt: (lambda x: x.df() if x else None)(_ensure_duckdb().sql(stmt)),
+            error_strategy,
+        )
 
 
 def get_engine(
@@ -116,13 +187,47 @@ def _ensure_duckdb():
 
 
 def _ensure_sql_executor():
-    """Initialize Project on demand"""
+    """Initialize SqlExecutor on demand"""
     global _sql_executor
     if _sql_executor is None:
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
         _sql_executor = SqlExecutor()
     return _sql_executor
+
+
+def _ensure_spark():
+    """Get Spark session from kernel namespace"""
+    try:
+        from IPython import get_ipython
+
+        ipython = get_ipython()
+        if ipython is None:
+            raise RuntimeError("IPython kernel not available")
+
+        spark = ipython.user_ns.get("spark")
+        if spark is None:
+            raise RuntimeError("Spark session not initialized in kernel namespace")
+
+        return spark
+    except ImportError:
+        raise RuntimeError("IPython not available - Spark execution requires Jupyter kernel")
+
+
+def _is_spark_connection(connection: Optional[ConnectionConfig] = None) -> bool:
+    """Check if connection dict specifies Spark"""
+    if not connection:
+        return False
+
+    conn_type = connection.get("type", "")
+    if conn_type == "spark":
+        return True
+    elif conn_type:
+        raise ValueError(
+            f"connection object is currently supported for Spark only. "
+            f"Use connection_id or connection_name for other engines. Got type: {conn_type}"
+        )
+    return False
 
 
 logger.info("Finished importing sqlutils")

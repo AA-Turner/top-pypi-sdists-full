@@ -165,3 +165,57 @@ pub fn extract_gzip_text_content(bytes: &[u8], limits: &SecurityLimits) -> Resul
 
     Ok(contents)
 }
+
+/// Return type for `extract_gzip_with_bytes`: metadata, text content map, and raw file bytes map.
+type GzipWithBytesResult = (ArchiveMetadata, HashMap<String, String>, HashMap<String, Vec<u8>>);
+
+/// Extract metadata, text content, and raw file bytes from gzip in a single pass.
+///
+/// Similar to `extract_gzip` but also returns the raw file bytes for recursive extraction.
+/// For TAR-within-GZIP, delegates to TAR file bytes extraction.
+pub fn extract_gzip_with_bytes(bytes: &[u8], limits: &SecurityLimits) -> Result<GzipWithBytesResult> {
+    let decompressed = decompress_gzip_limited(bytes, limits.max_archive_size as u64)?;
+
+    // Check if the decompressed data is a TAR archive
+    if is_tar_archive(&decompressed) {
+        let mut metadata = super::tar::extract_tar_metadata(&decompressed, limits)?;
+        metadata.format = "GZIP+TAR".to_string();
+        let contents = super::tar::extract_tar_text_content(&decompressed, limits)?;
+        let file_bytes = super::tar::extract_tar_file_bytes(&decompressed, limits)?;
+        return Ok((metadata, contents, file_bytes));
+    }
+
+    // Re-read header for filename (lightweight - no decompression)
+    let mut decoder = GzDecoder::new(bytes);
+    let mut _discard = [0u8; 1];
+    let _ = decoder.read(&mut _discard);
+    let filename = decoder
+        .header()
+        .and_then(|h| h.filename())
+        .and_then(|f| std::str::from_utf8(f).ok())
+        .unwrap_or("compressed_content")
+        .to_string();
+
+    let size = decompressed.len() as u64;
+
+    let metadata = ArchiveMetadata {
+        format: "GZIP".to_string(),
+        file_list: vec![ArchiveEntry {
+            path: filename.clone(),
+            size,
+            is_dir: false,
+        }],
+        file_count: 1,
+        total_size: size,
+    };
+
+    let mut file_bytes = HashMap::new();
+    file_bytes.insert(filename.clone(), decompressed.clone());
+
+    let mut contents = HashMap::new();
+    if let Ok(text) = String::from_utf8(decompressed) {
+        contents.insert(filename, text);
+    }
+
+    Ok((metadata, contents, file_bytes))
+}

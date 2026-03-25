@@ -35,13 +35,13 @@ use crate::error::error::Error;
 use crate::state::errors::find_containing_range;
 use crate::state::errors::sorted_multi_line_fstring_ranges;
 
-/// Regex to match pyrefly/type ignore comments with optional error codes and trailing text.
+/// Regex to match pyrefly/type/pyre ignore comments with optional error codes and trailing text.
 /// Consumes all non-`#` characters after the ignore pattern, so trailing comment text is
 /// removed, but a separate `# ...` comment is preserved
 /// (e.g., "# pyrefly: ignore [x] # other" -> "# other").
 static IGNORE_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r"#\s*pyrefly:\s*ignore\s*(\[[^\]]*\])?\s*(?:;\s*)?[^#]*|#\s*type:\s*ignore\s*(\[[^\]]*\])?\s*(?:;\s*)?[^#]*",
+        r"#\s*pyrefly:\s*ignore\s*(\[[^\]]*\])?\s*(?:;\s*)?[^#]*|#\s*type:\s*ignore\s*(\[[^\]]*\])?\s*(?:;\s*)?[^#]*|#\s*pyre-(?:fixme|ignore)\s*(\[[^\]]*\])?\s*(?:;\s*)?[^#]*|#\s*pyre:\s*ignore\s*(\[[^\]]*\])?\s*(?:;\s*)?[^#]*",
     )
     .unwrap()
 });
@@ -83,6 +83,12 @@ impl SerializedError {
     /// Returns true if this error is an UnusedIgnore error.
     pub fn is_unused_ignore(&self) -> bool {
         self.name == ErrorKind::UnusedIgnore.to_name()
+    }
+
+    /// Returns true if this error is a directive (e.g. reveal_type) that
+    /// should never be suppressed.
+    pub fn is_directive(&self) -> bool {
+        self.name == ErrorKind::RevealType.to_name()
     }
 }
 
@@ -494,8 +500,12 @@ pub fn remove_unused_ignores_from_serialized(unused_ignore_errors: Vec<Serialize
                         if IGNORE_COMMENT_REGEX.is_match(comment_part) {
                             let msg = &error.message;
 
-                            // Determine action based on error message
-                            if msg.starts_with("Unused `# pyrefly: ignore` comment") {
+                            // Determine action based on error message.
+                            // Pyrefly messages start with "Unused `# pyrefly: ignore`".
+                            // Pyre messages are "Unused pyre-fixme comment".
+                            if msg.starts_with("Unused `# pyrefly: ignore` comment")
+                                || msg.starts_with("Unused pyre-fixme comment")
+                            {
                                 // Remove entire comment (blanket unused or all codes unused)
                                 let code_part = &line[..comment_start];
                                 let new_comment =
@@ -594,7 +604,7 @@ mod tests {
         let (errors, tdir) = get_errors(before);
         let suppressable_errors: Vec<SerializedError> = errors
             .collect_errors()
-            .shown
+            .ordinary
             .iter()
             .filter(|e| e.severity() >= Severity::Warn)
             .filter_map(SerializedError::from_error)
@@ -606,7 +616,8 @@ mod tests {
 
     fn assert_remove_ignores(before: &str, after: &str, expected_removals: usize) {
         let (errors, tdir) = get_errors(before);
-        let unused_errors = errors.collect_unused_ignore_errors();
+        let collected = errors.collect_errors();
+        let unused_errors = errors.collect_unused_ignore_errors(&collected);
         let removals = suppress::remove_unused_ignores(unused_errors);
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(after, got_file);
@@ -1663,5 +1674,102 @@ build_query(
 """
 "#,
         );
+    }
+
+    #[test]
+    fn test_remove_unused_pyre_fixme_inline() {
+        let input = "x = 1  # pyre-fixme\n";
+        let want = "x = 1\n";
+        let errors = vec![SerializedError {
+            path: PathBuf::from("test.py"),
+            line: 0,
+            name: "unused-ignore".to_owned(),
+            message: "Unused pyre-fixme comment".to_owned(),
+        }];
+        assert_remove_ignores_from_serialized(input, errors, want, 1);
+    }
+
+    #[test]
+    fn test_remove_unused_pyre_ignore_inline() {
+        let input = "x = 1  # pyre-ignore\n";
+        let want = "x = 1\n";
+        let errors = vec![SerializedError {
+            path: PathBuf::from("test.py"),
+            line: 0,
+            name: "unused-ignore".to_owned(),
+            message: "Unused pyre-fixme comment".to_owned(),
+        }];
+        assert_remove_ignores_from_serialized(input, errors, want, 1);
+    }
+
+    #[test]
+    fn test_remove_unused_pyre_fixme_above() {
+        let input = "# pyre-fixme[7]\nx = 1\n";
+        let want = "x = 1\n";
+        let errors = vec![SerializedError {
+            path: PathBuf::from("test.py"),
+            line: 0,
+            name: "unused-ignore".to_owned(),
+            message: "Unused pyre-fixme comment".to_owned(),
+        }];
+        assert_remove_ignores_from_serialized(input, errors, want, 1);
+    }
+
+    #[test]
+    fn test_remove_unused_pyre_fixme_with_description() {
+        let input = "x = 1  # pyre-fixme[7]: Expected `int` but got `str`\n";
+        let want = "x = 1\n";
+        let errors = vec![SerializedError {
+            path: PathBuf::from("test.py"),
+            line: 0,
+            name: "unused-ignore".to_owned(),
+            message: "Unused pyre-fixme comment".to_owned(),
+        }];
+        assert_remove_ignores_from_serialized(input, errors, want, 1);
+    }
+
+    #[test]
+    fn test_remove_unused_pyre_colon_ignore() {
+        let input = "x = 1  # pyre: ignore\n";
+        let want = "x = 1\n";
+        let errors = vec![SerializedError {
+            path: PathBuf::from("test.py"),
+            line: 0,
+            name: "unused-ignore".to_owned(),
+            message: "Unused pyre-fixme comment".to_owned(),
+        }];
+        assert_remove_ignores_from_serialized(input, errors, want, 1);
+    }
+
+    #[test]
+    fn test_remove_unused_pyre_fixme_preserves_other_comments() {
+        let input = "x = 1  # pyre-fixme # important note\n";
+        let want = "x = 1  # important note\n";
+        let errors = vec![SerializedError {
+            path: PathBuf::from("test.py"),
+            line: 0,
+            name: "unused-ignore".to_owned(),
+            message: "Unused pyre-fixme comment".to_owned(),
+        }];
+        assert_remove_ignores_from_serialized(input, errors, want, 1);
+    }
+
+    #[test]
+    fn test_remove_unused_pyre_fixme_preserves_string_literal() {
+        let tdir = tempfile::tempdir().unwrap();
+        let path = get_path(&tdir);
+        let input = "x = \"# pyre-fixme\"\ny = 1  # pyre-fixme\n";
+        let want = "x = \"# pyre-fixme\"\ny = 1\n";
+        fs_anyhow::write(&path, input).unwrap();
+        let errors = vec![SerializedError {
+            path: path.clone(),
+            line: 1,
+            name: "unused-ignore".to_owned(),
+            message: "Unused pyre-fixme comment".to_owned(),
+        }];
+        let removals = suppress::remove_unused_ignores_from_serialized(errors);
+        let got = fs_anyhow::read_to_string(&path).unwrap();
+        assert_eq!(want, got);
+        assert_eq!(removals, 1);
     }
 }

@@ -362,6 +362,8 @@ class ToolUniverse:
         self.all_tools: List[Dict[str, Any]] = []
         self.all_tool_dict: Dict[str, Dict[str, Any]] = {}
         self.tool_category_dicts: Dict[str, List[Dict[str, Any]]] = {}
+        # Maps tool name → missing required API key names (for better "not found" errors)
+        self._excluded_api_key_tools: Dict[str, List[str]] = {}
         self.tool_finder = None
         if tool_files is None:
             tool_files = default_tool_files
@@ -938,6 +940,7 @@ class ToolUniverse:
             self.all_tools = []
             self.all_tool_dict = {}
             self.tool_category_dicts = {}
+            self._excluded_api_key_tools = {}
 
         # Handle tools_file parameter (alternative to include_tools)
         if tools_file:
@@ -1263,6 +1266,7 @@ class ToolUniverse:
                 )
                 if not all_keys_available:
                     all_missing_keys.update(missing_keys)
+                    self._excluded_api_key_tools[tool_name] = list(missing_keys)
                     self.logger.debug(
                         f"Skipping tool '{tool_name}' due to missing API keys: {', '.join(missing_keys)}"
                     )
@@ -1524,6 +1528,10 @@ class ToolUniverse:
             )
             for _tool_type, config in discovered_configs.items():
                 if "name" in config and config["name"] not in existing_names:
+                    # Ensure the config has a "type" field so init_tool can find the class.
+                    # Make a shallow copy to avoid mutating the shared registry dict.
+                    if "type" not in config:
+                        config = {**config, "type": _tool_type}
                     self.all_tools.append(config)
                     existing_names.add(config["name"])
                     self.logger.debug(f"Added auto-discovered config: {config['name']}")
@@ -1767,7 +1775,8 @@ class ToolUniverse:
             else:
                 # For invalid string modes, return error info instead of raising
                 return {
-                    "error": f"Invalid mode '{mode}'. Must be one of: 'config', 'type', 'list_name', 'list_spec'"
+                    "status": "error",
+                    "error": f"Invalid mode '{mode}'. Must be one of: 'config', 'type', 'list_name', 'list_spec'",
                 }
 
         # For list_name and list_spec modes, we can return early with just the data
@@ -3119,9 +3128,15 @@ class ToolUniverse:
                             validate,
                         )
                     else:
-                        error_msg = (
-                            f"Tool '{function_name}' not found even after loading tools"
-                        )
+                        _missing_keys = self._excluded_api_key_tools.get(function_name)
+                        if _missing_keys:
+                            error_msg = (
+                                f"Tool '{function_name}' requires API key(s) not set: "
+                                f"{', '.join(_missing_keys)}. "
+                                "Set them as environment variables and retry."
+                            )
+                        else:
+                            error_msg = f"Tool '{function_name}' not found even after loading tools"
                         return self._create_dual_format_error(
                             ToolUnavailableError(
                                 error_msg,
@@ -3295,9 +3310,17 @@ class ToolUniverse:
                         validate,
                     )
                 else:
-                    error_msg = (
-                        f"Tool '{function_name}' not found even after loading tools"
-                    )
+                    _missing_keys = self._excluded_api_key_tools.get(function_name)
+                    if _missing_keys:
+                        error_msg = (
+                            f"Tool '{function_name}' requires API key(s) not set: "
+                            f"{', '.join(_missing_keys)}. "
+                            "Set them as environment variables and retry."
+                        )
+                    else:
+                        error_msg = (
+                            f"Tool '{function_name}' not found even after loading tools"
+                        )
                     return self._create_dual_format_error(
                         ToolUnavailableError(
                             error_msg,
@@ -3805,6 +3828,14 @@ class ToolUniverse:
 
             # Check again after loading
             if function_name not in self.all_tool_dict:
+                missing_keys = self._excluded_api_key_tools.get(function_name)
+                if missing_keys:
+                    return ToolUnavailableError(
+                        f"Tool '{function_name}' requires API key(s) not set: "
+                        f"{', '.join(missing_keys)}. "
+                        "Set them as environment variables and retry.",
+                        retriable=False,
+                    )
                 return ToolUnavailableError(
                     f"Tool '{function_name}' not found even after loading tools",
                     retriable=False,
@@ -3996,6 +4027,7 @@ class ToolUniverse:
 
         # Summary for all tools
         return {
+            "status": "success",
             "total": len(self.all_tool_dict),
             "available": len(self.all_tool_dict) - len(tool_errors),
             "unavailable": len(tool_errors),

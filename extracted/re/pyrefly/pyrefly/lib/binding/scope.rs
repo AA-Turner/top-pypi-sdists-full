@@ -1994,6 +1994,18 @@ impl Scopes {
         Some(self.current().flow.get_info(name)?.value()?.idx)
     }
 
+    /// Get the flow idx for `name` in the current fork's **base** flow (the flow captured
+    /// at `start_fork` time, before any branches were started).
+    ///
+    /// This is used to look up names for exhaustiveness bindings, where the current flow
+    /// is empty (reset by `finish_branch`) but we need the correctly-narrowed type from
+    /// the enclosing context in which the if/elif statement appears.
+    ///
+    /// Returns `None` if there is no active fork or the name is not in the base flow.
+    pub fn current_fork_base_idx(&self, name: &Name) -> Option<Idx<Key>> {
+        Some(self.current().forks.last()?.base.get_info(name)?.idx())
+    }
+
     /// Return the current binding index and flow style for `name`, if it exists
     /// in any enclosing scope.
     pub fn binding_idx_for_name(&self, name: &Name) -> Option<(Idx<Key>, FlowStyle)> {
@@ -2099,6 +2111,25 @@ impl Scopes {
         }
     }
 
+    fn is_parameter_used(&self, name: &Name) -> bool {
+        match &self.current().kind {
+            ScopeKind::Function(scope) => {
+                scope.parameters.get(name).is_some_and(|usage| usage.used)
+            }
+            ScopeKind::Method(scope) => scope.parameters.get(name).is_some_and(|usage| usage.used),
+            _ => false,
+        }
+    }
+
+    /// Check if a name is declared as `global` or `nonlocal` in the current scope.
+    fn is_mutable_capture(&self, name: &Name) -> bool {
+        self.current()
+            .stat
+            .0
+            .get(name)
+            .is_some_and(|info| matches!(info.style, StaticStyle::MutableCapture(_)))
+    }
+
     pub fn register_import(&mut self, name: &Identifier) {
         self.register_import_internal(name, false);
     }
@@ -2159,21 +2190,27 @@ impl Scopes {
     }
 
     pub fn register_variable(&mut self, name: &Identifier) {
-        // Track variables in Module, Function, and Method scopes
+        // Track variables in Module, Function, and Method scopes.
         // Module-level variables won't be reported as unused since they can be imported
-        // by other modules, but function/method-level variables will be reported
+        // by other modules, but function/method-level variables will be reported.
         if matches!(
             self.current().kind,
             ScopeKind::Module | ScopeKind::Function(_) | ScopeKind::Method(_)
         ) {
-            // Preserve the `used` flag if the variable was already marked as used
+            // Don't track variables declared as `global` or `nonlocal` — they are
+            // visible to other scopes and can't be considered locally unused.
+            if self.is_mutable_capture(&name.id) {
+                return;
+            }
+            // Preserve the `used` flag if the variable was already marked as used.
             // This handles cases like `foo = foo + 1` in loops where the variable
             // is read before being reassigned
             let was_used = self
                 .current()
                 .variables
                 .get(&name.id)
-                .is_some_and(|usage| usage.used);
+                .is_some_and(|usage| usage.used)
+                || self.is_parameter_used(&name.id);
             self.current_mut().variables.insert(
                 name.id.clone(),
                 VariableUsage {

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-jsonschema"
-version = "4.26.0.20260324"
+version = "4.26.0.20260325"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for jsonschema"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`26380ee31c279c7cbb9deb75190491dc2d31d2d7`](https://github.com/python/typeshed/commit/26380ee31c279c7cbb9deb75190491dc2d31d2d7).
+[`b7ac9ee664037da280f9d162600161c6807db404`](https://github.com/python/typeshed/commit/b7ac9ee664037da280f9d162600161c6807db404).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

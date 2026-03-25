@@ -6,6 +6,9 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_job_response_200_type_0_raw_flow_failure_module_debouncing import (
+        GetJobResponse200Type0RawFlowFailureModuleDebouncing,
+    )
     from ..models.get_job_response_200_type_0_raw_flow_failure_module_mock import (
         GetJobResponse200Type0RawFlowFailureModuleMock,
     )
@@ -81,6 +84,8 @@ class GetJobResponse200Type0RawFlowFailureModule:
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleRetry]): Retry configuration for failed module
             executions
+        debouncing (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleDebouncing]): Debounce configuration for this
+            step (EE only)
     """
 
     id: str
@@ -109,6 +114,7 @@ class GetJobResponse200Type0RawFlowFailureModule:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "GetJobResponse200Type0RawFlowFailureModuleRetry"] = UNSET
+    debouncing: Union[Unset, "GetJobResponse200Type0RawFlowFailureModuleDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -195,6 +201,10 @@ class GetJobResponse200Type0RawFlowFailureModule:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -231,11 +241,16 @@ class GetJobResponse200Type0RawFlowFailureModule:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_job_response_200_type_0_raw_flow_failure_module_debouncing import (
+            GetJobResponse200Type0RawFlowFailureModuleDebouncing,
+        )
         from ..models.get_job_response_200_type_0_raw_flow_failure_module_mock import (
             GetJobResponse200Type0RawFlowFailureModuleMock,
         )
@@ -432,6 +447,13 @@ class GetJobResponse200Type0RawFlowFailureModule:
         else:
             retry = GetJobResponse200Type0RawFlowFailureModuleRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, GetJobResponse200Type0RawFlowFailureModuleDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = GetJobResponse200Type0RawFlowFailureModuleDebouncing.from_dict(_debouncing)
+
         get_job_response_200_type_0_raw_flow_failure_module = cls(
             id=id,
             value=value,
@@ -449,6 +471,7 @@ class GetJobResponse200Type0RawFlowFailureModule:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         get_job_response_200_type_0_raw_flow_failure_module.additional_properties = d

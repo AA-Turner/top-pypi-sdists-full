@@ -296,6 +296,17 @@ class EnumeratorCancellationAttribute(System.Attribute):
         ...
 
 
+class MemorySafetyRulesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def version(self) -> int:
+        ...
+
+    def __init__(self, version: int) -> None:
+        ...
+
+
 class StateMachineAttribute(System.Attribute):
     """This class has no documentation."""
 

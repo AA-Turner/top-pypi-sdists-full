@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.get_flow_by_path_response_200_value_failure_module import GetFlowByPathResponse200ValueFailureModule
     from ..models.get_flow_by_path_response_200_value_flow_env import GetFlowByPathResponse200ValueFlowEnv
+    from ..models.get_flow_by_path_response_200_value_groups_item import GetFlowByPathResponse200ValueGroupsItem
     from ..models.get_flow_by_path_response_200_value_modules_item import GetFlowByPathResponse200ValueModulesItem
     from ..models.get_flow_by_path_response_200_value_notes_item import GetFlowByPathResponse200ValueNotesItem
     from ..models.get_flow_by_path_response_200_value_preprocessor_module import (
@@ -33,11 +34,11 @@ class GetFlowByPathResponse200Value:
         concurrent_limit (Union[Unset, float]): Maximum number of concurrent executions of this flow
         concurrency_key (Union[Unset, str]): Expression to group concurrent executions (e.g., by user ID)
         concurrency_time_window_s (Union[Unset, float]): Time window in seconds for concurrent_limit
-        debounce_delay_s (Union[Unset, float]): Delay in seconds to debounce flow executions
+        debounce_delay_s (Union[Unset, int]): Delay in seconds to debounce flow executions
         debounce_key (Union[Unset, str]): Expression to group debounced executions
         debounce_args_to_accumulate (Union[Unset, List[str]]): Arguments to accumulate across debounced executions
-        max_total_debouncing_time (Union[Unset, float]): Maximum total time in seconds that a job can be debounced
-        max_total_debounces_amount (Union[Unset, float]): Maximum number of times a job can be debounced
+        max_total_debouncing_time (Union[Unset, int]): Maximum total time in seconds that a job can be debounced
+        max_total_debounces_amount (Union[Unset, int]): Maximum number of times a job can be debounced
         skip_expr (Union[Unset, str]): JavaScript expression to conditionally skip the entire flow
         cache_ttl (Union[Unset, float]): Cache duration in seconds for flow results
         cache_ignore_s3_path (Union[Unset, bool]):
@@ -48,6 +49,8 @@ class GetFlowByPathResponse200Value:
         early_return (Union[Unset, str]): JavaScript expression to return early from the flow
         chat_input_enabled (Union[Unset, bool]): Whether this flow accepts chat-style input
         notes (Union[Unset, List['GetFlowByPathResponse200ValueNotesItem']]): Sticky notes attached to the flow
+        groups (Union[Unset, List['GetFlowByPathResponse200ValueGroupsItem']]): Semantic groups of modules for
+            organizational purposes
     """
 
     modules: List["GetFlowByPathResponse200ValueModulesItem"]
@@ -57,11 +60,11 @@ class GetFlowByPathResponse200Value:
     concurrent_limit: Union[Unset, float] = UNSET
     concurrency_key: Union[Unset, str] = UNSET
     concurrency_time_window_s: Union[Unset, float] = UNSET
-    debounce_delay_s: Union[Unset, float] = UNSET
+    debounce_delay_s: Union[Unset, int] = UNSET
     debounce_key: Union[Unset, str] = UNSET
     debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
-    max_total_debouncing_time: Union[Unset, float] = UNSET
-    max_total_debounces_amount: Union[Unset, float] = UNSET
+    max_total_debouncing_time: Union[Unset, int] = UNSET
+    max_total_debounces_amount: Union[Unset, int] = UNSET
     skip_expr: Union[Unset, str] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
     cache_ignore_s3_path: Union[Unset, bool] = UNSET
@@ -70,6 +73,7 @@ class GetFlowByPathResponse200Value:
     early_return: Union[Unset, str] = UNSET
     chat_input_enabled: Union[Unset, bool] = UNSET
     notes: Union[Unset, List["GetFlowByPathResponse200ValueNotesItem"]] = UNSET
+    groups: Union[Unset, List["GetFlowByPathResponse200ValueGroupsItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -117,6 +121,14 @@ class GetFlowByPathResponse200Value:
 
                 notes.append(notes_item)
 
+        groups: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.groups, Unset):
+            groups = []
+            for groups_item_data in self.groups:
+                groups_item = groups_item_data.to_dict()
+
+                groups.append(groups_item)
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -162,6 +174,8 @@ class GetFlowByPathResponse200Value:
             field_dict["chat_input_enabled"] = chat_input_enabled
         if notes is not UNSET:
             field_dict["notes"] = notes
+        if groups is not UNSET:
+            field_dict["groups"] = groups
 
         return field_dict
 
@@ -171,6 +185,7 @@ class GetFlowByPathResponse200Value:
             GetFlowByPathResponse200ValueFailureModule,
         )
         from ..models.get_flow_by_path_response_200_value_flow_env import GetFlowByPathResponse200ValueFlowEnv
+        from ..models.get_flow_by_path_response_200_value_groups_item import GetFlowByPathResponse200ValueGroupsItem
         from ..models.get_flow_by_path_response_200_value_modules_item import GetFlowByPathResponse200ValueModulesItem
         from ..models.get_flow_by_path_response_200_value_notes_item import GetFlowByPathResponse200ValueNotesItem
         from ..models.get_flow_by_path_response_200_value_preprocessor_module import (
@@ -243,6 +258,13 @@ class GetFlowByPathResponse200Value:
 
             notes.append(notes_item)
 
+        groups = []
+        _groups = d.pop("groups", UNSET)
+        for groups_item_data in _groups or []:
+            groups_item = GetFlowByPathResponse200ValueGroupsItem.from_dict(groups_item_data)
+
+            groups.append(groups_item)
+
         get_flow_by_path_response_200_value = cls(
             modules=modules,
             failure_module=failure_module,
@@ -264,6 +286,7 @@ class GetFlowByPathResponse200Value:
             early_return=early_return,
             chat_input_enabled=chat_input_enabled,
             notes=notes,
+            groups=groups,
         )
 
         get_flow_by_path_response_200_value.additional_properties = d

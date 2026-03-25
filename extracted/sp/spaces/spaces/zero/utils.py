@@ -34,6 +34,15 @@ def apply_cleanups(pid: int):
     shutil.rmtree(cleanups_dir, ignore_errors=True)
 
 
+def read_map_files():
+    for map_file in Path('/proc/self/map_files').iterdir():
+        try:
+            path = map_file.readlink()
+        except OSError:
+            continue
+        yield map_file.name, path
+
+
 @cache
 def self_cgroup_device_path() -> str:
     cgroup_content = Path(Config.zerogpu_proc_self_cgroup_path).read_text()

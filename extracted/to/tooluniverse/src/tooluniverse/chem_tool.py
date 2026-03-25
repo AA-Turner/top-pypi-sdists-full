@@ -41,6 +41,13 @@ class ChEMBLRESTTool(BaseTool):
 
         if endpoint_template:
             url = endpoint_template
+            # Feature-120B-003: normalize molecule_chembl_id → chembl_id for URL template
+            if (
+                "{chembl_id}" in url
+                and "chembl_id" not in args
+                and "molecule_chembl_id" in args
+            ):
+                args = dict(args, chembl_id=args["molecule_chembl_id"])
             # Replace placeholders in URL
             for k, v in args.items():
                 url = url.replace(f"{{{k}}}", str(v))
@@ -58,7 +65,8 @@ class ChEMBLRESTTool(BaseTool):
 
         # Build URL based on tool name patterns
         if tool_name.startswith("ChEMBL_get_molecule"):
-            chembl_id = args.get("chembl_id", "")
+            # Feature-120B-003: accept molecule_chembl_id as alias for chembl_id
+            chembl_id = args.get("chembl_id") or args.get("molecule_chembl_id", "")
             if chembl_id:
                 return f"{self.base_url}/molecule/{chembl_id}.json"
         elif tool_name.startswith("ChEMBL_get_target"):
@@ -163,8 +171,11 @@ class ChEMBLRESTTool(BaseTool):
         # Map target_chembl_id and assay_chembl_id to __exact API params
         # when used as query filters (not as URL path components)
         target_id = args.get("target_chembl_id")
-        if target_id is not None and not tool_name_local.startswith(
-            "ChEMBL_get_target"
+        # Feature-120B-001: only exclude ChEMBL_get_target (single lookup), not
+        # ChEMBL_get_target_activities or ChEMBL_get_target_assays which need the filter
+        if target_id is not None and tool_name_local not in (
+            "ChEMBL_get_target",
+            "ChEMBL_search_targets",
         ):
             params["target_chembl_id__exact"] = target_id
 
@@ -509,7 +520,7 @@ class ChEMBLTool(BaseTool):
         max_results = arguments.get("max_results", 20)
 
         if not query:
-            return {"error": "`query` parameter is required."}
+            return {"status": "error", "error": "`query` parameter is required."}
         return self._search_similar_molecules(query, similarity_threshold, max_results)
 
     def get_chembl_id_by_name(self, compound_name):
@@ -523,9 +534,15 @@ class ChEMBLTool(BaseTool):
         response.raise_for_status()
         results = response.json().get("molecules", [])
         if not results or not isinstance(results, list):
-            return {"error": "No valid results found for the compound name."}
+            return {
+                "status": "error",
+                "error": "No valid results found for the compound name.",
+            }
         if not results:
-            return {"error": "No results found for the compound name."}
+            return {
+                "status": "error",
+                "error": "No results found for the compound name.",
+            }
         top_molecules = results[:3]  # Get the top 3 results
         chembl_ids = [
             molecule.get("molecule_chembl_id")
@@ -533,7 +550,10 @@ class ChEMBLTool(BaseTool):
             if molecule.get("molecule_chembl_id")
         ]
         if not chembl_ids:
-            return {"error": "No ChEMBL IDs found for the compound name."}
+            return {
+                "status": "error",
+                "error": "No ChEMBL IDs found for the compound name.",
+            }
         return {"chembl_ids": chembl_ids}
 
     def get_smiles_pref_name_by_chembl_id(self, query):
@@ -547,16 +567,23 @@ class ChEMBLTool(BaseTool):
             response.raise_for_status()
             molecule = response.json()
             if not molecule or not isinstance(molecule, dict):
-                return {"error": "No valid molecule found for the given ChEMBL ID."}
+                return {
+                    "status": "error",
+                    "error": "No valid molecule found for the given ChEMBL ID.",
+                }
             molecule_structures = molecule.get("molecule_structures")
             if not molecule_structures or not isinstance(molecule_structures, dict):
                 return {
-                    "error": "Molecule structures not found or invalid for the ChEMBL ID."
+                    "status": "error",
+                    "error": "Molecule structures not found or invalid for the ChEMBL ID.",
                 }
             smiles = molecule_structures.get("canonical_smiles")
             pref_name = molecule.get("pref_name")
             if not smiles:
-                return {"error": "SMILES not found for the given ChEMBL ID."}
+                return {
+                    "status": "error",
+                    "error": "SMILES not found for the given ChEMBL ID.",
+                }
             return {"smiles": smiles, "pref_name": pref_name}
         else:
             return None
@@ -571,7 +598,10 @@ class ChEMBLTool(BaseTool):
         response.raise_for_status()
         results = response.json().get("molecules", [])
         if not results or not isinstance(results, list):
-            return {"error": "No valid results found for the compound name."}
+            return {
+                "status": "error",
+                "error": "No valid results found for the compound name.",
+            }
         top_molecules = results[:5]
         output = []
         molecules_without_smiles = []
@@ -645,7 +675,7 @@ class ChEMBLTool(BaseTool):
                         f"For searching similar small molecules, consider using: "
                         f"PubChem_search_compounds_by_similarity (requires SMILES input)."
                     )
-            return {"error": error_msg}
+            return {"status": "error", "error": error_msg}
         return output
 
     def _search_similar_molecules(self, query, similarity_threshold, max_results):
@@ -706,6 +736,7 @@ class ChEMBLTool(BaseTool):
                             "Oligosaccharide",
                         ]:
                             return {
+                                "status": "error",
                                 "error": (
                                     f"The compound '{query}' was found in ChEMBL (ChEMBL ID: {chembl_id}) "
                                     f"but is a {molecule_type.lower()}, not a small molecule. "
@@ -717,18 +748,19 @@ class ChEMBLTool(BaseTool):
                                     f"BLAST_protein_search (for protein/antibody sequence similarity search, requires amino acid sequence), "
                                     f"or UniProt_search (for searching proteins in UniProt database). "
                                     f"For small molecule similarity search, use: PubChem_search_compounds_by_similarity (requires SMILES input)."
-                                )
+                                ),
                             }
                 except Exception:
                     pass
             return {
+                "status": "error",
                 "error": (
                     f"SMILES representation not found for the compound '{query}'. "
                     f"This tool requires SMILES structure for similarity search. "
                     f"If you have a SMILES string, you can use it directly as the query. "
                     f"Alternatively, consider using PubChem_search_compounds_by_similarity "
                     f"(requires SMILES input) for similarity search."
-                )
+                ),
             }
 
         results_list = []
@@ -738,7 +770,10 @@ class ChEMBLTool(BaseTool):
             chembl_id = info.get("chembl_id")
             mol = self.indigo.loadMolecule(smiles)
             if mol is None:
-                return {"error": "Failed to load molecule with Indigo."}
+                return {
+                    "status": "error",
+                    "error": "Failed to load molecule with Indigo.",
+                }
 
             encoded_smiles = quote(smiles)
             similarity_url = f"{self.base_url}/similarity/{encoded_smiles}/{similarity_threshold}.json?limit={max_results}"

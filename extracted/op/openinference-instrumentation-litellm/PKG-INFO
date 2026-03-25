@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-litellm
-Version: 0.1.29
+Version: 0.1.30
 Summary: OpenInference liteLLM Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-litellm
 Author-email: OpenInference Authors <oss@arize.com>
@@ -24,15 +24,6 @@ Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: setuptools
 Requires-Dist: wrapt
-Provides-Extra: test
-Requires-Dist: fastapi; extra == 'test'
-Requires-Dist: litellm; extra == 'test'
-Requires-Dist: opentelemetry-instrumentation-httpx; extra == 'test'
-Requires-Dist: opentelemetry-sdk; extra == 'test'
-Requires-Dist: orjson; extra == 'test'
-Requires-Dist: pytest-vcr; extra == 'test'
-Requires-Dist: tenacity; extra == 'test'
-Requires-Dist: tokenizers==0.20.3; (python_version == '3.8') and extra == 'test'
 Description-Content-Type: text/markdown
 
 # OpenInference LiteLLM Instrumentation

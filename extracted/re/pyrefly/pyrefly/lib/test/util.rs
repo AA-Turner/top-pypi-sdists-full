@@ -42,6 +42,7 @@ use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
 use crate::binding::binding::KeyExport;
+use crate::config::base::InferReturnTypes;
 use crate::config::base::UntypedDefBehavior;
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
@@ -102,7 +103,8 @@ pub struct TestEnv {
     modules: Vec<(ModuleName, ModulePath, Option<Arc<FileContents>>)>,
     version: PythonVersion,
     platform: PythonPlatform,
-    untyped_def_behavior: UntypedDefBehavior,
+    check_unannotated_defs: bool,
+    infer_return_types: InferReturnTypes,
     infer_with_first_use: bool,
     site_package_path: Vec<PathBuf>,
     implicitly_defined_attribute_error: bool,
@@ -126,7 +128,8 @@ impl TestEnv {
             modules: Vec::new(),
             version: PythonVersion::default(),
             platform: PythonPlatform::default(),
-            untyped_def_behavior: UntypedDefBehavior::default(),
+            check_unannotated_defs: true,
+            infer_return_types: InferReturnTypes::Checked,
             infer_with_first_use: true,
             site_package_path: Vec::new(),
             implicitly_defined_attribute_error: false,
@@ -161,9 +164,54 @@ impl TestEnv {
         res
     }
 
+    /// State 1: skip unannotated bodies, no return inference.
+    pub fn new_skip_check_no_infer() -> Self {
+        let mut res = Self::new();
+        res.check_unannotated_defs = false;
+        res.infer_return_types = InferReturnTypes::Never;
+        res
+    }
+
+    /// State 2: skip unannotated bodies, but infer returns for annotated functions.
+    pub fn new_skip_check_infer_return_types() -> Self {
+        let mut res = Self::new();
+        res.check_unannotated_defs = false;
+        res.infer_return_types = InferReturnTypes::Annotated;
+        res
+    }
+
+    /// State 5: check all bodies, but never infer returns.
+    pub fn new_check_all_no_infer() -> Self {
+        let mut res = Self::new();
+        res.check_unannotated_defs = true;
+        res.infer_return_types = InferReturnTypes::Never;
+        res
+    }
+
+    /// State 6: check all bodies, but only infer returns for annotated functions.
+    pub fn new_check_infer_annotated_only() -> Self {
+        let mut res = Self::new();
+        res.check_unannotated_defs = true;
+        res.infer_return_types = InferReturnTypes::Annotated;
+        res
+    }
+
     pub fn new_with_untyped_def_behavior(untyped_def_behavior: UntypedDefBehavior) -> Self {
         let mut res = Self::new();
-        res.untyped_def_behavior = untyped_def_behavior;
+        match untyped_def_behavior {
+            UntypedDefBehavior::CheckAndInferReturnType => {
+                res.check_unannotated_defs = true;
+                res.infer_return_types = InferReturnTypes::Checked;
+            }
+            UntypedDefBehavior::CheckAndInferReturnAny => {
+                res.check_unannotated_defs = true;
+                res.infer_return_types = InferReturnTypes::Never;
+            }
+            UntypedDefBehavior::SkipAndInferReturnAny => {
+                res.check_unannotated_defs = false;
+                res.infer_return_types = InferReturnTypes::Never;
+            }
+        }
         res
     }
 
@@ -292,7 +340,8 @@ impl TestEnv {
         config.python_environment.python_version = Some(self.version);
         config.python_environment.python_platform = Some(self.platform.clone());
         config.python_environment.site_package_path = Some(self.site_package_path.clone());
-        config.root.untyped_def_behavior = Some(self.untyped_def_behavior);
+        config.root.check_unannotated_defs = Some(self.check_unannotated_defs);
+        config.root.infer_return_types = Some(self.infer_return_types);
         config.root.infer_with_first_use = Some(self.infer_with_first_use);
         config.root.strict_callable_subtyping = Some(self.strict_callable_subtyping);
         if config.root.errors.is_none() {
@@ -370,7 +419,7 @@ impl TestEnv {
                 .transaction()
                 .get_errors(handles.iter())
                 .collect_errors()
-                .shown,
+                .ordinary,
         );
         (state, move |module| {
             let name = ModuleName::from_str(module);
@@ -484,7 +533,7 @@ pub fn mk_multi_file_state(
                 .transaction()
                 .get_errors(handles.values())
                 .collect_errors()
-                .shown
+                .ordinary
                 .len(),
             0
         );
@@ -630,7 +679,7 @@ pub fn testcase_for_macro(
             t.run(&[h.dupe()], Require::Everything, None);
             let errors = t.get_errors([&h]);
             let project_root = PathBuf::new();
-            print_errors(project_root.as_path(), &errors.collect_errors().shown);
+            print_errors(project_root.as_path(), &errors.collect_errors().ordinary);
             check(errors)?;
         } else {
             let (state, handle) = env.clone().to_state();

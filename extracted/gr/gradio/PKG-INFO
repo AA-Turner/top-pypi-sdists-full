@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gradio
-Version: 6.9.0
+Version: 6.10.0
 Summary: Python library for easily interacting with trained machine learning models
 Project-URL: Homepage, https://github.com/gradio-app/gradio
 Author-email: Abubakar Abid <gradio-team@huggingface.co>, Ali Abid <gradio-team@huggingface.co>, Ali Abdalla <gradio-team@huggingface.co>, Dawood Khan <gradio-team@huggingface.co>, Ahsen Khaliq <gradio-team@huggingface.co>, Pete Allen <gradio-team@huggingface.co>, Ömer Faruk Özdemir <gradio-team@huggingface.co>, Freddy A Boulton <gradio-team@huggingface.co>, Hannah Blair <gradio-team@huggingface.co>
@@ -25,8 +25,9 @@ Requires-Dist: audioop-lts<1.0; python_version >= '3.13'
 Requires-Dist: brotli>=1.1.0
 Requires-Dist: fastapi<1.0,>=0.115.2
 Requires-Dist: ffmpy
-Requires-Dist: gradio-client==2.3.0
+Requires-Dist: gradio-client==2.4.0
 Requires-Dist: groovy~=0.1
+Requires-Dist: hf-gradio<1.0,>=0.3.0
 Requires-Dist: httpx<1.0,>=0.24.1
 Requires-Dist: huggingface-hub<2.0,>=0.33.5
 Requires-Dist: jinja2<4.0
@@ -221,6 +222,7 @@ That's the gist of the core `gradio` Python library, but Gradio is actually so m
 * [Gradio Python Client](https://www.gradio.app/guides/getting-started-with-the-python-client) (`gradio_client`): query any Gradio app programmatically in Python.
 * [Gradio JavaScript Client](https://www.gradio.app/guides/getting-started-with-the-js-client) (`@gradio/client`): query any Gradio app programmatically in JavaScript.
 * [Hugging Face Spaces](https://huggingface.co/spaces): the most popular place to host Gradio applications — for free!
+* [Server mode](https://www.gradio.app/guides/server-mode) (`gradio.Server`): build a custom frontend with Gradio's backend — queue, streaming, MCP, ZeroGPU, and Spaces hosting included.
 
 ### What's Next?
 

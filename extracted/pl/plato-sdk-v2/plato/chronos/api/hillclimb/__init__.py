@@ -2,17 +2,22 @@
 
 from . import (
     add_sessions_to_dataset_api_datasets__public_id__sessions_post,
-    approve_run_api_hillclimb_runs__public_id__approve_post,
     create_dataset_api_datasets_post,
-    create_run_api_hillclimb_runs_post,
     delete_dataset_api_datasets__public_id__delete,
+    delete_run_api_hillclimb_runs__public_id__delete,
     get_dataset_api_datasets__public_id__get,
     get_run_api_hillclimb_runs__public_id__get,
+    launch_hillclimb_run,
     list_datasets_api_datasets_get,
+    list_hillclimb_run_creators,
+    list_hillclimb_run_tags,
+    list_iterations_api_hillclimb_runs__public_id__iterations_get,
     list_runs_api_hillclimb_runs_get,
-    reject_run_api_hillclimb_runs__public_id__reject_post,
     remove_session_from_dataset_api_datasets__public_id__sessions__session_id__delete,
     update_dataset_api_datasets__public_id__put,
+    update_run_api_hillclimb_runs__public_id__patch,
+    upsert_iteration_api_hillclimb_runs__public_id__iterations_put,
+    upsert_iteration_session_api_hillclimb_runs__public_id__iterations__iteration_num__sessions_put,
 )
 
 __all__ = [
@@ -23,9 +28,14 @@ __all__ = [
     "delete_dataset_api_datasets__public_id__delete",
     "add_sessions_to_dataset_api_datasets__public_id__sessions_post",
     "remove_session_from_dataset_api_datasets__public_id__sessions__session_id__delete",
+    "launch_hillclimb_run",
     "list_runs_api_hillclimb_runs_get",
-    "create_run_api_hillclimb_runs_post",
+    "list_hillclimb_run_creators",
+    "list_hillclimb_run_tags",
     "get_run_api_hillclimb_runs__public_id__get",
-    "approve_run_api_hillclimb_runs__public_id__approve_post",
-    "reject_run_api_hillclimb_runs__public_id__reject_post",
+    "update_run_api_hillclimb_runs__public_id__patch",
+    "delete_run_api_hillclimb_runs__public_id__delete",
+    "list_iterations_api_hillclimb_runs__public_id__iterations_get",
+    "upsert_iteration_api_hillclimb_runs__public_id__iterations_put",
+    "upsert_iteration_session_api_hillclimb_runs__public_id__iterations__iteration_num__sessions_put",
 ]

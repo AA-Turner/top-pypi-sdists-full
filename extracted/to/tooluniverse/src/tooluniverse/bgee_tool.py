@@ -42,15 +42,25 @@ class BgeeTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"Bgee API request timed out after {self.timeout} seconds"}
+            return {
+                "status": "error",
+                "error": f"Bgee API request timed out after {self.timeout} seconds",
+            }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to Bgee API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to Bgee API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"Bgee API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"Bgee API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying Bgee: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying Bgee: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate Bgee endpoint."""
@@ -61,13 +71,13 @@ class BgeeTool(BaseTool):
         elif self.endpoint == "species_list":
             return self._species_list(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _gene_search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search for genes by name or symbol across species."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         params = {
             "page": "gene",
@@ -81,7 +91,10 @@ class BgeeTool(BaseTool):
         data = response.json()
 
         if data.get("code") != 200:
-            return {"error": f"Bgee API error: {data.get('message', 'Unknown error')}"}
+            return {
+                "status": "error",
+                "error": f"Bgee API error: {data.get('message', 'Unknown error')}",
+            }
 
         result_data = data.get("data", {})
         gene_matches = result_data.get("result", {}).get("geneMatches", [])
@@ -104,6 +117,7 @@ class BgeeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "Bgee",
@@ -121,11 +135,13 @@ class BgeeTool(BaseTool):
         species_id = arguments.get("species_id", "")
         if not gene_id:
             return {
-                "error": "gene_id parameter is required (Ensembl gene ID, e.g., ENSG00000141510)"
+                "status": "error",
+                "error": "gene_id parameter is required (Ensembl gene ID, e.g., ENSG00000141510)",
             }
         if not species_id:
             return {
-                "error": "species_id parameter is required (NCBI taxon ID, e.g., 9606 for human)"
+                "status": "error",
+                "error": "species_id parameter is required (NCBI taxon ID, e.g., 9606 for human)",
             }
 
         params = {
@@ -141,7 +157,10 @@ class BgeeTool(BaseTool):
         data = response.json()
 
         if data.get("code") != 200:
-            return {"error": f"Bgee API error: {data.get('message', 'Unknown error')}"}
+            return {
+                "status": "error",
+                "error": f"Bgee API error: {data.get('message', 'Unknown error')}",
+            }
 
         expr_data = data.get("data", {})
         calls = expr_data.get("calls", [])
@@ -169,6 +188,7 @@ class BgeeTool(BaseTool):
             results.append(entry)
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "Bgee",
@@ -192,7 +212,10 @@ class BgeeTool(BaseTool):
         data = response.json()
 
         if data.get("code") != 200:
-            return {"error": f"Bgee API error: {data.get('message', 'Unknown error')}"}
+            return {
+                "status": "error",
+                "error": f"Bgee API error: {data.get('message', 'Unknown error')}",
+            }
 
         species_data = data.get("data", {}).get("species", [])
 
@@ -210,6 +233,7 @@ class BgeeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "Bgee",

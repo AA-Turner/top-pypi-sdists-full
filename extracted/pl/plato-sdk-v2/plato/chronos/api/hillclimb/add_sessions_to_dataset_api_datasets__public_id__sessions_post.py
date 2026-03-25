@@ -35,7 +35,7 @@ def sync(
     public_id: str,
     body: AddSessionsRequest,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, int]:
     """Add Sessions To Dataset"""
 
     request_args = _build_request_args(
@@ -54,7 +54,7 @@ async def asyncio(
     public_id: str,
     body: AddSessionsRequest,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, int]:
     """Add Sessions To Dataset"""
 
     request_args = _build_request_args(

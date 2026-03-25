@@ -18,44 +18,44 @@
             "-mavx2"
         ],
         "extra_objects": [
-            "src/zstd/lib/common/pool.o",
-            "src/zstd/lib/common/debug.o",
-            "src/zstd/lib/common/entropy_common.o",
             "src/zstd/lib/common/fse_decompress.o",
-            "src/zstd/lib/common/threading.o",
+            "src/zstd/lib/common/debug.o",
             "src/zstd/lib/common/error_private.o",
-            "src/zstd/lib/common/zstd_common.o",
             "src/zstd/lib/common/xxhash.o",
-            "src/zstd/lib/compress/hist.o",
-            "src/zstd/lib/compress/fse_compress.o",
-            "src/zstd/lib/compress/zstd_double_fast.o",
-            "src/zstd/lib/compress/zstd_compress_literals.o",
-            "src/zstd/lib/compress/zstd_compress.o",
+            "src/zstd/lib/common/threading.o",
+            "src/zstd/lib/common/pool.o",
+            "src/zstd/lib/common/entropy_common.o",
+            "src/zstd/lib/common/zstd_common.o",
             "src/zstd/lib/compress/huf_compress.o",
             "src/zstd/lib/compress/zstd_lazy.o",
-            "src/zstd/lib/compress/zstd_compress_sequences.o",
+            "src/zstd/lib/compress/fse_compress.o",
             "src/zstd/lib/compress/zstd_opt.o",
-            "src/zstd/lib/compress/zstdmt_compress.o",
+            "src/zstd/lib/compress/zstd_compress.o",
+            "src/zstd/lib/compress/zstd_double_fast.o",
             "src/zstd/lib/compress/zstd_fast.o",
             "src/zstd/lib/compress/zstd_ldm.o",
+            "src/zstd/lib/compress/hist.o",
+            "src/zstd/lib/compress/zstd_compress_literals.o",
+            "src/zstd/lib/compress/zstd_compress_sequences.o",
+            "src/zstd/lib/compress/zstdmt_compress.o",
             "src/zstd/lib/decompress/zstd_ddict.o",
-            "src/zstd/lib/decompress/zstd_decompress_block.o",
             "src/zstd/lib/decompress/zstd_decompress.o",
+            "src/zstd/lib/decompress/zstd_decompress_block.o",
             "src/zstd/lib/decompress/huf_decompress.o",
             "src/zstd/lib/dictBuilder/divsufsort.o",
-            "src/zstd/lib/dictBuilder/cover.o",
             "src/zstd/lib/dictBuilder/zdict.o",
             "src/zstd/lib/dictBuilder/fastcover.o",
-            "src/zstd/lib/deprecated/zbuff_compress.o",
+            "src/zstd/lib/dictBuilder/cover.o",
             "src/zstd/lib/deprecated/zbuff_decompress.o",
+            "src/zstd/lib/deprecated/zbuff_compress.o",
             "src/zstd/lib/deprecated/zbuff_common.o",
+            "src/zstd/lib/legacy/zstd_v04.o",
+            "src/zstd/lib/legacy/zstd_v01.o",
+            "src/zstd/lib/legacy/zstd_v06.o",
+            "src/zstd/lib/legacy/zstd_v03.o",
             "src/zstd/lib/legacy/zstd_v05.o",
             "src/zstd/lib/legacy/zstd_v07.o",
             "src/zstd/lib/legacy/zstd_v02.o",
-            "src/zstd/lib/legacy/zstd_v06.o",
-            "src/zstd/lib/legacy/zstd_v04.o",
-            "src/zstd/lib/legacy/zstd_v03.o",
-            "src/zstd/lib/legacy/zstd_v01.o",
             "/home/runner/work/bgen/bgen/zlib_build/libz.a"
         ],
         "include_dirs": [
@@ -1755,7 +1755,7 @@ struct __pyx_obj_4bgen_6reader_BgenHeader {
 };
 
 
-/* "bgen/reader.pyx":189
+/* "bgen/reader.pyx":187
  *     def metadata(self): return self._metadata.decode('utf8')
  * 
  * cdef class BgenVar:             # <<<<<<<<<<<<<<
@@ -1894,7 +1894,7 @@ struct __pyx_memoryviewslice_obj {
 
 
 
-/* "bgen/reader.pyx":189
+/* "bgen/reader.pyx":187
  *     def metadata(self): return self._metadata.decode('utf8')
  * 
  * cdef class BgenVar:             # <<<<<<<<<<<<<<
@@ -3591,7 +3591,7 @@ typedef struct {
   PyObject *__pyx_slice[1];
   PyObject *__pyx_tuple[2];
   PyObject *__pyx_codeobj_tab[22];
-  PyObject *__pyx_string_tab[277];
+  PyObject *__pyx_string_tab[278];
   PyObject *__pyx_number_tab[5];
 /* #### Code section: module_state_contents ### */
 
@@ -3692,237 +3692,238 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_can_t_fetch_variants_without_ind __pyx_string_tab[43]
 #define __pyx_kp_u_can_t_get_variant_without_fully __pyx_string_tab[44]
 #define __pyx_kp_u_can_t_load_varids_when_using_an __pyx_string_tab[45]
-#define __pyx_kp_u_cannot_get_Variant_at_index __pyx_string_tab[46]
-#define __pyx_kp_u_collections_abc __pyx_string_tab[47]
-#define __pyx_kp_u_compression_2 __pyx_string_tab[48]
-#define __pyx_kp_u_contiguous_and_direct __pyx_string_tab[49]
-#define __pyx_kp_u_contiguous_and_indirect __pyx_string_tab[50]
-#define __pyx_kp_u_dev_stdin __pyx_string_tab[51]
-#define __pyx_kp_u_disable __pyx_string_tab[52]
-#define __pyx_kp_u_enable __pyx_string_tab[53]
-#define __pyx_kp_u_gc __pyx_string_tab[54]
-#define __pyx_kp_u_got __pyx_string_tab[55]
-#define __pyx_kp_u_got_differing_extents_in_dimensi __pyx_string_tab[56]
-#define __pyx_kp_u_has_sample_ids_2 __pyx_string_tab[57]
-#define __pyx_kp_u_isenabled __pyx_string_tab[58]
-#define __pyx_kp_u_itemsize_0_for_cython_array __pyx_string_tab[59]
-#define __pyx_kp_u_layout_2 __pyx_string_tab[60]
-#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[61]
-#define __pyx_kp_u_nsamples_2 __pyx_string_tab[62]
-#define __pyx_kp_u_nvariants_2 __pyx_string_tab[63]
-#define __pyx_kp_u_object __pyx_string_tab[64]
-#define __pyx_kp_u_opening_BgenFile_from __pyx_string_tab[65]
-#define __pyx_kp_u_pickling_BgenVar_make_sure_their __pyx_string_tab[66]
-#define __pyx_kp_u_samples __pyx_string_tab[67]
-#define __pyx_kp_u_src_bgen_reader_pyx __pyx_string_tab[68]
-#define __pyx_kp_u_status __pyx_string_tab[69]
-#define __pyx_kp_u_std_istream_at __pyx_string_tab[70]
-#define __pyx_kp_u_strided_and_direct __pyx_string_tab[71]
-#define __pyx_kp_u_strided_and_direct_or_indirect __pyx_string_tab[72]
-#define __pyx_kp_u_strided_and_indirect __pyx_string_tab[73]
-#define __pyx_kp_u_stringsource __pyx_string_tab[74]
-#define __pyx_kp_u_unable_to_allocate_array_data __pyx_string_tab[75]
-#define __pyx_kp_u_unable_to_allocate_shape_and_str __pyx_string_tab[76]
-#define __pyx_n_u_ASCII __pyx_string_tab[77]
-#define __pyx_n_u_BgenFile_2 __pyx_string_tab[78]
-#define __pyx_n_u_BgenHeader __pyx_string_tab[79]
-#define __pyx_n_u_BgenHeader___reduce_cython __pyx_string_tab[80]
-#define __pyx_n_u_BgenHeader___setstate_cython __pyx_string_tab[81]
-#define __pyx_n_u_BgenReader __pyx_string_tab[82]
-#define __pyx_n_u_BgenReader___enter __pyx_string_tab[83]
-#define __pyx_n_u_BgenReader___exit __pyx_string_tab[84]
-#define __pyx_n_u_BgenReader___is_from_stdin __pyx_string_tab[85]
-#define __pyx_n_u_BgenReader___reduce_cython __pyx_string_tab[86]
-#define __pyx_n_u_BgenReader___setstate_cython __pyx_string_tab[87]
-#define __pyx_n_u_BgenReader__check_for_index __pyx_string_tab[88]
-#define __pyx_n_u_BgenReader__is_from_stdin __pyx_string_tab[89]
-#define __pyx_n_u_BgenReader_at_position __pyx_string_tab[90]
-#define __pyx_n_u_BgenReader_chroms __pyx_string_tab[91]
-#define __pyx_n_u_BgenReader_close __pyx_string_tab[92]
-#define __pyx_n_u_BgenReader_drop_variants __pyx_string_tab[93]
-#define __pyx_n_u_BgenReader_fetch __pyx_string_tab[94]
-#define __pyx_n_u_BgenReader_positions __pyx_string_tab[95]
-#define __pyx_n_u_BgenReader_rsids __pyx_string_tab[96]
-#define __pyx_n_u_BgenReader_varids __pyx_string_tab[97]
-#define __pyx_n_u_BgenReader_with_rsid __pyx_string_tab[98]
-#define __pyx_n_u_BgenVar_2 __pyx_string_tab[99]
-#define __pyx_n_u_BgenVar___reduce __pyx_string_tab[100]
-#define __pyx_n_u_BgenVar_copy_data __pyx_string_tab[101]
-#define __pyx_n_u_C __pyx_string_tab[102]
-#define __pyx_n_u_Ellipsis __pyx_string_tab[103]
-#define __pyx_n_u_IStream __pyx_string_tab[104]
-#define __pyx_n_u_IStream___reduce __pyx_string_tab[105]
-#define __pyx_n_u_Index __pyx_string_tab[106]
-#define __pyx_n_u_OpenStatus __pyx_string_tab[107]
-#define __pyx_n_u_OpenStatus___reduce __pyx_string_tab[108]
-#define __pyx_n_u_OpenStatus_off __pyx_string_tab[109]
-#define __pyx_n_u_Path __pyx_string_tab[110]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[111]
-#define __pyx_n_u_Sequence __pyx_string_tab[112]
-#define __pyx_n_u_View_MemoryView __pyx_string_tab[113]
-#define __pyx_n_u_abc __pyx_string_tab[114]
-#define __pyx_n_u_alleles __pyx_string_tab[115]
-#define __pyx_n_u_allocate_buffer __pyx_string_tab[116]
-#define __pyx_n_u_asarray __pyx_string_tab[117]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[118]
-#define __pyx_n_u_at_position __pyx_string_tab[119]
-#define __pyx_n_u_base __pyx_string_tab[120]
-#define __pyx_n_u_bgen_index __pyx_string_tab[121]
-#define __pyx_n_u_bgen_path __pyx_string_tab[122]
-#define __pyx_n_u_bgen_reader __pyx_string_tab[123]
-#define __pyx_n_u_c __pyx_string_tab[124]
-#define __pyx_n_u_check_for_index __pyx_string_tab[125]
-#define __pyx_n_u_chrom __pyx_string_tab[126]
-#define __pyx_n_u_chroms __pyx_string_tab[127]
-#define __pyx_n_u_class __pyx_string_tab[128]
-#define __pyx_n_u_class_getitem __pyx_string_tab[129]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[130]
-#define __pyx_n_u_close __pyx_string_tab[131]
-#define __pyx_n_u_compression __pyx_string_tab[132]
-#define __pyx_n_u_copy_data __pyx_string_tab[133]
-#define __pyx_n_u_count __pyx_string_tab[134]
-#define __pyx_n_u_data __pyx_string_tab[135]
-#define __pyx_n_u_debug __pyx_string_tab[136]
-#define __pyx_n_u_delay_parsing __pyx_string_tab[137]
-#define __pyx_n_u_dict __pyx_string_tab[138]
-#define __pyx_n_u_drop_variants __pyx_string_tab[139]
-#define __pyx_n_u_dtype __pyx_string_tab[140]
-#define __pyx_n_u_dtype_is_object __pyx_string_tab[141]
-#define __pyx_n_u_empty __pyx_string_tab[142]
-#define __pyx_n_u_encode __pyx_string_tab[143]
-#define __pyx_n_u_enter __pyx_string_tab[144]
-#define __pyx_n_u_enumerate __pyx_string_tab[145]
-#define __pyx_n_u_error __pyx_string_tab[146]
-#define __pyx_n_u_exc_type __pyx_string_tab[147]
-#define __pyx_n_u_exc_value __pyx_string_tab[148]
-#define __pyx_n_u_exists __pyx_string_tab[149]
-#define __pyx_n_u_exit __pyx_string_tab[150]
-#define __pyx_n_u_expected_n __pyx_string_tab[151]
-#define __pyx_n_u_fetch __pyx_string_tab[152]
-#define __pyx_n_u_fill __pyx_string_tab[153]
-#define __pyx_n_u_flags __pyx_string_tab[154]
-#define __pyx_n_u_float32 __pyx_string_tab[155]
-#define __pyx_n_u_format __pyx_string_tab[156]
-#define __pyx_n_u_fortran __pyx_string_tab[157]
-#define __pyx_n_u_func __pyx_string_tab[158]
-#define __pyx_n_u_getstate __pyx_string_tab[159]
-#define __pyx_n_u_handle __pyx_string_tab[160]
-#define __pyx_n_u_has_sample_ids __pyx_string_tab[161]
-#define __pyx_n_u_i __pyx_string_tab[162]
-#define __pyx_n_u_id __pyx_string_tab[163]
-#define __pyx_n_u_idx __pyx_string_tab[164]
-#define __pyx_n_u_idx_exists __pyx_string_tab[165]
-#define __pyx_n_u_import __pyx_string_tab[166]
-#define __pyx_n_u_index __pyx_string_tab[167]
-#define __pyx_n_u_index_path __pyx_string_tab[168]
-#define __pyx_n_u_indices __pyx_string_tab[169]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[170]
-#define __pyx_n_u_is_dir __pyx_string_tab[171]
-#define __pyx_n_u_is_from_stdin __pyx_string_tab[172]
-#define __pyx_n_u_is_open __pyx_string_tab[173]
-#define __pyx_n_u_is_phased __pyx_string_tab[174]
-#define __pyx_n_u_is_stdin __pyx_string_tab[175]
-#define __pyx_n_u_items __pyx_string_tab[176]
-#define __pyx_n_u_itemsize __pyx_string_tab[177]
-#define __pyx_n_u_layout __pyx_string_tab[178]
-#define __pyx_n_u_logging __pyx_string_tab[179]
-#define __pyx_n_u_main __pyx_string_tab[180]
-#define __pyx_n_u_memview __pyx_string_tab[181]
-#define __pyx_n_u_metadata __pyx_string_tab[182]
-#define __pyx_n_u_mode __pyx_string_tab[183]
-#define __pyx_n_u_module __pyx_string_tab[184]
-#define __pyx_n_u_name __pyx_string_tab[185]
-#define __pyx_n_u_name_2 __pyx_string_tab[186]
-#define __pyx_n_u_nan __pyx_string_tab[187]
-#define __pyx_n_u_ndim __pyx_string_tab[188]
-#define __pyx_n_u_new __pyx_string_tab[189]
-#define __pyx_n_u_next __pyx_string_tab[190]
-#define __pyx_n_u_next_variant_offset __pyx_string_tab[191]
-#define __pyx_n_u_np __pyx_string_tab[192]
-#define __pyx_n_u_nsamples __pyx_string_tab[193]
-#define __pyx_n_u_numpy __pyx_string_tab[194]
-#define __pyx_n_u_nvariants __pyx_string_tab[195]
-#define __pyx_n_u_obj __pyx_string_tab[196]
-#define __pyx_n_u_off __pyx_string_tab[197]
-#define __pyx_n_u_offset __pyx_string_tab[198]
-#define __pyx_n_u_offset_by_index __pyx_string_tab[199]
-#define __pyx_n_u_offset_by_pos __pyx_string_tab[200]
-#define __pyx_n_u_offset_by_rsid __pyx_string_tab[201]
-#define __pyx_n_u_offsets __pyx_string_tab[202]
-#define __pyx_n_u_order __pyx_string_tab[203]
-#define __pyx_n_u_pack __pyx_string_tab[204]
-#define __pyx_n_u_path __pyx_string_tab[205]
-#define __pyx_n_u_pathlib __pyx_string_tab[206]
-#define __pyx_n_u_ploidy __pyx_string_tab[207]
-#define __pyx_n_u_pop __pyx_string_tab[208]
-#define __pyx_n_u_pos __pyx_string_tab[209]
-#define __pyx_n_u_positions __pyx_string_tab[210]
-#define __pyx_n_u_ptr __pyx_string_tab[211]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[212]
-#define __pyx_n_u_pyx_state __pyx_string_tab[213]
-#define __pyx_n_u_pyx_type __pyx_string_tab[214]
-#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[215]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[216]
-#define __pyx_n_u_qualname __pyx_string_tab[217]
-#define __pyx_n_u_reduce __pyx_string_tab[218]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[219]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[220]
-#define __pyx_n_u_register __pyx_string_tab[221]
-#define __pyx_n_u_reshape __pyx_string_tab[222]
-#define __pyx_n_u_rsid __pyx_string_tab[223]
-#define __pyx_n_u_rsids __pyx_string_tab[224]
-#define __pyx_n_u_sample_path __pyx_string_tab[225]
-#define __pyx_n_u_self __pyx_string_tab[226]
-#define __pyx_n_u_send __pyx_string_tab[227]
-#define __pyx_n_u_set_name __pyx_string_tab[228]
-#define __pyx_n_u_setdefault __pyx_string_tab[229]
-#define __pyx_n_u_setstate __pyx_string_tab[230]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[231]
-#define __pyx_n_u_shape __pyx_string_tab[232]
-#define __pyx_n_u_size __pyx_string_tab[233]
-#define __pyx_n_u_start __pyx_string_tab[234]
-#define __pyx_n_u_stdin __pyx_string_tab[235]
-#define __pyx_n_u_step __pyx_string_tab[236]
-#define __pyx_n_u_stop __pyx_string_tab[237]
-#define __pyx_n_u_struct __pyx_string_tab[238]
-#define __pyx_n_u_sys __pyx_string_tab[239]
-#define __pyx_n_u_test __pyx_string_tab[240]
-#define __pyx_n_u_throw __pyx_string_tab[241]
-#define __pyx_n_u_traceback __pyx_string_tab[242]
-#define __pyx_n_u_uint8 __pyx_string_tab[243]
-#define __pyx_n_u_unpack __pyx_string_tab[244]
-#define __pyx_n_u_update __pyx_string_tab[245]
-#define __pyx_n_u_utf8 __pyx_string_tab[246]
-#define __pyx_n_u_value __pyx_string_tab[247]
-#define __pyx_n_u_values __pyx_string_tab[248]
-#define __pyx_n_u_varid __pyx_string_tab[249]
-#define __pyx_n_u_varids __pyx_string_tab[250]
-#define __pyx_n_u_warn __pyx_string_tab[251]
-#define __pyx_n_u_warnings __pyx_string_tab[252]
-#define __pyx_n_u_with_rsid __pyx_string_tab[253]
-#define __pyx_n_u_x __pyx_string_tab[254]
-#define __pyx_n_u_zlib __pyx_string_tab[255]
-#define __pyx_n_u_zstd __pyx_string_tab[256]
-#define __pyx_kp_b_iso88591_A __pyx_string_tab[257]
-#define __pyx_kp_b_iso88591_A_4t9Cq_AQ_4q_1_HN_1 __pyx_string_tab[258]
-#define __pyx_kp_b_iso88591_A_4t9Cq_AQ_4q_4vQ_XWA_q_U __pyx_string_tab[259]
-#define __pyx_kp_b_iso88591_A_4t9Cq_AQ_4q_4vQ_t8_Q __pyx_string_tab[260]
-#define __pyx_kp_b_iso88591_A_4y_1_A_t1_F_A __pyx_string_tab[261]
-#define __pyx_kp_b_iso88591_A_F_q __pyx_string_tab[262]
-#define __pyx_kp_b_iso88591_A_G_fAQ __pyx_string_tab[263]
-#define __pyx_kp_b_iso88591_A_L __pyx_string_tab[264]
-#define __pyx_kp_b_iso88591_A_M_4q __pyx_string_tab[265]
-#define __pyx_kp_b_iso88591_A_O1_D_q __pyx_string_tab[266]
-#define __pyx_kp_b_iso88591_A_Q_eef_M_Yd_4yPTTbbffssw_x_C_C __pyx_string_tab[267]
-#define __pyx_kp_b_iso88591_A_S_1_1_Cq_1_Cq_1_q __pyx_string_tab[268]
-#define __pyx_kp_b_iso88591_A_T_Ba_Zwa_IU_q __pyx_string_tab[269]
-#define __pyx_kp_b_iso88591_A_T_Q_1_Q_1_t87_Qawaxt5 __pyx_string_tab[270]
-#define __pyx_kp_b_iso88591_A_T_Q_1_Q_D_nAQ_is_9D_q_hg_4xwa __pyx_string_tab[271]
-#define __pyx_kp_b_iso88591_A_T_Q_1_Q_D_oQa_is_9D_q_hg_4xwa __pyx_string_tab[272]
-#define __pyx_kp_b_iso88591_A_T_Q_1_Q_V1_d_Qawaxt5 __pyx_string_tab[273]
-#define __pyx_kp_b_iso88591_A_q __pyx_string_tab[274]
-#define __pyx_kp_b_iso88591_Q __pyx_string_tab[275]
-#define __pyx_n_b_O __pyx_string_tab[276]
+#define __pyx_kp_u_cannot_copy_variant_data_directl __pyx_string_tab[46]
+#define __pyx_kp_u_cannot_get_Variant_at_index __pyx_string_tab[47]
+#define __pyx_kp_u_collections_abc __pyx_string_tab[48]
+#define __pyx_kp_u_compression_2 __pyx_string_tab[49]
+#define __pyx_kp_u_contiguous_and_direct __pyx_string_tab[50]
+#define __pyx_kp_u_contiguous_and_indirect __pyx_string_tab[51]
+#define __pyx_kp_u_dev_stdin __pyx_string_tab[52]
+#define __pyx_kp_u_disable __pyx_string_tab[53]
+#define __pyx_kp_u_enable __pyx_string_tab[54]
+#define __pyx_kp_u_gc __pyx_string_tab[55]
+#define __pyx_kp_u_got __pyx_string_tab[56]
+#define __pyx_kp_u_got_differing_extents_in_dimensi __pyx_string_tab[57]
+#define __pyx_kp_u_has_sample_ids_2 __pyx_string_tab[58]
+#define __pyx_kp_u_isenabled __pyx_string_tab[59]
+#define __pyx_kp_u_itemsize_0_for_cython_array __pyx_string_tab[60]
+#define __pyx_kp_u_layout_2 __pyx_string_tab[61]
+#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[62]
+#define __pyx_kp_u_nsamples_2 __pyx_string_tab[63]
+#define __pyx_kp_u_nvariants_2 __pyx_string_tab[64]
+#define __pyx_kp_u_object __pyx_string_tab[65]
+#define __pyx_kp_u_opening_BgenFile_from __pyx_string_tab[66]
+#define __pyx_kp_u_pickling_BgenVar_make_sure_their __pyx_string_tab[67]
+#define __pyx_kp_u_samples __pyx_string_tab[68]
+#define __pyx_kp_u_src_bgen_reader_pyx __pyx_string_tab[69]
+#define __pyx_kp_u_status __pyx_string_tab[70]
+#define __pyx_kp_u_std_istream_at __pyx_string_tab[71]
+#define __pyx_kp_u_strided_and_direct __pyx_string_tab[72]
+#define __pyx_kp_u_strided_and_direct_or_indirect __pyx_string_tab[73]
+#define __pyx_kp_u_strided_and_indirect __pyx_string_tab[74]
+#define __pyx_kp_u_stringsource __pyx_string_tab[75]
+#define __pyx_kp_u_unable_to_allocate_array_data __pyx_string_tab[76]
+#define __pyx_kp_u_unable_to_allocate_shape_and_str __pyx_string_tab[77]
+#define __pyx_n_u_ASCII __pyx_string_tab[78]
+#define __pyx_n_u_BgenFile_2 __pyx_string_tab[79]
+#define __pyx_n_u_BgenHeader __pyx_string_tab[80]
+#define __pyx_n_u_BgenHeader___reduce_cython __pyx_string_tab[81]
+#define __pyx_n_u_BgenHeader___setstate_cython __pyx_string_tab[82]
+#define __pyx_n_u_BgenReader __pyx_string_tab[83]
+#define __pyx_n_u_BgenReader___enter __pyx_string_tab[84]
+#define __pyx_n_u_BgenReader___exit __pyx_string_tab[85]
+#define __pyx_n_u_BgenReader___is_from_stdin __pyx_string_tab[86]
+#define __pyx_n_u_BgenReader___reduce_cython __pyx_string_tab[87]
+#define __pyx_n_u_BgenReader___setstate_cython __pyx_string_tab[88]
+#define __pyx_n_u_BgenReader__check_for_index __pyx_string_tab[89]
+#define __pyx_n_u_BgenReader__is_from_stdin __pyx_string_tab[90]
+#define __pyx_n_u_BgenReader_at_position __pyx_string_tab[91]
+#define __pyx_n_u_BgenReader_chroms __pyx_string_tab[92]
+#define __pyx_n_u_BgenReader_close __pyx_string_tab[93]
+#define __pyx_n_u_BgenReader_drop_variants __pyx_string_tab[94]
+#define __pyx_n_u_BgenReader_fetch __pyx_string_tab[95]
+#define __pyx_n_u_BgenReader_positions __pyx_string_tab[96]
+#define __pyx_n_u_BgenReader_rsids __pyx_string_tab[97]
+#define __pyx_n_u_BgenReader_varids __pyx_string_tab[98]
+#define __pyx_n_u_BgenReader_with_rsid __pyx_string_tab[99]
+#define __pyx_n_u_BgenVar_2 __pyx_string_tab[100]
+#define __pyx_n_u_BgenVar___reduce __pyx_string_tab[101]
+#define __pyx_n_u_BgenVar_copy_data __pyx_string_tab[102]
+#define __pyx_n_u_C __pyx_string_tab[103]
+#define __pyx_n_u_Ellipsis __pyx_string_tab[104]
+#define __pyx_n_u_IStream __pyx_string_tab[105]
+#define __pyx_n_u_IStream___reduce __pyx_string_tab[106]
+#define __pyx_n_u_Index __pyx_string_tab[107]
+#define __pyx_n_u_OpenStatus __pyx_string_tab[108]
+#define __pyx_n_u_OpenStatus___reduce __pyx_string_tab[109]
+#define __pyx_n_u_OpenStatus_off __pyx_string_tab[110]
+#define __pyx_n_u_Path __pyx_string_tab[111]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[112]
+#define __pyx_n_u_Sequence __pyx_string_tab[113]
+#define __pyx_n_u_View_MemoryView __pyx_string_tab[114]
+#define __pyx_n_u_abc __pyx_string_tab[115]
+#define __pyx_n_u_alleles __pyx_string_tab[116]
+#define __pyx_n_u_allocate_buffer __pyx_string_tab[117]
+#define __pyx_n_u_asarray __pyx_string_tab[118]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[119]
+#define __pyx_n_u_at_position __pyx_string_tab[120]
+#define __pyx_n_u_base __pyx_string_tab[121]
+#define __pyx_n_u_bgen_index __pyx_string_tab[122]
+#define __pyx_n_u_bgen_path __pyx_string_tab[123]
+#define __pyx_n_u_bgen_reader __pyx_string_tab[124]
+#define __pyx_n_u_c __pyx_string_tab[125]
+#define __pyx_n_u_check_for_index __pyx_string_tab[126]
+#define __pyx_n_u_chrom __pyx_string_tab[127]
+#define __pyx_n_u_chroms __pyx_string_tab[128]
+#define __pyx_n_u_class __pyx_string_tab[129]
+#define __pyx_n_u_class_getitem __pyx_string_tab[130]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[131]
+#define __pyx_n_u_close __pyx_string_tab[132]
+#define __pyx_n_u_compression __pyx_string_tab[133]
+#define __pyx_n_u_copy_data __pyx_string_tab[134]
+#define __pyx_n_u_count __pyx_string_tab[135]
+#define __pyx_n_u_data __pyx_string_tab[136]
+#define __pyx_n_u_debug __pyx_string_tab[137]
+#define __pyx_n_u_delay_parsing __pyx_string_tab[138]
+#define __pyx_n_u_dict __pyx_string_tab[139]
+#define __pyx_n_u_drop_variants __pyx_string_tab[140]
+#define __pyx_n_u_dtype __pyx_string_tab[141]
+#define __pyx_n_u_dtype_is_object __pyx_string_tab[142]
+#define __pyx_n_u_empty __pyx_string_tab[143]
+#define __pyx_n_u_encode __pyx_string_tab[144]
+#define __pyx_n_u_enter __pyx_string_tab[145]
+#define __pyx_n_u_enumerate __pyx_string_tab[146]
+#define __pyx_n_u_error __pyx_string_tab[147]
+#define __pyx_n_u_exc_type __pyx_string_tab[148]
+#define __pyx_n_u_exc_value __pyx_string_tab[149]
+#define __pyx_n_u_exists __pyx_string_tab[150]
+#define __pyx_n_u_exit __pyx_string_tab[151]
+#define __pyx_n_u_expected_n __pyx_string_tab[152]
+#define __pyx_n_u_fetch __pyx_string_tab[153]
+#define __pyx_n_u_fill __pyx_string_tab[154]
+#define __pyx_n_u_flags __pyx_string_tab[155]
+#define __pyx_n_u_float32 __pyx_string_tab[156]
+#define __pyx_n_u_format __pyx_string_tab[157]
+#define __pyx_n_u_fortran __pyx_string_tab[158]
+#define __pyx_n_u_func __pyx_string_tab[159]
+#define __pyx_n_u_getstate __pyx_string_tab[160]
+#define __pyx_n_u_handle __pyx_string_tab[161]
+#define __pyx_n_u_has_sample_ids __pyx_string_tab[162]
+#define __pyx_n_u_i __pyx_string_tab[163]
+#define __pyx_n_u_id __pyx_string_tab[164]
+#define __pyx_n_u_idx __pyx_string_tab[165]
+#define __pyx_n_u_idx_exists __pyx_string_tab[166]
+#define __pyx_n_u_import __pyx_string_tab[167]
+#define __pyx_n_u_index __pyx_string_tab[168]
+#define __pyx_n_u_index_path __pyx_string_tab[169]
+#define __pyx_n_u_indices __pyx_string_tab[170]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[171]
+#define __pyx_n_u_is_dir __pyx_string_tab[172]
+#define __pyx_n_u_is_from_stdin __pyx_string_tab[173]
+#define __pyx_n_u_is_open __pyx_string_tab[174]
+#define __pyx_n_u_is_phased __pyx_string_tab[175]
+#define __pyx_n_u_is_stdin __pyx_string_tab[176]
+#define __pyx_n_u_items __pyx_string_tab[177]
+#define __pyx_n_u_itemsize __pyx_string_tab[178]
+#define __pyx_n_u_layout __pyx_string_tab[179]
+#define __pyx_n_u_logging __pyx_string_tab[180]
+#define __pyx_n_u_main __pyx_string_tab[181]
+#define __pyx_n_u_memview __pyx_string_tab[182]
+#define __pyx_n_u_metadata __pyx_string_tab[183]
+#define __pyx_n_u_mode __pyx_string_tab[184]
+#define __pyx_n_u_module __pyx_string_tab[185]
+#define __pyx_n_u_name __pyx_string_tab[186]
+#define __pyx_n_u_name_2 __pyx_string_tab[187]
+#define __pyx_n_u_nan __pyx_string_tab[188]
+#define __pyx_n_u_ndim __pyx_string_tab[189]
+#define __pyx_n_u_new __pyx_string_tab[190]
+#define __pyx_n_u_next __pyx_string_tab[191]
+#define __pyx_n_u_next_variant_offset __pyx_string_tab[192]
+#define __pyx_n_u_np __pyx_string_tab[193]
+#define __pyx_n_u_nsamples __pyx_string_tab[194]
+#define __pyx_n_u_numpy __pyx_string_tab[195]
+#define __pyx_n_u_nvariants __pyx_string_tab[196]
+#define __pyx_n_u_obj __pyx_string_tab[197]
+#define __pyx_n_u_off __pyx_string_tab[198]
+#define __pyx_n_u_offset __pyx_string_tab[199]
+#define __pyx_n_u_offset_by_index __pyx_string_tab[200]
+#define __pyx_n_u_offset_by_pos __pyx_string_tab[201]
+#define __pyx_n_u_offset_by_rsid __pyx_string_tab[202]
+#define __pyx_n_u_offsets __pyx_string_tab[203]
+#define __pyx_n_u_order __pyx_string_tab[204]
+#define __pyx_n_u_pack __pyx_string_tab[205]
+#define __pyx_n_u_path __pyx_string_tab[206]
+#define __pyx_n_u_pathlib __pyx_string_tab[207]
+#define __pyx_n_u_ploidy __pyx_string_tab[208]
+#define __pyx_n_u_pop __pyx_string_tab[209]
+#define __pyx_n_u_pos __pyx_string_tab[210]
+#define __pyx_n_u_positions __pyx_string_tab[211]
+#define __pyx_n_u_ptr __pyx_string_tab[212]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[213]
+#define __pyx_n_u_pyx_state __pyx_string_tab[214]
+#define __pyx_n_u_pyx_type __pyx_string_tab[215]
+#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[216]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[217]
+#define __pyx_n_u_qualname __pyx_string_tab[218]
+#define __pyx_n_u_reduce __pyx_string_tab[219]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[220]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[221]
+#define __pyx_n_u_register __pyx_string_tab[222]
+#define __pyx_n_u_reshape __pyx_string_tab[223]
+#define __pyx_n_u_rsid __pyx_string_tab[224]
+#define __pyx_n_u_rsids __pyx_string_tab[225]
+#define __pyx_n_u_sample_path __pyx_string_tab[226]
+#define __pyx_n_u_self __pyx_string_tab[227]
+#define __pyx_n_u_send __pyx_string_tab[228]
+#define __pyx_n_u_set_name __pyx_string_tab[229]
+#define __pyx_n_u_setdefault __pyx_string_tab[230]
+#define __pyx_n_u_setstate __pyx_string_tab[231]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[232]
+#define __pyx_n_u_shape __pyx_string_tab[233]
+#define __pyx_n_u_size __pyx_string_tab[234]
+#define __pyx_n_u_start __pyx_string_tab[235]
+#define __pyx_n_u_stdin __pyx_string_tab[236]
+#define __pyx_n_u_step __pyx_string_tab[237]
+#define __pyx_n_u_stop __pyx_string_tab[238]
+#define __pyx_n_u_struct __pyx_string_tab[239]
+#define __pyx_n_u_sys __pyx_string_tab[240]
+#define __pyx_n_u_test __pyx_string_tab[241]
+#define __pyx_n_u_throw __pyx_string_tab[242]
+#define __pyx_n_u_traceback __pyx_string_tab[243]
+#define __pyx_n_u_uint8 __pyx_string_tab[244]
+#define __pyx_n_u_unpack __pyx_string_tab[245]
+#define __pyx_n_u_update __pyx_string_tab[246]
+#define __pyx_n_u_utf8 __pyx_string_tab[247]
+#define __pyx_n_u_value __pyx_string_tab[248]
+#define __pyx_n_u_values __pyx_string_tab[249]
+#define __pyx_n_u_varid __pyx_string_tab[250]
+#define __pyx_n_u_varids __pyx_string_tab[251]
+#define __pyx_n_u_warn __pyx_string_tab[252]
+#define __pyx_n_u_warnings __pyx_string_tab[253]
+#define __pyx_n_u_with_rsid __pyx_string_tab[254]
+#define __pyx_n_u_x __pyx_string_tab[255]
+#define __pyx_n_u_zlib __pyx_string_tab[256]
+#define __pyx_n_u_zstd __pyx_string_tab[257]
+#define __pyx_kp_b_iso88591_A __pyx_string_tab[258]
+#define __pyx_kp_b_iso88591_A_4q_AQ_O1_D_q __pyx_string_tab[259]
+#define __pyx_kp_b_iso88591_A_4t9Cq_AQ_4q_1_HN_1 __pyx_string_tab[260]
+#define __pyx_kp_b_iso88591_A_4t9Cq_AQ_4q_4vQ_XWA_q_U __pyx_string_tab[261]
+#define __pyx_kp_b_iso88591_A_4t9Cq_AQ_4q_4vQ_t8_Q __pyx_string_tab[262]
+#define __pyx_kp_b_iso88591_A_4y_1_A_t1_F_A __pyx_string_tab[263]
+#define __pyx_kp_b_iso88591_A_F_q __pyx_string_tab[264]
+#define __pyx_kp_b_iso88591_A_G_fAQ __pyx_string_tab[265]
+#define __pyx_kp_b_iso88591_A_L __pyx_string_tab[266]
+#define __pyx_kp_b_iso88591_A_M_4q __pyx_string_tab[267]
+#define __pyx_kp_b_iso88591_A_Q_eef_M_Yd_4yPTTbbffssw_x_C_C __pyx_string_tab[268]
+#define __pyx_kp_b_iso88591_A_S_1_1_Cq_1_Cq_1_q __pyx_string_tab[269]
+#define __pyx_kp_b_iso88591_A_T_Ba_Zwa_IU_q __pyx_string_tab[270]
+#define __pyx_kp_b_iso88591_A_T_Q_1_Q_1_t87_Qawaxt5 __pyx_string_tab[271]
+#define __pyx_kp_b_iso88591_A_T_Q_1_Q_D_nAQ_is_9D_q_hg_4xwa __pyx_string_tab[272]
+#define __pyx_kp_b_iso88591_A_T_Q_1_Q_D_oQa_is_9D_q_hg_4xwa __pyx_string_tab[273]
+#define __pyx_kp_b_iso88591_A_T_Q_1_Q_V1_d_Qawaxt5 __pyx_string_tab[274]
+#define __pyx_kp_b_iso88591_A_q __pyx_string_tab[275]
+#define __pyx_kp_b_iso88591_Q __pyx_string_tab[276]
+#define __pyx_n_b_O __pyx_string_tab[277]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_neg_1 __pyx_number_tab[1]
 #define __pyx_int_1 __pyx_number_tab[2]
@@ -3965,7 +3966,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<22; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<277; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<278; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -4015,7 +4016,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<22; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<277; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<278; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -19424,7 +19425,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_9nvariants___get__(struct _
  *     @property
  *     def nvariants(self): return self._nvariants             # <<<<<<<<<<<<<<
  *     @property
- *     def compression(self): return [None, 'zlib', 'zstd'][self._compression]
+ *     def compression(self): return self.compress_formats[self._compression]
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = __Pyx_PyLong_From_uint32_t(__pyx_v_self->_nvariants); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
@@ -19452,9 +19453,9 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_9nvariants___get__(struct _
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":180
+/* "bgen/reader.pyx":178
  *     @property
- *     def compression(self): return [None, 'zlib', 'zstd'][self._compression]
+ *     def nvariants(self): return self._nvariants
  *     @property             # <<<<<<<<<<<<<<
  *     def compression(self): return self.compress_formats[self._compression]
  *     @property
@@ -19484,23 +19485,23 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_11compression___get__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":181
- *     def compression(self): return [None, 'zlib', 'zstd'][self._compression]
+  /* "bgen/reader.pyx":179
+ *     def nvariants(self): return self._nvariants
  *     @property
  *     def compression(self): return self.compress_formats[self._compression]             # <<<<<<<<<<<<<<
  *     @property
  *     def layout(self): return self._layout
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_self->compress_formats, __pyx_v_self->_compression, int, 1, __Pyx_PyLong_From_int, 0, 1, 0, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_self->compress_formats, __pyx_v_self->_compression, int, 1, __Pyx_PyLong_From_int, 0, 1, 0, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":180
+  /* "bgen/reader.pyx":178
  *     @property
- *     def compression(self): return [None, 'zlib', 'zstd'][self._compression]
+ *     def nvariants(self): return self._nvariants
  *     @property             # <<<<<<<<<<<<<<
  *     def compression(self): return self.compress_formats[self._compression]
  *     @property
@@ -19517,7 +19518,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_11compression___get__(struc
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":182
+/* "bgen/reader.pyx":180
  *     @property
  *     def compression(self): return self.compress_formats[self._compression]
  *     @property             # <<<<<<<<<<<<<<
@@ -19549,7 +19550,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_6layout___get__(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":183
+  /* "bgen/reader.pyx":181
  *     def compression(self): return self.compress_formats[self._compression]
  *     @property
  *     def layout(self): return self._layout             # <<<<<<<<<<<<<<
@@ -19557,13 +19558,13 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_6layout___get__(struct __py
  *     def has_sample_ids(self): return self._has_sample_ids
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->_layout); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->_layout); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":182
+  /* "bgen/reader.pyx":180
  *     @property
  *     def compression(self): return self.compress_formats[self._compression]
  *     @property             # <<<<<<<<<<<<<<
@@ -19582,7 +19583,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_6layout___get__(struct __py
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":184
+/* "bgen/reader.pyx":182
  *     @property
  *     def layout(self): return self._layout
  *     @property             # <<<<<<<<<<<<<<
@@ -19614,7 +19615,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_14has_sample_ids___get__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":185
+  /* "bgen/reader.pyx":183
  *     def layout(self): return self._layout
  *     @property
  *     def has_sample_ids(self): return self._has_sample_ids             # <<<<<<<<<<<<<<
@@ -19622,13 +19623,13 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_14has_sample_ids___get__(st
  *     def metadata(self): return self._metadata.decode('utf8')
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->_has_sample_ids); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->_has_sample_ids); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":184
+  /* "bgen/reader.pyx":182
  *     @property
  *     def layout(self): return self._layout
  *     @property             # <<<<<<<<<<<<<<
@@ -19647,7 +19648,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_14has_sample_ids___get__(st
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":186
+/* "bgen/reader.pyx":184
  *     @property
  *     def has_sample_ids(self): return self._has_sample_ids
  *     @property             # <<<<<<<<<<<<<<
@@ -19679,7 +19680,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_8metadata___get__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":187
+  /* "bgen/reader.pyx":185
  *     def has_sample_ids(self): return self._has_sample_ids
  *     @property
  *     def metadata(self): return self._metadata.decode('utf8')             # <<<<<<<<<<<<<<
@@ -19687,13 +19688,13 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_8metadata___get__(struct __
  * cdef class BgenVar:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->_metadata, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->_metadata, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":186
+  /* "bgen/reader.pyx":184
  *     @property
  *     def has_sample_ids(self): return self._has_sample_ids
  *     @property             # <<<<<<<<<<<<<<
@@ -19916,7 +19917,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenHeader_6__setstate_cython__(CYTHON
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":209
+/* "bgen/reader.pyx":207
  *     cdef bool is_stdin
  *     cdef OpenStatus is_open
  *     def __cinit__(self,             # <<<<<<<<<<<<<<
@@ -19952,74 +19953,74 @@ static int __pyx_pw_4bgen_6reader_7BgenVar_1__cinit__(PyObject *__pyx_v_self, Py
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_handle,&__pyx_mstate_global->__pyx_n_u_offset,&__pyx_mstate_global->__pyx_n_u_layout,&__pyx_mstate_global->__pyx_n_u_compression,&__pyx_mstate_global->__pyx_n_u_expected_n,&__pyx_mstate_global->__pyx_n_u_is_stdin,&__pyx_mstate_global->__pyx_n_u_is_open,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 209, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 207, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  7:
         values[6] = __Pyx_ArgRef_VARARGS(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 207, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 207, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 207, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 207, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 207, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 207, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 207, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 207, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 7; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 7, 7, i); __PYX_ERR(0, 209, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 7, 7, i); __PYX_ERR(0, 207, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 7)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 207, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 207, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 207, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 207, __pyx_L3_error)
       values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 207, __pyx_L3_error)
       values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 207, __pyx_L3_error)
       values[6] = __Pyx_ArgRef_VARARGS(__pyx_args, 6);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 207, __pyx_L3_error)
     }
     __pyx_v_handle = ((struct __pyx_obj_4bgen_6reader_IStream *)values[0]);
-    __pyx_v_offset = __Pyx_PyLong_As_uint64_t(values[1]); if (unlikely((__pyx_v_offset == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L3_error)
-    __pyx_v_layout = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_layout == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L3_error)
-    __pyx_v_compression = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_compression == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 213, __pyx_L3_error)
-    __pyx_v_expected_n = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_expected_n == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 214, __pyx_L3_error)
-    __pyx_v_is_stdin = __Pyx_PyObject_IsTrue(values[5]); if (unlikely((__pyx_v_is_stdin == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L3_error)
+    __pyx_v_offset = __Pyx_PyLong_As_uint64_t(values[1]); if (unlikely((__pyx_v_offset == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 209, __pyx_L3_error)
+    __pyx_v_layout = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_layout == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 210, __pyx_L3_error)
+    __pyx_v_compression = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_compression == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L3_error)
+    __pyx_v_expected_n = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_expected_n == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L3_error)
+    __pyx_v_is_stdin = __Pyx_PyObject_IsTrue(values[5]); if (unlikely((__pyx_v_is_stdin == ((bool)-1)) && PyErr_Occurred())) __PYX_ERR(0, 213, __pyx_L3_error)
     __pyx_v_is_open = ((struct __pyx_obj_4bgen_6reader_OpenStatus *)values[6]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 7, 7, __pyx_nargs); __PYX_ERR(0, 209, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 7, 7, __pyx_nargs); __PYX_ERR(0, 207, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20030,8 +20031,8 @@ static int __pyx_pw_4bgen_6reader_7BgenVar_1__cinit__(PyObject *__pyx_v_self, Py
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_handle), __pyx_mstate_global->__pyx_ptype_4bgen_6reader_IStream, 1, "handle", 0))) __PYX_ERR(0, 210, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_is_open), __pyx_mstate_global->__pyx_ptype_4bgen_6reader_OpenStatus, 1, "is_open", 0))) __PYX_ERR(0, 216, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_handle), __pyx_mstate_global->__pyx_ptype_4bgen_6reader_IStream, 1, "handle", 0))) __PYX_ERR(0, 208, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_is_open), __pyx_mstate_global->__pyx_ptype_4bgen_6reader_OpenStatus, 1, "is_open", 0))) __PYX_ERR(0, 214, __pyx_L1_error)
   __pyx_r = __pyx_pf_4bgen_6reader_7BgenVar___cinit__(((struct __pyx_obj_4bgen_6reader_BgenVar *)__pyx_v_self), __pyx_v_handle, __pyx_v_offset, __pyx_v_layout, __pyx_v_compression, __pyx_v_expected_n, __pyx_v_is_stdin, __pyx_v_is_open);
 
   /* function exit code */
@@ -20060,7 +20061,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "bgen/reader.pyx":218
+  /* "bgen/reader.pyx":216
  *                   OpenStatus is_open,
  *                   ):
  *         self.handle = handle             # <<<<<<<<<<<<<<
@@ -20073,7 +20074,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
   __Pyx_DECREF((PyObject *)__pyx_v_self->handle);
   __pyx_v_self->handle = __pyx_v_handle;
 
-  /* "bgen/reader.pyx":219
+  /* "bgen/reader.pyx":217
  *                   ):
  *         self.handle = handle
  *         self.offset = offset             # <<<<<<<<<<<<<<
@@ -20082,7 +20083,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
 */
   __pyx_v_self->offset = __pyx_v_offset;
 
-  /* "bgen/reader.pyx":220
+  /* "bgen/reader.pyx":218
  *         self.handle = handle
  *         self.offset = offset
  *         self.layout = layout             # <<<<<<<<<<<<<<
@@ -20091,7 +20092,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
 */
   __pyx_v_self->layout = __pyx_v_layout;
 
-  /* "bgen/reader.pyx":221
+  /* "bgen/reader.pyx":219
  *         self.offset = offset
  *         self.layout = layout
  *         self.compression = compression             # <<<<<<<<<<<<<<
@@ -20100,7 +20101,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
 */
   __pyx_v_self->compression = __pyx_v_compression;
 
-  /* "bgen/reader.pyx":222
+  /* "bgen/reader.pyx":220
  *         self.layout = layout
  *         self.compression = compression
  *         self.expected_n = expected_n             # <<<<<<<<<<<<<<
@@ -20109,7 +20110,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
 */
   __pyx_v_self->expected_n = __pyx_v_expected_n;
 
-  /* "bgen/reader.pyx":223
+  /* "bgen/reader.pyx":221
  *         self.compression = compression
  *         self.expected_n = expected_n
  *         self.is_stdin = is_stdin             # <<<<<<<<<<<<<<
@@ -20118,7 +20119,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
 */
   __pyx_v_self->is_stdin = __pyx_v_is_stdin;
 
-  /* "bgen/reader.pyx":224
+  /* "bgen/reader.pyx":222
  *         self.expected_n = expected_n
  *         self.is_stdin = is_stdin
  *         self.is_open = is_open             # <<<<<<<<<<<<<<
@@ -20131,7 +20132,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
   __Pyx_DECREF((PyObject *)__pyx_v_self->is_open);
   __pyx_v_self->is_open = __pyx_v_is_open;
 
-  /* "bgen/reader.pyx":227
+  /* "bgen/reader.pyx":225
  * 
  *         # construct new Variant from the handle, offset and other file info
  *         self.thisptr = new Variant(self.handle.ptr, offset, layout, compression, expected_n, is_stdin)             # <<<<<<<<<<<<<<
@@ -20142,11 +20143,11 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
     __pyx_t_1 = new bgen::Variant(__pyx_v_self->handle->ptr, __pyx_v_offset, __pyx_v_layout, __pyx_v_compression, __pyx_v_expected_n, __pyx_v_is_stdin);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 227, __pyx_L1_error)
+    __PYX_ERR(0, 225, __pyx_L1_error)
   }
   __pyx_v_self->thisptr = __pyx_t_1;
 
-  /* "bgen/reader.pyx":209
+  /* "bgen/reader.pyx":207
  *     cdef bool is_stdin
  *     cdef OpenStatus is_open
  *     def __cinit__(self,             # <<<<<<<<<<<<<<
@@ -20165,7 +20166,7 @@ static int __pyx_pf_4bgen_6reader_7BgenVar___cinit__(struct __pyx_obj_4bgen_6rea
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":229
+/* "bgen/reader.pyx":227
  *         self.thisptr = new Variant(self.handle.ptr, offset, layout, compression, expected_n, is_stdin)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -20203,7 +20204,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_2__repr__(struct __pyx_obj_4bge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "bgen/reader.pyx":230
+  /* "bgen/reader.pyx":228
  * 
  *     def __repr__(self):
  *        return f'BgenVar("{self.varid}", "{self.rsid}", "{self.chrom}", {self.pos}, {self.alleles})'             # <<<<<<<<<<<<<<
@@ -20211,29 +20212,29 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_2__repr__(struct __pyx_obj_4bge
  *     def __str__(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_varid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_varid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_rsid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_rsid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_chrom); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_chrom); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_alleles); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_alleles); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_7[0] = __pyx_mstate_global->__pyx_kp_u_BgenVar;
@@ -20248,7 +20249,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_2__repr__(struct __pyx_obj_4bge
   __pyx_t_7[9] = __pyx_t_6;
   __pyx_t_7[10] = __pyx_mstate_global->__pyx_kp_u__5;
   __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_7, 11, 9 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 4 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -20259,7 +20260,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_2__repr__(struct __pyx_obj_4bge
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":229
+  /* "bgen/reader.pyx":227
  *         self.thisptr = new Variant(self.handle.ptr, offset, layout, compression, expected_n, is_stdin)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -20283,7 +20284,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_2__repr__(struct __pyx_obj_4bge
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":232
+/* "bgen/reader.pyx":230
  *        return f'BgenVar("{self.varid}", "{self.rsid}", "{self.chrom}", {self.pos}, {self.alleles})'
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
@@ -20320,7 +20321,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_4__str__(struct __pyx_obj_4bgen
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__str__", 0);
 
-  /* "bgen/reader.pyx":233
+  /* "bgen/reader.pyx":231
  * 
  *     def __str__(self):
  *        return f'{self.rsid} - {self.chrom}:{self.pos} {self.alleles}'             # <<<<<<<<<<<<<<
@@ -20328,24 +20329,24 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_4__str__(struct __pyx_obj_4bgen
  *     def __reduce__(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_rsid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_rsid); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_chrom); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_chrom); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_alleles); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_alleles); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6[0] = __pyx_t_2;
@@ -20356,7 +20357,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_4__str__(struct __pyx_obj_4bgen
   __pyx_t_6[5] = __pyx_mstate_global->__pyx_kp_u__11;
   __pyx_t_6[6] = __pyx_t_5;
   __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_6, 7, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -20366,7 +20367,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_4__str__(struct __pyx_obj_4bgen
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":232
+  /* "bgen/reader.pyx":230
  *        return f'BgenVar("{self.varid}", "{self.rsid}", "{self.chrom}", {self.pos}, {self.alleles})'
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
@@ -20389,7 +20390,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_4__str__(struct __pyx_obj_4bgen
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":235
+/* "bgen/reader.pyx":233
  *        return f'{self.rsid} - {self.chrom}:{self.pos} {self.alleles}'
  * 
  *     def __reduce__(self):             # <<<<<<<<<<<<<<
@@ -20456,7 +20457,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6__reduce__(struct __pyx_obj_4b
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__reduce__", 0);
 
-  /* "bgen/reader.pyx":238
+  /* "bgen/reader.pyx":236
  *         ''' enable pickling of a BgenVar object
  *         '''
  *         warnings.warn("pickling BgenVar - make sure their BgenReader objects exist when unpickling", RuntimeWarning)             # <<<<<<<<<<<<<<
@@ -20464,9 +20465,9 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6__reduce__(struct __pyx_obj_4b
  * 
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 238, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_warnings); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 236, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 238, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_warn); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 236, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -20486,12 +20487,12 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6__reduce__(struct __pyx_obj_4b
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 238, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "bgen/reader.pyx":239
+  /* "bgen/reader.pyx":237
  *         '''
  *         warnings.warn("pickling BgenVar - make sure their BgenReader objects exist when unpickling", RuntimeWarning)
  *         return (self.__class__, (self.handle, self.thisptr.offset, self.layout, self.compression, self.expected_n, self.is_stdin, self.is_open))             # <<<<<<<<<<<<<<
@@ -20499,54 +20500,54 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6__reduce__(struct __pyx_obj_4b
  *     def __dealloc__(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyLong_From_long(__pyx_v_self->thisptr->offset); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_long(__pyx_v_self->thisptr->offset); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->layout); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->layout); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->compression); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->compression); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->expected_n); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_self->expected_n); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyBool_FromLong(__pyx_v_self->is_stdin); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyBool_FromLong(__pyx_v_self->is_stdin); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = PyTuple_New(7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_8 = PyTuple_New(7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_INCREF((PyObject *)__pyx_v_self->handle);
   __Pyx_GIVEREF((PyObject *)__pyx_v_self->handle);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, ((PyObject *)__pyx_v_self->handle)) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, ((PyObject *)__pyx_v_self->handle)) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 2, __pyx_t_2) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 2, __pyx_t_2) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 3, __pyx_t_3) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 3, __pyx_t_3) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 4, __pyx_t_6) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 4, __pyx_t_6) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 5, __pyx_t_7) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 5, __pyx_t_7) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __Pyx_INCREF((PyObject *)__pyx_v_self->is_open);
   __Pyx_GIVEREF((PyObject *)__pyx_v_self->is_open);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 6, ((PyObject *)__pyx_v_self->is_open)) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 6, ((PyObject *)__pyx_v_self->is_open)) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __pyx_t_4 = 0;
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
   __pyx_t_6 = 0;
   __pyx_t_7 = 0;
-  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_8) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_8) != (0)) __PYX_ERR(0, 237, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_8 = 0;
   __pyx_r = __pyx_t_7;
   __pyx_t_7 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":235
+  /* "bgen/reader.pyx":233
  *        return f'{self.rsid} - {self.chrom}:{self.pos} {self.alleles}'
  * 
  *     def __reduce__(self):             # <<<<<<<<<<<<<<
@@ -20571,7 +20572,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6__reduce__(struct __pyx_obj_4b
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":241
+/* "bgen/reader.pyx":239
  *         return (self.__class__, (self.handle, self.thisptr.offset, self.layout, self.compression, self.expected_n, self.is_stdin, self.is_open))
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -20594,7 +20595,7 @@ static void __pyx_pw_4bgen_6reader_7BgenVar_9__dealloc__(PyObject *__pyx_v_self)
 
 static void __pyx_pf_4bgen_6reader_7BgenVar_8__dealloc__(struct __pyx_obj_4bgen_6reader_BgenVar *__pyx_v_self) {
 
-  /* "bgen/reader.pyx":242
+  /* "bgen/reader.pyx":240
  * 
  *     def __dealloc__(self):
  *         del self.thisptr             # <<<<<<<<<<<<<<
@@ -20603,7 +20604,7 @@ static void __pyx_pf_4bgen_6reader_7BgenVar_8__dealloc__(struct __pyx_obj_4bgen_
 */
   delete __pyx_v_self->thisptr;
 
-  /* "bgen/reader.pyx":241
+  /* "bgen/reader.pyx":239
  *         return (self.__class__, (self.handle, self.thisptr.offset, self.layout, self.compression, self.expected_n, self.is_stdin, self.is_open))
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -20614,7 +20615,7 @@ static void __pyx_pf_4bgen_6reader_7BgenVar_8__dealloc__(struct __pyx_obj_4bgen_
   /* function exit code */
 }
 
-/* "bgen/reader.pyx":244
+/* "bgen/reader.pyx":242
  *         del self.thisptr
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -20646,7 +20647,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_5varid___get__(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":246
+  /* "bgen/reader.pyx":244
  *     @property
  *     def varid(self):
  *       return self.thisptr.varid.decode('utf8')             # <<<<<<<<<<<<<<
@@ -20654,13 +20655,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_5varid___get__(struct __pyx_obj
  *     def rsid(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->thisptr->varid, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->thisptr->varid, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":244
+  /* "bgen/reader.pyx":242
  *         del self.thisptr
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -20679,7 +20680,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_5varid___get__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":247
+/* "bgen/reader.pyx":245
  *     def varid(self):
  *       return self.thisptr.varid.decode('utf8')
  *     @property             # <<<<<<<<<<<<<<
@@ -20711,7 +20712,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_4rsid___get__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":249
+  /* "bgen/reader.pyx":247
  *     @property
  *     def rsid(self):
  *         return self.thisptr.rsid.decode('utf8')             # <<<<<<<<<<<<<<
@@ -20719,13 +20720,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_4rsid___get__(struct __pyx_obj_
  *     def chrom(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->thisptr->rsid, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->thisptr->rsid, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 247, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":247
+  /* "bgen/reader.pyx":245
  *     def varid(self):
  *       return self.thisptr.varid.decode('utf8')
  *     @property             # <<<<<<<<<<<<<<
@@ -20744,7 +20745,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_4rsid___get__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":250
+/* "bgen/reader.pyx":248
  *     def rsid(self):
  *         return self.thisptr.rsid.decode('utf8')
  *     @property             # <<<<<<<<<<<<<<
@@ -20776,7 +20777,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_5chrom___get__(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":252
+  /* "bgen/reader.pyx":250
  *     @property
  *     def chrom(self):
  *         return self.thisptr.chrom.decode('utf8')             # <<<<<<<<<<<<<<
@@ -20784,13 +20785,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_5chrom___get__(struct __pyx_obj
  *     def pos(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->thisptr->chrom, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->thisptr->chrom, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":250
+  /* "bgen/reader.pyx":248
  *     def rsid(self):
  *         return self.thisptr.rsid.decode('utf8')
  *     @property             # <<<<<<<<<<<<<<
@@ -20809,7 +20810,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_5chrom___get__(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":253
+/* "bgen/reader.pyx":251
  *     def chrom(self):
  *         return self.thisptr.chrom.decode('utf8')
  *     @property             # <<<<<<<<<<<<<<
@@ -20841,7 +20842,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_3pos___get__(struct __pyx_obj_4
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":255
+  /* "bgen/reader.pyx":253
  *     @property
  *     def pos(self):
  *         return self.thisptr.pos             # <<<<<<<<<<<<<<
@@ -20849,13 +20850,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_3pos___get__(struct __pyx_obj_4
  *     def fileoffset(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->thisptr->pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->thisptr->pos); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":253
+  /* "bgen/reader.pyx":251
  *     def chrom(self):
  *         return self.thisptr.chrom.decode('utf8')
  *     @property             # <<<<<<<<<<<<<<
@@ -20874,7 +20875,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_3pos___get__(struct __pyx_obj_4
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":256
+/* "bgen/reader.pyx":254
  *     def pos(self):
  *         return self.thisptr.pos
  *     @property             # <<<<<<<<<<<<<<
@@ -20906,7 +20907,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10fileoffset___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":258
+  /* "bgen/reader.pyx":256
  *     @property
  *     def fileoffset(self):
  *         return self.offset             # <<<<<<<<<<<<<<
@@ -20914,13 +20915,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10fileoffset___get__(struct __p
  *     def next_variant_offset(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_uint64_t(__pyx_v_self->offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_uint64_t(__pyx_v_self->offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 256, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":256
+  /* "bgen/reader.pyx":254
  *     def pos(self):
  *         return self.thisptr.pos
  *     @property             # <<<<<<<<<<<<<<
@@ -20939,7 +20940,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10fileoffset___get__(struct __p
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":259
+/* "bgen/reader.pyx":257
  *     def fileoffset(self):
  *         return self.offset
  *     @property             # <<<<<<<<<<<<<<
@@ -20971,7 +20972,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19next_variant_offset___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":261
+  /* "bgen/reader.pyx":259
  *     @property
  *     def next_variant_offset(self):
  *         return self.thisptr.next_variant_offset             # <<<<<<<<<<<<<<
@@ -20979,13 +20980,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19next_variant_offset___get__(s
  *     def alleles(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_uint64_t(__pyx_v_self->thisptr->next_variant_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_uint64_t(__pyx_v_self->thisptr->next_variant_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":259
+  /* "bgen/reader.pyx":257
  *     def fileoffset(self):
  *         return self.offset
  *     @property             # <<<<<<<<<<<<<<
@@ -21004,7 +21005,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19next_variant_offset___get__(s
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":262
+/* "bgen/reader.pyx":260
  *     def next_variant_offset(self):
  *         return self.thisptr.next_variant_offset
  *     @property             # <<<<<<<<<<<<<<
@@ -21040,7 +21041,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_7alleles___get__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":264
+  /* "bgen/reader.pyx":262
  *     @property
  *     def alleles(self):
  *         return [x.decode('utf8') for x in self.thisptr.alleles]             # <<<<<<<<<<<<<<
@@ -21049,15 +21050,15 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_7alleles___get__(struct __pyx_o
 */
   __Pyx_XDECREF(__pyx_r);
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 264, __pyx_L1_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 262, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_2 = __pyx_v_self->thisptr->alleles.begin();
     for (; __pyx_t_2 != __pyx_v_self->thisptr->alleles.end(); ++__pyx_t_2) {
       __pyx_t_3 = *__pyx_t_2;
       __pyx_7genexpr__pyx_v_x = __PYX_STD_MOVE_IF_SUPPORTED(__pyx_t_3);
-      __pyx_t_4 = __Pyx_decode_cpp_string(__pyx_7genexpr__pyx_v_x, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 264, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_decode_cpp_string(__pyx_7genexpr__pyx_v_x, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 262, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 264, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 262, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   } /* exit inner scope */
@@ -21065,7 +21066,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_7alleles___get__(struct __pyx_o
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":262
+  /* "bgen/reader.pyx":260
  *     def next_variant_offset(self):
  *         return self.thisptr.next_variant_offset
  *     @property             # <<<<<<<<<<<<<<
@@ -21085,7 +21086,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_7alleles___get__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":265
+/* "bgen/reader.pyx":263
  *     def alleles(self):
  *         return [x.decode('utf8') for x in self.thisptr.alleles]
  *     cdef __check_closed(self):             # <<<<<<<<<<<<<<
@@ -21102,7 +21103,7 @@ static PyObject *__pyx_f_4bgen_6reader_7BgenVar__BgenVar__check_closed(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_BgenVar__check_closed", 0);
 
-  /* "bgen/reader.pyx":283
+  /* "bgen/reader.pyx":281
  *         whether the istream object exists or not.
  *         '''
  *         if not deref(self.is_open.ptr):             # <<<<<<<<<<<<<<
@@ -21112,7 +21113,7 @@ static PyObject *__pyx_f_4bgen_6reader_7BgenVar__BgenVar__check_closed(struct __
   __pyx_t_1 = (!((*__pyx_v_self->is_open->ptr) != 0));
   if (__pyx_t_1) {
 
-    /* "bgen/reader.pyx":284
+    /* "bgen/reader.pyx":282
  *         '''
  *         if not deref(self.is_open.ptr):
  *             self.thisptr.handle.setstate(failbit)             # <<<<<<<<<<<<<<
@@ -21123,10 +21124,10 @@ static PyObject *__pyx_f_4bgen_6reader_7BgenVar__BgenVar__check_closed(struct __
       __pyx_v_self->thisptr->handle->setstate(std::ios_base::failbit);
     } catch(...) {
       __Pyx_CppExn2PyErr();
-      __PYX_ERR(0, 284, __pyx_L1_error)
+      __PYX_ERR(0, 282, __pyx_L1_error)
     }
 
-    /* "bgen/reader.pyx":283
+    /* "bgen/reader.pyx":281
  *         whether the istream object exists or not.
  *         '''
  *         if not deref(self.is_open.ptr):             # <<<<<<<<<<<<<<
@@ -21135,7 +21136,7 @@ static PyObject *__pyx_f_4bgen_6reader_7BgenVar__BgenVar__check_closed(struct __
 */
   }
 
-  /* "bgen/reader.pyx":265
+  /* "bgen/reader.pyx":263
  *     def alleles(self):
  *         return [x.decode('utf8') for x in self.thisptr.alleles]
  *     cdef __check_closed(self):             # <<<<<<<<<<<<<<
@@ -21155,7 +21156,7 @@ static PyObject *__pyx_f_4bgen_6reader_7BgenVar__BgenVar__check_closed(struct __
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":285
+/* "bgen/reader.pyx":283
  *         if not deref(self.is_open.ptr):
  *             self.thisptr.handle.setstate(failbit)
  *     @property             # <<<<<<<<<<<<<<
@@ -21188,7 +21189,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_9is_phased___get__(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":287
+  /* "bgen/reader.pyx":285
  *     @property
  *     def is_phased(self):
  *         return self.thisptr.phased()             # <<<<<<<<<<<<<<
@@ -21200,15 +21201,15 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_9is_phased___get__(struct __pyx
     __pyx_t_1 = __pyx_v_self->thisptr->phased();
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 287, __pyx_L1_error)
+    __PYX_ERR(0, 285, __pyx_L1_error)
   }
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 285, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":285
+  /* "bgen/reader.pyx":283
  *         if not deref(self.is_open.ptr):
  *             self.thisptr.handle.setstate(failbit)
  *     @property             # <<<<<<<<<<<<<<
@@ -21227,7 +21228,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_9is_phased___get__(struct __pyx
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":288
+/* "bgen/reader.pyx":286
  *     def is_phased(self):
  *         return self.thisptr.phased()
  *     @property             # <<<<<<<<<<<<<<
@@ -21272,18 +21273,18 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":292
+  /* "bgen/reader.pyx":290
  *         ''' get the ploidy for each sample
  *         '''
  *         self.__check_closed()             # <<<<<<<<<<<<<<
  *         cdef uint8_t * ploid = self.thisptr.ploidy()
  *         cdef uint64_t size = self.expected_n
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 292, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "bgen/reader.pyx":293
+  /* "bgen/reader.pyx":291
  *         '''
  *         self.__check_closed()
  *         cdef uint8_t * ploid = self.thisptr.ploidy()             # <<<<<<<<<<<<<<
@@ -21294,11 +21295,11 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
     __pyx_t_2 = __pyx_v_self->thisptr->ploidy();
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 293, __pyx_L1_error)
+    __PYX_ERR(0, 291, __pyx_L1_error)
   }
   __pyx_v_ploid = __pyx_t_2;
 
-  /* "bgen/reader.pyx":294
+  /* "bgen/reader.pyx":292
  *         self.__check_closed()
  *         cdef uint8_t * ploid = self.thisptr.ploidy()
  *         cdef uint64_t size = self.expected_n             # <<<<<<<<<<<<<<
@@ -21308,7 +21309,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
   __pyx_t_3 = __pyx_v_self->expected_n;
   __pyx_v_size = __pyx_t_3;
 
-  /* "bgen/reader.pyx":295
+  /* "bgen/reader.pyx":293
  *         cdef uint8_t * ploid = self.thisptr.ploidy()
  *         cdef uint64_t size = self.expected_n
  *         cdef uint8_t[::1] arr = np.empty(size, dtype=np.uint8, order='C')             # <<<<<<<<<<<<<<
@@ -21316,16 +21317,16 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
  *         return np.asarray(arr)
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyLong_From_uint64_t(__pyx_v_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_uint64_t(__pyx_v_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_uint8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_uint8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_9 = 1;
@@ -21342,26 +21343,26 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_4, __pyx_t_5};
-    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 295, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 293, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_8, __pyx_t_7, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 295, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_C, __pyx_t_7, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 295, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_8, __pyx_t_7, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 293, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_C, __pyx_t_7, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 293, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 295, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 293, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_10 = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint8_t(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_10.memview)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint8_t(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_10.memview)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_arr = __pyx_t_10;
   __pyx_t_10.memview = NULL;
   __pyx_t_10.data = NULL;
 
-  /* "bgen/reader.pyx":296
+  /* "bgen/reader.pyx":294
  *         cdef uint64_t size = self.expected_n
  *         cdef uint8_t[::1] arr = np.empty(size, dtype=np.uint8, order='C')
  *         memcpy(&arr[0], ploid, size)             # <<<<<<<<<<<<<<
@@ -21372,7 +21373,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
   if (__pyx_t_11 < 0) __pyx_t_11 += __pyx_v_arr.shape[0];
   (void)(memcpy((&(*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_v_arr.data) + __pyx_t_11)) )))), __pyx_v_ploid, __pyx_v_size));
 
-  /* "bgen/reader.pyx":297
+  /* "bgen/reader.pyx":295
  *         cdef uint8_t[::1] arr = np.empty(size, dtype=np.uint8, order='C')
  *         memcpy(&arr[0], ploid, size)
  *         return np.asarray(arr)             # <<<<<<<<<<<<<<
@@ -21381,12 +21382,12 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_asarray); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_asarray); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __pyx_memoryview_fromslice(__pyx_v_arr, 1, (PyObject *(*)(char *)) __pyx_memview_get_nn_uint8_t, (int (*)(char *, PyObject *)) __pyx_memview_set_nn_uint8_t, 0);; if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_7 = __pyx_memoryview_fromslice(__pyx_v_arr, 1, (PyObject *(*)(char *)) __pyx_memview_get_nn_uint8_t, (int (*)(char *, PyObject *)) __pyx_memview_set_nn_uint8_t, 0);; if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_9 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -21406,14 +21407,14 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":288
+  /* "bgen/reader.pyx":286
  *     def is_phased(self):
  *         return self.thisptr.phased()
  *     @property             # <<<<<<<<<<<<<<
@@ -21439,7 +21440,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_6ploidy___get__(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":298
+/* "bgen/reader.pyx":296
  *         memcpy(&arr[0], ploid, size)
  *         return np.asarray(arr)
  *     @property             # <<<<<<<<<<<<<<
@@ -21471,7 +21472,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_12minor_allele___get__(struct _
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":302
+  /* "bgen/reader.pyx":300
  *         ''' get the minor allele of a biallelic variant
  *         '''
  *         return self.thisptr.minor_allele.decode('utf8')             # <<<<<<<<<<<<<<
@@ -21479,13 +21480,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_12minor_allele___get__(struct _
  *     def minor_allele_dosage(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->thisptr->minor_allele, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 302, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_decode_cpp_string(__pyx_v_self->thisptr->minor_allele, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":298
+  /* "bgen/reader.pyx":296
  *         memcpy(&arr[0], ploid, size)
  *         return np.asarray(arr)
  *     @property             # <<<<<<<<<<<<<<
@@ -21504,7 +21505,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_12minor_allele___get__(struct _
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":303
+/* "bgen/reader.pyx":301
  *         '''
  *         return self.thisptr.minor_allele.decode('utf8')
  *     @property             # <<<<<<<<<<<<<<
@@ -21545,18 +21546,18 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19minor_allele_dosage___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":307
+  /* "bgen/reader.pyx":305
  *         ''' dosage for the minor allele for a biallelic variant
  *         '''
  *         self.__check_closed()             # <<<<<<<<<<<<<<
  *         cdef float[:] dose = np.empty(self.expected_n, dtype=np.float32, order='C')
  *         self.thisptr.minor_allele_dosage(&dose[0])
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 305, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "bgen/reader.pyx":308
+  /* "bgen/reader.pyx":306
  *         '''
  *         self.__check_closed()
  *         cdef float[:] dose = np.empty(self.expected_n, dtype=np.float32, order='C')             # <<<<<<<<<<<<<<
@@ -21564,16 +21565,16 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19minor_allele_dosage___get__(s
  *         return np.asarray(dose)
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 306, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 306, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->expected_n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->expected_n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 306, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 306, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_float32); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_float32); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 306, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = 1;
@@ -21590,26 +21591,26 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19minor_allele_dosage___get__(s
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, __pyx_t_3};
-    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 308, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 306, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_6, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 308, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_C, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 308, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_6, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 306, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_C, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 306, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 308, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 306, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_8 = __Pyx_PyObject_to_MemoryviewSlice_ds_float(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_8.memview)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_to_MemoryviewSlice_ds_float(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_8.memview)) __PYX_ERR(0, 306, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_dose = __pyx_t_8;
   __pyx_t_8.memview = NULL;
   __pyx_t_8.data = NULL;
 
-  /* "bgen/reader.pyx":309
+  /* "bgen/reader.pyx":307
  *         self.__check_closed()
  *         cdef float[:] dose = np.empty(self.expected_n, dtype=np.float32, order='C')
  *         self.thisptr.minor_allele_dosage(&dose[0])             # <<<<<<<<<<<<<<
@@ -21622,10 +21623,10 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19minor_allele_dosage___get__(s
     __pyx_v_self->thisptr->minor_allele_dosage((&(*((float *) ( /* dim=0 */ (__pyx_v_dose.data + __pyx_t_9 * __pyx_v_dose.strides[0]) )))));
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 309, __pyx_L1_error)
+    __PYX_ERR(0, 307, __pyx_L1_error)
   }
 
-  /* "bgen/reader.pyx":310
+  /* "bgen/reader.pyx":308
  *         cdef float[:] dose = np.empty(self.expected_n, dtype=np.float32, order='C')
  *         self.thisptr.minor_allele_dosage(&dose[0])
  *         return np.asarray(dose)             # <<<<<<<<<<<<<<
@@ -21634,12 +21635,12 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19minor_allele_dosage___get__(s
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asarray); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asarray); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __pyx_memoryview_fromslice(__pyx_v_dose, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __pyx_t_5 = __pyx_memoryview_fromslice(__pyx_v_dose, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -21659,14 +21660,14 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19minor_allele_dosage___get__(s
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 310, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 308, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":303
+  /* "bgen/reader.pyx":301
  *         '''
  *         return self.thisptr.minor_allele.decode('utf8')
  *     @property             # <<<<<<<<<<<<<<
@@ -21692,7 +21693,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_19minor_allele_dosage___get__(s
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":311
+/* "bgen/reader.pyx":309
  *         self.thisptr.minor_allele_dosage(&dose[0])
  *         return np.asarray(dose)
  *     @property             # <<<<<<<<<<<<<<
@@ -21733,18 +21734,18 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10alt_dosage___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":315
+  /* "bgen/reader.pyx":313
  *         ''' dosage for the alt allele for a biallelic variant
  *         '''
  *         self.__check_closed()             # <<<<<<<<<<<<<<
  *         cdef float[:] dose = np.empty(self.expected_n, dtype=np.float32, order='C')
  *         self.thisptr.alt_dosage(&dose[0])
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 315, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 313, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "bgen/reader.pyx":316
+  /* "bgen/reader.pyx":314
  *         '''
  *         self.__check_closed()
  *         cdef float[:] dose = np.empty(self.expected_n, dtype=np.float32, order='C')             # <<<<<<<<<<<<<<
@@ -21752,16 +21753,16 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10alt_dosage___get__(struct __p
  *         return np.asarray(dose)
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 316, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 316, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->expected_n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 316, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->expected_n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 316, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_float32); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 316, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_float32); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = 1;
@@ -21778,26 +21779,26 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10alt_dosage___get__(struct __p
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, __pyx_t_3};
-    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 316, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 314, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_6, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 316, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_C, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 316, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_6, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 314, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_C, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 314, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 316, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 314, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_8 = __Pyx_PyObject_to_MemoryviewSlice_ds_float(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_8.memview)) __PYX_ERR(0, 316, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_to_MemoryviewSlice_ds_float(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_8.memview)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_dose = __pyx_t_8;
   __pyx_t_8.memview = NULL;
   __pyx_t_8.data = NULL;
 
-  /* "bgen/reader.pyx":317
+  /* "bgen/reader.pyx":315
  *         self.__check_closed()
  *         cdef float[:] dose = np.empty(self.expected_n, dtype=np.float32, order='C')
  *         self.thisptr.alt_dosage(&dose[0])             # <<<<<<<<<<<<<<
@@ -21810,10 +21811,10 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10alt_dosage___get__(struct __p
     __pyx_v_self->thisptr->alt_dosage((&(*((float *) ( /* dim=0 */ (__pyx_v_dose.data + __pyx_t_9 * __pyx_v_dose.strides[0]) )))));
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 317, __pyx_L1_error)
+    __PYX_ERR(0, 315, __pyx_L1_error)
   }
 
-  /* "bgen/reader.pyx":318
+  /* "bgen/reader.pyx":316
  *         cdef float[:] dose = np.empty(self.expected_n, dtype=np.float32, order='C')
  *         self.thisptr.alt_dosage(&dose[0])
  *         return np.asarray(dose)             # <<<<<<<<<<<<<<
@@ -21822,12 +21823,12 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10alt_dosage___get__(struct __p
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 318, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 316, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asarray); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 318, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asarray); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 316, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __pyx_memoryview_fromslice(__pyx_v_dose, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 318, __pyx_L1_error)
+  __pyx_t_5 = __pyx_memoryview_fromslice(__pyx_v_dose, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 316, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -21847,14 +21848,14 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10alt_dosage___get__(struct __p
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 318, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 316, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":311
+  /* "bgen/reader.pyx":309
  *         self.thisptr.minor_allele_dosage(&dose[0])
  *         return np.asarray(dose)
  *     @property             # <<<<<<<<<<<<<<
@@ -21880,7 +21881,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10alt_dosage___get__(struct __p
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":319
+/* "bgen/reader.pyx":317
  *         self.thisptr.alt_dosage(&dose[0])
  *         return np.asarray(dose)
  *     @property             # <<<<<<<<<<<<<<
@@ -21947,18 +21948,18 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "bgen/reader.pyx":323
+  /* "bgen/reader.pyx":321
  *         ''' get the allelic probabilities for a variant
  *         '''
  *         self.__check_closed()             # <<<<<<<<<<<<<<
  *         cdef int cols = self.thisptr.probs_per_sample()
  *         cdef uint32_t n_samples = self.expected_n
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 323, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 321, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "bgen/reader.pyx":324
+  /* "bgen/reader.pyx":322
  *         '''
  *         self.__check_closed()
  *         cdef int cols = self.thisptr.probs_per_sample()             # <<<<<<<<<<<<<<
@@ -21969,11 +21970,11 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
     __pyx_t_2 = __pyx_v_self->thisptr->probs_per_sample();
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 324, __pyx_L1_error)
+    __PYX_ERR(0, 322, __pyx_L1_error)
   }
   __pyx_v_cols = __pyx_t_2;
 
-  /* "bgen/reader.pyx":325
+  /* "bgen/reader.pyx":323
  *         self.__check_closed()
  *         cdef int cols = self.thisptr.probs_per_sample()
  *         cdef uint32_t n_samples = self.expected_n             # <<<<<<<<<<<<<<
@@ -21983,7 +21984,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
   __pyx_t_2 = __pyx_v_self->expected_n;
   __pyx_v_n_samples = __pyx_t_2;
 
-  /* "bgen/reader.pyx":326
+  /* "bgen/reader.pyx":324
  *         cdef int cols = self.thisptr.probs_per_sample()
  *         cdef uint32_t n_samples = self.expected_n
  *         cdef uint64_t size = n_samples * cols             # <<<<<<<<<<<<<<
@@ -21992,35 +21993,35 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
 */
   __pyx_v_size = (__pyx_v_n_samples * __pyx_v_cols);
 
-  /* "bgen/reader.pyx":328
+  /* "bgen/reader.pyx":326
  *         cdef uint64_t size = n_samples * cols
  *         cdef uint8_t[::1] ploidy
  *         if self.is_phased:             # <<<<<<<<<<<<<<
  *             ploidy = self.ploidy
  *             size = fast_ploidy_sum(&ploidy[0], n_samples) * cols
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_phased); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 328, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_phased); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 326, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 328, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 326, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_3) {
 
-    /* "bgen/reader.pyx":329
+    /* "bgen/reader.pyx":327
  *         cdef uint8_t[::1] ploidy
  *         if self.is_phased:
  *             ploidy = self.ploidy             # <<<<<<<<<<<<<<
  *             size = fast_ploidy_sum(&ploidy[0], n_samples) * cols
  * 
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_ploidy); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_ploidy); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 327, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint8_t(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_4.memview)) __PYX_ERR(0, 329, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint8_t(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_4.memview)) __PYX_ERR(0, 327, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ploidy = __pyx_t_4;
     __pyx_t_4.memview = NULL;
     __pyx_t_4.data = NULL;
 
-    /* "bgen/reader.pyx":330
+    /* "bgen/reader.pyx":328
  *         if self.is_phased:
  *             ploidy = self.ploidy
  *             size = fast_ploidy_sum(&ploidy[0], n_samples) * cols             # <<<<<<<<<<<<<<
@@ -22033,11 +22034,11 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
       __pyx_t_6 = bgen::fast_ploidy_sum((&(*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_v_ploidy.data) + __pyx_t_5)) )))), __pyx_v_n_samples);
     } catch(...) {
       __Pyx_CppExn2PyErr();
-      __PYX_ERR(0, 330, __pyx_L1_error)
+      __PYX_ERR(0, 328, __pyx_L1_error)
     }
     __pyx_v_size = (__pyx_t_6 * __pyx_v_cols);
 
-    /* "bgen/reader.pyx":328
+    /* "bgen/reader.pyx":326
  *         cdef uint64_t size = n_samples * cols
  *         cdef uint8_t[::1] ploidy
  *         if self.is_phased:             # <<<<<<<<<<<<<<
@@ -22046,7 +22047,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
 */
   }
 
-  /* "bgen/reader.pyx":332
+  /* "bgen/reader.pyx":330
  *             size = fast_ploidy_sum(&ploidy[0], n_samples) * cols
  * 
  *         cdef float[:] arr = np.empty(size, dtype=np.float32, order='C')             # <<<<<<<<<<<<<<
@@ -22054,16 +22055,16 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
  * 
 */
   __pyx_t_7 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_8 = __Pyx_PyLong_From_uint64_t(__pyx_v_size); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_uint64_t(__pyx_v_size); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_float32); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_float32); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __pyx_t_12 = 1;
@@ -22080,26 +22081,26 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_7, __pyx_t_8};
-    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 332, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 330, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_11, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 332, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_C, __pyx_t_10, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 332, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_11, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 330, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_C, __pyx_t_10, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 330, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 332, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 330, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_13 = __Pyx_PyObject_to_MemoryviewSlice_ds_float(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_13.memview)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PyObject_to_MemoryviewSlice_ds_float(__pyx_t_1, PyBUF_WRITABLE); if (unlikely(!__pyx_t_13.memview)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_arr = __pyx_t_13;
   __pyx_t_13.memview = NULL;
   __pyx_t_13.data = NULL;
 
-  /* "bgen/reader.pyx":333
+  /* "bgen/reader.pyx":331
  * 
  *         cdef float[:] arr = np.empty(size, dtype=np.float32, order='C')
  *         self.thisptr.probs_1d(&arr[0])             # <<<<<<<<<<<<<<
@@ -22112,10 +22113,10 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
     __pyx_v_self->thisptr->probs_1d((&(*((float *) ( /* dim=0 */ (__pyx_v_arr.data + __pyx_t_5 * __pyx_v_arr.strides[0]) )))));
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 333, __pyx_L1_error)
+    __PYX_ERR(0, 331, __pyx_L1_error)
   }
 
-  /* "bgen/reader.pyx":335
+  /* "bgen/reader.pyx":333
  *         self.thisptr.probs_1d(&arr[0])
  * 
  *         cdef int current = 0             # <<<<<<<<<<<<<<
@@ -22124,44 +22125,44 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
 */
   __pyx_v_current = 0;
 
-  /* "bgen/reader.pyx":338
+  /* "bgen/reader.pyx":336
  *         cdef int phase_width
  *         cdef Range ploidy_range
  *         if self.is_phased:             # <<<<<<<<<<<<<<
  *             ploidy_range = fast_range(&ploidy[0], n_samples)
  *             max_ploidy = ploidy_range._max
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_phased); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_phased); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_3) {
 
-    /* "bgen/reader.pyx":339
+    /* "bgen/reader.pyx":337
  *         cdef Range ploidy_range
  *         if self.is_phased:
  *             ploidy_range = fast_range(&ploidy[0], n_samples)             # <<<<<<<<<<<<<<
  *             max_ploidy = ploidy_range._max
  *             min_ploidy = ploidy_range._min
 */
-    if (unlikely(!__pyx_v_ploidy.memview)) { __Pyx_RaiseUnboundLocalError("ploidy"); __PYX_ERR(0, 339, __pyx_L1_error) }
+    if (unlikely(!__pyx_v_ploidy.memview)) { __Pyx_RaiseUnboundLocalError("ploidy"); __PYX_ERR(0, 337, __pyx_L1_error) }
     __pyx_t_5 = 0;
     if (__pyx_t_5 < 0) __pyx_t_5 += __pyx_v_ploidy.shape[0];
     __pyx_v_ploidy_range = bgen::fast_range((&(*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_v_ploidy.data) + __pyx_t_5)) )))), __pyx_v_n_samples);
 
-    /* "bgen/reader.pyx":340
+    /* "bgen/reader.pyx":338
  *         if self.is_phased:
  *             ploidy_range = fast_range(&ploidy[0], n_samples)
  *             max_ploidy = ploidy_range._max             # <<<<<<<<<<<<<<
  *             min_ploidy = ploidy_range._min
  *             if min_ploidy == max_ploidy:
 */
-    __pyx_t_1 = __Pyx_PyLong_From_uint8_t(__pyx_v_ploidy_range._max); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 340, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyLong_From_uint8_t(__pyx_v_ploidy_range._max); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 338, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_max_ploidy = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "bgen/reader.pyx":341
+    /* "bgen/reader.pyx":339
  *             ploidy_range = fast_range(&ploidy[0], n_samples)
  *             max_ploidy = ploidy_range._max
  *             min_ploidy = ploidy_range._min             # <<<<<<<<<<<<<<
@@ -22171,37 +22172,37 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
     __pyx_t_14 = __pyx_v_ploidy_range._min;
     __pyx_v_min_ploidy = __pyx_t_14;
 
-    /* "bgen/reader.pyx":342
+    /* "bgen/reader.pyx":340
  *             max_ploidy = ploidy_range._max
  *             min_ploidy = ploidy_range._min
  *             if min_ploidy == max_ploidy:             # <<<<<<<<<<<<<<
  *                 # quickly reshape probs if ploidy is constant
  *                 width = max_ploidy * cols
 */
-    __pyx_t_1 = __Pyx_PyLong_From_uint8_t(__pyx_v_min_ploidy); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 342, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyLong_From_uint8_t(__pyx_v_min_ploidy); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 340, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_9 = PyObject_RichCompare(__pyx_t_1, __pyx_v_max_ploidy, Py_EQ); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 342, __pyx_L1_error)
+    __pyx_t_9 = PyObject_RichCompare(__pyx_t_1, __pyx_v_max_ploidy, Py_EQ); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 340, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 342, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 340, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     if (__pyx_t_3) {
 
-      /* "bgen/reader.pyx":344
+      /* "bgen/reader.pyx":342
  *             if min_ploidy == max_ploidy:
  *                 # quickly reshape probs if ploidy is constant
  *                 width = max_ploidy * cols             # <<<<<<<<<<<<<<
  *                 data = np.reshape(arr, (-1, width))
  *             else:
 */
-      __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_cols); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 344, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_cols); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 342, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_1 = PyNumber_Multiply(__pyx_v_max_ploidy, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 344, __pyx_L1_error)
+      __pyx_t_1 = PyNumber_Multiply(__pyx_v_max_ploidy, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 342, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_v_width = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "bgen/reader.pyx":345
+      /* "bgen/reader.pyx":343
  *                 # quickly reshape probs if ploidy is constant
  *                 width = max_ploidy * cols
  *                 data = np.reshape(arr, (-1, width))             # <<<<<<<<<<<<<<
@@ -22209,21 +22210,21 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
  *                 # phased data initially comes as one row per haploytpe. This is
 */
       __pyx_t_9 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 345, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 343, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_reshape); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 345, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_reshape); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 343, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      __pyx_t_10 = __pyx_memoryview_fromslice(__pyx_v_arr, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 345, __pyx_L1_error)
+      __pyx_t_10 = __pyx_memoryview_fromslice(__pyx_v_arr, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 343, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 345, __pyx_L1_error)
+      __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 343, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_INCREF(__pyx_mstate_global->__pyx_int_neg_1);
       __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_neg_1);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 345, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 343, __pyx_L1_error);
       __Pyx_INCREF(__pyx_v_width);
       __Pyx_GIVEREF(__pyx_v_width);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_v_width) != (0)) __PYX_ERR(0, 345, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_v_width) != (0)) __PYX_ERR(0, 343, __pyx_L1_error);
       __pyx_t_12 = 1;
       #if CYTHON_UNPACK_METHODS
       if (unlikely(PyMethod_Check(__pyx_t_11))) {
@@ -22243,13 +22244,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 345, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 343, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_data = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "bgen/reader.pyx":342
+      /* "bgen/reader.pyx":340
  *             max_ploidy = ploidy_range._max
  *             min_ploidy = ploidy_range._min
  *             if min_ploidy == max_ploidy:             # <<<<<<<<<<<<<<
@@ -22259,7 +22260,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
       goto __pyx_L5;
     }
 
-    /* "bgen/reader.pyx":350
+    /* "bgen/reader.pyx":348
  *                 # reshaped to concatenate haplotype data into single row. Fill
  *                 # in a new array from the old data row by row
  *                 data = np.reshape(arr, (-1, cols))             # <<<<<<<<<<<<<<
@@ -22268,22 +22269,22 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
 */
     /*else*/ {
       __pyx_t_11 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 350, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 348, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_reshape); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 350, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_reshape); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 348, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __pyx_t_8 = __pyx_memoryview_fromslice(__pyx_v_arr, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 350, __pyx_L1_error)
+      __pyx_t_8 = __pyx_memoryview_fromslice(__pyx_v_arr, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 348, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_cols); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 350, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_cols); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 348, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 350, __pyx_L1_error)
+      __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 348, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_INCREF(__pyx_mstate_global->__pyx_int_neg_1);
       __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_neg_1);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 350, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 348, __pyx_L1_error);
       __Pyx_GIVEREF(__pyx_t_9);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_9) != (0)) __PYX_ERR(0, 350, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_9) != (0)) __PYX_ERR(0, 348, __pyx_L1_error);
       __pyx_t_9 = 0;
       __pyx_t_12 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -22304,29 +22305,29 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 350, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 348, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_data = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "bgen/reader.pyx":351
+      /* "bgen/reader.pyx":349
  *                 # in a new array from the old data row by row
  *                 data = np.reshape(arr, (-1, cols))
  *                 phase_width = data.shape[1]             # <<<<<<<<<<<<<<
  * 
  *                 # create an empty array filled with nans
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_data, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 351, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_data, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 349, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_10 = __Pyx_GetItemInt(__pyx_t_1, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 351, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_GetItemInt(__pyx_t_1, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 349, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_10); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 351, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_10); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 349, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_v_phase_width = __pyx_t_2;
 
-      /* "bgen/reader.pyx":354
+      /* "bgen/reader.pyx":352
  * 
  *                 # create an empty array filled with nans
  *                 ragged = np.empty((len(ploidy), max_ploidy * cols))             # <<<<<<<<<<<<<<
@@ -22334,26 +22335,26 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
  * 
 */
       __pyx_t_1 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 354, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 352, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 354, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 352, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_v_ploidy.memview)) { __Pyx_RaiseUnboundLocalError("ploidy"); __PYX_ERR(0, 354, __pyx_L1_error) }
+      if (unlikely(!__pyx_v_ploidy.memview)) { __Pyx_RaiseUnboundLocalError("ploidy"); __PYX_ERR(0, 352, __pyx_L1_error) }
       __pyx_t_15 = __Pyx_MemoryView_Len(__pyx_v_ploidy); 
-      __pyx_t_7 = PyLong_FromSsize_t(__pyx_t_15); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 354, __pyx_L1_error)
+      __pyx_t_7 = PyLong_FromSsize_t(__pyx_t_15); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 352, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_cols); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 354, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_cols); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 352, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
-      __pyx_t_9 = PyNumber_Multiply(__pyx_v_max_ploidy, __pyx_t_11); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 354, __pyx_L1_error)
+      __pyx_t_9 = PyNumber_Multiply(__pyx_v_max_ploidy, __pyx_t_11); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 352, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      __pyx_t_11 = PyTuple_New(2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 354, __pyx_L1_error)
+      __pyx_t_11 = PyTuple_New(2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 352, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_GIVEREF(__pyx_t_7);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_t_7) != (0)) __PYX_ERR(0, 354, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_t_7) != (0)) __PYX_ERR(0, 352, __pyx_L1_error);
       __Pyx_GIVEREF(__pyx_t_9);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_11, 1, __pyx_t_9) != (0)) __PYX_ERR(0, 354, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_11, 1, __pyx_t_9) != (0)) __PYX_ERR(0, 352, __pyx_L1_error);
       __pyx_t_7 = 0;
       __pyx_t_9 = 0;
       __pyx_t_12 = 1;
@@ -22374,13 +22375,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 354, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 352, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       __pyx_v_ragged = __pyx_t_10;
       __pyx_t_10 = 0;
 
-      /* "bgen/reader.pyx":355
+      /* "bgen/reader.pyx":353
  *                 # create an empty array filled with nans
  *                 ragged = np.empty((len(ploidy), max_ploidy * cols))
  *                 ragged.fill(np.nan)             # <<<<<<<<<<<<<<
@@ -22389,9 +22390,9 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
 */
       __pyx_t_8 = __pyx_v_ragged;
       __Pyx_INCREF(__pyx_t_8);
-      __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 355, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 353, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_nan); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_nan); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 353, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __pyx_t_12 = 0;
@@ -22400,12 +22401,12 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
         __pyx_t_10 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_fill, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 355, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 353, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-      /* "bgen/reader.pyx":358
+      /* "bgen/reader.pyx":356
  * 
  *                 # fill in the empty array
  *                 for i, x in enumerate(ploidy):             # <<<<<<<<<<<<<<
@@ -22414,10 +22415,10 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
 */
       __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
       __pyx_t_10 = __pyx_mstate_global->__pyx_int_0;
-      if (unlikely(!__pyx_v_ploidy.memview)) { __Pyx_RaiseUnboundLocalError("ploidy"); __PYX_ERR(0, 358, __pyx_L1_error) }
+      if (unlikely(!__pyx_v_ploidy.memview)) { __Pyx_RaiseUnboundLocalError("ploidy"); __PYX_ERR(0, 356, __pyx_L1_error) }
       if (unlikely(((PyObject *) __pyx_v_ploidy.memview) == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' is not iterable");
-        __PYX_ERR(0, 358, __pyx_L1_error)
+        __PYX_ERR(0, 356, __pyx_L1_error)
       }
       __PYX_INC_MEMVIEW(&__pyx_v_ploidy, 1);
       __pyx_t_4 = __pyx_v_ploidy;
@@ -22430,7 +22431,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
         __pyx_t_17 = (__pyx_t_16 < __pyx_t_15);
         if (__pyx_t_17) {
           __pyx_t_5 = __pyx_t_16;
-          __pyx_t_1 = __Pyx_PyLong_From_uint8_t((*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_t_4.data) + __pyx_t_5)) )))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 358, __pyx_L1_error)
+          __pyx_t_1 = __Pyx_PyLong_From_uint8_t((*((uint8_t *) ( /* dim=0 */ ((char *) (((uint8_t *) __pyx_t_4.data) + __pyx_t_5)) )))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 356, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
           __Pyx_XDECREF_SET(__pyx_v_x, __pyx_t_1);
           __pyx_t_1 = 0;
@@ -22442,7 +22443,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
         }
         __pyx_L8:;
 
-        /* "bgen/reader.pyx":359
+        /* "bgen/reader.pyx":357
  *                 # fill in the empty array
  *                 for i, x in enumerate(ploidy):
  *                     for y in range(x):             # <<<<<<<<<<<<<<
@@ -22452,20 +22453,20 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
         __Pyx_INCREF(__pyx_t_10);
         __Pyx_XDECREF_SET(__pyx_v_i, __pyx_t_10);
 
-        /* "bgen/reader.pyx":358
+        /* "bgen/reader.pyx":356
  * 
  *                 # fill in the empty array
  *                 for i, x in enumerate(ploidy):             # <<<<<<<<<<<<<<
  *                     for y in range(x):
  *                         start = y * phase_width
 */
-        __pyx_t_1 = __Pyx_PyLong_AddObjC(__pyx_t_10, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 358, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyLong_AddObjC(__pyx_t_10, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_10);
         __pyx_t_10 = __pyx_t_1;
         __pyx_t_1 = 0;
 
-        /* "bgen/reader.pyx":359
+        /* "bgen/reader.pyx":357
  *                 # fill in the empty array
  *                 for i, x in enumerate(ploidy):
  *                     for y in range(x):             # <<<<<<<<<<<<<<
@@ -22478,12 +22479,12 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
           PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_v_x};
           __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(&PyRange_Type), __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 359, __pyx_L1_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 357, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
         }
-        __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 359, __pyx_L1_error)
+        __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 357, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_8); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 359, __pyx_L1_error)
+        __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_8); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 357, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         for (;;) {
           {
@@ -22491,7 +22492,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
             if (unlikely(!__pyx_t_1)) {
               PyObject* exc_type = PyErr_Occurred();
               if (exc_type) {
-                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 359, __pyx_L1_error)
+                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 357, __pyx_L1_error)
                 PyErr_Clear();
               }
               break;
@@ -22501,60 +22502,60 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
           __Pyx_XDECREF_SET(__pyx_v_y, __pyx_t_1);
           __pyx_t_1 = 0;
 
-          /* "bgen/reader.pyx":360
+          /* "bgen/reader.pyx":358
  *                 for i, x in enumerate(ploidy):
  *                     for y in range(x):
  *                         start = y * phase_width             # <<<<<<<<<<<<<<
  *                         end = start + phase_width
  *                         ragged[i, start:end] = data[current]
 */
-          __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_phase_width); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 360, __pyx_L1_error)
+          __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_phase_width); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 358, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_11 = PyNumber_Multiply(__pyx_v_y, __pyx_t_1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 360, __pyx_L1_error)
+          __pyx_t_11 = PyNumber_Multiply(__pyx_v_y, __pyx_t_1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 358, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_11);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_XDECREF_SET(__pyx_v_start, __pyx_t_11);
           __pyx_t_11 = 0;
 
-          /* "bgen/reader.pyx":361
+          /* "bgen/reader.pyx":359
  *                     for y in range(x):
  *                         start = y * phase_width
  *                         end = start + phase_width             # <<<<<<<<<<<<<<
  *                         ragged[i, start:end] = data[current]
  *                         current += 1
 */
-          __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_phase_width); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 361, __pyx_L1_error)
+          __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_phase_width); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 359, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_11);
-          __pyx_t_1 = PyNumber_Add(__pyx_v_start, __pyx_t_11); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 361, __pyx_L1_error)
+          __pyx_t_1 = PyNumber_Add(__pyx_v_start, __pyx_t_11); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 359, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_XDECREF_SET(__pyx_v_end, __pyx_t_1);
           __pyx_t_1 = 0;
 
-          /* "bgen/reader.pyx":362
+          /* "bgen/reader.pyx":360
  *                         start = y * phase_width
  *                         end = start + phase_width
  *                         ragged[i, start:end] = data[current]             # <<<<<<<<<<<<<<
  *                         current += 1
  * 
 */
-          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_data, __pyx_v_current, int, 1, __Pyx_PyLong_From_int, 0, 1, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 362, __pyx_L1_error)
+          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_data, __pyx_v_current, int, 1, __Pyx_PyLong_From_int, 0, 1, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 360, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_11 = PySlice_New(__pyx_v_start, __pyx_v_end, Py_None); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 362, __pyx_L1_error)
+          __pyx_t_11 = PySlice_New(__pyx_v_start, __pyx_v_end, Py_None); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 360, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_11);
-          __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 362, __pyx_L1_error)
+          __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 360, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_INCREF(__pyx_v_i);
           __Pyx_GIVEREF(__pyx_v_i);
-          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_v_i) != (0)) __PYX_ERR(0, 362, __pyx_L1_error);
+          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_v_i) != (0)) __PYX_ERR(0, 360, __pyx_L1_error);
           __Pyx_GIVEREF(__pyx_t_11);
-          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_11) != (0)) __PYX_ERR(0, 362, __pyx_L1_error);
+          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_11) != (0)) __PYX_ERR(0, 360, __pyx_L1_error);
           __pyx_t_11 = 0;
-          if (unlikely((PyObject_SetItem(__pyx_v_ragged, __pyx_t_9, __pyx_t_1) < 0))) __PYX_ERR(0, 362, __pyx_L1_error)
+          if (unlikely((PyObject_SetItem(__pyx_v_ragged, __pyx_t_9, __pyx_t_1) < 0))) __PYX_ERR(0, 360, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-          /* "bgen/reader.pyx":363
+          /* "bgen/reader.pyx":361
  *                         end = start + phase_width
  *                         ragged[i, start:end] = data[current]
  *                         current += 1             # <<<<<<<<<<<<<<
@@ -22563,7 +22564,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
 */
           __pyx_v_current = (__pyx_v_current + 1);
 
-          /* "bgen/reader.pyx":359
+          /* "bgen/reader.pyx":357
  *                 # fill in the empty array
  *                 for i, x in enumerate(ploidy):
  *                     for y in range(x):             # <<<<<<<<<<<<<<
@@ -22578,7 +22579,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
       __pyx_t_4.memview = NULL; __pyx_t_4.data = NULL;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-      /* "bgen/reader.pyx":365
+      /* "bgen/reader.pyx":363
  *                         current += 1
  * 
  *                 data = ragged             # <<<<<<<<<<<<<<
@@ -22590,7 +22591,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
     }
     __pyx_L5:;
 
-    /* "bgen/reader.pyx":338
+    /* "bgen/reader.pyx":336
  *         cdef int phase_width
  *         cdef Range ploidy_range
  *         if self.is_phased:             # <<<<<<<<<<<<<<
@@ -22600,7 +22601,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
     goto __pyx_L4;
   }
 
-  /* "bgen/reader.pyx":367
+  /* "bgen/reader.pyx":365
  *                 data = ragged
  *         else:
  *             data = np.reshape(arr, (-1, cols))             # <<<<<<<<<<<<<<
@@ -22609,22 +22610,22 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
 */
   /*else*/ {
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 367, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 365, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_reshape); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 367, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_reshape); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 365, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __pyx_memoryview_fromslice(__pyx_v_arr, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 367, __pyx_L1_error)
+    __pyx_t_1 = __pyx_memoryview_fromslice(__pyx_v_arr, 1, (PyObject *(*)(char *)) __pyx_memview_get_float, (int (*)(char *, PyObject *)) __pyx_memview_set_float, 0);; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 365, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_cols); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 367, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyLong_From_int(__pyx_v_cols); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 365, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 367, __pyx_L1_error)
+    __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 365, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_int_neg_1);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_neg_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 367, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_mstate_global->__pyx_int_neg_1) != (0)) __PYX_ERR(0, 365, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_11);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_11) != (0)) __PYX_ERR(0, 367, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_11) != (0)) __PYX_ERR(0, 365, __pyx_L1_error);
     __pyx_t_11 = 0;
     __pyx_t_12 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -22645,7 +22646,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 367, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 365, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
     __pyx_v_data = __pyx_t_10;
@@ -22653,7 +22654,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
   }
   __pyx_L4:;
 
-  /* "bgen/reader.pyx":369
+  /* "bgen/reader.pyx":367
  *             data = np.reshape(arr, (-1, cols))
  * 
  *         return data             # <<<<<<<<<<<<<<
@@ -22665,7 +22666,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":319
+  /* "bgen/reader.pyx":317
  *         self.thisptr.alt_dosage(&dose[0])
  *         return np.asarray(dose)
  *     @property             # <<<<<<<<<<<<<<
@@ -22702,7 +22703,7 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_13probabilities___get__(struct 
   return __pyx_r;
 }
 
-/* "bgen/reader.pyx":371
+/* "bgen/reader.pyx":369
  *         return data
  * 
  *     def copy_data(self):             # <<<<<<<<<<<<<<
@@ -22757,38 +22758,80 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10copy_data(struct __pyx_obj_4b
   std::vector<uint8_t>  __pyx_v_data;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  std::vector<uint8_t>  __pyx_t_2;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  std::vector<uint8_t>  __pyx_t_5;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("copy_data", 0);
 
-  /* "bgen/reader.pyx":379
+  /* "bgen/reader.pyx":377
  *         compressing the genotype data.
  *         '''
+ *         if self.is_stdin:             # <<<<<<<<<<<<<<
+ *             raise ValueError('cannot copy variant data directly while reading from stdin')
+ *         self.__check_closed()
+*/
+  __pyx_t_1 = (__pyx_v_self->is_stdin != 0);
+  if (unlikely(__pyx_t_1)) {
+
+    /* "bgen/reader.pyx":378
+ *         '''
+ *         if self.is_stdin:
+ *             raise ValueError('cannot copy variant data directly while reading from stdin')             # <<<<<<<<<<<<<<
+ *         self.__check_closed()
+ *         cdef vector[uint8_t] data = self.thisptr.copy_data()
+*/
+    __pyx_t_3 = NULL;
+    __pyx_t_4 = 1;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_cannot_copy_variant_data_directl};
+      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 378, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+    }
+    __Pyx_Raise(__pyx_t_2, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __PYX_ERR(0, 378, __pyx_L1_error)
+
+    /* "bgen/reader.pyx":377
+ *         compressing the genotype data.
+ *         '''
+ *         if self.is_stdin:             # <<<<<<<<<<<<<<
+ *             raise ValueError('cannot copy variant data directly while reading from stdin')
+ *         self.__check_closed()
+*/
+  }
+
+  /* "bgen/reader.pyx":379
+ *         if self.is_stdin:
+ *             raise ValueError('cannot copy variant data directly while reading from stdin')
  *         self.__check_closed()             # <<<<<<<<<<<<<<
  *         cdef vector[uint8_t] data = self.thisptr.copy_data()
  *         return data
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 379, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_2 = ((struct __pyx_vtabstruct_4bgen_6reader_BgenVar *)__pyx_v_self->__pyx_vtab)->_BgenVar__check_closed(__pyx_v_self); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 379, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "bgen/reader.pyx":380
- *         '''
+ *             raise ValueError('cannot copy variant data directly while reading from stdin')
  *         self.__check_closed()
  *         cdef vector[uint8_t] data = self.thisptr.copy_data()             # <<<<<<<<<<<<<<
  *         return data
  * 
 */
   try {
-    __pyx_t_2 = __pyx_v_self->thisptr->copy_data();
+    __pyx_t_5 = __pyx_v_self->thisptr->copy_data();
   } catch(...) {
     __Pyx_CppExn2PyErr();
     __PYX_ERR(0, 380, __pyx_L1_error)
   }
-  __pyx_v_data = __PYX_STD_MOVE_IF_SUPPORTED(__pyx_t_2);
+  __pyx_v_data = __PYX_STD_MOVE_IF_SUPPORTED(__pyx_t_5);
 
   /* "bgen/reader.pyx":381
  *         self.__check_closed()
@@ -22798,13 +22841,13 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10copy_data(struct __pyx_obj_4b
  * cdef class BgenReader:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_convert_vector_to_py_uint8_t(__pyx_v_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 381, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_2 = __pyx_convert_vector_to_py_uint8_t(__pyx_v_data); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 381, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "bgen/reader.pyx":371
+  /* "bgen/reader.pyx":369
  *         return data
  * 
  *     def copy_data(self):             # <<<<<<<<<<<<<<
@@ -22814,7 +22857,8 @@ static PyObject *__pyx_pf_4bgen_6reader_7BgenVar_10copy_data(struct __pyx_obj_4b
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
   __Pyx_AddTraceback("bgen.reader.BgenVar.copy_data", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -25191,7 +25235,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenReader_7samples___get__(struct __p
  *       return [x.decode('utf8') for x in samples]
  * 
  *     def drop_variants(self, list indices):             # <<<<<<<<<<<<<<
- *         ''' drops variants from bgen by indices, for a a =ing processing variants
+ *         ''' drops variants from bgen by indices, for avoiding processing variants
  *         '''
 */
 
@@ -25203,7 +25247,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_4bgen_6reader_10BgenReader_18drop_variants, " drops variants from bgen by indices, for a a =ing processing variants\n        ");
+PyDoc_STRVAR(__pyx_doc_4bgen_6reader_10BgenReader_18drop_variants, " drops variants from bgen by indices, for avoiding processing variants\n        ");
 static PyMethodDef __pyx_mdef_4bgen_6reader_10BgenReader_19drop_variants = {"drop_variants", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_4bgen_6reader_10BgenReader_19drop_variants, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_4bgen_6reader_10BgenReader_18drop_variants};
 static PyObject *__pyx_pw_4bgen_6reader_10BgenReader_19drop_variants(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -25306,7 +25350,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenReader_18drop_variants(struct __py
   __Pyx_RefNannySetupContext("drop_variants", 0);
 
   /* "bgen/reader.pyx":513
- *         ''' drops variants from bgen by indices, for a a =ing processing variants
+ *         ''' drops variants from bgen by indices, for avoiding processing variants
  *         '''
  *         if not self.is_open == True:             # <<<<<<<<<<<<<<
  *             raise ValueError("bgen file is closed")
@@ -25339,7 +25383,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenReader_18drop_variants(struct __py
     __PYX_ERR(0, 514, __pyx_L1_error)
 
     /* "bgen/reader.pyx":513
- *         ''' drops variants from bgen by indices, for a a =ing processing variants
+ *         ''' drops variants from bgen by indices, for avoiding processing variants
  *         '''
  *         if not self.is_open == True:             # <<<<<<<<<<<<<<
  *             raise ValueError("bgen file is closed")
@@ -25389,7 +25433,7 @@ static PyObject *__pyx_pf_4bgen_6reader_10BgenReader_18drop_variants(struct __py
  *       return [x.decode('utf8') for x in samples]
  * 
  *     def drop_variants(self, list indices):             # <<<<<<<<<<<<<<
- *         ''' drops variants from bgen by indices, for a a =ing processing variants
+ *         ''' drops variants from bgen by indices, for avoiding processing variants
  *         '''
 */
 
@@ -30566,15 +30610,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtabptr_4bgen_6reader_BgenVar = &__pyx_vtable_4bgen_6reader_BgenVar;
   __pyx_vtable_4bgen_6reader_BgenVar._BgenVar__check_closed = (PyObject *(*)(struct __pyx_obj_4bgen_6reader_BgenVar *))__pyx_f_4bgen_6reader_7BgenVar__BgenVar__check_closed;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_4bgen_6reader_BgenVar_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar)) __PYX_ERR(0, 189, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_4bgen_6reader_BgenVar_spec, __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_4bgen_6reader_BgenVar_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar)) __PYX_ERR(0, 187, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_4bgen_6reader_BgenVar_spec, __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 187, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar = &__pyx_type_4bgen_6reader_BgenVar;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 189, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 187, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar);
@@ -30584,9 +30628,9 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar, __pyx_vtabptr_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 189, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 189, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BgenVar_2, (PyObject *) __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 189, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar, __pyx_vtabptr_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 187, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 187, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BgenVar_2, (PyObject *) __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenVar) < (0)) __PYX_ERR(0, 187, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
   __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenReader = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_4bgen_6reader_BgenReader_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_4bgen_6reader_BgenReader)) __PYX_ERR(0, 383, __pyx_L1_error)
   if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_4bgen_6reader_BgenReader_spec, __pyx_mstate->__pyx_ptype_4bgen_6reader_BgenReader) < (0)) __PYX_ERR(0, 383, __pyx_L1_error)
@@ -31744,34 +31788,34 @@ __Pyx_RefNannySetupContext("PyInit_reader", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < (0)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "bgen/reader.pyx":235
+  /* "bgen/reader.pyx":233
  *        return f'{self.rsid} - {self.chrom}:{self.pos} {self.alleles}'
  * 
  *     def __reduce__(self):             # <<<<<<<<<<<<<<
  *         ''' enable pickling of a BgenVar object
  *         '''
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_4bgen_6reader_7BgenVar_7__reduce__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BgenVar___reduce, NULL, __pyx_mstate_global->__pyx_n_u_bgen_reader, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_4bgen_6reader_7BgenVar_7__reduce__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BgenVar___reduce, NULL, __pyx_mstate_global->__pyx_n_u_bgen_reader, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4bgen_6reader_BgenVar, __pyx_mstate_global->__pyx_n_u_reduce, __pyx_t_4) < (0)) __PYX_ERR(0, 235, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4bgen_6reader_BgenVar, __pyx_mstate_global->__pyx_n_u_reduce, __pyx_t_4) < (0)) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "bgen/reader.pyx":371
+  /* "bgen/reader.pyx":369
  *         return data
  * 
  *     def copy_data(self):             # <<<<<<<<<<<<<<
  *         ''' get a copy of the data on disk for the variant.
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_4bgen_6reader_7BgenVar_11copy_data, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BgenVar_copy_data, NULL, __pyx_mstate_global->__pyx_n_u_bgen_reader, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 371, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_4bgen_6reader_7BgenVar_11copy_data, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BgenVar_copy_data, NULL, __pyx_mstate_global->__pyx_n_u_bgen_reader, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 369, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4bgen_6reader_BgenVar, __pyx_mstate_global->__pyx_n_u_copy_data, __pyx_t_4) < (0)) __PYX_ERR(0, 371, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_4bgen_6reader_BgenVar, __pyx_mstate_global->__pyx_n_u_copy_data, __pyx_t_4) < (0)) __PYX_ERR(0, 369, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "bgen/reader.pyx":419
@@ -31808,7 +31852,7 @@ __Pyx_RefNannySetupContext("PyInit_reader", 0);
  *       return [x.decode('utf8') for x in samples]
  * 
  *     def drop_variants(self, list indices):             # <<<<<<<<<<<<<<
- *         ''' drops variants from bgen by indices, for a a =ing processing variants
+ *         ''' drops variants from bgen by indices, for avoiding processing variants
  *         '''
 */
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_4bgen_6reader_10BgenReader_19drop_variants, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BgenReader_drop_variants, NULL, __pyx_mstate_global->__pyx_n_u_bgen_reader, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 510, __pyx_L1_error)
@@ -32051,7 +32095,7 @@ __Pyx_RefNannySetupContext("PyInit_reader", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 358, __pyx_L1_error)
+  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 356, __pyx_L1_error)
   __pyx_builtin___import__ = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_import); if (!__pyx_builtin___import__) __PYX_ERR(1, 101, __pyx_L1_error)
   __pyx_builtin_Ellipsis = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_Ellipsis); if (!__pyx_builtin_Ellipsis) __PYX_ERR(1, 409, __pyx_L1_error)
   __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(1, 619, __pyx_L1_error)
@@ -32158,34 +32202,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{2},{68},{10},{18},{9},{35},{54},{37},{60},{24},{52},{26},{34},{29},{33},{45},{22},{15},{4},{179},{37},{30},{32},{1},{1},{0},{1},{2},{1},{1},{1},{1},{1},{4},{3},{2},{3},{8},{5},{6},{19},{27},{4},{34},{61},{42},{29},{15},{14},{23},{25},{10},{7},{6},{2},{6},{35},{17},{9},{30},{9},{50},{11},{12},{8},{22},{75},{11},{19},{7},{16},{20},{32},{22},{14},{30},{37},{5},{8},{10},{28},{30},{10},{20},{19},{26},{28},{30},{27},{26},{22},{17},{16},{24},{16},{20},{16},{17},{20},{7},{18},{17},{1},{8},{7},{18},{5},{10},{21},{14},{4},{20},{8},{15},{3},{7},{15},{7},{18},{11},{4},{10},{9},{11},{1},{16},{5},{6},{9},{17},{18},{5},{11},{9},{5},{4},{5},{13},{8},{13},{5},{15},{5},{6},{9},{9},{5},{8},{9},{6},{8},{10},{5},{4},{5},{7},{6},{7},{8},{12},{6},{14},{1},{2},{3},{10},{10},{5},{10},{7},{13},{6},{15},{7},{9},{8},{5},{8},{6},{7},{8},{7},{8},{4},{10},{4},{8},{3},{4},{7},{4},{19},{2},{8},{5},{9},{3},{3},{6},{15},{13},{14},{7},{5},{4},{4},{7},{6},{3},{3},{9},{3},{14},{11},{10},{19},{14},{12},{10},{17},{13},{8},{7},{4},{5},{11},{4},{4},{12},{10},{12},{19},{5},{4},{5},{5},{4},{4},{6},{3},{8},{5},{9},{5},{6},{6},{4},{5},{6},{5},{6},{4},{8},{9},{1},{4},{4},{7},{54},{72},{53},{59},{14},{15},{11},{15},{27},{74},{55},{47},{72},{170},{172},{72},{7},{9},{1}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2332 bytes) */
-const char* const cstring = "BZh91AY&SY\233\370Ly\000\001^\377\377\377\377\377\371\177\377\376\377\277\367\377\365\277\377\377\360@@@@@@@@@@@@@\000@\000`\010\357\213\023\3256\227n\267\026\265\232i\266I3L*\355\004%\020\20150\211\372\223i\251\344\233\322\232~\244dd\365\017SC@\003\324\332\200\003FF\215\000bb=&\3114d\030\223Q\204\001\001\r&\247\251\265\r4h\r4\365\000\000\000\000\000\000\000\000\014\202\014\000\023\000\0010\000\000\000\000\000\000\000\000\000\000\000\000i\222h\211\221\220\251\355\036\224\365O\325?F\212\037\25244=&\232\032\001\352\000\000\000\000\000\000\003@\203\000\004\300\000L\000\000\000\000\000\000\000\000\000\000\000\000\022$&\202i\2424\215Oi2\233S\324dmLM\000h\000\r\000\006\200\000\000\000\320\017Q\276\220\"_\250\323\324\210\2737\257-\324/0\272\340\356[\3571\217\233\333\321\003V\212\006\370\024\0313\020\343$\246\r\244\332l\263\0362,\026\221E\004\266\303\223!q\356\"\202Z\324\005I\022\205!oDeNQ\276YD\324\220\353\010\225\301\2453LZULh\313\214E\246\272\033f\310a\265\217\td\261\200\304-\201\361\007O\356\267\013\306\260\353\315\333]x\0103\037\361\036]\310\342c\277/\253c\356\263\363\034-\333Y\321\026\342':\224)!\350\300K\017\341\255A\356\020\374\332x\346\327u'\210h;\341F\311bW\227\324\350\312\332\246\247\321\306\277K1H\231\245\n\204\234\303\037\336\366Pz\252xEe\263\373\224\223\210\216\236\230Z\035P?\005\327\334+\026i\223\347:\266\306\rc\336\327I4\"\035\255I\264\301\321\022\256U\276pF\261\320\304\350h_5\261SY\253\211bV\213_${\207S\311\337\362\017\276\020\n\0310\203\002\234\332Xo\002\244\005,'\002\253l\342P\250P\311}(r\255\316\206\222\322\241|\365l~&\003\223V\374mo\200\325\303f\2006\302`h\026\"\334d<\220Gq\027\351\227\371P\331\206\014X\200\201%\321\342\351cb\"B\017\313)\317\214\217\225\037\032$\"\033\300\326\310\304\261F?\\\351\n\364\306)\360\252T\271\0229Pm\235\245\262\255g-\241s0Dd!\204f\372;-\375\330\346\356/ \213\340\330Tp\374\2206tS\353v-M\261}\203\220eQ\302Bw\"\014\"\177\024\312\265ZH\360\322X\244\316j\270\031V,\272\021Q\217\026\243\242I\362\3410\201\356\033u\343zh\"\373\305g""\"\002v\031\0013j\203Z\250\243\021\254\0207\276\211\300\331\264N\332\002\334\032\332\351\021-\232\225X`\321P8\222t(\254\213\220\003\276.4\231\333\257\206m\035\304\232\016Is\2725\341;\024\345T;\312\004\3470)\266\246\200S\211\027p\325G\023\262\016\213\333\033\215u\203\240B\010\010;\036\230r\3118J\340\325\273\027DM\033\003\301Ud\342\365\n\242\001\305\223\210\003]\346\020\022{RUu\003\334\034]z\243\023Y\213\207\365Y3\351^\024\312\0003\3707\017\357\246/\250c\360\376\352+\326A\232\301j\267\231\247\004\344\202u\241FqY\210\026#\366\026d\215E\372\205\272o\220\246\246} Kj\016\226\272Sx\215:\002\270\2627\007\331w\032\"\242:\301\326(,0)IT\306%\022\271_|\244V\260b\223\312\330\365\360]\rO\253\3258HF\004\005\020\344\2331\207\355\327rq\355\315\\!\026\256\226\233c,\310\020\022\255qp\213\312\263\036\007\244\205\327'\014\237G\"-\346\354\334\313z\004\024\235\221t\313\022/\032l2\221`\272V\303\002\303\346\241A\027\252@\213\336\014\034+\254N\233f\267\230\326\324\236\205 \030p\2207\3464\343fk^\216XV\326T\232p \220A\020\211S\313\n@\263G!`'\216L8\266b\277_\374\341\313\345\017\202\026\301\301g\335\r\205QT\267\353\326\353;\271\003\345Elns%lE\0066\346YH\300\353uZlm(j\031\002\260R\225\276\005\330\377\250\204\246\032\2500\262'\217m\034M\224\2472\005\320\255\361\272\301\311]\257=\322\246\252a,\026\223\2545\000\367\313\323BY\323\025te\305*\025\027(\271\221\323\347\343t\020f\010\025\034\016\367\250\266\2745\332\036y\201\337[\333\320\362q\212\314\331\361\026\215\031(\223\006\325\231\254\336K\026H[,\303L#~&\245(\177\275a\366\347\313\250\016\225\330\330Q\022\344\234p\003\006\000T85\3477\003\021\370v7\270s\032\311\342w\317vX\202\022\306\000\376\240\222\242#\320\311\367\247\242#\266\347\332\034\366\2433\304\020\027k\"t\352\252a6#\224$\031\213\021\234ql\000p6S\262\266\375THcL/A\\\222Hs\253\206\273\007I$\022w\274\256^\024\020\335U\350\213u\031@mw*\3568A$\270\330\n\363\220\337k\3375\245\337U\265\306;\020\305\242\005\n(%=\352\311\023\002\322,\317F\027\226\036%q\362 \2433\337\232v\341\254L'd-f\360g}\341\245r""\032U\006\317k\201\033\326\355|\"\300\020\355\033k\227\243\234\331\304\2230\336\347\345\200\276\321\036\366\372\256\357\230\340\261\031H\352\306\323\\D\330\354\212\031B\320\314\025U\207;\255\330\241\020\030\207\230i\360J\"\246d\032t\027J\247\t\250SNh\273\273\247\034\347A\3002b\234\207\010\001\242R\211DX\177\0231\274)I\364\034\255A\026\363\230\330\214\231\210x\212\341j\023\315\006 \317\026d+2'\212V$\202\010!*\032D\212\264P\031\275\030%\027\016T\010\311\266^'\204p\334\256\003\004\005\331\031\014U\220<\376C7h\034\276\2277\016\013\360\335\2731\031\262\023\031\235c\327\350d\206&\272\023\352\022\025B\247\223\233wE\013s&3+be\204\032\222\203$\305\277\2416\233\026[|$\354\346\035\002\372\357\ton\340\020\267DB\022\346\265)\304P\337\010y&\300\360U\322\211\345\250\034\235\341\247+f9\220g\235\266Ho\346\362p\301H\211\364+\345<\340\207*\357\026\322\020\352\030mg\213\2300\223\006\300lCj[\363\032$\267\003DlQ\354\035=6\255\323k\001\032\203S\030\355\306\206\031\300\270L1\216\321\316d\371h\336\\%\323\017\023\000\213\001\272\217)L\005Zf\310'\231\014\300\264\022\2255\031\250\234\244\350N\013\274\213\351\224@\205I\322\224\032\241\204\250\233\020!X%_!\234Uh\332d\202\302\231Pi`-\010\243\253\232\346\327\322\014th\206%\302:\364\342\002\023\242\315\325\264s\272362\310c\312\205b\342\333*q\244\211s\354\252\363wQ\210.\341\307!\026\335\227\243\226\33609G6\230m\030\265,\270&\341\004t\264\244ENuI\304@\254\232UQ\211\331\tk{Cw\341uB\333\213Y^\346(\313\022\303\276!\315E\261\tR\214l\0140p\\CW\335Y\334F\272\342\355m\263\222\241\2038\020H\212:\254\252Rn\346g\211\346\225\340<70\341\310\262\231\r.{\303&\324\014\274U\235s\206\004a\254p\371\202\346\232\277\354J\240\301\352\2338\216\365\256]5\344]\260\272<\352by\332s?\033[\266\311\022\310\010\334\355\3208\0269\006%e\034\311\002\261\337g]\006\006\306\266\256C\004\025\266\241|A7\233p\334\347\226qTX\267\224@z\260)3l\032\t\220\037 \350\rS,t-n|T\206\301\255\3103\311,\362\022f\2629\270\200\025\266*\302I!%Bz\315G\211k\273\232\334\347+\005V\353\334jz\304\321C\346\236""\324QD\322MA\010\317\243\351\027U4\326\370\376#3\027\324\3200\365\215\202\007\000\317>A\301\361\257\255v,\0301\017\266\235\372*g\334\325\363g\371`5\257\027\016\340\371L)\202\233\031\226\276\272\007|\2535i\220\320]\220\350\030\242\231\365\333kd\312\017j\347\013_\350\227S\364m\005\224\364\033\262\233\233c\0056\213Hu\017\366\241\273\270}\213\232\306\016\246\353<\347D\322\376\324\340s\351\346\026t\365O\001\375,\234\3152\301c,\352\336\340\234o\177\273\003\000>'\203\375\326\351\333\346\362\307HoU\351I\233\276w\256\342\362\343(\236\353\273\305\221\351\21180\356\343v\364r\362\260q\314iB\332\2614\030>\256ol\240\207\241\216h@\363\236\206\006 \345\032\260\202\244\202\203\t\246\317p\330\250\217\374]\311\024\341BBo\3411\344";
-    PyObject *data = __Pyx_DecompressString(cstring, 2332, 2);
+    const struct { const unsigned int length: 8; } index[] = {{2},{68},{10},{18},{9},{35},{54},{37},{60},{24},{52},{26},{34},{29},{33},{45},{22},{15},{4},{179},{37},{30},{32},{1},{1},{0},{1},{2},{1},{1},{1},{1},{1},{4},{3},{2},{3},{8},{5},{6},{19},{27},{4},{34},{61},{42},{58},{29},{15},{14},{23},{25},{10},{7},{6},{2},{6},{35},{17},{9},{30},{9},{50},{11},{12},{8},{22},{75},{11},{19},{7},{16},{20},{32},{22},{14},{30},{37},{5},{8},{10},{28},{30},{10},{20},{19},{26},{28},{30},{27},{26},{22},{17},{16},{24},{16},{20},{16},{17},{20},{7},{18},{17},{1},{8},{7},{18},{5},{10},{21},{14},{4},{20},{8},{15},{3},{7},{15},{7},{18},{11},{4},{10},{9},{11},{1},{16},{5},{6},{9},{17},{18},{5},{11},{9},{5},{4},{5},{13},{8},{13},{5},{15},{5},{6},{9},{9},{5},{8},{9},{6},{8},{10},{5},{4},{5},{7},{6},{7},{8},{12},{6},{14},{1},{2},{3},{10},{10},{5},{10},{7},{13},{6},{15},{7},{9},{8},{5},{8},{6},{7},{8},{7},{8},{4},{10},{4},{8},{3},{4},{7},{4},{19},{2},{8},{5},{9},{3},{3},{6},{15},{13},{14},{7},{5},{4},{4},{7},{6},{3},{3},{9},{3},{14},{11},{10},{19},{14},{12},{10},{17},{13},{8},{7},{4},{5},{11},{4},{4},{12},{10},{12},{19},{5},{4},{5},{5},{4},{4},{6},{3},{8},{5},{9},{5},{6},{6},{4},{5},{6},{5},{6},{4},{8},{9},{1},{4},{4},{7},{43},{54},{72},{53},{59},{14},{15},{11},{15},{74},{55},{47},{72},{170},{172},{72},{7},{9},{1}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2364 bytes) */
+const char* const cstring = "BZh91AY&SY\330\025\t\004\000\001e\377\377\377\377\377\371\177\377\376\377\277\367\377\365\277\377\377\360@@@@@@@@@@@@@\000@\000`\t\017\213\035\333\264\271qKZ\252\323I\266J6\031%\332\010J\"\t\246\246\247\240\321\2411<\22354\323M\251\350\236\246F\200\031\243I\240\321\246\215\251\211\240`\324\302zM\265'\243H4\322h\t\244\302i4i\241OM\251=\021\352i\241\243M\r\032\r\000\000\000\000\000\000\310h\320\031\004\322\236\251\205<(\303Bi\210\320\014@\321\241\240\000\001\240\014\2154\320\000\r\000\000\203\000\004\300\000L\000\000\000\000\000\000\000\000\000\000\000\000A\200\002`\000&\000\000\000\000\000\000\000\000\000\000\000\000\t\022\023D\323\010\246\231\220\032\232\236\211\251\342M\246\246jz\230@1\036\246F#4@b\000\031\014\t\241\372\223\245\037\013eA\247\311\021x\242\211k\241\023\n\356\006u=\0261\342\315\230\001\253%\003\244\n\014\231\200t\222S\006\300m6Y\207I\026\013P\242\202[\003\202B\351\341E\022\\A\001Q\310\205\002\345\210\312|\2071e\023RC\254\"W\006\244\315QiP\230\321\227H\213N*\033\016\240_\325\303\240\262X@`\026\300\361\2033uk\021\025G\"o*\360>?\224\367\260\323\346\206\0069\306\362\266\034\366q\303\031\274\253\036\002\234\005\032\371\022G\246\341+\277\205\251\rhw\352\263\277\025\266]\223x*\346u\324\\\r\350|\333{=\t\333\n\032t%\017S\021II&K@M\221\327\365\363)s=\354\350\2344\366%\"\302#\374\311\325\014h\033v\333\255\020\026e&\3177\355\305\313\232\257U\266OW4C\326\244\256.d\"qR\036\333\032;J\216\365\026\305gz_\246F0;\254V\t\215\267\022\304\273\237\322\317\021\000Ta\333\264 6v?^\332\003U3\340\2307/3\227\036\023\036\335\201\217w\303\242\334\336x\325\373\334|X\262}\330\007o|f\\6m\001\304\365@b\026\2056\020\346P\247\232E\372\233\263\"e\345\342*(0RmL=\214,\000#\003\323f\231p\220\367!\304\201\010\006\334U\305\300\241&\037sF\361\317\260\206{\374g\016P\331\345\300\267y\032gtu\030o\307\242\210f,E5\377.\324\276\314\207\232\322\325E-]Z\n\216\017J}\261\340\221\177\347\245;\206\322\347\024\307\223-\010\370\317\313$a\230\364\257\345Cx\223`\225\240\325p\031}\004\376\244\022a\231z\344\t""\"l\266\017\273\326o\004.\316~\r\330(\342\276G\332T\354K\215\022\223L\204o\2106\377\033\244\257\330]\247@\243\213~0\265\026\360u]2\326,\321\215\222M\304\232ZF@\0035\346\305T\261\310\2217\273\2672K\017\203\276\246\004UXz\222fy\010\210\002x\362V\tI\221_\016W\216)U\235\013\326\235s\020\r\300\314\201)\302\377\244\32471\274\010\262p\246\321sW\223\223\245\367Vt)PY\301`\340\220\314\216p\223UUe\323\016\271\304\213\257X\2413/\270v&L:7\205\201T\001\035\324\270\177}!|\205\275O\301\351D\270\n\300&R\343\302\304.@\032/y$rB\324\002\010:\301*\002d)\240W,\322\024\320\255\220\022\333!\211\332\2457\002e\234\033R\032\300\237\006\035f\212#\256}\263\027mY\233gA\326\0279\317\364\231\234\236Q\270\300\344\361\371Z\032Z\276\247\352\335A`\002\"\204l\232\252;\255\307\263\207o\023htV\024\205R\262v(\003\204\240x7\206d6_\272\324\220\234\320\251\r\317\270,\271\231\346D\273\220\250\366\202\315\204\021\032\006\233FR,\027z\332!\243\370U\301\016V\314fr\243\243\333qqeq\341u\305(g\027\252\340\021\212\200_@\273\\\223Y\246\310E\000\253P)\211\t\"\014j\220\334Y\252\2211\245N\273Af\023G>\355\031\362\3752$\345\250\226\3304\272.\342\347\346\2757$\3716\231\357\271s\271\304\003\274\261\201,\301\322Ux \222\302\017[\017\227\304\323ciCP\310J\303F\213'\222\234.\226\206\356\"\222 \276\253\255\267F\023S)\315\000\265\320k\355\260l\204\216i\271\371>\307X\230\016\270(\240\036\001D(K\024\305\\\362\356J\205E\310\\\331\366;\230J\010\022 qM\222\226qM7m\337\250t1\007J\350\320\3673\205,\307=\tA}\310\256 \022\220\2547\321-!\3013\262\375P\216h\232\224\241\374\325\207\365\217\335\274\035\3743\2754[\321ur\014\240\n\034[\372\350\340Y\036\375\305\207.g\004\342;\333\302\265d\220\211e\201\371\202JLOsi\360)rc\275\332\322MyF\265\3140\303}\027h\335DX\231\345\220\340J\023:\207>\344\033\026\247\272\345\362E&a\010\316\010\312\"\"\016\315\222\337\274\357\266\306\347<S\360rn\202\r\350\\P[\264\223p\334ed\\\334.q$\330\240?\031\rK\231\261#&m\025\204c\245\231\305CBi\215\335\266\300W\006\224Y\215\030h,>\345p\364`\2431\321\246v\337\304&\023\262""\027\021\312\030\277\001\251o\264\250F\275\223\n\342\370\367\371\013\333L\356\306\333#Q\223\025a\"\2527;l.\031\252#\341f}\2755K\215\343\t&\213\352\220\210\232\246\230\221\204\232\250\345\006\021\014\232\353\244\272 *\006\200Hm\263\337$E\t\010\213\232N\nf\212b\025\031\231\225\206\013(`\021\312\024`\212@\001\010fVU\203\347\231\216\200\245,\247\222\347j\010\237m\215\210\316!\023\251d\264\262\354\331\002S\275T\210$\200\034\022\260\220A\004\021*%\"\201\371\350\022mEBb\301\220\271\006\013\2470\235\321\273Y\264\013\210\026\340\222\027\233\034\234\355\2425\274\016\036\357\231g*\226k\235H\323\222Lf+\r\331\262C\023^L\374$\205P\251\351i\343\316\212\335)\214\312\330\231a\006\362Pd\230\271\263\006\323b\313gAu\374\253\250cf#{x\370\211W<A\022\342ZS\201\010\324\010\362\322\300\3160\245\013K@L\031\235\226\025\230\337r\264\353}\247\016\271\3332\023\265\027y\026x\027d~\006y\314\330\206xK\372\270\305\314\030I\203`6!\265.i\215\022\\!\234k\243\326y\332\242\325\306uoH\336\r\3461\331\205\013\361Ap\230a\035\2479\223\353\013\225t\027XJ\226\003/\036U\223\274\000\264Rl\010\266\242\330C$EY\341$,\241\335\224D\221\231\321\256\274\244\036\261\204c\021\255\350\032*\224\004-\201\247\3130|\2528\213\020n\246\024\031(\025\005\nh\342d\253d\0229\363\272\364`Sk+\300\"t8\261\254\\y\257\305-(\242\334\024L\\S\264\223\205u(\177%gy\217M\010.pp\345\221[\260\357p\256\300:\003\253\251\351\265Mk\206\342\242\236\020GGR\251\022q\326\316\017x\2312\224\213\332\n\211\272t\002i}\325\013n-j\276dQ\226%\177\232C\232\213b\000\245\030\330\027\336\340\270\206\264]Y\334G\025pv\266\331\300\241\2039\320H\212:\254\252Rn\346c\014j\352\000\r\232\254\331p\203\356\005\023\234iq(\240\212\004\213G0\026\005\263t\025<a9\203/\372\321\024\002\303\223\021\310:E8_\273p\236)\317\355\337h\363\360\305\333\022\274V1*\002\237RK\272\366\264\3614E\365$\347\003\2143\277\232\216\206\345\246\336\271z\n\333Th\210&\364\360\234?T\263\271Q`\336Q\001\371`Rf\300h&\302X\235\323\216\005\016\322\360p+/\220\252\030o\270\203\014\315\235\203\"X\376\257(\0014\244""\302e\220\313P\220\263\244\365\351g\3467A\305`\252pV`\357\314J\210~u\324TQQ6\r\341\010M\275\301x\201\246\271\207\357\0301\1776\201\207\3465\2208\006z\262\016\177|?\242\353\300\301\210nm[\"\246\255m\377~\256\233\345X\212\306p\361v\027`\247\016U-\275c\324_N\277\234\206\262\361\007|\230)\253\202\332\\D\360\327]\001p\177A]?\206O *j\026&\234\334\243\0059\nHx\316\215\342\3071\270V\252\\\357Xg\300\360\033\034\367\267\031wyE\035\255\363H\347(\231;E\002\204\363\311\025\321\211\365\331\267\267\017\271\245\321\345\361S\356\344\016J,\337xeft\2325\346dBI6k\331(\216\316%]F\261\205\233R~=\317`\302\232\024\355\030\324\326`\372\272\334\321\3445\030\343A\367\\v3\354\021\3065a\005I\005\006\023M\237\240\327Q\037\374]\311\024\341BC`T$\020";
+    PyObject *data = __Pyx_DecompressString(cstring, 2364, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2142 bytes) */
-const char* const cstring = "x\332\265VMs\024\311\021E\030\263\002\013/\002\031\257w#\034%\014\226`\305\260\330r\230\225\021\033B\342C\216]@\010\360G8\\Q\323]=\352\245\247\272\325U\255\231\341\264\3079\366\261\217s\234#\3079\352\350\243\216:\362\023\370\t~Y\325=\323\002y\003\207\303\021ROUVVU\346\313\227\231\265\302\326\242\210\371a[*\035\306J\263$\225\236\364C\325\232\010\331U\237\2653mXS\262P\371\262+}&\224\317Tl\230\216B\250\337kI\365 \214\344\342e\032=\222\302\227\351b\034\004Z\232U\222\274\024)\226\262 \220)\333\013e\207\371\261\324v\277\354&\261\226L\2334\364\245^\027\212\305*\3521/\225\302H&X\323m2;\302\260P3/V&leq\246a\tk\313v\234\366\032\330EG\t\255\303\226b&f\330\354\337\260\3478\r\272\262T*\017\356\244\241\021\315H\226\n\316\250 \215\333?\266\327\372\316:\241\331a\246\227H\266P\312M*\224\266nL\26685\354\010\201\247\251\001\274QG5t 8\245\373\355\304\364\230\336\0218\332d\t\214\013\342\224y=\263\023\253\206HS\321\333\264\006\304\231aq\300\232q\246|\315\026E\027\247\\\365\257m~x\227\213P\226$qj\244\277\251\366D\024\"\224\261/\227\010x(#\222\013\336\002\303=\013\270\214\034YXb-\354\252\224\2359\300\332^s\347;\353\340Kr\020&<\216\225|\034\003N\033\236uk)\371\344\313(l\312\024@\003F\n-.\2621T\354\351\375\2477\226o/[\376\244\362{\230\240aa\323\213\020=P\202\374\312\302\310\340B\202X7\330f\300zq\306\224\204\251\010m\002\275\372\006\263#\025\003\315h\300\026l<\204\201\357\034\333A\342\205\022\333pO\322\356\007\"\322\262\361\344\010\2000\271$\231\360<\251+D\267\215LX[\364,\206 \376k\231\306\023\260_(\313\036\034\tF\356\311\024\3440\262M\363\270IN\255\260\033\227\257}\323\270\273p\355\362\022\273\214\377%\306n0\341\373\\\021^\344=\003d_u\233\310\016\026 u,\273#\220\310\267\242D\020}\264\245\200\3007BF\255\260F\263\025z\210\221a\2014\336\016\333\023i(\024 $\266\021/,E\235F\013\240\224\353\343\345 \213\020\221(\0266\301\t2\272l\211\342owB\3526\223\212\335\r\200:\004q\246i\007\002\350\222\200,\366\034\373\351\236\227\345=\242\264`\005\260D\021\341\016\0266D\323[\202\240\215\322\242\211\227\253wjiL""P\270\030\335}_\\e\317\335\233\276\334\273\251\215O\002M\300K\013\177\313c\213\304\325\226M!\n!\331(\273F\022$\240\320\244\202-\261\035\241\271\026m\244\025\207S\253\241vg\370\0247\035\276\226\354\316*\373\352\203\214[b\221\000\375\314\252\212\301\352@d\221a\234\247\322\317<\3119\3633\313\001\025\253\033`\371^(\"\254z\241\n\r\347KL\271\373\364*\206U\244VK\202\334\215\023\251\310\334\252t\272\352\223\204\336\253\250\022\003U\220\246-^\241>f)e\231\014S\273\362\314V\330\362(\r\227CTg\027'U\035\261\304\026\253\373u\352\335\244@\337L\355\276F\322\353j\244I\206\025\343\257\254`3\026\332\024\275;\256\020\373G\302\362\241\254$\3141\353G\245\252\245\343,\365\344\335l\234/\"\212b\317\326v\302\227\371\302\210\3061\253\256\356\320\211ekh\254m\257onVhM\332\314d\324\030\007\306E\220\363#k(\022\344\364\321\325g\3433\236Uz \217L\353\253$\353RD\217\210B\315)b\334\322\362\310\3121F<\373\010#\032\334\333\221\336+\016\nr\233D\265\265\377|\2350\034\235'\244D\253I\275\035\350\352\272\200*Km\356\247q\302+N\326\344\266\254\324\346\325\331u\235T#\201jsW&j\002\2526\234\264J\022\227?\023hx%\361\342\244\307\211\002\353\367\243(Lt\2507\267-\027\313\237\332\026\333\373\236 i\266-s'\243\232NM\210\307\307S\224P\316\237\366\272\370\337@\013\342\217Q\032\236\311`[\356fRy\222\272Xc\322\320P\245\300>\211|\251H\310]_\020\332RU\350\236\362\302\0306\247(\010\241\202\336\004\373\246\320\2222\254a#G#N\025\334\212\\\322y\357\207\327\306\310\005\n5\203\332\031\347\325\0005\225\352\022Mq\021\3649Z\263'\233\302{e#Y+\246c\010=\2643C\003_6\263\026Z\260\350\301\206\224\3526\347>\371\317\217D\335\247\006k?D.WJ$=A\200\r^\010\343D\220*k\333^.\3234Na7\265VI\277x!d\322\326\036]\245H\365\252\340\3122\tm\"\n\"\321\322\001\032\212\371\375\357\340|[\230\362\245\301y\220)\217\234nUY\301\361D\360#y\264V\207\241\037\372]\374\361\352\256\260M/\032\316\313\236E\271BhS\355A\007'w\306A\302\030\005\351\275\374!\177\251\374j\236\340*\364\000]\312m/(\033\202+\374Q\334jY\004\333\002Q\340x\340\321\353\256-\0013\240n[\240\360\315`*W""\242]\373*X\203\010*\331\241O\327\320\177\005>woc\225T-\002\030'\275q\223@0\240\340t\334\2277{\316\333\311\024\324\233L(\333\334L\307)\330\226\200)\004\t\375\343-\226Dq\350\367\222\030/A=N\351\304\000\027\264\002GL\235\265\335\254\214\004\r-9\354\250l+\222\337W\225\336\236}@S\370v3\0219\257'\251\370A\031\034\013\020,\014[\210$\010%m\235'\353mU)\203NVk\031\301\035\345\333\232Y\202\212Q\331\204k\225\224\037SU\355\251\024D\210Scc\213\353\022mb\374\247\031zf\01742X\306\027)\330\031\247W\026*s\033\336\3220A\210ef\202\333\226\350\366\243m\261s\025\257#RE\377\324\345\306%\257\373\032p\277\306\215\007\247\346\007_\014\327~X{w\372\304\231\231\376r\337\344_\027\353\305\356\341\314\205\374z\261Vl\275\235\376\031\244\230\237\317\247\017>\373rx\353\355\364L\377Q\376x0?\270\365\021\273.\346\313\371\036\315g\363\271\374\257\305_\006k\207\323\237\366w\363\251\374\227\305T\361\331`n\360b8\377\337\234\363)tn\027+\203\255\037p\022-\366\212\237\024\267\310\274S\371\032\375\234-\346\017gH\353\326\341\371\271\374A\361\333\301\024\211\317\024\263\326\207\342T\261F[g\372\017\362yk\213\233=\314\377T\004\2035w.\035\366\355`\252\032~7\370|\270<\204\342\273\363'\316\234\353?\301}\323W\006\033\303\3517gG\325\031\344\301l\376\323|\353\340\222<\220A\265qn\360\267\241\377fqtm\177y\277w\360\364\371\301\363\346A38\010\364\201\356\274;q\242;\265~\022?\353'\037\322\317\303\223\217N:\267V\362m\347\326E\270q\356<\340\372\302\341r\334|b\300\245\374y1[\\\037\334\033\210\303\351_\344\177/:4\230\351o\346/\212\371\342\233\203\353+u{?9\333\237\353?\317\177U\374\246\330:<k\221+n\275=}\006\322\372\334!\376\307\301\374\341\351s\375\255\276\350wr\221w\0133\370\303p\352#\316\231\3137\212\323\205\032\256\r1\231\315g\363\005\230x\245\010\007z8?\374\372\315\306hz\377\223\375\335\303\317\177]\354\014Z\303\177\216\226G\335\375\316\277\004\t^\r\347\260\351\302\245\374\373\301\224;\357y>K7L\345\027\300\007]\\-z\303)(\375ctqto\344\355\317\272\033\256\300@\215;\344\000f\314\364\377\214\351\356G[\032\017\267\206\342\377f""\351\3137\313o\364\350\362h}\264\373?\331J\351\364\222\346?\357\373\371\242%\371q\321q\301\236:<u\266\377e\276\365\344\337\347\003\240\315";
-    PyObject *data = __Pyx_DecompressString(cstring, 2142, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2164 bytes) */
+const char* const cstring = "x\332\265V\315s\024\307\025G\204`A\344\030\201B\034\273*\325\"\020\t,\026\223(\025\254 \\B|\311\025\003B@>*\225\256\336\231\336\3351\263=\243\351\036\355.'\037\3678\3079\316q\217\034\367\250c\216:\352\310\237\340?!\277\327=\263;\0029E*\225*i\266\373\365{\375>~\357\243\327\330F\0302?\350J\245\203Hi\026'\322\223~\240\332S\"\273\342\263n\252\rkJ\026(_\366\245\317\204\362\231\212\014\323a\000\366\273m\251\036\004\241\\\276D\253GR\3702Y\216Z--\315:Q^\212\004Gi\253%\023\266\027\310\036\363#\251\255\274\354\307\221\226L\233$\360\245\336\024\212E*\0340/\221\302H&X\323\t\231\2160,\320\314\213\224\t\332i\224jX\302\272\262\033%\203\006\244\350*\241u\320V\314D\014\302\376u{\217\343 \225%Syq/\t\214h\206\262dpF\265\222\250\373\237d\255\357\254\027\230\0163\203X\262\245\222n\022\241\264uc*\342\330 \021 \236\246\026\340{\365\250\006.\010\216\351~76\003\246;\002W\2334\206q\255(a\336\300t\"\325\020I\"\006[\326\200(5,j\261f\224*_\263e\321\307-W\374\253[\357\353r\010\245q\034%F\372[jO\204\001\240\214|\271B\201\0073\220\\\362\226\030\364,A\0319\262\264\302\332\220\252\230\2359\210\265Us\373[\353\340Kr\020&<\216\224|\034!\234\026\236Mk)\371\344\3130h\312\004\201F\030\tZ(\262\030*\366\364\376\323\353\253\267Vm\376$\362;\230\240aa\323\013\201\036R\202\374J\203\320@!\205X7\330V\213\r\242\224)\tS\001m\014\276\272\200\351H\305\220f\264`K\026\017a\340;\2078\222x\251\214m\260'I\372\201\010\265l<9\022@\230\\&\231\360<\251\253\210\356\030\031\263\256\030\330\030\"\361_\313$\232\006\373\205\262\331\203+\221\221{2Ar\030\331\245}\324$\247\326\330\365KW\277n\334Y\272zi\205]\302\377\nc\327\231\360}\256(^\344=C\310\276\3547Q\035\254\205\322\261\331\035\"\211|K\212\005\245\217\266) \360\rQQk\254\321l\007\03602\254%\215\327a{\"\t\204B\010)\333(/l\212:\2166\202R\236O\216[i\010D\302H\330\002\247\220\221\262\025\302\337J\202\352\204\211\305J#@=\nq\252I\002\000\272\" \213\275\262\242\242x0Q\344\013#\312\220CQ\257C\216QE\221\260-/m\260.%\311\302\227\245\240(m_\303}aH\210!\177\033\242\351\255\200\320ES\322""\224\321\353\267k\r\200\202\350T\335y\227\\\325\335\235\033\276\334\273au\372\201&\310\244\005\256\355\261e\312\362\266->\002\237\014\224}#)\230H\276i\357[a\035\241\271\026]\024$G8\326\003\355\356\360\tq\035\274\226\354\366:\373\362\275Z]a\241@\342\232u\025\241\036Z\"\r\r\343<\221~\352I\316\231\237\332\354Q\221\272\216\372\330\013D\210S/P\201\341|\205)\247O\257cYa\274^\246\326\235(\226\212\314\255\232\256\013l\034x\257\302\212\214\250\"\335\272\342\025:k\232P}\312 \261'\317lo.\257\322p9@_w\010\253\352\212\025\266\\\351\327\211w\203R\344Fb\345\032\361\240\257Q`)N\214\277\266\006a\034t\t\275\333\256\205\373G`y\237V\246\3321\347G\251\252\255\2434\361\344\235tRi\"\014#\317N\005\212\257M\265\3061\247\256c\321\215\345Pil\354lnmU\321\232\016\250\351\2521\001\306!\310\371\2213\264\027r\372\350\351\263\311\035\317*>$\217L\352\247D\353\023\242GH\201\346\204\030\267iy\344\344\030#\236}\200\021\r\356u\244\367\212#\005\271-\242\332\331\217\253\023\206cf\005Th5\252\327\001\257\256\023\250'\325\366~\022\305\274\312\311\032\3356\244\332\276\272\273\316\223h\024Pm\357\032L\215@}\212\023W\231\304\345\31744\274\242P\327\341\224\002\233\367\3030\210u\240\267vl.\226?5\021;5\237\240hvl\346NW5\236\032\021\317\226\247h\276\234?\035\364\361\177\017\303\213?Fkx&[;r7\225\312\2234\377\032\323Q\210.\205\354\223\250\227*\t\271\233(B\333T\025z\240\274 \202\315\t\032B\240\3007\215}ShI\025\326\260\310\321\212S\357\267$Wt\336\273\360Z\214\034P\350\0314\0109\257\026\350\251\324\227h\013E\340\347\030\352\236l\n\357\225E\262\326L'!\3640\010\r-|\331L\333\030\336b\000\033\022\352\370\234\373\344\077\077\202\272O\243\331~(\271\\+\221\364xAl\360\266\230\024\202Ti\327\276\002d\222D\t\354\246\241,\351\027o\213T\332\336\243\253\022\251\336#\\\331L\302\200\t[\241h\353\026F\221\371\375\357\340|W\230\362\215\302y+U\0369\335\256\252\202\343q\341\207\362h\257\016\002?\360\373\370\343\225\256\240Ko!\316\313iG\265B\321\246\336\203\331O\356L@\302\032\r\351\235\372!\177\251\375j\036C\025f\200.\351v\026\224\003\3015""\3760j\267m\004\273\002(p<\r\351]\330\225\0103B\335\265\201\3027\205\251\\\211n\355\253`\r\020T\262G\237\276\241\377*\370\334\275\252U\\\215\010\3048\036L\206\004\300\000\203\343q_\336\0348o\247[\244\336tC\325\346v:J\220m12\205BB\377x\305\305a\024\370\2038\302\033ROJ:6\210\013F\201KL\235v\335\256D\202\22669\354\252\034+\222\337W\025\337\236}z\023|\273\251\010\235\327\323R|\257\rN\010\000\013\3136\220DBI\333\347\311z\333UJ\320\311j-C\270\243|\3333\313\240bU\016\341Z'\345\307tU{+\201\010rb,\266P\027k\023\341?I13\007H#\203c|Q\202\275Iy\245\2012\267\340--c@,S\323\272e\023\335~\264mv\256\343\365D\242\350\237\246\334\244\345\365_#\334\257\241\361\340\324b\361\371h\343\373\215\037\316\235837\\\035\356\036\316\235\317\256\345\033\371\366\341\354\334\360I~\363p\366rqo4\373\346\354x\361p\366\223\341.XO;V\223}\225o\346S\201\267\263?s\027\234\313f\017>\375bt\363-nx\224=.\026\213\233\037 u![\315\366h?\237-d\177\315\377RlX}\331L\366\313|&\377\264X(^\214\026\377\233{>\001\317\255|\255\330\376\0367\321\341 \377\t\374\201y\247\262\r\3729\233/\036\316\021\327\315\303s\013\331\203\374\267\305\014\221\317\344\363\326\207\374T\276A\242s\303\007Y\345;\355\036f\177\312[\305\206\273\227.\373s1S-\277->\033\255\216\312 \315g?\315\266\017.\312\003\331\252N\027\212\277\215\3747\313\343\253\373\253\373\203\203\247\317\017\2367\017\232\255\203\226>\320\275\037N\234\350\317l\236\304\317\346\311\207\364\363\360\344\243\223\316\366\265l\307\331~\001\266~|\0161\371\3349\177\334~\212\322\305\354y>\237_+\356\026\342p\366\027\331\337\363\036-\346\206[\331\213|1\377\372\340\332Z\035\324\217\316\016\027\206\317\263_\345\277\001\370gmx\362\233oO\237\001\265\276wa\375c\261xx\372\343\341\366P\014{\231\310\372\271)\3760\232\371\200{\026\262{\371\351\\\2156F\330\314g\363\331\022L\274\234\007\205\036-\216\276zso<\273\377\321\376\356\341g\277\316;E{\364\317\361\352\270\277\337\373\227 \302\253\321\002\204\316_\314\276+f\334}\317\263y\3220\223\235\007\350:\277\222\017F3`\372\307\370\302\370\356\330\333\237w\032.""\303@\r\035\262\200\031s\303o\260\335\375`K\243\321\366H\374\337,}\371f\365\215\036_\032o\216w\377'[\251f^\322\376\347C?[\266\231|\034:\016\354\231\303Sg\207_d\333O\376\r\223>\274\325";
+    PyObject *data = __Pyx_DecompressString(cstring, 2164, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (4423 bytes) */
-const char* const bytes = ": All dimensions preceding dimension %d must be indexed and not slicedBgenFile(\"BgenHeader(offset=BgenVar(\"Buffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndex out of bounds (axis %d)Indirect dimensions not supportedInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of NoneNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Step may not be zero (axis %d)Unable to convert item to object: -\")?.>')\", \"\", ,  - add_note and  at 0xbgen file is closedbgen path is for a folder: .bgican't fetch variants without indexcan't get variant without fully loading the bgen, or indexingcan't load varids when using an index filecannot get Variant at index: collections.abc, compression=<contiguous and direct><contiguous and indirect>/dev/stdindisableenablegc (got got differing extents in dimension , has_sample_ids=isenableditemsize <= 0 for cython.array, layout=no default __reduce__ due to non-trivial __cinit__, nsamples=, nvariants= object>opening BgenFile from pickling BgenVar - make sure their BgenReader objects exist when unpickling, (samples=src/bgen/reader.pyxstatus=std::istream at <strided and direct><strided and direct or indirect><strided and indirect><stringsource>unable to allocate array data.unable to allocate shape and strides.ASCIIBgenFileBgenHeaderBgenHeader.__reduce_cython__BgenHeader.__setstate_cython__BgenReaderBgenReader.__enter__BgenReader.__exit__BgenReader.__is_from_stdinBgenReader.__reduce_cython__BgenReader.__setstate_cython__BgenReader._check_for_index_BgenReader__is_from_stdinBgenReader.at_positio""nBgenReader.chromsBgenReader.closeBgenReader.drop_variantsBgenReader.fetchBgenReader.positionsBgenReader.rsidsBgenReader.varidsBgenReader.with_rsidBgenVarBgenVar.__reduce__BgenVar.copy_dataCEllipsisIStreamIStream.__reduce__IndexOpenStatusOpenStatus.__reduce__OpenStatus.offPath__Pyx_PyDict_NextRefSequenceView.MemoryViewabcallelesallocate_bufferasarrayasyncio.coroutinesat_positionbasebgen.indexbgen_pathbgen.readerc_check_for_indexchromchroms__class____class_getitem__cline_in_tracebackclosecompressioncopy_datacountdatadebugdelay_parsing__dict__drop_variantsdtypedtype_is_objectemptyencode__enter__enumerateerrorexc_typeexc_valueexists__exit__expected_nfetchfillflagsfloat32formatfortran__func____getstate__handlehas_sample_idsiididxidx_exists__import__indexindex_pathindices_is_coroutineis_dir__is_from_stdinis_openis_phasedis_stdinitemsitemsizelayoutlogging__main__memviewmetadatamode__module__name__name__nanndim__new__nextnext_variant_offsetnpnsamplesnumpynvariantsobjoffoffsetoffset_by_indexoffset_by_posoffset_by_rsidoffsetsorderpackpathpathlibploidypoppospositionsptr__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex__registerreshapersidrsidssample_pathselfsend__set_name__setdefault__setstate____setstate_cython__shapesizestartstdinstepstopstructsys__test__throwtracebackuint8unpackupdateutf8valuevaluesvaridvaridswarnwarningswith_rsidxzlibzstd\320\004!\240\033\250A\200A\360\006\000\t\014\2104\210t\2209\230C\230q\330\014\022\220*\230A\230Q\340\010\013\2104\210q\330\014\020\220\010\320\030+\2501\340\010\014\210H\220N\240!\2401\200A\360\006\000\t\014\2104\210t\2209\230C\230q\330\014\022\220*\230A\230Q\340\010\013\2104\210q\330\014\023\2204\220v\230Q\340\010\021\220\024\220X\230W\240A\330\010\017\210q\220\001\220\027\230\001\230\030\240\024\240U\250!\200A\360\006\000\t\014\2104\210t\2209\230C\230q\330\014\022\220*\230A\230Q\340\010\013\2104\210q\330\014\023\2204\220v\230Q\340\010\017\210t\2208\230:\240Q\200A\330""\010\013\2104\210y\230\003\2301\330\014\020\220\004\220A\330\014\020\220\n\230!\330\014\017\210t\2201\330\020\024\220F\230&\240\001\330\014\020\220\t\230\021\330\014\020\220\010\230\004\230A\200A\330\010\014\210F\220!\330\010\017\210q\200A\330\010\014\210G\220;\230f\240A\240Q\200A\330\010\020\220\004\220L\240\001\200A\330\010\020\220\004\220M\240\032\2504\250q\200A\360\020\000\t\r\210O\2301\330\010$\240D\250\010\260\n\270!\330\010\017\210q\200A\360\006\000\t\021\220\005\220Q\320\026e\320ef\330\010\020\220\004\220M\240\024\240Y\250d\260(\270)\3004\300y\320PT\320Tb\320bf\320fs\320sw\360\000\000x\001C\002\360\000\000C\002G\002\360\000\000G\002H\002\200A\330\010\013\210:\220S\230\003\2301\330\014\023\2201\330\r\020\220\001\220\033\230C\230q\330\014\023\2201\330\r\020\220\001\220\033\230C\230q\330\014\023\2201\330\010\017\210q\200A\360\006\000\t\026\220T\230\021\230*\240B\240a\330\010\025\220Z\230w\240a\330\010\014\210I\220U\230!\230?\320*:\270!\330\010\017\210q\200A\360\006\000\007\n\210\024\210T\220\031\230#\230Q\330\n\020\220\n\230!\2301\340\006\t\210\024\210Q\330\n\020\220\n\230!\2301\340\006\017\210t\2208\2307\240!\330\006\r\210Q\210a\210w\220a\220x\230t\2405\250\001\200A\360\006\000\007\n\210\024\210T\220\031\230#\230Q\330\n\020\220\n\230!\2301\340\006\t\210\024\210Q\330\n\024\220D\230\006\230n\250A\250Q\330\n\021\220\021\220'\230\021\230$\230i\240s\250!\2509\260D\270\010\300\007\300q\330\032\036\230h\240g\250^\2704\270x\300w\310a\330\032\036\230k\250\024\250Q\330\022\026\220j\240\001\340\006\t\210\024\210T\220\021\330\n\020\220\001\220\022\2204\220s\230%\230y\250\001\250\024\250\\\270\023\270B\270c\300\021\330\n\021\220\021\220$\220a\220s\230$\230e\2401\340\006\014\210J\220a\220q\200A\360\006\000\007\n\210\024\210T\220\031\230#\230Q\330\n\020\220\n\230!\2301\340\006\t\210\024\210Q\330\n\024\220D\230\006\230o\250Q\250a\330\n\021\220\021\220'\230\021\230$\230i\240s\250!\2509\260D\270\010\300\007\300q\330\032\036\230h\240g\250^\2704\270x\300w\310a\330\032\036\230k""\250\024\250Q\330\022\026\220j\240\001\340\006\t\210\024\210T\220\021\330\n\020\220\001\220\022\2204\220s\230%\230y\250\001\250\024\250V\2604\260s\270\"\270C\270q\330\n\021\220\021\220$\220a\220s\230$\230e\2401\340\006\014\210J\220a\220q\200A\360\006\000\007\n\210\024\210T\220\031\230#\230Q\330\n\020\220\n\230!\2301\340\006\t\210\024\210Q\330\n\021\220\024\220V\2301\340\006\016\210d\220(\230&\240\001\330\006\r\210Q\210a\210w\220a\220x\230t\2405\250\001\200A\330\010\017\210q\200\001\330\004\n\210+\220QO";
+    #else /* compression: none (4497 bytes) */
+const char* const bytes = ": All dimensions preceding dimension %d must be indexed and not slicedBgenFile(\"BgenHeader(offset=BgenVar(\"Buffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndex out of bounds (axis %d)Indirect dimensions not supportedInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of NoneNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Step may not be zero (axis %d)Unable to convert item to object: -\")?.>')\", \"\", ,  - add_note and  at 0xbgen file is closedbgen path is for a folder: .bgican't fetch variants without indexcan't get variant without fully loading the bgen, or indexingcan't load varids when using an index filecannot copy variant data directly while reading from stdincannot get Variant at index: collections.abc, compression=<contiguous and direct><contiguous and indirect>/dev/stdindisableenablegc (got got differing extents in dimension , has_sample_ids=isenableditemsize <= 0 for cython.array, layout=no default __reduce__ due to non-trivial __cinit__, nsamples=, nvariants= object>opening BgenFile from pickling BgenVar - make sure their BgenReader objects exist when unpickling, (samples=src/bgen/reader.pyxstatus=std::istream at <strided and direct><strided and direct or indirect><strided and indirect><stringsource>unable to allocate array data.unable to allocate shape and strides.ASCIIBgenFileBgenHeaderBgenHeader.__reduce_cython__BgenHeader.__setstate_cython__BgenReaderBgenReader.__enter__BgenReader.__exit__BgenReader.__is_from_stdinBgenReader.__reduce_cython__BgenReader.__setstate_cython__BgenReader._chec""k_for_index_BgenReader__is_from_stdinBgenReader.at_positionBgenReader.chromsBgenReader.closeBgenReader.drop_variantsBgenReader.fetchBgenReader.positionsBgenReader.rsidsBgenReader.varidsBgenReader.with_rsidBgenVarBgenVar.__reduce__BgenVar.copy_dataCEllipsisIStreamIStream.__reduce__IndexOpenStatusOpenStatus.__reduce__OpenStatus.offPath__Pyx_PyDict_NextRefSequenceView.MemoryViewabcallelesallocate_bufferasarrayasyncio.coroutinesat_positionbasebgen.indexbgen_pathbgen.readerc_check_for_indexchromchroms__class____class_getitem__cline_in_tracebackclosecompressioncopy_datacountdatadebugdelay_parsing__dict__drop_variantsdtypedtype_is_objectemptyencode__enter__enumerateerrorexc_typeexc_valueexists__exit__expected_nfetchfillflagsfloat32formatfortran__func____getstate__handlehas_sample_idsiididxidx_exists__import__indexindex_pathindices_is_coroutineis_dir__is_from_stdinis_openis_phasedis_stdinitemsitemsizelayoutlogging__main__memviewmetadatamode__module__name__name__nanndim__new__nextnext_variant_offsetnpnsamplesnumpynvariantsobjoffoffsetoffset_by_indexoffset_by_posoffset_by_rsidoffsetsorderpackpathpathlibploidypoppospositionsptr__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex__registerreshapersidrsidssample_pathselfsend__set_name__setdefault__setstate____setstate_cython__shapesizestartstdinstepstopstructsys__test__throwtracebackuint8unpackupdateutf8valuevaluesvaridvaridswarnwarningswith_rsidxzlibzstd\320\004!\240\033\250A\200A\360\020\000\t\014\2104\210q\330\014\022\220*\230A\230Q\330\010\014\210O\2301\330\010$\240D\250\010\260\n\270!\330\010\017\210q\200A\360\006\000\t\014\2104\210t\2209\230C\230q\330\014\022\220*\230A\230Q\340\010\013\2104\210q\330\014\020\220\010\320\030+\2501\340\010\014\210H\220N\240!\2401\200A\360\006\000\t\014\2104\210t\2209\230C\230q\330\014\022\220*\230A\230Q\340\010\013\2104\210q\330\014\023\2204\220v\230Q\340\010\021\220\024\220X\230W\240A\330\010\017\210q\220\001\220\027\230\001""\230\030\240\024\240U\250!\200A\360\006\000\t\014\2104\210t\2209\230C\230q\330\014\022\220*\230A\230Q\340\010\013\2104\210q\330\014\023\2204\220v\230Q\340\010\017\210t\2208\230:\240Q\200A\330\010\013\2104\210y\230\003\2301\330\014\020\220\004\220A\330\014\020\220\n\230!\330\014\017\210t\2201\330\020\024\220F\230&\240\001\330\014\020\220\t\230\021\330\014\020\220\010\230\004\230A\200A\330\010\014\210F\220!\330\010\017\210q\200A\330\010\014\210G\220;\230f\240A\240Q\200A\330\010\020\220\004\220L\240\001\200A\330\010\020\220\004\220M\240\032\2504\250q\200A\360\006\000\t\021\220\005\220Q\320\026e\320ef\330\010\020\220\004\220M\240\024\240Y\250d\260(\270)\3004\300y\320PT\320Tb\320bf\320fs\320sw\360\000\000x\001C\002\360\000\000C\002G\002\360\000\000G\002H\002\200A\330\010\013\210:\220S\230\003\2301\330\014\023\2201\330\r\020\220\001\220\033\230C\230q\330\014\023\2201\330\r\020\220\001\220\033\230C\230q\330\014\023\2201\330\010\017\210q\200A\360\006\000\t\026\220T\230\021\230*\240B\240a\330\010\025\220Z\230w\240a\330\010\014\210I\220U\230!\230?\320*:\270!\330\010\017\210q\200A\360\006\000\007\n\210\024\210T\220\031\230#\230Q\330\n\020\220\n\230!\2301\340\006\t\210\024\210Q\330\n\020\220\n\230!\2301\340\006\017\210t\2208\2307\240!\330\006\r\210Q\210a\210w\220a\220x\230t\2405\250\001\200A\360\006\000\007\n\210\024\210T\220\031\230#\230Q\330\n\020\220\n\230!\2301\340\006\t\210\024\210Q\330\n\024\220D\230\006\230n\250A\250Q\330\n\021\220\021\220'\230\021\230$\230i\240s\250!\2509\260D\270\010\300\007\300q\330\032\036\230h\240g\250^\2704\270x\300w\310a\330\032\036\230k\250\024\250Q\330\022\026\220j\240\001\340\006\t\210\024\210T\220\021\330\n\020\220\001\220\022\2204\220s\230%\230y\250\001\250\024\250\\\270\023\270B\270c\300\021\330\n\021\220\021\220$\220a\220s\230$\230e\2401\340\006\014\210J\220a\220q\200A\360\006\000\007\n\210\024\210T\220\031\230#\230Q\330\n\020\220\n\230!\2301\340\006\t\210\024\210Q\330\n\024\220D\230\006\230o\250Q\250a\330\n\021\220\021\220'\230\021\230$""\230i\240s\250!\2509\260D\270\010\300\007\300q\330\032\036\230h\240g\250^\2704\270x\300w\310a\330\032\036\230k\250\024\250Q\330\022\026\220j\240\001\340\006\t\210\024\210T\220\021\330\n\020\220\001\220\022\2204\220s\230%\230y\250\001\250\024\250V\2604\260s\270\"\270C\270q\330\n\021\220\021\220$\220a\220s\230$\230e\2401\340\006\014\210J\220a\220q\200A\360\006\000\007\n\210\024\210T\220\031\230#\230Q\330\n\020\220\n\230!\2301\340\006\t\210\024\210Q\330\n\021\220\024\220V\2301\340\006\016\210d\220(\230&\240\001\330\006\r\210Q\210a\210w\220a\220x\230t\2405\250\001\200A\330\010\017\210q\200\001\330\004\n\210+\220QO";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 257; i++) {
+    for (int i = 0; i < 258; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 77) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 78) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -32193,7 +32237,7 @@ const char* const bytes = ": All dimensions preceding dimension %d must be index
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 257; i < 277; i++) {
+    for (int i = 258; i < 278; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -32204,14 +32248,14 @@ const char* const bytes = ": All dimensions preceding dimension %d must be index
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 277; i++) {
+    for (Py_ssize_t i = 0; i < 278; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 257;
+      PyObject **table = stringtab + 258;
       for (Py_ssize_t i=0; i<20; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -32315,14 +32359,14 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 235};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 233};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_bgen_reader_pyx, __pyx_mstate->__pyx_n_u_reduce, __pyx_mstate->__pyx_kp_b_iso88591_A_Q_eef_M_Yd_4yPTTbbffssw_x_C_C, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 371};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 369};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_data};
-    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_bgen_reader_pyx, __pyx_mstate->__pyx_n_u_copy_data, __pyx_mstate->__pyx_kp_b_iso88591_A_O1_D_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_bgen_reader_pyx, __pyx_mstate->__pyx_n_u_copy_data, __pyx_mstate->__pyx_kp_b_iso88591_A_4q_AQ_O1_D_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 419};

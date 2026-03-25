@@ -346,37 +346,20 @@ class EuropePMCTool(BaseTool):
 
     def run(self, arguments):
         query = arguments.get("query")
-        limit = arguments.get("limit", 5)
+        limit = arguments.get("limit") or arguments.get("page_size") or 5
         enrich_missing_abstract = bool(arguments.get("enrich_missing_abstract", False))
         extract_terms_from_fulltext = arguments.get("extract_terms_from_fulltext")
         require_has_ft = bool(arguments.get("require_has_ft", False))
         fulltext_terms = arguments.get("fulltext_terms")
         if not query:
-            return [
-                {
-                    "title": "Error",
-                    "abstract": None,
-                    "authors": [],
-                    "journal": None,
-                    "year": None,
-                    "doi": None,
-                    "doi_url": None,
-                    "url": None,
-                    "citations": 0,
-                    "open_access": False,
-                    "keywords": [],
-                    "source": "Europe PMC",
-                    "error": "`query` parameter is required.",
-                    "retryable": False,
-                }
-            ]
-        if isinstance(fulltext_terms, list) and [
-            t for t in fulltext_terms if isinstance(t, str) and t.strip()
-        ]:
+            return {"status": "error", "error": "`query` parameter is required."}
+        terms = (
+            [t.strip() for t in fulltext_terms if isinstance(t, str) and t.strip()]
+            if isinstance(fulltext_terms, list)
+            else []
+        )
+        if terms:
             require_has_ft = True
-            terms = [
-                t.strip() for t in fulltext_terms if isinstance(t, str) and t.strip()
-            ]
 
             def _escape_phrase(s: str) -> str:
                 # Europe PMC uses a Lucene-like syntax; keep this conservative.
@@ -386,12 +369,21 @@ class EuropePMCTool(BaseTool):
             query = f"({query}) AND ({clause})"
         if require_has_ft:
             query = f"({query}) AND HAS_FT:Y"
-        return self._search(
+        articles = self._search(
             query,
             limit,
             enrich_missing_abstract=enrich_missing_abstract,
             extract_terms_from_fulltext=extract_terms_from_fulltext,
         )
+        return {
+            "status": "success",
+            "data": articles,
+            "metadata": {
+                "count": len(articles),
+                "query": query,
+                "source": "Europe PMC",
+            },
+        }
 
     def _local_name(self, tag: str) -> str:
         return tag.rsplit("}", 1)[-1] if "}" in tag else tag
@@ -613,16 +605,15 @@ class EuropePMCTool(BaseTool):
             else:
                 open_access = bool(open_access_raw)
 
-            # Extract keywords
+            # Extract keywords from keywordList (author-supplied keywords)
             keywords = []
-            text_mined_terms = rec.get("hasTextMinedTerms", {})
-            if text_mined_terms and isinstance(text_mined_terms, dict):
-                # Try to extract keywords
-                for _key, value in text_mined_terms.items():
-                    if isinstance(value, list):
-                        keywords.extend(value)
-                    elif isinstance(value, str):
-                        keywords.append(value)
+            kw_list = rec.get("keywordList", {})
+            if isinstance(kw_list, dict):
+                kw_data = kw_list.get("keyword", [])
+                if isinstance(kw_data, list):
+                    keywords.extend(kw_data)
+                elif isinstance(kw_data, str):
+                    keywords.append(kw_data)
 
             # Build URL
             url = (
@@ -630,8 +621,13 @@ class EuropePMCTool(BaseTool):
                 if source_db and article_id
                 else None
             )
-            fulltext_xml_url = self._build_fulltext_xml_url(
-                source_db=source_db, article_id=article_id, pmcid=pmcid
+            # Only generate fulltext XML URL for open-access articles (Feature-125A-004)
+            fulltext_xml_url = (
+                self._build_fulltext_xml_url(
+                    source_db=source_db, article_id=article_id, pmcid=pmcid
+                )
+                if open_access
+                else None
             )
 
             articles.append(
@@ -1158,12 +1154,18 @@ class EuropePMCRESTTool(BaseTool):
         self.timeout = 30
 
     def _build_url(self, arguments):
-        """Build URL from endpoint template and arguments."""
+        """Build URL from endpoint template and arguments, applying schema defaults for missing path params."""
         endpoint = self.tool_config["fields"]["endpoint"]
         url = endpoint
-        for key, value in arguments.items():
+
+        # Merge schema defaults so optional path params (e.g. {source}) are always substituted
+        props = self.tool_config.get("parameter", {}).get("properties", {})
+        merged = {k: v.get("default") for k, v in props.items() if "default" in v}
+        merged.update(arguments)
+
+        for key, value in merged.items():
             placeholder = f"{{{key}}}"
-            if placeholder in url:
+            if placeholder in url and value is not None:
                 url = url.replace(placeholder, str(value))
         return url
 
@@ -1180,8 +1182,8 @@ class EuropePMCRESTTool(BaseTool):
             for key, value in arguments.items():
                 placeholder = f"{{{key}}}"
                 if placeholder not in endpoint_template and value is not None:
-                    # Europe PMC expects pageSize, not page_size.
-                    if key == "page_size":
+                    # Europe PMC expects pageSize, not page_size; limit maps to pageSize too
+                    if key in ("page_size", "limit"):
                         params["pageSize"] = value
                     else:
                         params[key] = value

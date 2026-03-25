@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: XBlock
-Version: 5.3.0
+Version: 6.0.0
 Summary: XBlock Core Library
 Home-page: https://github.com/openedx/XBlock
 Author: edX
@@ -14,7 +14,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.TXT
@@ -97,7 +96,7 @@ the same name as the repo and activate it:
 .. code-block:: bash
 
    cd XBlock
-   mkvirtualenv -p python3.11 XBlock
+   mkvirtualenv -p python3.12 XBlock
 
 Every time you develop something in this repo
 ---------------------------------------------

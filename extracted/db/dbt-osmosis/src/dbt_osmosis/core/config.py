@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import importlib
 import os
+import re
+import shutil
 import threading
 import time
 import typing as t
@@ -46,6 +48,61 @@ except (ImportError, AttributeError):
         _dbt_version = getattr(_dbt_version_module, "__version__", "1.8.0")
     except (ImportError, AttributeError):
         _dbt_version = "1.8.0"
+
+# Regex to extract version number from manifest schema URL
+# Matches "/v12.json" at the end of "https://schemas.getdbt.com/dbt/manifest/v12.json"
+_SCHEMA_VERSION_RE = re.compile(r"/v(\d+)(?:\.json)?$")
+
+
+def _detect_fusion_manifest(project_dir: str) -> bool:
+    """Check if the target directory contains a manifest produced by dbt Fusion.
+
+    dbt Fusion is a standalone Rust-based engine that produces manifests with a
+    schema version higher than dbt-core's (currently v20 vs v12). When teams run
+    both dbt-core and Fusion side by side, this detection ensures dbt-osmosis
+    outputs Fusion-compatible YAML even if the installed dbt-core is older.
+
+    The check reads the existing manifest.json before osmosis re-parses the
+    project, since parsing via dbt-core would overwrite it with a v12 manifest.
+
+    Args:
+        project_dir: Path to the dbt project root.
+
+    Returns:
+        True if a Fusion manifest (schema version > 12) is detected.
+    """
+    manifest_path = Path(project_dir) / "target" / "manifest.json"
+    if not manifest_path.exists():
+        # No existing manifest — also check for Fusion binary on PATH
+        if shutil.which("dbt-fusion") or shutil.which("dbtf"):
+            logger.debug(":rocket: dbt Fusion binary found on PATH")
+            return True
+        return False
+
+    try:
+        with open(manifest_path) as f:
+            # Read only the first 4KB — metadata is always near the top of the manifest,
+            # and full manifests can be 100MB+ for large projects.
+            header = f.read(4096)
+        schema_match = re.search(r'"dbt_schema_version"\s*:\s*"([^"]+)"', header)
+        schema_version = schema_match.group(1) if schema_match else ""
+        match = _SCHEMA_VERSION_RE.search(schema_version)
+        if match:
+            version_num = int(match.group(1))
+            # dbt-core currently produces v12 manifests; higher versions indicate
+            # a different engine such as dbt Fusion (which produces v20+).
+            if version_num > 12:
+                logger.info(
+                    ":rocket: Fusion manifest detected (schema v%d) at %s",
+                    version_num,
+                    manifest_path,
+                )
+                return True
+    except Exception as e:
+        logger.debug(":information_source: Could not check manifest for Fusion: %s", e)
+
+    return False
+
 
 __all__ = [
     "DEFAULT_CONNECTION_TTL",
@@ -173,7 +230,7 @@ class DbtProjectContext:
     config: DbtConfiguration
     """The configuration for the dbt project"""
 
-    _project: InterfaceDbtProject = field(default=None, init=False, repr=False)
+    _project: InterfaceDbtProject | None = field(default=None, init=False, repr=False)
     """The underlying dbt-core-interface DbtProject instance"""
 
     connection_ttl: float = DEFAULT_CONNECTION_TTL
@@ -209,6 +266,23 @@ class DbtProjectContext:
 
     dbt_version: str = field(init=False, repr=True)
     """The dbt-core version being used (e.g., "1.10.0")."""
+
+    is_dbt_v1_9_6_or_greater: bool = field(init=False, repr=False)
+    """Whether the dbt version is 1.9.6 or higher.
+
+    This is used for Fusion-compatible YAML output where meta/tags can be
+    nested inside the config block at the column level. Below 1.9.6, column-
+    level config is silently ignored by dbt-core, causing data loss.
+    """
+
+    is_fusion_manifest: bool = field(init=False, repr=False)
+    """Whether a dbt Fusion manifest was detected in the target directory.
+
+    dbt Fusion is a standalone Rust-based engine that produces manifests with
+    schema version > 12 (e.g., v20). When True, fusion_compat should be enabled
+    regardless of the installed dbt-core version, since the project is being
+    actively built with Fusion.
+    """
 
     is_dbt_v1_10_or_greater: bool = field(init=False, repr=False)
     """Whether the dbt version is 1.10.0 or higher.
@@ -261,7 +335,7 @@ class DbtProjectContext:
                             adapter.connections.cleanup_all()
                         elif hasattr(adapter.connections, "close_all_connections"):
                             # Fallback for adapters that have close_all_connections
-                            adapter.connections.close_all_connections()
+                            adapter.connections.close_all_connections()  # pyright: ignore[reportAttributeAccessIssue]
             except Exception as e:
                 logger.warning(":warning: Error closing adapter connections: %s", e)
             finally:
@@ -272,6 +346,8 @@ class DbtProjectContext:
         cls,
         config: DbtConfiguration,
         project: InterfaceDbtProject,
+        *,
+        is_fusion_manifest: bool = False,
     ) -> DbtProjectContext:
         """Create a DbtProjectContext from an existing DbtProject instance.
 
@@ -280,6 +356,7 @@ class DbtProjectContext:
         Args:
             config: The dbt project configuration
             project: The already-created DbtProject instance
+            is_fusion_manifest: Whether a Fusion manifest was detected before parsing
 
         Returns:
             A DbtProjectContext wrapping the DbtProject
@@ -288,7 +365,9 @@ class DbtProjectContext:
         instance = cls(config=config)
         instance._project = project
         instance.dbt_version = _dbt_version
+        instance.is_dbt_v1_9_6_or_greater = parse_version(_dbt_version) >= parse_version("1.9.6")
         instance.is_dbt_v1_10_or_greater = parse_version(_dbt_version) >= parse_version("1.10.0")
+        instance.is_fusion_manifest = is_fusion_manifest
         return instance
 
     @property
@@ -297,6 +376,7 @@ class DbtProjectContext:
 
         Delegates to the underlying DbtProject's runtime_config.
         """
+        assert self._project is not None, "DbtProjectContext not initialized"
         return self._project.runtime_config
 
     @property
@@ -305,6 +385,7 @@ class DbtProjectContext:
 
         Delegates to the underlying DbtProject's manifest.
         """
+        assert self._project is not None, "DbtProjectContext not initialized"
         return self._project.manifest
 
     @manifest.setter
@@ -323,6 +404,7 @@ class DbtProjectContext:
 
         Delegates to the underlying DbtProject's sql_parser property.
         """
+        assert self._project is not None, "DbtProjectContext not initialized"
         return self._project.sql_parser
 
     @property
@@ -331,6 +413,7 @@ class DbtProjectContext:
 
         Delegates to the underlying DbtProject's macro_parser property.
         """
+        assert self._project is not None, "DbtProjectContext not initialized"
         return self._project.macro_parser
 
     @property
@@ -354,6 +437,7 @@ class DbtProjectContext:
                     ident,
                 )
                 # Force adapter refresh by clearing and reacquiring
+                assert self._project is not None, "DbtProjectContext not initialized"
                 adapter = self._project.adapter
                 # Trigger connection refresh by accessing connections
                 if hasattr(adapter, "connections"):
@@ -366,10 +450,11 @@ class DbtProjectContext:
                         pass
                 self._connection_created_at[ident] = current_time
 
+            assert self._project is not None, "DbtProjectContext not initialized"
             return self._project.adapter
 
     @property
-    def manifest_mutex(self) -> threading.Lock:
+    def manifest_mutex(self) -> threading.RLock:
         """Return the manifest mutex for thread safety.
 
         Thread-safety: Use this lock to synchronize manifest reload operations.
@@ -451,7 +536,7 @@ def _patch_adapter_factory_registration() -> None:
         # Register the adapter in FACTORY.adapters if not already registered
         adapter_type = self.runtime_config.credentials.type
         if adapter_type not in FACTORY.adapters:
-            FACTORY.adapters[adapter_type] = adapter
+            FACTORY.adapters[adapter_type] = adapter  # type: ignore
             logger.debug(
                 f":wrench: Registered adapter '{adapter_type}' in FACTORY.adapters (monkey-patch)",
             )
@@ -477,23 +562,11 @@ def _ensure_adapter_loaded(config: DbtConfiguration) -> None:
         # Apply the monkey-patch to ensure adapters are registered in FACTORY.adapters
         _patch_adapter_factory_registration()
 
-        # Try to read the profiles.yml to determine the adapter type
         from dbt.adapters.factory import FACTORY
-        from dbt.config.project import read_profile_from_disk
 
-        # Read the profile to get the adapter type
-        raw_profile = read_profile_from_disk(
-            config.profiles_dir,
-            config.project_dir,
-            config.profile,
-            config.target,
-        )
+        adapter_type = getattr(config, "adapter_type", None)  # pyright: ignore[reportAttributeAccessIssue]
 
-        # Get the adapter type from the profile's credentials
-        adapter_type = raw_profile.credentials.type
-
-        # Load the plugin if not already loaded
-        if adapter_type not in FACTORY.plugins:
+        if adapter_type and adapter_type not in FACTORY.plugins:
             logger.info(f":wrench: Loading dbt adapter plugin for '{adapter_type}'...")
             FACTORY.load_plugin(adapter_type)
             logger.info(f":white_check_mark: Successfully loaded adapter plugin '{adapter_type}'")
@@ -518,6 +591,11 @@ def create_dbt_project_context(config: DbtConfiguration) -> DbtProjectContext:
 
     """
     logger.info(":wave: Creating DBT project context using config => %s", config)
+
+    # Check for a Fusion-generated manifest BEFORE parsing, since dbt-core's
+    # parser will overwrite it with a v12 manifest. This allows teams running
+    # both dbt Fusion and dbt-core to get fusion_compat=True automatically.
+    is_fusion = _detect_fusion_manifest(config.project_dir)
 
     # Ensure the adapter plugin is loaded before creating the DbtProject
     # This is necessary because RuntimeConfig.from_args() needs the adapter
@@ -544,7 +622,7 @@ def create_dbt_project_context(config: DbtConfiguration) -> DbtProjectContext:
         if adapter_type not in FACTORY.adapters:
             FACTORY.register_adapter(
                 project.runtime_config,  # pyright: ignore[reportArgumentType]
-                get_mp_context("spawn"),  # pyright: ignore[reportArgumentType]
+                get_mp_context(),  # pyright: ignore[reportArgumentType]
             )
             logger.info(f":white_check_mark: Registered adapter '{adapter_type}' in factory")
     except Exception as e:
@@ -572,7 +650,9 @@ def create_dbt_project_context(config: DbtConfiguration) -> DbtProjectContext:
     logger.info(":sparkles: DbtProjectContext successfully created!")
 
     # Create the context wrapper with the existing project
-    return DbtProjectContext.from_project(config=config, project=project)
+    return DbtProjectContext.from_project(
+        config=config, project=project, is_fusion_manifest=is_fusion
+    )
 
 
 def _reload_manifest(context: DbtProjectContext) -> None:
@@ -587,6 +667,7 @@ def _reload_manifest(context: DbtProjectContext) -> None:
     """
     logger.info(":arrows_counterclockwise: Reloading the dbt project manifest!")
     with context.manifest_mutex:
+        assert context._project is not None, "DbtProjectContext not initialized"
         # Use DbtProject's parse_project to reload
         context._project.parse_project(write_manifest=False)
         logger.info(":white_check_mark: Manifest reloaded => %s", context.manifest.metadata)

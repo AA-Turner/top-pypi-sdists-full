@@ -2022,7 +2022,11 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
         scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
         host = request.url.hostname or "localhost"
         port = request.url.port
-        path = request.url.path.removesuffix("/.well-known/agent-card.json")
+        path = (
+            request.url.path.removesuffix("/.well-known/agent-card.json")
+            .removesuffix("/.well-known/agent.json")
+            .removesuffix(f"/a2a/{assistant_id}")
+        )
         if port and (
             (scheme == "http" and port != 80) or (scheme == "https" and port != 443)
         ):
@@ -2667,6 +2671,11 @@ a2a_routes = [
     # Per-assistant agent card (multi-tenant pattern)
     ApiRoute(
         "/a2a/{assistant_id}/.well-known/agent-card.json",
+        handle_assistant_agent_card_endpoint,
+        methods=["GET"],
+    ),
+    ApiRoute(
+        "/a2a/{assistant_id}/.well-known/agent.json",
         handle_assistant_agent_card_endpoint,
         methods=["GET"],
     ),

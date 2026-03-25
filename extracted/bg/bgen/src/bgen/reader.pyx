@@ -176,8 +176,6 @@ cdef class BgenHeader:
     @property
     def nvariants(self): return self._nvariants
     @property
-    def compression(self): return [None, 'zlib', 'zstd'][self._compression]
-    @property
     def compression(self): return self.compress_formats[self._compression]
     @property
     def layout(self): return self._layout
@@ -376,6 +374,8 @@ cdef class BgenVar:
         bgens. This primarily avoids decompressing, decoding, re-encoding, and
         compressing the genotype data.
         '''
+        if self.is_stdin:
+            raise ValueError('cannot copy variant data directly while reading from stdin')
         self.__check_closed()
         cdef vector[uint8_t] data = self.thisptr.copy_data()
         return data
@@ -508,7 +508,7 @@ cdef class BgenReader:
       return [x.decode('utf8') for x in samples]
     
     def drop_variants(self, list indices):
-        ''' drops variants from bgen by indices, for a a =ing processing variants
+        ''' drops variants from bgen by indices, for avoiding processing variants
         '''
         if not self.is_open == True:
             raise ValueError("bgen file is closed")

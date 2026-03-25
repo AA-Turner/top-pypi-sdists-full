@@ -42,18 +42,24 @@ class BioImageArchiveTool(BaseTool):
             return self._query(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"BioImage Archive API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"BioImage Archive API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to BioImage Archive API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to BioImage Archive API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
             return {
-                "error": f"BioImage Archive API HTTP error: {e.response.status_code}"
+                "status": "error",
+                "error": f"BioImage Archive API HTTP error: {e.response.status_code}",
             }
         except Exception as e:
-            return {"error": f"Unexpected error querying BioImage Archive: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying BioImage Archive: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate query method."""
@@ -64,13 +70,13 @@ class BioImageArchiveTool(BaseTool):
         elif self.action == "search_bioimages":
             return self._search_bioimages(arguments)
         else:
-            return {"error": f"Unknown action: {self.action}"}
+            return {"status": "error", "error": f"Unknown action: {self.action}"}
 
     def _search(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search for biological imaging studies."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         page_size = min(arguments.get("page_size") or 10, 100)
         page = arguments.get("page") or 1
@@ -103,6 +109,7 @@ class BioImageArchiveTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BioImage Archive (EBI BioStudies)",
@@ -117,7 +124,7 @@ class BioImageArchiveTool(BaseTool):
         """Get detailed information about a specific study."""
         accession = arguments.get("accession", "")
         if not accession:
-            return {"error": "accession parameter is required"}
+            return {"status": "error", "error": "accession parameter is required"}
 
         url = f"{BIOSTUDIES_BASE_URL}/studies/{accession}"
         response = requests.get(url, timeout=self.timeout)
@@ -158,6 +165,7 @@ class BioImageArchiveTool(BaseTool):
                 imaging_method = value
 
         return {
+            "status": "success",
             "data": {
                 "accession": data.get("accno", accession),
                 "type": data.get("type"),
@@ -179,7 +187,7 @@ class BioImageArchiveTool(BaseTool):
         """Search the BioImages-specific collection."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         page_size = min(arguments.get("page_size") or 10, 100)
 
@@ -208,6 +216,7 @@ class BioImageArchiveTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "BioImage Archive (EBI BioStudies - BioImages collection)",

@@ -5,9 +5,11 @@ from ..types import (
     InputContext,
     ScenarioView,
     AgentListParams,
+    AxonCreateParams,
     DevboxListParams,
     ObjectListParams,
     AgentCreateParams,
+    AxonPublishParams,
     DevboxCreateParams,
     ObjectCreateParams,
     ScenarioListParams,
@@ -26,7 +28,6 @@ from ..types import (
     NetworkPolicyListParams,
     DevboxDownloadFileParams,
     DevboxEnableTunnelParams,
-    DevboxRemoveTunnelParams,
     DevboxSnapshotDiskParams,
     GatewayConfigCreateParams,
     GatewayConfigUpdateParams,
@@ -41,6 +42,8 @@ from ..lib.polling import PollingConfig
 from ..types.devboxes import DiskSnapshotListParams, DiskSnapshotUpdateParams
 from ..types.scenarios import ScorerListParams, ScorerCreateParams, ScorerUpdateParams
 from ..types.devbox_create_params import DevboxBaseCreateParams
+from ..types.axons.sql_batch_params import SqlBatchParams
+from ..types.axons.sql_query_params import SqlQueryParams
 from ..types.scenario_start_run_params import ScenarioStartRunBaseParams
 from ..types.benchmark_start_run_params import BenchmarkSelfStartRunParams
 from ..types.devbox_execute_async_params import DevboxNiceExecuteAsyncParams
@@ -127,7 +130,7 @@ class SDKDevboxEnableTunnelParams(DevboxEnableTunnelParams, LongRequestOptions):
     pass
 
 
-class SDKDevboxRemoveTunnelParams(DevboxRemoveTunnelParams, LongRequestOptions):
+class SDKDevboxRemoveTunnelParams(LongRequestOptions):
     pass
 
 
@@ -184,6 +187,22 @@ class SDKAgentCreateParams(AgentCreateParams, LongRequestOptions):
 
 
 class SDKAgentListParams(AgentListParams, BaseRequestOptions):
+    pass
+
+
+class SDKAxonCreateParams(AxonCreateParams, LongRequestOptions):
+    pass
+
+
+class SDKAxonPublishParams(AxonPublishParams, LongRequestOptions):
+    pass
+
+
+class SDKAxonSqlQueryParams(SqlQueryParams, LongRequestOptions):
+    pass
+
+
+class SDKAxonSqlBatchParams(SqlBatchParams, LongRequestOptions):
     pass
 
 

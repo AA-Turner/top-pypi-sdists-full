@@ -1,3 +1,4 @@
+from copy import deepcopy
 from enum import IntEnum
 from typing import (
     Dict,
@@ -271,7 +272,9 @@ class URL:
         return self.href
 
     def __repr__(self):
-        return f'<URL "{self.href}">'
+        duplicate = deepcopy(self)
+        duplicate.password = ''
+        return f'<URL "{duplicate.href}">'
 
     @staticmethod
     def can_parse(url: str, base: Optional[str] = None) -> bool:
@@ -754,6 +757,7 @@ class idna:
 idna_to_unicode = idna.decode
 
 idna_to_ascii = idna.encode
+
 
 def get_version():
     return ffi.string(lib.ada_get_version()).decode()

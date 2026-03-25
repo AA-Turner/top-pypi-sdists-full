@@ -44,16 +44,24 @@ class PANTHERTool(BaseTool):
             return self._dispatch(arguments)
         except requests.exceptions.Timeout:
             return {
-                "error": f"PANTHER API request timed out after {self.timeout} seconds"
+                "status": "error",
+                "error": f"PANTHER API request timed out after {self.timeout} seconds",
             }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to PANTHER API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to PANTHER API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"PANTHER API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"PANTHER API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying PANTHER: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying PANTHER: {str(e)}",
+            }
 
     def _dispatch(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint based on config."""
@@ -64,14 +72,20 @@ class PANTHERTool(BaseTool):
         elif self.endpoint_type == "ortholog":
             return self._ortholog(arguments)
         else:
-            return {"error": f"Unknown endpoint_type: {self.endpoint_type}"}
+            return {
+                "status": "error",
+                "error": f"Unknown endpoint_type: {self.endpoint_type}",
+            }
 
     def _gene_info(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get gene classification and functional annotation from PANTHER."""
         gene_id = arguments.get("gene_id", "")
         organism = arguments.get("organism", 9606)
         if not gene_id:
-            return {"error": "gene_id parameter is required (e.g., 'P04637' for TP53)"}
+            return {
+                "status": "error",
+                "error": "gene_id parameter is required (e.g., 'P04637' for TP53)",
+            }
         if organism is None:
             organism = 9606
 
@@ -142,6 +156,7 @@ class PANTHERTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "PANTHER",
@@ -158,7 +173,8 @@ class PANTHERTool(BaseTool):
 
         if not gene_list:
             return {
-                "error": "gene_list parameter is required (e.g., 'TP53,BRCA1,EGFR,KRAS')"
+                "status": "error",
+                "error": "gene_list parameter is required (e.g., 'TP53,BRCA1,EGFR,KRAS')",
             }
         if organism is None:
             organism = 9606
@@ -227,6 +243,7 @@ class PANTHERTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "PANTHER",
@@ -243,7 +260,10 @@ class PANTHERTool(BaseTool):
         ortholog_type = arguments.get("ortholog_type", "LDO")
 
         if not gene_id:
-            return {"error": "gene_id parameter is required (e.g., 'P04637' for TP53)"}
+            return {
+                "status": "error",
+                "error": "gene_id parameter is required (e.g., 'P04637' for TP53)",
+            }
         if organism is None:
             organism = 9606
         if target_organism is None:
@@ -296,6 +316,7 @@ class PANTHERTool(BaseTool):
         }
 
         return {
+            "status": "success",
             "data": result,
             "metadata": {
                 "source": "PANTHER",

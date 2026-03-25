@@ -942,7 +942,7 @@ class AsyncClient(BaseClient):
 
     async def get_spot_delist_schedule(self, **params):
         return await self._request_margin_api(
-            "get", "/spot/delist-schedule", signed=True, data=params
+            "get", "/spot/delist-schedule", signed=False, data=params
         )
 
     get_spot_delist_schedule.__doc__ = Client.get_spot_delist_schedule.__doc__
@@ -2050,6 +2050,8 @@ class AsyncClient(BaseClient):
     async def futures_symbol_ticker(self, **params):
         return await self._request_futures_api("get", "ticker/price", version=2, data=params)
     
+    futures_symbol_ticker.__doc__ = Client.futures_symbol_ticker.__doc__
+
     futures_symbol_ticker.__doc__ = Client.futures_symbol_ticker.__doc__
 
     futures_symbol_ticker.__doc__ = Client.futures_symbol_ticker.__doc__

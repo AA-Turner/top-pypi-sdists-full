@@ -58,7 +58,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-version = "2.26.6"
+version = "2.26.7"
 
 [project.urls]
 Homepage = "https://pdm-project.org"
@@ -164,14 +164,9 @@ tox = [
     "tox-pdm>=0.5",
 ]
 doc = [
-    "mkdocs>=1.1",
-    "mkdocs-material>=7.3",
+    "zensical>=0.0.28; python_version >= '3.10'",
     "mkdocstrings[python]>=0.18",
     "setuptools>=62.3.3",
-    "markdown-exec>=0.7.0",
-    "mkdocs-redirects>=1.2.0",
-    "mkdocs-version-annotations>=1.0.0",
-    "mkdocs-llmstxt>=0.2.0",
 ]
 workflow = [
     "parver>=0.3.1",
@@ -323,14 +318,22 @@ pre_release = "python tasks/max_versions.py"
 release = "python tasks/release.py"
 test = "pytest"
 tox = "tox"
+pre_doc = "python tasks/render_reference_docs.py"
 lint = "prek run --all-files"
 
 [tool.pdm.scripts.coverage]
 shell = "python -m pytest --verbosity=3 --cov=src/pdm --cov-branch --cov-report term-missing tests/\n                    "
 
 [tool.pdm.scripts.doc]
-cmd = "mkdocs serve"
+cmd = "zensical serve"
 help = "Start the dev server for docs preview"
+
+[tool.pdm.scripts.doc-build]
+composite = [
+    "pre_doc",
+    "zensical build",
+]
+help = "Build the documentation site"
 
 [tool.pdm.scripts.complete]
 call = "tasks.complete:main"

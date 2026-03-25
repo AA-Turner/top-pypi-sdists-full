@@ -15,44 +15,44 @@
             "-mavx2"
         ],
         "extra_objects": [
-            "src/zstd/lib/common/pool.o",
-            "src/zstd/lib/common/debug.o",
-            "src/zstd/lib/common/entropy_common.o",
             "src/zstd/lib/common/fse_decompress.o",
-            "src/zstd/lib/common/threading.o",
+            "src/zstd/lib/common/debug.o",
             "src/zstd/lib/common/error_private.o",
-            "src/zstd/lib/common/zstd_common.o",
             "src/zstd/lib/common/xxhash.o",
-            "src/zstd/lib/compress/hist.o",
-            "src/zstd/lib/compress/fse_compress.o",
-            "src/zstd/lib/compress/zstd_double_fast.o",
-            "src/zstd/lib/compress/zstd_compress_literals.o",
-            "src/zstd/lib/compress/zstd_compress.o",
+            "src/zstd/lib/common/threading.o",
+            "src/zstd/lib/common/pool.o",
+            "src/zstd/lib/common/entropy_common.o",
+            "src/zstd/lib/common/zstd_common.o",
             "src/zstd/lib/compress/huf_compress.o",
             "src/zstd/lib/compress/zstd_lazy.o",
-            "src/zstd/lib/compress/zstd_compress_sequences.o",
+            "src/zstd/lib/compress/fse_compress.o",
             "src/zstd/lib/compress/zstd_opt.o",
-            "src/zstd/lib/compress/zstdmt_compress.o",
+            "src/zstd/lib/compress/zstd_compress.o",
+            "src/zstd/lib/compress/zstd_double_fast.o",
             "src/zstd/lib/compress/zstd_fast.o",
             "src/zstd/lib/compress/zstd_ldm.o",
+            "src/zstd/lib/compress/hist.o",
+            "src/zstd/lib/compress/zstd_compress_literals.o",
+            "src/zstd/lib/compress/zstd_compress_sequences.o",
+            "src/zstd/lib/compress/zstdmt_compress.o",
             "src/zstd/lib/decompress/zstd_ddict.o",
-            "src/zstd/lib/decompress/zstd_decompress_block.o",
             "src/zstd/lib/decompress/zstd_decompress.o",
+            "src/zstd/lib/decompress/zstd_decompress_block.o",
             "src/zstd/lib/decompress/huf_decompress.o",
             "src/zstd/lib/dictBuilder/divsufsort.o",
-            "src/zstd/lib/dictBuilder/cover.o",
             "src/zstd/lib/dictBuilder/zdict.o",
             "src/zstd/lib/dictBuilder/fastcover.o",
-            "src/zstd/lib/deprecated/zbuff_compress.o",
+            "src/zstd/lib/dictBuilder/cover.o",
             "src/zstd/lib/deprecated/zbuff_decompress.o",
+            "src/zstd/lib/deprecated/zbuff_compress.o",
             "src/zstd/lib/deprecated/zbuff_common.o",
+            "src/zstd/lib/legacy/zstd_v04.o",
+            "src/zstd/lib/legacy/zstd_v01.o",
+            "src/zstd/lib/legacy/zstd_v06.o",
+            "src/zstd/lib/legacy/zstd_v03.o",
             "src/zstd/lib/legacy/zstd_v05.o",
             "src/zstd/lib/legacy/zstd_v07.o",
             "src/zstd/lib/legacy/zstd_v02.o",
-            "src/zstd/lib/legacy/zstd_v06.o",
-            "src/zstd/lib/legacy/zstd_v04.o",
-            "src/zstd/lib/legacy/zstd_v03.o",
-            "src/zstd/lib/legacy/zstd_v01.o",
             "/home/runner/work/bgen/bgen/zlib_build/libz.a"
         ],
         "include_dirs": [
@@ -1699,7 +1699,7 @@ struct __pyx_memoryviewslice_obj;
  *         self.conn.close()
  * 
  * cdef class BgenWriter:             # <<<<<<<<<<<<<<
- *     ''' class to open bgen files from disk, and access variant data within
+ *     ''' class to write bgen files to disk
  *     '''
 */
 struct __pyx_obj_4bgen_6writer_BgenWriter {
@@ -21735,7 +21735,7 @@ static PyMethodDef __pyx_methods_4bgen_6writer_BgenWriter[] = {
 static PyType_Slot __pyx_type_4bgen_6writer_BgenWriter_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_4bgen_6writer_BgenWriter},
   {Py_tp_repr, (void *)__pyx_pw_4bgen_6writer_10BgenWriter_5__repr__},
-  {Py_tp_doc, (void *)PyDoc_STR(" class to open bgen files from disk, and access variant data within\n    ")},
+  {Py_tp_doc, (void *)PyDoc_STR(" class to write bgen files to disk\n    ")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_4bgen_6writer_BgenWriter},
   {Py_tp_clear, (void *)__pyx_tp_clear_4bgen_6writer_BgenWriter},
   {Py_tp_methods, (void *)__pyx_methods_4bgen_6writer_BgenWriter},
@@ -21772,7 +21772,7 @@ static PyTypeObject __pyx_type_4bgen_6writer_BgenWriter = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR(" class to open bgen files from disk, and access variant data within\n    "), /*tp_doc*/
+  PyDoc_STR(" class to write bgen files to disk\n    "), /*tp_doc*/
   __pyx_tp_traverse_4bgen_6writer_BgenWriter, /*tp_traverse*/
   __pyx_tp_clear_4bgen_6writer_BgenWriter, /*tp_clear*/
   0, /*tp_richcompare*/

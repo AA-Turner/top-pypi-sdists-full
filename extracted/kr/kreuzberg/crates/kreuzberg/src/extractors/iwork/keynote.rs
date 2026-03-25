@@ -8,7 +8,6 @@ use crate::types::{ExtractionResult, Metadata};
 use ahash::AHashMap;
 use async_trait::async_trait;
 use std::borrow::Cow;
-use std::io::Cursor;
 
 /// Apple Keynote presentation extractor.
 ///
@@ -63,18 +62,7 @@ impl Plugin for KeynoteExtractor {
 /// - `Index/Slide_*.iwa` — individual slide content and speaker notes
 /// - `Index/MasterSlide_*.iwa` — master slide text
 fn parse_keynote(content: &[u8]) -> Result<String> {
-    let cursor = Cursor::new(content);
-    let mut archive = zip::ZipArchive::new(cursor)
-        .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to open Keynote ZIP: {e}")))?;
-
-    let iwa_paths: Vec<String> = (0..archive.len())
-        .filter_map(|i| {
-            archive.by_index(i).ok().and_then(|f| {
-                let name = f.name().to_string();
-                if name.ends_with(".iwa") { Some(name) } else { None }
-            })
-        })
-        .collect();
+    let iwa_paths = super::collect_iwa_paths(content)?;
 
     let mut all_texts: Vec<String> = Vec::new();
 
@@ -112,7 +100,7 @@ impl DocumentExtractor for KeynoteExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let text = {
             #[cfg(feature = "tokio-runtime")]
@@ -133,6 +121,12 @@ impl DocumentExtractor for KeynoteExtractor {
             parse_keynote(content)?
         };
 
+        let document = if config.include_document_structure {
+            Some(build_keynote_document_structure(&text))
+        } else {
+            None
+        };
+
         let additional: AHashMap<Cow<'static, str>, serde_json::Value> = AHashMap::new();
 
         Ok(ExtractionResult {
@@ -150,12 +144,13 @@ impl DocumentExtractor for KeynoteExtractor {
             djot_content: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
@@ -166,6 +161,54 @@ impl DocumentExtractor for KeynoteExtractor {
     fn priority(&self) -> i32 {
         50
     }
+}
+
+/// Build a `DocumentStructure` from extracted Keynote text.
+///
+/// Maps text lines to slides with paragraphs. Each non-empty line group
+/// separated by blank lines becomes a slide, with the first line as the
+/// slide title.
+fn build_keynote_document_structure(text: &str) -> crate::types::document_structure::DocumentStructure {
+    use crate::types::builder::DocumentStructureBuilder;
+
+    let mut builder = DocumentStructureBuilder::new().source_format("keynote");
+    let mut slide_number: u32 = 0;
+
+    // Split text into slide-like chunks (separated by blank lines)
+    let lines: Vec<&str> = text.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        // Skip blank lines
+        if lines[i].trim().is_empty() {
+            i += 1;
+            continue;
+        }
+
+        slide_number += 1;
+        let first_line = lines[i].trim();
+        builder.push_slide(slide_number, Some(first_line));
+        i += 1;
+
+        // Collect subsequent non-blank lines as paragraphs in this slide
+        while i < lines.len() && !lines[i].trim().is_empty() {
+            builder.push_paragraph(lines[i].trim(), vec![], None, None);
+            i += 1;
+        }
+
+        builder.exit_container();
+    }
+
+    // If no slides were created but there is content, push paragraphs
+    if slide_number == 0 && !text.trim().is_empty() {
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                builder.push_paragraph(trimmed, vec![], None, None);
+            }
+        }
+    }
+
+    builder.build()
 }
 
 #[cfg(test)]

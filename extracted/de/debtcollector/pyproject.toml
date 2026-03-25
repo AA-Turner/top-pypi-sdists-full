@@ -1,0 +1,62 @@
+[build-system]
+requires = ["pbr>=6.1.1"]
+build-backend = "pbr.build"
+
+[project]
+name = "debtcollector"
+description = "A collection of Python deprecation patterns and strategies that help you collect your technical debt in a non-destructive manner."
+authors = [
+    {name = "OpenStack", email = "openstack-discuss@lists.openstack.org"},
+]
+readme = {file = "README.rst", content-type = "text/x-rst"}
+license = {text = "Apache-2.0"}
+dynamic = ["version", "dependencies"]
+requires-python = ">=3.10"
+classifiers = [
+    "Environment :: OpenStack",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://docs.openstack.org/debtcollector/"
+Repository = "https://opendev.org/openstack/debtcollector/"
+
+[tool.setuptools]
+packages = [
+    "debtcollector"
+]
+
+[tool.mypy]
+python_version = "3.10"
+show_column_numbers = true
+show_error_context = true
+strict = true
+disable_error_code = ["import-untyped"]
+exclude = "(?x)(doc | releasenotes)"
+
+[[tool.mypy.overrides]]
+module = ["debtcollector.tests.*"]
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+disallow_subclassing_any = false
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.format]
+quote-style = "preserve"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["E4", "E5", "E7", "E9", "F", "G", "LOG", "S", "UP"]
+external = ["H"]

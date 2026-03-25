@@ -263,23 +263,38 @@ pub fn evaluate_per_page_ocr(
 
 /// Render PDF pages to images for OCR processing.
 ///
-/// Returns images at the default OCR DPI (300).
+/// Renders one page at a time so the pdfium document handle is released
+/// between pages, avoiding holding all rendered images plus the full
+/// document bitmap cache in memory simultaneously.
 #[cfg(feature = "ocr")]
 pub(crate) fn render_pages_for_ocr(content: &[u8]) -> crate::Result<Vec<image::DynamicImage>> {
     use crate::pdf::rendering::{PageRenderOptions, PdfRenderer};
 
-    let render_options = PageRenderOptions::default();
     let renderer = PdfRenderer::new().map_err(|e| crate::KreuzbergError::Parsing {
         message: format!("Failed to initialize PDF renderer: {}", e),
         source: None,
     })?;
 
-    renderer
-        .render_all_pages(content, &render_options)
+    let page_count = renderer
+        .page_count(content)
         .map_err(|e| crate::KreuzbergError::Parsing {
-            message: format!("Failed to render PDF pages: {}", e),
+            message: format!("Failed to get PDF page count: {}", e),
             source: None,
-        })
+        })?;
+
+    let render_options = PageRenderOptions::default();
+    let mut images = Vec::with_capacity(page_count);
+    for i in 0..page_count {
+        let image = renderer
+            .render_page_to_image(content, i, &render_options)
+            .map_err(|e| crate::KreuzbergError::Parsing {
+                message: format!("Failed to render PDF page {}: {}", i, e),
+                source: None,
+            })?;
+        images.push(image);
+    }
+
+    Ok(images)
 }
 
 /// Extract text from PDF using OCR on pre-rendered page images.
@@ -299,9 +314,11 @@ pub(crate) fn render_pages_for_ocr(content: &[u8]) -> crate::Result<Vec<image::D
 /// Concatenated text from all pages, with markdown structure when layout is available
 #[cfg(feature = "ocr")]
 pub(crate) async fn extract_with_ocr(
-    images: &[image::DynamicImage],
+    content: Option<&[u8]>,
+    images: Option<&[image::DynamicImage]>,
     #[cfg(feature = "layout-detection")] layout_detections: Option<&[crate::layout::DetectionResult]>,
     config: &ExtractionConfig,
+    path: Option<&std::path::Path>,
 ) -> crate::Result<(String, Option<f64>)> {
     use crate::plugins::registry::get_ocr_backend_registry;
     use image::ImageEncoder;
@@ -331,67 +348,128 @@ pub(crate) async fn extract_with_ocr(
 
     let backend = {
         let registry = get_ocr_backend_registry();
-        let registry = registry.read().map_err(|e| crate::KreuzbergError::Plugin {
-            message: format!("Failed to acquire read lock on OCR backend registry: {}", e),
-            plugin_name: "ocr-registry".to_string(),
-        })?;
+        let registry = registry.read();
         registry.get(&ocr_config.backend)?
     };
 
-    // Encode all page images to PNG bytes in parallel (CPU-bound).
-    // Each element is (page_idx, image_data, width, height).
-    // We wrap image bytes in Arc so that spawning per-page OCR tasks only
-    // clones a pointer instead of copying the entire PNG buffer.
-    use rayon::prelude::*;
-    use std::sync::Arc;
-    #[allow(clippy::type_complexity)]
-    let encoded_pages: crate::Result<Vec<(usize, Arc<Vec<u8>>, u32, u32)>> = images
-        .par_iter()
-        .enumerate()
-        .map(|(page_idx, image)| {
-            let rgb_image = image.to_rgb8();
-            let (width, height) = rgb_image.dimensions();
-            let mut image_bytes = Cursor::new(Vec::new());
-            let encoder = PngEncoder::new(&mut image_bytes);
-            encoder
-                .write_image(&rgb_image, width, height, image::ColorType::Rgb8.into())
-                .map_err(|e| crate::KreuzbergError::Parsing {
-                    message: format!("Failed to encode image: {}", e),
-                    source: None,
-                })?;
-            Ok((page_idx, Arc::new(image_bytes.into_inner()), width, height))
-        })
-        .collect();
-    let encoded_pages = encoded_pages?;
+    // If the backend supports direct document processing and we have a path,
+    // use it to process the entire document at once, bypassing page rendering.
+    // This is currently only supported when layout detection is NOT active,
+    // as layout assembly requires per-rendering results.
+    #[cfg(not(feature = "layout-detection"))]
+    let supports_doc = backend.supports_document_processing();
+    #[cfg(feature = "layout-detection")]
+    let supports_doc = backend.supports_document_processing() && layout_detections.is_none();
 
-    // Run OCR on all pages concurrently. Each page spawns a tokio task so
-    // the async backend (which internally uses spawn_blocking) can run in
-    // parallel across the thread pool.
-    // `backend` is already an `Arc<dyn OcrBackend>`; clone it cheaply per task.
-    let ocr_config_owned = ocr_config.clone();
+    let rendered_images;
+    let images_to_use = if let Some(imgs) = images {
+        imgs
+    } else if !supports_doc || path.is_none() {
+        // We need images but don't have them. Render now if we have content.
+        if let Some(bytes) = content {
+            rendered_images = render_pages_for_ocr(bytes)?;
+            rendered_images.as_slice()
+        } else {
+            // No images and no content to render from.
+            &[] as &[image::DynamicImage]
+        }
+    } else {
+        // We have a path and support doc processing, so we might not need images.
+        &[] as &[image::DynamicImage]
+    };
 
-    let mut join_set: tokio::task::JoinSet<(usize, crate::Result<crate::types::ExtractionResult>)> =
-        tokio::task::JoinSet::new();
-
-    for (page_idx, image_data, _width, _height) in &encoded_pages {
-        let backend_clone = std::sync::Arc::clone(&backend);
-        let config_clone = ocr_config_owned.clone();
-        let data_clone = Arc::clone(image_data);
-        let idx = *page_idx;
-        join_set.spawn(async move {
-            let result = backend_clone.process_image(&data_clone, &config_clone).await;
-            (idx, result)
-        });
+    if let Some(doc_path) = path
+        && supports_doc
+    {
+        tracing::debug!(backend = %ocr_config.backend, "Using document-level OCR processing");
+        let result = backend.process_document(doc_path, ocr_config).await?;
+        let mean_conf = result
+            .metadata
+            .additional
+            .get("mean_text_conf")
+            .and_then(|v| v.as_f64())
+            .map(|v| v / 100.0);
+        return Ok((result.content, mean_conf));
     }
 
-    // Collect results, preserving page order.
-    let mut ocr_results: Vec<Option<crate::types::ExtractionResult>> = vec![None; images.len()];
-    while let Some(join_result) = join_set.join_next().await {
-        let (page_idx, ocr_result) = join_result.map_err(|e| crate::KreuzbergError::Plugin {
-            message: format!("OCR task panicked: {}", e),
-            plugin_name: "ocr".to_string(),
-        })?;
-        ocr_results[page_idx] = Some(ocr_result?);
+    // Encode and OCR pages in bounded batches so that at most `batch_size`
+    // PNG-encoded images are alive at a time. This caps peak memory to roughly
+    // batch_size * (rendered_image + encoded_PNG + OCR working set) instead of
+    // page_count * that amount.
+    use rayon::prelude::*;
+    use std::sync::Arc;
+    use tokio::task::JoinSet;
+
+    let batch_size = config
+        .concurrency
+        .as_ref()
+        .and_then(|c| c.max_threads)
+        .unwrap_or_else(|| num_cpus::get().min(4))
+        .max(1);
+
+    let ocr_config_owned = ocr_config.clone();
+    let total_pages = images_to_use.len();
+
+    // Per-page encoded dimensions needed later by the post-processing loop.
+    let mut encoded_dimensions: Vec<(u32, u32)> = Vec::with_capacity(total_pages);
+    let mut ocr_results: Vec<Option<crate::types::ExtractionResult>> = vec![None; total_pages];
+
+    for batch_start in (0..total_pages).step_by(batch_size) {
+        let batch_end = (batch_start + batch_size).min(total_pages);
+        let batch_slice = &images_to_use[batch_start..batch_end];
+
+        // Encode this batch's images to PNG in parallel (CPU-bound, rayon).
+        #[allow(clippy::type_complexity)]
+        let encoded_batch: crate::Result<Vec<(usize, Arc<Vec<u8>>, u32, u32)>> = batch_slice
+            .par_iter()
+            .enumerate()
+            .map(|(offset, image)| {
+                let page_idx = batch_start + offset;
+                let rgb_image = image.to_rgb8();
+                let (width, height) = rgb_image.dimensions();
+                let mut image_bytes = Cursor::new(Vec::new());
+                let encoder = PngEncoder::new(&mut image_bytes);
+                encoder
+                    .write_image(&rgb_image, width, height, image::ColorType::Rgb8.into())
+                    .map_err(|e| crate::KreuzbergError::Parsing {
+                        message: format!("Failed to encode image: {}", e),
+                        source: None,
+                    })?;
+                Ok((page_idx, Arc::new(image_bytes.into_inner()), width, height))
+            })
+            .collect();
+        let encoded_batch = encoded_batch?;
+
+        // Record dimensions for each page in the batch.
+        for &(_, _, w, h) in &encoded_batch {
+            encoded_dimensions.push((w, h));
+        }
+
+        // OCR this batch concurrently (tokio JoinSet).
+        let mut join_set: JoinSet<(usize, crate::Result<crate::types::ExtractionResult>)> = JoinSet::new();
+
+        for (page_idx, image_data, _width, _height) in &encoded_batch {
+            let backend_clone = std::sync::Arc::clone(&backend);
+            let config_clone = ocr_config_owned.clone();
+            let data_clone = Arc::clone(image_data);
+            let idx = *page_idx;
+            join_set.spawn(async move {
+                let result = backend_clone.process_image(&data_clone, &config_clone).await;
+                (idx, result)
+            });
+        }
+
+        // Collect this batch's results. The encoded PNGs are dropped at the
+        // end of this loop iteration, freeing their memory before the next
+        // batch is encoded.
+        while let Some(join_result) = join_set.join_next().await {
+            let (page_idx, ocr_result) = join_result.map_err(|e| crate::KreuzbergError::Plugin {
+                message: format!("OCR task panicked: {}", e),
+                plugin_name: "ocr".to_string(),
+            })?;
+            ocr_results[page_idx] = Some(ocr_result?);
+        }
+        // `encoded_batch` dropped here — PNG buffers freed before next batch.
     }
 
     // Initialize TATR for table structure recognition when layout detection is active.
@@ -403,16 +481,16 @@ pub(crate) async fn extract_with_ocr(
         None
     };
 
-    let mut page_texts = Vec::with_capacity(images.len());
+    let mut page_texts = Vec::with_capacity(images_to_use.len());
     let mut conf_sum: f64 = 0.0;
     let mut conf_count: usize = 0;
 
     for (page_idx, ocr_result) in ocr_results.into_iter().enumerate() {
         // SAFETY: every slot was filled in the join loop above; None is unreachable.
         let ocr_result = ocr_result.expect("OCR result missing for page");
-        let (_page_idx_enc, _image_data, _width, _height) = &encoded_pages[page_idx];
+        let (_width, _height) = encoded_dimensions[page_idx];
         #[cfg(feature = "layout-detection")]
-        let height = *_height;
+        let height = _height;
 
         // Accumulate mean_text_conf from per-page OCR results.
         if let Some(conf_val) = ocr_result
@@ -432,12 +510,10 @@ pub(crate) async fn extract_with_ocr(
             && let Some(ref elements) = ocr_result.ocr_elements
             && !elements.is_empty()
         {
-            let detection = detections.get(page_idx);
-
-            // Run TATR table recognition if available (requires mutable model).
+            let detection = detections.get(page_idx); // Run TATR table recognition if available (requires mutable model).
             let recognized_tables = match (detection, tatr_model.as_mut()) {
                 (Some(det), Some(model)) => {
-                    let rgb = images[page_idx].to_rgb8();
+                    let rgb = images_to_use[page_idx].to_rgb8();
                     crate::ocr::layout_assembly::recognize_page_tables(&rgb, det, elements, model)
                 }
                 _ => Vec::new(),
@@ -560,17 +636,17 @@ pub(crate) async fn extract_with_ocr(
 /// backend is tried. Returns the best result seen across all stages.
 #[cfg(feature = "ocr")]
 pub(crate) async fn run_ocr_pipeline(
-    images: &[image::DynamicImage],
+    content: Option<&[u8]>,
+    images: Option<&[image::DynamicImage]>,
     #[cfg(feature = "layout-detection")] layout_detections: Option<&[crate::layout::DetectionResult]>,
     config: &ExtractionConfig,
     pipeline: &crate::core::config::OcrPipelineConfig,
+    path: Option<&std::path::Path>,
 ) -> crate::Result<String> {
     use crate::plugins::registry::get_ocr_backend_registry;
 
-    let base_ocr = config.ocr.as_ref().ok_or_else(|| crate::KreuzbergError::Parsing {
-        message: "OCR config required for pipeline".to_string(),
-        source: None,
-    })?;
+    let default_ocr_config = crate::core::config::OcrConfig::default();
+    let ocr_config = config.ocr.as_ref().unwrap_or(&default_ocr_config);
 
     // Sort stages by priority (highest first)
     let mut stages = pipeline.stages.clone();
@@ -580,10 +656,7 @@ pub(crate) async fn run_ocr_pipeline(
     let requested_backends: Vec<String> = stages.iter().map(|s| s.backend.clone()).collect();
     let available_stages: Vec<_> = {
         let registry = get_ocr_backend_registry();
-        let registry = registry.read().map_err(|e| crate::KreuzbergError::Plugin {
-            message: format!("Failed to acquire read lock on OCR backend registry: {}", e),
-            plugin_name: "ocr-registry".to_string(),
-        })?;
+        let registry = registry.read();
         stages
             .into_iter()
             .filter(|s| registry.get(&s.backend).is_ok())
@@ -604,7 +677,7 @@ pub(crate) async fn run_ocr_pipeline(
 
     for stage in &available_stages {
         // Build a modified config for this stage
-        let mut stage_ocr = base_ocr.clone();
+        let mut stage_ocr = ocr_config.clone();
         stage_ocr.backend = stage.backend.clone();
         if let Some(ref lang) = stage.language {
             stage_ocr.language = lang.clone();
@@ -628,10 +701,12 @@ pub(crate) async fn run_ocr_pipeline(
         );
 
         let result = extract_with_ocr(
+            content,
             images,
             #[cfg(feature = "layout-detection")]
             layout_detections,
             &stage_config,
+            path,
         )
         .await;
 
@@ -1422,5 +1497,86 @@ mod tests {
         assert_eq!(stats.alnum, 1);
         assert_eq!(stats.meaningful_words, 0); // "x" has len 1 < min_meaningful_word_len (4)
         assert_eq!(stats.avg_word_length, 1.0);
+    }
+
+    #[cfg(feature = "ocr")]
+    #[tokio::test]
+    async fn test_process_document_propagation() {
+        use crate::core::config::OcrConfig;
+        use crate::plugins::{OcrBackend, OcrBackendType, Plugin};
+        use crate::types::ExtractionResult;
+        use std::path::Path;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        struct MockBackend {
+            called: Arc<AtomicBool>,
+        }
+
+        #[async_trait::async_trait]
+        impl OcrBackend for MockBackend {
+            fn backend_type(&self) -> OcrBackendType {
+                OcrBackendType::Custom
+            }
+            fn supports_language(&self, _: &str) -> bool {
+                true
+            }
+            async fn process_image(&self, _: &[u8], _: &OcrConfig) -> crate::Result<ExtractionResult> {
+                panic!("Should not call process_image");
+            }
+            fn supports_document_processing(&self) -> bool {
+                true
+            }
+            async fn process_document(&self, path: &Path, _: &OcrConfig) -> crate::Result<ExtractionResult> {
+                assert!(path.to_string_lossy().contains("test.pdf"));
+                self.called.store(true, Ordering::SeqCst);
+                Ok(ExtractionResult::default())
+            }
+        }
+
+        impl Plugin for MockBackend {
+            fn name(&self) -> &str {
+                "mock"
+            }
+            fn version(&self) -> String {
+                "1.0.0".to_string()
+            }
+            fn initialize(&self) -> crate::Result<()> {
+                Ok(())
+            }
+            fn shutdown(&self) -> crate::Result<()> {
+                Ok(())
+            }
+        }
+
+        let called = Arc::new(AtomicBool::new(false));
+        let backend = Arc::new(MockBackend { called: called.clone() });
+        let config = ExtractionConfig {
+            ocr: Some(OcrConfig {
+                backend: "mock".to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        // Register the mock backend so extract_with_ocr can find it
+        crate::plugins::register_ocr_backend(backend).unwrap();
+
+        let path = Path::new("test.pdf");
+        let result = extract_with_ocr(
+            None,      // No content
+            Some(&[]), // No images
+            #[cfg(feature = "layout-detection")]
+            None, // No layout
+            &config,
+            Some(path),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(called.load(Ordering::SeqCst), "process_document was not called");
+
+        // Clean up
+        crate::plugins::unregister_ocr_backend("mock").unwrap();
     }
 }

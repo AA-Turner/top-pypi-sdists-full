@@ -236,15 +236,6 @@ pub fn detect_layout_for_document(
         "PDF rendering complete"
     );
 
-    // Convert all DynamicImages to RgbImage up front (owned).
-    let rgb_images: Vec<image::RgbImage> = images
-        .iter()
-        .map(|img| match img {
-            image::DynamicImage::ImageRgb8(r) => r.clone(),
-            other => other.to_rgb8(),
-        })
-        .collect();
-
     // Capture the engine config so each rayon worker can create its own
     // LayoutEngine on first use (thread-local, ~250 MB per worker).
     // We clone from the caller-supplied engine rather than re-deriving from
@@ -300,10 +291,19 @@ pub fn detect_layout_for_document(
     //
     // Result type per page: Ok((PageLayoutResult, PageTiming)) or Err(String).
     // We collect into a Vec indexed by page so the final sort is trivial.
-    let mut parallel_results: Vec<std::result::Result<(PageLayoutResult, PageTiming), String>> = rgb_images
+    let mut parallel_results: Vec<std::result::Result<(PageLayoutResult, PageTiming), String>> = images
         .par_iter()
         .enumerate()
-        .map(|(page_idx, rgb)| {
+        .map(|(page_idx, img)| {
+            // Convert to RGB8 inline per-page instead of cloning all pages
+            // upfront. This avoids holding a full Vec<RgbImage> alongside the
+            // original DynamicImages — each page's RGB copy lives only for
+            // the duration of its inference call.
+            let rgb = match img {
+                image::DynamicImage::ImageRgb8(r) => std::borrow::Cow::Borrowed(r),
+                other => std::borrow::Cow::Owned(other.to_rgb8()),
+            };
+
             TL_ENGINE.with(|cell| {
                 let mut engine_ref = cell.borrow_mut();
                 let tl_engine = engine_ref.get_or_insert_with(|| {
@@ -312,7 +312,7 @@ pub fn detect_layout_for_document(
 
                 let inference_start = Instant::now();
                 let (detection, detect_timings) = tl_engine
-                    .detect_timed(rgb)
+                    .detect_timed(&rgb)
                     .map_err(|e| format!("Layout detection failed on page {page_idx}: {e}"))?;
                 let inference_ms = inference_start.elapsed().as_secs_f64() * 1000.0;
 

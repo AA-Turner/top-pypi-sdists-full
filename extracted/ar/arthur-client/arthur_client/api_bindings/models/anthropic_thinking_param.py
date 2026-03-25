@@ -36,8 +36,8 @@ class AnthropicThinkingParam(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['enabled', 'adaptive']):
-            raise ValueError("must be one of enum values ('enabled', 'adaptive')")
+        if value not in set(['enabled']):
+            raise ValueError("must be one of enum values ('enabled')")
         return value
 
     model_config = ConfigDict(

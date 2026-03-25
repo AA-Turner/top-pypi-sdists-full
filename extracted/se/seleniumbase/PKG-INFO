@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.47.6
+Version: 4.47.7
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -293,6 +293,7 @@ from seleniumbase import SB
 with SB(uc=True, test=True) as sb:
     url = "https://google.com/ncr"
     sb.activate_cdp_mode(url)
+    sb.click_if_visible('button:contains("Accept all")')
     sb.type('[name="q"]', "SeleniumBase GitHub page")
     sb.click('[value="Google Search"]')
     sb.sleep(4)  # The "AI Overview" sometimes loads

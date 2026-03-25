@@ -79,6 +79,29 @@ def exporter_remove(
     :return: Result of the operator call.
     """
 
+def importer_add(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    name: str | None = "",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add Importer
+
+    :param name: Name, FileHandler idname (optional, never None)
+    :return: Result of the operator call.
+    """
+
+def importer_remove(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove Importer
+
+    :return: Result of the operator call.
+    """
+
 def objects_add_active(
     execution_context: int | str | None = None,
     undo: bool | None = None,

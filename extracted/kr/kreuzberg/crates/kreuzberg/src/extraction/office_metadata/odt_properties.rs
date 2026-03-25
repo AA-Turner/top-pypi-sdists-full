@@ -87,17 +87,10 @@ pub struct OdtProperties {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn extract_odt_properties<R: Read + std::io::Seek>(archive: &mut ZipArchive<R>) -> Result<OdtProperties> {
-    let mut xml_content = String::new();
-
-    match archive.by_name("meta.xml") {
-        Ok(mut file) => {
-            file.read_to_string(&mut xml_content)
-                .map_err(|e| KreuzbergError::parsing(format!("Failed to read meta.xml: {}", e)))?;
-        }
-        Err(_) => {
-            return Ok(OdtProperties::default());
-        }
-    }
+    let xml_content = match super::read_zip_entry_to_string(archive, "meta.xml", "meta.xml")? {
+        Some(content) => content,
+        None => return Ok(OdtProperties::default()),
+    };
 
     let doc = roxmltree::Document::parse(&xml_content)
         .map_err(|e| KreuzbergError::parsing(format!("Failed to parse meta.xml: {}", e)))?;

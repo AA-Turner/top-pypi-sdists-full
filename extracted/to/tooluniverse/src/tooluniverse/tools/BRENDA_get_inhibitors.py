@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def BRENDA_get_inhibitors(
-    operation: str,
     ec_number: str,
+    operation: Optional[str] = None,
     organism: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,

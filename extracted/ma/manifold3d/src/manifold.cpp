@@ -499,7 +499,7 @@ Manifold Manifold::Warp(std::function<void(vec3&)> warpFunc) const {
 }
 
 /**
- * Same as Manifold::Warp but calls warpFunc with with
+ * Same as Manifold::Warp but calls warpFunc with
  * a VecView which is roughly equivalent to std::span
  * pointing to all vec3 elements to be modified in-place
  *
@@ -848,6 +848,7 @@ std::pair<Manifold, Manifold> Manifold::Split(const Manifold& cutter) const {
  */
 std::pair<Manifold, Manifold> Manifold::SplitByPlane(
     vec3 normal, double originOffset) const {
+  if (IsEmpty()) return {Manifold(), Manifold()};
   return Split(Halfspace(BoundingBox(), normal, originOffset));
 }
 

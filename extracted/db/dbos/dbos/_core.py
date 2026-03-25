@@ -366,7 +366,12 @@ def _init_workflow(
         "status": (
             WorkflowStatusString.PENDING.value
             if queue is None
-            else WorkflowStatusString.ENQUEUED.value
+            else (
+                WorkflowStatusString.DELAYED.value
+                if enqueue_options is not None
+                and enqueue_options["delay_until_epoch_ms"] is not None
+                else WorkflowStatusString.ENQUEUED.value
+            )
         ),
         "name": wf_name,
         "class_name": class_name,
@@ -417,6 +422,11 @@ def _init_workflow(
         "started_at_epoch_ms": None,
         "owner_xid": None,
         "serialization": serialization,
+        "delay_until_epoch_ms": (
+            enqueue_options["delay_until_epoch_ms"]
+            if enqueue_options is not None
+            else None
+        ),
     }
 
     # Synchronously record the status and inputs for workflows
@@ -450,28 +460,24 @@ def _init_workflow(
         raise
 
     if should_execute and workflow_deadline_epoch_ms is not None:
-        evt = threading.Event()
-        dbos.background_thread_stop_events.append(evt)
 
-        def timeout_func() -> None:
+        async def timeout_func() -> None:
             try:
-                assert workflow_deadline_epoch_ms is not None
                 time_to_wait_sec = (
                     workflow_deadline_epoch_ms - (time.time() * 1000)
                 ) / 1000
                 if time_to_wait_sec > 0:
-                    was_stopped = evt.wait(time_to_wait_sec)
-                    if was_stopped:
-                        return
-                dbos._sys_db.cancel_workflows([wfid])
+                    await asyncio.sleep(time_to_wait_sec)
+
+                await asyncio.to_thread(dbos._sys_db.cancel_workflows, [wfid])
             except Exception as e:
                 dbos.logger.warning(
-                    f"Exception in timeout thread for workflow {wfid}: {e}"
+                    f"Exception in timeout task for workflow {wfid}: {e}"
                 )
 
-        timeout_thread = threading.Thread(target=timeout_func, daemon=True)
-        timeout_thread.start()
-        dbos._background_threads.append(timeout_thread)
+        dbos._background_event_loop.submit_coroutine_nowait(
+            timeout_func(), task_set=dbos._timeout_tasks
+        )
 
     ctx.workflow_deadline_epoch_ms = workflow_deadline_epoch_ms
     status["workflow_deadline_epoch_ms"] = workflow_deadline_epoch_ms
@@ -823,6 +829,9 @@ def start_workflow(
         queue_partition_key=(
             local_ctx.queue_partition_key if local_ctx is not None else None
         ),
+        delay_until_epoch_ms=(
+            local_ctx.delay_until_epoch_ms if local_ctx is not None else None
+        ),
     )
     new_wf_ctx = DBOSContext.create_start_workflow_child(local_ctx)
     new_child_workflow_id = new_wf_ctx.id_assigned_for_next_workflow
@@ -938,6 +947,9 @@ async def start_workflow_async(
         app_version=local_ctx.app_version if local_ctx is not None else None,
         queue_partition_key=(
             local_ctx.queue_partition_key if local_ctx is not None else None
+        ),
+        delay_until_epoch_ms=(
+            local_ctx.delay_until_epoch_ms if local_ctx is not None else None
         ),
     )
     new_child_workflow_id = new_wf_ctx.id_assigned_for_next_workflow

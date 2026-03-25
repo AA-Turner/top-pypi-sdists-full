@@ -189,6 +189,7 @@ use lsp_types::request::WorkspaceSymbolRequest;
 use pyrefly_build::SourceDatabase;
 use pyrefly_build::handle::Handle;
 use pyrefly_config::config::ConfigSource;
+use pyrefly_config::error_kind::Severity;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -216,7 +217,6 @@ use pyrefly_util::telemetry::TelemetryEventKind;
 use pyrefly_util::telemetry::TelemetryFileStats;
 use pyrefly_util::telemetry::TelemetryFileWatcherStats;
 use pyrefly_util::telemetry::TelemetryServerState;
-use pyrefly_util::telemetry::TelemetryTaskContext;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
 use pyrefly_util::watch_pattern::WatchPattern;
@@ -450,7 +450,6 @@ pub struct Connection {
 /// without requiring interior mutability — stdin is only ever read from one
 /// thread.
 pub enum MessageReader {
-    #[cfg_attr(not(test), allow(dead_code))]
     Channel(Receiver<Message>),
     Stdio(BufReader<Stdin>),
 }
@@ -827,6 +826,10 @@ pub struct Server {
     path_remapper: Option<PathRemapper>,
     /// Accumulated file watcher events waiting to be processed as a batch.
     pending_watched_file_changes: Mutex<Vec<FileEvent>>,
+    /// Categorized events waiting to be invalidated by the next heavy task.
+    /// Multiple `DrainWatchedFileChanges` events accumulate here; the first
+    /// heavy task to run drains them all, making subsequent tasks no-ops.
+    pending_invalidation_events: Arc<Mutex<CategorizedEvents>>,
     /// An external source which may be included to assist in finding global references
     external_references: Arc<dyn ExternalProvider>,
     /// The time at which the server was started, for telemetry.
@@ -1308,12 +1311,16 @@ pub fn lsp_loop(
             .spawn_scoped(scope, || {
                 let mut ide_transaction_manager = TransactionManager::default();
                 let mut canceled_requests = HashSet::new();
+                let mut next_task_id = 0_usize;
                 while let Ok((subsequent_mutation, event, enqueue_time)) = server.lsp_queue.recv() {
+                    let task_id = next_task_id;
+                    next_task_id += 1;
                     let (mut event_telemetry, queue_duration) = TelemetryEvent::new_dequeued(
                         TelemetryEventKind::LspEvent(event.describe()),
                         enqueue_time,
                         server.telemetry_state(),
                         QueueName::LspQueue,
+                        task_id,
                     );
                     let event_description = event.describe();
                     let result = server.process_event(
@@ -1663,22 +1670,8 @@ impl Server {
                 // Set up immediate per-call telemetry for ad-hoc solves. Each solve event is
                 // logged the instant it completes rather than batched.
                 {
-                    let server_state = self.telemetry_state();
-                    let activity_key = telemetry_event.activity_key.clone();
-                    transaction.set_ad_hoc_solve_recorder(Box::new(
-                        move |label, start, duration| {
-                            let mut event = TelemetryEvent::new_task(
-                                TelemetryEventKind::AdHocSolve(label.to_owned()),
-                                server_state.clone(),
-                                QueueName::LspQueue,
-                                None,
-                                start,
-                            );
-                            // todo(kylei): add file stats
-                            event.set_activity_key(activity_key.clone());
-                            telemetry.record_event(event, duration, None);
-                        },
-                    ));
+                    let sub_task_telemetry = SubTaskTelemetry::new(telemetry, telemetry_event);
+                    transaction.set_sub_task_telemetry(sub_task_telemetry);
                 }
 
                 // As an over-approximation, validate open files. This request might be based on a transaction where we
@@ -1787,16 +1780,7 @@ impl Server {
                         )
                     {
                         self.set_file_stats(params.text_document.uri.clone(), telemetry_event);
-                        let sub_task_telemetry = SubTaskTelemetry::new(
-                            telemetry,
-                            self.telemetry_state(),
-                            QueueName::LspQueue,
-                            TelemetryTaskContext {
-                                activity_key: telemetry_event.activity_key.clone(),
-                                task_id: telemetry_event.task_id,
-                            },
-                            telemetry_event.file_stats.clone(),
-                        );
+                        let sub_task_telemetry = SubTaskTelemetry::new(telemetry, telemetry_event);
                         self.send_response(new_response(
                             x.id,
                             Ok(self
@@ -2032,10 +2016,7 @@ impl Server {
                                 &transaction,
                                 &params.query,
                                 telemetry,
-                                TelemetryTaskContext {
-                                    activity_key: telemetry_event.activity_key.clone(),
-                                    task_id: telemetry_event.task_id,
-                                },
+                                telemetry_event,
                             ))),
                         ));
                     }
@@ -2331,6 +2312,7 @@ impl Server {
             awaiting_initial_workspace_config: AtomicBool::new(should_request_workspace_settings),
             path_remapper,
             pending_watched_file_changes: Mutex::new(Vec::new()),
+            pending_invalidation_events: Arc::new(Mutex::new(CategorizedEvents::default())),
             external_references,
             server_start_time: Instant::now(),
         };
@@ -2486,7 +2468,10 @@ impl Server {
 
             // Workspace diagnostic mode: allow non-open files that are under a
             // workspace root with DiagnosticMode::Workspace and within project scope.
+            // Only show error-severity diagnostics for non-open files; lower-severity
+            // diagnostics (warnings, info) are restricted to open files.
             if open_files.get(&path).is_none()
+                && e.severity() >= Severity::Error
                 && self.workspaces.diagnostic_mode(&path) == DiagnosticMode::Workspace
                 && config.project_includes.covers(&path)
                 && !config.project_excludes.covers(&path)
@@ -2625,7 +2610,10 @@ impl Server {
                 diags.insert(handle_path_buf, Vec::new());
             }
         }
-        for e in transaction.get_errors(handles).collect_errors().shown {
+        let collected = transaction.get_errors(handles).collect_errors();
+        let mut output_errors = collected.ordinary;
+        output_errors.extend(collected.directives);
+        for e in output_errors {
             if let Some((path, diag)) = self.get_diag_if_shown(&e, &open_files, None) {
                 diags.entry(path.to_owned()).or_default().push(diag);
             }
@@ -2752,7 +2740,7 @@ impl Server {
                     if self.indexed_configs.lock().insert(config.dupe()) {
                         self.recheck_queue.queue_task(
                             TelemetryEventKind::PopulateProjectFiles,
-                            Box::new(move |server, _telemetry, telemetry_event, _, _| {
+                            Box::new(move |server, _telemetry, telemetry_event| {
                                 server
                                     .populate_all_project_files_in_config(config, telemetry_event);
                             }),
@@ -2808,7 +2796,7 @@ impl Server {
                 drop(indexed_workspaces);
                 self.recheck_queue.queue_task(
                     TelemetryEventKind::PopulateWorkspaceFiles,
-                    Box::new(move |server, _telemetry, telemetry_event, _, _| {
+                    Box::new(move |server, _telemetry, telemetry_event| {
                         server.populate_all_workspaces_files(
                             roots_to_populate_files,
                             telemetry_event,
@@ -2832,7 +2820,7 @@ impl Server {
         let open_handles = self.get_open_file_handles();
         self.recheck_queue.queue_task(
             kind,
-            Box::new(move |server, _telemetry, telemetry_event, _, _| {
+            Box::new(move |server, _telemetry, telemetry_event| {
                 // Filter to only include handles from workspaces with streaming enabled
                 let streaming_handles: SmallSet<Handle> = open_handles
                     .iter()
@@ -3009,6 +2997,14 @@ impl Server {
             .handles()
             .into_iter()
             .filter(|handle| {
+                // Skip Memory handles — they exist only for open-file diagnostics.
+                // After a file is closed, its Memory handle may linger in committed
+                // state with no backing content, causing false "memory path not found"
+                // errors. The corresponding FileSystem handle (if any) covers workspace
+                // diagnostics for this file.
+                if handle.path().is_memory() {
+                    return false;
+                }
                 let path = handle.path().as_path();
                 // Skip open files — they get diagnostics through the normal path
                 if open_files.contains_key(&path.to_path_buf()) {
@@ -3076,9 +3072,7 @@ impl Server {
     ) {
         let run = move |server: &Server,
                         telemetry: &dyn Telemetry,
-                        telemetry_event: &mut TelemetryEvent,
-                        queue_name: QueueName,
-                        task_id: Option<usize>| {
+                        telemetry_event: &mut TelemetryEvent| {
             let mut configs_to_paths: SmallMap<ArcId<ConfigFile>, SmallSet<ModulePath>> =
                 SmallMap::new();
             let config_finder = server.state.config_finder();
@@ -3095,16 +3089,7 @@ impl Server {
                     .or_default()
                     .insert(handle.path().dupe());
             }
-            let task_telemetry = SubTaskTelemetry::new(
-                telemetry,
-                server.telemetry_state(),
-                queue_name,
-                TelemetryTaskContext {
-                    activity_key: telemetry_event.activity_key.clone(),
-                    task_id,
-                },
-                None,
-            );
+            let task_telemetry = SubTaskTelemetry::new(telemetry, telemetry_event);
             let (new_invalidated_source_dbs, rebuild_stats) =
                 ConfigFile::query_source_db(&configs_to_paths, force, Some(task_telemetry));
             telemetry_event.set_sourcedb_rebuild_stats(rebuild_stats);
@@ -3118,7 +3103,7 @@ impl Server {
         };
 
         if self.build_system_blocking {
-            run(self, telemetry, telemetry_event, QueueName::LspQueue, None);
+            run(self, telemetry, telemetry_event);
         } else {
             self.sourcedb_queue
                 .queue_task(TelemetryEventKind::SourceDbRebuild, Box::new(run));
@@ -3466,8 +3451,17 @@ impl Server {
             self.setup_file_watcher_if_necessary(Some(telemetry_event));
         }
 
+        // Accumulate events in the pending buffer. The heavy task drains this
+        // buffer at execution time, so consecutive DrainWatchedFileChanges events
+        // are coalesced: the first heavy task processes all accumulated events,
+        // and subsequent tasks find an empty buffer and become no-ops.
+        self.pending_invalidation_events.lock().extend(events);
+        let pending = Arc::clone(&self.pending_invalidation_events);
         self.invalidate(TelemetryEventKind::InvalidateFind, move |t| {
-            t.invalidate_events(&events)
+            let events = std::mem::take(&mut *pending.lock());
+            if !events.is_empty() {
+                t.invalidate_events(&events);
+            }
         });
 
         // If a non-Python, non-config file was changed, then try rebuilding build systems.
@@ -3546,14 +3540,14 @@ impl Server {
         self.queue_source_db_rebuild_and_recheck(telemetry, telemetry_event, false);
         self.recheck_queue.queue_task(
             TelemetryEventKind::InvalidateOnClose,
-            Box::new(move |server, _telemetry, telemetry_event, _, _| {
+            Box::new(move |server, _telemetry, telemetry_event| {
                 // Clear out the memory associated with this file.
                 // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
                 // Having the extra file hanging around doesn't harm anything, but does use extra memory.
                 let mut transaction = server
                     .state
                     .new_committable_transaction(Require::Exports, None);
-                transaction.as_mut().set_memory(vec![(path, None)]);
+                transaction.as_mut().set_memory(vec![(path.clone(), None)]);
                 let _ = server.validate_in_memory_for_transaction(
                     transaction.as_mut(),
                     telemetry_event,
@@ -3562,6 +3556,24 @@ impl Server {
                 server
                     .state
                     .commit_transaction(transaction, Some(telemetry_event));
+                if server.workspaces.diagnostic_mode(&path) == DiagnosticMode::Workspace
+                    && path.exists()
+                    && path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .is_some_and(|ext| PYTHON_EXTENSIONS.contains(&ext))
+                {
+                    let transaction = server.state.transaction();
+                    let handle = handle_from_module_path(
+                        &server.state,
+                        ModulePath::filesystem(path.clone()),
+                    );
+                    server.publish_for_handles(
+                        &transaction,
+                        std::slice::from_ref(&handle),
+                        DiagnosticSource::CommittingTransaction,
+                    );
+                }
             }),
         );
     }
@@ -3630,7 +3642,7 @@ impl Server {
         // whether it actually changed, so we always re-evaluate.
         self.recheck_queue.queue_task(
             TelemetryEventKind::WorkspaceDiagnosticsRepopulation,
-            Box::new(move |server, _telemetry, _telemetry_event, _, _| {
+            Box::new(move |server, _telemetry, _telemetry_event| {
                 if server.has_workspace_diagnostic_mode() {
                     server.publish_workspace_diagnostics_if_enabled();
                 } else {
@@ -3664,7 +3676,7 @@ impl Server {
             // calculation in the recheck queue to ensure ordering.
             self.recheck_queue.queue_task(
                 TelemetryEventKind::PopulateProjectFiles,
-                Box::new(move |server, _telemetry, telemetry_event, _, _| {
+                Box::new(move |server, _telemetry, telemetry_event| {
                     let configs: Vec<_> = server
                         .open_files
                         .read()
@@ -3784,10 +3796,6 @@ impl Server {
         params: GotoTypeDefinitionParams,
     ) -> Option<GotoTypeDefinitionResponse> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.open_notebook_cells.read().contains_key(uri) {
-            // TODO(yangdanny) handle notebooks
-            return None;
-        }
         let handle = self.make_handle_if_enabled(uri, Some(GotoTypeDefinition::METHOD))?;
         let info = transaction.get_module_info(&handle)?;
         let range =
@@ -3842,7 +3850,7 @@ impl Server {
                 ..Default::default()
             },
             activity_key,
-            move |transaction, handle, definition, _telemetry, _ctx| {
+            move |transaction, handle, definition, _telemetry, _telemetry_event| {
                 let FindDefinitionItemWithDocstring {
                     metadata: _,
                     definition_range,
@@ -4227,10 +4235,6 @@ impl Server {
         params: DocumentHighlightParams,
     ) -> Option<Vec<DocumentHighlight>> {
         let uri = &params.text_document_position_params.text_document.uri;
-        if self.open_notebook_cells.read().contains_key(uri) {
-            // TODO(yangdanny) handle notebooks
-            return None;
-        }
         let handle = self.make_handle_if_enabled(uri, Some(DocumentHighlightRequest::METHOD))?;
         let info = transaction.get_module_info(&handle)?;
         let position =
@@ -4268,7 +4272,7 @@ impl Server {
             &Handle,
             FindDefinitionItemWithDocstring,
             &dyn Telemetry,
-            TelemetryTaskContext,
+            &TelemetryEvent,
         ) -> Result<T, Cancelled>
         + Send
         + Sync
@@ -4289,7 +4293,7 @@ impl Server {
         };
         self.find_reference_queue.queue_task(
             TelemetryEventKind::FindFromDefinition,
-            Box::new(move |server, telemetry, telemetry_event, _, task_id| {
+            Box::new(move |server, telemetry, telemetry_event| {
                 telemetry_event.set_activity_key(activity_key);
                 let mut transaction = server.state.cancellable_transaction();
                 server
@@ -4301,11 +4305,13 @@ impl Server {
                     telemetry_event,
                     None,
                 );
-                let ctx = TelemetryTaskContext {
-                    activity_key: telemetry_event.activity_key.clone(),
-                    task_id,
-                };
-                match find_fn(&mut transaction, &handle, definition, telemetry, ctx) {
+                match find_fn(
+                    &mut transaction,
+                    &handle,
+                    definition,
+                    telemetry,
+                    telemetry_event,
+                ) {
                     Ok(results) => {
                         server.cancellation_handles.lock().remove(&request_id);
                         server.connection.send(Message::Response(new_response(
@@ -4344,7 +4350,6 @@ impl Server {
         let path_remapper = self.path_remapper.clone();
         let external_references = self.external_references.clone();
         let source_uri = uri.clone();
-        let server_state = self.telemetry_state();
 
         self.async_find_from_definition_helper(
             request_id,
@@ -4357,7 +4362,7 @@ impl Server {
                 ..Default::default()
             },
             activity_key,
-            move |transaction, handle, definition, telemetry, ctx| {
+            move |transaction, handle, definition, telemetry, telemetry_event| {
                 let qualified_name =
                     compute_qualified_name(transaction.as_ref(), handle, &definition);
 
@@ -4369,13 +4374,7 @@ impl Server {
                     ..
                 } = definition;
 
-                let sub_task_telemetry = SubTaskTelemetry::new(
-                    telemetry,
-                    server_state,
-                    QueueName::FindReferenceQueue,
-                    ctx,
-                    None,
-                );
+                let sub_task_telemetry = SubTaskTelemetry::new(telemetry, telemetry_event);
 
                 // Use std::thread::scope so we can borrow sub_task_telemetry.
                 // Only spawn external references thread if we have a qualified name
@@ -4694,7 +4693,7 @@ impl Server {
         transaction: &Transaction<'_>,
         query: &str,
         telemetry: &impl Telemetry,
-        ctx: TelemetryTaskContext,
+        telemetry_event: &mut TelemetryEvent,
     ) -> Vec<SymbolInformation> {
         let external_provider = self.external_references.clone();
         let workspace_uri = self
@@ -4703,10 +4702,8 @@ impl Server {
             .as_ref()
             .and_then(|folders| folders.first())
             .map(|f| f.uri.clone());
-        let server_state = self.telemetry_state();
 
-        let sub_task_telemetry =
-            SubTaskTelemetry::new(telemetry, server_state, QueueName::LspQueue, ctx, None);
+        let sub_task_telemetry = SubTaskTelemetry::new(telemetry, telemetry_event);
 
         // Use std::thread::scope so we can borrow sub_task_telemetry.
         let (local_results, external_results) = std::thread::scope(|s| {
@@ -4963,7 +4960,10 @@ impl Server {
         let handle = make_open_handle(&self.state, &path);
         let mut items = Vec::new();
         let open_files = &self.open_files.read();
-        for e in transaction.get_errors(once(&handle)).collect_errors().shown {
+        let collected = transaction.get_errors(once(&handle)).collect_errors();
+        let mut output_errors = collected.ordinary;
+        output_errors.extend(collected.directives);
+        for e in output_errors {
             if let Some((_, diag)) = self.get_diag_if_shown(&e, open_files, cell_uri) {
                 items.push(diag);
             }
@@ -5119,7 +5119,7 @@ impl Server {
         let open_handles = self.get_open_file_handles();
         self.recheck_queue.queue_task(
             TelemetryEventKind::InvalidateConfig,
-            Box::new(move |server, _telemetry, telemetry_event, _, _| {
+            Box::new(move |server, _telemetry, telemetry_event| {
                 // Filter to only include handles from workspaces with streaming enabled
                 let streaming_handles: SmallSet<Handle> = open_handles
                     .iter()
@@ -5277,7 +5277,6 @@ impl Server {
         let path_remapper = self.path_remapper.clone();
         let external_references = self.external_references.clone();
         let source_uri = uri.clone();
-        let server_state = self.telemetry_state();
 
         self.async_find_from_definition_helper(
             request_id,
@@ -5287,20 +5286,14 @@ impl Server {
             params.item.selection_range.start,
             FindPreference::default(),
             activity_key,
-            move |transaction, handle, definition, telemetry, ctx| {
+            move |transaction, handle, definition, telemetry, telemetry_event| {
                 let qualified_name =
                     compute_qualified_name(transaction.as_ref(), handle, &definition);
 
                 let target_def =
                     TextRangeWithModule::new(definition.module.dupe(), definition.definition_range);
 
-                let sub_task_telemetry = SubTaskTelemetry::new(
-                    telemetry,
-                    server_state,
-                    QueueName::FindReferenceQueue,
-                    ctx,
-                    None,
-                );
+                let sub_task_telemetry = SubTaskTelemetry::new(telemetry, telemetry_event);
 
                 // Run local and external searches in parallel.
                 let (local_results, external_calls) = std::thread::scope(|s| {
@@ -5331,7 +5324,10 @@ impl Server {
 
                 Ok((local_results?, external_calls))
             },
-            move |(local_callers, external_calls)| {
+            move |(local_callers, external_calls): (
+                _,
+                Vec<lsp_types::CallHierarchyIncomingCall>,
+            )| {
                 let mut incoming_calls =
                     transform_incoming_calls(local_callers, path_remapper.as_ref());
 
@@ -5383,7 +5379,7 @@ impl Server {
             params.item.selection_range.start,
             FindPreference::default(),
             activity_key,
-            move |transaction, handle, definition, _telemetry, _ctx| {
+            move |transaction, handle, definition, _telemetry, _telemetry_event| {
                 // find_global_outgoing_calls_from_function_definition expects a position
                 let position = definition.definition_range.start();
 
@@ -5645,7 +5641,7 @@ impl Server {
             params.item.selection_range.start,
             FindPreference::default(),
             activity_key,
-            move |transaction, handle, definition, _telemetry, _ctx| {
+            move |transaction, handle, definition, _telemetry, _telemetry_event| {
                 transaction.run(&[handle.dupe()], Require::Everything, None)?;
                 let Some(target) =
                     Self::type_hierarchy_target_from_definition(transaction, handle, &definition)
@@ -5702,7 +5698,7 @@ impl Server {
             params.item.selection_range.start,
             FindPreference::default(),
             activity_key,
-            move |transaction, handle, definition, _telemetry, _ctx| {
+            move |transaction, handle, definition, _telemetry, _telemetry_event| {
                 transaction.run(&[handle.dupe()], Require::Everything, None)?;
                 let Some(target) =
                     Self::type_hierarchy_target_from_definition(transaction, handle, &definition)

@@ -43,15 +43,25 @@ class AllianceGenomeTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"Alliance API request timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"Alliance API request timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
             return {
-                "error": "Failed to connect to Alliance API. Check network connectivity."
+                "status": "error",
+                "error": "Failed to connect to Alliance API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
-            return {"error": f"Alliance API HTTP error: {e.response.status_code}"}
+            return {
+                "status": "error",
+                "error": f"Alliance API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying Alliance API: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying Alliance API: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to the appropriate Alliance endpoint."""
@@ -80,14 +90,18 @@ class AllianceGenomeTool(BaseTool):
         elif endpoint_type == "allele_detail":
             return self._get_allele_detail(arguments)
         else:
-            return {"error": f"Unknown endpoint type: {endpoint_type}"}
+            return {
+                "status": "error",
+                "error": f"Unknown endpoint type: {endpoint_type}",
+            }
 
     def _get_gene_detail(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get detailed gene information from Alliance."""
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
             return {
-                "error": "gene_id parameter is required (e.g., 'HGNC:6081', 'MGI:98834', 'FB:FBgn0003996')"
+                "status": "error",
+                "error": "gene_id parameter is required (e.g., 'HGNC:6081', 'MGI:98834', 'FB:FBgn0003996')",
             }
 
         url = f"{ALLIANCE_BASE}/gene/{gene_id}"
@@ -110,6 +124,7 @@ class AllianceGenomeTool(BaseTool):
         ]
 
         return {
+            "status": "success",
             "data": {
                 "id": data.get("id"),
                 "symbol": data.get("symbol"),
@@ -144,7 +159,7 @@ class AllianceGenomeTool(BaseTool):
         """Search for genes across all model organisms."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         limit = arguments.get("limit", 10)
         url = f"{ALLIANCE_BASE}/search_autocomplete"
@@ -173,6 +188,7 @@ class AllianceGenomeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": genes,
             "metadata": {
                 "total_results": len(genes),
@@ -185,7 +201,7 @@ class AllianceGenomeTool(BaseTool):
         """Get phenotype annotations for a gene."""
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
-            return {"error": "gene_id parameter is required"}
+            return {"status": "error", "error": "gene_id parameter is required"}
 
         limit = arguments.get("limit", 20)
         page = arguments.get("page", 1)
@@ -215,6 +231,7 @@ class AllianceGenomeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": phenotypes,
             "metadata": {
                 "total_results": total,
@@ -230,7 +247,8 @@ class AllianceGenomeTool(BaseTool):
         disease_id = arguments.get("disease_id", "")
         if not disease_id:
             return {
-                "error": "disease_id parameter is required (e.g., 'DOID:162' for cancer)"
+                "status": "error",
+                "error": "disease_id parameter is required (e.g., 'DOID:162' for cancer)",
             }
 
         limit = arguments.get("limit", 20)
@@ -267,6 +285,7 @@ class AllianceGenomeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": genes,
             "metadata": {
                 "total_results": total,
@@ -282,7 +301,8 @@ class AllianceGenomeTool(BaseTool):
         disease_id = arguments.get("disease_id", "")
         if not disease_id:
             return {
-                "error": "disease_id parameter is required (e.g., 'DOID:162' for cancer)"
+                "status": "error",
+                "error": "disease_id parameter is required (e.g., 'DOID:162' for cancer)",
             }
 
         url = f"{ALLIANCE_BASE}/disease/{disease_id}"
@@ -297,6 +317,7 @@ class AllianceGenomeTool(BaseTool):
         synonym_names = [s.get("name") for s in synonyms if s.get("name")]
 
         return {
+            "status": "success",
             "data": {
                 "disease_id": do_term.get("curie"),
                 "name": do_term.get("name"),
@@ -314,7 +335,7 @@ class AllianceGenomeTool(BaseTool):
         """Get ortholog genes across species for a given gene."""
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
-            return {"error": "gene_id parameter is required"}
+            return {"status": "error", "error": "gene_id parameter is required"}
 
         limit = arguments.get("limit", 20)
         page = arguments.get("page", 1)
@@ -363,6 +384,7 @@ class AllianceGenomeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": orthologs,
             "metadata": {
                 "total_results": total,
@@ -378,7 +400,7 @@ class AllianceGenomeTool(BaseTool):
         """Get alleles and variants for a gene."""
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
-            return {"error": "gene_id parameter is required"}
+            return {"status": "error", "error": "gene_id parameter is required"}
 
         limit = arguments.get("limit", 20)
         page = arguments.get("page", 1)
@@ -422,6 +444,7 @@ class AllianceGenomeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": alleles,
             "metadata": {
                 "total_results": total,
@@ -436,7 +459,7 @@ class AllianceGenomeTool(BaseTool):
         """Get expression summary (ribbon) for a gene."""
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
-            return {"error": "gene_id parameter is required"}
+            return {"status": "error", "error": "gene_id parameter is required"}
 
         url = f"{ALLIANCE_BASE}/gene/{gene_id}/expression-summary"
         response = requests.get(
@@ -468,6 +491,7 @@ class AllianceGenomeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "total_annotations": total_annotations,
                 "expression_groups": expression_groups,
@@ -482,7 +506,7 @@ class AllianceGenomeTool(BaseTool):
         """Get molecular or genetic interactions for a gene."""
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
-            return {"error": "gene_id parameter is required"}
+            return {"status": "error", "error": "gene_id parameter is required"}
 
         interaction_type = arguments.get("interaction_type", "molecular")
         limit = arguments.get("limit", 20)
@@ -539,6 +563,7 @@ class AllianceGenomeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": interactions,
             "metadata": {
                 "total_results": total,
@@ -554,7 +579,7 @@ class AllianceGenomeTool(BaseTool):
         """Get disease models involving a gene."""
         gene_id = arguments.get("gene_id", "")
         if not gene_id:
-            return {"error": "gene_id parameter is required"}
+            return {"status": "error", "error": "gene_id parameter is required"}
 
         limit = arguments.get("limit", 20)
         page = arguments.get("page", 1)
@@ -600,6 +625,7 @@ class AllianceGenomeTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": models,
             "metadata": {
                 "total_results": total,
@@ -614,7 +640,7 @@ class AllianceGenomeTool(BaseTool):
         """Get detailed information about a specific allele."""
         allele_id = arguments.get("allele_id", "")
         if not allele_id:
-            return {"error": "allele_id parameter is required"}
+            return {"status": "error", "error": "allele_id parameter is required"}
 
         url = f"{ALLIANCE_BASE}/allele/{allele_id}"
         response = requests.get(
@@ -629,6 +655,7 @@ class AllianceGenomeTool(BaseTool):
         synonym_list = [s.get("displayText") for s in synonyms if s.get("displayText")]
 
         return {
+            "status": "success",
             "data": {
                 "id": allele.get("primaryExternalId"),
                 "symbol": allele.get("alleleSymbol", {}).get("displayText"),

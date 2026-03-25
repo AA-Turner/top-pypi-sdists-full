@@ -44,7 +44,7 @@ _TERMINAL_RUN_STATUSES = frozenset(
     {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
 )
 
-_REPAIRABLE_RUN_STATUSES = frozenset({"paused", "waiting_for_approval", "waiting_for_input"})
+_REPAIRABLE_RUN_STATUSES = frozenset({"paused", "waiting_for_approval", "waiting_for_input", "failed"})
 
 _REPAIRABLE_RUN_FIELDS = frozenset({"inputs"})
 
@@ -550,6 +550,7 @@ def update_workflow_step(
     result_summary: str | None = None,
     result_artifacts: dict[str, Any] | None = None,
     result_findings: list[dict[str, Any]] | None = None,
+    result_outputs: dict[str, Any] | None = None,
     raw_output_path: str | None = None,
     duration_ms: int | None = None,
     started_at: str | None = None,
@@ -575,6 +576,9 @@ def update_workflow_step(
     if result_findings is not None:
         parts.append("result_findings_json = ?")
         params.append(json.dumps(result_findings))
+    if result_outputs is not None:
+        parts.append("result_outputs_json = ?")
+        params.append(json.dumps(result_outputs))
     if raw_output_path is not None:
         parts.append("raw_output_path = ?")
         params.append(raw_output_path)
@@ -609,6 +613,8 @@ def _deserialize_step(d: dict[str, Any]) -> dict[str, Any]:
     d["result_artifacts"] = json.loads(raw_artifacts) if raw_artifacts else None
     raw_findings = d.pop("result_findings_json", None)
     d["result_findings"] = json.loads(raw_findings) if raw_findings else None
+    raw_outputs = d.pop("result_outputs_json", None)
+    d["result_outputs"] = json.loads(raw_outputs) if raw_outputs else None
     return d
 
 

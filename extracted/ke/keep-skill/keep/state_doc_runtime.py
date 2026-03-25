@@ -562,8 +562,35 @@ class _EnvActionContext:
     def get_db_connection(self) -> Any:
         return self._env.get_db_connection()
 
+    def get_document_store(self) -> Any:
+        fn = getattr(self._env, "get_document_store", None)
+        if fn is not None:
+            return fn()
+        return None
+
     def get_collection(self) -> str:
         return self._env.get_collection()
+
+    def find_by_content_hash(
+        self,
+        content_hash: str,
+        *,
+        content_hash_full: str = "",
+        exclude_id: str = "",
+        limit: int = 20,
+    ) -> list[Any]:
+        ds = self.get_document_store()
+        if ds is None:
+            return []
+        collection = self.get_collection()
+        results = ds.find_by_content_hash(
+            collection, content_hash,
+            content_hash_full=content_hash_full,
+            exclude_id=exclude_id, limit=limit,
+        )
+        if isinstance(results, list):
+            return results
+        return [results] if results else []
 
     def put(self, *, content: str | None = None, uri: str | None = None,
             id: str | None = None, tags: dict | None = None,
@@ -588,12 +615,14 @@ class _EnvActionContext:
             raise NotImplementedError("delete not available in read-only flow context")
         self._env.delete(id)
 
-    def resolve_prompt(self, prefix: str, doc_tags: dict[str, Any] | None = None) -> str | None:
+    def resolve_prompt(
+        self, prefix: str, doc_tags: dict[str, Any] | None = None, *, item_id: str | None = None,
+    ) -> str | None:
         """Resolve a prompt doc matching tags (e.g. .prompt/summarize/*)."""
         resolve = getattr(self._env, "resolve_prompt", None)
         if resolve is None:
             return None
-        return resolve(prefix, doc_tags or {})
+        return resolve(prefix, doc_tags or {}, item_id=item_id)
 
     def resolve_provider(self, kind: str, name: str | None = None) -> Any:
         if not self._writable:
@@ -603,10 +632,9 @@ class _EnvActionContext:
         # Delegate to the environment's default providers
         _PROVIDER_MAP = {
             "summarization": "get_default_summarization_provider",
-            "document": "get_default_document_provider",
-            "tagging": "get_default_tagging_provider",
             "analyzer": "get_default_analyzer_provider",
             "content_extractor": "get_default_content_extractor_provider",
+            "media": "get_default_media_provider",
         }
         method_name = _PROVIDER_MAP.get(kind)
         if method_name is None:

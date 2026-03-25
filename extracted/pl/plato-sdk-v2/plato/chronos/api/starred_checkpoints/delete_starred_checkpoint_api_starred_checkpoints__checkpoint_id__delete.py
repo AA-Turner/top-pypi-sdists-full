@@ -31,7 +31,7 @@ def sync(
     client: httpx.Client,
     checkpoint_id: int,
     x_api_key: str | None = None,
-) -> Any:
+) -> None:
     """Unstar a checkpoint."""
 
     request_args = _build_request_args(
@@ -41,14 +41,14 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return None
 
 
 async def asyncio(
     client: httpx.AsyncClient,
     checkpoint_id: int,
     x_api_key: str | None = None,
-) -> Any:
+) -> None:
     """Unstar a checkpoint."""
 
     request_args = _build_request_args(
@@ -58,4 +58,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return None

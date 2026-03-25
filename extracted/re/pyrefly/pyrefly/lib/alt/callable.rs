@@ -32,7 +32,6 @@ use ruff_text_size::TextRange;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use vec1::Vec1;
 use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
@@ -48,6 +47,7 @@ use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::display::function_suffix;
 use crate::solver::solver::QuantifiedHandle;
+use crate::solver::solver::TypeVarSpecializationError;
 use crate::types::callable::Callable;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
@@ -506,6 +506,53 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )
     }
 
+    /// Validate that a quantified ParamSpec forwarding pattern has the expected
+    /// `*P.args` / `**P.kwargs` as the last positional and keyword arguments.
+    /// Called when `var_to_rparams` returns `Err(q)` (the Var resolved to a
+    /// still-quantified ParamSpec `q`).
+    ///
+    /// `current_arg` is the arg that triggered ParamSpec expansion (first call
+    /// site only). When present, we check that it is `*P.args` — this catches
+    /// extra args *before* `*P.args`. We also always check that `args.last()`
+    /// is `*P.args` — this catches extra args *after* it and the case where
+    /// `*P.args` is missing entirely. On success, return the remaining
+    /// arguments after stripping the trailing `*P.args` / `**P.kwargs` pair.
+    fn paramspec_forwarding<'b>(
+        &self,
+        q: &Quantified,
+        current_arg: Option<&CallArg<'b>>,
+        args: &'b [CallArg<'b>],
+        keywords: &'b [CallKeyword<'b>],
+        arguments_range: TextRange,
+        arg_errors: &ErrorCollector,
+        call_errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) -> Option<(&'b [CallArg<'b>], &'b [CallKeyword<'b>])> {
+        let current_ok = current_arg.is_none_or(|x| self.is_param_spec_args(x, q, arg_errors));
+        let last_ok = args
+            .last()
+            .is_some_and(|x| self.is_param_spec_args(x, q, arg_errors));
+        let args_ok = current_ok && last_ok;
+        let kwargs_ok = keywords
+            .last()
+            .is_some_and(|x| self.is_param_spec_kwargs(x, q, arg_errors));
+        if !args_ok || !kwargs_ok {
+            self.error(
+                call_errors,
+                arguments_range,
+                ErrorInfo::new(ErrorKind::InvalidParamSpec, context),
+                format!(
+                    "Expected *-unpacked {}.args and **-unpacked {}.kwargs",
+                    q.name(),
+                    q.name()
+                ),
+            );
+            None
+        } else {
+            Some((&args[..args.len() - 1], &keywords[..keywords.len() - 1]))
+        }
+    }
+
     // See comment on `callable_infer` about `arg_errors` and `call_errors`.
     fn callable_infer_params(
         &self,
@@ -566,7 +613,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut variadic_name: Option<&Name> = None;
         let mut variadic_collected: Vec<Type> = Vec::new();
 
-        let var_to_rparams = |var| {
+        // Resolve a deferred ParamSpec Var into additional parameters.
+        // Returns `Err(q)` when the Var resolved to a quantified ParamSpec `q`
+        // (forwarding case), meaning the caller should validate that the
+        // remaining args are `*P.args` / `**P.kwargs` and stop matching.
+        let var_to_rparams = |var| -> Result<Vec<&Param>, Quantified> {
             let ps = match self.solver().force_var(var) {
                 Type::ParamSpecValue(ps) => ps,
                 Type::Any(_) | Type::Ellipsis => ParamList::everything(),
@@ -575,6 +626,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let ps = ParamList::everything();
                     ps.prepend_types(&prefix).into_owned()
                 }
+                // The ParamSpec Var resolved to another quantified ParamSpec (e.g.,
+                // one generic helper forwarding `*args: P.args, **kwargs: P.kwargs`
+                // to another). There are no concrete parameters to contribute;
+                // the caller must validate the forwarding pattern.
+                Type::Quantified(q) if q.is_param_spec() => return Err(*q),
                 t => {
                     error(
                         call_errors,
@@ -585,7 +641,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ParamList::everything()
                 }
             };
-            param_list_owner.push(ps).items().iter().rev().collect()
+            Ok(param_list_owner.push(ps).items().iter().rev().collect())
         };
         for arg in self_arg.iter().chain(args.iter()) {
             let mut arg_pre = arg.pre_eval(self, arg_errors);
@@ -596,7 +652,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // We've run out of parameters but haven't finished matching arguments. If we
                     // have a ParamSpec Var, it may contribute more parameters; force it and tack
                     // the result onto the parameter list.
-                    rparams = var_to_rparams(var);
+                    match var_to_rparams(var) {
+                        Ok(new_rparams) => rparams = new_rparams,
+                        Err(q) => {
+                            // Quantified ParamSpec forwarding: validate that the
+                            // current arg is `*P.args`, it is the last positional
+                            // arg, and the last keyword is `**P.kwargs`.
+                            let _ = self.paramspec_forwarding(
+                                &q,
+                                Some(arg),
+                                args,
+                                keywords,
+                                arguments_range,
+                                arg_errors,
+                                call_errors,
+                                context,
+                            );
+                            return;
+                        }
+                    }
                     paramspec = None;
                     continue;
                 } else {
@@ -809,7 +883,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(p) => p,
                 None if let Some(var) = paramspec => {
                     // We've reached the end of our regular parameter list. Now check if we have more parameters from a ParamSpec.
-                    rparams = var_to_rparams(var);
+                    match var_to_rparams(var) {
+                        Ok(new_rparams) => rparams = new_rparams,
+                        Err(q) => {
+                            // Quantified ParamSpec forwarding: no current
+                            // positional arg triggered expansion; check that
+                            // `*P.args` is the last positional arg and
+                            // `**P.kwargs` is the last keyword.
+                            let _ = self.paramspec_forwarding(
+                                &q,
+                                None,
+                                args,
+                                keywords,
+                                arguments_range,
+                                arg_errors,
+                                call_errors,
+                                context,
+                            );
+                            return;
+                        }
+                    }
                     paramspec = None;
                     continue;
                 }
@@ -1094,10 +1187,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     // Call a function with the given arguments. The arguments are contextually typed, if possible.
-    // We pass two error collectors into this function:
+    // We pass two error collectors into this function and return specialization errors separately:
     // * arg_errors is used to infer the types of arguments, before passing them to the function.
     // * call_errors is used for (1) call signature matching, e.g. arity issues and (2) checking the
     //   types of arguments against the types of parameters.
+    // * We often use call_errors to check whether a call succeeded, which specialization errors
+    //   should not affect, so we return them separately. The caller must add them to the appropriate
+    //   error collector.
     // Callers can pass the same error collector for both, and most callers do. We use two collectors
     // for overload matching.
     pub fn callable_infer(
@@ -1114,7 +1210,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<HintRef>,
         mut ctor_targs: Option<&mut TArgs>,
-    ) -> Type {
+    ) -> (Type, Vec<TypeVarSpecializationError>) {
         // Look up meta-shape early so we can conditionally collect bound args.
         // Only consult the registry when tensor_shapes is enabled to avoid
         // unnecessary DSL parsing and per-call HashMap lookups.
@@ -1239,32 +1335,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &mut bound_args,
                     ),
                     Type::Quantified(q) => {
-                        if !args
-                            .last()
-                            .is_some_and(|x| self.is_param_spec_args(x, &q, arg_errors))
-                            || !keywords
-                                .last()
-                                .is_some_and(|x| self.is_param_spec_kwargs(x, &q, arg_errors))
-                        {
-                            self.error(
-                                call_errors,
-                                arguments_range,
-                                ErrorInfo::new(ErrorKind::InvalidParamSpec, context),
-                                format!(
-                                    "Expected *-unpacked {}.args and **-unpacked {}.kwargs",
-                                    q.name(),
-                                    q.name()
-                                ),
-                            );
-                        } else {
+                        if let Some((args, keywords)) = self.paramspec_forwarding(
+                            &q,
+                            None,
+                            args,
+                            keywords,
+                            arguments_range,
+                            arg_errors,
+                            call_errors,
+                            context,
+                        ) {
                             self.callable_infer_params(
                                 callable_name,
                                 &ParamList::new_types(concatenate.into_vec()),
                                 None,
                                 self_arg,
                                 self_qs,
-                                &args[0..args.len() - 1],
-                                &keywords[0..keywords.len() - 1],
+                                args,
+                                keywords,
                                 arguments_range,
                                 arg_errors,
                                 call_errors,
@@ -1299,14 +1387,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             errors.extend(e);
         }
-        if let Ok(errors) = Vec1::try_from_vec(errors) {
-            self.add_specialization_errors(errors, arguments_range, call_errors, context);
-        }
 
         // Apply meta-shape inference if bound args were collected
         let ret = if let Some(meta_shape_func) = meta_shape_func
-            && let Some(bound) = bound_args
+            && let Some(mut bound) = bound_args
         {
+            // For bound method calls, ensure `self` is in bound_args so that
+            // inject_module_attrs can resolve module fields (e.g., start_dim, end_dim).
+            // The self param may not be recorded by callable_infer_params if it's
+            // positional-only without a name.
+            if let Some(ref obj) = self_obj {
+                bound
+                    .entry("self".to_owned())
+                    .or_insert_with(|| obj.clone());
+            }
+            // Auto-inject module field values for DSL params not in bound_args.
+            // When a DSL function expects params like `start_dim` that aren't method
+            // parameters but are fields on `self`, resolve them from the module instance.
+            self.inject_module_attrs(&mut bound, meta_shape_func, arguments_range);
+
             self.apply_meta_shape(
                 callable.ret.clone(),
                 meta_shape_func,
@@ -1318,7 +1417,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             callable.ret.clone()
         };
 
-        self.solver().finish_function_return(ret)
+        (self.solver().finish_function_return(ret), errors)
     }
 
     /// Look up whether a callable has a registered meta-shape function.
@@ -1339,6 +1438,83 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let registry = TENSOR_OPS_REGISTRY.get_or_init(TensorOpsRegistry::new);
         registry.get(&qualified_name)
+    }
+
+    /// Auto-inject module field values into `bound_args` for DSL parameters
+    /// that aren't method parameters but match fields on `self`.
+    ///
+    /// This enables DSL functions for module methods (e.g., `nn.Flatten.forward`)
+    /// to access constructor-captured values (e.g., `start_dim`, `end_dim`) without
+    /// extending the DSL grammar. The DSL function declares them as regular parameters
+    /// with defaults, and this method resolves them from `self`'s class fields.
+    ///
+    /// For fields typed as `Dim[T]`, unwraps to `T` so the DSL's `extract_dsl_val`
+    /// can handle them as plain literal ints.
+    fn inject_module_attrs(
+        &self,
+        bound_args: &mut HashMap<String, Type>,
+        meta_shape_func: &dyn MetaShapeFunction,
+        _range: TextRange,
+    ) {
+        // For NNModule instances, inject captured fields directly into bound_args.
+        // The NNModule's fields already contain plain Type values from the constructor,
+        // so no Dim[T] unwrapping is needed.
+        if let Some(Type::NNModule(module)) = bound_args.get("self") {
+            let module = module.clone();
+            for param_name in meta_shape_func.param_names() {
+                if param_name == "self" || bound_args.contains_key(param_name) {
+                    continue;
+                }
+                let name = Name::new(param_name);
+                if let Some(ty) = module.fields.get(&name) {
+                    bound_args.insert(param_name.to_owned(), ty.clone());
+                }
+            }
+            return;
+        }
+
+        let cls = match bound_args.get("self") {
+            Some(Type::ClassType(cls)) => cls.clone(),
+            _ => return,
+        };
+
+        for param_name in meta_shape_func.param_names() {
+            if param_name == "self" || bound_args.contains_key(param_name) {
+                continue;
+            }
+
+            // Look up the field directly on the class, avoiding error reporting.
+            let attr_name = Name::new(param_name);
+            let field = match self.get_field_from_current_class_only(cls.class_object(), &attr_name)
+            {
+                Some(f) => f,
+                None => continue,
+            };
+
+            // Substitute type parameters (e.g., _Dim[S] with S=1 → Dim[1]).
+            let field_ty = cls.targs().substitution().substitute_into(field.ty());
+
+            // Unwrap Dim[T] → T so the DSL can extract literal ints.
+            // After type param substitution, Dim[S] with S=0 becomes Type::Dim(Size(Literal(0))).
+            // For Optional[Dim[T]] (i.e., Dim[T] | None): if T is bound, unwrap to T;
+            // if T is unbound (Any), resolve to None — the DSL models missing values as None.
+            let unwrapped = match field_ty {
+                Type::Dim(inner) => *inner,
+                Type::Union(ref u) => {
+                    let dim_inner = u.members.iter().find_map(|m| match m {
+                        Type::Dim(inner) => Some(inner.as_ref().clone()),
+                        _ => None,
+                    });
+                    match dim_inner {
+                        Some(Type::Any(_)) => Type::None,
+                        Some(inner) => inner,
+                        None => field_ty,
+                    }
+                }
+                other => other,
+            };
+            bound_args.insert(param_name.to_owned(), unwrapped);
+        }
     }
 
     /// Apply a meta-shape function using pre-bound arguments.

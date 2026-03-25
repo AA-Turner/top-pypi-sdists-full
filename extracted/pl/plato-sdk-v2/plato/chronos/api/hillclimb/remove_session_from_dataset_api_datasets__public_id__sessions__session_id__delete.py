@@ -33,7 +33,7 @@ def sync(
     public_id: str,
     session_id: str,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, bool]:
     """Remove Session From Dataset"""
 
     request_args = _build_request_args(
@@ -52,7 +52,7 @@ async def asyncio(
     public_id: str,
     session_id: str,
     x_api_key: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, bool]:
     """Remove Session From Dataset"""
 
     request_args = _build_request_args(

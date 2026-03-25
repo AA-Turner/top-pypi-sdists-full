@@ -12,6 +12,18 @@ const QUALITY_VALIDATION_MARKER: &str = "quality_validation_test";
 const POSTPROCESSOR_VALIDATION_MARKER: &str = "postprocessor_validation_test";
 const ORDER_VALIDATION_MARKER: &str = "order_validation_test";
 
+/// Ensure the quality processor is registered and cache is fresh.
+/// Needed because other tests may call `shutdown_all()` on the registry,
+/// and the `OnceLock` in `initialize_features` prevents re-registration.
+#[cfg(feature = "quality")]
+fn ensure_quality_processor() {
+    let registry = crate::plugins::registry::get_post_processor_registry();
+    let mut reg = registry.write();
+    let _ = reg.register(std::sync::Arc::new(crate::text::QualityProcessor), 30);
+    drop(reg);
+    let _ = clear_processor_cache();
+}
+
 #[tokio::test]
 #[serial]
 async fn test_run_pipeline_basic() {
@@ -33,6 +45,7 @@ async fn test_run_pipeline_basic() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     result.metadata.additional.insert(
         Cow::Borrowed(VALIDATION_MARKER_KEY),
@@ -54,6 +67,7 @@ async fn test_run_pipeline_basic() {
 #[serial]
 #[cfg(feature = "quality")]
 async fn test_pipeline_with_quality_processing() {
+    ensure_quality_processor();
     let result = ExtractionResult {
         content: "This is a test document with some meaningful content.".to_string(),
         mime_type: Cow::Borrowed("text/plain"),
@@ -72,6 +86,7 @@ async fn test_pipeline_with_quality_processing() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     let config = ExtractionConfig {
         enable_quality_processing: true,
@@ -103,6 +118,7 @@ async fn test_pipeline_without_quality_processing() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     let config = ExtractionConfig {
         enable_quality_processing: false,
@@ -139,6 +155,7 @@ async fn test_pipeline_with_chunking() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     let config = ExtractionConfig {
         chunking: Some(crate::ChunkingConfig {
@@ -178,6 +195,7 @@ async fn test_pipeline_without_chunking() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     let config = ExtractionConfig {
         chunking: None,
@@ -221,6 +239,7 @@ async fn test_pipeline_preserves_metadata() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     let config = ExtractionConfig {
         postprocessor: Some(crate::core::config::PostProcessorConfig {
@@ -271,6 +290,7 @@ async fn test_pipeline_preserves_tables() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     let config = ExtractionConfig {
         postprocessor: Some(crate::core::config::PostProcessorConfig {
@@ -290,11 +310,11 @@ async fn test_pipeline_preserves_tables() {
 async fn test_pipeline_empty_content() {
     {
         let registry = crate::plugins::registry::get_post_processor_registry();
-        registry.write().unwrap().shutdown_all().unwrap();
+        registry.write().shutdown_all().unwrap();
     }
     {
         let registry = crate::plugins::registry::get_validator_registry();
-        registry.write().unwrap().shutdown_all().unwrap();
+        registry.write().shutdown_all().unwrap();
     }
 
     let result = ExtractionResult {
@@ -315,6 +335,7 @@ async fn test_pipeline_empty_content() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     let config = ExtractionConfig::default();
 
@@ -326,6 +347,8 @@ async fn test_pipeline_empty_content() {
 #[serial]
 #[cfg(feature = "chunking")]
 async fn test_pipeline_with_all_features() {
+    #[cfg(feature = "quality")]
+    ensure_quality_processor();
     let result = ExtractionResult {
         content: "This is a comprehensive test document. ".repeat(50),
         mime_type: Cow::Borrowed("text/plain"),
@@ -344,6 +367,7 @@ async fn test_pipeline_with_all_features() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     let config = ExtractionConfig {
         enable_quality_processing: true,
@@ -368,12 +392,10 @@ async fn test_pipeline_with_all_features() {
 async fn test_pipeline_with_keyword_extraction() {
     crate::plugins::registry::get_validator_registry()
         .write()
-        .unwrap()
         .shutdown_all()
         .unwrap();
     crate::plugins::registry::get_post_processor_registry()
         .write()
-        .unwrap()
         .shutdown_all()
         .unwrap();
 
@@ -405,6 +427,7 @@ Natural language processing enables computers to understand human language.
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
 
     #[cfg(feature = "keywords-yake")]
@@ -457,6 +480,7 @@ async fn test_pipeline_without_keyword_config() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
 
     let config = ExtractionConfig {
@@ -475,12 +499,10 @@ async fn test_pipeline_without_keyword_config() {
 async fn test_pipeline_keyword_extraction_short_content() {
     crate::plugins::registry::get_validator_registry()
         .write()
-        .unwrap()
         .shutdown_all()
         .unwrap();
     crate::plugins::registry::get_post_processor_registry()
         .write()
-        .unwrap()
         .shutdown_all()
         .unwrap();
 
@@ -502,6 +524,7 @@ async fn test_pipeline_keyword_extraction_short_content() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
 
     #[cfg(feature = "keywords-yake")]
@@ -609,17 +632,17 @@ async fn test_postprocessor_runs_before_validator() {
     let val_registry = crate::plugins::registry::get_validator_registry();
 
     clear_processor_cache().unwrap();
-    pp_registry.write().unwrap().shutdown_all().unwrap();
-    val_registry.write().unwrap().shutdown_all().unwrap();
+    pp_registry.write().shutdown_all().unwrap();
+    val_registry.write().shutdown_all().unwrap();
     clear_processor_cache().unwrap();
 
     {
-        let mut registry = pp_registry.write().unwrap();
+        let mut registry = pp_registry.write();
         registry.register(Arc::new(TestPostProcessor), 0).unwrap();
     }
 
     {
-        let mut registry = val_registry.write().unwrap();
+        let mut registry = val_registry.write();
         registry.register(Arc::new(TestValidator)).unwrap();
     }
 
@@ -643,6 +666,7 @@ async fn test_postprocessor_runs_before_validator() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     result.metadata.additional.insert(
         Cow::Borrowed(VALIDATION_MARKER_KEY),
@@ -662,8 +686,8 @@ async fn test_postprocessor_runs_before_validator() {
 
     let processed = run_pipeline(result, &config).await;
 
-    pp_registry.write().unwrap().shutdown_all().unwrap();
-    val_registry.write().unwrap().shutdown_all().unwrap();
+    pp_registry.write().shutdown_all().unwrap();
+    val_registry.write().shutdown_all().unwrap();
 
     assert!(processed.is_ok(), "Validator should have seen post-processor metadata");
     let processed = processed.unwrap();
@@ -678,6 +702,7 @@ async fn test_postprocessor_runs_before_validator() {
 #[serial]
 #[cfg(feature = "quality")]
 async fn test_quality_processing_runs_before_validator() {
+    ensure_quality_processor();
     use crate::plugins::{Plugin, Validator};
     use async_trait::async_trait;
     use std::sync::Arc;
@@ -724,7 +749,7 @@ async fn test_quality_processing_runs_before_validator() {
 
     let val_registry = crate::plugins::registry::get_validator_registry();
     {
-        let mut registry = val_registry.write().unwrap();
+        let mut registry = val_registry.write();
         registry.register(Arc::new(QualityValidator)).unwrap();
     }
 
@@ -746,6 +771,7 @@ async fn test_quality_processing_runs_before_validator() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
     result.metadata.additional.insert(
         Cow::Borrowed(VALIDATION_MARKER_KEY),
@@ -760,7 +786,7 @@ async fn test_quality_processing_runs_before_validator() {
     let processed = run_pipeline(result, &config).await;
 
     {
-        let mut registry = val_registry.write().unwrap();
+        let mut registry = val_registry.write();
         registry.remove("quality-validator").unwrap();
     }
 
@@ -913,18 +939,18 @@ async fn test_multiple_postprocessors_run_before_validator() {
     let pp_registry = crate::plugins::registry::get_post_processor_registry();
     let val_registry = crate::plugins::registry::get_validator_registry();
 
-    pp_registry.write().unwrap().shutdown_all().unwrap();
-    val_registry.write().unwrap().shutdown_all().unwrap();
+    pp_registry.write().shutdown_all().unwrap();
+    val_registry.write().shutdown_all().unwrap();
     clear_processor_cache().unwrap();
 
     {
-        let mut registry = pp_registry.write().unwrap();
+        let mut registry = pp_registry.write();
         registry.register(Arc::new(EarlyProcessor), 0).unwrap();
         registry.register(Arc::new(LateProcessor), 0).unwrap();
     }
 
     {
-        let mut registry = val_registry.write().unwrap();
+        let mut registry = val_registry.write();
         registry.register(Arc::new(OrderValidator)).unwrap();
     }
 
@@ -949,14 +975,15 @@ async fn test_multiple_postprocessors_run_before_validator() {
         quality_score: None,
         processing_warnings: Vec::new(),
         annotations: None,
+        children: None,
     };
 
     let config = ExtractionConfig::default();
 
     let processed = run_pipeline(result, &config).await;
 
-    pp_registry.write().unwrap().shutdown_all().unwrap();
-    val_registry.write().unwrap().shutdown_all().unwrap();
+    pp_registry.write().shutdown_all().unwrap();
+    val_registry.write().shutdown_all().unwrap();
     clear_processor_cache().unwrap();
 
     assert!(processed.is_ok(), "All processors should run before validator");

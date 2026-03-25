@@ -9,9 +9,11 @@ from ._shared_client import get_shared_client
 
 
 def Orphanet_get_disease(
-    operation: str,
-    orpha_code: str,
+    operation: Optional[str] = None,
+    orpha_code: Optional[str | int] = None,
     lang: Optional[str] = "en",
+    orphacode: Optional[int | str] = None,
+    orpha_id: Optional[int | str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -24,10 +26,14 @@ def Orphanet_get_disease(
     ----------
     operation : str
         Operation type (fixed: get_disease)
-    orpha_code : str
+    orpha_code : str | int
         Orphanet ORPHA code (e.g., 558, 166024). Can include ORPHA: prefix.
     lang : str
         Language code (default: en)
+    orphacode : int | str
+        Alias for orpha_code (the Orphanet disease code).
+    orpha_id : int | str
+        Alias for orpha_code (the Orphanet disease code).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -48,6 +54,8 @@ def Orphanet_get_disease(
             "operation": operation,
             "orpha_code": orpha_code,
             "lang": lang,
+            "orphacode": orphacode,
+            "orpha_id": orpha_id,
         }.items()
         if v is not None
     }

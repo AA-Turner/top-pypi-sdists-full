@@ -96,6 +96,46 @@ class ClinVarRESTTool(BaseTool):
 
         return {"status": "error", "error": "Maximum retries exceeded", "url": url}
 
+    def _parse_variant_summary(self, vdata: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract common fields from a single esummary variant record."""
+        gc = vdata.get("germline_classification", {})
+        return {
+            "title": vdata.get("title", ""),
+            "genes": [g.get("symbol", "") for g in vdata.get("genes", [])],
+            "clinical_significance": gc.get("description", ""),
+            "review_status": gc.get("review_status", ""),
+        }
+
+    def _fetch_variant(self, variant_id: str) -> Dict[str, Any]:
+        """Fetch a single variant by ID via esummary. Returns (variant_data, error_result) tuple-style dict.
+
+        On success: {"variant_data": {...}, "result": {...}}
+        On error: {"error_result": {...}}
+        """
+        params = {"db": "clinvar", "id": variant_id, "retmode": "json"}
+        result = self._make_request("/esummary.fcgi", params)
+
+        if result.get("status") != "success":
+            return {"error_result": result}
+
+        data = result.get("data", {})
+        variant_data = data.get("result", {}).get(variant_id)
+
+        if not variant_data:
+            return {"error_result": result}
+
+        # Check for NCBI inline error (HTTP 200 but variant not found)
+        if variant_data.get("error"):
+            return {
+                "error_result": {
+                    "status": "error",
+                    "error": f"Variant {variant_id} not found in ClinVar: {variant_data['error']}",
+                    "url": result.get("url"),
+                }
+            }
+
+        return {"variant_data": variant_data, "result": result}
+
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the tool with given arguments."""
         return self._make_request(self.endpoint, arguments)
@@ -111,10 +151,17 @@ class ClinVarSearchVariants(ClinVarRESTTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search variants by gene or condition."""
+        # Normalize aliases before dispatch
+        if not arguments.get("gene") and arguments.get("gene_symbol"):
+            arguments = dict(arguments, gene=arguments["gene_symbol"])
+        if not arguments.get("clinical_significance") and arguments.get("significance"):
+            arguments = dict(arguments, clinical_significance=arguments["significance"])
+        if not arguments.get("condition") and arguments.get("query"):
+            arguments = dict(arguments, condition=arguments["query"])
+
         params = {
             "db": "clinvar",
             "retmode": "json",
-            # Feature-68A-009: accept 'limit' as alias for 'max_results'
             "retmax": arguments.get("max_results") or arguments.get("limit", 20),
         }
 
@@ -138,6 +185,13 @@ class ClinVarSearchVariants(ClinVarRESTTool):
             # Use [uid] to look up by numeric variation ID.
             query_parts.append(f"{arguments['variant_id']}[uid]")
 
+        if "clinical_significance" in arguments:
+            # Feature-82A-002: NCBI silently translates [clnsig] to [All Fields],
+            # returning unrelated variants. The correct syntax is the [Filter] field:
+            # "clinsig pathogenic"[Filter] which properly restricts to the clinsig index.
+            clnsig = arguments["clinical_significance"].lower().replace("_", " ")
+            query_parts.append(f'"clinsig {clnsig}"[Filter]')
+
         if not query_parts:
             return {
                 "status": "error",
@@ -148,28 +202,52 @@ class ClinVarSearchVariants(ClinVarRESTTool):
 
         result = self._make_request(self.endpoint, params)
 
-        # Add search parameters to result and format data
-        if result.get("status") == "success":
-            result["search_params"] = {
+        if result.get("status") != "success":
+            return result
+
+        data = result.get("data", {})
+        if "esearchresult" not in data:
+            return result
+
+        esearch = data["esearchresult"]
+        ids = esearch.get("idlist", [])
+        count = int(esearch.get("count", 0))
+
+        variants = []
+        if ids:
+            summary_result = self._make_request(
+                "/esummary.fcgi",
+                {"db": "clinvar", "id": ",".join(ids[:200]), "retmode": "json"},
+            )
+            if summary_result.get("status") == "success":
+                result_map = summary_result.get("data", {}).get("result", {})
+                for vid in ids:
+                    vdata = result_map.get(vid)
+                    if vdata and not vdata.get("error"):
+                        variants.append(
+                            {"variant_id": vid, **self._parse_variant_summary(vdata)}
+                        )
+
+        search_params = {
+            k: v
+            for k, v in {
                 "gene": arguments.get("gene"),
                 "condition": arguments.get("condition"),
                 "variant_id": arguments.get("variant_id"),
-            }
-
-            # Format search results for better usability
-            data = result.get("data", {})
-            if "esearchresult" in data:
-                esearch = data["esearchresult"]
-                formatted_results = {
-                    "total_count": int(esearch.get("count", 0)),
-                    "variant_ids": esearch.get("idlist", []),
-                    "query_translation": esearch.get("querytranslation", ""),
-                    "search_params": result["search_params"],
-                    "summary": f"Found {esearch.get('count', 0)} variants matching the search criteria",
-                }
-                result["formatted_results"] = formatted_results
-
-        return result
+                "clinical_significance": arguments.get("clinical_significance"),
+            }.items()
+            if v is not None
+        }
+        return {
+            "status": "success",
+            "data": {
+                "total_count": count,
+                "variant_ids": ids,
+                "variants": variants,
+                "query_translation": esearch.get("querytranslation", ""),
+                "search_params": search_params,
+            },
+        }
 
 
 @register_tool("ClinVarGetVariantDetails")
@@ -186,53 +264,27 @@ class ClinVarGetVariantDetails(ClinVarRESTTool):
         if not variant_id:
             return {"status": "error", "error": "variant_id is required"}
 
-        params = {"db": "clinvar", "id": variant_id, "retmode": "json"}
+        fetch = self._fetch_variant(variant_id)
+        if "error_result" in fetch:
+            return fetch["error_result"]
 
-        result = self._make_request(self.endpoint, params)
-
-        # Add variant_id to result and format data
-        if result.get("status") == "success":
-            result["variant_id"] = variant_id
-
-            # Format the data for better usability
-            data = result.get("data", {})
-            if "result" in data and variant_id in data["result"]:
-                variant_data = data["result"][variant_id]
-
-                # Check for NCBI inline error (HTTP 200 but variant not found)
-                if variant_data.get("error"):
-                    return {
-                        "status": "error",
-                        "error": f"Variant {variant_id} not found in ClinVar: {variant_data['error']}",
-                        "url": result.get("url"),
-                    }
-
-                # Extract key information
-                formatted_data = {
-                    "variant_id": variant_id,
-                    "accession": variant_data.get("accession", ""),
-                    "title": variant_data.get("title", ""),
-                    "obj_type": variant_data.get("obj_type", ""),
-                    "genes": [
-                        gene.get("symbol", "") for gene in variant_data.get("genes", [])
-                    ],
-                    "clinical_significance": variant_data.get(
-                        "germline_classification", {}
-                    ).get("description", ""),
-                    "review_status": variant_data.get(
-                        "germline_classification", {}
-                    ).get("review_status", ""),
-                    "chromosome": variant_data.get("chr_sort", ""),
-                    "location": variant_data.get("variation_set", [{}])[0]
-                    .get("variation_loc", [{}])[0]
-                    .get("band", ""),
-                    "variation_name": variant_data.get("variation_set", [{}])[0].get(
-                        "variation_name", ""
-                    ),
-                    "raw_data": variant_data,  # Keep original data for advanced users
-                }
-
-                result["formatted_data"] = formatted_data
+        variant_data = fetch["variant_data"]
+        result = fetch["result"]
+        result["variant_id"] = variant_id
+        result["formatted_data"] = {
+            "variant_id": variant_id,
+            "accession": variant_data.get("accession", ""),
+            "obj_type": variant_data.get("obj_type", ""),
+            "chromosome": variant_data.get("chr_sort", ""),
+            "location": variant_data.get("variation_set", [{}])[0]
+            .get("variation_loc", [{}])[0]
+            .get("band", ""),
+            "variation_name": variant_data.get("variation_set", [{}])[0].get(
+                "variation_name", ""
+            ),
+            **self._parse_variant_summary(variant_data),
+            "raw_data": variant_data,
+        }
 
         return result
 
@@ -251,59 +303,42 @@ class ClinVarGetClinicalSignificance(ClinVarRESTTool):
         if not variant_id:
             return {"status": "error", "error": "variant_id is required"}
 
-        params = {"db": "clinvar", "id": variant_id, "retmode": "json"}
+        fetch = self._fetch_variant(variant_id)
+        if "error_result" in fetch:
+            return fetch["error_result"]
 
-        result = self._make_request(self.endpoint, params)
+        variant_data = fetch["variant_data"]
+        result = fetch["result"]
+        result["variant_id"] = variant_id
 
-        # Add variant_id to result and format clinical significance data
-        if result.get("status") == "success":
-            result["variant_id"] = variant_id
+        # Extract clinical significance information
+        germline_class = variant_data.get("germline_classification", {})
+        clinical_impact = variant_data.get("clinical_impact_classification", {})
+        oncogenicity = variant_data.get("oncogenicity_classification", {})
 
-            # Format the clinical significance data
-            data = result.get("data", {})
-            if "result" in data and variant_id in data["result"]:
-                variant_data = data["result"][variant_id]
-
-                # Check for NCBI inline error (HTTP 200 but variant not found)
-                if variant_data.get("error"):
-                    return {
-                        "status": "error",
-                        "error": f"Variant {variant_id} not found in ClinVar: {variant_data['error']}",
-                        "url": result.get("url"),
-                    }
-
-                # Extract clinical significance information
-                germline_class = variant_data.get("germline_classification", {})
-                clinical_impact = variant_data.get("clinical_impact_classification", {})
-                oncogenicity = variant_data.get("oncogenicity_classification", {})
-
-                formatted_data = {
-                    "variant_id": variant_id,
-                    "germline_classification": {
-                        "description": germline_class.get("description", ""),
-                        "review_status": germline_class.get("review_status", ""),
-                        "last_evaluated": germline_class.get("last_evaluated", ""),
-                        "fda_recognized": germline_class.get(
-                            "fda_recognized_database", ""
-                        ),
-                        "traits": [
-                            trait.get("trait_name", "")
-                            for trait in germline_class.get("trait_set", [])
-                        ],
-                    },
-                    "clinical_impact": {
-                        "description": clinical_impact.get("description", ""),
-                        "review_status": clinical_impact.get("review_status", ""),
-                        "last_evaluated": clinical_impact.get("last_evaluated", ""),
-                    },
-                    "oncogenicity": {
-                        "description": oncogenicity.get("description", ""),
-                        "review_status": oncogenicity.get("review_status", ""),
-                        "last_evaluated": oncogenicity.get("last_evaluated", ""),
-                    },
-                    "raw_data": variant_data,  # Keep original data for advanced users
-                }
-
-                result["formatted_data"] = formatted_data
+        result["formatted_data"] = {
+            "variant_id": variant_id,
+            "germline_classification": {
+                "description": germline_class.get("description", ""),
+                "review_status": germline_class.get("review_status", ""),
+                "last_evaluated": germline_class.get("last_evaluated", ""),
+                "fda_recognized": germline_class.get("fda_recognized_database", ""),
+                "traits": [
+                    trait.get("trait_name", "")
+                    for trait in germline_class.get("trait_set", [])
+                ],
+            },
+            "clinical_impact": {
+                "description": clinical_impact.get("description", ""),
+                "review_status": clinical_impact.get("review_status", ""),
+                "last_evaluated": clinical_impact.get("last_evaluated", ""),
+            },
+            "oncogenicity": {
+                "description": oncogenicity.get("description", ""),
+                "review_status": oncogenicity.get("review_status", ""),
+                "last_evaluated": oncogenicity.get("last_evaluated", ""),
+            },
+            "raw_data": variant_data,
+        }
 
         return result

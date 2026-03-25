@@ -12,8 +12,10 @@ use dupe::Dupe;
 use pyrefly_python::dunder;
 use pyrefly_types::literal::Literal;
 use pyrefly_types::quantified::Quantified;
+use pyrefly_types::tensor_ops_registry::TensorOpsRegistry;
 use pyrefly_types::typed_dict::TypedDictInner;
 use pyrefly_types::types::CalleeKind;
+use pyrefly_types::types::NNModuleType;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
 use pyrefly_types::types::Union;
@@ -26,6 +28,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
+use starlark_map::small_map::SmallMap;
 use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
@@ -34,6 +37,8 @@ use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::callable::CallWithTypes;
 use crate::alt::class::class_field::DescriptorBase;
+use crate::alt::expr::TypeOrExpr;
+use crate::alt::nn_module_specials::is_nn_sequential;
 use crate::alt::unwrap::HintRef;
 use crate::binding::binding::Key;
 use crate::config::error_kind::ErrorKind;
@@ -366,6 +371,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     {
                         CallTargetLookup::Ok(Box::new(CallTarget::Any(AnyStyle::Implicit)))
                     }
+                    None => CallTargetLookup::Error(vec![]),
+                }
+            }
+            // NNModule instances delegate call dispatch to their underlying class.
+            // instance_as_dunder_call will find `forward` for nn.Module subclasses.
+            // We patch the BoundMethod's self object to be the NNModule type so
+            // that inject_module_attrs can detect NNModule and inject its fields.
+            Type::NNModule(module) => {
+                let nn_module_ty = Type::NNModule(module.clone());
+                let cls = module.class.clone();
+                let maybe_dunder_call = self.instance_as_dunder_call(&cls);
+                match maybe_dunder_call {
+                    Some(Type::BoundMethod(bm)) => {
+                        let patched = Type::BoundMethod(Box::new(BoundMethod {
+                            obj: nn_module_ty,
+                            ..*bm
+                        }));
+                        self.as_call_target_impl(patched, quantified)
+                    }
+                    Some(ty) => self.as_call_target_impl(ty, quantified),
                     None => CallTargetLookup::Error(vec![]),
                 }
             }
@@ -712,9 +737,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         let mut dunder_new_ret = None;
+        let preserve_self = constructor_kind == ConstructorKind::TypeOfSelf;
         let (overrides_new, dunder_new_has_errors) =
-            if let Some(new_method) = self.get_dunder_new(&cls) {
-                let cls_ty = self.heap.mk_type_form(self.heap.mk_class_type(cls.clone()));
+            if let Some(new_method) = self.get_dunder_new(&cls, preserve_self) {
+                let cls_ty = if preserve_self {
+                    self.heap.mk_type_form(self.heap.mk_self_type(cls.clone()))
+                } else {
+                    self.heap.mk_type_form(self.heap.mk_class_type(cls.clone()))
+                };
                 let full_args = iter::once(CallArg::ty(&cls_ty, arguments_range))
                     .chain(args.iter().cloned())
                     .collect::<Vec<_>>();
@@ -836,9 +866,68 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             let targ = ct.targs().as_slice()[0].clone();
             self.heap.mk_unbounded_tuple(targ)
+        } else if let Type::ClassType(ct) = result {
+            // Check for init capture: if the class has a registered init capture,
+            // extract constructor arg values and wrap in Type::NNModule.
+            self.maybe_wrap_nn_module(&ct.clone(), args, keywords, errors, Type::ClassType(ct))
         } else {
             result
         }
+    }
+
+    /// If the class has a registered init capture, extract constructor arg values
+    /// and wrap the result in `Type::NNModule`. Otherwise return the result as-is.
+    ///
+    /// This enables shape-aware module instance tracking: the NNModule carries
+    /// captured constructor args (e.g., kernel_size, stride) so DSL forward
+    /// functions can access them without requiring type params on the class.
+    fn maybe_wrap_nn_module(
+        &self,
+        ct: &ClassType,
+        args: &[CallArg],
+        keywords: &[CallKeyword],
+        errors: &ErrorCollector,
+        result: Type,
+    ) -> Type {
+        use std::sync::OnceLock;
+        static TENSOR_OPS_REGISTRY: OnceLock<TensorOpsRegistry> = OnceLock::new();
+
+        let class_name = format!("{}.{}", ct.class_object().module_name(), ct.name());
+        let registry = TENSOR_OPS_REGISTRY.get_or_init(TensorOpsRegistry::new);
+        let capture_names = match registry.get_init_capture(&class_name) {
+            Some(names) => names,
+            None => return result,
+        };
+
+        let infer_type_or_expr = |toe: TypeOrExpr, errors: &ErrorCollector| -> Type {
+            match toe {
+                TypeOrExpr::Type(ty, _) => ty.clone(),
+                TypeOrExpr::Expr(e) => self.expr_infer(e, errors),
+            }
+        };
+
+        let mut fields = SmallMap::new();
+        for (i, param_name) in capture_names.iter().enumerate() {
+            let name = Name::new(param_name);
+            // First check keyword args.
+            if let Some(kw) = keywords.iter().find(|k| {
+                k.arg
+                    .is_some_and(|id| id.id.as_str() == param_name.as_str())
+            }) {
+                fields.insert(name, infer_type_or_expr(kw.value, errors));
+            } else if i < args.len() {
+                // Map positional arg by index to the capture param name.
+                if let CallArg::Arg(toe) = &args[i] {
+                    fields.insert(name, infer_type_or_expr(*toe, errors));
+                }
+            }
+            // If neither keyword nor positional, the param uses its default.
+            // We leave it absent from the fields map; the forward DSL function
+            // will use its own default for that parameter.
+        }
+
+        self.heap
+            .mk_nn_module(NNModuleType::new(ct.clone(), fields))
     }
 
     fn construct_typed_dict(
@@ -1032,7 +1121,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         metadata,
                     },
                 ),
-            ) => self.callable_infer(
+            ) => self.call_infer_inner(
                 signature,
                 Some(&metadata.kind),
                 tparams.as_deref(),
@@ -1046,7 +1135,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 hint,
                 ctor_targs,
             ),
-            CallTarget::Callable(TargetWithTParams(tparams, callable)) => self.callable_infer(
+            CallTarget::Callable(TargetWithTParams(tparams, callable)) => self.call_infer_inner(
                 callable,
                 None,
                 tparams.as_deref(),
@@ -1066,7 +1155,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     signature: callable,
                     metadata,
                 },
-            )) => self.callable_infer(
+            )) => self.call_infer_inner(
                 callable,
                 Some(&metadata.kind),
                 tparams.as_deref(),
@@ -1161,6 +1250,79 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Wrapper for `callable_infer` that handles trying a call with and without a contextual hint.
+    fn call_infer_inner(
+        &self,
+        callable: Callable,
+        callable_name: Option<&FunctionKind>,
+        tparams: Option<&TParams>,
+        self_obj: Option<Type>,
+        args: &[CallArg],
+        keywords: &[CallKeyword],
+        arguments_range: TextRange,
+        arg_errors: &ErrorCollector,
+        call_errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+        hint: Option<HintRef>,
+        ctor_targs: Option<&mut TArgs>,
+    ) -> Type {
+        // First try the call without the hint to see if it succeeds.
+        let mut ctor_targs_no_hint = ctor_targs.as_ref().map(|x| (**x).clone());
+        let call_errors_no_hint = self.error_collector();
+        let res_no_hint = self.callable_infer(
+            callable.clone(),
+            callable_name,
+            tparams,
+            self_obj.clone(),
+            args,
+            keywords,
+            arguments_range,
+            arg_errors,
+            &call_errors_no_hint,
+            context,
+            None,
+            ctor_targs_no_hint.as_mut(),
+        );
+        // If the call succeeds, attempt contextual typing with the hint.
+        let (chosen_ctor_targs, chosen_call_errors, chosen_res) =
+            if call_errors_no_hint.is_empty() && hint.is_some() {
+                let mut ctor_targs_with_hint = ctor_targs.as_ref().map(|x| (**x).clone());
+                let call_errors_with_hint = self.error_collector();
+                let res_with_hint = self.callable_infer(
+                    callable,
+                    callable_name,
+                    tparams,
+                    self_obj,
+                    args,
+                    keywords,
+                    arguments_range,
+                    arg_errors,
+                    &call_errors_with_hint,
+                    context,
+                    hint,
+                    ctor_targs_with_hint.as_mut(),
+                );
+                if call_errors_with_hint.is_empty() {
+                    (ctor_targs_with_hint, call_errors_with_hint, res_with_hint)
+                } else {
+                    (ctor_targs_no_hint, call_errors_no_hint, res_no_hint)
+                }
+            } else {
+                (ctor_targs_no_hint, call_errors_no_hint, res_no_hint)
+            };
+        call_errors.extend(chosen_call_errors);
+        if let Some(targs) = ctor_targs
+            && let Some(chosen_targs) = chosen_ctor_targs
+        {
+            *targs = chosen_targs;
+        }
+        let (ty, specialization_errors) = chosen_res;
+        if let Ok(errors) = Vec1::try_from_vec(specialization_errors) {
+            self.add_specialization_errors(errors, arguments_range, call_errors, context);
+        }
+        ty
+    }
+
     pub fn call_infer(
         &self,
         call_target: CallTarget,
@@ -1239,7 +1401,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.heap.mk_class_def(classtype.class_object().dupe()),
                 self.heap.mk_class_type(classtype),
             ),
-            DescriptorBase::ClassDef(class) => (self.heap.mk_class_def(class), self.heap.mk_none()),
+            DescriptorBase::ClassDef(class_base) => {
+                (class_base.to_type(self.heap), self.heap.mk_none())
+            }
         };
         let args = [CallArg::ty(&obj, range), CallArg::ty(&objtype, range)];
         let call_target = self.as_call_target_or_error(
@@ -1350,7 +1514,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         // Check the __new__ method and whether it comes from object or has been overridden
         let (new_attr_ty, overrides_new) = if let Some(t) = self
-            .get_dunder_new(cls)
+            .get_dunder_new(cls, false)
             .and_then(|t| self.bind_dunder_new(&t, cls.clone()))
         {
             if t.callable_return_type(self.heap)
@@ -1403,11 +1567,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
-        // nn.Module call forwarding: when calling an nn.Module instance (or Self in a Module subclass),
-        // redirect to the `forward` method. This models PyTorch's `nn.Module.__call__` behavior.
-        // TODO: Consider modeling this via a stub for `nn.Module.__call__` that delegates to `forward`.
-        if let Some(forward_ty) = self.try_nn_module_forward_dispatch(&callee_ty, x.range, errors) {
-            return self.expr_call_infer(x, forward_ty, hint, errors);
+        // nn.Sequential chain: thread input through each module's forward method.
+        // Must be checked before generic Module forward dispatch, which would erase shapes.
+        if let Type::ClassType(cls) = &callee_ty
+            && is_nn_sequential(cls)
+            && x.arguments.args.len() == 1
+            && x.arguments.keywords.is_empty()
+        {
+            let input_ty = self.expr_infer(&x.arguments.args[0], errors);
+            if let Some(result) =
+                self.try_nn_sequential_chain_forward(cls, input_ty, x.range, errors)
+            {
+                return result;
+            }
         }
 
         if matches!(&callee_ty, Type::ClassDef(cls) if cls.is_builtin("super")) {

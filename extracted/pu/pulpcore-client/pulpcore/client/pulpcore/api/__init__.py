@@ -14,6 +14,8 @@ from pulpcore.client.pulpcore.api.contentguards_composite_api import Contentguar
 from pulpcore.client.pulpcore.api.contentguards_content_redirect_api import ContentguardsContentRedirectApi
 from pulpcore.client.pulpcore.api.contentguards_header_api import ContentguardsHeaderApi
 from pulpcore.client.pulpcore.api.contentguards_rbac_api import ContentguardsRbacApi
+from pulpcore.client.pulpcore.api.datarepair7272_api import Datarepair7272Api
+from pulpcore.client.pulpcore.api.datarepair7465_api import Datarepair7465Api
 from pulpcore.client.pulpcore.api.distributions_api import DistributionsApi
 from pulpcore.client.pulpcore.api.distributions_artifacts_api import DistributionsArtifactsApi
 from pulpcore.client.pulpcore.api.distributions_openpgp_api import DistributionsOpenpgpApi

@@ -1,4 +1,4 @@
-from typing import Required, TypedDict, List, Union, Dict
+from typing import Union, Required, Dict, TypedDict, List
 
 
 class LwDeleteEapItems(TypedDict, total=False):

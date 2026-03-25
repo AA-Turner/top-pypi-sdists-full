@@ -44,15 +44,24 @@ class UniProtRefTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"UniProt API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"UniProt API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to UniProt API"}
+            return {"status": "error", "error": "Failed to connect to UniProt API"}
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                return {"error": "Resource not found in UniProt"}
-            return {"error": f"UniProt API HTTP error: {e.response.status_code}"}
+                return {"status": "error", "error": "Resource not found in UniProt"}
+            return {
+                "status": "error",
+                "error": f"UniProt API HTTP error: {e.response.status_code}",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error querying UniProt: {str(e)}"}
+            return {
+                "status": "error",
+                "error": f"Unexpected error querying UniProt: {str(e)}",
+            }
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate UniProt reference endpoint."""
@@ -69,13 +78,13 @@ class UniProtRefTool(BaseTool):
         elif self.endpoint == "search_proteomes":
             return self._search_proteomes(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _search_diseases(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search UniProt controlled disease vocabulary."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         size = min(arguments.get("size") or 10, 25)
         url = f"{UNIPROT_BASE_URL}/diseases/search"
@@ -111,6 +120,7 @@ class UniProtRefTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": diseases,
             "metadata": {
                 "source": "UniProt Controlled Disease Vocabulary",
@@ -123,7 +133,7 @@ class UniProtRefTool(BaseTool):
         """Get a specific disease entry by UniProt disease ID."""
         disease_id = arguments.get("disease_id", "")
         if not disease_id:
-            return {"error": "disease_id parameter is required"}
+            return {"status": "error", "error": "disease_id parameter is required"}
 
         url = f"{UNIPROT_BASE_URL}/diseases/{disease_id}"
         params = {"format": "json"}
@@ -143,6 +153,7 @@ class UniProtRefTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "id": r.get("id"),
                 "name": r.get("name"),
@@ -166,7 +177,7 @@ class UniProtRefTool(BaseTool):
         """Search UniProt keyword controlled vocabulary."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         size = min(arguments.get("size") or 10, 25)
         url = f"{UNIPROT_BASE_URL}/keywords/search"
@@ -194,6 +205,7 @@ class UniProtRefTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": keywords,
             "metadata": {
                 "source": "UniProt Keyword Controlled Vocabulary",
@@ -206,7 +218,7 @@ class UniProtRefTool(BaseTool):
         """Get a specific keyword entry by UniProt keyword ID."""
         keyword_id = arguments.get("keyword_id", "")
         if not keyword_id:
-            return {"error": "keyword_id parameter is required"}
+            return {"status": "error", "error": "keyword_id parameter is required"}
 
         url = f"{UNIPROT_BASE_URL}/keywords/{keyword_id}"
         params = {"format": "json"}
@@ -236,6 +248,7 @@ class UniProtRefTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "id": kw.get("id"),
                 "name": kw.get("name"),
@@ -261,7 +274,7 @@ class UniProtRefTool(BaseTool):
         """Get reference proteome information by UniProt proteome ID."""
         proteome_id = arguments.get("proteome_id", "")
         if not proteome_id:
-            return {"error": "proteome_id parameter is required"}
+            return {"status": "error", "error": "proteome_id parameter is required"}
 
         url = f"{UNIPROT_BASE_URL}/proteomes/{proteome_id}"
         params = {"format": "json"}
@@ -290,6 +303,7 @@ class UniProtRefTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": {
                 "id": r.get("id"),
                 "description": (r.get("description") or "")[:500],
@@ -311,7 +325,7 @@ class UniProtRefTool(BaseTool):
         """Search UniProt reference proteomes."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query parameter is required"}
+            return {"status": "error", "error": "query parameter is required"}
 
         size = min(arguments.get("size") or 10, 25)
         url = f"{UNIPROT_BASE_URL}/proteomes/search"
@@ -339,6 +353,7 @@ class UniProtRefTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": proteomes,
             "metadata": {
                 "source": "UniProt Proteomes",

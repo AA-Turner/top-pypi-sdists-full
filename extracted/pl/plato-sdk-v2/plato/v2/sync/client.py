@@ -145,10 +145,13 @@ class Plato:
         base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         http_client: httpx.Client | None = None,
+        authorization: str | None = None,
     ):
         self.api_key = api_key or os.environ.get("PLATO_API_KEY")
-        if not self.api_key:
+        if not self.api_key and not authorization:
             raise ValueError("API key required. Set PLATO_API_KEY or pass api_key=")
+        if not self.api_key:
+            self.api_key = "authorization-auth"
 
         # Compose base URL, strip trailing '/api' if present, then trailing slashes
         url = base_url or os.environ.get("PLATO_BASE_URL", DEFAULT_BASE_URL)
@@ -157,10 +160,15 @@ class Plato:
         self.base_url = url.rstrip("/")
         self.timeout = timeout
 
+        headers: dict[str, str] = {}
+        if authorization:
+            headers["Authorization"] = authorization
+
         self._owns_http = http_client is None
         self._http = http_client or httpx.Client(
             base_url=self.base_url,
             timeout=httpx.Timeout(timeout),
+            headers=headers,
         )
 
         self.sessions = SessionManager(self._http, self.api_key)

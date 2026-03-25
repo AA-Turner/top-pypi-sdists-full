@@ -78,10 +78,11 @@ pub enum OcrBackendType {
 ///             quality_score: None,
 ///             processing_warnings: vec![],
 ///             annotations: None,
+///             children: None,
 ///         })
 ///     }
 ///
-///     async fn process_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
+///     async fn process_image_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
 ///         let bytes = std::fs::read(path)?;
 ///         self.process_image(&bytes, config).await
 ///     }
@@ -136,7 +137,7 @@ pub trait OcrBackend: Plugin {
     /// # impl OcrBackend for MyOcr {
     /// #     fn supports_language(&self, _: &str) -> bool { true }
     /// #     fn backend_type(&self) -> OcrBackendType { OcrBackendType::Custom }
-    /// #     async fn process_file(&self, _: &Path, _: &OcrConfig) -> Result<ExtractionResult> { todo!() }
+    /// #     async fn process_image_file(&self, _: &Path, _: &OcrConfig) -> Result<ExtractionResult> { todo!() }
     /// async fn process_image(&self, image_bytes: &[u8], config: &OcrConfig) -> Result<ExtractionResult> {
     ///     // Validate image format
     ///     if image_bytes.is_empty() {
@@ -167,6 +168,7 @@ pub trait OcrBackend: Plugin {
     ///         quality_score: None,
     ///         processing_warnings: vec![],
     ///         annotations: None,
+    ///         children: None,
     ///     })
     /// }
     /// # }
@@ -186,7 +188,7 @@ pub trait OcrBackend: Plugin {
     /// # Errors
     ///
     /// Same as `process_image`, plus file I/O errors.
-    async fn process_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
+    async fn process_image_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
         #[cfg(feature = "tokio-runtime")]
         {
             use crate::core::io;
@@ -232,7 +234,7 @@ pub trait OcrBackend: Plugin {
     /// # impl OcrBackend for MyOcr {
     /// #     fn backend_type(&self) -> OcrBackendType { OcrBackendType::Custom }
     /// #     async fn process_image(&self, _: &[u8], _: &OcrConfig) -> Result<ExtractionResult> { todo!() }
-    /// #     async fn process_file(&self, _: &Path, _: &OcrConfig) -> Result<ExtractionResult> { todo!() }
+    /// #     async fn process_image_file(&self, _: &Path, _: &OcrConfig) -> Result<ExtractionResult> { todo!() }
     /// fn supports_language(&self, lang: &str) -> bool {
     ///     self.languages.contains(&lang.to_string())
     /// }
@@ -265,7 +267,7 @@ pub trait OcrBackend: Plugin {
     /// # impl OcrBackend for TesseractBackend {
     /// #     fn supports_language(&self, _: &str) -> bool { true }
     /// #     async fn process_image(&self, _: &[u8], _: &OcrConfig) -> Result<ExtractionResult> { todo!() }
-    /// #     async fn process_file(&self, _: &Path, _: &OcrConfig) -> Result<ExtractionResult> { todo!() }
+    /// #     async fn process_image_file(&self, _: &Path, _: &OcrConfig) -> Result<ExtractionResult> { todo!() }
     /// fn backend_type(&self) -> OcrBackendType {
     ///     OcrBackendType::Tesseract
     /// }
@@ -285,6 +287,27 @@ pub trait OcrBackend: Plugin {
     /// Defaults to `false`. Override if your backend can detect and extract tables.
     fn supports_table_detection(&self) -> bool {
         false
+    }
+
+    /// Check if the backend supports direct document-level processing (e.g. for PDFs).
+    ///
+    /// Defaults to `false`. Override if the backend has optimized document processing.
+    fn supports_document_processing(&self) -> bool {
+        false
+    }
+
+    /// Process a document file directly via OCR.
+    ///
+    /// Only called if `supports_document_processing` returns `true`.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the document file (e.g. .pdf)
+    /// * `config` - OCR configuration
+    async fn process_document(&self, _path: &Path, _config: &OcrConfig) -> Result<ExtractionResult> {
+        Err(crate::KreuzbergError::Other(
+            "Document-level OCR processing not supported by this backend".to_string(),
+        ))
     }
 }
 
@@ -348,6 +371,7 @@ pub trait OcrBackend: Plugin {
 ///             quality_score: None,
 ///             processing_warnings: vec![],
 ///             annotations: None,
+///             children: None,
 ///         })
 ///     }
 ///     fn supports_language(&self, _: &str) -> bool { true }
@@ -364,10 +388,7 @@ pub fn register_ocr_backend(backend: Arc<dyn OcrBackend>) -> crate::Result<()> {
     use crate::plugins::registry::get_ocr_backend_registry;
 
     let registry = get_ocr_backend_registry();
-    // ~keep: Lock poisoning indicates a panic in another thread holding the lock.
-    let mut registry = registry
-        .write()
-        .expect("OCR backend registry lock poisoned - critical runtime error");
+    let mut registry = registry.write();
 
     registry.register(backend)
 }
@@ -399,10 +420,7 @@ pub fn unregister_ocr_backend(name: &str) -> crate::Result<()> {
     use crate::plugins::registry::get_ocr_backend_registry;
 
     let registry = get_ocr_backend_registry();
-    // ~keep: Lock poisoning indicates a panic in another thread holding the lock.
-    let mut registry = registry
-        .write()
-        .expect("OCR backend registry lock poisoned - critical runtime error");
+    let mut registry = registry.write();
 
     registry.remove(name)
 }
@@ -432,10 +450,7 @@ pub fn list_ocr_backends() -> crate::Result<Vec<String>> {
     use crate::plugins::registry::get_ocr_backend_registry;
 
     let registry = get_ocr_backend_registry();
-    // ~keep: Lock poisoning indicates a panic in another thread holding the lock.
-    let registry = registry
-        .read()
-        .expect("OCR backend registry lock poisoned - critical runtime error");
+    let registry = registry.read();
 
     Ok(registry.list())
 }
@@ -463,10 +478,7 @@ pub fn clear_ocr_backends() -> crate::Result<()> {
     use crate::plugins::registry::get_ocr_backend_registry;
 
     let registry = get_ocr_backend_registry();
-    // ~keep: Lock poisoning indicates a panic in another thread holding the lock.
-    let mut registry = registry
-        .write()
-        .expect("OCR backend registry lock poisoned - critical runtime error");
+    let mut registry = registry.write();
 
     registry.shutdown_all()
 }
@@ -519,6 +531,7 @@ mod tests {
                 quality_score: None,
                 processing_warnings: Vec::new(),
                 annotations: None,
+                children: None,
             })
         }
 
@@ -616,7 +629,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_ocr_backend_process_file_default_impl() {
+    async fn test_ocr_backend_process_image_file_default_impl() {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
@@ -634,7 +647,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = backend.process_file(path, &config).await.unwrap();
+        let result = backend.process_image_file(path, &config).await.unwrap();
         assert_eq!(result.content, "Mocked OCR text");
     }
 

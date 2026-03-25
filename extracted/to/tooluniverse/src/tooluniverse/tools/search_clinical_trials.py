@@ -1,7 +1,7 @@
 """
 search_clinical_trials
 
-Search for clinical trials registered on clinicaltrials.gov based on title, conditions, intervent...
+Search ClinicalTrials.gov for clinical trials by disease/condition, drug/intervention, or keyword...
 """
 
 from typing import Any, Optional, Callable
@@ -14,13 +14,17 @@ def search_clinical_trials(
     query_term: Optional[str] = None,
     pageSize: Optional[int] = None,
     pageToken: Optional[str] = None,
+    overall_status: Optional[list[str]] = None,
+    max_results: Optional[int] = None,
+    limit: Optional[int] = None,
+    status: Optional[str | list[str]] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
 ) -> Any:
     """
-    Search for clinical trials registered on clinicaltrials.gov based on title, conditions, intervent...
+    Search ClinicalTrials.gov for clinical trials by disease/condition, drug/intervention, or keyword...
 
     Parameters
     ----------
@@ -34,6 +38,14 @@ def search_clinical_trials(
         Maximum number of studies to return per page (default 10, max 1000).
     pageToken : str
         Token to retrieve the next page of results, obtained from the 'nextPageToken'...
+    overall_status : list[str]
+        Filter by overall study status (e.g., ['RECRUITING'], ['COMPLETED'], ['RECRUI...
+    max_results : int
+        Maximum number of studies to return (alias for pageSize, default 10, max 1000).
+    limit : int
+        Alias for max_results: maximum number of studies to return (default 10, max 1...
+    status : str | list[str]
+        Alias for overall_status. Filter by trial status, e.g. "RECRUITING", "COMPLET...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -56,6 +68,10 @@ def search_clinical_trials(
             "query_term": query_term,
             "pageSize": pageSize,
             "pageToken": pageToken,
+            "overall_status": overall_status,
+            "max_results": max_results,
+            "limit": limit,
+            "status": status,
         }.items()
         if v is not None
     }

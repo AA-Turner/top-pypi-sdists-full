@@ -46,6 +46,7 @@ use crate::class::ClassKind;
 use crate::class::ClassType;
 use crate::dimension;
 use crate::dimension::SizeExpr;
+use crate::equality::TypeEqCtx;
 use crate::heap::TypeHeap;
 use crate::keywords::DataclassTransformMetadata;
 use crate::keywords::KwCall;
@@ -616,6 +617,100 @@ impl VisitMut<Type> for Union {
     }
 }
 
+/// An nn.Module instance with captured constructor arguments.
+///
+/// Analogous to how `TensorType` wraps `ClassType` + shape info, `NNModuleType`
+/// wraps `ClassType` + a field map of captured init args. This allows DSL forward
+/// functions to access constructor parameters (e.g., `kernel_size`, `stride`)
+/// directly from the type, without requiring every shape-relevant parameter to
+/// be a generic type param on the class.
+///
+/// Created by init DSL functions during `construct_class`. When `forward` is
+/// called on an NNModule instance, the fields are injected as `Val::Module`
+/// into the DSL's bound_args.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NNModuleType {
+    /// The underlying nn.Module subclass (e.g., MaxPool2d).
+    pub class: ClassType,
+    /// Captured init args (e.g., kernel_size → Size(3), stride → None).
+    /// Ordered by constructor parameter order.
+    pub fields: SmallMap<Name, Type>,
+}
+
+impl Hash for NNModuleType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.class.hash(state);
+        self.fields.len().hash(state);
+        for (k, v) in self.fields.iter() {
+            k.hash(state);
+            v.hash(state);
+        }
+    }
+}
+
+impl PartialOrd for NNModuleType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for NNModuleType {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.class.cmp(&other.class).then_with(|| {
+            let len_cmp = self.fields.len().cmp(&other.fields.len());
+            if len_cmp != Ordering::Equal {
+                return len_cmp;
+            }
+            for ((k1, v1), (k2, v2)) in self.fields.iter().zip(other.fields.iter()) {
+                let c = k1.cmp(k2).then_with(|| v1.cmp(v2));
+                if c != Ordering::Equal {
+                    return c;
+                }
+            }
+            Ordering::Equal
+        })
+    }
+}
+
+impl pyrefly_util::visit::Visit<Type> for NNModuleType {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
+        self.class.recurse(f);
+        for (_, ty) in self.fields.iter() {
+            f(ty);
+        }
+    }
+}
+
+impl pyrefly_util::visit::VisitMut<Type> for NNModuleType {
+    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
+        self.class.recurse_mut(f);
+        for (_, ty) in self.fields.iter_mut() {
+            f(ty);
+        }
+    }
+}
+
+impl crate::equality::TypeEq for NNModuleType {
+    fn type_eq(&self, other: &Self, ctx: &mut TypeEqCtx) -> bool {
+        crate::equality::TypeEq::type_eq(&self.class, &other.class, ctx)
+            && self.fields.len() == other.fields.len()
+            && self
+                .fields
+                .iter()
+                .zip(other.fields.iter())
+                .all(|((k1, v1), (k2, v2))| {
+                    k1 == k2 && crate::equality::TypeEq::type_eq(v1, v2, ctx)
+                })
+    }
+}
+
+impl NNModuleType {
+    /// Create a new NNModuleType with the given class and captured fields.
+    pub fn new(class: ClassType, fields: SmallMap<Name, Type>) -> Self {
+        Self { class, fields }
+    }
+}
+
 // Note: The fact that Literal and LiteralString are at the front is important for
 // optimisations in `unions_with_literals`.
 #[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
@@ -662,6 +757,10 @@ pub enum Type {
     /// Tensor type with shape information
     /// Example: Tensor[2, 3] represents a 2x3 tensor
     Tensor(Box<TensorType>),
+    /// nn.Module instance with captured constructor arguments.
+    /// Wraps a ClassType + field map of init args, enabling DSL forward
+    /// functions to access shape-relevant constructor parameters directly.
+    NNModule(Box<NNModuleType>),
     /// Dimension value type - represents values that satisfy Dim bound
     /// Examples:
     ///   - Type::Size(SizeExpr::Literal(6)) for concrete dimension 6
@@ -772,6 +871,7 @@ impl Visit for Type {
             Type::TypedDict(x) => x.visit(f),
             Type::PartialTypedDict(x) => x.visit(f),
             Type::Tensor(x) => x.visit(f),
+            Type::NNModule(x) => x.visit(f),
             Type::Size(x) => x.visit(f),
             Type::Dim(x) => x.visit(f),
             Type::Tuple(x) => x.visit(f),
@@ -825,6 +925,7 @@ impl VisitMut for Type {
             Type::TypedDict(x) => x.visit_mut(f),
             Type::PartialTypedDict(x) => x.visit_mut(f),
             Type::Tensor(x) => x.visit_mut(f),
+            Type::NNModule(x) => x.visit_mut(f),
             Type::Size(x) => x.visit_mut(f),
             Type::Dim(x) => x.visit_mut(f),
             Type::Tuple(x) => x.visit_mut(f),
@@ -900,6 +1001,87 @@ impl Type {
             Type::Union(u) => u.members.len(),
             _ => 1,
         }
+    }
+
+    /// Truncate container nesting depth and inner Union width, replacing
+    /// over-budget nodes with `any`.
+    ///
+    /// Two independent limits are enforced recursively throughout the type tree:
+    ///
+    /// **Depth** (`max_depth`): A top-down counter tracks how many more container
+    /// levels are permitted. `ClassType` and `Tuple` each consume one depth level;
+    /// other composite types (Union, Callable, …) are transparent. A container
+    /// encountered when `remaining == 0` is replaced with `any`; otherwise it is
+    /// kept and its children are processed with `remaining - 1`. Transparent
+    /// composites pass the same budget to their children unchanged.
+    ///
+    /// **Inner union width** (`max_inner_union_width`): Any `Union` encountered
+    /// *while recursing inside a container's children or a transparent composite*
+    /// is replaced with `any` if its member count exceeds `max_inner_union_width`.
+    /// The top-level type is exempted: the initial call does not apply the union
+    /// check to `self` itself, only to its descendants. This preserves wide
+    /// top-level unions (e.g. a function returning `A | B | … | T`) while
+    /// truncating runaway unions that accumulate inside type parameters.
+    ///
+    /// Both limits produce stable fixed points: two consecutive truncations of a
+    /// type that exceeds either limit yield the same result, so the fixpoint
+    /// converges after at most two truncation steps.
+    pub fn truncate_class_nesting(
+        self,
+        max_depth: usize,
+        max_inner_union_width: usize,
+        any: &Type,
+    ) -> Type {
+        /// Truncate `ty` with both limits active (inner call — union width IS checked).
+        fn truncate_inner(
+            ty: Type,
+            remaining: usize,
+            max_inner_union_width: usize,
+            any: &Type,
+        ) -> Type {
+            if let Type::Union(ref u) = ty
+                && u.members.len() > max_inner_union_width
+            {
+                return any.clone();
+            }
+            truncate(ty, remaining, max_inner_union_width, any)
+        }
+
+        /// Core truncation — does NOT apply the union-width check to `ty` itself
+        /// (that is done by the caller `truncate_inner` when needed), but does
+        /// recurse via `truncate_inner` so all descendants are checked.
+        fn truncate(ty: Type, remaining: usize, max_inner_union_width: usize, any: &Type) -> Type {
+            match ty {
+                Type::ClassType(ct) if remaining == 0 => {
+                    let _ = ct;
+                    any.clone()
+                }
+                Type::ClassType(mut ct) => {
+                    for targ in ct.targs_mut().as_mut().iter_mut() {
+                        let orig = std::mem::replace(targ, any.clone());
+                        *targ = truncate_inner(orig, remaining - 1, max_inner_union_width, any);
+                    }
+                    Type::ClassType(ct)
+                }
+                Type::Tuple(_) if remaining == 0 => any.clone(),
+                Type::Tuple(mut t) => {
+                    t.visit_mut(&mut |child| {
+                        let orig = std::mem::replace(child, any.clone());
+                        *child = truncate_inner(orig, remaining - 1, max_inner_union_width, any);
+                    });
+                    Type::Tuple(t)
+                }
+                mut other => {
+                    other.recurse_mut(&mut |child| {
+                        let orig = std::mem::replace(child, any.clone());
+                        *child = truncate_inner(orig, remaining, max_inner_union_width, any);
+                    });
+                    other
+                }
+            }
+        }
+
+        truncate(self, max_depth, max_inner_union_width, any)
     }
 
     pub fn is_never(&self) -> bool {
@@ -1786,5 +1968,22 @@ mod tests {
 
         assert_eq!(str_opt.as_bool(), None);
         assert_eq!(false_opt.as_bool(), Some(false));
+    }
+
+    #[test]
+    fn test_truncate_class_nesting_preserves_top_level_union_width() {
+        let wide_union = Type::union(vec![
+            Type::None,
+            Type::LiteralString(LitStyle::Implicit),
+            Lit::Bool(false).to_implicit_type(),
+            Lit::Bool(true).to_implicit_type(),
+        ]);
+
+        assert_eq!(
+            wide_union
+                .clone()
+                .truncate_class_nesting(3, 3, &Type::any_implicit()),
+            wide_union,
+        );
     }
 }

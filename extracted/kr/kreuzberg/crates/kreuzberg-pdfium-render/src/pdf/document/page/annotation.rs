@@ -7,9 +7,7 @@ pub mod highlight;
 pub mod ink;
 pub mod link;
 pub mod objects;
-pub mod popup;
 pub(crate) mod private; // Keep private so that the PdfPageAnnotationPrivate trait is not exposed.
-pub mod redacted;
 pub mod square;
 pub mod squiggly;
 pub mod stamp;
@@ -17,9 +15,6 @@ pub mod strikeout;
 pub mod text;
 pub mod underline;
 pub mod unsupported;
-pub mod variable_text;
-pub mod widget;
-pub mod xfa_widget;
 
 use crate::bindgen::{
     FPDF_ANNOT_CARET, FPDF_ANNOT_CIRCLE, FPDF_ANNOT_FILEATTACHMENT, FPDF_ANNOT_FREETEXT, FPDF_ANNOT_HIGHLIGHT,
@@ -40,9 +35,7 @@ use crate::pdf::document::page::annotation::highlight::PdfPageHighlightAnnotatio
 use crate::pdf::document::page::annotation::ink::PdfPageInkAnnotation;
 use crate::pdf::document::page::annotation::link::PdfPageLinkAnnotation;
 use crate::pdf::document::page::annotation::objects::PdfPageAnnotationObjects;
-use crate::pdf::document::page::annotation::popup::PdfPagePopupAnnotation;
 use crate::pdf::document::page::annotation::private::internal::{PdfAnnotationFlags, PdfPageAnnotationPrivate};
-use crate::pdf::document::page::annotation::redacted::PdfPageRedactedAnnotation;
 use crate::pdf::document::page::annotation::square::PdfPageSquareAnnotation;
 use crate::pdf::document::page::annotation::squiggly::PdfPageSquigglyAnnotation;
 use crate::pdf::document::page::annotation::stamp::PdfPageStampAnnotation;
@@ -50,16 +43,13 @@ use crate::pdf::document::page::annotation::strikeout::PdfPageStrikeoutAnnotatio
 use crate::pdf::document::page::annotation::text::PdfPageTextAnnotation;
 use crate::pdf::document::page::annotation::underline::PdfPageUnderlineAnnotation;
 use crate::pdf::document::page::annotation::unsupported::PdfPageUnsupportedAnnotation;
-use crate::pdf::document::page::annotation::widget::PdfPageWidgetAnnotation;
-use crate::pdf::document::page::annotation::xfa_widget::PdfPageXfaWidgetAnnotation;
-use crate::pdf::document::page::field::PdfFormField;
 use crate::pdf::document::page::object::ownership::PdfPageObjectOwnership;
 use crate::pdf::points::PdfPoints;
 use crate::pdf::rect::PdfRect;
 use chrono::prelude::*;
 
 #[cfg(doc)]
-use {crate::pdf::document::page::PdfPage, crate::pdf::document::page::field::PdfFormFieldCommon};
+use crate::pdf::document::page::PdfPage;
 
 /// The type of a single [PdfPageAnnotation], as defined in table 8.20 of the PDF Reference,
 /// version 1.7, on page 615.
@@ -202,16 +192,12 @@ pub enum PdfPageAnnotation<'a> {
     Highlight(PdfPageHighlightAnnotation<'a>),
     Ink(PdfPageInkAnnotation<'a>),
     Link(PdfPageLinkAnnotation<'a>),
-    Popup(PdfPagePopupAnnotation<'a>),
     Square(PdfPageSquareAnnotation<'a>),
     Squiggly(PdfPageSquigglyAnnotation<'a>),
     Stamp(PdfPageStampAnnotation<'a>),
     Strikeout(PdfPageStrikeoutAnnotation<'a>),
     Text(PdfPageTextAnnotation<'a>),
     Underline(PdfPageUnderlineAnnotation<'a>),
-    Widget(PdfPageWidgetAnnotation<'a>),
-    XfaWidget(PdfPageXfaWidgetAnnotation<'a>),
-    Redacted(PdfPageRedactedAnnotation<'a>),
 
     /// Common properties shared by all [PdfPageAnnotation] types can still be accessed for
     /// annotations not supported by Pdfium, but annotation-specific functionality
@@ -224,7 +210,7 @@ impl<'a> PdfPageAnnotation<'a> {
         document_handle: FPDF_DOCUMENT,
         page_handle: FPDF_PAGE,
         annotation_handle: FPDF_ANNOTATION,
-        form_handle: Option<FPDF_FORMHANDLE>,
+        _form_handle: Option<FPDF_FORMHANDLE>,
         bindings: &'a dyn PdfiumLibraryBindings,
     ) -> Self {
         let annotation_type = PdfPageAnnotationType::from_pdfium(bindings.FPDFAnnot_GetSubtype(annotation_handle))
@@ -256,12 +242,6 @@ impl<'a> PdfPageAnnotation<'a> {
                 bindings,
             )),
             PdfPageAnnotationType::Link => PdfPageAnnotation::Link(PdfPageLinkAnnotation::from_pdfium(
-                document_handle,
-                page_handle,
-                annotation_handle,
-                bindings,
-            )),
-            PdfPageAnnotationType::Popup => PdfPageAnnotation::Popup(PdfPagePopupAnnotation::from_pdfium(
                 document_handle,
                 page_handle,
                 annotation_handle,
@@ -303,26 +283,6 @@ impl<'a> PdfPageAnnotation<'a> {
                 annotation_handle,
                 bindings,
             )),
-            PdfPageAnnotationType::Widget => PdfPageAnnotation::Widget(PdfPageWidgetAnnotation::from_pdfium(
-                document_handle,
-                page_handle,
-                annotation_handle,
-                form_handle,
-                bindings,
-            )),
-            PdfPageAnnotationType::XfaWidget => PdfPageAnnotation::XfaWidget(PdfPageXfaWidgetAnnotation::from_pdfium(
-                document_handle,
-                page_handle,
-                annotation_handle,
-                form_handle,
-                bindings,
-            )),
-            PdfPageAnnotationType::Redacted => PdfPageAnnotation::Redacted(PdfPageRedactedAnnotation::from_pdfium(
-                document_handle,
-                page_handle,
-                annotation_handle,
-                bindings,
-            )),
             _ => PdfPageAnnotation::Unsupported(PdfPageUnsupportedAnnotation::from_pdfium(
                 document_handle,
                 page_handle,
@@ -341,16 +301,12 @@ impl<'a> PdfPageAnnotation<'a> {
             PdfPageAnnotation::Highlight(annotation) => annotation,
             PdfPageAnnotation::Ink(annotation) => annotation,
             PdfPageAnnotation::Link(annotation) => annotation,
-            PdfPageAnnotation::Popup(annotation) => annotation,
             PdfPageAnnotation::Square(annotation) => annotation,
             PdfPageAnnotation::Squiggly(annotation) => annotation,
             PdfPageAnnotation::Stamp(annotation) => annotation,
             PdfPageAnnotation::Strikeout(annotation) => annotation,
             PdfPageAnnotation::Text(annotation) => annotation,
             PdfPageAnnotation::Underline(annotation) => annotation,
-            PdfPageAnnotation::Widget(annotation) => annotation,
-            PdfPageAnnotation::XfaWidget(annotation) => annotation,
-            PdfPageAnnotation::Redacted(annotation) => annotation,
             PdfPageAnnotation::Unsupported(annotation) => annotation,
         }
     }
@@ -364,16 +320,12 @@ impl<'a> PdfPageAnnotation<'a> {
             PdfPageAnnotation::Highlight(annotation) => annotation,
             PdfPageAnnotation::Ink(annotation) => annotation,
             PdfPageAnnotation::Link(annotation) => annotation,
-            PdfPageAnnotation::Popup(annotation) => annotation,
             PdfPageAnnotation::Square(annotation) => annotation,
             PdfPageAnnotation::Squiggly(annotation) => annotation,
             PdfPageAnnotation::Stamp(annotation) => annotation,
             PdfPageAnnotation::Strikeout(annotation) => annotation,
             PdfPageAnnotation::Text(annotation) => annotation,
             PdfPageAnnotation::Underline(annotation) => annotation,
-            PdfPageAnnotation::Widget(annotation) => annotation,
-            PdfPageAnnotation::XfaWidget(annotation) => annotation,
-            PdfPageAnnotation::Redacted(annotation) => annotation,
             PdfPageAnnotation::Unsupported(annotation) => annotation,
         }
     }
@@ -409,16 +361,12 @@ impl<'a> PdfPageAnnotation<'a> {
             PdfPageAnnotation::Highlight(_) => PdfPageAnnotationType::Highlight,
             PdfPageAnnotation::Ink(_) => PdfPageAnnotationType::Ink,
             PdfPageAnnotation::Link(_) => PdfPageAnnotationType::Link,
-            PdfPageAnnotation::Popup(_) => PdfPageAnnotationType::Popup,
             PdfPageAnnotation::Square(_) => PdfPageAnnotationType::Square,
             PdfPageAnnotation::Squiggly(_) => PdfPageAnnotationType::Squiggly,
             PdfPageAnnotation::Stamp(_) => PdfPageAnnotationType::Stamp,
             PdfPageAnnotation::Strikeout(_) => PdfPageAnnotationType::Strikeout,
             PdfPageAnnotation::Text(_) => PdfPageAnnotationType::Text,
             PdfPageAnnotation::Underline(_) => PdfPageAnnotationType::Underline,
-            PdfPageAnnotation::Widget(_) => PdfPageAnnotationType::Widget,
-            PdfPageAnnotation::XfaWidget(_) => PdfPageAnnotationType::XfaWidget,
-            PdfPageAnnotation::Redacted(_) => PdfPageAnnotationType::Redacted,
             PdfPageAnnotation::Unsupported(annotation) => annotation.get_type(),
         }
     }
@@ -591,28 +539,6 @@ impl<'a> PdfPageAnnotation<'a> {
         }
     }
 
-    /// Returns an immutable reference to the underlying [PdfPagePopupAnnotation]
-    /// for this [PdfPageAnnotation], if this annotation has an annotation type of
-    /// [PdfPageAnnotationType::Popup].
-    #[inline]
-    pub fn as_popup_annotation(&self) -> Option<&PdfPagePopupAnnotation<'_>> {
-        match self {
-            PdfPageAnnotation::Popup(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
-    /// Returns a mutable reference to the underlying [PdfPagePopupAnnotation]
-    /// for this [PdfPageAnnotation], if this annotation has an annotation type of
-    /// [PdfPageAnnotationType::Popup].
-    #[inline]
-    pub fn as_popup_annotation_mut(&mut self) -> Option<&mut PdfPagePopupAnnotation<'a>> {
-        match self {
-            PdfPageAnnotation::Popup(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
     /// Returns an immutable reference to the underlying [PdfPageSquareAnnotation]
     /// for this [PdfPageAnnotation], if this annotation has an annotation type of
     /// [PdfPageAnnotationType::Square].
@@ -741,100 +667,6 @@ impl<'a> PdfPageAnnotation<'a> {
     pub fn as_underline_annotation_mut(&mut self) -> Option<&mut PdfPageUnderlineAnnotation<'a>> {
         match self {
             PdfPageAnnotation::Underline(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
-    /// Returns an immutable reference to the underlying [PdfPageWidgetAnnotation]
-    /// for this [PdfPageAnnotation], if this annotation has an annotation type of
-    /// [PdfPageAnnotationType::Widget].
-    #[inline]
-    pub fn as_widget_annotation(&self) -> Option<&PdfPageWidgetAnnotation<'_>> {
-        match self {
-            PdfPageAnnotation::Widget(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
-    /// Returns a mutable reference to the underlying [PdfPageWidgetAnnotation]
-    /// for this [PdfPageAnnotation], if this annotation has an annotation type of
-    /// [PdfPageAnnotationType::Widget].
-    #[inline]
-    pub fn as_widget_annotation_mut(&mut self) -> Option<&mut PdfPageWidgetAnnotation<'a>> {
-        match self {
-            PdfPageAnnotation::Widget(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
-    /// Returns an immutable reference to the underlying [PdfPageXfaWidgetAnnotation]
-    /// for this [PdfPageAnnotation], if this annotation has an annotation type of
-    /// [PdfPageAnnotationType::XfaWidget].
-    #[inline]
-    pub fn as_xfa_widget_annotation(&self) -> Option<&PdfPageXfaWidgetAnnotation<'_>> {
-        match self {
-            PdfPageAnnotation::XfaWidget(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
-    /// Returns a mutable reference to the underlying [PdfPageXfaWidgetAnnotation]
-    /// for this [PdfPageAnnotation], if this annotation has an annotation type of
-    /// [PdfPageAnnotationType::XfaWidget].
-    #[inline]
-    pub fn as_xfa_widget_annotation_mut(&mut self) -> Option<&mut PdfPageXfaWidgetAnnotation<'a>> {
-        match self {
-            PdfPageAnnotation::XfaWidget(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
-    /// Returns an immutable reference to the underlying [PdfPageRedactedAnnotation]
-    /// for this [PdfPageAnnotation], if this annotation has an annotation type of
-    /// [PdfPageAnnotationType::Redacted].
-    #[inline]
-    pub fn as_redacted_annotation(&self) -> Option<&PdfPageRedactedAnnotation<'_>> {
-        match self {
-            PdfPageAnnotation::Redacted(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
-    /// Returns a mutable reference to the underlying [PdfPageRedactedAnnotation]
-    /// for this [PdfPageAnnotation], if this annotation has an annotation type of
-    /// [PdfPageAnnotationType::Redacted].
-    #[inline]
-    pub fn as_redacted_annotation_mut(&mut self) -> Option<&mut PdfPageRedactedAnnotation<'a>> {
-        match self {
-            PdfPageAnnotation::Redacted(annotation) => Some(annotation),
-            _ => None,
-        }
-    }
-
-    /// Returns an immutable reference to the [PdfFormField] wrapped by this [PdfPageAnnotation],
-    /// if any.
-    ///
-    /// Only annotations of type [PdfPageAnnotationType::Widget] and [PdfPageAnnotationType::XfaWidget]
-    /// wrap form fields.
-    #[inline]
-    pub fn as_form_field(&self) -> Option<&PdfFormField<'_>> {
-        match self {
-            PdfPageAnnotation::Widget(annotation) => annotation.form_field(),
-            PdfPageAnnotation::XfaWidget(annotation) => annotation.form_field(),
-            _ => None,
-        }
-    }
-
-    /// Returns a mutable reference to the [PdfFormField] wrapped by this [PdfPageAnnotation],
-    /// if any.
-    ///
-    /// Only annotations of type [PdfPageAnnotationType::Widget] and [PdfPageAnnotationType::XfaWidget]
-    /// wrap form fields.
-    #[inline]
-    pub fn as_form_field_mut(&mut self) -> Option<&mut PdfFormField<'a>> {
-        match self {
-            PdfPageAnnotation::Widget(annotation) => annotation.form_field_mut(),
-            PdfPageAnnotation::XfaWidget(annotation) => annotation.form_field_mut(),
             _ => None,
         }
     }

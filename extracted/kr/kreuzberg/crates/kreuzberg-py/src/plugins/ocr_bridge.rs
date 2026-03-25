@@ -31,6 +31,8 @@ pub struct PythonOcrBackend {
     supported_languages: Vec<String>,
     /// Cached async flag for process_image method
     process_image_is_async: bool,
+    /// Cached async flag for process_document method
+    process_document_is_async: bool,
 }
 
 impl PythonOcrBackend {
@@ -74,11 +76,17 @@ impl PythonOcrBackend {
             .and_then(|m| m.hasattr("__await__"))
             .unwrap_or(false);
 
+        let process_document_is_async = obj
+            .getattr("process_document")
+            .and_then(|m| m.hasattr("__await__"))
+            .unwrap_or(false);
+
         Ok(Self {
             python_obj,
             name,
             supported_languages,
             process_image_is_async,
+            process_document_is_async,
         })
     }
 }
@@ -210,16 +218,16 @@ impl OcrBackend for PythonOcrBackend {
         }
     }
 
-    async fn process_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
+    async fn process_image_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
         // If hasattr fails due to GIL error, log and fall back to process_image ~keep
         let backend_name = self.name.clone();
-        let has_process_file = Python::attach(|py| {
+        let has_process_image_file = Python::attach(|py| {
             self.python_obj
                 .bind(py)
-                .hasattr("process_file")
+                .hasattr("process_image_file")
                 .map_err(|e| {
                     tracing::debug!(
-                        "WARNING: OCR backend '{}': Failed to check for process_file method due to GIL error ({}), falling back to process_image",
+                        "WARNING: OCR backend '{}': Failed to check for process_image_file method due to GIL error ({}), falling back to process_image",
                         backend_name, e
                     );
                     e
@@ -227,14 +235,14 @@ impl OcrBackend for PythonOcrBackend {
                 .unwrap_or(false)
         });
 
-        if has_process_file {
+        if has_process_image_file {
             let path_str = path.to_string_lossy().to_string();
             let language = config.language.clone();
             let backend_name = self.name.clone();
 
             let is_async = Python::attach(|py| {
                 let obj = self.python_obj.bind(py);
-                obj.getattr("process_file")
+                obj.getattr("process_image_file")
                     .and_then(|method| method.hasattr("__await__"))
                     .unwrap_or(false)
             });
@@ -247,10 +255,10 @@ impl OcrBackend for PythonOcrBackend {
                     let py_path = PyString::new(py, &path_str);
 
                     let coroutine = obj
-                        .call_method1("process_file", (py_path, language.as_str()))
+                        .call_method1("process_image_file", (py_path, language.as_str()))
                         .map_err(|e| KreuzbergError::Ocr {
                             message: format!(
-                                "Python OCR backend '{}' failed during process_file: {}",
+                                "Python OCR backend '{}' failed during process_image_file: {}",
                                 backend_name, e
                             ),
                             source: Some(Box::new(e)),
@@ -259,7 +267,7 @@ impl OcrBackend for PythonOcrBackend {
                     if !coroutine.hasattr("__await__").unwrap_or(false) {
                         return Err(KreuzbergError::Ocr {
                             message: format!(
-                                "Python OCR backend '{}' process_file marked as async but did not return a coroutine",
+                                "Python OCR backend '{}' process_image_file marked as async but did not return a coroutine",
                                 backend_name
                             ),
                             source: None,
@@ -276,7 +284,7 @@ impl OcrBackend for PythonOcrBackend {
                 })?
                 .await
                 .map_err(|e: PyErr| KreuzbergError::Ocr {
-                    message: format!("Python OCR backend '{}' async process_file failed: {}", backend_name, e),
+                    message: format!("Python OCR backend '{}' async process_image_file failed: {}", backend_name, e),
                     source: Some(Box::new(e)),
                 })?;
 
@@ -290,10 +298,10 @@ impl OcrBackend for PythonOcrBackend {
                         let py_path = PyString::new(py, &path_str);
 
                         let result = obj
-                            .call_method1("process_file", (py_path, language.as_str()))
+                            .call_method1("process_image_file", (py_path, language.as_str()))
                             .map_err(|e| KreuzbergError::Ocr {
                                 message: format!(
-                                    "Python OCR backend '{}' failed during process_file: {}",
+                                    "Python OCR backend '{}' failed during process_image_file: {}",
                                     backend_name, e
                                 ),
                                 source: Some(Box::new(e)),
@@ -312,6 +320,95 @@ impl OcrBackend for PythonOcrBackend {
             use kreuzberg::core::io;
             let bytes = io::read_file_async(path).await?;
             self.process_image(&bytes, config).await
+        }
+    }
+
+    fn supports_document_processing(&self) -> bool {
+        Python::attach(|py| {
+            self.python_obj
+                .bind(py)
+                .call_method0("supports_document_processing")
+                .and_then(|result| result.extract::<bool>())
+                .unwrap_or(false)
+        })
+    }
+
+    async fn process_document(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
+        let path_str = path.to_string_lossy().to_string();
+        let language = config.language.clone();
+        let backend_name = self.name.clone();
+
+        if self.process_document_is_async {
+            let python_obj = Python::attach(|py| self.python_obj.clone_ref(py));
+
+            let result = Python::attach(|py| {
+                let obj = python_obj.bind(py);
+                let py_path = PyString::new(py, &path_str);
+
+                let coroutine = obj
+                    .call_method1("process_document", (py_path, language.as_str()))
+                    .map_err(|e| KreuzbergError::Ocr {
+                        message: format!(
+                            "Python OCR backend '{}' failed during process_document: {}",
+                            backend_name, e
+                        ),
+                        source: Some(Box::new(e)),
+                    })?;
+
+                if !coroutine.hasattr("__await__").unwrap_or(false) {
+                    return Err(KreuzbergError::Ocr {
+                        message: format!(
+                            "Python OCR backend '{}' process_document marked as async but did not return a coroutine",
+                            backend_name
+                        ),
+                        source: None,
+                    });
+                }
+
+                pyo3_async_runtimes::tokio::into_future(coroutine).map_err(|e| KreuzbergError::Ocr {
+                    message: format!(
+                        "Failed to convert Python coroutine to Rust future for OCR backend '{}': {}",
+                        backend_name, e
+                    ),
+                    source: Some(Box::new(e)),
+                })
+            })?
+            .await
+            .map_err(|e: PyErr| KreuzbergError::Ocr {
+                message: format!(
+                    "Python OCR backend '{}' async process_document failed: {}",
+                    backend_name, e
+                ),
+                source: Some(Box::new(e)),
+            })?;
+
+            Python::attach(|py| dict_to_extraction_result(py, result.bind(py)))
+        } else {
+            let python_obj = Python::attach(|py| self.python_obj.clone_ref(py));
+
+            tokio::task::spawn_blocking(move || {
+                Python::attach(|py| {
+                    let obj = python_obj.bind(py);
+                    let py_path = PyString::new(py, &path_str);
+
+                    let result = obj
+                        .call_method1("process_document", (py_path, language.as_str()))
+                        .map_err(|e| KreuzbergError::Ocr {
+                            message: format!(
+                                "Python OCR backend '{}' failed during process_document: {}",
+                                backend_name, e
+                            ),
+                            source: Some(Box::new(e)),
+                        })?;
+
+                    dict_to_extraction_result(py, &result)
+                })
+            })
+            .await
+            .map_err(|e| KreuzbergError::Ocr {
+                message: format!("Failed to spawn blocking task for Python OCR backend: {}", e),
+                source: Some(Box::new(e)),
+            })?
         }
     }
 
@@ -392,6 +489,7 @@ fn dict_to_extraction_result(_py: Python<'_>, dict: &Bound<'_, PyAny>) -> Result
         quality_score: None,
         processing_warnings: vec![],
         annotations: None,
+        children: None,
     })
 }
 
@@ -575,7 +673,7 @@ fn extract_tables(obj: &Bound<'_, PyAny>) -> Result<Vec<kreuzberg::types::Table>
 ///
 /// # Optional Methods
 ///
-/// - `process_file(path: str, language: str) -> dict` - Custom file processing
+/// - `process_image_file(path: str, language: str) -> dict` - Custom file processing
 /// - `initialize()` - Called when backend is registered
 /// - `shutdown()` - Called when backend is unregistered
 /// - `version() -> str` - Backend version (defaults to "1.0.0")
@@ -618,9 +716,7 @@ pub fn register_ocr_backend(py: Python<'_>, backend: Py<PyAny>) -> PyResult<()> 
 
     py.detach(|| {
         let registry = get_ocr_backend_registry();
-        let mut registry = registry.write().map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to acquire write lock on OCR registry: {}", e))
-        })?;
+        let mut registry = registry.write();
 
         registry.register(arc_backend).map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(

@@ -20,6 +20,7 @@ from pulpcore.app.serializers import (
     JSONDictField,
     JSONListField,
     ModelSerializer,
+    PgpKeyFingerprintField,
     MultipleArtifactContentSerializer,
     NestedRelatedField,
     NoArtifactContentSerializer,
@@ -49,7 +50,6 @@ from .content import (
     SingleArtifactContentUploadSerializer,
 )
 
-
 __all__ = [
     "AlternateContentSourceSerializer",
     "AlternateContentSourcePathSerializer",
@@ -71,6 +71,7 @@ __all__ = [
     "JSONDictField",
     "JSONListField",
     "ModelSerializer",
+    "PgpKeyFingerprintField",
     "MultipleArtifactContentSerializer",
     "NestedRelatedField",
     "NoArtifactContentSerializer",

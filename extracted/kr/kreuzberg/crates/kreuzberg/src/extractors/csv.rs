@@ -6,6 +6,7 @@
 use crate::Result;
 use crate::core::config::ExtractionConfig;
 use crate::plugins::{DocumentExtractor, Plugin};
+use crate::text::utf8_validation;
 use crate::types::{ExtractionResult, Metadata, Table};
 use async_trait::async_trait;
 
@@ -60,7 +61,7 @@ impl DocumentExtractor for CsvExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let text = decode_csv_bytes(content);
         let delimiter = if mime_type == "text/tab-separated-values" {
@@ -71,32 +72,21 @@ impl DocumentExtractor for CsvExtractor {
 
         let rows = parse_csv(&text, delimiter);
 
-        // Build space-separated text (each row on its own line, cells separated by spaces)
-        let content_text = rows
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|cell| cell.trim())
-                    .filter(|cell| !cell.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            })
-            .filter(|line| !line.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
+        let row_count = rows.len();
+        let col_count = rows.iter().map(|r| r.len()).max().unwrap_or(0);
+        let has_header = detect_header(&rows);
+        let content_text = build_content_text(&rows, has_header);
+        let column_types = infer_column_types(&rows, has_header);
 
-        // Build markdown table
+        // Build markdown table before moving rows into Table::cells
         let markdown = build_markdown_table(&rows);
 
         let table = Table {
-            cells: rows.clone(),
+            cells: rows,
             markdown,
             page_number: 1,
             bounding_box: None,
         };
-
-        let row_count = rows.len();
-        let col_count = rows.iter().map(|r| r.len()).max().unwrap_or(0);
 
         let mut additional = ahash::AHashMap::new();
         additional.insert(
@@ -111,6 +101,25 @@ impl DocumentExtractor for CsvExtractor {
             std::borrow::Cow::Borrowed("extraction_method"),
             serde_json::Value::String("native_csv".to_string()),
         );
+        additional.insert(
+            std::borrow::Cow::Borrowed("has_header"),
+            serde_json::Value::Bool(has_header),
+        );
+        if !column_types.is_empty() {
+            additional.insert(
+                std::borrow::Cow::Borrowed("column_types"),
+                serde_json::json!(column_types),
+            );
+        }
+
+        let document = if config.include_document_structure && !table.cells.is_empty() {
+            use crate::types::builder::DocumentStructureBuilder;
+            let mut builder = DocumentStructureBuilder::new().source_format("csv");
+            builder.push_table_from_cells(&table.cells, None);
+            Some(builder.build())
+        } else {
+            None
+        };
 
         Ok(ExtractionResult {
             content: content_text,
@@ -127,12 +136,13 @@ impl DocumentExtractor for CsvExtractor {
             djot_content: None,
             elements: None,
             ocr_elements: None,
-            document: None,
+            document,
             #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
             extracted_keywords: None,
             quality_score: None,
             processing_warnings: Vec::new(),
             annotations: None,
+            children: None,
         })
     }
 
@@ -251,14 +261,14 @@ fn parse_csv(text: &str, delimiter: char) -> Vec<Vec<String>> {
 /// encoding detection. Without it, tries common encodings in order.
 fn decode_csv_bytes(content: &[u8]) -> String {
     // Fast path: valid UTF-8.
-    if let Ok(s) = std::str::from_utf8(content) {
+    if let Ok(s) = utf8_validation::from_utf8(content) {
         return s.to_string();
     }
 
     // Non-UTF-8 content: use encoding detection.
     #[cfg(feature = "quality")]
     {
-        crate::text::safe_decode(content, None)
+        crate::utils::safe_decode(content, None)
     }
 
     #[cfg(not(feature = "quality"))]
@@ -302,6 +312,157 @@ fn decode_csv_bytes_fallback(content: &[u8]) -> String {
 
     // Final fallback: lossy UTF-8 conversion
     String::from_utf8_lossy(content).into_owned()
+}
+
+/// Detect whether the first row is a header row.
+///
+/// Heuristic: the first row is considered a header if:
+/// - It has at least 2 columns
+/// - No cell in the first row looks numeric (all text/labels)
+/// - At least one cell in the data rows (rows 1-5) is numeric
+fn detect_header(rows: &[Vec<String>]) -> bool {
+    if rows.len() < 2 {
+        return false;
+    }
+
+    let first_row = &rows[0];
+    if first_row.len() < 2 {
+        return false;
+    }
+
+    // Check if first row has no numeric values
+    let first_row_has_number = first_row.iter().any(|cell| {
+        let trimmed = cell.trim();
+        !trimmed.is_empty() && trimmed.parse::<f64>().is_ok()
+    });
+
+    if first_row_has_number {
+        return false;
+    }
+
+    // Check if at least one data row has numeric values
+    let data_rows = &rows[1..rows.len().min(6)];
+
+    data_rows.iter().any(|row| {
+        row.iter().any(|cell| {
+            let trimmed = cell.trim();
+            !trimmed.is_empty() && trimmed.parse::<f64>().is_ok()
+        })
+    })
+}
+
+/// Infer column types by scanning the first N data rows.
+///
+/// Returns a vector of type strings: "numeric", "text", or "date" per column.
+fn infer_column_types(rows: &[Vec<String>], has_header: bool) -> Vec<String> {
+    if rows.is_empty() {
+        return Vec::new();
+    }
+
+    let col_count = rows.iter().map(|r| r.len()).max().unwrap_or(0);
+    if col_count == 0 {
+        return Vec::new();
+    }
+
+    let data_start = if has_header { 1 } else { 0 };
+    let scan_end = rows.len().min(data_start + 20);
+    if data_start >= scan_end {
+        return vec!["text".to_string(); col_count];
+    }
+
+    let data_rows = &rows[data_start..scan_end];
+
+    // Simple date-like pattern: YYYY-MM-DD, MM/DD/YYYY, DD.MM.YYYY
+    let date_patterns = [
+        regex::Regex::new(r"^\d{4}-\d{2}-\d{2}").ok(),
+        regex::Regex::new(r"^\d{1,2}/\d{1,2}/\d{2,4}").ok(),
+        regex::Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{2,4}").ok(),
+    ];
+
+    (0..col_count)
+        .map(|col_idx| {
+            let mut numeric_count = 0usize;
+            let mut date_count = 0usize;
+            let mut non_empty_count = 0usize;
+
+            for row in data_rows {
+                let cell = row.get(col_idx).map(|s| s.trim()).unwrap_or("");
+                if cell.is_empty() {
+                    continue;
+                }
+                non_empty_count += 1;
+
+                if cell.parse::<f64>().is_ok() {
+                    numeric_count += 1;
+                } else {
+                    for pat in &date_patterns {
+                        if let Some(re) = pat
+                            && re.is_match(cell)
+                        {
+                            date_count += 1;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if non_empty_count == 0 {
+                "text".to_string()
+            } else if numeric_count * 2 >= non_empty_count {
+                "numeric".to_string()
+            } else if date_count * 2 >= non_empty_count {
+                "date".to_string()
+            } else {
+                "text".to_string()
+            }
+        })
+        .collect()
+}
+
+/// Build text content with header-value pairs for embedding quality.
+///
+/// When a header row is detected, produces `Row N:\n  Header: Value` pairs
+/// that preserve the semantic association between column names and cell values.
+/// Empty cells are skipped. Falls back to space-separated values when no
+/// header is detected.
+fn build_content_text(rows: &[Vec<String>], has_header: bool) -> String {
+    if rows.is_empty() {
+        return String::new();
+    }
+
+    if !has_header || rows.len() < 2 {
+        return rows
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|cell| cell.trim())
+                    .filter(|cell| !cell.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+
+    let headers = &rows[0];
+    let mut sections = Vec::with_capacity(rows.len() - 1);
+
+    for (i, row) in rows[1..].iter().enumerate() {
+        let mut lines = vec![format!("Row {}:", i + 1)];
+        for (header, value) in headers.iter().zip(row.iter()) {
+            let h = header.trim();
+            let v = value.trim();
+            if !h.is_empty() && !v.is_empty() {
+                lines.push(format!("  {}: {}", h, v));
+            }
+        }
+        if lines.len() > 1 {
+            sections.push(lines.join("\n"));
+        }
+    }
+
+    sections.join("\n\n")
 }
 
 /// Build a Markdown table from parsed rows.
@@ -410,13 +571,18 @@ mod tests {
         let config = ExtractionConfig::default();
         let csv_data = b"Name,Age,City\nAlice,30,NYC\nBob,25,LA\n";
 
-        let result = extractor.extract_bytes(csv_data, "text/csv", &config).await.unwrap();
+        let result = extractor
+            .extract_bytes(csv_data, "text/csv", &config)
+            .await
+            .expect("CSV extraction should succeed");
 
-        // Content should be space-separated (not comma-separated)
-        assert!(result.content.contains("Name Age City"));
-        assert!(result.content.contains("Alice 30 NYC"));
-        assert!(result.content.contains("Bob 25 LA"));
-        assert!(!result.content.contains(','));
+        // Header-value pairs preserve semantic associations
+        assert!(result.content.contains("Name: Alice"));
+        assert!(result.content.contains("Age: 30"));
+        assert!(result.content.contains("City: NYC"));
+        assert!(result.content.contains("Name: Bob"));
+        assert!(result.content.contains("Row 1:"));
+        assert!(result.content.contains("Row 2:"));
 
         // Tables should be populated
         assert_eq!(result.tables.len(), 1);
@@ -430,7 +596,10 @@ mod tests {
         let config = ExtractionConfig::default();
         let csv_data = b"Name,Description\n\"Smith, John\",\"Has a comma, inside\"\n";
 
-        let result = extractor.extract_bytes(csv_data, "text/csv", &config).await.unwrap();
+        let result = extractor
+            .extract_bytes(csv_data, "text/csv", &config)
+            .await
+            .expect("CSV extraction with quoted fields should succeed");
 
         // Quoted fields with commas should be preserved as single fields
         assert!(result.content.contains("Smith, John"));
@@ -499,6 +668,67 @@ mod tests {
         assert_eq!(decoded, "名前,年齢,住所");
     }
 
+    #[test]
+    fn test_detect_header_with_numeric_data() {
+        let rows = vec![
+            vec!["Name".to_string(), "Age".to_string(), "Score".to_string()],
+            vec!["Alice".to_string(), "30".to_string(), "95.5".to_string()],
+            vec!["Bob".to_string(), "25".to_string(), "88.0".to_string()],
+        ];
+        assert!(detect_header(&rows), "Should detect header when data rows have numbers");
+    }
+
+    #[test]
+    fn test_detect_header_all_text() {
+        let rows = vec![
+            vec!["Name".to_string(), "City".to_string()],
+            vec!["Alice".to_string(), "NYC".to_string()],
+            vec!["Bob".to_string(), "LA".to_string()],
+        ];
+        assert!(!detect_header(&rows), "Should not detect header when all data is text");
+    }
+
+    #[test]
+    fn test_detect_header_numeric_first_row() {
+        let rows = vec![
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            vec!["4".to_string(), "5".to_string(), "6".to_string()],
+        ];
+        assert!(
+            !detect_header(&rows),
+            "Should not detect header when first row has numbers"
+        );
+    }
+
+    #[test]
+    fn test_infer_column_types_basic() {
+        let rows = vec![
+            vec!["Name".to_string(), "Age".to_string(), "Date".to_string()],
+            vec!["Alice".to_string(), "30".to_string(), "2024-01-15".to_string()],
+            vec!["Bob".to_string(), "25".to_string(), "2024-02-20".to_string()],
+        ];
+        let types = infer_column_types(&rows, true);
+        assert_eq!(types.len(), 3);
+        assert_eq!(types[0], "text");
+        assert_eq!(types[1], "numeric");
+        assert_eq!(types[2], "date");
+    }
+
+    #[tokio::test]
+    async fn test_csv_extractor_header_detection_metadata() {
+        let extractor = CsvExtractor::new();
+        let config = ExtractionConfig::default();
+        let csv_data = b"Name,Age,City\nAlice,30,NYC\nBob,25,LA\n";
+
+        let result = extractor.extract_bytes(csv_data, "text/csv", &config).await.unwrap();
+
+        let has_header = result.metadata.additional.get("has_header");
+        assert_eq!(has_header, Some(&serde_json::Value::Bool(true)));
+
+        let col_types = result.metadata.additional.get("column_types");
+        assert!(col_types.is_some(), "Should have column_types metadata");
+    }
+
     #[tokio::test]
     async fn test_csv_extractor_real_file() {
         let test_file =
@@ -512,10 +742,8 @@ mod tests {
         let result = extractor.extract_bytes(&content, "text/csv", &config).await.unwrap();
 
         assert!(!result.content.is_empty());
-        assert!(result.content.contains("Alice Johnson"));
-        assert!(result.content.contains("Engineering"));
-        // Should not have comma delimiters in the content
-        assert!(!result.content.lines().any(|line| line.contains(',')));
+        assert!(result.content.contains("Name: Alice Johnson"));
+        assert!(result.content.contains("Department: Engineering"));
         // Tables should be populated
         assert_eq!(result.tables.len(), 1);
         assert_eq!(result.tables[0].cells.len(), 11); // header + 10 data rows

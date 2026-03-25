@@ -115,8 +115,8 @@ use crate::binding::binding::SuperStyle;
 use crate::binding::binding::TypeAliasParams;
 use crate::binding::binding::TypeParameter;
 use crate::binding::binding::UnpackedPosition;
+use crate::binding::narrow::FacetSubject;
 use crate::binding::narrow::NarrowOp;
-use crate::binding::narrow::NarrowingSubject;
 use crate::binding::narrow::identifier_and_chain_for_expr;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::config::error_kind::ErrorKind;
@@ -2253,6 +2253,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     match t {
                         Type::ClassDef(_) => true,
                         Type::Type(box Type::ClassType(cls)) => cls.targs().is_empty(),
+                        // `None` is `NoneType` at runtime, which is a plain type that
+                        // doesn't support `__or__` with string literals.
+                        Type::None => true,
                         Type::TypeAlias(ta) => {
                             let ta = me.get_type_alias(&ta);
                             let t = if ta.style == TypeAliasStyle::Scoped {
@@ -2853,9 +2856,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Restriction::Bound(bound_ty) => {
                 let default_for_check = match default {
                     Type::TypeVar(tv) => tv.restriction().as_type(self.stdlib, self.heap),
-                    Type::Quantified(q) if q.is_type_var() => {
-                        q.restriction().as_type(self.stdlib, self.heap)
-                    }
+                    Type::Quantified(q) if q.is_type_var() => q.bound_type(self.stdlib, self.heap),
                     _ => default.clone(),
                 };
                 if !self.is_subset_eq(&default_for_check, bound_ty) {
@@ -2985,61 +2986,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // -------------------------------------------------------------------------
 
     /// Handle `Binding::Exhaustive` - check if a match or if/elif chain is exhaustive.
+    ///
+    /// Loops over all narrow entries. For each, resolves the subject type, optionally
+    /// extracts the facet chain type, narrows it, and checks if the result is `Never`.
+    /// If ANY entry narrows to `Never`, the construct is exhaustive.
     /// The `#[inline(never)]` annotation is intentional to reduce stack frame size.
     #[inline(never)]
     fn binding_to_type_exhaustive(
         &self,
-        subject_idx: Idx<Key>,
-        subject_range: TextRange,
-        exhaustiveness_info: &Option<(NarrowingSubject, (Box<NarrowOp>, TextRange))>,
+        narrow_entries: &[(Idx<Key>, Box<NarrowOp>, TextRange)],
     ) -> Type {
-        // If we couldn't determine narrowing info, conservatively assume not exhaustive
-        let Some((narrowing_subject, (op, narrow_range))) = exhaustiveness_info else {
-            return self.heap.mk_none();
-        };
-
-        let subject_info = self.with_type_for_exhaustiveness_check(self.get_idx(subject_idx));
-
-        // Check if this type should have exhaustiveness checked
-        if !self.should_check_exhaustiveness(subject_info.ty()) {
-            return self.heap.mk_none(); // Not exhaustible, assume fall-through
-        }
-
         let ignore_errors = self.error_swallower();
-        let narrowing_subject_info = match narrowing_subject {
-            NarrowingSubject::Name(_) => &subject_info,
-            NarrowingSubject::Facets(_, facets) => {
-                let Some(resolved_chain) = self.resolve_facet_chain(facets.chain.clone()) else {
-                    return self.heap.mk_none();
-                };
-                let type_info = TypeInfo::of_ty(self.heap.mk_any_implicit());
-                &type_info.with_narrow(resolved_chain.facets(), subject_info.into_ty())
+        for (subject_idx, op, narrow_range) in narrow_entries {
+            let subject_info = self.with_type_for_exhaustiveness_check(self.get_idx(*subject_idx));
+            let facet_chain = Self::extract_facet_from_op(op)
+                .and_then(|facets| self.resolve_facet_chain(facets.chain.clone()));
+            let narrowed = self.narrow(&subject_info, op.as_ref(), *narrow_range, &ignore_errors);
+            let mut remaining_ty = match &facet_chain {
+                Some(resolved_chain) => {
+                    self.get_facet_chain_type(&narrowed, resolved_chain, *narrow_range)
+                }
+                None => narrowed.ty().clone(),
+            };
+            self.expand_vars_mut(&mut remaining_ty);
+            if remaining_ty.is_never() {
+                return self.heap.mk_never();
             }
-        };
+        }
+        self.heap.mk_none()
+    }
 
-        let narrowed = self.narrow(
-            narrowing_subject_info,
-            op.as_ref(),
-            *narrow_range,
-            &ignore_errors,
-        );
-
-        let mut remaining_ty = match narrowing_subject {
-            NarrowingSubject::Name(_) => narrowed.ty().clone(),
-            NarrowingSubject::Facets(_, facets) => {
-                let Some(resolved_chain) = self.resolve_facet_chain(facets.chain.clone()) else {
-                    return self.heap.mk_none();
-                };
-                self.get_facet_chain_type(&narrowed, &resolved_chain, subject_range)
+    /// Walk a `NarrowOp` tree to find the first `FacetSubject`.
+    /// Returns `None` for plain name narrowing, `Some(FacetSubject)` for attribute narrowing.
+    fn extract_facet_from_op(op: &NarrowOp) -> Option<FacetSubject> {
+        match op {
+            NarrowOp::Atomic(facet, _) => facet.clone(),
+            NarrowOp::And(ops) | NarrowOp::Or(ops) => {
+                ops.iter().find_map(Self::extract_facet_from_op)
             }
-        };
-        self.expand_vars_mut(&mut remaining_ty);
-
-        // If the result is `Never` then the cases were exhaustive
-        if remaining_ty.is_never() {
-            self.heap.mk_never()
-        } else {
-            self.heap.mk_none()
         }
     }
 
@@ -3258,16 +3242,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .collect(),
                     )
                 };
-                // Cap excessively wide inferred return types to Any. During iterative
-                // SCC solving, mutual recursion can cause union widths to grow
-                // exponentially across iterations (e.g. 74 → 1247 → 1M in sympy).
-                // Capping at 20 covers 99%+ of naturally-occurring unions while
-                // preventing pathological blowup.
-                const MAX_INFERRED_RETURN_UNION_WIDTH: usize = 20;
+                // Cap inferred return unions aggressively. A small shared width
+                // budget keeps both top-level and nested inferred unions from
+                // accumulating many alternatives across recursive inference.
+                // For inferred return types, wide unions are often noisy and
+                // prone to downstream false positives even when they converge.
+                const MAX_INFERRED_RETURN_UNION_WIDTH: usize = 3;
+                // Truncate excessively deep inferred return types. During iterative
+                // SCC solving, mutually-recursive functions with self-referential return
+                // types (e.g. `dict[int, dict[int, …]]`) grow one nesting level deeper
+                // per iteration. A limit of 3 lets truncation kick in by iteration 4
+                // while keeping the global fixpoint iteration budget at 5.
+                const MAX_INFERRED_RETURN_NESTING_DEPTH: usize = 3;
                 let return_ty = if return_ty.union_width() > MAX_INFERRED_RETURN_UNION_WIDTH {
                     self.heap.mk_any_implicit()
                 } else {
-                    return_ty
+                    let any = self.heap.mk_any_implicit();
+                    return_ty.truncate_class_nesting(
+                        MAX_INFERRED_RETURN_NESTING_DEPTH,
+                        MAX_INFERRED_RETURN_UNION_WIDTH,
+                        &any,
+                    )
                 };
                 if is_generator {
                     let yield_ty = self.unions({
@@ -3659,7 +3654,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(ann) = ann.map(|idx| self.get_idx(idx)) {
             self.check_final_reassignment(&ann, range, errors);
             if let Some(want) = ann.ty(self.heap, self.stdlib) {
-                self.check_type(&got, &want, range, errors, &|| {
+                return self.check_and_return_type(got, &want, range, errors, &|| {
                     TypeCheckContext::of_kind(TypeCheckKind::UnpackedAssign)
                 });
             }
@@ -4660,11 +4655,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::ClassBodyUnknownName(x) => {
                 self.binding_to_type_class_body_unknown_name(x.0, &x.1, &x.2, errors)
             }
-            Binding::Exhaustive(x) => self.binding_to_type_exhaustive(
-                x.subject_idx,
-                x.subject_range,
-                &x.exhaustiveness_info,
-            ),
+            Binding::Exhaustive(x) => self.binding_to_type_exhaustive(&x.narrow_entries),
             Binding::Expr(ann, e) => self.binding_to_type_expr(*ann, e, errors),
             Binding::StmtExpr(e, special_export) => {
                 self.binding_to_type_stmt_expr(e, *special_export, errors)
@@ -5184,6 +5175,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ty @ Type::Dim(_) => Some(ty),
             ty @ Type::Size(_) => Some(ty),
             ty @ Type::Tensor(_) => Some(ty),
+            ty @ Type::NNModule(_) => Some(ty),
             // Handle bare class definitions (e.g., Dim, Module) by canonicalizing them to type forms
             Type::ClassDef(cls) => {
                 let canonicalized =
@@ -5207,9 +5199,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // we'll fall back to builtins.type. We can add more cases here as-needed.
     pub fn type_of(&self, ty: Type) -> Type {
         match ty {
-            Type::ClassType(cls) | Type::SelfType(cls) => {
-                self.heap.mk_class_def(cls.class_object().clone())
-            }
+            Type::ClassType(cls) => self.heap.mk_class_def(cls.class_object().clone()),
+            Type::SelfType(_) => self.heap.mk_type(ty),
             Type::Literal(lit) => self.heap.mk_class_def(
                 lit.value
                     .general_class_type(self.stdlib)
@@ -5538,12 +5529,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .collect();
                 Type::ParamSpecValue(ParamList::new(elts))
             }
-            // Special case: integer literals in type argument context with native tensor shapes
-            // These can be used for Dim-bounded parameters (e.g., LinearLayer[6, 9])
-            // We convert them directly to Type::Size to distinguish from Literal[6]
+            // Special case: integer literals in type argument or TypeVar default context with
+            // native tensor shapes. These can be used for Dim-bounded parameters
+            // (e.g., LinearLayer[6, 9]) or TypeVar defaults (e.g., class Conv2d[..., S = 1]).
+            // We convert them directly to Type::Size to distinguish from Literal[6].
             Expr::NumberLiteral(ruff_python_ast::ExprNumberLiteral { value, .. })
-                if matches!(type_form_context, TypeFormContext::TypeArgument)
-                    && self.solver().tensor_shapes =>
+                if matches!(
+                    type_form_context,
+                    TypeFormContext::TypeArgument | TypeFormContext::TypeVarDefault
+                ) && self.solver().tensor_shapes =>
             {
                 match value {
                     ruff_python_ast::Number::Int(i) => {

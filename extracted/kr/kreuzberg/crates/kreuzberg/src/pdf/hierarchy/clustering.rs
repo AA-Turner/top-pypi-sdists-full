@@ -117,10 +117,32 @@ pub fn cluster_font_sizes(blocks: &[TextBlock], k: usize) -> Result<Vec<FontSize
     // Extract font sizes once for iteration loop
     let font_sizes: Vec<f32> = blocks.iter().map(|b| b.font_size).collect();
 
+    // Pre-compute initial assignments to detect changes across iterations
+    let mut prev_assignments: Vec<usize> = vec![0; font_sizes.len()];
+    // Initialise so the first iteration always runs (sentinel: usize::MAX is never a valid cluster)
+    let mut first_iter = true;
+
     // Run k-means clustering for a fixed number of iterations
     for _ in 0..KMEANS_MAX_ITERATIONS {
-        // Assign font sizes to nearest centroid
-        let size_clusters = assign_sizes_to_centroids(&font_sizes, &centroids);
+        // Assign font sizes to nearest centroid, tracking per-element assignments
+        let (size_clusters, assignments) = assign_sizes_to_centroids_tracked(&font_sizes, &centroids);
+
+        // Early exit: if no assignment changed since the last iteration, the solution is stable
+        let assignments_changed = if first_iter {
+            first_iter = false;
+            1 // Force at least one centroid update
+        } else {
+            assignments
+                .iter()
+                .zip(prev_assignments.iter())
+                .filter(|(a, b)| a != b)
+                .count()
+        };
+        prev_assignments = assignments;
+
+        if assignments_changed == 0 {
+            break;
+        }
 
         // Update centroids
         let mut new_centroids = Vec::with_capacity(actual_k);
@@ -132,7 +154,7 @@ pub fn cluster_font_sizes(blocks: &[TextBlock], k: usize) -> Result<Vec<FontSize
             }
         }
 
-        // Check for convergence
+        // Check for convergence based on centroid movement
         let converged = centroids
             .iter()
             .zip(new_centroids.iter())
@@ -250,8 +272,9 @@ pub fn assign_heading_levels_smart(
 
 /// Helper function to assign font sizes to their nearest centroid (for iteration loop).
 ///
-/// Assigns font sizes to clusters without cloning full TextBlock objects.
-/// Used during k-means iterations to compute new centroids efficiently.
+/// Assigns font sizes to clusters without cloning full TextBlock objects, and also
+/// returns per-element cluster assignments so the caller can detect convergence via
+/// unchanged assignments (in addition to the centroid-movement threshold).
 ///
 /// # Arguments
 ///
@@ -260,9 +283,12 @@ pub fn assign_heading_levels_smart(
 ///
 /// # Returns
 ///
-/// A vector of clusters, where each cluster contains the font sizes assigned to that centroid
-fn assign_sizes_to_centroids(font_sizes: &[f32], centroids: &[f32]) -> Vec<Vec<f32>> {
+/// A tuple of:
+/// - A vector of clusters, where each cluster contains the font sizes assigned to that centroid
+/// - A vector of per-element cluster indices (same length as `font_sizes`)
+fn assign_sizes_to_centroids_tracked(font_sizes: &[f32], centroids: &[f32]) -> (Vec<Vec<f32>>, Vec<usize>) {
     let mut clusters: Vec<Vec<f32>> = vec![Vec::new(); centroids.len()];
+    let mut assignments: Vec<usize> = Vec::with_capacity(font_sizes.len());
 
     for &size in font_sizes {
         let mut min_distance = f32::INFINITY;
@@ -277,9 +303,10 @@ fn assign_sizes_to_centroids(font_sizes: &[f32], centroids: &[f32]) -> Vec<Vec<f
         }
 
         clusters[best_cluster].push(size);
+        assignments.push(best_cluster);
     }
 
-    clusters
+    (clusters, assignments)
 }
 
 /// Helper function to assign blocks to their nearest centroid.

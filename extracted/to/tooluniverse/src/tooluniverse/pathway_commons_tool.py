@@ -45,7 +45,7 @@ class PathwayCommonsTool(BaseTool):
             params["datasource"] = datasource
 
         try:
-            response = requests.get(url, params=params, timeout=30)
+            response = requests.get(url, params=params, timeout=60)
             response.raise_for_status()
             data = response.json()
 
@@ -62,7 +62,7 @@ class PathwayCommonsTool(BaseTool):
 
             return {"total_hits": data.get("numHits"), "pathways": pathways}
         except Exception as e:
-            return {"error": str(e)}
+            return {"status": "error", "error": str(e)}
 
     def get_interaction_graph(self, gene_list: List[str]) -> Dict[str, Any]:
         """
@@ -86,7 +86,7 @@ class PathwayCommonsTool(BaseTool):
         }
 
         try:
-            response = requests.get(url, params=params, timeout=30)
+            response = requests.get(url, params=params, timeout=60)
             response.raise_for_status()
 
             # SIF is tab separated lines
@@ -101,4 +101,4 @@ class PathwayCommonsTool(BaseTool):
 
             return {"format": "SIF", "interactions": interactions}
         except Exception as e:
-            return {"error": str(e)}
+            return {"status": "error", "error": str(e)}

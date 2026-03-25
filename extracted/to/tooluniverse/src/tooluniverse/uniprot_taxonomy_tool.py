@@ -40,14 +40,20 @@ class UniProtTaxonomyTool(BaseTool):
         try:
             return self._query(arguments)
         except requests.exceptions.Timeout:
-            return {"error": f"UniProt API timed out after {self.timeout}s"}
+            return {
+                "status": "error",
+                "error": f"UniProt API timed out after {self.timeout}s",
+            }
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to UniProt REST API"}
+            return {"status": "error", "error": "Failed to connect to UniProt REST API"}
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
-            return {"error": f"UniProt API HTTP {status}: taxon may not exist"}
+            return {
+                "status": "error",
+                "error": f"UniProt API HTTP {status}: taxon may not exist",
+            }
         except Exception as e:
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
     def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to appropriate endpoint."""
@@ -56,13 +62,16 @@ class UniProtTaxonomyTool(BaseTool):
         elif self.endpoint == "search":
             return self._search(arguments)
         else:
-            return {"error": f"Unknown endpoint: {self.endpoint}"}
+            return {"status": "error", "error": f"Unknown endpoint: {self.endpoint}"}
 
     def _get_taxon(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get taxonomy details by NCBI taxon ID."""
         taxon_id = arguments.get("taxon_id")
         if not taxon_id:
-            return {"error": "taxon_id is required (e.g., 9606 for human)."}
+            return {
+                "status": "error",
+                "error": "taxon_id is required (e.g., 9606 for human).",
+            }
 
         url = f"{UNIPROT_BASE_URL}/{taxon_id}"
         response = requests.get(
@@ -88,6 +97,7 @@ class UniProtTaxonomyTool(BaseTool):
         stats = data.get("statistics", {})
 
         return {
+            "status": "success",
             "data": {
                 "taxon_id": data.get("taxonId"),
                 "scientific_name": data.get("scientificName"),
@@ -109,7 +119,10 @@ class UniProtTaxonomyTool(BaseTool):
         """Search taxonomy by name."""
         query = arguments.get("query", "")
         if not query:
-            return {"error": "query is required (e.g., 'arabidopsis')."}
+            return {
+                "status": "error",
+                "error": "query is required (e.g., 'arabidopsis').",
+            }
 
         size = arguments.get("size", 10)
 
@@ -139,6 +152,7 @@ class UniProtTaxonomyTool(BaseTool):
             )
 
         return {
+            "status": "success",
             "data": results,
             "metadata": {
                 "source": "UniProt Taxonomy (rest.uniprot.org)",

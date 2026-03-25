@@ -45,14 +45,14 @@ def blip_blop_3(blop=1):
 
 @updating.updated_kwarg_default_value('type', 'cat', 'feline')
 def blip_blop_blip(type='cat'):
-    return "The %s meowed quietly" % type
+    return f"The {type} meowed quietly"
 
 
 def blip_blop_blip_unwrapped(type='cat'):
-    return "The %s meowed quietly" % type
+    return f"The {type} meowed quietly"
 
 
-class WoofWoof(object):
+class WoofWoof:
     @property
     def bark(self):
         return 'woof'
@@ -73,8 +73,7 @@ class WoofWoof(object):
         return 'super-duper'
 
 
-class KittyKat(object):
-
+class KittyKat:
     @moves.moved_method('supermeow')
     def meow(self, volume=11):
         return self.supermeow(volume)
@@ -87,7 +86,7 @@ class KittyKat(object):
         return 'supermeow'
 
 
-class Giraffe(object):
+class Giraffe:
     color = 'orange'
     colour = moves.moved_read_only_property('colour', 'color')
 
@@ -98,7 +97,7 @@ class Giraffe(object):
     heightt = moves.moved_read_only_property('heightt', 'height')
 
 
-class NewHotness(object):
+class NewHotness:
     def hot(self):
         return 'cold'
 
@@ -136,28 +135,28 @@ yellowish_sun = moves.moved_function(yellow_sun, 'yellowish_sun', __name__)
 
 
 @removals.remove()
-class EFSF(object):
+class EFSF:
     pass
 
 
 @removals.remove(category=PendingDeprecationWarning)
-class EFSF_2(object):
+class EFSF_2:
     pass
 
 
 @removals.removed_class("StarLord")
-class StarLord(object):
+class StarLord:
     def __init__(self):
         self.name = "star"
 
 
 class StarLordJr(StarLord):
     def __init__(self, name):
-        super(StarLordJr, self).__init__()
+        super().__init__()
         self.name = name
 
 
-class ThingB(object):
+class ThingB:
     @removals.remove()
     def black_tristars(self):
         pass
@@ -166,11 +165,11 @@ class ThingB(object):
     def green_tristars(self):
         return 'green'
 
-    @green_tristars.setter
+    @green_tristars.setter  # type: ignore[no-redef]
     def green_tristars(self, value):
         pass
 
-    @green_tristars.deleter
+    @green_tristars.deleter  # type: ignore[no-redef]
     def green_tristars(self):
         pass
 
@@ -205,8 +204,9 @@ class ThingB(object):
 
 OldHotness = moves.moved_class(NewHotness, 'OldHotness', __name__)
 
-OldHotness2 = moves.moved_class(NewHotness, 'OldHotness', __name__,
-                                category=PendingDeprecationWarning)
+OldHotness2 = moves.moved_class(
+    NewHotness, 'OldHotness', __name__, category=PendingDeprecationWarning
+)
 
 
 class DeprecateAnythingTest(test_base.TestCase):
@@ -244,8 +244,7 @@ class MovedInheritableClassTest(test_base.TestCase):
         self.assertEqual(PendingDeprecationWarning, w.category)
 
     def test_existing_refer_subclass(self):
-
-        class MyOldThing(OldHotness):
+        class MyOldThing(OldHotness):  # type: ignore[valid-type,misc]
             pass
 
         with warnings.catch_warnings(record=True) as capture:
@@ -357,8 +356,10 @@ class MovedMethodTest(test_base.TestCase):
         self.assertEqual(0, len(capture))
 
     def test_keeps_argspec(self):
-        self.assertEqual(inspect.getfullargspec(KittyKat.supermeow),
-                         inspect.getfullargspec(KittyKat.meow))
+        self.assertEqual(
+            inspect.getfullargspec(KittyKat.supermeow),
+            inspect.getfullargspec(KittyKat.meow),
+        )
 
 
 class RenamedKwargTest(test_base.TestCase):
@@ -416,8 +417,10 @@ class RenamedKwargTest(test_base.TestCase):
 
     def test_argspec(self):
         # The decorated function keeps its argspec.
-        self.assertEqual(inspect.getfullargspec(blip_blop_unwrapped),
-                         inspect.getfullargspec(blip_blop))
+        self.assertEqual(
+            inspect.getfullargspec(blip_blop_unwrapped),
+            inspect.getfullargspec(blip_blop),
+        )
 
 
 class UpdatedArgsTest(test_base.TestCase):
@@ -433,13 +436,15 @@ class UpdatedArgsTest(test_base.TestCase):
         with warnings.catch_warnings(record=True) as capture:
             warnings.simplefilter("always")
             self.assertEqual(
-                'The kitten meowed quietly',
-                blip_blop_blip(type='kitten'))
+                'The kitten meowed quietly', blip_blop_blip(type='kitten')
+            )
         self.assertEqual(0, len(capture))
 
     def test_argspec_preserved(self):
-        self.assertEqual(inspect.getfullargspec(blip_blop_blip_unwrapped),
-                         inspect.getfullargspec(blip_blop_blip))
+        self.assertEqual(
+            inspect.getfullargspec(blip_blop_blip_unwrapped),
+            inspect.getfullargspec(blip_blop_blip),
+        )
 
 
 class RemovalTests(test_base.TestCase):
@@ -453,10 +458,10 @@ class RemovalTests(test_base.TestCase):
         # The decorated function keeps its argspec.
         self.assertEqual(
             inspect.getfullargspec(crimson_lightning_unwrapped),
-            inspect.getfullargspec(crimson_lightning))
+            inspect.getfullargspec(crimson_lightning),
+        )
 
     def test_deprecated_kwarg(self):
-
         @removals.removed_kwarg('b')
         def f(b=2):
             return b
@@ -481,11 +486,11 @@ class RemovalTests(test_base.TestCase):
         def f_unwrapped(b=2):
             return b
 
-        self.assertEqual(inspect.getfullargspec(f_unwrapped),
-                         inspect.getfullargspec(f))
+        self.assertEqual(
+            inspect.getfullargspec(f_unwrapped), inspect.getfullargspec(f)
+        )
 
     def test_pending_deprecated_kwarg(self):
-
         @removals.removed_kwarg('b', category=PendingDeprecationWarning)
         def f(b=2):
             return b
@@ -507,7 +512,7 @@ class RemovalTests(test_base.TestCase):
             warnings.simplefilter("always")
             o = ThingB()
             self.assertEqual('green', o.green_tristars)
-            o.green_tristars = 'b'
+            o.green_tristars = 'b'  # type: ignore[method-assign]
             del o.green_tristars
         self.assertEqual(3, len(capture))
         w = capture[0]
@@ -654,8 +659,9 @@ class RemovalTests(test_base.TestCase):
     def test_pending_removed_module(self):
         with warnings.catch_warnings(record=True) as capture:
             warnings.simplefilter("always")
-            removals.removed_module(__name__,
-                                    category=PendingDeprecationWarning)
+            removals.removed_module(
+                __name__, category=PendingDeprecationWarning
+            )
         self.assertEqual(1, len(capture))
         w = capture[0]
         self.assertEqual(PendingDeprecationWarning, w.category)

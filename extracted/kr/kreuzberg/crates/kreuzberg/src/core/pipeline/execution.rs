@@ -39,8 +39,8 @@ pub(super) async fn execute_processors(
                     Err(err) => {
                         let error_msg = err.to_string();
                         result.processing_warnings.push(ProcessingWarning {
-                            source: processor_name.to_string(),
-                            message: error_msg.clone(),
+                            source: Cow::Owned(processor_name.to_string()),
+                            message: Cow::Owned(error_msg.clone()),
                         });
                         // DEPRECATED: kept for backward compatibility; will be removed in next major version.
                         result.metadata.additional.insert(
@@ -78,9 +78,7 @@ fn should_processor_run(pp_config: &Option<&crate::core::config::PostProcessorCo
 pub(super) async fn execute_validators(result: &ExtractionResult, config: &ExtractionConfig) -> Result<()> {
     let validator_registry = crate::plugins::registry::get_validator_registry();
     let validators = {
-        let registry = validator_registry
-            .read()
-            .map_err(|e| crate::KreuzbergError::Other(format!("Validator registry lock poisoned: {}", e)))?;
+        let registry = validator_registry.read();
         registry.get_all()
     };
 

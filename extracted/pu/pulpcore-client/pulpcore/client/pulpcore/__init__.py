@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.105.1"
+__version__ = "3.106.0"
 
 # Define package exports
 __all__ = [
@@ -32,6 +32,8 @@ __all__ = [
     "ContentguardsContentRedirectApi",
     "ContentguardsHeaderApi",
     "ContentguardsRbacApi",
+    "Datarepair7272Api",
+    "Datarepair7465Api",
     "DistributionsApi",
     "DistributionsArtifactsApi",
     "DistributionsOpenpgpApi",
@@ -91,6 +93,8 @@ __all__ = [
     "ContentRedirectContentGuardResponse",
     "ContentSettingsResponse",
     "ContentSummaryResponse",
+    "DataRepair7272",
+    "DataRepair7465",
     "DatabaseConnectionResponse",
     "DistributionResponse",
     "Domain",
@@ -269,6 +273,8 @@ from pulpcore.client.pulpcore.api.contentguards_composite_api import Contentguar
 from pulpcore.client.pulpcore.api.contentguards_content_redirect_api import ContentguardsContentRedirectApi as ContentguardsContentRedirectApi
 from pulpcore.client.pulpcore.api.contentguards_header_api import ContentguardsHeaderApi as ContentguardsHeaderApi
 from pulpcore.client.pulpcore.api.contentguards_rbac_api import ContentguardsRbacApi as ContentguardsRbacApi
+from pulpcore.client.pulpcore.api.datarepair7272_api import Datarepair7272Api as Datarepair7272Api
+from pulpcore.client.pulpcore.api.datarepair7465_api import Datarepair7465Api as Datarepair7465Api
 from pulpcore.client.pulpcore.api.distributions_api import DistributionsApi as DistributionsApi
 from pulpcore.client.pulpcore.api.distributions_artifacts_api import DistributionsArtifactsApi as DistributionsArtifactsApi
 from pulpcore.client.pulpcore.api.distributions_openpgp_api import DistributionsOpenpgpApi as DistributionsOpenpgpApi
@@ -332,6 +338,8 @@ from pulpcore.client.pulpcore.models.content_redirect_content_guard import Conte
 from pulpcore.client.pulpcore.models.content_redirect_content_guard_response import ContentRedirectContentGuardResponse as ContentRedirectContentGuardResponse
 from pulpcore.client.pulpcore.models.content_settings_response import ContentSettingsResponse as ContentSettingsResponse
 from pulpcore.client.pulpcore.models.content_summary_response import ContentSummaryResponse as ContentSummaryResponse
+from pulpcore.client.pulpcore.models.data_repair7272 import DataRepair7272 as DataRepair7272
+from pulpcore.client.pulpcore.models.data_repair7465 import DataRepair7465 as DataRepair7465
 from pulpcore.client.pulpcore.models.database_connection_response import DatabaseConnectionResponse as DatabaseConnectionResponse
 from pulpcore.client.pulpcore.models.distribution_response import DistributionResponse as DistributionResponse
 from pulpcore.client.pulpcore.models.domain import Domain as Domain

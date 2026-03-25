@@ -28,6 +28,7 @@ from legit_api_client.models.secret_type import SecretType
 from legit_api_client.models.severity import Severity
 from typing import Optional, Set
 from typing_extensions import Self
+from pydantic_core import to_jsonable_python
 
 class PolicyDto(BaseModel):
     """
@@ -55,7 +56,8 @@ class PolicyDto(BaseModel):
     __properties: ClassVar[List[str]] = ["id", "policyName", "issueType", "severity", "originalSeverity", "category", "title", "description", "compliances", "isDisabled", "isUserCreated", "isLocked", "targetOriginType", "targetScmTypes", "openIssuesCount", "definitionTime", "source", "remediation", "secretType"]
 
     model_config = ConfigDict(
-        populate_by_name=True,
+        validate_by_name=True,
+        validate_by_alias=True,
         validate_assignment=True,
         protected_namespaces=(),
     )
@@ -67,8 +69,7 @@ class PolicyDto(BaseModel):
 
     def to_json(self) -> str:
         """Returns the JSON representation of the model using alias"""
-        # TODO: pydantic v2: use .model_dump_json(by_alias=True, exclude_unset=True) instead
-        return json.dumps(self.to_dict())
+        return json.dumps(to_jsonable_python(self.to_dict()))
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:

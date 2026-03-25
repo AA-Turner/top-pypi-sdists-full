@@ -1,9 +1,96 @@
 //! File I/O utilities.
 //!
 //! This module provides async and sync file reading utilities with proper error handling.
+//! For large files (> 1 MiB) on non-WASM platforms, memory-mapped I/O is used to avoid
+//! heap-allocating the entire file contents, reducing memory pressure and syscall overhead.
 
 use crate::{KreuzbergError, Result};
 use std::path::Path;
+
+/// Size threshold above which memory-mapped I/O is preferred over `read()`.
+///
+/// Files smaller than this are read with a regular `read()` call since the
+/// mmap overhead (open, fstat, mmap syscalls + TLB pressure) outweighs the
+/// benefit for small allocations.
+#[cfg(not(target_arch = "wasm32"))]
+const MMAP_THRESHOLD_BYTES: u64 = 1_048_576; // 1 MiB
+
+/// An owned buffer of file bytes.
+///
+/// On non-WASM platforms this may be backed by a memory-mapped file (zero heap
+/// allocation for the file contents) or by a `Vec<u8>` for small files.
+/// On WASM it is always a `Vec<u8>`.
+///
+/// Implements `Deref<Target = [u8]>` so callers can pass `&FileBytes` as `&[u8]`
+/// without any additional copy.
+pub struct FileBytes {
+    inner: FileBytesInner,
+}
+
+enum FileBytesInner {
+    /// Regular heap-allocated buffer (small files or WASM).
+    Heap(Vec<u8>),
+    /// Memory-mapped file (large files on native platforms).
+    #[cfg(not(target_arch = "wasm32"))]
+    Mapped(memmap2::Mmap),
+}
+
+impl std::ops::Deref for FileBytes {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        match &self.inner {
+            FileBytesInner::Heap(v) => v.as_slice(),
+            #[cfg(not(target_arch = "wasm32"))]
+            FileBytesInner::Mapped(m) => m.as_ref(),
+        }
+    }
+}
+
+impl AsRef<[u8]> for FileBytes {
+    fn as_ref(&self) -> &[u8] {
+        self
+    }
+}
+
+/// Open a file and return its bytes with zero-copy for large files.
+///
+/// On non-WASM targets, files larger than [`MMAP_THRESHOLD_BYTES`] are
+/// memory-mapped so that the file contents are never copied to the heap.
+/// The mapping is read-only; the file must not be modified while the returned
+/// [`FileBytes`] is alive, which is safe for document extraction.
+///
+/// On WASM or for small files, falls back to a plain `std::fs::read`.
+///
+/// # Errors
+///
+/// Returns `KreuzbergError::Io` for any I/O failure.
+#[allow(unsafe_code)]
+pub fn open_file_bytes(path: &Path) -> Result<FileBytes> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let metadata = std::fs::metadata(path).map_err(KreuzbergError::Io)?;
+        if metadata.len() > MMAP_THRESHOLD_BYTES {
+            let file = std::fs::File::open(path).map_err(KreuzbergError::Io)?;
+            // SAFETY: The file is opened read-only and we do not write to the
+            // mapped region.  The `FileBytes` value owns the `Mmap` handle and
+            // the mapping is live for exactly as long as the bytes are accessed.
+            // External modification of the file while mapped is a documented
+            // TOCTOU risk inherent to mmap on all platforms; it is acceptable
+            // here because kreuzberg only reads user-supplied documents and
+            // makes no correctness guarantees about files modified concurrently.
+            let mmap = unsafe { memmap2::Mmap::map(&file) }.map_err(KreuzbergError::Io)?;
+            return Ok(FileBytes {
+                inner: FileBytesInner::Mapped(mmap),
+            });
+        }
+    }
+    // Small file or WASM: regular heap read.
+    let bytes = std::fs::read(path).map_err(KreuzbergError::Io)?;
+    Ok(FileBytes {
+        inner: FileBytesInner::Heap(bytes),
+    })
+}
 
 /// Read a file asynchronously.
 ///

@@ -32,7 +32,7 @@ class WikipediaSearchTool(BaseTool):
         language = arguments.get("language", "en")
 
         if not query:
-            return {"error": "`query` parameter is required."}
+            return {"status": "error", "error": "`query` parameter is required."}
 
         # Validate limit
         limit = max(1, min(limit, 50))
@@ -58,7 +58,10 @@ class WikipediaSearchTool(BaseTool):
             data = resp.json()
 
             if "error" in data:
-                return {"error": f"Wikipedia API error: {data['error']}"}
+                return {
+                    "status": "error",
+                    "error": f"Wikipedia API error: {data['error']}",
+                }
 
             search_results = data.get("query", {}).get("search", [])
             results = []
@@ -82,11 +85,13 @@ class WikipediaSearchTool(BaseTool):
 
         except requests.RequestException as e:
             return {
+                "status": "error",
                 "error": "Network/API error calling Wikipedia",
                 "reason": str(e),
             }
         except (ValueError, KeyError) as e:
             return {
+                "status": "error",
                 "error": "Failed to parse Wikipedia API response",
                 "reason": str(e),
             }
@@ -119,7 +124,7 @@ class WikipediaContentTool(BaseTool):
         max_chars = arguments.get("max_chars", 2000)
 
         if not title:
-            return {"error": "`title` parameter is required."}
+            return {"status": "error", "error": "`title` parameter is required."}
 
         api_url = self.base_url.format(language=language)
 
@@ -162,18 +167,21 @@ class WikipediaContentTool(BaseTool):
             data = resp.json()
 
             if "error" in data:
-                return {"error": f"Wikipedia API error: {data['error']}"}
+                return {
+                    "status": "error",
+                    "error": f"Wikipedia API error: {data['error']}",
+                }
 
             pages = data.get("query", {}).get("pages", {})
             if not pages:
-                return {"error": f"Article '{title}' not found."}
+                return {"status": "error", "error": f"Article '{title}' not found."}
 
             # Get first page (should only be one)
             page_id = list(pages.keys())[0]
             page_data = pages[page_id]
 
             if page_id == "-1":
-                return {"error": f"Article '{title}' not found."}
+                return {"status": "error", "error": f"Article '{title}' not found."}
 
             extract = page_data.get("extract", "")
             fullurl = page_data.get("fullurl", "")
@@ -197,11 +205,13 @@ class WikipediaContentTool(BaseTool):
 
         except requests.RequestException as e:
             return {
+                "status": "error",
                 "error": "Network/API error calling Wikipedia",
                 "reason": str(e),
             }
         except (ValueError, KeyError) as e:
             return {
+                "status": "error",
                 "error": "Failed to parse Wikipedia API response",
                 "reason": str(e),
             }

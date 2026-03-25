@@ -948,13 +948,21 @@ class RepositoriesOpenpgpKeyringApi:
         name__regex: Annotated[Optional[StrictStr], Field(description="Filter results where name matches regex value")] = None,
         name__startswith: Annotated[Optional[StrictStr], Field(description="Filter results where name starts with value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `retain_checkpoints` - Retain checkpoints * `-retain_checkpoints` - Retain checkpoints (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         remote: Optional[StrictStr] = None,
+        retain_checkpoints: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints matches value")] = None,
+        retain_checkpoints__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is greater than value")] = None,
+        retain_checkpoints__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is greater than or equal to value")] = None,
+        retain_checkpoints__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where retain_checkpoints has a null value")] = None,
+        retain_checkpoints__lt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is less than value")] = None,
+        retain_checkpoints__lte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is less than or equal to value")] = None,
+        retain_checkpoints__ne: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints not equal to value")] = None,
+        retain_checkpoints__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where retain_checkpoints is between two comma separated values")] = None,
         retain_repo_versions: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions matches value")] = None,
         retain_repo_versions__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than value")] = None,
         retain_repo_versions__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than or equal to value")] = None,
@@ -1009,7 +1017,7 @@ class RepositoriesOpenpgpKeyringApi:
         :type name__startswith: str
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `retain_checkpoints` - Retain checkpoints * `-retain_checkpoints` - Retain checkpoints (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -1023,6 +1031,22 @@ class RepositoriesOpenpgpKeyringApi:
         :type q: str
         :param remote:
         :type remote: str
+        :param retain_checkpoints: Filter results where retain_checkpoints matches value
+        :type retain_checkpoints: int
+        :param retain_checkpoints__gt: Filter results where retain_checkpoints is greater than value
+        :type retain_checkpoints__gt: int
+        :param retain_checkpoints__gte: Filter results where retain_checkpoints is greater than or equal to value
+        :type retain_checkpoints__gte: int
+        :param retain_checkpoints__isnull: Filter results where retain_checkpoints has a null value
+        :type retain_checkpoints__isnull: bool
+        :param retain_checkpoints__lt: Filter results where retain_checkpoints is less than value
+        :type retain_checkpoints__lt: int
+        :param retain_checkpoints__lte: Filter results where retain_checkpoints is less than or equal to value
+        :type retain_checkpoints__lte: int
+        :param retain_checkpoints__ne: Filter results where retain_checkpoints not equal to value
+        :type retain_checkpoints__ne: int
+        :param retain_checkpoints__range: Filter results where retain_checkpoints is between two comma separated values
+        :type retain_checkpoints__range: List[int]
         :param retain_repo_versions: Filter results where retain_repo_versions matches value
         :type retain_repo_versions: int
         :param retain_repo_versions__gt: Filter results where retain_repo_versions is greater than value
@@ -1088,6 +1112,14 @@ class RepositoriesOpenpgpKeyringApi:
             pulp_label_select=pulp_label_select,
             q=q,
             remote=remote,
+            retain_checkpoints=retain_checkpoints,
+            retain_checkpoints__gt=retain_checkpoints__gt,
+            retain_checkpoints__gte=retain_checkpoints__gte,
+            retain_checkpoints__isnull=retain_checkpoints__isnull,
+            retain_checkpoints__lt=retain_checkpoints__lt,
+            retain_checkpoints__lte=retain_checkpoints__lte,
+            retain_checkpoints__ne=retain_checkpoints__ne,
+            retain_checkpoints__range=retain_checkpoints__range,
             retain_repo_versions=retain_repo_versions,
             retain_repo_versions__gt=retain_repo_versions__gt,
             retain_repo_versions__gte=retain_repo_versions__gte,
@@ -1135,13 +1167,21 @@ class RepositoriesOpenpgpKeyringApi:
         name__regex: Annotated[Optional[StrictStr], Field(description="Filter results where name matches regex value")] = None,
         name__startswith: Annotated[Optional[StrictStr], Field(description="Filter results where name starts with value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `retain_checkpoints` - Retain checkpoints * `-retain_checkpoints` - Retain checkpoints (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         remote: Optional[StrictStr] = None,
+        retain_checkpoints: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints matches value")] = None,
+        retain_checkpoints__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is greater than value")] = None,
+        retain_checkpoints__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is greater than or equal to value")] = None,
+        retain_checkpoints__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where retain_checkpoints has a null value")] = None,
+        retain_checkpoints__lt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is less than value")] = None,
+        retain_checkpoints__lte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is less than or equal to value")] = None,
+        retain_checkpoints__ne: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints not equal to value")] = None,
+        retain_checkpoints__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where retain_checkpoints is between two comma separated values")] = None,
         retain_repo_versions: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions matches value")] = None,
         retain_repo_versions__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than value")] = None,
         retain_repo_versions__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than or equal to value")] = None,
@@ -1196,7 +1236,7 @@ class RepositoriesOpenpgpKeyringApi:
         :type name__startswith: str
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `retain_checkpoints` - Retain checkpoints * `-retain_checkpoints` - Retain checkpoints (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -1210,6 +1250,22 @@ class RepositoriesOpenpgpKeyringApi:
         :type q: str
         :param remote:
         :type remote: str
+        :param retain_checkpoints: Filter results where retain_checkpoints matches value
+        :type retain_checkpoints: int
+        :param retain_checkpoints__gt: Filter results where retain_checkpoints is greater than value
+        :type retain_checkpoints__gt: int
+        :param retain_checkpoints__gte: Filter results where retain_checkpoints is greater than or equal to value
+        :type retain_checkpoints__gte: int
+        :param retain_checkpoints__isnull: Filter results where retain_checkpoints has a null value
+        :type retain_checkpoints__isnull: bool
+        :param retain_checkpoints__lt: Filter results where retain_checkpoints is less than value
+        :type retain_checkpoints__lt: int
+        :param retain_checkpoints__lte: Filter results where retain_checkpoints is less than or equal to value
+        :type retain_checkpoints__lte: int
+        :param retain_checkpoints__ne: Filter results where retain_checkpoints not equal to value
+        :type retain_checkpoints__ne: int
+        :param retain_checkpoints__range: Filter results where retain_checkpoints is between two comma separated values
+        :type retain_checkpoints__range: List[int]
         :param retain_repo_versions: Filter results where retain_repo_versions matches value
         :type retain_repo_versions: int
         :param retain_repo_versions__gt: Filter results where retain_repo_versions is greater than value
@@ -1275,6 +1331,14 @@ class RepositoriesOpenpgpKeyringApi:
             pulp_label_select=pulp_label_select,
             q=q,
             remote=remote,
+            retain_checkpoints=retain_checkpoints,
+            retain_checkpoints__gt=retain_checkpoints__gt,
+            retain_checkpoints__gte=retain_checkpoints__gte,
+            retain_checkpoints__isnull=retain_checkpoints__isnull,
+            retain_checkpoints__lt=retain_checkpoints__lt,
+            retain_checkpoints__lte=retain_checkpoints__lte,
+            retain_checkpoints__ne=retain_checkpoints__ne,
+            retain_checkpoints__range=retain_checkpoints__range,
             retain_repo_versions=retain_repo_versions,
             retain_repo_versions__gt=retain_repo_versions__gt,
             retain_repo_versions__gte=retain_repo_versions__gte,
@@ -1322,13 +1386,21 @@ class RepositoriesOpenpgpKeyringApi:
         name__regex: Annotated[Optional[StrictStr], Field(description="Filter results where name matches regex value")] = None,
         name__startswith: Annotated[Optional[StrictStr], Field(description="Filter results where name starts with value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `retain_checkpoints` - Retain checkpoints * `-retain_checkpoints` - Retain checkpoints (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         remote: Optional[StrictStr] = None,
+        retain_checkpoints: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints matches value")] = None,
+        retain_checkpoints__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is greater than value")] = None,
+        retain_checkpoints__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is greater than or equal to value")] = None,
+        retain_checkpoints__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where retain_checkpoints has a null value")] = None,
+        retain_checkpoints__lt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is less than value")] = None,
+        retain_checkpoints__lte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints is less than or equal to value")] = None,
+        retain_checkpoints__ne: Annotated[Optional[StrictInt], Field(description="Filter results where retain_checkpoints not equal to value")] = None,
+        retain_checkpoints__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where retain_checkpoints is between two comma separated values")] = None,
         retain_repo_versions: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions matches value")] = None,
         retain_repo_versions__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than value")] = None,
         retain_repo_versions__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than or equal to value")] = None,
@@ -1383,7 +1455,7 @@ class RepositoriesOpenpgpKeyringApi:
         :type name__startswith: str
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `description` - Description * `-description` - Description (descending) * `next_version` - Next version * `-next_version` - Next version (descending) * `retain_repo_versions` - Retain repo versions * `-retain_repo_versions` - Retain repo versions (descending) * `retain_checkpoints` - Retain checkpoints * `-retain_checkpoints` - Retain checkpoints (descending) * `user_hidden` - User hidden * `-user_hidden` - User hidden (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -1397,6 +1469,22 @@ class RepositoriesOpenpgpKeyringApi:
         :type q: str
         :param remote:
         :type remote: str
+        :param retain_checkpoints: Filter results where retain_checkpoints matches value
+        :type retain_checkpoints: int
+        :param retain_checkpoints__gt: Filter results where retain_checkpoints is greater than value
+        :type retain_checkpoints__gt: int
+        :param retain_checkpoints__gte: Filter results where retain_checkpoints is greater than or equal to value
+        :type retain_checkpoints__gte: int
+        :param retain_checkpoints__isnull: Filter results where retain_checkpoints has a null value
+        :type retain_checkpoints__isnull: bool
+        :param retain_checkpoints__lt: Filter results where retain_checkpoints is less than value
+        :type retain_checkpoints__lt: int
+        :param retain_checkpoints__lte: Filter results where retain_checkpoints is less than or equal to value
+        :type retain_checkpoints__lte: int
+        :param retain_checkpoints__ne: Filter results where retain_checkpoints not equal to value
+        :type retain_checkpoints__ne: int
+        :param retain_checkpoints__range: Filter results where retain_checkpoints is between two comma separated values
+        :type retain_checkpoints__range: List[int]
         :param retain_repo_versions: Filter results where retain_repo_versions matches value
         :type retain_repo_versions: int
         :param retain_repo_versions__gt: Filter results where retain_repo_versions is greater than value
@@ -1462,6 +1550,14 @@ class RepositoriesOpenpgpKeyringApi:
             pulp_label_select=pulp_label_select,
             q=q,
             remote=remote,
+            retain_checkpoints=retain_checkpoints,
+            retain_checkpoints__gt=retain_checkpoints__gt,
+            retain_checkpoints__gte=retain_checkpoints__gte,
+            retain_checkpoints__isnull=retain_checkpoints__isnull,
+            retain_checkpoints__lt=retain_checkpoints__lt,
+            retain_checkpoints__lte=retain_checkpoints__lte,
+            retain_checkpoints__ne=retain_checkpoints__ne,
+            retain_checkpoints__range=retain_checkpoints__range,
             retain_repo_versions=retain_repo_versions,
             retain_repo_versions__gt=retain_repo_versions__gt,
             retain_repo_versions__gte=retain_repo_versions__gte,
@@ -1511,6 +1607,14 @@ class RepositoriesOpenpgpKeyringApi:
         pulp_label_select,
         q,
         remote,
+        retain_checkpoints,
+        retain_checkpoints__gt,
+        retain_checkpoints__gte,
+        retain_checkpoints__isnull,
+        retain_checkpoints__lt,
+        retain_checkpoints__lte,
+        retain_checkpoints__ne,
+        retain_checkpoints__range,
         retain_repo_versions,
         retain_repo_versions__gt,
         retain_repo_versions__gte,
@@ -1537,6 +1641,7 @@ class RepositoriesOpenpgpKeyringApi:
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
             'pulp_id__in': 'csv',
+            'retain_checkpoints__range': 'csv',
             'retain_repo_versions__range': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
@@ -1628,6 +1733,38 @@ class RepositoriesOpenpgpKeyringApi:
         if remote is not None:
             
             _query_params.append(('remote', remote))
+            
+        if retain_checkpoints is not None:
+            
+            _query_params.append(('retain_checkpoints', retain_checkpoints))
+            
+        if retain_checkpoints__gt is not None:
+            
+            _query_params.append(('retain_checkpoints__gt', retain_checkpoints__gt))
+            
+        if retain_checkpoints__gte is not None:
+            
+            _query_params.append(('retain_checkpoints__gte', retain_checkpoints__gte))
+            
+        if retain_checkpoints__isnull is not None:
+            
+            _query_params.append(('retain_checkpoints__isnull', retain_checkpoints__isnull))
+            
+        if retain_checkpoints__lt is not None:
+            
+            _query_params.append(('retain_checkpoints__lt', retain_checkpoints__lt))
+            
+        if retain_checkpoints__lte is not None:
+            
+            _query_params.append(('retain_checkpoints__lte', retain_checkpoints__lte))
+            
+        if retain_checkpoints__ne is not None:
+            
+            _query_params.append(('retain_checkpoints__ne', retain_checkpoints__ne))
+            
+        if retain_checkpoints__range is not None:
+            
+            _query_params.append(('retain_checkpoints__range', retain_checkpoints__range))
             
         if retain_repo_versions is not None:
             

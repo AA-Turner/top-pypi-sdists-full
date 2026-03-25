@@ -71,10 +71,12 @@ class SensitiveToolGuardMiddleware(Middleware):
         self,
         conversation_id: Optional[str] = None,
         callbacks: Optional[Dict[str, Callable]] = None,
+        auto_approve: bool = False,
         **kwargs,
     ):
         super().__init__(conversation_id=conversation_id, callbacks=callbacks, **kwargs)
         self._wrapped_tools_cache: Dict[int, BaseTool] = {}
+        self._auto_approve = auto_approve
 
     def get_tools(self) -> List[BaseTool]:
         return []
@@ -238,18 +240,30 @@ class SensitiveToolGuardMiddleware(Middleware):
             'tool_args_raw': display_args,
         }
 
-    @staticmethod
-    def _review_sensitive_tool_call(sensitive_tool_context: dict[str, Any]) -> dict[str, str]:
+    def _review_sensitive_tool_call(self, sensitive_tool_context: dict[str, Any]) -> dict[str, str]:
+        # Auto-approve when the project secret allows it (API-only flows).
+        if self._auto_approve:
+            logger.info(
+                "[HITL] Auto-approving '%s' (auto_approve_sensitive_actions enabled)",
+                sensitive_tool_context['tool_name'],
+            )
+            return {'action': 'approve', 'value': ''}
+
         # Auto-approve tools that the user already authorized in this
         # execution batch.  The context variable is activated by the
         # LLM node *after* the first iteration so replay interrupts
         # consume their checkpoint values correctly.
+        # Uses qualified identity (toolkit_name.tool_name) so that approving
+        # e.g. jira.create_issue does NOT auto-approve github.create_issue.
+        from ..toolkits.security import qualified_tool_identity
         tool_name = sensitive_tool_context['tool_name']
+        toolkit_name = sensitive_tool_context.get('toolkit_name')
+        qualified = qualified_tool_identity(tool_name, toolkit_name)
         approved = _HITL_APPROVED_TOOLS.get(frozenset())
-        if tool_name in approved:
+        if qualified in approved:
             logger.info(
                 "[HITL] Auto-approving '%s' (already authorized in this batch)",
-                tool_name,
+                qualified,
             )
             return {'action': 'approve', 'value': ''}
 

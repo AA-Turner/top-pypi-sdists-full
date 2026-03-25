@@ -7,8 +7,6 @@ use crate::bindgen::{
 };
 use crate::bindings::PdfiumLibraryBindings;
 use crate::error::PdfiumError;
-use crate::pdf::document::page::field::PdfFormFieldCommon;
-use crate::pdf::document::page::field::PdfFormFieldType;
 use crate::pdf::document::pages::PdfPages;
 use std::collections::HashMap;
 use std::ops::DerefMut;
@@ -193,74 +191,11 @@ impl<'a> PdfForm<'a> {
     ///
     /// This function assumes that all form fields in the document have unique field names
     /// except for radio button and checkbox control groups.
-    pub fn field_values(&self, pages: &'a PdfPages<'a>) -> HashMap<String, Option<String>> {
-        let mut result = HashMap::new();
-
-        let field_value_true = Some("true".to_string());
-
-        let field_value_false = Some("false".to_string());
-
-        for page in pages.iter() {
-            for annotation in page.annotations().iter() {
-                if let Some(field) = annotation.as_form_field() {
-                    let field_type = field.field_type();
-
-                    let field_value = match field_type {
-                        PdfFormFieldType::Checkbox => {
-                            if let Some(checkbox_field) = field.as_checkbox_field() {
-                                if checkbox_field.is_checked().unwrap_or(false) {
-                                    field_value_true.clone()
-                                } else {
-                                    field_value_false.clone()
-                                }
-                            } else {
-                                None
-                            }
-                        }
-                        PdfFormFieldType::ComboBox => field.as_combo_box_field().and_then(|f| f.value()).or(None),
-                        PdfFormFieldType::ListBox => field.as_list_box_field().and_then(|f| f.value()).or(None),
-                        PdfFormFieldType::RadioButton => {
-                            if let Some(radio_field) = field.as_radio_button_field() {
-                                if radio_field.is_checked().unwrap_or(false) {
-                                    radio_field.group_value()
-                                } else {
-                                    field_value_false.clone()
-                                }
-                            } else {
-                                None
-                            }
-                        }
-                        PdfFormFieldType::Text => field.as_text_field().and_then(|f| f.value()).or(None),
-                        PdfFormFieldType::PushButton | PdfFormFieldType::Signature | PdfFormFieldType::Unknown => None,
-                    };
-
-                    // A group of checkbox or radio button controls all share the same name, so
-                    // as we iterate over the controls, the value of the group will be updated.
-                    // Only the value of the last control in the group will be captured.
-                    // This isn't the behaviour we want; we prefer to capture the value of
-                    // a checked control in preference to an unchecked control.
-
-                    let field_name = field.name().unwrap_or_default();
-
-                    if (field_type == PdfFormFieldType::Checkbox || field_type == PdfFormFieldType::RadioButton)
-                        && result.contains_key(&field_name)
-                    {
-                        // Only overwrite an existing entry for this control group if
-                        // this field is set.
-
-                        if field_value != field_value_false {
-                            result.insert(field_name, field_value);
-                        }
-                    } else {
-                        // For all other control types, we assume that field names are unique.
-
-                        result.insert(field_name, field_value);
-                    }
-                }
-            }
-        }
-
-        result
+    ///
+    /// Note: form field extraction via widget annotations is not supported in this build.
+    /// Returns an empty map.
+    pub fn field_values(&self, _pages: &'a PdfPages<'a>) -> HashMap<String, Option<String>> {
+        HashMap::new()
     }
 }
 

@@ -143,20 +143,46 @@ pub struct ExtractionResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub annotations: Option<Vec<super::annotations::PdfAnnotation>>,
+
+    /// Nested extraction results from archive contents.
+    ///
+    /// When extracting archives, each processable file inside produces its own
+    /// full extraction result. Set to `None` for non-archive formats.
+    /// Use `max_archive_depth` in config to control recursion depth.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub children: Option<Vec<ArchiveEntry>>,
+}
+
+/// A single file extracted from an archive.
+///
+/// When archives (ZIP, TAR, 7Z, GZIP) are extracted with recursive extraction
+/// enabled, each processable file produces its own full `ExtractionResult`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+pub struct ArchiveEntry {
+    /// Archive-relative file path (e.g. "folder/document.pdf").
+    pub path: String,
+    /// Detected MIME type of the file.
+    pub mime_type: String,
+    /// Full extraction result for this file.
+    pub result: Box<ExtractionResult>,
 }
 
 /// A non-fatal warning from a processing pipeline stage.
 ///
 /// Captures errors from optional features that don't prevent extraction
 /// but may indicate degraded results.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
 pub struct ProcessingWarning {
     /// The pipeline stage or feature that produced this warning
     /// (e.g., "embedding", "chunking", "language_detection", "output_format").
-    pub source: String,
+    #[cfg_attr(feature = "api", schema(value_type = String))]
+    pub source: Cow<'static, str>,
     /// Human-readable description of what went wrong.
-    pub message: String,
+    #[cfg_attr(feature = "api", schema(value_type = String))]
+    pub message: Cow<'static, str>,
 }
 
 /// A text chunk with optional embedding and metadata.

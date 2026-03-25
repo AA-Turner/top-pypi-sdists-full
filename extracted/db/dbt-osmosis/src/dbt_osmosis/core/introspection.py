@@ -1,3 +1,4 @@
+# pyright: reportPrivateImportUsage=false, reportOptionalMemberAccess=false, reportUnknownMemberType=false
 from __future__ import annotations
 
 import json
@@ -12,10 +13,13 @@ from enum import Enum
 from itertools import chain
 from pathlib import Path
 
+# pyright: reportPrivateImportUsage=false
 from dbt.adapters.base.column import Column as BaseColumn
 from dbt.adapters.base.relation import BaseRelation
-from dbt.contracts.graph.nodes import ResultNode
-from dbt.contracts.results import CatalogArtifact, CatalogResults, ColumnMetadata
+from dbt.adapters.exceptions.compilation import ApproximateMatchError
+from dbt.artifacts.schemas.catalog import CatalogArtifact, CatalogResults  # pyright: ignore[reportPrivateImportUsage]
+from dbt.contracts.graph.nodes import ResultNode  # pyright: ignore[reportPrivateImportUsage]
+from dbt_common.contracts.metadata import ColumnMetadata  # pyright: ignore[reportPrivateImportUsage]
 from dbt.task.docs.generate import Catalog
 
 from dbt_osmosis.core import logger
@@ -234,7 +238,7 @@ class ConfigMetaSource(ConfigurationSource):
         if not hasattr(self._node, "config") or not hasattr(self._node.config, "meta"):
             return None
 
-        config_meta = self._node.config.meta
+        config_meta = getattr(self._node.config, "meta", None)
         if not isinstance(config_meta, dict):
             return None
 
@@ -869,7 +873,7 @@ class SettingsResolver:
 
         # Check config.meta (dbt 1.10+)
         if hasattr(node, "config") and hasattr(node.config, "meta"):
-            config_meta = node.config.meta
+            config_meta = getattr(node.config, "meta", None)
             if isinstance(config_meta, dict):
                 result = check_dict(config_meta)
                 if result:
@@ -905,66 +909,6 @@ class SettingsResolver:
 
         logger.debug(":gear: No YAML path template found in node config")
         return None
-
-
-# Global resolver instance for backward compatibility
-_resolver = SettingsResolver()
-
-
-def _get_setting_for_node(
-    opt: str,
-    /,
-    node: ResultNode | None = None,
-    col: str | None = None,
-    *,
-    fallback: t.Any | None = None,
-) -> t.Any:
-    """Get a configuration value for a dbt node from the node's meta and config.
-
-    DEPRECATED: Use SettingsResolver directly instead. This function is kept for
-    backward compatibility and will be removed in a future version.
-
-    models: # dbt_project
-      project:
-        staging:
-          +dbt-osmosis: path/spec.yml
-          +dbt-osmosis-options:
-            string-length: true
-            numeric-precision-and-scale: true
-            skip-add-columns: true
-          +dbt-osmosis-skip-add-tags: true
-
-    models: # schema
-      - name: foo
-        meta:
-          string-length: false
-          prefix: user_ # we strip this prefix to inherit from columns upstream, useful in staging models that prefix everything
-        columns:
-          - bar:
-            meta:
-              dbt-osmosis-skip-meta-merge: true # per-column options
-              dbt-osmosis-options:
-                output-to-lower: true
-
-    {{ config(..., dbt_osmosis_options={"prefix": "account_"}) }} -- sql
-
-    We check for
-    From node column meta
-    - <key>
-    - dbt-osmosis-<key>
-    - dbt-osmosis-options.<key>
-    From node meta
-    - <key>
-    - dbt-osmosis-<key>
-    - dbt-osmosis-options.<key>
-    From node config
-    - dbt-osmosis-<key>
-    - dbt-osmosis-options.<key>
-    - dbt_osmosis_<key> # allows use in {{ config(...) }} by being a valid python identifier
-    - dbt_osmosis_options.<key> # allows use in {{ config(...) }} by being a valid python identifier
-    """
-    # For backward compatibility, use the resolver directly
-    return _resolver.resolve(opt, node, col, fallback=fallback)
 
 
 _COLUMN_LIST_CACHE: dict[str, OrderedDict[str, ColumnMetadata]] = {}
@@ -1016,11 +960,11 @@ def normalize_column_name(column: str, credentials_type: str) -> str:
 
 
 def _maybe_use_precise_dtype(
-    col: BaseColumn,
+    col: BaseColumn | ColumnMetadata,
     settings: t.Any,
     node: ResultNode | None = None,
 ) -> str:
-    """Use the precise data type if enabled in the settings."""
+    """Use precise data type if enabled in settings."""
     use_num_prec = _get_setting_for_node(
         "numeric-precision-and-scale",
         node,
@@ -1033,12 +977,17 @@ def _maybe_use_precise_dtype(
         col.name,
         fallback=settings.string_length,
     )
-    if (col.is_numeric() and use_num_prec) or (col.is_string() and use_chr_prec):
-        logger.debug(":ruler: Using precise data type => %s", col.data_type)
-        return col.data_type
-    if hasattr(col, "mode"):
-        return col.data_type
-    return col.dtype
+    # Handle BaseColumn from introspection (has is_numeric/is_string methods)
+    # vs ColumnMetadata from catalog (no such methods, type already set)
+    if isinstance(col, BaseColumn):
+        if (col.is_numeric() and use_num_prec) or (col.is_string() and use_chr_prec):
+            logger.debug(":ruler: Using precise data type => %s", col.data_type)
+            return col.data_type
+        if hasattr(col, "mode"):
+            return col.data_type
+        return col.dtype
+    # ColumnMetadata from catalog - type is already set correctly
+    return col.type
 
 
 def _get_setting_for_node(
@@ -1152,11 +1101,17 @@ def get_columns(
             relation,  # pyright: ignore[reportArgumentType]
         )
 
-    rendered_relation = relation.render()
+    relation_any = t.cast(t.Any, relation)
+    if relation:
+        renderer = getattr(relation_any, "render", None)
+        rendered_relation = t.cast("str", renderer()) if callable(renderer) else str(relation)
+    else:
+        rendered_relation = ""
+
     with _COLUMN_LIST_CACHE_LOCK:
         if rendered_relation in _COLUMN_LIST_CACHE:
             logger.debug(":blue_book: Column list cache HIT => %s", rendered_relation)
-            return _COLUMN_LIST_CACHE[rendered_relation]
+            return _COLUMN_LIST_CACHE[rendered_relation]  # pyright: ignore[reportOptionalMemberAccess]
 
     logger.info(":mag_right: Collecting columns for table => %s", rendered_relation)
     index = 0
@@ -1165,8 +1120,10 @@ def get_columns(
         nonlocal index
 
         columns = [c]
-        if hasattr(c, "flatten"):
-            columns.extend(c.flatten())  # pyright: ignore[reportUnknownMemberType]
+        flattener = getattr(t.cast(t.Any, c), "flatten", None)
+        if callable(flattener):
+            for flattened in t.cast(t.Iterable[t.Any], flattener()):
+                columns.append(flattened)
 
         for column in columns:
             if any(re.match(b, column.name) for b in context.ignore_patterns):
@@ -1198,9 +1155,21 @@ def get_columns(
 
     if catalog := context.read_catalog():
         logger.debug(":blue_book: Catalog found => Checking for ref => %s", rendered_relation)
+        matcher = getattr(relation_any, "matches", None)
+
+        def matches_relation(entry: t.Any) -> bool:
+            if not callable(matcher):
+                return False
+            try:
+                return bool(matcher(*entry.key()))
+            except ApproximateMatchError:
+                # For Snowflake and other case-insensitive databases, an approximate
+                # match (case difference) IS the same relation, so treat as match
+                return True
+
         catalog_entry = _find_first(
             chain(catalog.nodes.values(), catalog.sources.values()),
-            lambda c: relation.matches(*c.key()),
+            matches_relation,
         )
         if catalog_entry:
             logger.info(
@@ -1247,8 +1216,8 @@ def _load_catalog(settings: t.Any) -> CatalogResults | None:
 
 # NOTE: this is mostly adapted from dbt-core with some cruft removed, strict pyright is not a fan of dbt's shenanigans
 def _generate_catalog(context: t.Any) -> CatalogResults | None:
-    """Generate the dbt catalog file for the project."""
-    import dbt.utils as dbt_utils
+    """Generate dbt catalog file for the project."""
+    import dbt.utils as dbt_utils  # pyright: ignore[reportPrivateImportUsage]
 
     if context.config.disable_introspection:
         logger.warning(":warning: Introspection is disabled, cannot generate catalog.")
@@ -1281,7 +1250,7 @@ def _generate_catalog(context: t.Any) -> CatalogResults | None:
         logger.warning(":warning: Exceptions encountered in get_filtered_catalog => %s", errors)
 
     nodes, sources = catalog.make_unique_id_map(context.manifest)
-    artifact = CatalogArtifact.from_results(
+    artifact = CatalogArtifact.from_results(  # pyright: ignore[reportOptionalMemberAccess,reportUnknownMemberType]
         nodes=nodes,
         sources=sources,
         generated_at=datetime.now(timezone.utc),

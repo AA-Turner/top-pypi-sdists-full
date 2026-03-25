@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 from plato.chronos.errors import raise_for_status
-from plato.chronos.models import HillclimbRunResponse
+from plato.chronos.models import HillclimbRunDetailResponse
 
 
 def _build_request_args(
@@ -32,7 +32,7 @@ def sync(
     client: httpx.Client,
     public_id: str,
     x_api_key: str | None = None,
-) -> HillclimbRunResponse:
+) -> HillclimbRunDetailResponse:
     """Get Run"""
 
     request_args = _build_request_args(
@@ -42,14 +42,14 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return HillclimbRunResponse.model_validate(response.json())
+    return HillclimbRunDetailResponse.model_validate(response.json())
 
 
 async def asyncio(
     client: httpx.AsyncClient,
     public_id: str,
     x_api_key: str | None = None,
-) -> HillclimbRunResponse:
+) -> HillclimbRunDetailResponse:
     """Get Run"""
 
     request_args = _build_request_args(
@@ -59,4 +59,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return HillclimbRunResponse.model_validate(response.json())
+    return HillclimbRunDetailResponse.model_validate(response.json())

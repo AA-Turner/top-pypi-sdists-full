@@ -96,6 +96,9 @@ class AgmetPlotter:
         sup_title="",
         fname="",
         production_pct=None,
+        country=None,
+        region=None,
+        boundary_gdf=None,
     ):
         self.df = df.copy()
         self.names_cols = names_cols
@@ -108,6 +111,9 @@ class AgmetPlotter:
         self.sup_title = sup_title
         self.fname = fname
         self.production_pct = production_pct
+        self.country = country
+        self.region = region
+        self.boundary_gdf = boundary_gdf
 
         self.use_forecast = False
         self.color_list = get_colors("tableau", only_colors=True)
@@ -217,8 +223,8 @@ class AgmetPlotter:
             if is_ndvi and y == self.frcast_yr:
                 _yld = np.nan
 
-            vals = _cur[vi_var].values
-            vals = bn.move_mean(vals, window=self.window, min_count=1)
+            vals = _cur.groupby("doy")[vi_var].mean().reindex(index=self.df_current["doy"])
+            vals = bn.move_mean(vals.values, window=self.window, min_count=1)
             vals = _lowess(vals, range(len(vals)), frac=1.0 / 5.0, it=3)
 
             label = str(y)
@@ -396,9 +402,9 @@ class AgmetPlotter:
         import matplotlib.image as image
 
         im = image.imread(str(self.logos[0]))
-        fig.figimage(im, 3800, 2270, zorder=3)
+        fig.figimage(im, 150, 2270, zorder=3)
         im = image.imread(str(self.logos[1]))
-        fig.figimage(im, 4100, 2300, zorder=3)
+        fig.figimage(im, 450, 2300, zorder=3)
 
         fig.text(0.83, 0.25, "Data Sources\n", fontsize=14, fontweight="bold")
         precip_str = (
@@ -421,8 +427,8 @@ class AgmetPlotter:
 
         if self.production_pct is not None and not np.isnan(self.production_pct):
             fig.text(
-                0.67, 0.065,
-                f"{self.production_pct:.1f}% of national production (5 year avg)",
+                0.83, 0.09,
+                f"{self.production_pct:.1f}% of national production (5 yr avg)",
                 fontsize=9, fontstyle="italic",
             )
 
@@ -441,6 +447,53 @@ class AgmetPlotter:
         leg.set_title("Legend", prop={"size": 14, "weight": "heavy"})
         leg.get_frame().set_linewidth(0.0)
         leg._legend_box.align = "left"
+
+    def _add_inset_map(self, fig):
+        """Draw a small country map with the current region highlighted in black."""
+        if self.boundary_gdf is None or self.boundary_gdf.empty:
+            return
+        try:
+            gdf = self.boundary_gdf
+            name_col = next(
+                (c for c in ["ADM1_NAME", "ADMIN1", "ADM2_NAME", "NAME_1", "name"] if c in gdf.columns),
+                None,
+            )
+            if name_col is None:
+                return
+
+            # Derive available space from actual subplot layout
+            all_axes = fig.get_axes()
+            subplot_top = max(a.get_position().y1 for a in all_axes)
+            max_w = all_axes[1].get_position().x0 if len(all_axes) > 1 else all_axes[0].get_position().width
+
+            available_h = 0.98 - subplot_top
+            h = available_h * 0.95
+
+            bounds = gdf.total_bounds
+            dx, dy = bounds[2] - bounds[0], bounds[3] - bounds[1]
+            if dx == 0 or dy == 0:
+                return
+            geo_aspect = dx / dy
+            w = h * geo_aspect
+
+            if w > max_w:
+                w = max_w
+                h = w / geo_aspect
+
+            ax_map = fig.add_axes([0.995 - w, 0.98 - h, w, h])
+
+            # Draw regions with thin edges, then country outline with thick edge
+            gdf.plot(ax=ax_map, color="lightgray", edgecolor="gray", linewidth=0.3)
+            gdf.dissolve().boundary.plot(ax=ax_map, color="black", linewidth=1.0)
+
+            if self.region:
+                region_clean = self.region.replace("_", " ").lower()
+                mask = gdf[name_col].str.lower().str.replace("_", " ") == region_clean
+                gdf[mask].plot(ax=ax_map, color="black", edgecolor="black")
+
+            ax_map.set_axis_off()
+        except Exception:
+            pass
 
     def plot(self):
         """Create and save the multi-panel agmet figure."""
@@ -611,6 +664,7 @@ class AgmetPlotter:
         # Final layout and save
         plt.tight_layout()
         plt.subplots_adjust(top=0.88)
+        self._add_inset_map(fig)
         plt.savefig(self.dir_out / self.fname, dpi=constants.DPI)
         plt.close()
 

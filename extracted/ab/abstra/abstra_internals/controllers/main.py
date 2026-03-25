@@ -2428,6 +2428,109 @@ class MainController:
             if not hand_off:
                 conn.close()
 
+    def run_page(self, id: str, timeout: int = 30000):
+        """
+        Run a page stage for debugging using a headless browser.
+
+        This method triggers the execution of a page stage and opens it in a
+        headless Playwright browser to capture the rendered HTML, console logs,
+        and network requests. It is useful for debugging pages without needing
+        to open a browser manually.
+
+        Args:
+            id (str): Unique identifier of the page stage to run.
+            timeout (int): Maximum time in milliseconds to wait for the page to load. Defaults to 30000 (30 seconds).
+
+        Returns:
+            dict: Contains the page response body, status code, console logs,
+                  and network requests captured during rendering.
+
+        Copywritings:
+            Run a page for debugging
+            Running a page for debugging with headless browser...
+        """
+        import playwright.sync_api
+
+        page = self.get_page_stage(id)
+        if not page:
+            raise Exception(f"Page with id {id} not found")
+
+        port = Settings.server_port
+        page_path = page.path
+        page_url = (
+            f"http://localhost:{port}/_page/{page_path}"
+            if page_path
+            else f"http://localhost:{port}/_page-home"
+        )
+
+        console_logs = []
+        network_requests = []
+
+        pw_context = playwright.sync_api.sync_playwright()
+        pw = pw_context.start()
+        try:
+            browser = pw.chromium.launch(headless=True)
+            context = browser.new_context()
+            browser_page = context.new_page()
+
+            def on_console(msg):
+                console_logs.append(
+                    {
+                        "type": msg.type,
+                        "text": msg.text,
+                        "location": {
+                            "url": msg.location.get("url", ""),
+                            "line": msg.location.get("lineNumber", 0),
+                            "column": msg.location.get("columnNumber", 0),
+                        }
+                        if msg.location
+                        else {},
+                    }
+                )
+
+            def on_request(request):
+                network_requests.append(
+                    {
+                        "method": request.method,
+                        "url": request.url,
+                        "resource_type": request.resource_type,
+                        "post_data": request.post_data[:500]
+                        if request.post_data
+                        else None,
+                    }
+                )
+
+            def on_response(response):
+                for req in network_requests:
+                    if req["url"] == response.url:
+                        req["status"] = response.status
+                        req["status_text"] = response.status_text
+                        break
+
+            browser_page.on("console", on_console)
+            browser_page.on("request", on_request)
+            browser_page.on("response", on_response)
+
+            response = browser_page.goto(
+                page_url, wait_until="networkidle", timeout=timeout
+            )
+
+            body = browser_page.content()
+            status = response.status if response else 0
+
+            browser_page.close()
+            context.close()
+            browser.close()
+        finally:
+            pw_context.__exit__(None, None, None)
+
+        return {
+            "status": status,
+            "body": body,
+            "console_logs": console_logs,
+            "network_requests": network_requests,
+        }
+
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
         """
         Run a code snippet immediately.

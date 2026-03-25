@@ -18,6 +18,7 @@ from itertools import chain
 
 from django.conf import settings
 from django.contrib.postgres.fields import HStoreField
+from django.contrib.postgres.indexes import GinIndex
 from django.core import validators
 from django.db import IntegrityError, models, transaction
 from django.forms.models import model_to_dict
@@ -258,6 +259,9 @@ class Artifact(HandleTempFilesMixin, BaseModel):
             ("sha384", "pulp_domain"),
             ("sha512", "pulp_domain"),
         )
+        indexes = [
+            models.Index(fields=["pulp_domain", "size"], name="artifact_domain_size_index"),
+        ]
 
     @hook(BEFORE_SAVE)
     def before_save(self):
@@ -552,6 +556,9 @@ class Content(MasterModel, QueryMixin):
     class Meta:
         verbose_name_plural = "content"
         unique_together = ()
+        indexes = [
+            GinIndex(fields=["pulp_labels"], name="pulp_labels_gin_index"),
+        ]
         permissions = [
             ("manage_content_labels", "Can manage content-labels"),
         ]

@@ -6,6 +6,9 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_flow_by_path_response_200_value_modules_item_debouncing import (
+        GetFlowByPathResponse200ValueModulesItemDebouncing,
+    )
     from ..models.get_flow_by_path_response_200_value_modules_item_mock import (
         GetFlowByPathResponse200ValueModulesItemMock,
     )
@@ -81,6 +84,8 @@ class GetFlowByPathResponse200ValueModulesItem:
         continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
         retry (Union[Unset, GetFlowByPathResponse200ValueModulesItemRetry]): Retry configuration for failed module
             executions
+        debouncing (Union[Unset, GetFlowByPathResponse200ValueModulesItemDebouncing]): Debounce configuration for this
+            step (EE only)
     """
 
     id: str
@@ -109,6 +114,7 @@ class GetFlowByPathResponse200ValueModulesItem:
     priority: Union[Unset, float] = UNSET
     continue_on_error: Union[Unset, bool] = UNSET
     retry: Union[Unset, "GetFlowByPathResponse200ValueModulesItemRetry"] = UNSET
+    debouncing: Union[Unset, "GetFlowByPathResponse200ValueModulesItemDebouncing"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -195,6 +201,10 @@ class GetFlowByPathResponse200ValueModulesItem:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        debouncing: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.debouncing, Unset):
+            debouncing = self.debouncing.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -231,11 +241,16 @@ class GetFlowByPathResponse200ValueModulesItem:
             field_dict["continue_on_error"] = continue_on_error
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if debouncing is not UNSET:
+            field_dict["debouncing"] = debouncing
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_flow_by_path_response_200_value_modules_item_debouncing import (
+            GetFlowByPathResponse200ValueModulesItemDebouncing,
+        )
         from ..models.get_flow_by_path_response_200_value_modules_item_mock import (
             GetFlowByPathResponse200ValueModulesItemMock,
         )
@@ -432,6 +447,13 @@ class GetFlowByPathResponse200ValueModulesItem:
         else:
             retry = GetFlowByPathResponse200ValueModulesItemRetry.from_dict(_retry)
 
+        _debouncing = d.pop("debouncing", UNSET)
+        debouncing: Union[Unset, GetFlowByPathResponse200ValueModulesItemDebouncing]
+        if isinstance(_debouncing, Unset):
+            debouncing = UNSET
+        else:
+            debouncing = GetFlowByPathResponse200ValueModulesItemDebouncing.from_dict(_debouncing)
+
         get_flow_by_path_response_200_value_modules_item = cls(
             id=id,
             value=value,
@@ -449,6 +471,7 @@ class GetFlowByPathResponse200ValueModulesItem:
             priority=priority,
             continue_on_error=continue_on_error,
             retry=retry,
+            debouncing=debouncing,
         )
 
         get_flow_by_path_response_200_value_modules_item.additional_properties = d

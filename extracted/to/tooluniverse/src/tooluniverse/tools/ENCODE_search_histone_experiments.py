@@ -10,9 +10,13 @@ from ._shared_client import get_shared_client
 
 def ENCODE_search_histone_experiments(
     histone_mark: Optional[str | Any] = None,
+    target: Optional[str | Any] = None,
     biosample_term_name: Optional[str | Any] = None,
+    biosample: Optional[str | Any] = None,
     organism: Optional[str] = "Homo sapiens",
     limit: Optional[int] = 25,
+    biosample_term: Optional[str | Any] = None,
+    cell_type: Optional[str | Any] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -25,12 +29,20 @@ def ENCODE_search_histone_experiments(
     ----------
     histone_mark : str | Any
         Histone modification mark to filter by (e.g., 'H3K4me3', 'H3K27ac', 'H3K27me3...
+    target : str | Any
+        Alias for histone_mark. Histone modification mark (e.g., 'H3K27ac', 'H3K4me3').
     biosample_term_name : str | Any
-        Biosample name filter (e.g., 'K562', 'HepG2', 'GM12878', 'liver', 'brain'). L...
+        Biosample name from ENCODE ontology (cell lines or tissues, NOT disease names...
+    biosample : str | Any
+        Alias for biosample_term_name. Biosample (tissue or cell line, e.g., 'liver',...
     organism : str
         Organism scientific name (e.g., 'Homo sapiens', 'Mus musculus').
     limit : int
         Maximum number of results to return (1-100).
+    biosample_term : str | Any
+        Alias for biosample_term_name. Biosample tissue or cell line (e.g., "breast e...
+    cell_type : str | Any
+        Alias for biosample_term_name. Cell type or tissue (e.g., 'GM12878', 'K562', ...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -49,9 +61,13 @@ def ENCODE_search_histone_experiments(
         k: v
         for k, v in {
             "histone_mark": histone_mark,
+            "target": target,
             "biosample_term_name": biosample_term_name,
+            "biosample": biosample,
             "organism": organism,
             "limit": limit,
+            "biosample_term": biosample_term,
+            "cell_type": cell_type,
         }.items()
         if v is not None
     }
