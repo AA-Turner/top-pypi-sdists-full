@@ -26,8 +26,8 @@ def _run_serve(
 ):
     app = import_app_from_ref(import_ref, base_cmd="modal serve")
 
-    with enable_output() as output_mgr:
-        output_mgr.set_quiet_mode(not show_progress)
+    with enable_output():
+        OutputManager.get().set_quiet_mode(not show_progress)
         serve_update(app, existing_app_id, is_ready, environment_name)
 
 
@@ -101,7 +101,7 @@ async def _serve_app(
 
     client = await _Client.from_env()
 
-    async with _run_app(app, client=client, environment_name=environment_name):
+    async with _run_app(app, client=client, environment_name=environment_name, deployment_strategy="recreate"):
         if _watcher is not None:
             watcher = _watcher  # Only used by tests
         else:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai
-Version: 1.11.1
+Version: 1.12.1
 Summary: Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
@@ -29,6 +29,7 @@ Requires-Dist: pydantic-settings~=2.10.1
 Requires-Dist: pydantic~=2.11.9
 Requires-Dist: pyjwt<3,>=2.9.0
 Requires-Dist: python-dotenv~=1.1.1
+Requires-Dist: pyyaml~=6.0
 Requires-Dist: regex~=2026.1.15
 Requires-Dist: textual>=7.5.0
 Requires-Dist: tokenizers<1,>=0.21
@@ -58,7 +59,7 @@ Requires-Dist: crewai-files; extra == 'file-processing'
 Provides-Extra: google-genai
 Requires-Dist: google-genai~=1.65.0; extra == 'google-genai'
 Provides-Extra: litellm
-Requires-Dist: litellm<3,>=1.74.9; extra == 'litellm'
+Requires-Dist: litellm<=1.82.6,>=1.74.9; extra == 'litellm'
 Provides-Extra: mem0
 Requires-Dist: mem0ai~=0.1.94; extra == 'mem0'
 Provides-Extra: openpyxl
@@ -67,8 +68,10 @@ Provides-Extra: pandas
 Requires-Dist: pandas~=2.2.3; extra == 'pandas'
 Provides-Extra: qdrant
 Requires-Dist: qdrant-client[fastembed]~=1.14.3; extra == 'qdrant'
+Provides-Extra: qdrant-edge
+Requires-Dist: qdrant-edge-py>=0.6.0; extra == 'qdrant-edge'
 Provides-Extra: tools
-Requires-Dist: crewai-tools==1.11.1; extra == 'tools'
+Requires-Dist: crewai-tools==1.12.1; extra == 'tools'
 Provides-Extra: voyageai
 Requires-Dist: voyageai~=0.3.5; extra == 'voyageai'
 Provides-Extra: watson

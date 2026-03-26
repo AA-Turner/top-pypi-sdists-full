@@ -15,6 +15,31 @@ class TaskCommandRouterStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.TaskContainerCreate = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerCreateRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerCreateResponse.FromString,
+                )
+        self.TaskContainerGet = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskContainerGet',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerGetRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerGetResponse.FromString,
+                )
+        self.TaskContainerList = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskContainerList',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerListRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerListResponse.FromString,
+                )
+        self.TaskContainerTerminate = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskContainerTerminate',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerTerminateRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerTerminateResponse.FromString,
+                )
+        self.TaskContainerWait = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskContainerWait',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerWaitRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerWaitResponse.FromString,
+                )
         self.TaskExecPoll = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskExecPoll',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskExecPollRequest.SerializeToString,
@@ -54,6 +79,41 @@ class TaskCommandRouterStub(object):
 
 class TaskCommandRouterServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def TaskContainerCreate(self, request, context):
+        """Create an additional container for a task.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TaskContainerGet(self, request, context):
+        """Get the latest container associated with a logical name.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TaskContainerList(self, request, context):
+        """List containers associated with the task.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TaskContainerTerminate(self, request, context):
+        """Terminate or release a tracked container.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TaskContainerWait(self, request, context):
+        """Wait for a tracked container to reach a terminal result.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def TaskExecPoll(self, request, context):
         """Poll for the exit status of an exec'd command.
@@ -107,6 +167,31 @@ class TaskCommandRouterServicer(object):
 
 def add_TaskCommandRouterServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'TaskContainerCreate': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskContainerCreate,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerCreateRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerCreateResponse.SerializeToString,
+            ),
+            'TaskContainerGet': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskContainerGet,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerGetRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerGetResponse.SerializeToString,
+            ),
+            'TaskContainerList': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskContainerList,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerListRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerListResponse.SerializeToString,
+            ),
+            'TaskContainerTerminate': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskContainerTerminate,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerTerminateRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerTerminateResponse.SerializeToString,
+            ),
+            'TaskContainerWait': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskContainerWait,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerWaitRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerWaitResponse.SerializeToString,
+            ),
             'TaskExecPoll': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskExecPoll,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecPollRequest.FromString,
@@ -151,6 +236,91 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class TaskCommandRouter(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def TaskContainerCreate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate',
+            modal__proto_dot_task__command__router__pb2.TaskContainerCreateRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskContainerCreateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskContainerGet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskContainerGet',
+            modal__proto_dot_task__command__router__pb2.TaskContainerGetRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskContainerGetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskContainerList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskContainerList',
+            modal__proto_dot_task__command__router__pb2.TaskContainerListRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskContainerListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskContainerTerminate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskContainerTerminate',
+            modal__proto_dot_task__command__router__pb2.TaskContainerTerminateRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskContainerTerminateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskContainerWait(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskContainerWait',
+            modal__proto_dot_task__command__router__pb2.TaskContainerWaitRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskContainerWaitResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def TaskExecPoll(request,

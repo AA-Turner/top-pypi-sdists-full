@@ -637,8 +637,7 @@ class Connections(WMLResource):
             table = self._list_uploaded_db_drivers_new_api()
         except Exception:
             response = self._client.httpx_client.get(
-                url=self._client._href_definitions.get_wsd_model_attachment_href()
-                + "dbdrivers",
+                url=self._client._href_definitions.get_wsd_dbdrivers_href(),
                 headers=self._client._get_headers(no_content_type=True),
                 params=self._client._params(),
             )
@@ -971,9 +970,9 @@ class Connections(WMLResource):
 
             with path.open("rb") as fdata:
                 content_upload_url = (
-                    self._client._href_definitions.get_wsd_model_attachment_href()
-                    + "dbdrivers/"
-                    + quote(driver_file_name, safe="")
+                    self._client._href_definitions.get_wsd_dbdriver_upload_href(
+                        quote(driver_file_name, safe="")
+                    )
                 )
                 response = self._client.httpx_client.put(
                     url=content_upload_url,
@@ -1097,10 +1096,8 @@ class Connections(WMLResource):
                     "Get signed db driver jar url db driver is supported only  IBM Cloud Pak® for Data only, version 4.0.4 and later."
                 )
 
-            signed_url = (
-                self._client._href_definitions.get_wsd_model_attachment_href()
-                + quote("dbdrivers/" + jar_name, safe="")
-                + "/signed"
+            signed_url = self._client._href_definitions.get_wsd_dbdriver_signed_href(
+                quote("dbdrivers/" + jar_name, safe="")
             )
             params = self._client._params()
 

@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,7 +28,8 @@ class PolicySummary(BaseModel):
     """ # noqa: E501
     id: StrictStr = Field(description="The ID of the policy.")
     name: StrictStr = Field(description="The name of the policy.")
-    __properties: ClassVar[List[str]] = ["id", "name"]
+    description: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["id", "name", "description"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -69,6 +70,11 @@ class PolicySummary(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if description (nullable) is None
+        # and model_fields_set contains the field
+        if self.description is None and "description" in self.model_fields_set:
+            _dict['description'] = None
+
         return _dict
 
     @classmethod
@@ -82,7 +88,8 @@ class PolicySummary(BaseModel):
 
         _obj = cls.model_validate({
             "id": obj.get("id"),
-            "name": obj.get("name")
+            "name": obj.get("name"),
+            "description": obj.get("description")
         })
         return _obj
 

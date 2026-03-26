@@ -220,6 +220,7 @@ const App = (() => {
         Canvas.init();
         Sources.init();
         if (typeof Workflows !== 'undefined') Workflows.init();
+        if (typeof Specs !== 'undefined') Specs.init();
         Sidebar.init();
         Palette.init();
         Attachments.init();

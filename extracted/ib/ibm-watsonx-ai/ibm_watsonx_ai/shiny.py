@@ -773,7 +773,9 @@ class Shiny(WMLResource):
 
         Shiny._validate_type(shiny_id, "shiny_id", str, True)
 
-        url = self._client._href_definitions.get_asset_href(shiny_id) + "/revisions"
+        url = self._client._href_definitions.get_asset_definition_revisions_href(
+            shiny_id
+        )
 
         # /v2/assets/{asset_id}/revisions returns 'results' object
         shiny_resources = self._get_with_or_without_limit(

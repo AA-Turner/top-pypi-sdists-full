@@ -79,7 +79,6 @@ def run(output_dir: str = None):
         ("modal.billing", "modal.billing"),
         ("modal.call_graph", "modal.call_graph"),
         ("modal.container_process", "modal.container_process"),
-        ("modal.gpu", "modal.gpu"),
         ("modal.io_streams", "modal.io_streams"),
         ("modal.file_io", "modal.file_io"),
     ]
@@ -163,7 +162,6 @@ def make_markdown_docs(items: list[DocItem], output_dir: str = None):
             return
 
         filename = os.path.join(output_dir, rel_path)
-        print("Writing to", filename)
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "w") as fp:
             fp.write(data)

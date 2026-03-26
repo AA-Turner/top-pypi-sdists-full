@@ -4,7 +4,9 @@ from pymongo.errors import DuplicateKeyError
 from beanie.odm.fields import PydanticObjectId
 from tests.odm.models import (
     DocumentTestModel,
+    DocumentWithFrozenField,
     DocumentWithKeepNullsFalse,
+    DocumentWithRevisionAndKeepNullsFalse,
     ModelWithOptionalField,
 )
 
@@ -118,3 +120,99 @@ async def test_insert_many_keep_nulls_false():
         "_id": new_docs[1].id,
         "m": {"i": 11},
     }
+
+
+async def test_save_new_doc_with_revision_and_keep_nulls_false():
+    """Regression test for issue #958.
+
+    save() on a new document with use_revision=True and keep_nulls=False
+    should not raise OperationFailure from conflicting $set/$unset on
+    revision_id.
+    """
+    doc = DocumentWithRevisionAndKeepNullsFalse(name="test")
+    await doc.save()
+
+    from_db = await DocumentWithRevisionAndKeepNullsFalse.get(doc.id)
+    assert from_db is not None
+    assert from_db.name == "test"
+    assert from_db.description is None
+    assert from_db.revision_id is not None
+
+    raw = await DocumentWithRevisionAndKeepNullsFalse.get_pymongo_collection().find_one(
+        {"_id": doc.id}
+    )
+    # description should be absent (keep_nulls=False)
+    assert "description" not in raw
+    # revision_id should be present
+    assert "revision_id" in raw
+
+
+async def test_save_existing_doc_with_revision_and_keep_nulls_false():
+    """save() on an existing document should update correctly."""
+    doc = DocumentWithRevisionAndKeepNullsFalse(name="original")
+    await doc.insert()
+
+    doc.name = "updated"
+    doc.description = "added"
+    await doc.save()
+
+    from_db = await DocumentWithRevisionAndKeepNullsFalse.get(doc.id)
+    assert from_db.name == "updated"
+    assert from_db.description == "added"
+
+    # Clear the optional field
+    doc.description = None
+    await doc.save()
+
+    from_db = await DocumentWithRevisionAndKeepNullsFalse.get(doc.id)
+    assert from_db.description is None
+    raw = await DocumentWithRevisionAndKeepNullsFalse.get_pymongo_collection().find_one(
+        {"_id": doc.id}
+    )
+    assert "description" not in raw
+    assert "revision_id" in raw
+
+
+class TestFrozenFields:
+    """Tests for GitHub issue #863 -- frozen fields break save()."""
+
+    async def test_save_with_frozen_field(self):
+        """Saving a new document with a frozen field should work."""
+        doc = DocumentWithFrozenField(name="test", immutable_value="constant")
+        await doc.save()
+
+        fetched = await DocumentWithFrozenField.get(doc.id)
+        assert fetched is not None
+        assert fetched.name == "test"
+        assert fetched.immutable_value == "constant"
+
+    async def test_save_after_fetch_with_frozen_field(self):
+        """Fetching then re-saving a doc with a frozen field should work."""
+        doc = DocumentWithFrozenField(
+            name="original", immutable_value="locked"
+        )
+        await doc.insert()
+
+        fetched = await DocumentWithFrozenField.get(doc.id)
+        assert fetched is not None
+        fetched.name = "updated"
+        await fetched.save()
+
+        refetched = await DocumentWithFrozenField.get(doc.id)
+        assert refetched.name == "updated"
+        assert refetched.immutable_value == "locked"
+
+    async def test_replace_with_frozen_field(self):
+        """replace() on a doc with a frozen field should work."""
+        doc = DocumentWithFrozenField(
+            name="before", immutable_value="permanent"
+        )
+        await doc.insert()
+
+        fetched = await DocumentWithFrozenField.get(doc.id)
+        fetched.name = "after"
+        await fetched.replace()
+
+        refetched = await DocumentWithFrozenField.get(doc.id)
+        assert refetched.name == "after"
+        assert refetched.immutable_value == "permanent"

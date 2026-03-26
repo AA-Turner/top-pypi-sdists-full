@@ -21,10 +21,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 
-	"github.com/replicate/cog/pkg/config"
 	"github.com/replicate/cog/pkg/docker"
 	"github.com/replicate/cog/pkg/docker/command"
-	"github.com/replicate/cog/pkg/image"
+	"github.com/replicate/cog/pkg/model"
 	r8_path "github.com/replicate/cog/pkg/path"
 	"github.com/replicate/cog/pkg/predict"
 	"github.com/replicate/cog/pkg/registry"
@@ -55,6 +54,23 @@ It must be an image that has been built by Cog.
 
 Otherwise, it will build the model in the current directory and run
 the prediction on that.`,
+		Example: `  # Run a prediction with named inputs
+  cog predict -i prompt="a photo of a cat"
+
+  # Pass a file as input
+  cog predict -i image=@photo.jpg
+
+  # Save output to a file
+  cog predict -i image=@input.jpg -o output.png
+
+  # Pass multiple inputs
+  cog predict -i prompt="sunset" -i width=1024 -i height=768
+
+  # Run against a pre-built image
+  cog predict r8.im/your-username/my-model -i prompt="hello"
+
+  # Pass inputs as JSON
+  echo '{"prompt": "a cat"}' | cog predict --json @-`,
 		RunE:       cmdPredict,
 		Args:       cobra.MaximumNArgs(1),
 		SuggestFor: []string{"infer"},
@@ -66,10 +82,7 @@ the prediction on that.`,
 	addDockerfileFlag(cmd)
 	addGpusFlag(cmd)
 	addSetupTimeoutFlag(cmd)
-	addFastFlag(cmd)
-	addLocalImage(cmd)
 	addConfigFlag(cmd)
-	addPipelineImage(cmd)
 
 	cmd.Flags().StringArrayVarP(&inputFlags, "input", "i", []string{}, "Inputs, in the form name=value. if value is prefixed with @, then it is read from a file on disk. E.g. -i path=@image.jpg")
 	cmd.Flags().StringVarP(&outPath, "output", "o", "", "Output path")
@@ -175,60 +188,32 @@ func cmdPredict(cmd *cobra.Command, args []string) error {
 	volumes := []command.Volume{}
 	gpus := gpusFlag
 
+	resolver := model.NewResolver(dockerClient, registry.NewRegistryClient())
+
 	if len(args) == 0 {
 		// Build image
-
-		cfg, projectDir, err := config.GetConfig(configFilename)
+		src, err := model.NewSource(configFilename)
 		if err != nil {
 			return err
 		}
 
-		if cfg.Build.Fast {
-			buildFast = cfg.Build.Fast
+		console.Info("Building Docker image from environment in cog.yaml...")
+		console.Info("")
+		m, err := resolver.Build(ctx, src, serveBuildOptions(cmd))
+		if err != nil {
+			return err
 		}
+		imageName = m.ImageRef()
 
-		client := registry.NewRegistryClient()
-		if buildFast || pipelinesImage {
-			imageName = config.DockerImageName(projectDir)
-			if err := image.Build(
-				ctx,
-				cfg,
-				projectDir,
-				imageName,
-				buildSecrets,
-				buildNoCache,
-				buildSeparateWeights,
-				buildUseCudaBaseImage,
-				buildProgressOutput,
-				buildSchemaFile,
-				buildDockerfileFile,
-				DetermineUseCogBaseImage(cmd),
-				buildStrip,
-				buildPrecompile,
-				buildFast,
-				nil,
-				buildLocalImage,
-				dockerClient,
-				client,
-				pipelinesImage); err != nil {
-				return err
-			}
-		} else {
-			if imageName, err = image.BuildBase(ctx, dockerClient, cfg, projectDir, buildUseCudaBaseImage, DetermineUseCogBaseImage(cmd), buildProgressOutput, client, true); err != nil {
-				return err
-			}
+		// ExcludeSource build doesn't have /src in it, so mount as volume
+		volumes = append(volumes, command.Volume{
+			Source:      src.ProjectDir,
+			Destination: "/src",
+		})
 
-			// Base image doesn't have /src in it, so mount as volume
-			volumes = append(volumes, command.Volume{
-				Source:      projectDir,
-				Destination: "/src",
-			})
-
-			if gpus == "" && cfg.Build.GPU {
-				gpus = "all"
-			}
+		if gpus == "" && m.HasGPU() {
+			gpus = "all"
 		}
-
 	} else {
 		// Use existing image
 		imageName = args[0]
@@ -238,25 +223,23 @@ func cmdPredict(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("Invalid image name '%s'. Did you forget `-i`?", imageName)
 		}
 
-		inspectResp, err := dockerClient.Pull(ctx, imageName, false)
-		if err != nil {
-			return fmt.Errorf("Failed to pull image %q: %w", imageName, err)
-		}
-
-		conf, err := image.CogConfigFromManifest(ctx, inspectResp)
+		// Pull the image (if needed) and validate it's a Cog model
+		ref, err := model.ParseRef(imageName)
 		if err != nil {
 			return err
 		}
-		if gpus == "" && conf.Build.GPU {
-			gpus = "all"
+		m, err := resolver.Pull(ctx, ref)
+		if err != nil {
+			return err
 		}
-		if conf.Build.Fast {
-			buildFast = conf.Build.Fast
+
+		if gpus == "" && m.HasGPU() {
+			gpus = "all"
 		}
 	}
 
 	console.Info("")
-	console.Infof("Starting Docker image %s and running setup()...", imageName)
+	console.Info("Starting Docker image and running setup()...")
 
 	// Automatically propagate RUST_LOG for Rust coglet debugging
 	env := envFlags
@@ -269,7 +252,7 @@ func cmdPredict(cmd *cobra.Command, args []string) error {
 		Image:   imageName,
 		Volumes: volumes,
 		Env:     env,
-	}, false, buildFast, dockerClient)
+	}, false, dockerClient)
 	if err != nil {
 		return err
 	}
@@ -288,7 +271,7 @@ func cmdPredict(cmd *cobra.Command, args []string) error {
 
 	timeout := time.Duration(setupTimeout) * time.Second
 	if err := predictor.Start(ctx, os.Stderr, timeout); err != nil {
-		// Only retry if we're using a GPU but but the user didn't explicitly select a GPU with --gpus
+		// Only retry if we're using a GPU but the user didn't explicitly select a GPU with --gpus
 		// If the user specified the wrong GPU, they are explicitly selecting a GPU and they'll want to hear about it
 		if gpus == "all" && errors.Is(err, docker.ErrMissingDeviceDriver) {
 			console.Info("Missing device driver, re-trying without GPU")
@@ -298,7 +281,7 @@ func cmdPredict(cmd *cobra.Command, args []string) error {
 				Image:   imageName,
 				Volumes: volumes,
 				Env:     env,
-			}, false, buildFast, dockerClient)
+			}, false, dockerClient)
 			if err != nil {
 				return err
 			}
@@ -370,7 +353,7 @@ func predictIndividualInputs(predictor predict.Predictor, inputFlags []string, o
 		return err
 	}
 
-	inputs, err := parseInputFlags(inputFlags, schema)
+	inputs, err := parseInputFlags(inputFlags, schema, isTrain)
 	if err != nil {
 		return err
 	}
@@ -384,6 +367,7 @@ func runPrediction(predictor predict.Predictor, inputs predict.Inputs, outputPat
 	} else {
 		console.Info("Running prediction...")
 	}
+	console.Info("")
 
 	// Generate output depending on type in schema
 	url := "/predictions"
@@ -417,7 +401,7 @@ func runPrediction(predictor predict.Predictor, inputs predict.Inputs, outputPat
 
 	prediction, err := predictor.Predict(inputs, context)
 	if err != nil {
-		return fmt.Errorf("Failed to predict: %w", err)
+		return fmt.Errorf("Failed to run prediction: %w", err)
 	}
 
 	schema, err := predictor.GetSchema()
@@ -641,7 +625,7 @@ func processFileOutputs(output any, schema *openapi3.Schema, destination string)
 	return output, nil
 }
 
-func parseInputFlags(inputs []string, schema *openapi3.T) (predict.Inputs, error) {
+func parseInputFlags(inputs []string, schema *openapi3.T, isTrain ...bool) (predict.Inputs, error) {
 	keyVals := map[string][]string{}
 	for _, input := range inputs {
 		var name, value string
@@ -663,7 +647,8 @@ func parseInputFlags(inputs []string, schema *openapi3.T) (predict.Inputs, error
 		keyVals[name] = append(keyVals[name], value)
 	}
 
-	return predict.NewInputs(keyVals, schema)
+	train := len(isTrain) > 0 && isTrain[0]
+	return predict.NewInputsForMode(keyVals, schema, train)
 }
 
 func addSetupTimeoutFlag(cmd *cobra.Command) {

@@ -226,7 +226,7 @@ options:
                     - 'disable'
             sync_mode:
                 description:
-                    - Setting synchronised by fabric or manual.
+                    - Setting synchronized by fabric or manual.
                 type: str
                 choices:
                     - 'enable'
@@ -721,7 +721,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_fabric_vpn"
         )

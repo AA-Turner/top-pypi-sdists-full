@@ -55,6 +55,16 @@ DEFAULT_TOOL_TIERS: dict[str, ToolTier] = {
     "docx": ToolTier.WRITE,
     "xlsx": ToolTier.WRITE,
     "pptx": ToolTier.WRITE,
+    "mission_list": ToolTier.READ,
+    "mission_status": ToolTier.READ,
+    "mission_explain_blockers": ToolTier.READ,
+    "mission_add_item": ToolTier.WRITE,
+    "mission_hold": ToolTier.WRITE,
+    "mission_resume": ToolTier.WRITE,
+    "mission_reprioritize": ToolTier.WRITE,
+    "mission_drop_item": ToolTier.WRITE,
+    "mission_complete": ToolTier.WRITE,
+    "mission_patch_plan": ToolTier.EXECUTE,
 }
 
 # MCP tools and unknown tools default to this tier

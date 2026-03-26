@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
-    "pytest<9",
+    "pytest<10",
     'click-type-test==1.3.0;python_version>="3.10"',
     "coverage<8",
     "identify>=2.6.9",
     "pytest-xdist<4",
-    "responses==0.25.8",
+    "responses==0.26.0",
 ]
 docs = [
     "sphinx<9",
@@ -24,7 +24,7 @@ check-package-metadata = [
 
 [project]
 name = "check-jsonschema"
-version = "0.37.0"
+version = "0.37.1"
 description = "A jsonschema CLI and pre-commit hook"
 authors = [
     { name = "Stephen Rosen", email = "sirosen0@gmail.com" },

@@ -90,6 +90,13 @@ options:
         default: null
         type: dict
         suboptions:
+            cert_http_header:
+                description:
+                    - Enable/disable authentication with user certificate in Client-Cert HTTP header .
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             digest_algo:
                 description:
                     - Digest Authentication Algorithms.
@@ -218,6 +225,7 @@ EXAMPLES = """
       state: "present"
       access_token: "<your_own_value>"
       authentication_scheme:
+          cert_http_header: "enable"
           digest_algo: "md5"
           digest_rfc2069: "enable"
           domain_controller: "<your_own_value> (source user.domain-controller.name)"
@@ -228,7 +236,7 @@ EXAMPLES = """
           group_attr_type: "display-name"
           kerberos_keytab: "<your_own_value> (source user.krb-keytab.name)"
           method: "ntlm"
-          name: "default_name_13"
+          name: "default_name_14"
           negotiate_ntlm: "enable"
           require_tfa: "enable"
           saml_server: "<your_own_value> (source user.saml.name)"
@@ -237,7 +245,7 @@ EXAMPLES = """
           user_cert: "enable"
           user_database:
               -
-                  name: "default_name_21 (source system.datasource.name user.radius.name user.tacacs+.name user.ldap.name user.group.name user.scim.name)"
+                  name: "default_name_22 (source system.datasource.name user.radius.name user.tacacs+.name user.ldap.name user.group.name user.scim.name)"
 """
 
 RETURN = """
@@ -333,6 +341,7 @@ from ansible_collections.fortinet.fortios.plugins.module_utils.fortios.compariso
 
 def filter_authentication_scheme_data(json):
     option_list = [
+        "cert_http_header",
         "digest_algo",
         "digest_rfc2069",
         "domain_controller",
@@ -600,6 +609,11 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
+        "cert_http_header": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
         "user_database": {
             "type": "list",
             "elements": "dict",
@@ -689,7 +703,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "authentication_scheme"
         )

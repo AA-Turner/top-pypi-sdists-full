@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 
 def annotate(
     execution_context: int | str | None = None,
@@ -22,7 +23,8 @@ def annotate(
     use_stabilizer: bool | None = False,
     stabilizer_factor: float | None = 0.75,
     stabilizer_radius: int | None = 35,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     wait_for_input: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make annotations on the active data

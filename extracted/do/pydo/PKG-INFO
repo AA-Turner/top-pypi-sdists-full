@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pydo
-Version: 0.28.0
+Version: 0.29.0
 Summary: The official client for interacting with the DigitalOcean API
 Home-page: https://github.com/digitalocean/pydo
 License: Apache-2.0

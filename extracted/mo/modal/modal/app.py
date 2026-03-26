@@ -34,7 +34,7 @@ from ._server import _Server, validate_http_server_config
 from ._utils.async_utils import synchronize_api
 from ._utils.deprecation import (
     deprecation_warning,
-    warn_on_renamed_autoscaler_settings,
+    handle_deprecated_parameters,
 )
 from ._utils.function_utils import (
     FunctionInfo,
@@ -50,7 +50,6 @@ from .cls import _Cls, parameter
 from .config import logger
 from .exception import ExecutionError, InvalidError
 from .functions import Function
-from .gpu import GPU_T
 from .image import _Image
 from .network_file_system import _NetworkFileSystem
 from .partial_function import PartialFunction
@@ -58,7 +57,6 @@ from .proxy import _Proxy
 from .retries import Retries
 from .running_app import RunningApp
 from .schedule import Schedule
-from .scheduler_placement import SchedulerPlacement
 from .secret import _Secret
 from .volume import _Volume
 
@@ -439,6 +437,13 @@ class _App:
         environment_name: Optional[str] = None,  # Environment to deploy the App in
         tag: str = "",  # Optional metadata that is specific to this deployment
         client: Optional[_Client] = None,  # Alternate client to use for communication with the server
+        # Deployment strategy:
+        # - 'rolling' (default): Traffic shifts to the new deployment by starting
+        #   new containers gradually. Old containers will continue to process inputs while new
+        #   containers start up.
+        # - 'recreate': As part of the deployment, all running containers are terminated. New inputs
+        #   will start new containers.
+        strategy: str = "rolling",
     ) -> typing_extensions.Self:
         """Deploy the App so that it is available persistently.
 
@@ -482,7 +487,10 @@ class _App:
         ```
 
         """
-        from .runner import _deploy_app  # Defer import of runner.py, which imports a lot from Rich
+        from .runner import (  # Defer import of runner.py, which imports a lot from Rich
+            _deploy_app,
+            _validate_deployment_strategy,
+        )
 
         if name is None and self._name is None:
             raise InvalidError(
@@ -493,7 +501,10 @@ class _App:
                 "or\n"
                 'app = modal.App("some-name")'
             )
-        result = await _deploy_app(self, name=name, environment_name=environment_name, tag=tag, client=client)
+        strategy = _validate_deployment_strategy(strategy)
+        result = await _deploy_app(
+            self, name=name, environment_name=environment_name, tag=tag, client=client, deployment_strategy=strategy
+        )
         self._app_id = result.app_id
         return self
 
@@ -692,7 +703,7 @@ class _App:
 
         return wrapped
 
-    @warn_on_renamed_autoscaler_settings
+    @handle_deprecated_parameters
     def function(
         self,
         _warn_parentheses_missing=None,  # mdmd:line-hidden
@@ -701,7 +712,7 @@ class _App:
         schedule: Optional[Schedule] = None,  # An optional Modal Schedule for the function
         env: Optional[dict[str, Optional[str]]] = None,  # Environment variables to set in the container
         secrets: Optional[Collection[_Secret]] = None,  # Secrets to inject into the container as environment variables
-        gpu: Union[GPU_T, list[GPU_T]] = None,  # GPU request; either a single GPU type or a list of types
+        gpu: Optional[str | list[str]] = None,  # GPU request; either a single GPU type or a list of types
         serialized: bool = False,  # Whether to send the function over using cloudpickle.
         network_file_systems: dict[
             Union[str, PurePosixPath], _NetworkFileSystem
@@ -743,17 +754,9 @@ class _App:
         experimental_options: Optional[dict[str, Any]] = None,
         # Parameters below here are experimental. Use with caution!
         _experimental_proxy_ip: Optional[str] = None,  # IP address of proxy
-        _experimental_custom_scaling_factor: Optional[float] = None,  # Custom scaling factor
         _experimental_restrict_output: bool = False,  # Don't use pickle for return values
         # Parameters below here are deprecated. Please update your code as suggested
-        keep_warm: Optional[int] = None,  # Replaced with `min_containers`
-        concurrency_limit: Optional[int] = None,  # Replaced with `max_containers`
-        container_idle_timeout: Optional[int] = None,  # Replaced with `scaledown_window`
-        allow_concurrent_inputs: Optional[int] = None,  # Replaced with the `@modal.concurrent` decorator
         max_inputs: Optional[int] = None,  # Replaced with `single_use_containers`
-        _experimental_buffer_containers: Optional[int] = None,  # Now stable API with `buffer_containers`
-        _experimental_scheduler_placement: Optional[SchedulerPlacement] = None,  # Replaced in favor of
-        # using `region` and `nonpreemptible`
     ) -> _FunctionDecoratorType:
         """Decorator to register a new Modal Function with this App."""
         if isinstance(_warn_parentheses_missing, _Image):
@@ -764,14 +767,6 @@ class _App:
 
         if image is None:
             image = self._get_default_image()
-
-        if allow_concurrent_inputs is not None:
-            deprecation_warning(
-                (2025, 4, 9),
-                "The `allow_concurrent_inputs` parameter is deprecated."
-                " Please use the `@modal.concurrent` decorator instead."
-                "\n\nSee https://modal.com/docs/guide/modal-1-0-migration for more information.",
-            )
 
         if max_inputs is not None:
             if not isinstance(max_inputs, int):
@@ -786,24 +781,6 @@ class _App:
                 pending=True,
             )
             single_use_containers = max_inputs == 1
-
-        if _experimental_scheduler_placement is not None:
-            deprecation_warning(
-                (2025, 11, 17),
-                "The `_experimental_scheduler_placement` parameter is deprecated."
-                " Please use the `region` and `nonpreemptible` parameters instead.",
-            )
-            if region is not None or nonpreemptible:
-                raise InvalidError(
-                    "Cannot use `_experimental_scheduler_placement` together with "
-                    "`region` or `nonpreemptible` parameters."
-                )
-            # Extract regions and lifecycle from scheduler placement
-            if _experimental_scheduler_placement.proto.regions:
-                region = list(_experimental_scheduler_placement.proto.regions)
-            if _experimental_scheduler_placement.proto._lifecycle:
-                # Convert lifecycle to nonpreemptible: "on-demand" -> True, "spot" -> False
-                nonpreemptible = _experimental_scheduler_placement.proto._lifecycle == "on-demand"
 
         secrets = secrets or []
         if env:
@@ -823,9 +800,6 @@ class _App:
                 )
 
             if isinstance(f, _PartialFunction):
-                # typically for @function-wrapped @web_endpoint, @asgi_app, or @batched
-
-                # but we don't support @app.function wrapping a method.
                 if is_method_fn(f.raw_f.__qualname__):
                     raise InvalidError(
                         "The `@app.function` decorator cannot be used on class methods. "
@@ -855,7 +829,7 @@ class _App:
                     max_concurrent_inputs = f.params.max_concurrent_inputs
                     target_concurrent_inputs = f.params.target_concurrent_inputs
                 else:
-                    max_concurrent_inputs = allow_concurrent_inputs
+                    max_concurrent_inputs = None
                     target_concurrent_inputs = None
             else:
                 if not is_global_object(f.__qualname__) and not serialized:
@@ -892,7 +866,7 @@ class _App:
                 webhook_config = None
                 batch_max_size = None
                 batch_wait_ms = None
-                max_concurrent_inputs = allow_concurrent_inputs
+                max_concurrent_inputs = None
                 target_concurrent_inputs = None
 
                 cluster_size = None  # Experimental: Clustered functions
@@ -951,7 +925,7 @@ class _App:
         return wrapped
 
     @typing_extensions.dataclass_transform(field_specifiers=(parameter,), kw_only_default=True)
-    @warn_on_renamed_autoscaler_settings
+    @handle_deprecated_parameters
     def cls(
         self,
         _warn_parentheses_missing=None,  # mdmd:line-hidden
@@ -959,7 +933,7 @@ class _App:
         image: Optional[_Image] = None,  # The image to run as the container for the function
         env: Optional[dict[str, Optional[str]]] = None,  # Environment variables to set in the container
         secrets: Optional[Collection[_Secret]] = None,  # Secrets to inject into the container as environment variables
-        gpu: Union[GPU_T, list[GPU_T]] = None,  # GPU request; either a single GPU type or a list of types
+        gpu: Optional[str | list[str]] = None,  # GPU request; either a single GPU type or a list of types
         serialized: bool = False,  # Whether to send the function over using cloudpickle.
         network_file_systems: dict[
             Union[str, PurePosixPath], _NetworkFileSystem
@@ -995,31 +969,15 @@ class _App:
         experimental_options: Optional[dict[str, Any]] = None,
         # Parameters below here are experimental. Use with caution!
         _experimental_proxy_ip: Optional[str] = None,  # IP address of proxy
-        _experimental_custom_scaling_factor: Optional[float] = None,  # Custom scaling factor
         _experimental_restrict_output: bool = False,  # Don't use pickle for return values
         # Parameters below here are deprecated. Please update your code as suggested
-        keep_warm: Optional[int] = None,  # Replaced with `min_containers`
-        concurrency_limit: Optional[int] = None,  # Replaced with `max_containers`
-        container_idle_timeout: Optional[int] = None,  # Replaced with `scaledown_window`
-        allow_concurrent_inputs: Optional[int] = None,  # Replaced with the `@modal.concurrent` decorator
         max_inputs: Optional[int] = None,  # Replaced with `single_use_containers`
-        _experimental_buffer_containers: Optional[int] = None,  # Now stable API with `buffer_containers`
-        _experimental_scheduler_placement: Optional[SchedulerPlacement] = None,  # Replaced in favor of
-        # using `region` and `nonpreemptible`
     ) -> Callable[[Union[CLS_T, _PartialFunction]], CLS_T]:
         """
         Decorator to register a new Modal [Cls](https://modal.com/docs/reference/modal.Cls) with this App.
         """
         if _warn_parentheses_missing:
             raise InvalidError("Did you forget parentheses? Suggestion: `@app.cls()`.")
-
-        if allow_concurrent_inputs is not None:
-            deprecation_warning(
-                (2025, 4, 9),
-                "The `allow_concurrent_inputs` parameter is deprecated."
-                " Please use the `@modal.concurrent` decorator instead."
-                "\n\nSee https://modal.com/docs/guide/modal-1-0-migration for more information.",
-            )
 
         if max_inputs is not None:
             if not isinstance(max_inputs, int):
@@ -1034,24 +992,6 @@ class _App:
                 pending=True,
             )
             single_use_containers = max_inputs == 1
-
-        if _experimental_scheduler_placement is not None:
-            deprecation_warning(
-                (2025, 11, 17),
-                "The `_experimental_scheduler_placement` parameter is deprecated."
-                " Please use the `region` and `nonpreemptible` parameters instead.",
-            )
-            if region is not None or nonpreemptible:
-                raise InvalidError(
-                    "Cannot use `_experimental_scheduler_placement` together with "
-                    "`region` or `nonpreemptible` parameters."
-                )
-            # Extract regions and lifecycle from scheduler placement
-            if _experimental_scheduler_placement.proto.regions:
-                region = list(_experimental_scheduler_placement.proto.regions)
-            if _experimental_scheduler_placement.proto._lifecycle:
-                # Convert lifecycle to nonpreemptible: "on-demand" -> True, "spot" -> False
-                nonpreemptible = _experimental_scheduler_placement.proto._lifecycle == "on-demand"
 
         secrets = secrets or []
         if env:
@@ -1073,7 +1013,7 @@ class _App:
                     max_concurrent_inputs = wrapped_cls.params.max_concurrent_inputs
                     target_concurrent_inputs = wrapped_cls.params.target_concurrent_inputs
                 else:
-                    max_concurrent_inputs = allow_concurrent_inputs
+                    max_concurrent_inputs = None
                     target_concurrent_inputs = None
 
                 if wrapped_cls.flags & _PartialFunctionFlags.CLUSTERED:
@@ -1085,7 +1025,7 @@ class _App:
                     rdma = None
             else:
                 user_cls = wrapped_cls
-                max_concurrent_inputs = allow_concurrent_inputs
+                max_concurrent_inputs = None
                 target_concurrent_inputs = None
                 cluster_size = None
                 rdma = None
@@ -1176,7 +1116,6 @@ class _App:
                 include_source=include_source if include_source is not None else local_state.include_source_default,
                 experimental_options={k: str(v) for k, v in (experimental_options or {}).items()},
                 _experimental_proxy_ip=_experimental_proxy_ip,
-                _experimental_custom_scaling_factor=_experimental_custom_scaling_factor,
                 restrict_output=_experimental_restrict_output,
             )
 
@@ -1202,7 +1141,7 @@ class _App:
         image: Optional[_Image] = None,  # The image to run as the container for the server
         env: Optional[dict[str, Optional[str]]] = None,  # Environment variables to set in the container
         secrets: Optional[Collection[_Secret]] = None,  # Secrets to inject into the container as environment variables
-        gpu: Union[GPU_T, list[GPU_T]] = None,  # GPU request; either a single GPU type or a list of types
+        gpu: Optional[str | list[str]] = None,  # GPU request; either a single GPU type or a list of types
         serialized: bool = False,  # Whether to send the server class over using cloudpickle.
         volumes: dict[
             Union[str, PurePosixPath], Union[_Volume, _CloudBucketMount]

@@ -432,16 +432,11 @@ class _Secret(modal._object._Object):
     def from_name(
         name: str,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         required_keys: list[str] = [],
         client: typing.Optional[modal.client._Client] = None,
     ) -> _Secret:
         """Reference a Secret by its name.
-
-        In contrast to most other Modal objects, named Secrets must be provisioned
-        from the Dashboard. See other methods for alternate ways of creating a new
-        Secret from code.
 
         ```python
         secret = modal.Secret.from_name("my-secret")
@@ -469,7 +464,6 @@ class _Secret(modal._object._Object):
     async def _create_deployed(
         deployment_name: str,
         env_dict: dict[str, str],
-        namespace=None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         overwrite: bool = False,
@@ -563,16 +557,11 @@ class Secret(modal.object.Object):
     def from_name(
         name: str,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         required_keys: list[str] = [],
         client: typing.Optional[modal.client.Client] = None,
     ) -> Secret:
         """Reference a Secret by its name.
-
-        In contrast to most other Modal objects, named Secrets must be provisioned
-        from the Dashboard. See other methods for alternate ways of creating a new
-        Secret from code.
 
         ```python
         secret = modal.Secret.from_name("my-secret")
@@ -619,7 +608,6 @@ class Secret(modal.object.Object):
             /,
             deployment_name: str,
             env_dict: dict[str, str],
-            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             overwrite: bool = False,
@@ -632,7 +620,6 @@ class Secret(modal.object.Object):
             /,
             deployment_name: str,
             env_dict: dict[str, str],
-            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             overwrite: bool = False,

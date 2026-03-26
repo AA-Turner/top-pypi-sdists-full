@@ -142,6 +142,17 @@ options:
                 description:
                     - Maximum missed LCP echo messages before disconnect.
                 type: int
+            mrru:
+                description:
+                    - PPP MRRU (296 - 65535).
+                type: int
+            multilink:
+                description:
+                    - Enable/disable PPP multilink support.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             name:
                 description:
                     - Name of the PPPoE interface.
@@ -202,7 +213,9 @@ EXAMPLES = """
           ipv6: "enable"
           lcp_echo_interval: "5"
           lcp_max_echo_fails: "3"
-          name: "default_name_13"
+          mrru: "1500"
+          multilink: "enable"
+          name: "default_name_15"
           padt_retry_timeout: "1"
           password: "<your_own_value>"
           pppoe_egress_cos: "cos0"
@@ -314,6 +327,8 @@ def filter_system_pppoe_interface_data(json):
         "ipv6",
         "lcp_echo_interval",
         "lcp_max_echo_fails",
+        "mrru",
+        "multilink",
         "name",
         "padt_retry_timeout",
         "password",
@@ -538,6 +553,12 @@ versioned_schema = {
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "idle_timeout": {"v_range": [["v6.0.0", ""]], "type": "integer"},
+        "multilink": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
+        "mrru": {"v_range": [["v7.6.5", ""]], "type": "integer"},
         "disc_retry_timeout": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "padt_retry_timeout": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "service_name": {"v_range": [["v6.0.0", ""]], "type": "string"},
@@ -597,7 +618,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_pppoe_interface"
         )

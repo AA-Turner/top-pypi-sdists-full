@@ -41,6 +41,7 @@ def _invoke_cli_with_params(runner, input_path, flags=None):
         "--chronon_root=api/py/test/sample",
         f"--input_path={input_path}",
         "--debug",
+        "-y",  # Skip confirmation prompts in tests
     ]
     if flags:
         command.extend(flags)
@@ -92,13 +93,13 @@ def specific_setup():
 def test_basic_compile():
     runner = CliRunner()
     result = runner.invoke(
-        extract_and_convert, ["--chronon_root=api/py/test/sample", "--input_path=joins/sample_team/"]
+        extract_and_convert, ["--chronon_root=api/py/test/sample", "--input_path=joins/sample_team/", "-y"]
     )
     assert result.exit_code == 0
-    result = runner.invoke(extract_and_convert, ["--chronon_root=api/py/test/sample", "--input_path=joins/sample_team"])
+    result = runner.invoke(extract_and_convert, ["--chronon_root=api/py/test/sample", "--input_path=joins/sample_team", "-y"])
     assert result.exit_code == 0
     result = runner.invoke(
-        extract_and_convert, ["--chronon_root=api/py/test/sample", "--input_path=joins/sample_team/sample_join.py"]
+        extract_and_convert, ["--chronon_root=api/py/test/sample", "--input_path=joins/sample_team/sample_join.py", "-y"]
     )
     assert result.exit_code == 0
 
@@ -112,6 +113,7 @@ def test_compile_group_by_deprecation():
             "--chronon_root=api/py/test/sample",
             "--input_path=group_bys/sample_team/sample_deprecation_group_by.py",
             "--force-overwrite",
+            "-y",
         ],
     )
     assert result.exit_code == 0
@@ -129,6 +131,7 @@ def test_compile_join_deprecation():
             "--chronon_root=api/py/test/sample",
             "--input_path=joins/sample_team/sample_deprecation_join.py",
             "--force-overwrite",
+            "-y",
         ],
     )
     assert result.exit_code == 0
@@ -140,7 +143,7 @@ def test_compile_join_deprecation():
 def test_debug_compile():
     runner = CliRunner()
     result = runner.invoke(
-        extract_and_convert, ["--chronon_root=api/py/test/sample", "--input_path=joins/sample_team/", "--debug"]
+        extract_and_convert, ["--chronon_root=api/py/test/sample", "--input_path=joins/sample_team/", "--debug", "-y"]
     )
     assert result.exit_code == 0
 
@@ -153,7 +156,7 @@ def test_failed_compile():
     result = runner.invoke(
         extract_and_convert,
         [
-            "--input_path=joins/sample_team/",
+            "--input_path=joins/sample_team/", "-y"
         ],
     )
     assert result.exit_code != 0
@@ -350,6 +353,7 @@ def test_table_display_staging_query():
             "--chronon_root=api/py/test/sample",
             f"--input_path={input_path}",
             "--table-display",
+            "-y",
         ],
     )
 
@@ -368,7 +372,7 @@ def test_compile_dependency_staging_query():
     input_path = f"staging_queries/sample_team/sample_staging_query.py"
     result = runner.invoke(
         extract_and_convert,
-        ["--chronon_root=api/py/test/sample", f"--input_path={input_path}"],
+        ["--chronon_root=api/py/test/sample", f"--input_path={input_path}", "-y"],
     )
 
     assert result.exit_code == 0
@@ -380,7 +384,7 @@ def test_compile_inline_group_by():
     input_path = f"joins/unit_test/user/sample_join_inline_group_by.py"
     result = runner.invoke(
         extract_and_convert,
-        ["--chronon_root=api/py/test/sample", f"--input_path={input_path}"],
+        ["--chronon_root=api/py/test/sample", f"--input_path={input_path}", "-y"],
     )
     assert result.exit_code == 0
 
@@ -399,3 +403,48 @@ def test_compile_inline_group_by():
         join = json2thrift(file.read(), Join)
         assert len(join.joinParts) == 1
         assert join.joinParts[0].groupBy.metaData.team == "unit_test"
+
+
+def test_compile_external_source_with_offline_group_by():
+    """
+    Test that compiling a join with an external source that has an offlineGroupBy
+    correctly materializes the offlineGroupBy in the external source.
+    """
+    runner = CliRunner()
+    input_path = "joins/sample_team/sample_join_with_derivations_on_external_parts.py"
+    result = _invoke_cli_with_params(runner, input_path)
+    assert result.exit_code == 0
+
+    # Verify the compiled join contains the external source with offlineGroupBy
+    path = "sample/production/joins/sample_team/sample_join_with_derivations_on_external_parts.v1"
+    full_file_path = _get_full_file_path(path)
+    _assert_file_exists(full_file_path, f"Expected {os.path.basename(path)} to be materialized, but it was not.")
+
+    with open(full_file_path, "r") as file:
+        join = json2thrift(file.read(), Join)
+
+        # Verify the join has online external parts
+        assert join.onlineExternalParts is not None, "Expected onlineExternalParts to be present"
+        assert len(join.onlineExternalParts) > 0, "Expected at least one external part"
+
+        # Find the external source with offlineGroupBy
+        external_source_with_offline_gb = None
+        for external_part in join.onlineExternalParts:
+            if external_part.source.metadata.name == "test_external_source":
+                external_source_with_offline_gb = external_part.source
+                break
+
+        assert external_source_with_offline_gb is not None, "Expected to find test_external_source"
+
+        # Verify the offlineGroupBy is present and has the expected properties
+        assert external_source_with_offline_gb.offlineGroupBy is not None, (
+            "Expected offlineGroupBy to be present in test_external_source"
+        )
+
+        offline_gb = external_source_with_offline_gb.offlineGroupBy
+        assert offline_gb.keyColumns == ["group_by_subject"], f"Expected key columns to be ['group_by_subject'], got {offline_gb.keyColumns}"
+        assert offline_gb.aggregations is not None, "Expected aggregations to be present"
+        assert len(offline_gb.aggregations) == 3, f"Expected 3 aggregations, got {len(offline_gb.aggregations)}"
+        assert offline_gb.metaData.outputNamespace == "sample_namespace", (
+            f"Expected output namespace to be 'sample_namespace', got {offline_gb.metaData.outputNamespace}"
+        )

@@ -15,6 +15,10 @@ class ModalClientStub:
         google.protobuf.empty_pb2.Empty,
     ]
     """Apps"""
+    AppCountLogs: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AppCountLogsRequest,
+        modal_proto.api_pb2.AppCountLogsResponse,
+    ]
     AppCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppCreateRequest,
         modal_proto.api_pb2.AppCreateResponse,
@@ -26,6 +30,10 @@ class ModalClientStub:
     AppDeploymentHistory: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppDeploymentHistoryRequest,
         modal_proto.api_pb2.AppDeploymentHistoryResponse,
+    ]
+    AppFetchLogs: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AppFetchLogsRequest,
+        modal_proto.api_pb2.AppFetchLogsResponse,
     ]
     AppGetByDeploymentName: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppGetByDeploymentNameRequest,
@@ -506,6 +514,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxCreateConnectTokenRequest,
         modal_proto.api_pb2.SandboxCreateConnectTokenResponse,
     ]
+    SandboxCreateV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxCreateV2Request,
+        modal_proto.api_pb2.SandboxCreateV2Response,
+    ]
     SandboxGetFromName: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxGetFromNameRequest,
         modal_proto.api_pb2.SandboxGetFromNameResponse,
@@ -523,7 +535,15 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxGetTaskIdResponse,
     ]
     """needed for modal container exec"""
+    SandboxGetTaskIdV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetTaskIdRequest,
+        modal_proto.api_pb2.SandboxGetTaskIdResponse,
+    ]
     SandboxGetTunnels: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetTunnelsRequest,
+        modal_proto.api_pb2.SandboxGetTunnelsResponse,
+    ]
+    SandboxGetTunnelsV2: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxGetTunnelsRequest,
         modal_proto.api_pb2.SandboxGetTunnelsResponse,
     ]
@@ -575,7 +595,19 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxTerminateRequest,
         modal_proto.api_pb2.SandboxTerminateResponse,
     ]
+    SandboxTerminateV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxTerminateRequest,
+        modal_proto.api_pb2.SandboxTerminateResponse,
+    ]
     SandboxWait: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxWaitRequest,
+        modal_proto.api_pb2.SandboxWaitResponse,
+    ]
+    SandboxWaitUntilReady: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxWaitUntilReadyRequest,
+        modal_proto.api_pb2.SandboxWaitUntilReadyResponse,
+    ]
+    SandboxWaitV2: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxWaitRequest,
         modal_proto.api_pb2.SandboxWaitResponse,
     ]
@@ -645,6 +677,10 @@ class ModalClientStub:
     TaskGetCommandRouterAccess: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TaskGetCommandRouterAccessRequest,
         modal_proto.api_pb2.TaskGetCommandRouterAccessResponse,
+    ]
+    TaskGetInfo: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.TaskGetInfoRequest,
+        modal_proto.api_pb2.TaskGetInfoResponse,
     ]
     TaskList: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TaskListRequest,
@@ -772,6 +808,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> google.protobuf.empty_pb2.Empty:
         """Apps"""
     @abc.abstractmethod
+    def AppCountLogs(
+        self,
+        request: modal_proto.api_pb2.AppCountLogsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AppCountLogsResponse: ...
+    @abc.abstractmethod
     def AppCreate(
         self,
         request: modal_proto.api_pb2.AppCreateRequest,
@@ -789,6 +831,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.AppDeploymentHistoryRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.AppDeploymentHistoryResponse: ...
+    @abc.abstractmethod
+    def AppFetchLogs(
+        self,
+        request: modal_proto.api_pb2.AppFetchLogsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AppFetchLogsResponse: ...
     @abc.abstractmethod
     def AppGetByDeploymentName(
         self,
@@ -1497,6 +1545,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxCreateConnectTokenResponse: ...
     @abc.abstractmethod
+    def SandboxCreateV2(
+        self,
+        request: modal_proto.api_pb2.SandboxCreateV2Request,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxCreateV2Response: ...
+    @abc.abstractmethod
     def SandboxGetFromName(
         self,
         request: modal_proto.api_pb2.SandboxGetFromNameRequest,
@@ -1522,7 +1576,19 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> modal_proto.api_pb2.SandboxGetTaskIdResponse:
         """needed for modal container exec"""
     @abc.abstractmethod
+    def SandboxGetTaskIdV2(
+        self,
+        request: modal_proto.api_pb2.SandboxGetTaskIdRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetTaskIdResponse: ...
+    @abc.abstractmethod
     def SandboxGetTunnels(
+        self,
+        request: modal_proto.api_pb2.SandboxGetTunnelsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetTunnelsResponse: ...
+    @abc.abstractmethod
+    def SandboxGetTunnelsV2(
         self,
         request: modal_proto.api_pb2.SandboxGetTunnelsRequest,
         context: grpc.ServicerContext,
@@ -1600,7 +1666,25 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxTerminateResponse: ...
     @abc.abstractmethod
+    def SandboxTerminateV2(
+        self,
+        request: modal_proto.api_pb2.SandboxTerminateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxTerminateResponse: ...
+    @abc.abstractmethod
     def SandboxWait(
+        self,
+        request: modal_proto.api_pb2.SandboxWaitRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxWaitResponse: ...
+    @abc.abstractmethod
+    def SandboxWaitUntilReady(
+        self,
+        request: modal_proto.api_pb2.SandboxWaitUntilReadyRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxWaitUntilReadyResponse: ...
+    @abc.abstractmethod
+    def SandboxWaitV2(
         self,
         request: modal_proto.api_pb2.SandboxWaitRequest,
         context: grpc.ServicerContext,
@@ -1704,6 +1788,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.TaskGetCommandRouterAccessRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.TaskGetCommandRouterAccessResponse: ...
+    @abc.abstractmethod
+    def TaskGetInfo(
+        self,
+        request: modal_proto.api_pb2.TaskGetInfoRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.TaskGetInfoResponse: ...
     @abc.abstractmethod
     def TaskList(
         self,

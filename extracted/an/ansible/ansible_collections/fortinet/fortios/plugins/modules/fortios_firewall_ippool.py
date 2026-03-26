@@ -162,7 +162,7 @@ options:
                 type: int
             permit_any_host:
                 description:
-                    - Enable/disable full cone NAT.
+                    - Enable/disable fullcone NAT. Accept UDP packets from any host.
                 type: str
                 choices:
                     - 'disable'
@@ -666,7 +666,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "firewall_ippool"
         )

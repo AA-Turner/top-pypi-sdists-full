@@ -29,6 +29,7 @@ from arthur_client.api_bindings.models.policy_alert_rule import PolicyAlertRule
 from arthur_client.api_bindings.models.policy_assignment import PolicyAssignment
 from arthur_client.api_bindings.models.policy_assignment_detail import PolicyAssignmentDetail
 from arthur_client.api_bindings.models.policy_attestation_rule import PolicyAttestationRule
+from arthur_client.api_bindings.models.policy_summary import PolicySummary
 from arthur_client.api_bindings.models.post_attestation_record import PostAttestationRecord
 from arthur_client.api_bindings.models.post_policy import PostPolicy
 from arthur_client.api_bindings.models.post_policy_alert_rule import PostPolicyAlertRule
@@ -1170,10 +1171,10 @@ class PoliciesV1Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Policy:
+    ) -> PolicySummary:
         """Create Policy
 
-        Creates a new policy for the organization.
+        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required.
 
         :param post_policy: (required)
         :type post_policy: PostPolicy
@@ -1208,7 +1209,7 @@ class PoliciesV1Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Policy",
+            '200': "PolicySummary",
             '500': "InternalServerError",
             '422': "HTTPValidationError",
         }
@@ -1239,10 +1240,10 @@ class PoliciesV1Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Policy]:
+    ) -> ApiResponse[PolicySummary]:
         """Create Policy
 
-        Creates a new policy for the organization.
+        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required.
 
         :param post_policy: (required)
         :type post_policy: PostPolicy
@@ -1277,7 +1278,7 @@ class PoliciesV1Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Policy",
+            '200': "PolicySummary",
             '500': "InternalServerError",
             '422': "HTTPValidationError",
         }
@@ -1311,7 +1312,7 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Create Policy
 
-        Creates a new policy for the organization.
+        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required.
 
         :param post_policy: (required)
         :type post_policy: PostPolicy
@@ -1346,7 +1347,7 @@ class PoliciesV1Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Policy",
+            '200': "PolicySummary",
             '500': "InternalServerError",
             '422': "HTTPValidationError",
         }
@@ -6888,7 +6889,7 @@ class PoliciesV1Api:
     ) -> Policy:
         """Update Policy
 
-        Updates a policy's metadata or grace period.
+        Updates a policy's metadata or enforcement delay.
 
         :param policy_id: The ID of the policy to update. (required)
         :type policy_id: str
@@ -6961,7 +6962,7 @@ class PoliciesV1Api:
     ) -> ApiResponse[Policy]:
         """Update Policy
 
-        Updates a policy's metadata or grace period.
+        Updates a policy's metadata or enforcement delay.
 
         :param policy_id: The ID of the policy to update. (required)
         :type policy_id: str
@@ -7034,7 +7035,7 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Update Policy
 
-        Updates a policy's metadata or grace period.
+        Updates a policy's metadata or enforcement delay.
 
         :param policy_id: The ID of the policy to update. (required)
         :type policy_id: str

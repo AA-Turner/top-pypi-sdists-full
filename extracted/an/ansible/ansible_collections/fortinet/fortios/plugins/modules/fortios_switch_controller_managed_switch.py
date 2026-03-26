@@ -1108,6 +1108,7 @@ options:
                             - '50000cr'
                             - '50000sr'
                             - '5000auto'
+                            - 'sgmii-auto'
                             - '1000fiber'
                             - '10000'
                             - '40000'
@@ -3109,6 +3110,7 @@ versioned_schema = {
                             "value": "5000auto",
                             "v_range": [["v7.0.8", "v7.0.12"], ["v7.2.4", ""]],
                         },
+                        {"value": "sgmii-auto", "v_range": [["v7.6.5", ""]]},
                         {
                             "value": "1000fiber",
                             "v_range": [["v6.0.0", "v7.0.7"], ["v7.2.0", "v7.2.2"]],
@@ -4528,7 +4530,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "switch_controller_managed_switch"
         )

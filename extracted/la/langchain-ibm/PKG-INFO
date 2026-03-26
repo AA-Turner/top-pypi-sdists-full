@@ -1,13 +1,13 @@
 Metadata-Version: 2.1
 Name: langchain-ibm
-Version: 1.0.4
+Version: 1.0.5
 Summary: An integration package connecting IBM watsonx.ai and LangChain
 Author: IBM
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-ibm/tree/main/libs/ibm
 Project-URL: repository, https://github.com/langchain-ai/langchain-ibm
 Requires-Python: <3.14,>=3.10
-Requires-Dist: langchain-core<2.0.0,>=1.0.0
+Requires-Dist: langchain-core<2.0.0,>=1.2.5
 Requires-Dist: ibm-watsonx-ai<2.0.0,>=1.3.37
 Provides-Extra: sql-toolkit
 Requires-Dist: pyarrow>=3.0.0; extra == "sql-toolkit"
@@ -118,7 +118,7 @@ Alternatively for all classes you can use Cloud Pak for Data credentials. For mo
 from langchain_ibm import ChatWatsonx
 
 model = ChatWatsonx(
-    model_id="ibm/granite-3-3-8b-instruct",
+    model_id="ibm/granite-4-h-small",
     url="PASTE YOUR URL HERE",
     username="PASTE YOUR USERNAME HERE",
     password="PASTE YOUR PASSWORD HERE",
@@ -166,7 +166,7 @@ parameters = TextGenParameters(
 )
 
 llm = WatsonxLLM(
-    model_id="ibm/granite-3-3-8b-instruct",
+    model_id="ibm/granite-4-h-small",
     url="https://us-south.ml.cloud.ibm.com",
     project_id="PASTE YOUR PROJECT_ID HERE",
     params=parameters,

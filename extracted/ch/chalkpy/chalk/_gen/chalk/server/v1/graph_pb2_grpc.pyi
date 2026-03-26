@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.graph_pb2 import (
     ApplyGraphUpdatesRequest,
     ApplyGraphUpdatesResponse,
+    DiffDeploymentsRequest,
+    DiffDeploymentsResponse,
     GetCodegenFeaturesFromGraphRequest,
     GetCodegenFeaturesFromGraphResponse,
     GetDataLineageIndexRequest,
@@ -22,6 +24,8 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     GetGraphResponse,
     GetOfflineStoreTableRequest,
     GetOfflineStoreTableResponse,
+    SmartDiffDeploymentRequest,
+    SmartDiffDeploymentResponse,
     TestGraphMutationsRequest,
     TestGraphMutationsResponse,
     UpdateGraphRequest,
@@ -81,6 +85,16 @@ class GraphServiceStub:
         GetOfflineStoreTableResponse,
     ]
     """GetOfflineStoreTable returns the offline store table names for a feature"""
+    DiffDeployments: UnaryUnaryMultiCallable[
+        DiffDeploymentsRequest,
+        DiffDeploymentsResponse,
+    ]
+    """DiffDeployments compares two deployment graphs and returns the diff."""
+    SmartDiffDeployment: UnaryUnaryMultiCallable[
+        SmartDiffDeploymentRequest,
+        SmartDiffDeploymentResponse,
+    ]
+    """SmartDiffDeployment automatically finds the best comparison target and diffs."""
 
 class GraphServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -146,5 +160,19 @@ class GraphServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetOfflineStoreTableResponse:
         """GetOfflineStoreTable returns the offline store table names for a feature"""
+    @abstractmethod
+    def DiffDeployments(
+        self,
+        request: DiffDeploymentsRequest,
+        context: ServicerContext,
+    ) -> DiffDeploymentsResponse:
+        """DiffDeployments compares two deployment graphs and returns the diff."""
+    @abstractmethod
+    def SmartDiffDeployment(
+        self,
+        request: SmartDiffDeploymentRequest,
+        context: ServicerContext,
+    ) -> SmartDiffDeploymentResponse:
+        """SmartDiffDeployment automatically finds the best comparison target and diffs."""
 
 def add_GraphServiceServicer_to_server(servicer: GraphServiceServicer, server: Server) -> None: ...

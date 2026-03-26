@@ -72,6 +72,11 @@ options:
       - Content Awareness blade enabled.
       - Available from R80.10 management version.
     type: bool
+  enable_https_inspection:
+    description:
+      - Enable HTTPS Inspection after defining an outbound inspection certificate. <br>To define the outbound certificate use outbound inspection
+        certificate API.
+    type: bool
   firewall:
     description:
       - Firewall blade enabled.
@@ -560,6 +565,7 @@ def main():
         anti_virus=dict(type="bool"),
         application_control=dict(type="bool"),
         content_awareness=dict(type="bool"),
+        enable_https_inspection=dict(type="bool"),
         firewall=dict(type="bool"),
         firewall_settings=dict(
             type="dict",

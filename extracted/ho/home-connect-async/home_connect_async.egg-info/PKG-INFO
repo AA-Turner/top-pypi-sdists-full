@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: home-connect-async
-Version: 0.8.3
+Version: 0.8.4
 Summary: Async SDK for BSH Home Connect API
 Home-page: https://github.com/ekutner/home-connect-async
 Author: Eran Kutner
@@ -12,8 +12,9 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown; charset=UTF-8
 Requires-Dist: aiohttp
 Requires-Dist: aiohttp-sse-client>=0.2.1

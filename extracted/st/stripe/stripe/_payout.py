@@ -111,7 +111,7 @@ class Payout(
     """
     livemode: bool
     """
-    Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
+    If the object exists in live mode, the value is `true`. If the object exists in test mode, the value is `false`.
     """
     metadata: Optional[Dict[str, str]]
     """
@@ -211,7 +211,7 @@ class Payout(
             self._request(
                 "post",
                 "/v1/payouts/{payout}/cancel".format(
-                    payout=sanitize_id(self.get("id"))
+                    payout=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -266,7 +266,7 @@ class Payout(
             await self._request_async(
                 "post",
                 "/v1/payouts/{payout}/cancel".format(
-                    payout=sanitize_id(self.get("id"))
+                    payout=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -279,7 +279,7 @@ class Payout(
 
         If your API key is in test mode, money won't actually be sent, though every other action occurs as if you're in live mode.
 
-        If you create a manual payout on a Stripe account that uses multiple payment source types, you need to specify the source type balance that the payout draws from. The [balance object](https://docs.stripe.com/api#balance_object) details available and pending amounts by source type.
+        If you create a manual payout on a Stripe account that uses multiple payment source types, you need to specify the source type balance that the payout draws from. The [balance object](https://docs.stripe.com/api/balances/object) details available and pending amounts by source type.
         """
         return cast(
             "Payout",
@@ -299,7 +299,7 @@ class Payout(
 
         If your API key is in test mode, money won't actually be sent, though every other action occurs as if you're in live mode.
 
-        If you create a manual payout on a Stripe account that uses multiple payment source types, you need to specify the source type balance that the payout draws from. The [balance object](https://docs.stripe.com/api#balance_object) details available and pending amounts by source type.
+        If you create a manual payout on a Stripe account that uses multiple payment source types, you need to specify the source type balance that the payout draws from. The [balance object](https://docs.stripe.com/api/balances/object) details available and pending amounts by source type.
         """
         return cast(
             "Payout",
@@ -461,7 +461,7 @@ class Payout(
             self._request(
                 "post",
                 "/v1/payouts/{payout}/reverse".format(
-                    payout=sanitize_id(self.get("id"))
+                    payout=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -524,7 +524,7 @@ class Payout(
             await self._request_async(
                 "post",
                 "/v1/payouts/{payout}/reverse".format(
-                    payout=sanitize_id(self.get("id"))
+                    payout=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),

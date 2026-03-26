@@ -53,7 +53,10 @@ class IAMTokenAuth(RefreshableTokenAuth):
             )
 
     def _get_token_request_arguments(self) -> tuple[str, str, dict[str, str]]:
-        url = self._api_client._href_definitions.get_iam_token_url()
+        url = (
+            self._api_client._href_definitions.get_user_auth_url()
+            or self._api_client._href_definitions.get_iam_token_url()
+        )
 
         data = "apikey=" + self._api_client._href_definitions.get_iam_token_api(
             self._api_client.credentials.api_key

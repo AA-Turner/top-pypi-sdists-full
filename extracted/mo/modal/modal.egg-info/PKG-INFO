@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: modal
-Version: 1.3.5
+Version: 1.4.0
 Summary: Python client library for Modal
 Author-email: Modal Labs <support@modal.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://modal.com
 Project-URL: Source, https://github.com/modal-labs/modal-client
 Project-URL: Documentation, https://modal.com/docs
@@ -11,10 +11,10 @@ Project-URL: Issue Tracker, https://github.com/modal-labs/modal-client/issues
 Keywords: modal,client,cloud,serverless,infrastructure
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: aiohttp
 Requires-Dist: cbor2
 Requires-Dist: certifi
@@ -30,12 +30,12 @@ Requires-Dist: types-certifi
 Requires-Dist: types-toml
 Requires-Dist: watchfiles
 Requires-Dist: typing_extensions~=4.6
+Dynamic: license-file
 
 # Modal Python SDK
 
 [![PyPI Version](https://img.shields.io/pypi/v/modal.svg)](https://pypi.org/project/modal/)
 [![License](https://img.shields.io/badge/license-apache_2.0-darkviolet.svg)](https://github.com/modal-labs/modal-client/blob/master/LICENSE)
-[![Tests](https://github.com/modal-labs/modal-client/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/modal-labs/modal-client/actions/workflows/ci-cd.yml)
 [![Slack](https://img.shields.io/badge/slack-join-blue.svg?logo=slack)](https://modal.com/slack)
 
 The [Modal](https://modal.com/) Python SDK provides convenient, on-demand

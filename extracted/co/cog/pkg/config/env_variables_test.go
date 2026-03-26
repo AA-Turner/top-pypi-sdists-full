@@ -71,6 +71,11 @@ func TestEnvironmentConfig(t *testing.T) {
 				Expected: map[string]string{"NAME": "VALUE1\nVALUE2"},
 			},
 			{
+				Name:     "UserAgentWithSpaces",
+				Input:    []string{"COG_USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+				Expected: map[string]string{"COG_USER_AGENT": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+			},
+			{
 				Name:     "MultiplePairs",
 				Input:    []string{"NAME1=VALUE1", "NAME2=VALUE2"},
 				Expected: map[string]string{"NAME1": "VALUE1", "NAME2": "VALUE2"},
@@ -114,7 +119,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	})
 
 	t.Run("EnforceDenyList", func(t *testing.T) {
-		for _, pattern := range EnvironmentVariableDenyList {
+		for _, pattern := range environmentVariableDenyList {
 			// test that exact matches are rejected
 			t.Run(fmt.Sprintf("Rejects %q", pattern), func(t *testing.T) {
 				input := fmt.Sprintf("%s=VALUE", pattern)
@@ -124,9 +129,9 @@ func TestEnvironmentConfig(t *testing.T) {
 			})
 
 			// test that prefix matches are rejected
-			if strings.HasSuffix(pattern, "*") {
+			if before, ok := strings.CutSuffix(pattern, "*"); ok {
 				t.Run(fmt.Sprintf("Rejects %q prefix", pattern), func(t *testing.T) {
-					name := strings.TrimSuffix(pattern, "*") + "SUFFIX"
+					name := before + "SUFFIX"
 					input := fmt.Sprintf("%s=VALUE", name)
 					_, err := parseAndValidateEnvironment([]string{input})
 					require.Error(t, err)

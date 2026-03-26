@@ -20,7 +20,7 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = """
 ---
 module: fortios_wireless_controller_bonjour_profile
-short_description: Configure Bonjour profiles. Bonjour is Apple's zero configuration networking protocol. Bonjour profiles allow APs and FortiAPs to connnect
+short_description: Configure Bonjour profiles. Bonjour is Apple's zero configuration networking protocol. Bonjour profiles allow APs and FortiAPs to connect
    to networks using Bonjour in Fortinet's FortiOS and FortiGate.
 description:
     - This module is able to configure a FortiGate or FortiOS (FOS) device by allowing the
@@ -87,7 +87,7 @@ options:
             - 'absent'
     wireless_controller_bonjour_profile:
         description:
-            - Configure Bonjour profiles. Bonjour is Apple's zero configuration networking protocol. Bonjour profiles allow APs and FortiAPs to connnect to
+            - Configure Bonjour profiles. Bonjour is Apple's zero configuration networking protocol. Bonjour profiles allow APs and FortiAPs to connect to
                networks using Bonjour.
         default: null
         type: dict
@@ -153,7 +153,7 @@ options:
 """
 
 EXAMPLES = """
-- name: Configure Bonjour profiles. Bonjour is Apple's zero configuration networking protocol. Bonjour profiles allow APs and FortiAPs to connnect to networks
+- name: Configure Bonjour profiles. Bonjour is Apple's zero configuration networking protocol. Bonjour profiles allow APs and FortiAPs to connect to networks
    using Bonjour.
   fortinet.fortios.fortios_wireless_controller_bonjour_profile:
       vdom: "{{ vdom }}"
@@ -578,7 +578,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "wireless_controller_bonjour_profile"
         )

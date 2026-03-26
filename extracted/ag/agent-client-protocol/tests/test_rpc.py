@@ -38,6 +38,7 @@ from acp.schema import (
     HttpMcpServer,
     ImageContentBlock,
     Implementation,
+    ListSessionsResponse,
     McpServerStdio,
     PermissionOption,
     ResourceContentBlock,
@@ -261,6 +262,39 @@ async def test_set_config_option(connect, agent, client):
     resp = await agent_conn.set_config_option(session_id="sess", config_id="theme", value="dark")
     assert isinstance(resp, SetSessionConfigOptionResponse)
     assert resp.config_options == []
+    assert agent.config_option_calls == [("theme", "sess", "dark")]
+
+
+@pytest.mark.asyncio
+async def test_set_config_option_boolean(connect, agent, client):
+    _, agent_conn = connect()
+
+    resp = await agent_conn.set_config_option(session_id="sess", config_id="brave_mode", value=True)
+    assert isinstance(resp, SetSessionConfigOptionResponse)
+    assert resp.config_options == []
+    assert agent.config_option_calls == [("brave_mode", "sess", True)]
+
+
+@pytest.mark.asyncio
+async def test_prompt_message_id_roundtrip(connect, agent, client):
+    _, agent_conn = connect()
+
+    resp = await agent_conn.prompt(
+        session_id="sess",
+        prompt=[TextContentBlock(type="text", text="hello")],
+        message_id="123e4567-e89b-12d3-a456-426614174000",
+    )
+    assert isinstance(resp, PromptResponse)
+    assert agent.prompts[-1].message_id == "123e4567-e89b-12d3-a456-426614174000"
+
+
+@pytest.mark.asyncio
+async def test_list_sessions_stable(connect, agent, client):
+    _, agent_conn = connect()
+
+    resp = await agent_conn.list_sessions()
+    assert isinstance(resp, ListSessionsResponse)
+    assert resp.sessions == []
 
 
 @pytest.mark.asyncio

@@ -16,6 +16,7 @@ import collections.abc
 import dataclasses
 import fractions
 import os
+import types
 import typing
 
 import numpy
@@ -26,6 +27,7 @@ import dwave.optimization.typing
 from dwave.optimization.utilities import _NoValue, _NoValueType
 
 _AxisLike: typing.TypeAlias = None | int | tuple[int, ...]
+_IndexLike: typing.TypeAlias = int | slice | None | types.EllipsisType | ArraySymbol
 _InitialLike: typing.TypeAlias = None | _NoValueType | float
 _ShapeLike: typing.TypeAlias = typing.Union[int, collections.abc.Sequence[int]]
 
@@ -45,7 +47,7 @@ class _Graph:
         cls: typing.Type[_GraphSubclass],
         file: typing.Union[bytes, os.PathLike, str, typing.BinaryIO],
         *,
-        substitute: typing.Optional[collections.abc.Mapping[str, collections.abc.Callable]] = None,
+        substitute: None | collections.abc.Mapping[str, collections.abc.Callable] = None,
         ) -> _GraphSubclass: ...
 
     def into_file(
@@ -54,7 +56,7 @@ class _Graph:
         *,
         max_num_states: int = 0,
         only_decision: bool = False,
-        version: typing.Optional[tuple[int, int]] = None
+        version: None | tuple[int, int] = None
         ): ...
 
     def is_locked(self) -> bool: ...
@@ -109,12 +111,7 @@ class ArraySymbol(Symbol):
     def __bool__(self) -> typing.NoReturn: ...
     def __eq__(self, rhs: dwave.optimization.typing.ArraySymbolLike) -> symbols.Equal: ...
     def __ge__(self, rhs: dwave.optimization.typing.ArraySymbolLike) -> symbols.LessEqual: ...
-
-    def __getitem__(
-        self,
-        index: typing.Union[Symbol, int, slice, tuple],
-    ) -> typing.Union[symbols.AdvancedIndexing, symbols.BasicIndexing, symbols.Permutation]: ...
-
+    def __getitem__(self, index: _IndexLike | tuple[_IndexLike, ...]) -> ArraySymbol: ...
     def __iadd__(self, rhs: dwave.optimization.typing.ArraySymbolLike) -> symbols.NaryAdd: ...
     def __imul__(self, rhs: dwave.optimization.typing.ArraySymbolLike) -> symbols.NaryMultiply: ...
     def __iter__(self) -> typing.Iterator[ArraySymbol]: ...
@@ -145,7 +142,7 @@ class ArraySymbol(Symbol):
     def resize(
         self,
         shape: _ShapeLike,
-        fill_value: typing.Optional[float] = None,
+        fill_value: None | float = None,
     ) -> symbols.Resize: ...
     def shape(self) -> tuple[int, ...]: ...
     def size(self) -> typing.Union[int, symbols.Size]: ...

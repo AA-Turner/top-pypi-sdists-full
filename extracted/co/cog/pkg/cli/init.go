@@ -5,39 +5,40 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/replicate/cog/pkg/env"
 	"github.com/replicate/cog/pkg/util/console"
 	"github.com/replicate/cog/pkg/util/files"
 )
 
-var (
-	//go:embed init-templates/**/*
-	initTemplates    embed.FS
-	pipelineTemplate bool
-)
+//go:embed init-templates/**/*
+var initTemplates embed.FS
 
 func newInitCommand() *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:        "init",
 		SuggestFor: []string{"new", "start"},
 		Short:      "Configure your project for use with Cog",
-		RunE:       initCommand,
-		Args:       cobra.MaximumNArgs(0),
+		Long: `Create a cog.yaml and predict.py in the current directory.
+
+These files provide a starting template for defining your model's environment
+and prediction interface. Edit them to match your model's requirements.`,
+		Example: `  # Set up a new Cog project in the current directory
+  cog init`,
+		RunE: initCommand,
+		Args: cobra.MaximumNArgs(0),
 	}
 
-	addPipelineInit(cmd)
 	return cmd
 }
 
 func initCommand(cmd *cobra.Command, args []string) error {
-	console.Infof("\nSetting up the current directory for use with Cog...\n")
+	console.Info("Setting up the current directory for use with Cog...")
+	console.Info("")
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -45,9 +46,6 @@ func initCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	initTemplate := "base"
-	if pipelineTemplate {
-		initTemplate = "pipeline"
-	}
 
 	// Discover all files in the embedded template directory
 	templateDir := path.Join("init-templates", initTemplate)
@@ -71,7 +69,7 @@ func initCommand(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	console.Infof("\nDone! For next steps, check out the docs at https://cog.run/getting-started")
+	console.Successf("\nDone! For next steps, check out the docs at https://cog.run/getting-started")
 
 	return nil
 }
@@ -122,26 +120,12 @@ func processTemplateFile(fs embed.FS, templateDir, filename, cwd string) error {
 	var content []byte
 
 	// Special handling for specific template files
-	switch {
-	case filename == "AGENTS.md":
+	switch filename {
+	case "AGENTS.md":
 		// Try to download from Replicate docs
 		downloadedContent, err := downloadAgentsFile()
 		if err != nil {
 			console.Infof("Failed to download AGENTS.md: %v", err)
-			console.Infof("Using template version instead...")
-			// Fall back to template version
-			content, err = fs.ReadFile(path.Join(templateDir, filename))
-			if err != nil {
-				return fmt.Errorf("Error reading template %s: %w", filename, err)
-			}
-		} else {
-			content = downloadedContent
-		}
-	case filename == "requirements.txt" && pipelineTemplate:
-		// Special handling for requirements.txt in pipeline templates - download from runtime
-		downloadedContent, err := downloadPipelineRequirementsFile()
-		if err != nil {
-			console.Infof("Failed to download pipeline requirements.txt: %v", err)
 			console.Infof("Using template version instead...")
 			// Fall back to template version
 			content, err = fs.ReadFile(path.Join(templateDir, filename))
@@ -159,16 +143,16 @@ func processTemplateFile(fs embed.FS, templateDir, filename, cwd string) error {
 		}
 	}
 
+	console.Infof("Creating %s", console.Bold(filename))
+
 	if err := os.WriteFile(filePath, content, 0o644); err != nil {
 		return fmt.Errorf("Error writing %s: %w", filePath, err)
 	}
-
-	console.Infof("✅ Created %s", filePath)
 	return nil
 }
 
 func downloadAgentsFile() ([]byte, error) {
-	const agentsURL = "https://replicate.com/docs/reference/pipelines/llms.txt"
+	const agentsURL = "https://replicate.com/docs/reference/cog/llms.txt"
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -190,44 +174,4 @@ func downloadAgentsFile() ([]byte, error) {
 	}
 
 	return content, nil
-}
-
-func downloadPipelineRequirementsFile() ([]byte, error) {
-	requirementsURL := pipelinesRuntimeRequirementsURL()
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Get(requirementsURL.String())
-	if err != nil {
-		return nil, fmt.Errorf("%w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	content, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	return content, nil
-}
-
-func pipelinesRuntimeRequirementsURL() url.URL {
-	baseURL := url.URL{
-		Scheme: env.SchemeFromEnvironment(),
-		Host:   env.PipelinesRuntimeHostFromEnvironment(),
-	}
-	baseURL.Path = "requirements.txt"
-	return baseURL
-}
-
-func addPipelineInit(cmd *cobra.Command) {
-	const pipeline = "x-pipeline"
-	cmd.Flags().BoolVar(&pipelineTemplate, pipeline, false, "Initialize a pipeline template")
-	_ = cmd.Flags().MarkHidden(pipeline)
 }

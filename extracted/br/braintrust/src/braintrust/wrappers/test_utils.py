@@ -13,7 +13,7 @@ from braintrust.test_helpers import init_test_logger
 
 # Source directory paths (resolved to handle installed vs source locations)
 _SOURCE_DIR = Path(__file__).resolve().parent
-AUTO_TEST_SCRIPTS_DIR = _SOURCE_DIR / "auto_test_scripts"
+AUTO_TEST_SCRIPTS_DIR = _SOURCE_DIR.parent / "integrations" / "auto_test_scripts"
 
 # Cassettes dir can be overridden via env var for subprocess tests
 CASSETTES_DIR = Path(os.environ.get("BRAINTRUST_CASSETTES_DIR", _SOURCE_DIR / "cassettes"))
@@ -34,7 +34,7 @@ def run_in_subprocess(code: str, timeout: int = 30, env: dict[str, str] | None =
 
 
 def verify_autoinstrument_script(script_name: str, timeout: int = 30) -> subprocess.CompletedProcess:
-    """Run a test script from the auto_test_scripts directory.
+    """Run a test script from the integrations auto_test_scripts directory.
 
     Raises AssertionError if the script exits with non-zero code.
     """
@@ -42,7 +42,9 @@ def verify_autoinstrument_script(script_name: str, timeout: int = 30) -> subproc
     # Pass cassettes dir to subprocess since it may use installed package
     env = os.environ.copy()
     env["BRAINTRUST_CASSETTES_DIR"] = str(_SOURCE_DIR / "cassettes")
-    env["BRAINTRUST_CLAUDE_AGENT_SDK_CASSETTES_DIR"] = str(_SOURCE_DIR / "claude_agent_sdk" / "cassettes")
+    env["BRAINTRUST_CLAUDE_AGENT_SDK_CASSETTES_DIR"] = str(
+        _SOURCE_DIR.parent / "integrations" / "claude_agent_sdk" / "cassettes"
+    )
     result = subprocess.run(
         [sys.executable, str(script_path)],
         capture_output=True,

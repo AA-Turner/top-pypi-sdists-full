@@ -8,6 +8,7 @@ import datetime as dt
 import decimal
 import functools
 import inspect
+import ipaddress
 import json
 import operator
 import typing
@@ -290,6 +291,10 @@ class Schema(metaclass=SchemaMeta):
         dt.date: ma_fields.Date,
         dt.timedelta: ma_fields.TimeDelta,
         decimal.Decimal: ma_fields.Decimal,
+        ipaddress.IPv4Address: ma_fields.IPv4,
+        ipaddress.IPv6Address: ma_fields.IPv6,
+        ipaddress.IPv4Interface: ma_fields.IPv4Interface,
+        ipaddress.IPv6Interface: ma_fields.IPv6Interface,
     }
     #: Overrides for default schema-level error messages
     error_messages: dict[str, str] = {}
@@ -654,7 +659,7 @@ class Schema(metaclass=SchemaMeta):
                 d_kwargs = {}
                 # Allow partial loading of nested schemas.
                 if partial_is_collection:
-                    prefix = field_name + "."
+                    prefix = attr_name + "."
                     len_prefix = len(prefix)
                     sub_partial = [
                         f[len_prefix:] for f in partial if f.startswith(prefix)

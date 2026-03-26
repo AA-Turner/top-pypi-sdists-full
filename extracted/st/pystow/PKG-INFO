@@ -1,15 +1,34 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: pystow
-Version: 0.7.28
+Version: 0.8.0
 Summary: Easily pick a place to store data for your Python code
 Keywords: snekpack,cookiecutter,caching,file management
 Author: Charles Tapley Hoyt
 Author-email: Charles Tapley Hoyt <cthoyt@gmail.com>
-License-File: LICENSE
+License: MIT License
+         
+         Copyright (c) 2026 Charles Tapley Hoyt
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy
+         of this software and associated documentation files (the "Software"), to deal
+         in the Software without restriction, including without limitation the rights
+         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         copies of the Software, and to permit persons to whom the Software is
+         furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Framework :: Pytest
 Classifier: Framework :: tox
@@ -23,23 +42,17 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
-Requires-Dist: click
-Requires-Dist: requests
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions
 Requires-Dist: boto3 ; extra == 'aws'
 Requires-Dist: bs4 ; extra == 'bs4'
-Requires-Dist: sphinx>=8 ; extra == 'docs'
-Requires-Dist: sphinx-rtd-theme>=3.0 ; extra == 'docs'
-Requires-Dist: sphinx-click ; extra == 'docs'
-Requires-Dist: sphinx-automodapi ; extra == 'docs'
+Requires-Dist: click ; extra == 'cli'
 Requires-Dist: pandas ; extra == 'pandas'
 Requires-Dist: pydantic ; extra == 'pydantic'
 Requires-Dist: ratelimit ; extra == 'ratelimit'
+Requires-Dist: requests ; extra == 'ratelimit'
 Requires-Dist: rdflib ; extra == 'rdf'
-Requires-Dist: pytest ; extra == 'tests'
-Requires-Dist: coverage[toml] ; extra == 'tests'
-Requires-Dist: requests-file ; extra == 'tests'
+Requires-Dist: requests ; extra == 'requests'
 Requires-Dist: lxml ; extra == 'xml'
 Requires-Dist: pyyaml ; extra == 'yaml'
 Maintainer: Charles Tapley Hoyt
@@ -52,12 +65,12 @@ Project-URL: Documentation, https://pystow.readthedocs.io
 Project-URL: Funding, https://github.com/sponsors/cthoyt
 Provides-Extra: aws
 Provides-Extra: bs4
-Provides-Extra: docs
+Provides-Extra: cli
 Provides-Extra: pandas
 Provides-Extra: pydantic
 Provides-Extra: ratelimit
 Provides-Extra: rdf
-Provides-Extra: tests
+Provides-Extra: requests
 Provides-Extra: xml
 Provides-Extra: yaml
 Description-Content-Type: text/markdown

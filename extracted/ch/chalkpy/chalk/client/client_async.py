@@ -18,6 +18,7 @@ from chalk.client.models import (
     OnlineQueryContext,
     PlanQueryResponse,
     ResourceRequests,
+    UnloadResolvers,
     UploadFeaturesResponse,
     WhoAmIResponse,
 )
@@ -652,9 +653,10 @@ class AsyncChalkClient:
         max_retries: int | None = None,
         query_name: str | None = None,
         query_name_version: str | None = None,
-        *,
+        *,  # Keyword-only: these were added later and must not be passed positionally.
         input_sql: str | None = None,
         use_metaplanner: bool | None = None,
+        unload_resolvers: UnloadResolvers = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.

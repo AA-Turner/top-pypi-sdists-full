@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def add_render_slot(
@@ -309,7 +310,8 @@ def import_as_mesh_planes(
         0.0,
         0.0,
     ),
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     directory: str | None = "",
     filter_image: bool | None = True,
     filter_movie: bool | None = True,
@@ -567,7 +569,8 @@ def open(
     allow_path_tokens: bool | None = True,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -651,7 +654,8 @@ def open_images(
     /,
     *,
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     relative_path: bool | None = True,
     use_sequence_detection: bool | None = True,
     use_udim_detection: bool | None = True,

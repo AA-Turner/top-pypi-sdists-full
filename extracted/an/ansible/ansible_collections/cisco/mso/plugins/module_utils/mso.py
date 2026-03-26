@@ -31,7 +31,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     LISTENER_PROTOCOLS,
 )
 
-
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
 
@@ -418,6 +417,61 @@ def ndo_l3out_port_channel_spec(micro_bfd=True):
         port_channel_spec["options"]["micro_bfd_start_timer"] = dict(type="int")
 
     return port_channel_spec
+
+
+def ndo_schema_template_object_references_spec(aliases=None):
+    schema_template_object_references_spec = dict(
+        type="dict",
+        options=dict(
+            uuid=dict(type="str"),
+            reference=dict(
+                type="dict",
+                options=dict(
+                    name=dict(type="str", required=True),
+                    schema=dict(type="str"),
+                    schema_id=dict(type="str"),
+                    template=dict(type="str"),
+                    template_id=dict(type="str"),
+                ),
+                required_one_of=[
+                    ("schema", "schema_id"),
+                    ("template", "template_id"),
+                ],
+                mutually_exclusive=[
+                    ("schema", "schema_id"),
+                    ("template", "template_id"),
+                ],
+                aliases=["ref"],
+            ),
+        ),
+        required_one_of=[
+            ("reference", "uuid"),
+        ],
+        mutually_exclusive=[
+            ("reference", "uuid"),
+        ],
+    )
+
+    if aliases and isinstance(aliases, list):
+        schema_template_object_references_spec["aliases"] = aliases
+
+    return schema_template_object_references_spec
+
+
+def ndo_tags_annotations_spec(aliases=None):
+    tags_annotations_spec = dict(
+        type="list",
+        elements="dict",
+        options=dict(
+            key=dict(type="str", no_log=False),
+            value=dict(type="str"),
+        ),
+    )
+
+    if aliases and isinstance(aliases, list):
+        tags_annotations_spec["aliases"] = aliases
+
+    return tags_annotations_spec
 
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py

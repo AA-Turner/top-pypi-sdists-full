@@ -127,6 +127,7 @@ class AsyncExperiments:
         notes: str | None = None,
         config_json: dict[str, Any] | None = None,
         target_reviews: list[dict[str, Any]] | None = None,
+        git_link: str | None = None,
     ) -> ExperimentFileResponse:
         """Create a new experiment file with an initial version."""
         return await create_experiment_file.asyncio(
@@ -139,6 +140,7 @@ class AsyncExperiments:
                 notes=notes,
                 config_json=config_json or {},
                 target_reviews=target_reviews or [],
+                git_link=git_link,
             ),
         )
 
@@ -184,6 +186,7 @@ class AsyncExperiments:
         config_json: dict[str, Any],
         notes: str = "",
         tags: list[str] | None = None,
+        git_link: str | None = None,
     ) -> ExperimentFileResponse:
         """Create a new version of an experiment file."""
         return await create_experiment_file_version.asyncio(
@@ -193,6 +196,7 @@ class AsyncExperiments:
                 config_json=config_json,
                 notes=notes,
                 tags=tags or [],
+                git_link=git_link,
             ),
         )
 
@@ -299,6 +303,7 @@ class Experiments:
         notes: str | None = None,
         config_json: dict[str, Any] | None = None,
         target_reviews: list[dict[str, Any]] | None = None,
+        git_link: str | None = None,
     ) -> ExperimentFileResponse:
         return create_experiment_file.sync(
             self._client,
@@ -310,6 +315,7 @@ class Experiments:
                 notes=notes,
                 config_json=config_json or {},
                 target_reviews=target_reviews or [],
+                git_link=git_link,
             ),
         )
 
@@ -345,6 +351,7 @@ class Experiments:
         config_json: dict[str, Any],
         notes: str = "",
         tags: list[str] | None = None,
+        git_link: str | None = None,
     ) -> ExperimentFileResponse:
         return create_experiment_file_version.sync(
             self._client,
@@ -353,6 +360,7 @@ class Experiments:
                 config_json=config_json,
                 notes=notes,
                 tags=tags or [],
+                git_link=git_link,
             ),
         )
 

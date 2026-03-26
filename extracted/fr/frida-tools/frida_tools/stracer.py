@@ -5,6 +5,7 @@ import queue
 import shlex
 import threading
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import frida
@@ -56,6 +57,7 @@ class StraceApplication(ConsoleApplication):
         self._pending_by_key: Dict[Tuple[int, int, int], int] = {}
 
         self._show_details = True
+        self._show_help = False
         self._details_breakpoint_cols = 120
 
         self._lock = threading.RLock()
@@ -133,6 +135,8 @@ class StraceApplication(ConsoleApplication):
         parser.add_argument("--uid", action="append", type=int, dest="uids", help="Trace UID (repeatable)")
         parser.add_argument("-x", "--exclude", action="append", dest="exclude",
                             help="Exclude syscall by name (repeatable), e.g. --exclude openat")
+        parser.add_argument("-i", "--include", action="append", dest="include",
+                            help="Only trace syscall by name (repeatable), e.g. --include openat")
         parser.add_argument("--limit", type=int, default=5000, help="Max events kept in UI (default: 5000)")
 
     def _initialize(self, parser, options, args) -> None:
@@ -141,10 +145,14 @@ class StraceApplication(ConsoleApplication):
         self._users = options.users
         self._uids = options.uids
         self._excluded_names_requested = options.exclude
+        self._included_names_requested = options.include
         self._limit = options.limit
 
         if self._files is None and self._pids is None and self._users is None and self._uids is None:
             raise ValueError("At least one target must be specified (use --file, --pid, --user, and/or --uid).")
+
+        if self._excluded_names_requested and self._included_names_requested:
+            raise ValueError("--exclude and --include are mutually exclusive.")
 
     def _usage(self) -> str:
         return "%(prog)s [options]"
@@ -180,7 +188,7 @@ class StraceApplication(ConsoleApplication):
             targets_req["uids"] = self._uids
 
         try:
-            self._tracer.start(self._device, targets_req, self._excluded_names_requested)
+            self._tracer.start(self._device, targets_req, self._excluded_names_requested, self._included_names_requested)
         except Exception as e:
             self._state = "stopping"
             self._ready.set()
@@ -427,8 +435,25 @@ class StraceApplication(ConsoleApplication):
                 if removed:
                     self._status_message += f" (purged {removed} events)"
 
-            self._tracer.exclude_syscalls([key])
+            if ev.nr >= 0:
+                self._tracer.exclude_syscalls([key])
 
+            event.app.invalidate()
+
+        @kb.add("?", filter=~has_focus(self._search_bar.control))
+        def _(event):
+            self._show_help = not self._show_help
+            event.app.invalidate()
+
+        @kb.add("escape", filter=~has_focus(self._search_bar.control))
+        def _(event):
+            if self._show_help:
+                self._show_help = False
+                event.app.invalidate()
+
+        @kb.add("w", filter=~has_focus(self._search_bar.control))
+        def _(event):
+            self._export_events()
             event.app.invalidate()
 
         list_win = Window(
@@ -475,6 +500,40 @@ class StraceApplication(ConsoleApplication):
             filter=Condition(lambda: self._search_editing),
         )
 
+        help_text = "\n".join([
+            "",
+            "  Navigation",
+            "    j/k ↑/↓         move selection",
+            "    PgUp/PgDn       page up/down",
+            "    ^D/^U           half-page down/up",
+            "    Home  End  t    top / tail",
+            "    ←/→  0          scroll / reset",
+            "",
+            "  Search & Filter",
+            "    /               search",
+            "    n/N             next/prev match",
+            "    f               promote search to filter",
+            "    ^L              clear filter",
+            "",
+            "  Actions",
+            "    Enter           resolve selected stack",
+            "    x               exclude syscall",
+            "    w               export view to JSON",
+            "    d               toggle detail pane",
+            "",
+            "  ?  close this help    q/^C  quit",
+            "",
+        ])
+        help_win = Window(
+            content=FormattedTextControl(text=help_text),
+            wrap_lines=False,
+            always_hide_cursor=True,
+        )
+        help_float = ConditionalContainer(
+            content=Frame(help_win, title="Help"),
+            filter=Condition(lambda: self._show_help),
+        )
+
         root = FloatContainer(
             content=body,
             floats=[
@@ -484,7 +543,12 @@ class StraceApplication(ConsoleApplication):
                     left=0,
                     right=0,
                     height=3,
-                )
+                ),
+                Float(
+                    content=help_float,
+                    xcursor=False,
+                    ycursor=False,
+                ),
             ],
         )
 
@@ -811,6 +875,41 @@ class StraceApplication(ConsoleApplication):
 
         tracer.resolve_backtrace(ev.id, ev.pid, ev.map_gen, ev.stack_id)
 
+    def _export_events(self) -> None:
+        with self._lock:
+            view = self._get_filtered_view_locked()
+            rows = [self._serialize_event(ev) for ev in view]
+
+        filename = f"stracer-export-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+        with open(filename, "w") as f:
+            json.dump(rows, f, indent=2, default=str)
+
+        with self._lock:
+            self._status_message = f"Exported {len(rows)} events → {filename}"
+
+    def _serialize_event(self, ev: SyscallEvent) -> dict:
+        d: dict = {
+            "id": ev.id, "phase": ev.phase,
+            "pid": ev.pid, "tid": ev.tid, "abi": ev.abi,
+            "nr": ev.nr, "name": ev.name,
+            "time_ns": ev.time_ns,
+            "merged": ev.merged, "failed": ev.failed,
+        }
+
+        if ev.enter_args is not None:
+            d["enter_args"] = [{"name": a.name, "type": a.type, "text": a.text} for a in ev.enter_args]
+        if ev.exit_retval is not None:
+            d["exit_retval"] = ev.exit_retval
+            d["exit_time_ns"] = ev.exit_time_ns
+        if ev.exit_out_args is not None:
+            d["exit_out_args"] = [{"name": a.name, "type": a.type, "text": a.text} for a in ev.exit_out_args]
+
+        if ev.stack is not None:
+            d["stack"] = [f"0x{addr:x}" for addr in ev.stack]
+            d["call_stack"] = self._format_call_stack(ev)
+
+        return d
+
     def _exclude_events_locked(self, key: tuple[str, int]) -> None:
         abi, nr = key
 
@@ -1014,6 +1113,8 @@ class StraceApplication(ConsoleApplication):
             else:
                 pieces.append("details=off  d=show")
 
+            pieces.append("?=help")
+
             return "  ".join(pieces)
 
     def _format_call_stack(self, ev: SyscallEvent) -> List[str]:
@@ -1169,7 +1270,8 @@ class SyscallTracer:
             self,
             device: frida.core.Device,
             targets_req: Dict[str, Any],
-            excluded_by_name: list[str]
+            excluded_by_name: Optional[list[str]],
+            included_by_name: Optional[list[str]] = None,
     ) -> None:
         self._service = device.open_service("syscall-trace")
 
@@ -1184,7 +1286,17 @@ class SyscallTracer:
 
         self._service.on("message", self._schedule_on_message)
 
-        if excluded_by_name:
+        if included_by_name:
+            included = set(self._resolve_excludes_by_name(included_by_name))
+            to_exclude = []
+            for abi, by_nr in self._signatures.items():
+                for nr in by_nr:
+                    if (abi, nr) not in included:
+                        to_exclude.append((abi, nr))
+            if to_exclude:
+                by_abi = self._apply_excludes(to_exclude)
+                self._service.request({"type": "exclude-syscalls", **by_abi})
+        elif excluded_by_name:
             items = self._resolve_excludes_by_name(excluded_by_name)
             if items:
                 by_abi = self._apply_excludes(items)

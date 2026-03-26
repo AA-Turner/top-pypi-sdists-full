@@ -55,6 +55,11 @@ vultr_api:
       returned: success
       type: int
       sample: 12
+    api_results_per_page:
+      description: Number of results returned per call to API.
+      returned: success
+      type: int
+      sample: 100
     api_endpoint:
       description: Endpoint used for the API requests.
       returned: success
@@ -94,7 +99,7 @@ vultr_block_storage_info:
       description: Region the volume was deployed into.
       returned: success
       type: str
-      sample: ews
+      sample: ewr
     size_gb:
       description: Information about the volume size in GB.
       returned: success

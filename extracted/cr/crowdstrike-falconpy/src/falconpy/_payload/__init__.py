@@ -27,6 +27,7 @@ from ._generic import (
     simple_action_parameter,
     token_settings_payload
     )
+from ._admission_control_policies import acp_custom_rules_policy_payload
 from ._api_integrations import api_plugin_command_payload
 from ._aspm import (
     aspm_delete_tag_payload,
@@ -38,14 +39,23 @@ from ._aspm import (
     aspm_integration_task_payload,
     aspm_node_payload,
     aspm_application_payload,
-    retrieve_relay_node_payload
+    retrieve_relay_node_payload,
+    aspm_group_payload
 )
-from ._correlation_rules import correlation_rules_payload, correlation_rules_export_payload
+from ._correlation_rules import (
+    correlation_rules_payload,
+    correlation_rules_export_payload,
+    correlation_rules_template_payload
+)
 from ._case_management import (
     case_management_notification_groups_payload,
     case_management_create_notification_payload,
     case_management_sla_payload,
     case_management_template_payload,
+    case_management_file_ids_payload,
+    case_management_rtr_file_metadata_payload,
+    case_management_rtr_file_payload,
+    case_management_rtr_recent_file_payload,
     specified_case_payload,
     case_manage_payload,
     case_evidence_payload,
@@ -81,7 +91,8 @@ from ._cloud_policies import (
     cloud_policies_evaluation_payload,
     cloud_policies_rule_override_payload,
     cloud_policies_rule_create_payload,
-    cloud_policies_rule_update_payload
+    cloud_policies_rule_update_payload,
+    cloud_policies_suppression_rule_payload
     )
 from ._cloud_security import cloud_security_create_group_payload
 
@@ -105,14 +116,22 @@ from ._data_protection_configuration import (
     data_protection_enterprise_account_payload,
     data_protection_sensitivity_label_payload,
     data_protection_policy_payload,
-    data_protection_web_locations_payload
+    data_protection_web_locations_payload,
+    data_protection_policy_precedence_payload,
+    data_protection_local_application_payload,
+    data_protection_local_application_group_payload
     )
 from ._delivery_settings import delivery_settings_payload
 from ._detects import update_detects_payload
 from ._identity_protection import idp_policy_payload
 from ._incidents import incident_action_parameters
 # from ._intelligence_indicator_graph import indicator_graph_payload
-from ._ioa import ioa_exclusion_payload, ioa_custom_payload
+from ._ioa_exclusions import (
+    ioa_exclusion_payload,
+    ioa_custom_payload,
+    ioa_ss_exclusion_payload,
+    ioa_ss_default_exclusion_payload
+    )
 from ._it_automation import (
     task_payload,
     task_execution_payload,
@@ -125,9 +144,17 @@ from ._it_automation import (
     automation_user_group_payload
     )
 from ._mobile_enrollment import mobile_enrollment_payload
-from ._ngsiem import ngsiem_search_payload, ngsiem_parser_payload
+from ._ngsiem import (
+    ngsiem_search_payload,
+    ngsiem_parser_payload,
+    ngsiem_auto_update_policy_payload,
+    ngsiem_install_parser_payload,
+    ngsiem_bulk_install_parsers_payload,
+    ngsiem_connector_config_payload,
+    ngsiem_data_connection_payload
+)
 from ._prevention_policy import prevention_policy_payload
-from ._sensor_update_policy import sensor_policy_payload
+from ._sensor_update_policy import sensor_policy_payload, maintenance_token_payload
 from ._response_policy import response_policy_payload
 from ._real_time_response import command_payload, data_payload
 from ._certificate_based_exclusions import certificate_based_exclusions_payload
@@ -160,6 +187,11 @@ from ._filevantage import (
     filevantage_scheduled_exclusion_payload,
     filevantage_start_payload
     )
+from ._ml_exclusions import (
+    ml_exclusions_actions_payload,
+    ml_exclusions_report_payload,
+    ml_exclusions_update_payload
+)
 from ._mssp import mssp_payload
 from ._firewall import (
     firewall_policy_payload,
@@ -188,6 +220,7 @@ from ._workflows import (
     workflow_mock_payload
     )
 from ._foundry import foundry_dynamic_search_payload, foundry_execute_search_payload
+from ._serverless_exports import serverless_exports_launch_payload
 
 __all__ = [
     "generic_payload_list", "aggregate_payload", "recon_action_payload", "recon_rules_payload",
@@ -237,6 +270,17 @@ __all__ = [
     "cloud_policies_evaluation_payload", "cloud_policies_rule_override_payload",
     "cloud_policies_rule_create_payload", "cloud_policies_rule_update_payload", "specified_case_payload",
     "case_manage_payload", "case_evidence_payload", "update_case_payload",
+    "case_management_file_ids_payload", "case_management_rtr_file_metadata_payload",
+    "case_management_rtr_file_payload", "case_management_rtr_recent_file_payload",
     "cloud_azure_registration_legacy_payload", "cloud_google_registration_create_payload",
-    "cloud_security_create_group_payload"
+    "cloud_security_create_group_payload", "aspm_group_payload", "cloud_policies_suppression_rule_payload",
+    "correlation_rules_template_payload", "ioa_ss_exclusion_payload", "ioa_ss_default_exclusion_payload",
+    "ml_exclusions_actions_payload", "ml_exclusions_report_payload", "ml_exclusions_update_payload",
+    "ngsiem_data_connection_payload", "ngsiem_connector_config_payload",
+    "ngsiem_auto_update_policy_payload", "ngsiem_install_parser_payload",
+    "ngsiem_bulk_install_parsers_payload", "acp_custom_rules_policy_payload",
+    "data_protection_policy_precedence_payload", "serverless_exports_launch_payload",
+    "maintenance_token_payload",
+    "data_protection_local_application_payload",
+    "data_protection_local_application_group_payload"
 ]

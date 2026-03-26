@@ -2,11 +2,11 @@ import logging
 import shutil
 import socket
 import time
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Annotated
 
-from authlib.integrations.requests_client import OAuth2Session
 from filelock import FileLock
 from pydantic import Field, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -17,13 +17,11 @@ from dbt_mcp.config.dbt_yaml import try_read_yaml
 from dbt_mcp.config.headers import (
     TokenProvider,
 )
-from dbt_mcp.oauth.client_id import OAUTH_CLIENT_ID
 from dbt_mcp.oauth.context_manager import DbtPlatformContextManager
-from dbt_mcp.oauth.dbt_platform import (
-    DbtPlatformContext,
-    dbt_platform_context_from_token_response,
-)
+from dbt_mcp.oauth.dbt_platform import DbtPlatformContext
+from dbt_mcp.oauth.expiry import STARTUP_EXPIRY_BUFFER_SECONDS
 from dbt_mcp.oauth.login import login
+from dbt_mcp.oauth.refresh import refresh_oauth_token
 from dbt_mcp.oauth.token_provider import (
     OAuthTokenProvider,
     StaticTokenProvider,
@@ -75,7 +73,9 @@ class DbtMcpSettings(BaseSettings):
     dbt_user_id: int | None = Field(None, alias="DBT_USER_ID")
     dbt_account_id: int | None = Field(None, alias="DBT_ACCOUNT_ID")
     dbt_token: str | None = Field(None, alias="DBT_TOKEN")
-    multicell_account_prefix: str | None = Field(None, alias="MULTICELL_ACCOUNT_PREFIX")
+    multicell_account_prefix: str | None = Field(
+        None, alias="MULTICELL_ACCOUNT_PREFIX"
+    )  # legacy support
     host_prefix: str | None = Field(None, alias="DBT_HOST_PREFIX")
     dbt_lsp_path: str | None = Field(None, alias="DBT_LSP_PATH")
 
@@ -122,6 +122,9 @@ class DbtMcpSettings(BaseSettings):
     send_anonymous_usage_data: str | None = Field(
         None, alias="DBT_SEND_ANONYMOUS_USAGE_STATS"
     )
+
+    # Multi-project settings
+    multi_project_enabled: bool = Field(False, alias="DBT_MCP_MULTI_PROJECT_ENABLED")
 
     def __repr__(self):
         """Custom repr to bring most important settings to front. Redact sensitive info."""
@@ -185,6 +188,29 @@ class DbtMcpSettings(BaseSettings):
         if self.multicell_account_prefix is not None:
             return self.multicell_account_prefix
         return None
+
+    @property
+    def base_host(self) -> str | None:
+        """Returns actual_host with the account prefix stripped if it's already embedded.
+
+        Prevents double-prefixing when DBT_HOST already contains the account prefix
+        (e.g. 'ab123.us1.dbt.com') and a prefix env var is also set to 'ab123'.
+        Returns None if and only if actual_host is None.
+        On mismatch (host has a different embedded prefix), logs a warning and returns
+        the host unchanged to avoid silently stripping the wrong label.
+        """
+        host = self.actual_host
+        if host is None:
+            return None
+        result = parse_host_prefix(host, self.actual_host_prefix)
+        if result.mismatched_prefix is not None:
+            logger.warning(
+                f"DBT_HOST ('{host}') appears to contain a different account prefix "
+                f"('{result.mismatched_prefix}') than the configured prefix '{self.actual_host_prefix}'. "
+                "This may result in incorrect URL construction."
+            )
+            return host
+        return result.base_host
 
     @property
     def dbt_project_yml(self) -> DbtProjectYaml | None:
@@ -284,6 +310,23 @@ class DbtMcpSettings(BaseSettings):
     @model_validator(mode="after")
     def auto_disable(self) -> "DbtMcpSettings":
         """Auto-disable features based on required settings."""
+        # Warn once at startup if DBT_HOST already embeds the account prefix
+        host = self.actual_host
+        prefix = self.actual_host_prefix
+        if host and prefix:
+            result = parse_host_prefix(host, prefix)
+            if result.prefix_embedded:
+                prefix_env_var = (
+                    "DBT_HOST_PREFIX"
+                    if self.host_prefix is not None
+                    else "MULTICELL_ACCOUNT_PREFIX"
+                )
+                logger.warning(
+                    f"DBT_HOST ('{host}') already contains the account prefix '{prefix}'. "
+                    "The prefix will be stripped to avoid URL duplication. "
+                    f"Consider setting DBT_HOST='{result.base_host}' and keeping {prefix_env_var}='{prefix}'."
+                )
+
         # platform features
         if (
             not self.actual_host
@@ -393,7 +436,7 @@ def _is_token_valid(dbt_ctx: DbtPlatformContext) -> bool:
     if not dbt_ctx.decoded_access_token:
         return False
     expires_at = dbt_ctx.decoded_access_token.access_token_response.expires_at
-    return expires_at > time.time() + 120  # 2 minutes buffer
+    return expires_at > time.time() + STARTUP_EXPIRY_BUFFER_SECONDS
 
 
 def _try_refresh_token(
@@ -415,16 +458,10 @@ def _try_refresh_token(
     try:
         logger.info("Access token expired, attempting refresh using refresh token")
         token_url = f"{dbt_platform_url}/oauth/token"
-        oauth_client = OAuth2Session(
-            client_id=OAUTH_CLIENT_ID,
-            token_endpoint=token_url,
-        )
-        token_response = oauth_client.refresh_token(
-            url=token_url,
+        new_context = refresh_oauth_token(
             refresh_token=refresh_token,
-        )
-        new_context = dbt_platform_context_from_token_response(
-            token_response, dbt_platform_url
+            token_url=token_url,
+            dbt_platform_url=dbt_platform_url,
         )
         # Merge the new token with the existing context (preserves account/env info)
         updated_context = dbt_ctx.override(new_context)
@@ -469,23 +506,58 @@ async def get_dbt_platform_context(
         )
 
 
-def get_dbt_host(
-    settings: DbtMcpSettings, dbt_platform_context: DbtPlatformContext
-) -> str:
-    actual_host = settings.actual_host
-    if not actual_host:
-        raise ValueError("DBT_HOST is a required environment variable")
-    host_prefix_with_period = f"{dbt_platform_context.host_prefix}."
-    if not actual_host.startswith(host_prefix_with_period):
-        raise ValueError(
-            f"The DBT_HOST environment variable is expected to start with the {dbt_platform_context.host_prefix} custom subdomain."
+@dataclass(frozen=True)
+class HostPrefixResult:
+    base_host: str  # Host with first label stripped; matches configured prefix when prefix_embedded=True, or suggested base host on mismatch
+    prefix_embedded: bool  # True if configured prefix was at start of host
+    mismatched_prefix: (
+        str | None
+    )  # Set if host has 4+ labels with different first label
+
+
+def parse_host_prefix(host: str, prefix: str | None) -> HostPrefixResult:
+    if prefix and host.startswith(f"{prefix}."):
+        return HostPrefixResult(
+            base_host=host.removeprefix(f"{prefix}."),
+            prefix_embedded=True,
+            mismatched_prefix=None,
         )
-    # We have to remove the custom subdomain prefix
-    # so that the metadata and semantic-layer URLs can be constructed correctly.
-    return actual_host.removeprefix(host_prefix_with_period)
+    labels = host.split(".")
+    if prefix and len(labels) >= 4 and labels[0] != prefix:
+        return HostPrefixResult(
+            base_host=".".join(labels[1:]),
+            prefix_embedded=False,
+            mismatched_prefix=labels[0],
+        )
+    return HostPrefixResult(
+        base_host=host,
+        prefix_embedded=False,
+        mismatched_prefix=None,
+    )
 
 
-def validate_settings(settings: DbtMcpSettings):
+def _build_dbt_platform_url(actual_host: str, actual_host_prefix: str | None) -> str:
+    """Build the dbt Platform base URL, prepending the account prefix when needed.
+
+    Handles three cases:
+    - Prefix set, not yet in host: prepend it (e.g. 'us1.dbt.com' + 'ab123' → 'https://ab123.us1.dbt.com')
+    - Prefix set, already in host: use host as-is (no double prefix)
+    - No prefix: use host as-is
+    """
+    result = parse_host_prefix(actual_host, actual_host_prefix)
+    if result.mismatched_prefix is not None:
+        raise ValueError(
+            f"DBT_HOST ('{actual_host}') appears to already contain an account prefix "
+            f"('{result.mismatched_prefix}') that differs from the configured prefix '{actual_host_prefix}'. "
+            f"Set DBT_HOST to the base host (e.g. '{result.base_host}') "
+            "or update your prefix env var."
+        )
+    if actual_host_prefix and not result.prefix_embedded:
+        return f"https://{actual_host_prefix}.{actual_host}"
+    return f"https://{actual_host}"
+
+
+def validate_settings(settings: DbtMcpSettings) -> None:
     errors: list[str] = []
     errors.extend(validate_dbt_platform_settings(settings))
     errors.extend(validate_dbt_cli_settings(settings))
@@ -493,9 +565,8 @@ def validate_settings(settings: DbtMcpSettings):
         raise ValueError("Errors found in configuration:\n\n" + "\n".join(errors))
 
 
-def validate_dbt_platform_settings(
-    settings: DbtMcpSettings,
-) -> list[str]:
+def validate_dbt_platform_settings(settings: DbtMcpSettings) -> list[str]:
+    """Validate platform settings."""
     errors: list[str] = []
     if (
         not settings.disable_semantic_layer
@@ -583,11 +654,22 @@ class CredentialsProvider:
         # Load settings from environment variables using pydantic_settings
         dbt_platform_errors = validate_dbt_platform_settings(self.settings)
         if dbt_platform_errors:
+            if self.settings.dbt_token:
+                logger.warning(
+                    "DBT_TOKEN is set but will be ignored because platform settings are incomplete. "
+                    "Falling back to OAuth authentication. "
+                    f"Missing/invalid settings: {'; '.join(dbt_platform_errors)}"
+                )
             dbt_user_dir = get_dbt_profiles_path(
                 dbt_profiles_dir=self.settings.dbt_profiles_dir
             )
             config_location = dbt_user_dir / "mcp.yml"
-            dbt_platform_url = f"https://{self.settings.actual_host}"
+            actual_host = self.settings.actual_host
+            if not actual_host:
+                raise ValueError("DBT_HOST is a required environment variable")
+            dbt_platform_url = _build_dbt_platform_url(
+                actual_host, self.settings.actual_host_prefix
+            )
             dbt_platform_context_manager = DbtPlatformContextManager(config_location)
             dbt_platform_context = await get_dbt_platform_context(
                 dbt_platform_context_manager=dbt_platform_context_manager,
@@ -609,18 +691,27 @@ class CredentialsProvider:
             )
             self.settings.dbt_account_id = dbt_platform_context.account_id
             self.settings.host_prefix = dbt_platform_context.host_prefix
-            self.settings.dbt_host = get_dbt_host(self.settings, dbt_platform_context)
+            self.settings.dbt_host = self.settings.base_host
             if not dbt_platform_context.decoded_access_token:
                 raise ValueError("No decoded access token found in OAuth context")
-            # TODO: This is unreliable. We shouldn't set token here because it is static and not refreshed.
-            self.settings.dbt_token = dbt_platform_context.decoded_access_token.access_token_response.access_token
 
-            self.token_provider = OAuthTokenProvider(
+            token_provider = await OAuthTokenProvider.create(
                 access_token_response=dbt_platform_context.decoded_access_token.access_token_response,
                 dbt_platform_url=dbt_platform_url,
                 context_manager=dbt_platform_context_manager,
             )
-            validate_settings(self.settings)
+            self.token_provider = token_provider
+
+            # Only validate CLI settings here — platform settings were already
+            # checked at the top of get_credentials() and the OAuth flow has
+            # populated the remaining fields (host, env ids, account id).
+            # dbt_token stays None in the OAuth path since the OAuthTokenProvider
+            # supplies the token instead.
+            cli_errors = validate_dbt_cli_settings(self.settings)
+            if cli_errors:
+                raise ValueError(
+                    "Errors found in configuration:\n\n" + "\n".join(cli_errors)
+                )
             self.authentication_method = AuthenticationMethod.OAUTH
             self._log_settings()
             return self.settings, self.token_provider

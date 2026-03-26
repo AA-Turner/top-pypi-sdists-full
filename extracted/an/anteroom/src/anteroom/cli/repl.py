@@ -522,6 +522,31 @@ def _show_usage_stats(db: Any, config: Any) -> None:
 _EXIT_COMMANDS = frozenset({"/quit", "/exit"})
 
 
+class _ClipboardUnavailableError(RuntimeError):
+    pass
+
+
+def _copy_text_to_clipboard(text: str) -> None:
+    try:
+        import pyperclip
+    except ImportError as exc:
+        raise _ClipboardUnavailableError("Clipboard support requires the optional 'pyperclip' package.") from exc
+
+    try:
+        pyperclip.copy(text)
+    except pyperclip.PyperclipException as exc:
+        raise _ClipboardUnavailableError(str(exc) or "Clipboard is unavailable.") from exc
+
+
+def _find_last_assistant_message(ai_messages: list[dict[str, Any]]) -> str | None:
+    for message in reversed(ai_messages):
+        if message.get("role") == "assistant":
+            content = message.get("content")
+            if isinstance(content, str) and content:
+                return content
+    return None
+
+
 def _route_cancel_signal(
     agent_busy: asyncio.Event,
     current_cancel_event: list[asyncio.Event | None],
@@ -1402,6 +1427,89 @@ def _phase_badge(status: str) -> str:
     return f"[{CHROME}]draft[/{CHROME}]"
 
 
+async def _handle_mission_command(
+    user_input: str,
+    *,
+    cmd: str,
+    db: Any,
+    tool_registry: Any = None,
+) -> None:
+    """Handle /mission and /missions REPL commands."""
+    parts = user_input.split(maxsplit=3)
+    sub = parts[1].lower() if len(parts) >= 2 else ""
+    if cmd == "/missions":
+        sub = "list"
+
+    if sub == "list" or not sub:
+        from ..services.mission_storage import list_items_by_session, list_sessions
+
+        sessions = list_sessions(db)
+        if not sessions:
+            renderer.console.print(f"[{CHROME}]No missions found.[/{CHROME}]\n")
+            return
+        renderer.console.print("\n[bold]Missions:[/bold]")
+        for s in sessions:
+            items = list_items_by_session(db, s["id"])
+            completed = sum(1 for i in items if i["status"] == "completed")
+            title = s.get("title") or "untitled"
+            renderer.console.print(
+                f"  [{CHROME}]{s['id'][:8]}[/{CHROME}]  {title}  [{s['status']}]  {completed}/{len(items)} items"
+            )
+        renderer.console.print()
+
+    elif sub == "status":
+        _sid = parts[2].strip() if len(parts) >= 3 else ""
+        if not _sid:
+            renderer.console.print(f"[{CHROME}]Usage: /mission status <session_id>[/{CHROME}]\n")
+            return
+        from ..services.mission_storage import get_session, list_items_by_session
+
+        session = get_session(db, _sid)
+        if session is None:
+            renderer.console.print(f"[{CHROME}]Mission not found.[/{CHROME}]\n")
+            return
+        renderer.console.print(f"\n[bold]Mission:[/bold] {session['id'][:8]}...")
+        if session.get("title"):
+            renderer.console.print(f"[bold]Title:[/bold] {session['title']}")
+        renderer.console.print(f"[bold]Status:[/bold] {session['status']}")
+        items = list_items_by_session(db, session["id"])
+        if items:
+            completed = sum(1 for i in items if i["status"] == "completed")
+            renderer.console.print(f"[bold]Progress:[/bold] {completed}/{len(items)} completed")
+            for item in items:
+                renderer.console.print(
+                    f"  [{CHROME}]{item['id'][:8]}[/{CHROME}]  {item['summary']}"
+                    f"  [{item['status']}]  p={item['priority']}  {item['adapter_type']}"
+                )
+        renderer.console.print()
+
+    elif sub == "talk":
+        _sid = parts[2].strip() if len(parts) >= 3 else ""
+        if not _sid:
+            renderer.console.print(f"[{CHROME}]Usage: /mission talk <session_id>[/{CHROME}]\n")
+            return
+        from ..services.mission_storage import get_session
+
+        session = get_session(db, _sid)
+        if session is None:
+            renderer.console.print(f"[{CHROME}]Mission not found.[/{CHROME}]\n")
+            return
+        if tool_registry is not None:
+            from ..tools import register_mission_tools
+
+            register_mission_tools(tool_registry)
+            tool_names = [n for n in tool_registry._definitions if n.startswith("mission_")]
+            renderer.console.print(
+                f"\n[bold]Mission tools activated[/bold] for {session['id'][:8]}..."
+                f" ({len(tool_names)} tools: {', '.join(tool_names)})\n"
+            )
+        else:
+            renderer.console.print(f"[{CHROME}]Tool registry not available.[/{CHROME}]\n")
+
+    else:
+        renderer.console.print(f"[{CHROME}]Usage: /mission {{list,status,talk}} [args][/{CHROME}]\n")
+
+
 async def _handle_spec_command(
     user_input: str,
     *,
@@ -1914,8 +2022,127 @@ async def _handle_spec_command(
             _cmsg = f"NOT CONFORMANT — {_cerrors} error(s), {_cwarnings} warning(s)"
             renderer.console.print(f"[{_ERROR}]{_cmsg}[/{_ERROR}]\n")
 
+    elif sub == "dashboard":
+        import os as _os_dash
+
+        from ..services.spec_dashboard import get_spec_dashboard
+
+        # Parse flags (re-split without maxsplit to get all tokens)
+        status_filter: str | None = None
+        ns_filter: str | None = None
+        phase_filter: str | None = None
+        phase_status_filter: str | None = None
+        tokens = user_input.split()[2:]
+        i = 0
+        while i < len(tokens):
+            if tokens[i] == "--status" and i + 1 < len(tokens):
+                status_filter = tokens[i + 1]
+                i += 2
+            elif tokens[i] == "--namespace" and i + 1 < len(tokens):
+                ns_filter = tokens[i + 1]
+                i += 2
+            elif tokens[i] == "--phase" and i + 1 < len(tokens):
+                phase_filter = tokens[i + 1]
+                i += 2
+            elif tokens[i] == "--phase-status" and i + 1 < len(tokens):
+                phase_status_filter = tokens[i + 1]
+                i += 2
+            else:
+                i += 1
+
+        _space_id_dash = space["id"] if space else None
+        _project_path_dash = working_dir or _os_dash.getcwd()
+        dashboard = get_spec_dashboard(
+            db,
+            space_id=_space_id_dash,
+            project_path=_project_path_dash,
+            status=status_filter,
+            namespace=ns_filter,
+            phase=phase_filter,
+            phase_status=phase_status_filter,
+        )
+
+        if not dashboard.specs:
+            renderer.console.print("[dim]No specs found.[/]")
+            return
+
+        from rich.table import Table as _DashTable
+
+        _status_colors = {
+            "all_approved": "green",
+            "stale": "yellow",
+            "blocked": "red",
+            "draft": "dim",
+            "in_progress": "cyan",
+        }
+        _phase_colors = {
+            "approved": "green",
+            "draft": "dim",
+            "stale": "yellow",
+        }
+
+        _dash_table = _DashTable(title="Spec Dashboard", show_lines=False)
+        _dash_table.add_column("FQN", style="bold")
+        _dash_table.add_column("Mode", style="dim")
+        _dash_table.add_column("Status")
+        _dash_table.add_column("Req")
+        _dash_table.add_column("Des")
+        _dash_table.add_column("Tasks")
+        _dash_table.add_column("Runs")
+        _dash_table.add_column("Updated", style="dim")
+
+        for _ds in dashboard.specs:
+            _sc = _status_colors.get(_ds.overall_status, "")
+            _status_cell = f"[{_sc}]{_ds.overall_status}[/{_sc}]" if _sc else _ds.overall_status
+
+            _phase_cells = []
+            for _phase_name in ("requirements", "design", "tasks"):
+                _ps = _ds.phases.get(_phase_name, "draft")
+                _pc = _phase_colors.get(_ps, "")
+                _phase_cells.append(f"[{_pc}]{_ps}[/{_pc}]" if _pc else _ps)
+
+            _rs = _ds.run_summary
+            if _rs.total == 0:
+                _run_cell = "[dim]\u2014[/]"
+            elif _rs.failed > 0:
+                _run_cell = f"[red]{_rs.completed}/{_rs.total}[/] ({_rs.failed} failed)"
+            else:
+                _run_cell = f"{_rs.completed}/{_rs.total}"
+
+            _updated = _ds.updated_at[:10] if _ds.updated_at else ""
+
+            _dash_table.add_row(
+                _ds.fqn,
+                _ds.mode,
+                _status_cell,
+                _phase_cells[0],
+                _phase_cells[1],
+                _phase_cells[2],
+                _run_cell,
+                _updated,
+            )
+
+        # Footer with totals
+        _t = dashboard.totals
+        _dash_table.add_section()
+        _dash_table.add_row(
+            f"[bold]{_t.total_specs} specs[/]",
+            "",
+            (
+                f"[green]{_t.all_approved}\u2713[/] [cyan]{_t.in_progress}\u22ef[/] "
+                f"[yellow]{_t.stale}![/] [red]{_t.blocked}\u2715[/] [dim]{_t.draft}?[/]"
+            ),
+            "",
+            "",
+            "",
+            "",
+            "",
+        )
+
+        renderer.console.print(_dash_table)
+
     else:
-        _subs = "list,show,create,edit,approve,unapprove,diff,launch,queue,link,unlink,links,conformance"
+        _subs = "list,show,create,edit,approve,unapprove,diff,launch,queue,link,unlink,links,conformance,dashboard"
         renderer.console.print(f"[{CHROME}]Usage: /spec {{{_subs}}}[/{CHROME}]\n")
 
 
@@ -1929,6 +2156,7 @@ async def run_cli(
     no_project_context: bool = False,
     plan_mode: bool = False,
     space_id: str | None = None,
+    mission_session_id: str | None = None,
 ) -> None:
     """Main entry point for CLI mode."""
     working_dir = os.getcwd()
@@ -2021,6 +2249,11 @@ async def run_cli(
     tool_registry = ToolRegistry()
     if config.cli.builtin_tools and not no_tools:
         register_default_tools(tool_registry, working_dir=working_dir)
+
+    if mission_session_id:
+        from ..tools import register_mission_tools
+
+        register_mission_tools(tool_registry)
 
     # Prepare MCP manager (startup deferred to background after REPL prompt appears)
     mcp_manager = None
@@ -2575,6 +2808,20 @@ async def run_cli(
                     f"[yellow]Planning mode active.[/yellow] The AI will explore and write a plan.\n"
                     f"  [{MUTED}]Use /plan approve to execute, /plan off to exit.[/{MUTED}]\n"
                 )
+            if mission_session_id:
+                from ..services import mission_storage as _ms
+
+                _msession = _ms.get_session(db, mission_session_id)
+                if _msession:
+                    _mitems = _ms.list_items_by_session(db, mission_session_id)
+                    _mcompleted = sum(1 for i in _mitems if i["status"] == "completed")
+                    renderer.console.print(
+                        f"[bold]Mission attached:[/bold] {_msession['id'][:8]}... — "
+                        f"{_msession.get('title', 'untitled')}\n"
+                        f"  Status: {_msession['status']} | "
+                        f"Progress: {_mcompleted}/{len(_mitems)} items\n"
+                        f"  [{MUTED}]Mission tools are active. Ask the AI to steer the mission.[/{MUTED}]\n"
+                    )
             await _run_repl(
                 config=config,
                 db=db,
@@ -2954,6 +3201,8 @@ async def _run_repl(
         "artifacts": "list artifacts",
         "spec": "manage specs",
         "specs": "list specs",
+        "mission": "manage missions",
+        "missions": "list missions",
         "artifact-check": "artifact health check",
         "config": "view/edit scoped config",
         "quit": "exit",
@@ -2966,6 +3215,7 @@ async def _run_repl(
         "pack": ["list", "show", "install", "remove", "sources", "attach", "detach", "update", "add-source", "refresh"],
         "space": ["list", "show", "switch", "create", "load", "refresh", "clear", "init", "clone", "map"],
         "config": ["list", "get", "set", "reset"],
+        "mission": ["list", "status", "talk"],
     }
 
     class AnteroomCompleter(Completer):
@@ -3069,6 +3319,7 @@ async def _run_repl(
         "rewind",
         "clear",
         "compact",
+        "copy",
         "conventions",
         "instructions",
         "tools",
@@ -3399,6 +3650,8 @@ async def _run_repl(
                 (desc, "           Clear screen and reset message history\n"),
                 (cmd, "  /compact"),
                 (desc, "          Summarize history to free context\n"),
+                (cmd, "  /copy"),
+                (desc, "             Copy the last assistant response\n"),
                 (cmd, "  /model <name>"),
                 (desc, "     Switch AI model mid-session\n"),
                 (cmd, "  /tools"),
@@ -3419,6 +3672,14 @@ async def _run_repl(
                 (desc, "           Replay last turn's tool calls\n"),
                 (cmd, "  /usage"),
                 (desc, "            Show token usage statistics\n"),
+                ("", "\n"),
+                ("bold", " Missions\n"),
+                (cmd, "  /mission list"),
+                (desc, "     List mission sessions\n"),
+                (cmd, "  /mission status <id>"),
+                (desc, " Show mission details and blockers\n"),
+                (cmd, "  /mission talk <id>"),
+                (desc, "   Activate mission tools for steering\n"),
                 ("", "\n"),
                 ("bold", " Input\n"),
                 (cmd, "  /upload <path>"),
@@ -4104,6 +4365,18 @@ async def _run_repl(
                     continue
                 elif cmd == "/compact":
                     await _compact_messages(ai_service, ai_messages, db, conv["id"])
+                    continue
+                elif cmd == "/copy":
+                    last_assistant = _find_last_assistant_message(ai_messages)
+                    if not last_assistant:
+                        renderer.console.print(f"[{CHROME}]No assistant response to copy yet[/{CHROME}]\n")
+                        continue
+                    try:
+                        _copy_text_to_clipboard(last_assistant)
+                    except _ClipboardUnavailableError as exc:
+                        renderer.render_error(f"Copy failed: {exc}")
+                    else:
+                        renderer.console.print(f"[{CHROME}]Copied last assistant response[/{CHROME}]\n")
                     continue
                 elif cmd == "/last":
                     convs = storage.list_conversations(db, limit=1)
@@ -5402,6 +5675,15 @@ async def _run_repl(
                         config=config,
                         space=space,
                         working_dir=working_dir,
+                    )
+                    continue
+
+                elif cmd in ("/mission", "/missions"):
+                    await _handle_mission_command(
+                        user_input,
+                        cmd=cmd,
+                        db=db,
+                        tool_registry=tool_registry,
                     )
                     continue
 

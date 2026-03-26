@@ -1,21 +1,84 @@
 //! Python predictor loading and invocation.
 
+use std::sync::{Arc, OnceLock};
+
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
+use coglet_core::worker::SlotSender;
 use coglet_core::{PredictionError, PredictionOutput, PredictionResult};
 
 use crate::cancel;
-use crate::input::{self, InputProcessor, PreparedInput, Runtime};
+use crate::input::{self, PreparedInput};
 use crate::output;
+
+// =============================================================================
+// Async helper functions — defined as Python strings, initialized once.
+//
+// These must be Python `async def` functions to participate in asyncio's event
+// loop. They cannot be expressed as pure Rust because they use Python's async
+// iteration protocol and ContextVar.set() before awaiting a coroutine.
+// =============================================================================
+
+/// Collects an async generator into a list. Initialized once, reused per-call.
+static COLLECT_ASYNC_GEN: OnceLock<Py<PyAny>> = OnceLock::new();
+
+/// Sets a ContextVar then awaits a coroutine. Initialized once, reused per-call.
+static CTX_WRAPPER: OnceLock<Py<PyAny>> = OnceLock::new();
+
+/// Get or initialize the `_collect_async_gen` Python helper.
+fn get_collect_async_gen(py: Python<'_>) -> Result<Py<PyAny>, PredictionError> {
+    if let Some(f) = COLLECT_ASYNC_GEN.get() {
+        return Ok(f.clone_ref(py));
+    }
+
+    let code = c"\
+async def _collect_async_gen(agen):
+    results = []
+    async for item in agen:
+        results.append(item)
+    return results
+";
+    let globals = PyDict::new(py);
+    py.run(code, Some(&globals), None).map_err(|e| {
+        PredictionError::Failed(format!("Failed to define _collect_async_gen: {e}"))
+    })?;
+    let f = globals
+        .get_item("_collect_async_gen")
+        .map_err(|e| PredictionError::Failed(format!("Failed to get _collect_async_gen: {e}")))?
+        .ok_or_else(|| PredictionError::Failed("_collect_async_gen not found".to_string()))?
+        .unbind();
+    let _ = COLLECT_ASYNC_GEN.set(f.clone_ref(py));
+    Ok(f)
+}
+
+/// Get or initialize the `_ctx_wrapper` Python helper.
+fn get_ctx_wrapper(py: Python<'_>) -> Result<Py<PyAny>, PredictionError> {
+    if let Some(f) = CTX_WRAPPER.get() {
+        return Ok(f.clone_ref(py));
+    }
+
+    let code = c"\
+async def _ctx_wrapper(coro, prediction_id, contextvar):
+    contextvar.set(prediction_id)
+    return await coro
+";
+    let globals = PyDict::new(py);
+    py.run(code, Some(&globals), None)
+        .map_err(|e| PredictionError::Failed(format!("Failed to define _ctx_wrapper: {e}")))?;
+    let f = globals
+        .get_item("_ctx_wrapper")
+        .map_err(|e| PredictionError::Failed(format!("Failed to get _ctx_wrapper: {e}")))?
+        .ok_or_else(|| PredictionError::Failed("_ctx_wrapper not found".to_string()))?
+        .unbind();
+    let _ = CTX_WRAPPER.set(f.clone_ref(py));
+    Ok(f)
+}
 
 /// Check if a PyErr is a CancelationException or asyncio.CancelledError.
 fn is_cancelation_exception(py: Python<'_>, err: &PyErr) -> bool {
-    // Check for cog.server.exceptions.CancelationException
-    if let Ok(exceptions) = py.import("cog.server.exceptions")
-        && let Ok(cancel_exc) = exceptions.getattr("CancelationException")
-        && err.is_instance(py, &cancel_exc)
-    {
+    // Check for our static CancelationException type
+    if err.is_instance_of::<cancel::CancelationException>(py) {
         return true;
     }
 
@@ -30,61 +93,101 @@ fn is_cancelation_exception(py: Python<'_>, err: &PyErr) -> bool {
     false
 }
 
-/// Format a Python validation error to match pydantic format: "field: message".
+/// Format a Python validation error.
 ///
-/// Handles both Pydantic ValidationError and cog-dataclass ValueError.
+/// Cog validation errors are already formatted as "field: message".
 fn format_validation_error(py: Python<'_>, err: &PyErr) -> String {
-    // Check if it's a Pydantic ValidationError
-    if let Ok(pydantic_core) = py.import("pydantic_core")
-        && let Ok(validation_error_cls) = pydantic_core.getattr("ValidationError")
-        && err.is_instance(py, &validation_error_cls)
-    {
-        // Extract error details from ValidationError.errors()
-        if let Ok(err_value) = err.value(py).call_method0("errors")
-            && let Ok(errors) = err_value.extract::<Vec<Bound<'_, PyDict>>>()
-        {
-            let messages: Vec<String> = errors
-                .iter()
-                .filter_map(|e| {
-                    // Get 'loc' (location) and 'msg' (message) from error dict
-                    let loc = e.get_item("loc").ok()??;
-                    let msg = e.get_item("msg").ok()??;
-
-                    // Extract field name from loc (typically a list like ['field_name'])
-                    if let Ok(loc_list) = loc.extract::<Vec<String>>()
-                        && let Some(field) = loc_list.last()
-                        && let Ok(msg_str) = msg.extract::<String>()
-                    {
-                        return Some(format!("{}: {}", field, msg_str));
-                    }
-                    None
-                })
-                .collect();
-
-            if !messages.is_empty() {
-                return messages.join("\n");
-            }
-        }
-    }
-
-    // For ValueError (cog-dataclass) or other errors, just extract the message
-    // which is already formatted as "field: message"
     err.value(py).to_string()
 }
 
-fn unwrap_pydantic_serialization_iterators<'py>(
-    py: Python<'py>,
-    value: &Bound<'py, PyAny>,
-) -> Result<Bound<'py, PyAny>, PredictionError> {
-    if let Ok(helpers) = py.import("cog.server.helpers")
-        && let Ok(unwrap) = helpers.getattr("unwrap_pydantic_serialization_iterators")
-    {
-        return unwrap
-            .call1((value,))
-            .map_err(|e| PredictionError::Failed(format!("Failed to unwrap output: {}", e)));
+/// Send a single output item over IPC, routing file outputs to disk.
+///
+/// For Path outputs (os.PathLike): sends the existing file path via send_file_output.
+/// For IOBase outputs: reads bytes, writes to output_dir via write_file_output.
+/// For everything else: processes through make_encodeable + upload_files, then send_output.
+fn send_output_item(
+    py: Python<'_>,
+    item: &Bound<'_, PyAny>,
+    json_module: &Bound<'_, PyAny>,
+    slot_sender: &SlotSender,
+) -> Result<(), PredictionError> {
+    let os = py
+        .import("os")
+        .map_err(|e| PredictionError::Failed(format!("Failed to import os: {}", e)))?;
+    let io_mod = py
+        .import("io")
+        .map_err(|e| PredictionError::Failed(format!("Failed to import io: {}", e)))?;
+    let pathlike = os
+        .getattr("PathLike")
+        .map_err(|e| PredictionError::Failed(format!("Failed to get os.PathLike: {}", e)))?;
+    let iobase = io_mod
+        .getattr("IOBase")
+        .map_err(|e| PredictionError::Failed(format!("Failed to get io.IOBase: {}", e)))?;
+
+    if item.is_instance(&pathlike).unwrap_or(false) {
+        // Path output — file already on disk, send path reference
+        let path_str: String = item
+            .call_method0("__fspath__")
+            .and_then(|p| p.extract())
+            .map_err(|e| PredictionError::Failed(format!("Failed to get fspath: {}", e)))?;
+        slot_sender
+            .send_file_output(std::path::PathBuf::from(path_str), None)
+            .map_err(|e| PredictionError::Failed(format!("Failed to send file output: {}", e)))?;
+        return Ok(());
     }
 
-    Ok(value.clone())
+    if item.is_instance(&iobase).unwrap_or(false) {
+        // IOBase output — read bytes, write to disk via SlotSender
+        // Seek to start if seekable
+        if item
+            .call_method0("seekable")
+            .and_then(|r| r.extract::<bool>())
+            .unwrap_or(false)
+        {
+            let _ = item.call_method1("seek", (0,));
+        }
+        let data: Vec<u8> = item
+            .call_method0("read")
+            .and_then(|d| d.extract())
+            .map_err(|e| PredictionError::Failed(format!("Failed to read IOBase: {}", e)))?;
+
+        // Try to guess extension from filename
+        let ext = item
+            .getattr("name")
+            .and_then(|n| n.extract::<String>())
+            .ok()
+            .and_then(|name| {
+                std::path::Path::new(&name)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|s| s.to_string())
+            })
+            .unwrap_or_else(|| "bin".to_string());
+
+        slot_sender
+            .write_file_output(&data, &ext, None)
+            .map_err(|e| PredictionError::Failed(format!("Failed to write file output: {}", e)))?;
+        return Ok(());
+    }
+
+    // Non-file output - process normally
+    let processed = output::process_output_item(py, item)
+        .map_err(|e| PredictionError::Failed(format!("Failed to process output item: {}", e)))?;
+
+    let item_str: String = json_module
+        .call_method1("dumps", (&processed,))
+        .map_err(|e| PredictionError::Failed(format!("Failed to serialize output item: {}", e)))?
+        .extract()
+        .map_err(|e| PredictionError::Failed(format!("Failed to extract output string: {}", e)))?;
+
+    let item_json: serde_json::Value = serde_json::from_str(&item_str)
+        .map_err(|e| PredictionError::Failed(format!("Failed to parse output JSON: {}", e)))?;
+
+    slot_sender
+        .send_output(item_json)
+        .map_err(|e| PredictionError::Failed(format!("Failed to send output: {}", e)))?;
+
+    Ok(())
 }
 
 /// Type alias for Python object (Py<PyAny>).
@@ -127,44 +230,12 @@ pub enum PredictorKind {
 
 /// A loaded Python predictor instance.
 ///
-/// # GIL and Concurrency
-///
-/// This struct wraps a Python predictor object. The concurrency model depends on
-/// the Python runtime:
-///
-/// ## GIL Python (default, 3.8-3.12, 3.13 default)
-/// - `Python::attach()` acquires the GIL before calling into Python
-/// - Only one thread can execute Python bytecode at a time
-/// - However, native extensions (torch, numpy) release the GIL during compute
-/// - CUDA operations in torch run without holding GIL, allowing I/O concurrency
-/// - For sync predictors, max_concurrency=1 is appropriate
-///
-/// ## Free-threaded Python (3.13t+)
-/// - No GIL, multiple threads can run Python simultaneously  
-/// - `Python::attach()` still works but doesn't serialize execution
-/// - Most ML models are NOT thread-safe (shared weights, CUDA contexts)
-/// - Still need max_concurrency=1 for sync predictors unless model is thread-safe
-///
-/// ## Async Predictors
-/// - `async def predict()` allows Python to manage concurrency
-/// - Python's asyncio handles yielding during I/O
-/// - Can support max_concurrency > 1 safely
-///
-/// # Runtime Detection
-///
-/// Predictors can come from different runtimes:
-/// - **Pydantic (cog)**: Uses Pydantic BaseModel, URLPath for file downloads
-/// - **Non-pydantic (cog-dataclass)**: Uses ADT types
-///
-/// We detect the runtime on load and use the appropriate input processor.
+/// Input coercion (URL->Path/File) and FieldInfo default unwrapping are handled
+/// in Rust. The Python `_adt` and `_inspector` modules are no longer called.
 pub struct PythonPredictor {
     instance: PyObject,
     /// The predictor's kind (class or standalone function) and method execution types
     kind: PredictorKind,
-    /// The detected runtime type.
-    runtime: Runtime,
-    /// Input processor for this runtime.
-    input_processor: Box<dyn InputProcessor>,
 }
 
 // PyObject is Send in PyO3 0.23+
@@ -236,17 +307,96 @@ impl PythonPredictor {
             }
         };
 
-        // Detect runtime and create input processor
-        let runtime = input::detect_runtime(py, predictor_ref, &instance)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        let input_processor = input::create_input_processor(&runtime);
+        let predictor = Self { instance, kind };
 
-        Ok(Self {
-            instance,
-            kind,
-            runtime,
-            input_processor,
-        })
+        // Patch FieldInfo defaults on predict/train methods so Python uses actual
+        // default values instead of FieldInfo wrapper objects for missing inputs.
+        // Input(default=42, description="...") creates a FieldInfo; without patching,
+        // Python would pass the FieldInfo itself as the default value.
+        if is_function {
+            Self::unwrap_field_info_defaults(py, &predictor.instance, "")?;
+        } else {
+            Self::unwrap_field_info_defaults(py, &predictor.instance, "predict")?;
+            if matches!(predictor.kind, PredictorKind::Class { train, .. } if train != TrainKind::None)
+            {
+                Self::unwrap_field_info_defaults(py, &predictor.instance, "train")?;
+            }
+        }
+
+        Ok(predictor)
+    }
+
+    /// Replace FieldInfo defaults with their `.default` values on a method's signature.
+    ///
+    /// When users write `def predict(self, seed: int = Input(default=42, description="..."))`,
+    /// the Python default for `seed` is a `FieldInfo(default=42, ...)` object. If `seed` is
+    /// missing from the input dict, Python would use this FieldInfo as the value — not `42`.
+    ///
+    /// This patches `__defaults__` on the underlying function so Python natively resolves
+    /// to the actual default values.
+    fn unwrap_field_info_defaults(
+        py: Python<'_>,
+        instance: &PyObject,
+        method_name: &str,
+    ) -> PyResult<()> {
+        let field_info_class = py.import("cog.input")?.getattr("FieldInfo")?;
+
+        // Get the underlying function object
+        let func = if method_name.is_empty() {
+            // Standalone function
+            instance.bind(py).clone()
+        } else {
+            // Bound method — get __func__ for the raw function
+            instance
+                .bind(py)
+                .getattr(method_name)?
+                .getattr("__func__")?
+        };
+
+        // Patch __defaults__ (positional parameter defaults)
+        if let Ok(defaults) = func.getattr("__defaults__")
+            && !defaults.is_none()
+        {
+            let defaults_tuple = defaults.cast::<pyo3::types::PyTuple>()?;
+            let mut new_defaults: Vec<Bound<'_, PyAny>> = Vec::new();
+            let mut changed = false;
+
+            for item in defaults_tuple.iter() {
+                if item.is_instance(&field_info_class)? {
+                    new_defaults.push(item.getattr("default")?);
+                    changed = true;
+                } else {
+                    new_defaults.push(item);
+                }
+            }
+
+            if changed {
+                let new_tuple = pyo3::types::PyTuple::new(py, &new_defaults)?;
+                func.setattr("__defaults__", new_tuple)?;
+                tracing::debug!("Patched FieldInfo defaults on {}", method_name);
+            }
+        }
+
+        // Patch __kwdefaults__ (keyword-only parameter defaults)
+        if let Ok(kwdefaults) = func.getattr("__kwdefaults__")
+            && !kwdefaults.is_none()
+        {
+            let kwdefaults_dict = kwdefaults.cast::<pyo3::types::PyDict>()?;
+            let mut changed = false;
+
+            for (key, value) in kwdefaults_dict.iter() {
+                if value.is_instance(&field_info_class)? {
+                    kwdefaults_dict.set_item(&key, value.getattr("default")?)?;
+                    changed = true;
+                }
+            }
+
+            if changed {
+                tracing::debug!("Patched FieldInfo kwdefaults on {}", method_name);
+            }
+        }
+
+        Ok(())
     }
 
     /// Detect if a method is an async function.
@@ -312,109 +462,6 @@ impl PythonPredictor {
         }
     }
 
-    /// Generate OpenAPI schema for this predictor.
-    ///
-    /// Uses cog-dataclass schema generation for non-pydantic runtimes and
-    /// FastAPI schema generation for pydantic runtimes.
-    ///
-    /// Returns None if schema generation fails (best-effort).
-    pub fn schema(&self, mode: crate::worker_bridge::HandlerMode) -> Option<serde_json::Value> {
-        Python::attach(|py| {
-            // Generate schema for the active runtime
-            let result: PyResult<serde_json::Value> = (|| {
-                let json_module = py.import("json")?;
-
-                // For non-pydantic runtime, we have the ADT predictor directly
-                // For Pydantic runtime, use FastAPI schema generation
-                let adt_predictor = match &self.runtime {
-                    Runtime::NonPydantic { adt_predictor } => adt_predictor.bind(py).clone(),
-                    Runtime::Pydantic { input_type: _ } => {
-                        return self.schema_via_fastapi(py, json_module.as_any(), mode);
-                    }
-                };
-
-                // Get Python Mode enum value (Mode.TRAIN or Mode.PREDICT)
-                let mode_module = py.import("cog.mode")?;
-                let mode_enum = mode_module.getattr("Mode")?;
-                let py_mode = match mode {
-                    crate::worker_bridge::HandlerMode::Train => mode_enum.getattr("TRAIN")?,
-                    crate::worker_bridge::HandlerMode::Predict => mode_enum.getattr("PREDICT")?,
-                };
-
-                // Use cog-dataclass schema generation
-                let schemas_module = py.import("cog._schemas")?;
-                let to_json_schema = schemas_module.getattr("to_json_schema")?;
-                let schema = to_json_schema.call1((&adt_predictor, py_mode))?;
-
-                // Convert to JSON string then parse to serde_json::Value
-                let schema_str: String =
-                    json_module.call_method1("dumps", (&schema,))?.extract()?;
-
-                let schema_value: serde_json::Value = serde_json::from_str(&schema_str)
-                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-
-                Ok(schema_value)
-            })();
-
-            match result {
-                Ok(schema) => Some(schema),
-                Err(e) => {
-                    tracing::warn!(error = %e, "Failed to generate OpenAPI schema");
-                    None
-                }
-            }
-        })
-    }
-
-    /// Generate schema via FastAPI (fallback for Pydantic predictors).
-    fn schema_via_fastapi(
-        &self,
-        py: Python<'_>,
-        json_module: &Bound<'_, PyAny>,
-        mode: crate::worker_bridge::HandlerMode,
-    ) -> PyResult<serde_json::Value> {
-        use crate::worker_bridge::HandlerMode;
-
-        // For Pydantic runtime, use cog's FastAPI app to generate schema
-        // This is what cog.command.openapi_schema does
-        let cog_server_http = py.import("cog.server.http")?;
-        let create_app = cog_server_http.getattr("create_app")?;
-
-        // Need to pass a Config - try to load from cog.yaml
-        let cog_config_module = py.import("cog.config")?;
-        let config_class = cog_config_module.getattr("Config")?;
-        let config = config_class.call0()?;
-
-        // Get Python Mode enum value (Mode.TRAIN or Mode.PREDICT)
-        let mode_module = py.import("cog.mode")?;
-        let mode_enum = mode_module.getattr("Mode")?;
-        let py_mode = match mode {
-            HandlerMode::Train => mode_enum.getattr("TRAIN")?,
-            HandlerMode::Predict => mode_enum.getattr("PREDICT")?,
-        };
-
-        // Create app with is_build=True to skip actual setup, and correct mode
-        let kwargs = pyo3::types::PyDict::new(py);
-        kwargs.set_item("cog_config", &config)?;
-        kwargs.set_item("shutdown_event", py.None())?;
-        kwargs.set_item("is_build", true)?;
-        kwargs.set_item("mode", py_mode)?;
-
-        let app = create_app.call((), Some(&kwargs))?;
-
-        // Get OpenAPI schema from app
-        let openapi_method = app.getattr("openapi")?;
-        let schema = openapi_method.call0()?;
-
-        // Convert to JSON string then parse
-        let schema_str: String = json_module.call_method1("dumps", (&schema,))?.extract()?;
-
-        let schema_value: serde_json::Value = serde_json::from_str(&schema_str)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-
-        Ok(schema_value)
-    }
-
     /// Call setup() on the predictor, handling weights parameter if present.
     ///
     /// Uses cog.predictor helpers to detect and extract weights:
@@ -445,6 +492,24 @@ impl PythonPredictor {
         }
 
         Ok(())
+    }
+
+    /// Get the predict function object for type annotation introspection.
+    pub fn predict_func<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let instance = self.instance.bind(py);
+        match &self.kind {
+            PredictorKind::Class { .. } => instance.getattr("predict"),
+            PredictorKind::StandaloneFunction(_) => Ok(instance.clone()),
+        }
+    }
+
+    /// Get the train function object for type annotation introspection.
+    pub fn train_func<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let instance = self.instance.bind(py);
+        match &self.kind {
+            PredictorKind::Class { .. } => instance.getattr("train"),
+            PredictorKind::StandaloneFunction(_) => Ok(instance.clone()),
+        }
     }
 
     /// Call predict() with the given input dict, returning raw Python output.
@@ -489,14 +554,6 @@ impl PythonPredictor {
     ) -> PyResult<PyObject> {
         let instance = self.instance.bind(py);
 
-        // For sync methods, enter cancelable state so SIGUSR1 can interrupt
-        // The guard clears the flag on drop (even if we panic or error)
-        let _cancelable_guard = if !is_async {
-            Some(cancel::enter_cancelable())
-        } else {
-            None
-        };
-
         // Call the method - returns coroutine if async, result if sync
         // If method_name is empty, call the instance directly (standalone function)
         let method_result = if method_name.is_empty() {
@@ -513,9 +570,6 @@ impl PythonPredictor {
             method_result
         };
 
-        // Drop the cancelable guard now that the call is done
-        drop(_cancelable_guard);
-
         Ok(result.unbind())
     }
 
@@ -523,6 +577,7 @@ impl PythonPredictor {
     pub fn predict_worker(
         &self,
         input: serde_json::Value,
+        slot_sender: Arc<SlotSender>,
     ) -> Result<PredictionResult, PredictionError> {
         Python::attach(|py| {
             let json_module = py.import("json").map_err(|e| {
@@ -548,9 +603,10 @@ impl PythonPredictor {
             })?;
 
             // PreparedInput cleans up temp files on drop (RAII)
-            let prepared = self
-                .input_processor
-                .prepare(py, raw_input_dict)
+            let func = self.predict_func(py).map_err(|e| {
+                PredictionError::Failed(format!("Failed to get predict function: {}", e))
+            })?;
+            let prepared = input::prepare_input(py, raw_input_dict, &func)
                 .map_err(|e| PredictionError::InvalidInput(format_validation_error(py, &e)))?;
             let input_dict = prepared.dict(py);
 
@@ -573,9 +629,9 @@ impl PythonPredictor {
             let is_generator: bool = result_bound.is_instance(&generator_type).unwrap_or(false);
 
             let output = if is_generator {
-                self.process_generator_output(py, result_bound, &json_module)?
+                self.process_generator_output(py, result_bound, &json_module, &slot_sender)?
             } else {
-                self.process_single_output(py, result_bound, &json_module)?
+                self.process_single_output(py, result_bound, &json_module, &slot_sender)?
             };
 
             // prepared drops here, cleaning up temp files via RAII
@@ -585,6 +641,7 @@ impl PythonPredictor {
                 output,
                 predict_time: None,
                 logs: String::new(),
+                metrics: Default::default(),
             })
         })
     }
@@ -593,6 +650,7 @@ impl PythonPredictor {
     pub fn train_worker(
         &self,
         input: serde_json::Value,
+        slot_sender: Arc<SlotSender>,
     ) -> Result<PredictionResult, PredictionError> {
         Python::attach(|py| {
             let json_module = py.import("json").map_err(|e| {
@@ -618,9 +676,10 @@ impl PythonPredictor {
             })?;
 
             // PreparedInput cleans up temp files on drop (RAII)
-            let prepared = self
-                .input_processor
-                .prepare(py, raw_input_dict)
+            let func = self.train_func(py).map_err(|e| {
+                PredictionError::Failed(format!("Failed to get train function: {}", e))
+            })?;
+            let prepared = input::prepare_input(py, raw_input_dict, &func)
                 .map_err(|e| PredictionError::InvalidInput(format_validation_error(py, &e)))?;
             let input_dict = prepared.dict(py);
 
@@ -643,9 +702,9 @@ impl PythonPredictor {
             let is_generator: bool = result_bound.is_instance(&generator_type).unwrap_or(false);
 
             let output = if is_generator {
-                self.process_generator_output(py, result_bound, &json_module)?
+                self.process_generator_output(py, result_bound, &json_module, &slot_sender)?
             } else {
-                self.process_single_output(py, result_bound, &json_module)?
+                self.process_single_output(py, result_bound, &json_module, &slot_sender)?
             };
 
             drop(prepared);
@@ -654,18 +713,19 @@ impl PythonPredictor {
                 output,
                 predict_time: None,
                 logs: String::new(),
+                metrics: Default::default(),
             })
         })
     }
 
-    /// Process generator output into PredictionOutput::Stream.
+    /// Process generator output by streaming each yield over IPC.
     fn process_generator_output(
         &self,
         py: Python<'_>,
         result: &Bound<'_, PyAny>,
         json_module: &Bound<'_, PyAny>,
+        slot_sender: &SlotSender,
     ) -> Result<PredictionOutput, PredictionError> {
-        let mut outputs = Vec::new();
         let iter = result
             .try_iter()
             .map_err(|e| PredictionError::Failed(format!("Failed to iterate generator: {}", e)))?;
@@ -678,44 +738,104 @@ impl PythonPredictor {
                 PredictionError::Failed(format!("Generator iteration error: {}", e))
             })?;
 
-            let processed = output::process_output_item(py, &item).map_err(|e| {
-                PredictionError::Failed(format!("Failed to process output item: {}", e))
-            })?;
-
-            let normalized = unwrap_pydantic_serialization_iterators(py, &processed)?;
-            let item_str: String = json_module
-                .call_method1("dumps", (&normalized,))
-                .map_err(|e| {
-                    PredictionError::Failed(format!("Failed to serialize output item: {}", e))
-                })?
-                .extract()
-                .map_err(|e| {
-                    PredictionError::Failed(format!("Failed to extract output string: {}", e))
-                })?;
-
-            let item_json: serde_json::Value = serde_json::from_str(&item_str).map_err(|e| {
-                PredictionError::Failed(format!("Failed to parse output JSON: {}", e))
-            })?;
-
-            outputs.push(item_json);
+            send_output_item(py, &item, json_module, slot_sender)?;
         }
 
-        Ok(PredictionOutput::Stream(outputs))
+        // Outputs already streamed over IPC — return empty stream
+        Ok(PredictionOutput::Stream(vec![]))
     }
 
     /// Process single output into PredictionOutput::Single.
+    ///
+    /// For file outputs (Path/IOBase), the file is sent via slot_sender and
+    /// an empty Single(Null) is returned since the output was already streamed.
     fn process_single_output(
         &self,
         py: Python<'_>,
         result: &Bound<'_, PyAny>,
         json_module: &Bound<'_, PyAny>,
+        slot_sender: &SlotSender,
     ) -> Result<PredictionOutput, PredictionError> {
-        let processed = output::process_output(py, result, None)
+        // Check for file-type outputs first
+        let os = py
+            .import("os")
+            .map_err(|e| PredictionError::Failed(format!("Failed to import os: {}", e)))?;
+        let io_mod = py
+            .import("io")
+            .map_err(|e| PredictionError::Failed(format!("Failed to import io: {}", e)))?;
+        let pathlike = os
+            .getattr("PathLike")
+            .map_err(|e| PredictionError::Failed(format!("Failed to get os.PathLike: {}", e)))?;
+        let iobase = io_mod
+            .getattr("IOBase")
+            .map_err(|e| PredictionError::Failed(format!("Failed to get io.IOBase: {}", e)))?;
+
+        if result.is_instance(&pathlike).unwrap_or(false) {
+            let path_str: String = result
+                .call_method0("__fspath__")
+                .and_then(|p| p.extract())
+                .map_err(|e| PredictionError::Failed(format!("Failed to get fspath: {}", e)))?;
+            slot_sender
+                .send_file_output(std::path::PathBuf::from(path_str), None)
+                .map_err(|e| {
+                    PredictionError::Failed(format!("Failed to send file output: {}", e))
+                })?;
+            return Ok(PredictionOutput::Single(serde_json::Value::Null));
+        }
+
+        if result.is_instance(&iobase).unwrap_or(false) {
+            if result
+                .call_method0("seekable")
+                .and_then(|r| r.extract::<bool>())
+                .unwrap_or(false)
+            {
+                let _ = result.call_method1("seek", (0,));
+            }
+            let data: Vec<u8> = result
+                .call_method0("read")
+                .and_then(|d| d.extract())
+                .map_err(|e| PredictionError::Failed(format!("Failed to read IOBase: {}", e)))?;
+            let ext = result
+                .getattr("name")
+                .and_then(|n| n.extract::<String>())
+                .ok()
+                .and_then(|name| {
+                    std::path::Path::new(&name)
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .map(|s| s.to_string())
+                })
+                .unwrap_or_else(|| "bin".to_string());
+            slot_sender
+                .write_file_output(&data, &ext, None)
+                .map_err(|e| {
+                    PredictionError::Failed(format!("Failed to write file output: {}", e))
+                })?;
+            return Ok(PredictionOutput::Single(serde_json::Value::Null));
+        }
+
+        // List/tuple output — iterate items so file outputs (Path, IOBase)
+        // go through the FileOutput IPC path for upload instead of being
+        // base64-encoded inline by process_output.
+        if let Ok(list) = result.cast::<pyo3::types::PyList>() {
+            for item in list.iter() {
+                send_output_item(py, &item, json_module, slot_sender)?;
+            }
+            return Ok(PredictionOutput::Stream(vec![]));
+        }
+        if let Ok(tuple) = result.cast::<pyo3::types::PyTuple>() {
+            for item in tuple.iter() {
+                send_output_item(py, &item, json_module, slot_sender)?;
+            }
+            return Ok(PredictionOutput::Stream(vec![]));
+        }
+
+        // Non-file output — process normally
+        let processed = output::process_output(py, result)
             .map_err(|e| PredictionError::Failed(format!("Failed to process output: {}", e)))?;
 
-        let normalized = unwrap_pydantic_serialization_iterators(py, &processed)?;
         let result_str: String = json_module
-            .call_method1("dumps", (&normalized,))
+            .call_method1("dumps", (&processed,))
             .map_err(|e| PredictionError::Failed(format!("Failed to serialize output: {}", e)))?
             .extract()
             .map_err(|e| {
@@ -760,9 +880,10 @@ impl PythonPredictor {
                 PredictionError::InvalidInput("Input must be a JSON object".to_string())
             })?;
 
-            let prepared = self
-                .input_processor
-                .prepare(py, raw_input_dict)
+            let func = self.predict_func(py).map_err(|e| {
+                PredictionError::Failed(format!("Failed to get predict function: {}", e))
+            })?;
+            let prepared = input::prepare_input(py, raw_input_dict, &func)
                 .map_err(|e| PredictionError::InvalidInput(format_validation_error(py, &e)))?;
             let input_dict = prepared.dict(py);
 
@@ -781,60 +902,19 @@ impl PythonPredictor {
                 } | PredictorKind::StandaloneFunction(PredictKind::AsyncGen)
             );
             let coro = if is_async_gen {
-                let collect_code = "
-async def _collect_async_gen(agen):
-    results = []
-    async for item in agen:
-        results.append(item)
-    return results
-";
-                let builtins = py.import("builtins").map_err(|e| {
-                    PredictionError::Failed(format!("Failed to import builtins: {}", e))
-                })?;
-                let exec_fn = builtins
-                    .getattr("exec")
-                    .map_err(|e| PredictionError::Failed(format!("Failed to get exec: {}", e)))?;
-                let globals = PyDict::new(py);
-                exec_fn.call1((collect_code, &globals)).map_err(|e| {
-                    PredictionError::Failed(format!("Failed to define collect helper: {}", e))
-                })?;
-                let collect_fn = globals
-                    .get_item("_collect_async_gen")
+                let collect_fn = get_collect_async_gen(py)?;
+                collect_fn
+                    .call1(py, (&coro,))
                     .map_err(|e| {
-                        PredictionError::Failed(format!("Failed to get collect helper: {}", e))
+                        PredictionError::Failed(format!("Failed to wrap async generator: {}", e))
                     })?
-                    .ok_or_else(|| {
-                        PredictionError::Failed("_collect_async_gen not found".to_string())
-                    })?;
-                collect_fn.call1((&coro,)).map_err(|e| {
-                    PredictionError::Failed(format!("Failed to wrap async generator: {}", e))
-                })?
+                    .into_bound(py)
             } else {
                 coro
             };
 
             // Wrap coroutine to set up log routing in the event loop thread
-            let wrap_code = r#"
-async def _ctx_wrapper(coro, prediction_id, contextvar):
-    contextvar.set(prediction_id)
-    return await coro
-"#;
-            let builtins = py.import("builtins").map_err(|e| {
-                PredictionError::Failed(format!("Failed to import builtins: {}", e))
-            })?;
-            let exec_fn = builtins
-                .getattr("exec")
-                .map_err(|e| PredictionError::Failed(format!("Failed to get exec: {}", e)))?;
-            let globals = PyDict::new(py);
-            exec_fn.call1((wrap_code, &globals)).map_err(|e| {
-                PredictionError::Failed(format!("Failed to define context wrapper: {}", e))
-            })?;
-            let ctx_wrapper = globals
-                .get_item("_ctx_wrapper")
-                .map_err(|e| {
-                    PredictionError::Failed(format!("Failed to get context wrapper: {}", e))
-                })?
-                .ok_or_else(|| PredictionError::Failed("_ctx_wrapper not found".to_string()))?;
+            let ctx_wrapper = get_ctx_wrapper(py)?;
 
             // Get the same ContextVar instance used by SlotLogWriter for log routing
             let contextvar = crate::log_writer::get_prediction_contextvar(py).map_err(|e| {
@@ -843,7 +923,7 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
 
             // Wrap the coroutine with context setup
             let wrapped_coro = ctx_wrapper
-                .call1((&coro, prediction_id, contextvar.bind(py)))
+                .call1(py, (&coro, prediction_id, contextvar.bind(py)))
                 .map_err(|e| {
                     PredictionError::Failed(format!("Failed to wrap coroutine with context: {}", e))
                 })?;
@@ -852,7 +932,7 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
             let future = asyncio
                 .call_method1(
                     "run_coroutine_threadsafe",
-                    (&wrapped_coro, event_loop.bind(py)),
+                    (wrapped_coro.bind(py), event_loop.bind(py)),
                 )
                 .map_err(|e| {
                     PredictionError::Failed(format!("Failed to submit coroutine: {}", e))
@@ -871,6 +951,7 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
         py: Python<'_>,
         result: &Bound<'_, PyAny>,
         is_async_gen: bool,
+        slot_sender: &SlotSender,
     ) -> Result<PredictionResult, PredictionError> {
         let json_module = py
             .import("json")
@@ -881,28 +962,13 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
 
         // Process output
         let output = if is_async_gen {
-            // Result is a list
-            let mut outputs = Vec::new();
+            // Result is a pre-collected list — stream each item over IPC
             if let Ok(list) = result.extract::<Vec<Bound<'_, PyAny>>>() {
                 for item in list {
-                    let processed = output::process_output_item(py, &item).map_err(|e| {
-                        PredictionError::Failed(format!("Failed to process output item: {}", e))
-                    })?;
-                    let item_str: String = json_module
-                        .call_method1("dumps", (&processed,))
-                        .map_err(|e| {
-                            PredictionError::Failed(format!("Failed to serialize: {}", e))
-                        })?
-                        .extract()
-                        .map_err(|e| {
-                            PredictionError::Failed(format!("Failed to extract: {}", e))
-                        })?;
-                    let item_json: serde_json::Value = serde_json::from_str(&item_str)
-                        .map_err(|e| PredictionError::Failed(format!("Failed to parse: {}", e)))?;
-                    outputs.push(item_json);
+                    send_output_item(py, &item, &json_module, slot_sender)?;
                 }
             }
-            PredictionOutput::Stream(outputs)
+            PredictionOutput::Stream(vec![])
         } else {
             // Check if result is a generator (sync generator from async predict)
             let generator_type = types_module.getattr("GeneratorType").map_err(|e| {
@@ -911,9 +977,9 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
             let is_generator: bool = result.is_instance(&generator_type).unwrap_or(false);
 
             if is_generator {
-                self.process_generator_output(py, result, &json_module)?
+                self.process_generator_output(py, result, &json_module, slot_sender)?
             } else {
-                self.process_single_output(py, result, &json_module)?
+                self.process_single_output(py, result, &json_module, slot_sender)?
             }
         };
 
@@ -921,6 +987,7 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
             output,
             predict_time: None,
             logs: String::new(),
+            metrics: Default::default(),
         })
     }
 
@@ -950,9 +1017,10 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
                 PredictionError::InvalidInput("Input must be a JSON object".to_string())
             })?;
 
-            let prepared = self
-                .input_processor
-                .prepare(py, raw_input_dict)
+            let func = self.train_func(py).map_err(|e| {
+                PredictionError::Failed(format!("Failed to get train function: {}", e))
+            })?;
+            let prepared = input::prepare_input(py, raw_input_dict, &func)
                 .map_err(|e| PredictionError::InvalidInput(format_validation_error(py, &e)))?;
             let input_dict = prepared.dict(py);
 
@@ -965,27 +1033,7 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
             .map_err(|e| PredictionError::Failed(format!("Failed to call train: {}", e)))?;
 
             // Wrap coroutine to set up log routing
-            let wrap_code = r#"
-async def _ctx_wrapper(coro, prediction_id, contextvar):
-    contextvar.set(prediction_id)
-    return await coro
-"#;
-            let builtins = py.import("builtins").map_err(|e| {
-                PredictionError::Failed(format!("Failed to import builtins: {}", e))
-            })?;
-            let exec_fn = builtins
-                .getattr("exec")
-                .map_err(|e| PredictionError::Failed(format!("Failed to get exec: {}", e)))?;
-            let globals = PyDict::new(py);
-            exec_fn.call1((wrap_code, &globals)).map_err(|e| {
-                PredictionError::Failed(format!("Failed to define context wrapper: {}", e))
-            })?;
-            let ctx_wrapper = globals
-                .get_item("_ctx_wrapper")
-                .map_err(|e| {
-                    PredictionError::Failed(format!("Failed to get context wrapper: {}", e))
-                })?
-                .ok_or_else(|| PredictionError::Failed("_ctx_wrapper not found".to_string()))?;
+            let ctx_wrapper = get_ctx_wrapper(py)?;
 
             // Get the same ContextVar instance used by SlotLogWriter
             let contextvar = crate::log_writer::get_prediction_contextvar(py).map_err(|e| {
@@ -994,7 +1042,7 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
 
             // Wrap the coroutine with context setup
             let wrapped_coro = ctx_wrapper
-                .call1((&coro, prediction_id, contextvar.bind(py)))
+                .call1(py, (&coro, prediction_id, contextvar.bind(py)))
                 .map_err(|e| {
                     PredictionError::Failed(format!("Failed to wrap coroutine with context: {}", e))
                 })?;
@@ -1003,7 +1051,7 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
             let future = asyncio
                 .call_method1(
                     "run_coroutine_threadsafe",
-                    (&wrapped_coro, event_loop.bind(py)),
+                    (wrapped_coro.bind(py), event_loop.bind(py)),
                 )
                 .map_err(|e| {
                     PredictionError::Failed(format!("Failed to submit coroutine: {}", e))
@@ -1012,5 +1060,175 @@ async def _ctx_wrapper(coro, prediction_id, contextvar):
             // Train doesn't typically use async generators, but we return false for consistency
             Ok((future.unbind(), false, prepared))
         })
+    }
+
+    // =========================================================================
+    // Healthcheck methods
+    // =========================================================================
+
+    /// Healthcheck timeout in seconds.
+    const HEALTHCHECK_TIMEOUT: f64 = 5.0;
+
+    /// Check if the predictor has a healthcheck() method.
+    pub fn has_healthcheck(&self, py: Python<'_>) -> bool {
+        match &self.kind {
+            PredictorKind::Class { .. } => {
+                let instance = self.instance.bind(py);
+                instance.hasattr("healthcheck").unwrap_or(false)
+            }
+            PredictorKind::StandaloneFunction(_) => false,
+        }
+    }
+
+    /// Check if the healthcheck() method is async.
+    pub fn is_healthcheck_async(&self, py: Python<'_>) -> bool {
+        match &self.kind {
+            PredictorKind::Class { .. } => {
+                let instance = self.instance.bind(py);
+                if let Ok(healthcheck) = instance.getattr("healthcheck") {
+                    let inspect = py.import("inspect").ok();
+                    if let Some(inspect) = inspect {
+                        inspect
+                            .call_method1("iscoroutinefunction", (&healthcheck,))
+                            .ok()
+                            .and_then(|r| r.extract::<bool>().ok())
+                            .unwrap_or(false)
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+            PredictorKind::StandaloneFunction(_) => false,
+        }
+    }
+
+    /// Run a synchronous healthcheck with timeout.
+    ///
+    /// Runs the healthcheck in a thread pool executor with a 5 second timeout.
+    pub fn healthcheck_sync(&self, py: Python<'_>) -> coglet_core::orchestrator::HealthcheckResult {
+        use coglet_core::orchestrator::HealthcheckResult;
+
+        let instance = self.instance.bind(py);
+
+        // Run healthcheck in executor with timeout, mirroring Python impl
+        let result: PyResult<bool> = (|| {
+            let concurrent_futures = py.import("concurrent.futures")?;
+            let thread_pool = concurrent_futures.getattr("ThreadPoolExecutor")?;
+
+            // Create a small executor just for this healthcheck
+            let executor = thread_pool.call1((1,))?;
+
+            // Get the healthcheck method
+            let healthcheck_fn = instance.getattr("healthcheck")?;
+
+            // Submit to executor
+            let future = executor.call_method1("submit", (healthcheck_fn,))?;
+
+            // Wait with timeout
+            let result = future.call_method1("result", (Self::HEALTHCHECK_TIMEOUT,));
+
+            // Shutdown executor
+            let _ = executor.call_method1("shutdown", (false,));
+
+            match result {
+                Ok(r) => Ok(r.extract::<bool>().unwrap_or(true)),
+                Err(e) => {
+                    let err_str = e.to_string();
+                    if err_str.contains("TimeoutError") {
+                        Err(pyo3::exceptions::PyTimeoutError::new_err(
+                            "Healthcheck timed out",
+                        ))
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
+        })();
+
+        match result {
+            Ok(true) => HealthcheckResult::healthy(),
+            Ok(false) => HealthcheckResult::unhealthy(
+                "Healthcheck failed: user-defined healthcheck returned False",
+            ),
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("TimeoutError") {
+                    HealthcheckResult::unhealthy(format!(
+                        "Healthcheck failed: user-defined healthcheck timed out after {:.1} seconds",
+                        Self::HEALTHCHECK_TIMEOUT
+                    ))
+                } else {
+                    HealthcheckResult::unhealthy(format!("Healthcheck failed: {}", e))
+                }
+            }
+        }
+    }
+
+    /// Run an async healthcheck with timeout.
+    ///
+    /// Runs the healthcheck in the async event loop with a 5 second timeout.
+    pub fn healthcheck_async(
+        &self,
+        py: Python<'_>,
+        event_loop: &Py<PyAny>,
+    ) -> coglet_core::orchestrator::HealthcheckResult {
+        use coglet_core::orchestrator::HealthcheckResult;
+
+        let instance = self.instance.bind(py);
+
+        let result: PyResult<bool> = (|| {
+            let asyncio = py.import("asyncio")?;
+
+            // Get the healthcheck coroutine
+            let healthcheck_fn = instance.getattr("healthcheck")?;
+            let coro = healthcheck_fn.call0()?;
+
+            // Wrap with timeout
+            let wait_for = asyncio.getattr("wait_for")?;
+            let timeout_coro = wait_for.call1((&coro, Self::HEALTHCHECK_TIMEOUT))?;
+
+            // Submit to event loop
+            let future = asyncio.call_method1(
+                "run_coroutine_threadsafe",
+                (&timeout_coro, event_loop.bind(py)),
+            )?;
+
+            // Block on result with extra buffer time for event loop overhead
+            let result = future.call_method1("result", (Self::HEALTHCHECK_TIMEOUT + 1.0,));
+
+            match result {
+                Ok(r) => Ok(r.extract::<bool>().unwrap_or(true)),
+                Err(e) => {
+                    let err_str = e.to_string();
+                    if err_str.contains("TimeoutError") || err_str.contains("timed out") {
+                        Err(pyo3::exceptions::PyTimeoutError::new_err(
+                            "Healthcheck timed out",
+                        ))
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
+        })();
+
+        match result {
+            Ok(true) => HealthcheckResult::healthy(),
+            Ok(false) => HealthcheckResult::unhealthy(
+                "Healthcheck failed: user-defined healthcheck returned False",
+            ),
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("TimeoutError") {
+                    HealthcheckResult::unhealthy(format!(
+                        "Healthcheck failed: user-defined healthcheck timed out after {:.1} seconds",
+                        Self::HEALTHCHECK_TIMEOUT
+                    ))
+                } else {
+                    HealthcheckResult::unhealthy(format!("Healthcheck failed: {}", e))
+                }
+            }
+        }
     }
 }

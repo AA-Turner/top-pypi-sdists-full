@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from ..db import ThreadSafeConnection
     from .workflow_runners import RunnerRegistry, RunnerResult
 
+from .failure_triage import extract_failure_triage
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,6 +80,7 @@ class WorkflowStepDef:
     until: dict[str, Any] | None = None  # loop success condition (#1125)
     fail_if_not_met: bool = False  # fail loop when until not met after max_rounds (#1125)
     break_when: dict[str, Any] | None = None  # early loop termination (#1130)
+    stop_after_unchanged: int | None = None  # no-progress detection (#1152)
     # Human gate fields
     options: list[dict[str, Any]] | None = None
     on_timeout: dict[str, Any] | None = None
@@ -109,6 +112,9 @@ class WorkflowStepDef:
     context_from_failed_step: str | None = None  # step_id — inject failed step's result as context
     # Structured outputs (#1131)
     outputs: list[dict[str, str]] | None = None
+    # Emit step fields (#1150)
+    message: str | None = None  # emit step message template
+    level: str | None = None  # emit step severity: info|warning|success|error
     # Common
     approval_mode: str | None = None
     timeout: int | None = None
@@ -140,6 +146,7 @@ class WorkflowDefinition:
     raw_yaml: bytes = field(default=b"", repr=False)
     content_hash: str = ""
     triggers: list[TriggerDef] = field(default_factory=list)
+    summary: dict[str, Any] | None = None  # workflow-level summary templates (#1150)
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +205,39 @@ def _xml_escape(text: str) -> str:
     is safe (pure string replacement, no parsing) but the import is flagged.
     """
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def _enrich_artifacts_with_triage(
+    result_artifacts: dict[str, Any],
+    result_summary: str,
+    result_findings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Enrich step artifacts with failure triage data if extractable."""
+    triage = extract_failure_triage(result_summary, result_findings, result_artifacts)
+    if triage is not None:
+        return {**result_artifacts, "failure_triage": triage}
+    return result_artifacts
+
+
+def _compute_round_signature(
+    step_results: dict[str, dict[str, Any]],
+    nested_steps: list[WorkflowStepDef],
+) -> str:
+    """Compute a stable hash of failure state across all nested steps in a round.
+
+    Uses failure_signature from structured triage when available (#1151),
+    falls back to truncated result_summary.
+    """
+    parts: list[str] = []
+    for ns in nested_steps:
+        sr = step_results.get(ns.id, {})
+        status = sr.get("result_status", "")
+        triage = (sr.get("result_artifacts") or {}).get("failure_triage") or {}
+        sig = triage.get("failure_signature", "")
+        if not sig:
+            sig = (sr.get("result_summary") or "")[:200]
+        parts.append(f"{ns.id}|{status}|{sig}")
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
 
 
 def resolve_context_from(
@@ -277,12 +317,21 @@ def resolve_context_from_failed_step(
 
         artifacts_str = f"\n  <artifacts>{_xml_escape(json.dumps(artifacts, default=str))}</artifacts>"
 
+    triage_str = ""
+    triage = artifacts.get("failure_triage")
+    if triage:
+        triage_parts = []
+        for key, val in triage.items():
+            triage_parts.append(f"    <{key}>{_xml_escape(str(val))}</{key}>")
+        triage_str = "\n  <failure_triage>\n" + "\n".join(triage_parts) + "\n  </failure_triage>"
+
     return (
         f'<failed_step_context step="{_xml_escape(step_id)}">{note}\n'
         f"  <status>{_xml_escape(status)}</status>\n"
         f"  <summary>{_xml_escape(summary)}</summary>"
         f"{artifacts_str}"
-        f"{findings_str}\n"
+        f"{findings_str}"
+        f"{triage_str}\n"
         f"</failed_step_context>"
     )
 
@@ -344,6 +393,50 @@ def _resolve_dotted_path(data: dict[str, Any], path: str) -> Any:
         else:
             return None
     return current
+
+
+def _resolve_summary_template(
+    template: str,
+    inputs: dict[str, Any],
+    step_results: dict[str, dict[str, Any]],
+    *,
+    stop_reason: str | None = None,
+    failing_step: str | None = None,
+) -> str:
+    """Resolve a summary template with inputs, step results, and special variables."""
+    import re
+
+    resolved = template
+
+    # Resolve step result references first: {step.step_id.field}
+    # These contain dots which break str.format() attribute access, so
+    # they must be resolved before passing to resolve_template().
+    def _replace_step_ref(match: re.Match[str]) -> str:
+        step_id = match.group(1)
+        field = match.group(2)
+        step_data = step_results.get(step_id)
+        if step_data is None:
+            return match.group(0)  # leave unresolved
+        value = _resolve_dotted_path(step_data, field)
+        if value is None:
+            return match.group(0)
+        return str(value)
+
+    resolved = re.sub(r"\{step\.([^.}]+)\.([^}]+)\}", _replace_step_ref, resolved)
+
+    # Resolve special variables
+    if stop_reason is not None:
+        resolved = resolved.replace("{stop_reason}", stop_reason)
+    if failing_step is not None:
+        resolved = resolved.replace("{failing_step}", failing_step)
+
+    # Finally resolve input variables
+    try:
+        resolved = resolve_template(resolved, inputs)
+    except (KeyError, ValueError):
+        pass
+
+    return resolved
 
 
 def _resolve_step_outputs(
@@ -452,6 +545,7 @@ def load_definition(source: str | Path) -> WorkflowDefinition:
         raw_yaml=raw_bytes,
         content_hash=content_hash,
         triggers=triggers,
+        summary=raw.get("summary"),
     )
     _validate_definition(defn)
     return defn
@@ -488,7 +582,7 @@ def _parse_step(raw: dict[str, Any], *, _inside_parallel: bool = False) -> Workf
     if not raw.get("type"):
         raise ValueError(f"Step {step_id!r} must have a 'type' field")
     step_type = raw["type"]
-    if step_type not in ("runner", "gate", "loop", "human_gate", "publish", "llm", "parallel"):
+    if step_type not in ("runner", "gate", "loop", "human_gate", "publish", "llm", "parallel", "emit"):
         raise ValueError(f"Step {step_id!r}: invalid type {step_type!r}")
 
     nested_steps = None
@@ -582,6 +676,7 @@ def _parse_step(raw: dict[str, Any], *, _inside_parallel: bool = False) -> Workf
         until=raw.get("until"),
         fail_if_not_met=bool(raw.get("fail_if_not_met", False)),
         break_when=raw.get("break_when"),
+        stop_after_unchanged=raw.get("stop_after_unchanged"),
         options=raw.get("options"),
         on_timeout=raw.get("on_timeout"),
         credentials=raw.get("credentials"),
@@ -609,6 +704,8 @@ def _parse_step(raw: dict[str, Any], *, _inside_parallel: bool = False) -> Workf
         on_failure=on_failure_steps,
         context_from_failed_step=raw.get("context_from_failed_step"),
         outputs=raw.get("outputs"),
+        message=raw.get("message"),
+        level=raw.get("level"),
     )
 
 
@@ -670,6 +767,11 @@ def _validate_step_common(step: WorkflowStepDef, seen_step_ids: set[str], defn: 
                         f"Human gate step {step.id!r}: branch target {target!r} must appear"
                         f" after the current step (forward-only in V1)"
                     )
+    elif step.type == "emit":
+        if not step.message:
+            raise ValueError(f"Step {step.id!r}: emit steps require a 'message' field")
+        if step.level is not None and step.level not in ("info", "warning", "success", "error"):
+            raise ValueError(f"Step {step.id!r}: emit level must be one of: info, warning, success, error")
 
     if step.credentials:
         if not isinstance(step.credentials, list):
@@ -756,6 +858,12 @@ def _validate_step_common(step: WorkflowStepDef, seen_step_ids: set[str], defn: 
 
     if step.fail_if_not_met and step.type != "loop":
         raise ValueError(f"Step {step.id!r}: 'fail_if_not_met' is only allowed on loop steps")
+
+    if step.stop_after_unchanged is not None:
+        if step.type != "loop":
+            raise ValueError(f"Step {step.id!r}: 'stop_after_unchanged' is only allowed on loop steps")
+        if not isinstance(step.stop_after_unchanged, int) or step.stop_after_unchanged < 2:
+            raise ValueError(f"Step {step.id!r}: 'stop_after_unchanged' must be an integer >= 2")
 
     if step.outputs:
         if not isinstance(step.outputs, list):
@@ -1216,8 +1324,7 @@ class WorkflowEngine:
         if run is None:
             raise ValueError(f"Run not found: {run_id}")
 
-        terminal = {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
-        if run["status"] in terminal:
+        if run["status"] in ws._TERMINAL_RUN_STATUSES:
             raise ValueError(f"Run {run_id} is already in terminal status: {run['status']}")
 
         ws.set_cancel_requested(db, run_id)
@@ -1228,8 +1335,8 @@ class WorkflowEngine:
             payload={"from_status": run["status"]},
         )
 
-        # For paused/waiting runs, cancel immediately since no engine loop is polling
-        if run["status"] in ("paused", "waiting_for_approval", "waiting_for_input"):
+        # For paused/waiting/blocked runs, cancel immediately since no engine loop is polling
+        if run["status"] in ("paused", "waiting_for_approval", "waiting_for_input", "blocked"):
             ws.update_workflow_run(
                 db,
                 run_id,
@@ -2018,10 +2125,11 @@ class WorkflowEngine:
         run = ws.get_workflow_run(self._db, run_id)
         if not run:
             raise ValueError(f"Run not found: {run_id}")
-        if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input", "compensating", "failed"):
+        if run["status"] not in ws._RESUMABLE_RUN_STATUSES:
             raise ValueError(
                 f"Run {run_id} is not resumable (status: {run['status']}). "
-                f"Only paused, waiting_for_approval, waiting_for_input, compensating, or failed runs can be resumed."
+                f"Only paused, waiting_for_approval, waiting_for_input, compensating, "
+                f"failed, or blocked runs can be resumed."
             )
 
         prior_status = run["status"]
@@ -2082,6 +2190,10 @@ class WorkflowEngine:
                 raise ValueError(f"Step {from_step!r} not found in workflow definition")
             idx = all_step_ids.index(from_step)
             completed = set(all_step_ids[:idx])
+
+        # For blocked runs, ensure the blocking gate step is re-evaluated (not skipped)
+        if run["status"] == "blocked" and run.get("current_step_id"):
+            completed.discard(run["current_step_id"])
 
         # Rebuild step_results from persisted data
         step_results = self._rebuild_step_results(run_id)
@@ -2605,6 +2717,9 @@ class WorkflowEngine:
             "idempotency_key",
             "structured_output",
             "loop_end_reason",
+            "failure_triage",
+            "rounds_completed",
+            "level",
         }
     )
 
@@ -2798,6 +2913,8 @@ class WorkflowEngine:
                         result = await self._execute_loop_step(step_def, run, inputs, definition, step_results)
                     elif step_def.type == "publish":
                         result = await self._execute_publish_step(step_def, run, inputs, step_results)
+                    elif step_def.type == "emit":
+                        result = await self._execute_emit_step(step_def, run, inputs, step_results)
                     elif step_def.type == "llm":
                         result = await self._execute_llm_step(step_def, run, inputs, step_results, definition)
                     elif step_def.type == "parallel":
@@ -2888,6 +3005,21 @@ class WorkflowEngine:
                         stop_reason=f"step_failed:{step_def.id}",
                         completed_at=datetime.now(timezone.utc).isoformat(),
                     )
+                    # Resolve run-level summary on failure (#1150)
+                    if definition.summary:
+                        fail_template = definition.summary.get("on_failure")
+                        if fail_template:
+                            try:
+                                resolved = _resolve_summary_template(
+                                    str(fail_template),
+                                    inputs,
+                                    step_results,
+                                    stop_reason=f"step_failed:{step_def.id}",
+                                    failing_step=step_def.id,
+                                )
+                                ws.update_workflow_run(self._db, run["id"], result_summary=resolved)
+                            except Exception:
+                                pass
                     await self._emit_event(
                         run_id=run["id"],
                         event_type="run_failed",
@@ -2953,13 +3085,6 @@ class WorkflowEngine:
                         stop_reason=result.summary or f"blocked_at:{step_def.id}",
                         current_step_id=step_def.id,
                     )
-                    if not is_approval_pause:
-                        run = ws.update_workflow_run(
-                            self._db,
-                            run["id"],
-                            completed_at=datetime.now(timezone.utc).isoformat(),
-                        )
-
                     # Create checkpoint at approval/block pause (#979)
                     # Include the blocked step's data in the checkpoint snapshot
                     checkpoint_results = dict(step_results)
@@ -2985,13 +3110,18 @@ class WorkflowEngine:
                     return run
 
                 if result.status == "failed":
+                    enriched_artifacts = _enrich_artifacts_with_triage(
+                        result.artifacts or {},
+                        result.summary or "",
+                        result.findings if hasattr(result, "findings") and result.findings else [],
+                    )
                     ws.update_workflow_step(
                         self._db,
                         step_record["id"],
                         status="failed",
                         result_status="failed",
                         result_summary=result.summary,
-                        result_artifacts=result.artifacts,
+                        result_artifacts=enriched_artifacts,
                         result_findings=result.findings,
                         duration_ms=duration_ms,
                         completed_at=datetime.now(timezone.utc).isoformat(),
@@ -3041,7 +3171,7 @@ class WorkflowEngine:
                         step_results[step_def.id] = {
                             "result_status": result.status,
                             "result_summary": result.summary[:500] if result.summary else "",
-                            "result_artifacts": result.artifacts,
+                            "result_artifacts": enriched_artifacts,
                             "result_findings": (result.findings if hasattr(result, "findings") else None),
                         }
                         branch_ok = await self._execute_failure_branch(
@@ -3053,7 +3183,7 @@ class WorkflowEngine:
                             step_results=step_results,
                         )
                         if branch_ok:
-                            continued_artifacts = dict(result.artifacts) if result.artifacts else {}
+                            continued_artifacts = dict(enriched_artifacts)
                             continued_artifacts["continued"] = True
                             continued_artifacts["on_failure_handled"] = True
                             ws.update_workflow_step(
@@ -3090,7 +3220,7 @@ class WorkflowEngine:
                             "Step %r failed but continue_on allows progression",
                             step_def.id,
                         )
-                        continued_artifacts = dict(result.artifacts) if result.artifacts else {}
+                        continued_artifacts = dict(enriched_artifacts)
                         continued_artifacts["continued"] = True
                         continued_summary = result.summary[:500] if result.summary else ""
                         step_results[step_def.id] = {
@@ -3141,6 +3271,21 @@ class WorkflowEngine:
                         stop_reason=f"step_failed:{step_def.id}",
                         completed_at=datetime.now(timezone.utc).isoformat(),
                     )
+                    # Resolve run-level summary on failure (#1150)
+                    if definition.summary:
+                        fail_template = definition.summary.get("on_failure")
+                        if fail_template:
+                            try:
+                                resolved = _resolve_summary_template(
+                                    str(fail_template),
+                                    inputs,
+                                    step_results,
+                                    stop_reason=f"step_failed:{step_def.id}",
+                                    failing_step=step_def.id,
+                                )
+                                ws.update_workflow_run(self._db, run["id"], result_summary=resolved)
+                            except Exception:
+                                pass
                     await self._emit_event(
                         run_id=run["id"],
                         event_type="run_failed",
@@ -3152,7 +3297,7 @@ class WorkflowEngine:
                     checkpoint_results[step_def.id] = {
                         "result_status": result.status,
                         "result_summary": result.summary[:500] if result.summary else "",
-                        "result_artifacts": result.artifacts,
+                        "result_artifacts": enriched_artifacts,
                         "result_findings": result.findings if hasattr(result, "findings") else None,
                         "result_outputs": None,
                     }
@@ -3329,6 +3474,17 @@ class WorkflowEngine:
             status="completed",
             completed_at=datetime.now(timezone.utc).isoformat(),
         )
+
+        # Resolve run-level summary on success (#1150)
+        if definition.summary:
+            summary_template = definition.summary.get("on_success")
+            if summary_template:
+                try:
+                    resolved = _resolve_summary_template(str(summary_template), inputs, step_results)
+                    ws.update_workflow_run(self._db, run["id"], result_summary=resolved)
+                except Exception:
+                    pass  # graceful degradation
+
         await self._emit_event(
             run_id=run["id"],
             event_type="run_completed",
@@ -3562,6 +3718,26 @@ class WorkflowEngine:
                 )
             else:
                 raise ValueError(f"Unknown opaque runner: {step_def.runner!r}")
+
+    async def _execute_emit_step(
+        self,
+        step_def: WorkflowStepDef,
+        run: dict[str, Any],
+        inputs: dict[str, Any],
+        step_results: dict[str, dict[str, Any]],
+    ) -> RunnerResult:
+        """Execute an emit step — emit a message event for reporting (#1150)."""
+        from .workflow_runners import RunnerResult
+
+        message = resolve_template(step_def.message or "", inputs)
+        level = step_def.level or "info"
+        await self._emit_event(
+            run_id=run["id"],
+            event_type="step_emitted",
+            step_id=step_def.id,
+            payload={"level": level, "message": message},
+        )
+        return RunnerResult(status="success", summary=message, artifacts={"level": level}, duration_ms=0)
 
     async def _execute_publish_step(
         self,
@@ -4070,6 +4246,8 @@ class WorkflowEngine:
 
         max_rounds = step_def.max_rounds or self._config.max_review_rounds
         rounds_completed = 0
+        prev_failure_sig: str | None = None
+        consecutive_unchanged: int = 0
 
         for round_num in range(1, max_rounds + 1):
             all_succeeded = True
@@ -4137,10 +4315,12 @@ class WorkflowEngine:
                         result = await self._execute_gate_step(nested_step, run, inputs)
                     elif nested_step.type == "llm":
                         result = await self._execute_llm_step(nested_step, run, inputs, step_results, definition)
+                    elif nested_step.type == "emit":
+                        result = await self._execute_emit_step(nested_step, run, inputs, step_results)
                     else:
                         raise ValueError(
                             f"Unsupported step type in loop: {nested_step.type!r}"
-                            " (only 'runner', 'gate', and 'llm' are allowed inside loops)"
+                            " (only 'runner', 'gate', 'llm', and 'emit' are allowed inside loops)"
                         )
                 except Exception as exc:
                     nested_dur = int((time.monotonic() - nested_start) * 1000)
@@ -4163,13 +4343,20 @@ class WorkflowEngine:
 
                 # Persist nested step result
                 nested_dur = int((time.monotonic() - nested_start) * 1000)
+                nested_artifacts = result.artifacts or {}
+                if result.status == "failed":
+                    nested_artifacts = _enrich_artifacts_with_triage(
+                        nested_artifacts,
+                        result.summary or "",
+                        result.findings if hasattr(result, "findings") and result.findings else [],
+                    )
                 ws.update_workflow_step(
                     self._db,
                     nested_record["id"],
                     status="completed",
                     result_status=result.status,
                     result_summary=result.summary,
-                    result_artifacts=result.artifacts,
+                    result_artifacts=nested_artifacts,
                     result_findings=result.findings,
                     duration_ms=nested_dur,
                     completed_at=datetime.now(timezone.utc).isoformat(),
@@ -4184,7 +4371,7 @@ class WorkflowEngine:
                 step_results[nested_step.id] = {
                     "result_status": result.status,
                     "result_summary": result.summary,
-                    "result_artifacts": result.artifacts,
+                    "result_artifacts": nested_artifacts,
                     "result_findings": result.findings,
                 }
 
@@ -4193,10 +4380,20 @@ class WorkflowEngine:
 
             rounds_completed = round_num
 
-            # Loop termination priority (#1125, #1130):
+            # Track failure signature for no-progress detection (#1152)
+            if step_def.stop_after_unchanged is not None and not all_succeeded:
+                current_sig = _compute_round_signature(step_results, step_def.steps or [])
+                if current_sig == prev_failure_sig:
+                    consecutive_unchanged += 1
+                else:
+                    consecutive_unchanged = 1
+                    prev_failure_sig = current_sig
+
+            # Loop termination priority (#1125, #1130, #1152):
             # 1. Exception during round → immediate failure (handled above)
             # 2. break_when matched → immediate success
             # 3. until matched → immediate success
+            # 3.5. no_progress → failure (#1152)
             # 4. all_succeeded (no until) → immediate success
             # 5. More rounds → continue
             # 6. Exhausted → success or failure per fail_if_not_met
@@ -4216,7 +4413,21 @@ class WorkflowEngine:
                         summary=(f"Loop condition met at round {rounds_completed}/{max_rounds}"),
                         artifacts={"loop_end_reason": "until_met"},
                     )
-            elif all_succeeded:
+
+            # No-progress detection (#1152): after until/break_when, before all_succeeded
+            if step_def.stop_after_unchanged is not None and consecutive_unchanged >= step_def.stop_after_unchanged:
+                return RunnerResult(
+                    status="failed",
+                    summary=(
+                        f"Loop stopped: no progress after {consecutive_unchanged} consecutive rounds with same failure"
+                    ),
+                    artifacts={
+                        "loop_end_reason": "no_progress",
+                        "rounds_completed": rounds_completed,
+                    },
+                )
+
+            if step_def.until is None and all_succeeded:
                 # No until set — use legacy all_succeeded behavior
                 return RunnerResult(
                     status="success",
@@ -4302,6 +4513,8 @@ class WorkflowEngine:
                     result = await self._execute_publish_step(step_def, run, inputs, branch_results)
                 elif step_def.type == "llm":
                     result = await self._execute_llm_step(step_def, run, inputs, branch_results, definition)
+                elif step_def.type == "emit":
+                    result = await self._execute_emit_step(step_def, run, inputs, branch_results)
                 else:
                     raise ValueError(f"Unsupported step type in parallel branch: {step_def.type!r}")
             except Exception as exc:
@@ -4326,13 +4539,18 @@ class WorkflowEngine:
             duration_ms = int((time.monotonic() - start_time) * 1000)
 
             if result.status == "failed":
+                branch_enriched = _enrich_artifacts_with_triage(
+                    result.artifacts or {},
+                    result.summary or "",
+                    result.findings if hasattr(result, "findings") and result.findings else [],
+                )
                 ws.update_workflow_step(
                     self._db,
                     step_record["id"],
                     status="failed",
                     result_status="failed",
                     result_summary=result.summary,
-                    result_artifacts=result.artifacts,
+                    result_artifacts=branch_enriched,
                     result_findings=result.findings,
                     duration_ms=duration_ms,
                     completed_at=datetime.now(timezone.utc).isoformat(),

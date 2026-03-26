@@ -17,8 +17,10 @@ from rich.console import Console
 from plato.chronos.api.sessions import complete_session, create_session
 from plato.chronos.models import CompleteSessionRequest, CreateSessionRequest, CreateSessionResponse, Status1
 from plato.cli.chronos.dev.paths import get_sdk_root
+from plato.cli.chronos.dev.runner import resolve_agent_images
 from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command, build_ssh_command_string
 from plato.cli.chronos.dev.sync import SyncManager
+from plato.cli.chronos.env import resolve_config_env_vars
 from plato.cli.chronos.registry import get_world_schema, parse_package_string
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.test.config import TestConfig, TestPhaseConfig
@@ -107,6 +109,10 @@ class TestRunner:
             await self._setup_vm()
             selected_phases = select_test_phases(self.config.test.phases, self.phase_filter)
             exit_code = await self._run_phases(selected_phases)
+        except KeyboardInterrupt:
+            error_message = "Interrupted by user"
+            logger.warning("Interrupted — cleaning up session...")
+            exit_code = 130
         except Exception as exc:  # noqa: BLE001
             error_message = str(exc)
             logger.exception("chronos test failed")
@@ -146,6 +152,11 @@ class TestRunner:
             world_image = world_schema.get("image", "")
             if not world_image:
                 raise RuntimeError(f"No world image found in schema for {self.config.world.package}")
+            # Use the registered world name from the schema if not explicitly set
+            if not self.config.world.world_name:
+                self.config = self.config.model_copy(
+                    update={"world": self.config.world.model_copy(update={"world_name": world_schema.get("name")})}
+                )
 
         chronos = await self._create_chronos_session()
         self.session_id = chronos.public_id
@@ -156,6 +167,7 @@ class TestRunner:
                     update={
                         "session_id": chronos.public_id,
                         "otel_url": otel_url,
+                        "chronos_url": settings.chronos_url,
                     }
                 )
             }
@@ -205,6 +217,12 @@ class TestRunner:
 
         await self._copy_ssh_key_to_vm()
         await self._setup_sync_and_install()
+        # Resolve ${VAR} placeholders from Chronos analyzer-env settings
+        # (same as the Chronos backend launch flow)
+        world_config = self.config.world.config or {}
+        await resolve_config_env_vars(world_config, self.api_key)
+        # Resolve agent package → image URIs (same as dev runner / Chronos backend)
+        await resolve_agent_images(world_config, self.api_key)
         await self._write_runtime_files()
 
         console.print("[green]VM ready for test execution[/green]")
@@ -265,13 +283,36 @@ class TestRunner:
         if not self.world_env:
             raise RuntimeError("world_env must be initialized")
 
+        from time import perf_counter
+
+        logger.info("Installing editable packages on VM...")
+
+        t0 = perf_counter()
         await self.world_env.execute(
             "dpkg -s fuse3 > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1",
             timeout=60,
         )
+        logger.info("fuse3 check: %.1fs", perf_counter() - t0)
 
-        # Remove published world package installs so editable installs take precedence.
+        # Clean build artifacts so editable install uses fresh source
         if self.config.dev.world:
+            await self.world_env.execute(
+                "rm -rf /world/dist /world/*.egg-info /world/src/*.egg-info /world/build",
+                timeout=20,
+            )
+
+        # Uninstall published packages, then reinstall as editable.
+        # Use base SDK (no [worlds] extra) — DVC/dvc-s3 are already in the
+        # VM image and don't need re-resolving, which saves ~90s.
+        uninstall_pkgs: list[str] = []
+        editables: list[str] = []
+
+        if self.config.dev.sync_sdk:
+            uninstall_pkgs.append("plato-sdk-v2")
+            editables.append("-e /sdk")
+
+        if self.config.dev.world:
+            t0 = perf_counter()
             world_pkgs = await self.world_env.execute(
                 'python3 -c "import importlib.metadata; '
                 "eps = importlib.metadata.entry_points(group='plato.worlds'); "
@@ -280,23 +321,7 @@ class TestRunner:
             )
             installed_world_pkgs = (world_pkgs.stdout or "").strip()
             if installed_world_pkgs:
-                await self.world_env.execute(
-                    f"uv pip uninstall --system {installed_world_pkgs}",
-                    timeout=90,
-                )
-
-        if self.config.dev.sync_sdk:
-            await self.world_env.execute("uv pip uninstall --system plato-sdk-v2", timeout=60)
-
-        editables: list[str] = []
-        if self.config.dev.sync_sdk:
-            editables.append("-e '/sdk[worlds]'")
-
-        if self.config.dev.world:
-            await self.world_env.execute(
-                "rm -rf /world/dist /world/*.egg-info /world/src/*.egg-info /world/build",
-                timeout=20,
-            )
+                uninstall_pkgs.extend(installed_world_pkgs.split())
             editables.append("-e /world")
 
         for name in self.config.dev.agents:
@@ -305,10 +330,21 @@ class TestRunner:
         if not editables:
             return
 
+        if uninstall_pkgs:
+            t0 = perf_counter()
+            await self.world_env.execute(
+                f"uv pip uninstall --system {' '.join(uninstall_pkgs)}",
+                timeout=90,
+            )
+            logger.info("Uninstalled %s: %.1fs", " ".join(uninstall_pkgs), perf_counter() - t0)
+
         install_cmd = f"uv pip install --system {' '.join(editables)}"
+        logger.info("Installing: %s", install_cmd)
+        t0 = perf_counter()
         result = await self.world_env.execute(install_cmd, timeout=300)
         if result.exit_code != 0:
             raise RuntimeError(f"Editable install failed: {result.stderr}")
+        logger.info("Editable install complete: %.1fs", perf_counter() - t0)
 
     async def _run_phases(self, phases: list[TestPhaseConfig]) -> int:
         if not phases:
@@ -464,6 +500,21 @@ class TestRunner:
             timeout=30,
         )
 
+    async def _write_file_to_vm(self, remote_path: str, content: str, *, mkdir: bool = False) -> None:
+        """Write content to a file on the VM using base64 to avoid shell escaping issues."""
+        if not self.world_env:
+            raise RuntimeError("world_env must be initialized")
+        import base64
+
+        b64 = base64.b64encode(content.encode()).decode()
+        prefix = f"mkdir -p $(dirname {remote_path}) && " if mkdir else ""
+        result = await self.world_env.execute(
+            f"{prefix}echo '{b64}' | base64 -d > {remote_path}",
+            timeout=30,
+        )
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to write {remote_path}: {result.stderr}")
+
     async def _write_runtime_files(self) -> None:
         if not self.world_env or not self.session:
             raise RuntimeError("world_env and session must be initialized")
@@ -476,26 +527,24 @@ class TestRunner:
         )
 
         config_json = json.dumps(self.config.model_dump(mode="json"))
-        escaped_config = config_json.replace("'", "'\\''")
-        result = await self.world_env.execute(f"echo '{escaped_config}' > /tmp/config.json", timeout=30)
-        if result.exit_code != 0:
-            raise RuntimeError(f"Failed to write /tmp/config.json: {result.stderr}")
+        await self._write_file_to_vm("/tmp/config.json", config_json)
 
         if self.config.session.plato_session:
             session_json = json.dumps(self.config.session.plato_session.model_dump(mode="json"))
-            escaped_session = session_json.replace("'", "'\\''")
-            result = await self.world_env.execute(
-                f"mkdir -p /etc/plato && echo '{escaped_session}' > /etc/plato/session.json",
-                timeout=30,
-            )
-            if result.exit_code != 0:
-                raise RuntimeError(f"Failed to write /etc/plato/session.json: {result.stderr}")
+            await self._write_file_to_vm("/etc/plato/session.json", session_json, mkdir=True)
 
     async def _create_chronos_session(self) -> CreateSessionResponse:
         world_config = self.config.world.config or {}
         tags = list({*self.config.tags, "test", "ci.test"})
+        # world_name is resolved from the schema in _setup_vm, or set
+        # explicitly in the config. Fall back to package name as last resort.
+        world_name = self.config.world.world_name
+        if not world_name:
+            pkg, _ = parse_package_string(self.config.world.package)
+            world_name = pkg.removeprefix("plato-world-")
+            logger.warning("world_name not set, falling back to '%s'", world_name)
         body = CreateSessionRequest(
-            world_name=self.config.world.package,
+            world_name=world_name,
             world_config=world_config,
             tags=tags,
         )
@@ -556,10 +605,13 @@ class TestRunner:
         if keep_vm:
             return
 
+        logger.info("Cleaning up session and VM...")
         if self.session:
             await self.session.close()
+            logger.info("Session closed: %s", self.session_id)
         if self.plato:
             await self.plato.close()
+        logger.info("Cleanup complete.")
 
 
 TestRunner.__test__ = False

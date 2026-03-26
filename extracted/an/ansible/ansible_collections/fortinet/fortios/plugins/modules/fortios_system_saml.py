@@ -140,6 +140,13 @@ options:
                 description:
                     - SP portal URL.
                 type: str
+            require_signed_resp_and_asrt:
+                description:
+                    - Require both response and assertion from IDP to be signed when FGT acts as SP .
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             role:
                 description:
                     - SAML role.
@@ -271,19 +278,20 @@ EXAMPLES = """
           idp_single_sign_on_url: "<your_own_value>"
           life: "30"
           portal_url: "<your_own_value>"
+          require_signed_resp_and_asrt: "enable"
           role: "identity-provider"
           server_address: "<your_own_value>"
           service_providers:
               -
                   assertion_attributes:
                       -
-                          name: "default_name_20"
+                          name: "default_name_21"
                           type: "username"
                   idp_artifact_resolution_url: "<your_own_value>"
                   idp_entity_id: "<your_own_value>"
                   idp_single_logout_url: "<your_own_value>"
                   idp_single_sign_on_url: "<your_own_value>"
-                  name: "default_name_26"
+                  name: "default_name_27"
                   prefix: "<your_own_value>"
                   sp_artifact_resolution_url: "<your_own_value>"
                   sp_binding_protocol: "post"
@@ -404,6 +412,7 @@ def filter_system_saml_data(json):
         "idp_single_sign_on_url",
         "life",
         "portal_url",
+        "require_signed_resp_and_asrt",
         "role",
         "server_address",
         "service_providers",
@@ -608,6 +617,11 @@ versioned_schema = {
         "idp_single_logout_url": {"v_range": [["v6.2.0", ""]], "type": "string"},
         "idp_cert": {"v_range": [["v6.2.0", ""]], "type": "string"},
         "server_address": {"v_range": [["v6.2.0", ""]], "type": "string"},
+        "require_signed_resp_and_asrt": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
         "tolerance": {"v_range": [["v6.2.0", ""]], "type": "integer"},
         "life": {"v_range": [["v6.2.0", ""]], "type": "integer"},
         "service_providers": {
@@ -749,7 +763,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_saml"
         )

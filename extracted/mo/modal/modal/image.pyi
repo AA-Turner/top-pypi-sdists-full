@@ -6,7 +6,6 @@ import modal.app
 import modal.client
 import modal.cloud_bucket_mount
 import modal.functions
-import modal.gpu
 import modal.mount
 import modal.network_file_system
 import modal.object
@@ -187,8 +186,6 @@ class _Image(modal._object._Object):
         _namespace: int = 1,
         _do_assert_no_mount_layers: bool = True,
     ): ...
-    @staticmethod
-    def _from_scratch() -> _Image: ...
     def _copy_mount(self, mount: modal.mount._Mount, remote_path: typing.Union[str, pathlib.Path] = ".") -> _Image:
         """mdmd:hidden
         Internal
@@ -396,7 +393,7 @@ class _Image(modal._object._Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> _Image:
         """Install a list of Python packages using pip.
 
@@ -436,7 +433,7 @@ class _Image(modal._object._Object):
         extra_index_url: typing.Optional[str] = None,
         pre: bool = False,
         extra_options: str = "",
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         force_build: bool = False,
@@ -485,7 +482,7 @@ class _Image(modal._object._Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> _Image:
         """Install a list of Python packages from a local `requirements.txt` file."""
         ...
@@ -503,7 +500,7 @@ class _Image(modal._object._Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> _Image:
         """Install dependencies specified by a local `pyproject.toml` file.
 
@@ -527,7 +524,7 @@ class _Image(modal._object._Object):
         uv_version: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> _Image:
         """Install a list of Python packages using uv pip install.
 
@@ -561,7 +558,7 @@ class _Image(modal._object._Object):
         old_installer: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> _Image:
         """Install poetry *dependencies* specified by a local `pyproject.toml` file.
 
@@ -589,7 +586,7 @@ class _Image(modal._object._Object):
         uv_version: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> _Image:
         """Creates a virtual environment with the dependencies in a uv managed project with `uv sync`.
 
@@ -620,7 +617,7 @@ class _Image(modal._object._Object):
         context_files: dict[str, str] = {},
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         context_dir: typing.Union[str, pathlib.Path, None] = None,
         force_build: bool = False,
         ignore: typing.Union[
@@ -683,7 +680,7 @@ class _Image(modal._object._Object):
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         volumes: typing.Optional[dict[typing.Union[str, pathlib.PurePosixPath], modal.volume._Volume]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         force_build: bool = False,
     ) -> _Image:
         """Extend an image with a list of shell commands to run."""
@@ -702,7 +699,7 @@ class _Image(modal._object._Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> _Image:
         """Install a list of additional packages using micromamba."""
         ...
@@ -843,7 +840,7 @@ class _Image(modal._object._Object):
         context_dir: typing.Union[str, pathlib.Path, None] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         add_python: typing.Optional[str] = None,
         build_args: dict[str, str] = {},
         ignore: typing.Union[
@@ -902,6 +899,26 @@ class _Image(modal._object._Object):
         ...
 
     @staticmethod
+    def from_scratch(force_build: bool = False) -> _Image:
+        """Create an empty Image, equivalent to `FROM scratch` in Docker.
+
+        The resulting Image has no operating system, shell, or package manager. It is
+        primarily useful as a lightweight filesystem to mount into a Sandbox via
+        `Sandbox.mount_image`.
+
+        Note that since this Image doesn't contain Python or other standard OS utilities,
+        higher-level Image build steps like `pip_install` cannot be chained onto it. It also
+        cannot be used for `modal.Function` execution, which requires a Python interpreter.
+
+        **Example**
+
+        ```python notest
+        image = modal.Image.from_scratch().add_local_file(local_path, "/bin/my_binary", copy=True)
+        ```
+        """
+        ...
+
+    @staticmethod
     def debian_slim(python_version: typing.Optional[str] = None, force_build: bool = False) -> _Image:
         """Default image, based on the official `python` Docker images."""
         ...
@@ -912,7 +929,7 @@ class _Image(modal._object._Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> _Image:
         """Install a list of Debian packages using `apt`.
 
@@ -937,7 +954,7 @@ class _Image(modal._object._Object):
         network_file_systems: dict[
             typing.Union[str, pathlib.PurePosixPath], modal.network_file_system._NetworkFileSystem
         ] = {},
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         cpu: typing.Optional[float] = None,
         memory: typing.Optional[int] = None,
         timeout: int = 3600,
@@ -1109,8 +1126,6 @@ class Image(modal.object.Object):
         _namespace: int = 1,
         _do_assert_no_mount_layers: bool = True,
     ): ...
-    @staticmethod
-    def _from_scratch() -> Image: ...
     def _copy_mount(self, mount: modal.mount.Mount, remote_path: typing.Union[str, pathlib.Path] = ".") -> Image:
         """mdmd:hidden
         Internal
@@ -1374,7 +1389,7 @@ class Image(modal.object.Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> Image:
         """Install a list of Python packages using pip.
 
@@ -1414,7 +1429,7 @@ class Image(modal.object.Object):
         extra_index_url: typing.Optional[str] = None,
         pre: bool = False,
         extra_options: str = "",
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
         force_build: bool = False,
@@ -1463,7 +1478,7 @@ class Image(modal.object.Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> Image:
         """Install a list of Python packages from a local `requirements.txt` file."""
         ...
@@ -1481,7 +1496,7 @@ class Image(modal.object.Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> Image:
         """Install dependencies specified by a local `pyproject.toml` file.
 
@@ -1505,7 +1520,7 @@ class Image(modal.object.Object):
         uv_version: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> Image:
         """Install a list of Python packages using uv pip install.
 
@@ -1539,7 +1554,7 @@ class Image(modal.object.Object):
         old_installer: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> Image:
         """Install poetry *dependencies* specified by a local `pyproject.toml` file.
 
@@ -1567,7 +1582,7 @@ class Image(modal.object.Object):
         uv_version: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> Image:
         """Creates a virtual environment with the dependencies in a uv managed project with `uv sync`.
 
@@ -1598,7 +1613,7 @@ class Image(modal.object.Object):
         context_files: dict[str, str] = {},
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         context_dir: typing.Union[str, pathlib.Path, None] = None,
         force_build: bool = False,
         ignore: typing.Union[
@@ -1661,7 +1676,7 @@ class Image(modal.object.Object):
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
         volumes: typing.Optional[dict[typing.Union[str, pathlib.PurePosixPath], modal.volume.Volume]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         force_build: bool = False,
     ) -> Image:
         """Extend an image with a list of shell commands to run."""
@@ -1680,7 +1695,7 @@ class Image(modal.object.Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> Image:
         """Install a list of additional packages using micromamba."""
         ...
@@ -1821,7 +1836,7 @@ class Image(modal.object.Object):
         context_dir: typing.Union[str, pathlib.Path, None] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         add_python: typing.Optional[str] = None,
         build_args: dict[str, str] = {},
         ignore: typing.Union[
@@ -1880,6 +1895,26 @@ class Image(modal.object.Object):
         ...
 
     @staticmethod
+    def from_scratch(force_build: bool = False) -> Image:
+        """Create an empty Image, equivalent to `FROM scratch` in Docker.
+
+        The resulting Image has no operating system, shell, or package manager. It is
+        primarily useful as a lightweight filesystem to mount into a Sandbox via
+        `Sandbox.mount_image`.
+
+        Note that since this Image doesn't contain Python or other standard OS utilities,
+        higher-level Image build steps like `pip_install` cannot be chained onto it. It also
+        cannot be used for `modal.Function` execution, which requires a Python interpreter.
+
+        **Example**
+
+        ```python notest
+        image = modal.Image.from_scratch().add_local_file(local_path, "/bin/my_binary", copy=True)
+        ```
+        """
+        ...
+
+    @staticmethod
     def debian_slim(python_version: typing.Optional[str] = None, force_build: bool = False) -> Image:
         """Default image, based on the official `python` Docker images."""
         ...
@@ -1890,7 +1925,7 @@ class Image(modal.object.Object):
         force_build: bool = False,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
     ) -> Image:
         """Install a list of Debian packages using `apt`.
 
@@ -1915,7 +1950,7 @@ class Image(modal.object.Object):
         network_file_systems: dict[
             typing.Union[str, pathlib.PurePosixPath], modal.network_file_system.NetworkFileSystem
         ] = {},
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         cpu: typing.Optional[float] = None,
         memory: typing.Optional[int] = None,
         timeout: int = 3600,

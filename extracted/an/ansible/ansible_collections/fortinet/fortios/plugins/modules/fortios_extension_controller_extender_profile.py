@@ -513,6 +513,26 @@ options:
                         type: list
                         elements: dict
                         suboptions:
+                            health_check_fail_cnt:
+                                description:
+                                    - Number of failures before the link is considered dead (1 - 10).
+                                type: int
+                            health_check_interval:
+                                description:
+                                    - Health monitoring interval in seconds (1 - 3600).
+                                type: int
+                            health_check_probe_cnt:
+                                description:
+                                    - Number of health monitoring probes to send within an interval (1 - 10).
+                                type: int
+                            health_check_probe_tm:
+                                description:
+                                    - Health monitoring probe timeout in seconds (1 - 10).
+                                type: int
+                            health_check_recovery_cnt:
+                                description:
+                                    - Number of successful checks before the link is considered alive (1 - 10).
+                                type: int
                             name:
                                 description:
                                     - FortiExtender LAN extension backhaul name.
@@ -1271,7 +1291,12 @@ EXAMPLES = """
           lan_extension:
               backhaul:
                   -
-                      name: "default_name_80"
+                      health_check_fail_cnt: "5"
+                      health_check_interval: "5"
+                      health_check_probe_cnt: "1"
+                      health_check_probe_tm: "2"
+                      health_check_recovery_cnt: "5"
+                      name: "default_name_85"
                       port: "wan"
                       role: "primary"
                       weight: "1"
@@ -1279,7 +1304,7 @@ EXAMPLES = """
               backhaul_ip: "<your_own_value>"
               downlinks:
                   -
-                      name: "default_name_87"
+                      name: "default_name_92"
                       port: "port1"
                       pvid: "1"
                       type: "port"
@@ -1292,13 +1317,13 @@ EXAMPLES = """
               traffic_split_services:
                   -
                       address: "<your_own_value> (source firewall.address.name)"
-                      name: "default_name_98"
+                      name: "default_name_103"
                       service: "<your_own_value> (source firewall.service.custom.name)"
                       vsdb: "disable"
           login_password: "<your_own_value>"
           login_password_change: "yes"
           model: "FX201E"
-          name: "default_name_104"
+          name: "default_name_109"
           wifi:
               country: "--"
               radio_1:
@@ -1313,7 +1338,7 @@ EXAMPLES = """
                   lan_ext_vap: "<your_own_value> (source extension-controller.extender-vap.name)"
                   local_vaps:
                       -
-                          name: "default_name_118 (source extension-controller.extender-vap.name)"
+                          name: "default_name_123 (source extension-controller.extender-vap.name)"
                   max_clients: "0"
                   mode: "AP"
                   operating_standard: "auto"
@@ -1332,7 +1357,7 @@ EXAMPLES = """
                   lan_ext_vap: "<your_own_value> (source extension-controller.extender-vap.name)"
                   local_vaps:
                       -
-                          name: "default_name_136 (source extension-controller.extender-vap.name)"
+                          name: "default_name_141 (source extension-controller.extender-vap.name)"
                   max_clients: "0"
                   mode: "AP"
                   operating_standard: "auto"
@@ -2643,6 +2668,26 @@ versioned_schema = {
                             "options": [{"value": "primary"}, {"value": "secondary"}],
                         },
                         "weight": {"v_range": [["v7.2.1", ""]], "type": "integer"},
+                        "health_check_interval": {
+                            "v_range": [["v7.6.5", ""]],
+                            "type": "integer",
+                        },
+                        "health_check_probe_cnt": {
+                            "v_range": [["v7.6.5", ""]],
+                            "type": "integer",
+                        },
+                        "health_check_probe_tm": {
+                            "v_range": [["v7.6.5", ""]],
+                            "type": "integer",
+                        },
+                        "health_check_fail_cnt": {
+                            "v_range": [["v7.6.5", ""]],
+                            "type": "integer",
+                        },
+                        "health_check_recovery_cnt": {
+                            "v_range": [["v7.6.5", ""]],
+                            "type": "integer",
+                        },
                     },
                     "v_range": [["v7.2.1", ""]],
                 },
@@ -2765,7 +2810,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "extension_controller_extender_profile"
         )

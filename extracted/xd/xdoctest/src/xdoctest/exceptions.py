@@ -2,6 +2,10 @@
 Define errors that may be raised by xdoctest
 """
 
+from __future__ import annotations
+
+import typing
+
 
 class MalformedDocstr(Exception):
     """
@@ -21,7 +25,14 @@ class DoctestParseError(Exception):
     """
     Exception raised when doctest code has an error.
     """
-    def __init__(self, msg, string=None, info=None, orig_ex=None):
+
+    def __init__(
+        self,
+        msg: str,
+        string: str | None = None,
+        info: typing.Any | None = None,
+        orig_ex: Exception | None = None,
+    ):
         """
         Args:
             msg (str): error message
@@ -45,12 +56,18 @@ class IncompleteParseError(SyntaxError):
     Used when something goes wrong in the xdoctest parser
     """
 
-try:
-    import _pytest
-    import _pytest.outcomes
-except ImportError:  # nocover
-    # Define dummy skipped exception if pytest is not available
-    class _pytest:  # type: ignore
-        class outcomes:
-            class Skipped(Exception):
-                pass
+
+def _resolve_skipped_exception_class():
+    try:
+        from _pytest.outcomes import Skipped as pytest_skipped
+    except ImportError:  # nocover
+
+        class LocalSkipped(Exception):
+            pass
+
+        return LocalSkipped
+    else:
+        return pytest_skipped
+
+
+Skipped = _resolve_skipped_exception_class()

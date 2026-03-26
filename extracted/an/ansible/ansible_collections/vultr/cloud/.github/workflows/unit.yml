@@ -15,7 +15,7 @@ on:
 jobs:
   unit-test:
     name: Unit test Ansible ${{ matrix.ansible }} Py${{ matrix.python }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: ansible_collections/vultr/cloud
@@ -23,17 +23,19 @@ jobs:
       fail-fast: false
       matrix:
         ansible:
-          - stable-2.16
+          - stable-2.18
+          - stable-2.19
+          - stable-2.20
         python:
-          - "3.10"
+          - "3.13"
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: ansible_collections/vultr/cloud
 
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
 
@@ -53,7 +55,7 @@ jobs:
           units
           --docker
           -v
-          --color
+          --color yes
           --python ${{ matrix.python }}
           --coverage
 
@@ -65,6 +67,6 @@ jobs:
           --requirements
           --group-by command
           --group-by version
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: false

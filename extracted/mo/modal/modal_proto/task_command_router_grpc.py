@@ -17,6 +17,26 @@ import modal_proto.task_command_router_pb2
 class TaskCommandRouterBase(abc.ABC):
 
     @abc.abstractmethod
+    async def TaskContainerCreate(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskContainerCreateRequest, modal_proto.task_command_router_pb2.TaskContainerCreateResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def TaskContainerGet(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskContainerGetRequest, modal_proto.task_command_router_pb2.TaskContainerGetResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def TaskContainerList(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskContainerListRequest, modal_proto.task_command_router_pb2.TaskContainerListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def TaskContainerTerminate(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskContainerTerminateRequest, modal_proto.task_command_router_pb2.TaskContainerTerminateResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def TaskContainerWait(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskContainerWaitRequest, modal_proto.task_command_router_pb2.TaskContainerWaitResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskExecPoll(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskExecPollRequest, modal_proto.task_command_router_pb2.TaskExecPollResponse]') -> None:
         pass
 
@@ -46,6 +66,36 @@ class TaskCommandRouterBase(abc.ABC):
 
     def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate': grpclib.const.Handler(
+                self.TaskContainerCreate,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskContainerCreateRequest,
+                modal_proto.task_command_router_pb2.TaskContainerCreateResponse,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerGet': grpclib.const.Handler(
+                self.TaskContainerGet,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskContainerGetRequest,
+                modal_proto.task_command_router_pb2.TaskContainerGetResponse,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerList': grpclib.const.Handler(
+                self.TaskContainerList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskContainerListRequest,
+                modal_proto.task_command_router_pb2.TaskContainerListResponse,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerTerminate': grpclib.const.Handler(
+                self.TaskContainerTerminate,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskContainerTerminateRequest,
+                modal_proto.task_command_router_pb2.TaskContainerTerminateResponse,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerWait': grpclib.const.Handler(
+                self.TaskContainerWait,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskContainerWaitRequest,
+                modal_proto.task_command_router_pb2.TaskContainerWaitResponse,
+            ),
             '/modal.task_command_router.TaskCommandRouter/TaskExecPoll': grpclib.const.Handler(
                 self.TaskExecPoll,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -94,6 +144,36 @@ class TaskCommandRouterBase(abc.ABC):
 class TaskCommandRouterStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
+        self.TaskContainerCreate = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate',
+            modal_proto.task_command_router_pb2.TaskContainerCreateRequest,
+            modal_proto.task_command_router_pb2.TaskContainerCreateResponse,
+        )
+        self.TaskContainerGet = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerGet',
+            modal_proto.task_command_router_pb2.TaskContainerGetRequest,
+            modal_proto.task_command_router_pb2.TaskContainerGetResponse,
+        )
+        self.TaskContainerList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerList',
+            modal_proto.task_command_router_pb2.TaskContainerListRequest,
+            modal_proto.task_command_router_pb2.TaskContainerListResponse,
+        )
+        self.TaskContainerTerminate = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerTerminate',
+            modal_proto.task_command_router_pb2.TaskContainerTerminateRequest,
+            modal_proto.task_command_router_pb2.TaskContainerTerminateResponse,
+        )
+        self.TaskContainerWait = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskContainerWait',
+            modal_proto.task_command_router_pb2.TaskContainerWaitRequest,
+            modal_proto.task_command_router_pb2.TaskContainerWaitResponse,
+        )
         self.TaskExecPoll = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.task_command_router.TaskCommandRouter/TaskExecPoll',

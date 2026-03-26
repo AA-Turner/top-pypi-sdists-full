@@ -2513,9 +2513,9 @@ class FSLocation(BaseLocation):
         # note if path is not file then returned size is 0
         try:
             # note: try to get file size from remote server
-            url = (
-                workspace.api_client._href_definitions.get_wsd_model_attachment_href()
-                + f"/{self.path.split('/assets/', maxsplit=1)[-1]}"
+            asset_path = self.path.split("/assets/", maxsplit=1)[-1]
+            url = workspace.api_client._href_definitions.get_wsd_asset_file_href(
+                asset_path
             )
             path_info_response = workspace.api_client.httpx_client.head(
                 url,

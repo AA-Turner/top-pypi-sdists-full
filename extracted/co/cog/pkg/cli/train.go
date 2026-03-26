@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,10 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/replicate/cog/pkg/config"
 	"github.com/replicate/cog/pkg/docker"
 	"github.com/replicate/cog/pkg/docker/command"
-	"github.com/replicate/cog/pkg/image"
+	"github.com/replicate/cog/pkg/model"
 	"github.com/replicate/cog/pkg/predict"
 	"github.com/replicate/cog/pkg/registry"
 	"github.com/replicate/cog/pkg/util/console"
@@ -35,9 +33,10 @@ If 'image' is passed, it will run the training on that Docker image.
 It must be an image that has been built by Cog.
 
 Otherwise, it will build the model in the current directory and train it.`,
-		RunE:   cmdTrain,
-		Args:   cobra.MaximumNArgs(1),
-		Hidden: true,
+		RunE:       cmdTrain,
+		Args:       cobra.MaximumNArgs(1),
+		Hidden:     true,
+		Deprecated: "the train command will be removed in a future version of Cog",
 	}
 
 	addBuildProgressOutputFlag(cmd)
@@ -45,7 +44,6 @@ Otherwise, it will build the model in the current directory and train it.`,
 	addUseCudaBaseImageFlag(cmd)
 	addGpusFlag(cmd)
 	addUseCogBaseImageFlag(cmd)
-	addFastFlag(cmd)
 	addConfigFlag(cmd)
 
 	cmd.Flags().StringArrayVarP(&trainInputFlags, "input", "i", []string{}, "Inputs, in the form name=value. if value is prefixed with @, then it is read from a file on disk. E.g. -i path=@image.jpg")
@@ -67,55 +65,53 @@ func cmdTrain(cmd *cobra.Command, args []string) error {
 	volumes := []command.Volume{}
 	gpus := gpusFlag
 
-	cfg, projectDir, err := config.GetConfig(configFilename)
-	if err != nil {
-		return err
-	}
+	resolver := model.NewResolver(dockerClient, registry.NewRegistryClient())
 
 	if len(args) == 0 {
 		// Build image
-
-		if cfg.Build.Fast {
-			buildFast = cfg.Build.Fast
-		}
-
-		client := registry.NewRegistryClient()
-		if imageName, err = image.BuildBase(ctx, dockerClient, cfg, projectDir, buildUseCudaBaseImage, DetermineUseCogBaseImage(cmd), buildProgressOutput, client, true); err != nil {
+		src, err := model.NewSource(configFilename)
+		if err != nil {
 			return err
 		}
 
-		// Base image doesn't have /src in it, so mount as volume
+		console.Info("Building Docker image from environment in cog.yaml...")
+		console.Info("")
+		m, err := resolver.Build(ctx, src, serveBuildOptions(cmd))
+		if err != nil {
+			return err
+		}
+		imageName = m.ImageRef()
+
+		// ExcludeSource build doesn't have /src in it, so mount as volume
 		volumes = append(volumes, command.Volume{
-			Source:      projectDir,
+			Source:      src.ProjectDir,
 			Destination: "/src",
 		})
 
-		if gpus == "" && cfg.Build.GPU {
+		if gpus == "" && m.HasGPU() {
 			gpus = "all"
 		}
 	} else {
 		// Use existing image
 		imageName = args[0]
 
-		inspectResp, err := dockerClient.Pull(ctx, imageName, false)
-		if err != nil {
-			return fmt.Errorf("Failed to pull image %q: %w", imageName, err)
-		}
-
-		conf, err := image.CogConfigFromManifest(ctx, inspectResp)
+		// Pull the image (if needed) and validate it's a Cog model
+		ref, err := model.ParseRef(imageName)
 		if err != nil {
 			return err
 		}
-		if gpus == "" && conf.Build.GPU {
-			gpus = "all"
+		m, err := resolver.Pull(ctx, ref)
+		if err != nil {
+			return err
 		}
-		if conf.Build.Fast {
-			buildFast = conf.Build.Fast
+
+		if gpus == "" && m.HasGPU() {
+			gpus = "all"
 		}
 	}
 
 	console.Info("")
-	console.Infof("Starting Docker image %s...", imageName)
+	console.Info("Starting Docker image and running setup()...")
 
 	predictor, err := predict.NewPredictor(ctx, command.RunOptions{
 		GPUs:    gpus,
@@ -123,7 +119,7 @@ func cmdTrain(cmd *cobra.Command, args []string) error {
 		Volumes: volumes,
 		Env:     trainEnvFlags,
 		Args:    []string{"python", "-m", "cog.server.http", "--x-mode", "train"},
-	}, true, buildFast, dockerClient)
+	}, true, dockerClient)
 	if err != nil {
 		return err
 	}

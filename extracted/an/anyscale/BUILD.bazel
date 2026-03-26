@@ -43,7 +43,6 @@ py_library(
         requirement("click"),
         requirement("colorama"),
         requirement("expiringdict"),
-        requirement("GitPython"),
         requirement("jsonpatch"),
         requirement("jsonschema"),
         requirement("kubernetes"),

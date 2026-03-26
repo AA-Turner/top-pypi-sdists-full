@@ -20,12 +20,23 @@ class AuditServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsResponse.FromString,
         )
+        self.GetAuditedEndpoints = channel.unary_unary(
+            "/chalk.server.v1.AuditService/GetAuditedEndpoints",
+            request_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsResponse.FromString,
+        )
 
 
 class AuditServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetAuditLogs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetAuditedEndpoints(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -38,6 +49,11 @@ def add_AuditServiceServicer_to_server(servicer, server):
             servicer.GetAuditLogs,
             request_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsResponse.SerializeToString,
+        ),
+        "GetAuditedEndpoints": grpc.unary_unary_rpc_method_handler(
+            servicer.GetAuditedEndpoints,
+            request_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.AuditService", rpc_method_handlers)
@@ -67,6 +83,35 @@ class AuditService(object):
             "/chalk.server.v1.AuditService/GetAuditLogs",
             chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetAuditedEndpoints(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuditService/GetAuditedEndpoints",
+            chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsResponse.FromString,
             options,
             channel_credentials,
             insecure,

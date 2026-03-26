@@ -88,7 +88,15 @@ class TestConfig(BaseModel):
             raw = f.read()
 
         data: dict[str, Any] = json.loads(raw)
+        # Only expand env vars in non-world-config fields (dev paths, tags, etc.)
+        # World config ${VAR} placeholders are resolved from Chronos analyzer-env
+        # settings at runtime, not from local env vars.
+        world_config = None
+        if "world" in data and isinstance(data["world"], dict):
+            world_config = data["world"].pop("config", None)
         _expand_vars_recursive(data)
+        if world_config is not None:
+            data.setdefault("world", {})["config"] = world_config
 
         # Allow single-purpose files with top-level world/dev/session/test only.
         # Strip `dev` config from launch payloads if someone reuses this file.

@@ -33,8 +33,8 @@ class PolicyAttestationRule(BaseModel):
     policy_id: StrictStr = Field(description="The ID of the parent policy.")
     name: StrictStr = Field(description="The name of the attestation rule.")
     description: Optional[StrictStr] = None
-    interval_days: StrictInt = Field(description="The recurring interval in days for attestation.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy_id", "name", "description", "interval_days"]
+    validity_period_days: StrictInt = Field(description="The validity period in days for attestation.")
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy_id", "name", "description", "validity_period_days"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -98,7 +98,7 @@ class PolicyAttestationRule(BaseModel):
             "policy_id": obj.get("policy_id"),
             "name": obj.get("name"),
             "description": obj.get("description"),
-            "interval_days": obj.get("interval_days")
+            "validity_period_days": obj.get("validity_period_days")
         })
         return _obj
 

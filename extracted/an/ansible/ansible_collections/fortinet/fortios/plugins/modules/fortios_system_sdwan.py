@@ -541,6 +541,13 @@ options:
                         description:
                             - Warning threshold for packet loss (percentage).
                         type: int
+                    update_bgp_route:
+                        description:
+                            - Enable/disable updating the BGP route.
+                        type: str
+                        choices:
+                            - 'enable'
+                            - 'disable'
                     update_cascade_interface:
                         description:
                             - Enable/disable update cascade interface.
@@ -1708,6 +1715,7 @@ EXAMPLES = """
                   threshold_warning_jitter: "0"
                   threshold_warning_latency: "0"
                   threshold_warning_packetloss: "0"
+                  update_bgp_route: "enable"
                   update_cascade_interface: "enable"
                   update_static_route: "enable"
                   user: "<your_own_value>"
@@ -1746,7 +1754,7 @@ EXAMPLES = """
                   server: "192.168.100.40"
                   sla:
                       -
-                          id: "126"
+                          id: "127"
                           jitter_threshold: "5"
                           latency_threshold: "5"
                           link_cost_factor: "latency"
@@ -1823,56 +1831,56 @@ EXAMPLES = """
                   dscp_reverse_tag: "<your_own_value>"
                   dst:
                       -
-                          name: "default_name_198 (source firewall.address.name firewall.addrgrp.name)"
+                          name: "default_name_199 (source firewall.address.name firewall.addrgrp.name)"
                   dst_negate: "enable"
                   dst6:
                       -
-                          name: "default_name_201 (source firewall.address6.name firewall.addrgrp6.name)"
+                          name: "default_name_202 (source firewall.address6.name firewall.addrgrp6.name)"
                   end_port: "65535"
                   end_src_port: "65535"
                   fib_best_match_force: "disable"
                   gateway: "enable"
                   groups:
                       -
-                          name: "default_name_207 (source user.group.name)"
+                          name: "default_name_208 (source user.group.name)"
                   hash_mode: "round-robin"
                   health_check:
                       -
-                          name: "default_name_210 (source system.sdwan.health-check.name)"
+                          name: "default_name_211 (source system.sdwan.health-check.name)"
                   hold_down_time: "0"
-                  id: "212"
+                  id: "213"
                   input_device:
                       -
-                          name: "default_name_214 (source system.interface.name)"
+                          name: "default_name_215 (source system.interface.name)"
                   input_device_negate: "enable"
                   input_zone:
                       -
-                          name: "default_name_217 (source system.sdwan.zone.name)"
+                          name: "default_name_218 (source system.sdwan.zone.name)"
                   internet_service: "enable"
                   internet_service_app_ctrl:
                       -
-                          id: "220"
+                          id: "221"
                   internet_service_app_ctrl_category:
                       -
-                          id: "222"
+                          id: "223"
                   internet_service_app_ctrl_group:
                       -
-                          name: "default_name_224 (source application.group.name)"
+                          name: "default_name_225 (source application.group.name)"
                   internet_service_custom:
                       -
-                          name: "default_name_226 (source firewall.internet-service-custom.name)"
+                          name: "default_name_227 (source firewall.internet-service-custom.name)"
                   internet_service_custom_group:
                       -
-                          name: "default_name_228 (source firewall.internet-service-custom-group.name)"
+                          name: "default_name_229 (source firewall.internet-service-custom-group.name)"
                   internet_service_fortiguard:
                       -
-                          name: "default_name_230 (source firewall.internet-service-fortiguard.name)"
+                          name: "default_name_231 (source firewall.internet-service-fortiguard.name)"
                   internet_service_group:
                       -
-                          name: "default_name_232 (source firewall.internet-service-group.name)"
+                          name: "default_name_233 (source firewall.internet-service-group.name)"
                   internet_service_name:
                       -
-                          name: "default_name_234 (source firewall.internet-service-name.name)"
+                          name: "default_name_235 (source firewall.internet-service-name.name)"
                   jitter_weight: "0"
                   latency_weight: "0"
                   link_cost_factor: "latency"
@@ -1880,7 +1888,7 @@ EXAMPLES = """
                   load_balance: "enable"
                   minimum_sla_meet_members: "0"
                   mode: "auto"
-                  name: "default_name_242"
+                  name: "default_name_243"
                   packet_loss_weight: "0"
                   passive_measurement: "enable"
                   priority_members:
@@ -1888,7 +1896,7 @@ EXAMPLES = """
                           seq_num: "<you_own_value>"
                   priority_zone:
                       -
-                          name: "default_name_248 (source system.sdwan.zone.name)"
+                          name: "default_name_249 (source system.sdwan.zone.name)"
                   protocol: "0"
                   quality_link: "0"
                   role: "standalone"
@@ -1899,16 +1907,16 @@ EXAMPLES = """
                   sla:
                       -
                           health_check: "<your_own_value> (source system.sdwan.health-check.name)"
-                          id: "258"
+                          id: "259"
                   sla_compare_method: "order"
                   sla_stickiness: "enable"
                   src:
                       -
-                          name: "default_name_262 (source firewall.address.name firewall.addrgrp.name)"
+                          name: "default_name_263 (source firewall.address.name firewall.addrgrp.name)"
                   src_negate: "enable"
                   src6:
                       -
-                          name: "default_name_265 (source firewall.address6.name firewall.addrgrp6.name)"
+                          name: "default_name_266 (source firewall.address6.name firewall.addrgrp6.name)"
                   standalone_action: "enable"
                   start_port: "1"
                   start_src_port: "1"
@@ -1919,7 +1927,7 @@ EXAMPLES = """
                   use_shortcut_sla: "enable"
                   users:
                       -
-                          name: "default_name_275 (source user.local.name)"
+                          name: "default_name_276 (source user.local.name)"
                   zone_mode: "enable"
           speedtest_bypass_routing: "disable"
           status: "disable"
@@ -1928,7 +1936,7 @@ EXAMPLES = """
                   advpn_health_check: "<your_own_value> (source system.sdwan.health-check.name)"
                   advpn_select: "enable"
                   minimum_sla_meet_members: "1"
-                  name: "default_name_283"
+                  name: "default_name_284"
                   service_sla_tie_break: "cfg-order"
 """
 
@@ -2484,6 +2492,11 @@ versioned_schema = {
                 },
                 "update_static_route": {
                     "v_range": [["v6.4.0", ""]],
+                    "type": "string",
+                    "options": [{"value": "enable"}, {"value": "disable"}],
+                },
+                "update_bgp_route": {
+                    "v_range": [["v7.6.5", ""]],
                     "type": "string",
                     "options": [{"value": "enable"}, {"value": "disable"}],
                 },
@@ -3495,7 +3508,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_sdwan"
         )

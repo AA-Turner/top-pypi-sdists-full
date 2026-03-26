@@ -282,7 +282,7 @@ class TreeCompiler(SQLCompiler):
         tree_fields = self.query.get_tree_fields()
         if tree_fields:
             model = _find_tree_model(self.query.model)
-            for _name, column in tree_fields.items():
+            for column in tree_fields.values():
                 # Only allow simple column names (no complex expressions)
                 if not isinstance(column, str):
                     return False
@@ -339,7 +339,7 @@ class TreeCompiler(SQLCompiler):
         elif isinstance(sibling_order, str):
             order_fields = [sibling_order]
         else:
-            raise ValueError(
+            raise TypeError(
                 "Sibling order must be a string or a list or tuple of strings."
             )
 
@@ -411,7 +411,7 @@ class TreeCompiler(SQLCompiler):
         ) or any(  # pragma: no branch
             # OK if generator is not consumed completely
             annotation.is_summary
-            for alias, annotation in self.query.annotations.items()
+            for annotation in self.query.annotations.values()
         )
         opts = _find_tree_model(self.query.model)._meta
 
@@ -521,7 +521,12 @@ class TreeCompiler(SQLCompiler):
                 # summary query or when using .values() or .values_list()
                 select={} if skip_tree_fields or self.query.values_select else select,
                 select_params=None,
-                where=["__tree.tree_pk = {db_table}.{pk}".format(**tree_params)],
+                where=[
+                    "__tree.tree_pk = {}.{}".format(
+                        self.quote_name_unless_alias(tree_params["db_table"]),
+                        qn(tree_params["pk"]),
+                    )
+                ],
                 params=None,
                 tables=["__tree"],
                 order_by=(

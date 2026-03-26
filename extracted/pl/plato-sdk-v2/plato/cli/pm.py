@@ -751,6 +751,8 @@ async def _launch_datagen_world(
             gen_msg["message"] = _build_datagen_review_prompt(simulator_name, review_comments, base_prompt)
 
         template["tags"].append(simulator_name)
+        if review_comments is not None:
+            template["tags"].append("resume")
 
         console.print("[cyan]Launching datagen world on Chronos...[/cyan]")
         session_id = _launch_on_chronos(template, api_key)
@@ -1655,21 +1657,6 @@ def review_env(
                     reject_action_inputs["resume_from"] = resume_from
                 elif action_choice == "4":
                     reject_action = "fix"
-                    # Look up last simcreator session for this sim
-                    last_session = _get_last_chronos_session(tags=["simcreator", simulator_name], api_key=api_key)
-                    default_resume = ""
-                    if last_session:
-                        sid = last_session["public_id"]
-                        status = last_session.get("status", "?")
-                        created = last_session.get("created_at", "")[:16].replace("T", " ")
-                        console.print(f"[cyan]Last simcreator session:[/cyan] {sid} ({status}, {created})")
-                        default_resume = sid
-                    resume_from = typer.prompt(
-                        "Resume session (enter for above, 'none' for fresh)", default=default_resume
-                    ).strip()
-                    if resume_from.lower() == "none":
-                        resume_from = ""
-                    reject_action_inputs["resume_from"] = resume_from
 
             # --- All inputs collected. Confirm before submitting. ---
 
@@ -1677,7 +1664,9 @@ def review_env(
             console.print(f"  Outcome: {outcome}")
             if reject_comments:
                 console.print(f"  Comments: {reject_comments}")
-            if clear_assignees:
+            if reject_action:
+                console.print(f"  Env assignees: → {DEFAULT_DATA_ASSIGNEES}")
+            elif clear_assignees:
                 console.print("  Clear env assignees: yes")
             if reject_action:
                 action_desc = reject_action
@@ -1718,8 +1707,22 @@ def review_env(
                         x_api_key=api_key,
                     )
 
-                    # 2. Clear env assignees if requested
-                    if clear_assignees:
+                    # 2. Update env assignees
+                    if reject_action:
+                        # When launching a world, assign env to DEFAULT_DATA_ASSIGNEES (matches extension behavior)
+                        try:
+                            await update_simulator.asyncio(
+                                client=api_client,
+                                simulator_id=simulator_id,
+                                body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(
+                                    env_assignees=DEFAULT_DATA_ASSIGNEES,
+                                ),
+                                x_api_key=api_key,
+                            )
+                            console.print(f"[green]✅ Set env_assignees → {DEFAULT_DATA_ASSIGNEES}[/green]")
+                        except Exception as e:
+                            console.print(f"[yellow]⚠️  Could not set env assignees: {e}[/yellow]")
+                    elif clear_assignees:
                         try:
                             await update_simulator.asyncio(
                                 client=api_client,

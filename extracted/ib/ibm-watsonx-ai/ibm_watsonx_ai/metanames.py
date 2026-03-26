@@ -960,63 +960,6 @@ class PipelineMetanames(MetaNamesBase):
         MetaNamesBase.__init__(self, self._meta_props_definitions)
 
 
-class LearningSystemMetaNames(MetaNamesBase):
-    _COMPUTE_CONFIGURATION_DEFAULT = "k80"
-    FEEDBACK_DATA_REFERENCE = "feedback_data_reference"
-    SPARK_REFERENCE = "spark_instance"
-    MIN_FEEDBACK_DATA_SIZE = "min_feedback_data_size"
-    AUTO_RETRAIN = "auto_retrain"
-    AUTO_REDEPLOY = "auto_redeploy"
-    COMPUTE_CONFIGURATION = "compute_configuration"
-    TRAINING_RESULTS_REFERENCE = "training_results_reference"
-
-    _meta_props_definitions = [
-        MetaProp(
-            "FEEDBACK_DATA_REFERENCE",
-            FEEDBACK_DATA_REFERENCE,
-            dict,
-            True,
-            example_value={},
-        ),
-        MetaProp("SPARK_REFERENCE", SPARK_REFERENCE, dict, False, example_value={}),
-        MetaProp(
-            "MIN_FEEDBACK_DATA_SIZE",
-            MIN_FEEDBACK_DATA_SIZE,
-            int,
-            True,
-            example_value=100,
-        ),
-        MetaProp(
-            "AUTO_RETRAIN", AUTO_RETRAIN, str, True, example_value="conditionally"
-        ),
-        MetaProp("AUTO_REDEPLOY", AUTO_REDEPLOY, str, True, example_value="always"),
-        MetaProp(
-            "COMPUTE_CONFIGURATION",
-            COMPUTE_CONFIGURATION,
-            dict,
-            False,
-            example_value={"name": _COMPUTE_CONFIGURATION_DEFAULT},
-        ),
-        MetaProp(
-            "TRAINING_RESULTS_REFERENCE",
-            TRAINING_RESULTS_REFERENCE,
-            dict,
-            False,
-            example_value={
-                "connection": {
-                    "endpoint_url": "https://s3-api.us-geo.objectstorage.softlayer.net",
-                    "access_key_id": "***",
-                    "secret_access_key": "***",
-                },
-                "target": {"bucket": "train-data"},
-                "type": "s3",
-            },
-        ),
-    ]
-
-    __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc("learning system")
-
-
 class RepositoryMemberMetaNames(MetaNamesBase):
     IDENTITY = "identity"
     ROLE = "role"
@@ -1369,25 +1312,6 @@ class ModelMetaNames(MetaNamesBase):
         + """
 **Note:** `project` (MetaNames.PROJECT_ID) and `space` (MetaNames.SPACE_ID) meta names are not supported and considered as invalid. Instead use client.set.default_space(<SPACE_ID>) to set the space or client.set.default_project(<PROJECT_ID>).
     """
-    )
-
-    def __init__(self) -> None:
-        MetaNamesBase.__init__(self, self._meta_props_definitions)
-
-
-class PayloadLoggingMetaNames(MetaNamesBase):
-    PAYLOAD_DATA_REFERENCE = "payload_store"
-    LABELS = "labels"
-    OUTPUT_DATA_SCHEMA = "output_data_schema"
-
-    _meta_props_definitions = [
-        MetaProp("PAYLOAD_DATA_REFERENCE", PAYLOAD_DATA_REFERENCE, dict, True, {}),
-        MetaProp("LABELS", LABELS, list, False, ["a", "b", "c"]),
-        MetaProp("OUTPUT_DATA_SCHEMA", OUTPUT_DATA_SCHEMA, dict, False, {}),
-    ]
-
-    __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
-        "payload logging system"
     )
 
     def __init__(self) -> None:
@@ -1758,81 +1682,6 @@ class DecisionOptimizationMetaNames(MetaNamesBase):
     __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
         "Decision Optimization"
     )
-
-    def __init__(self) -> None:
-        MetaNamesBase.__init__(self, self._meta_props_definitions)
-
-
-class RuntimeMetaNames(MetaNamesBase):
-    NAME = "name"
-    DESCRIPTION = "description"
-    CUSTOM = "custom"
-    PLATFORM = "platform"
-    LIBRARIES_UIDS = "libraries_uids"
-    CONFIGURATION_FILEPATH = "configuration_filepath"
-    TAGS = "tags"
-    SPACE_UID = "space"
-    COMPUTE = "compute"
-
-    _meta_props_definitions = [
-        MetaProp("NAME", NAME, str, True, "runtime_spec_python_3.10"),
-        MetaProp("DESCRIPTION", DESCRIPTION, str, False, "sample runtime"),
-        MetaProp(
-            "PLATFORM",
-            PLATFORM,
-            dict,
-            True,
-            '{"name":python","version":"3.10")',
-            schema={"name(required)": "string", "version(required)": "version"},
-        ),
-        MetaProp(
-            "LIBRARIES_UIDS",
-            LIBRARIES_UIDS,
-            list,
-            False,
-            ["46dc9cf1-252f-424b-b52d-5cdd9814987f"],
-        ),
-        MetaProp(
-            "CONFIGURATION_FILEPATH",
-            CONFIGURATION_FILEPATH,
-            str,
-            False,
-            "/home/env_config.yaml",
-        ),
-        MetaProp(
-            "TAGS",
-            TAGS,
-            list,
-            False,
-            [
-                {
-                    "value": "dsx-project.<project-guid>",
-                    "description": "DSX project guid",
-                }
-            ],
-            schema=[{"value(required)": "string", "description(optional)": "string"}],
-        ),
-        MetaProp("CUSTOM", CUSTOM, dict, False, '{"field1": "value1"}'),
-        MetaProp(
-            "SPACE_UID",
-            SPACE_UID,
-            str,
-            False,
-            path="/space/href",
-            example_value="46dc9cf1-252f-424b-b52d-5cdd9814987f",
-            transform=lambda x, client: API_VERSION + SPACES + "/" + x,
-        ),
-        MetaProp(
-            "COMPUTE",
-            COMPUTE,
-            dict,
-            False,
-            example_value={"name": "name1", "nodes": 1},
-            schema={"name(required)": "string", "nodes(optional)": "string"},
-        ),
-    ]
-
-    __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc("Runtime Specs")
 
     def __init__(self) -> None:
         MetaNamesBase.__init__(self, self._meta_props_definitions)

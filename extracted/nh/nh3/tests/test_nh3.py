@@ -88,9 +88,74 @@ def test_clean_with_attribute_filter():
     nh3.clean(html, attribute_filter=lambda _element, _attribute, _value: True)
 
 
+def test_clean_rel_attribute_conflict():
+    with pytest.raises(ValueError, match="link_rel is set"):
+        nh3.clean(
+            "<a href='http://example.com'>test</a>",
+            tags={"a"},
+            attributes={"a": {"href", "rel"}},
+        )
+
+    # No error when link_rel=None
+    result = nh3.clean(
+        "<a href='http://example.com' rel='nofollow'>test</a>",
+        tags={"a"},
+        attributes={"a": {"href", "rel"}},
+        link_rel=None,
+    )
+    assert result == '<a href="http://example.com" rel="nofollow">test</a>'
+
+    # No error when rel is not in attributes
+    nh3.clean(
+        "<a href='http://example.com'>test</a>",
+        tags={"a"},
+        attributes={"a": {"href"}},
+    )
+
+
+def test_cleaner_rel_attribute_conflict():
+    with pytest.raises(ValueError, match="link_rel is set"):
+        nh3.Cleaner(
+            tags={"a"},
+            attributes={"a": {"href", "rel"}},
+        )
+
+    # No error when link_rel=None
+    cleaner = nh3.Cleaner(
+        tags={"a"},
+        attributes={"a": {"href", "rel"}},
+        link_rel=None,
+    )
+    result = cleaner.clean("<a href='http://example.com' rel='nofollow'>test</a>")
+    assert result == '<a href="http://example.com" rel="nofollow">test</a>'
+
+
 def test_clean_text():
     res = nh3.clean_text('Robert"); abuse();//')
     assert res == "Robert&quot;);&#32;abuse();&#47;&#47;"
+
+
+def test_clean_content_tags_constant():
+    assert isinstance(nh3.CLEAN_CONTENT_TAGS, set)
+    assert "script" in nh3.CLEAN_CONTENT_TAGS
+    assert "style" in nh3.CLEAN_CONTENT_TAGS
+
+
+def test_frozenset_args():
+    html = "<b><img src='x'>hello</b>"
+    assert nh3.clean(html, tags=frozenset({"b"})) == "<b>hello</b>"
+    assert (
+        nh3.clean(html, tags=frozenset({"img"}), attributes={"img": frozenset({"src"})})
+        == '<img src="x">hello'
+    )
+
+
+def test_cleaner_frozenset_args():
+    cleaner = nh3.Cleaner(
+        tags=frozenset({"b", "img"}),
+        attributes={"img": frozenset({"src"})},
+    )
+    assert cleaner.clean("<b><img src='x'>hi</b>") == '<b><img src="x">hi</b>'
 
 
 def test_is_html():

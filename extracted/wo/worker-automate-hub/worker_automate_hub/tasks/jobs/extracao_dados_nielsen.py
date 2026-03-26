@@ -17,7 +17,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from webdriver_manager.chrome import ChromeDriverManager
 from os import name
 
@@ -244,64 +244,51 @@ class ExtracaoDados:
 
         wait = WebDriverWait(self.driver, timeout)
 
-        # 1) Esperar o tbody da tabela ficar presente
+        seletor_linhas = "div.virtual-list > div > div"
+
+        # 1) Espera a lista carregar
         try:
-            tbody = wait.until(
-                EC.presence_of_element_located(
-                    # tabela de listagem de arquivos/pastas
-                    (By.CSS_SELECTOR, "table.cursor-pointer tbody, table.w-full.cursor-pointer.table-auto tbody")
-                )
+            wait.until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, seletor_linhas)) > 0
             )
         except TimeoutException:
-            raise RuntimeError("Tabela de transfers não encontrada na página.")
+            raise RuntimeError("Lista de transfers não encontrada na página.")
 
-        # 2) Pegar todas as linhas clicáveis
-        # No HTML do TIBCO cada linha tem tabindex="0" e aria-label com o nome
-        rows = tbody.find_elements(By.CSS_SELECTOR, "tr[tabindex='0'][aria-label]")
-
-        # Filtra apenas as visíveis (caso tenha linha escondida)
-        rows = [r for r in rows if r.is_displayed()]
+        # 2) Pega as linhas visíveis
+        rows = self.driver.find_elements(By.CSS_SELECTOR, seletor_linhas)
+        rows = [r for r in rows if r.is_displayed() and r.text.strip()]
 
         if not rows:
-            raise RuntimeError("Nenhuma linha clicável encontrada na tabela.")
+            raise RuntimeError("Nenhuma linha encontrada na listagem.")
 
-        # 3) Última linha da lista (mais recente)
+        # 3) Última linha
         last_row = rows[-1]
-        print("Última linha encontrada com aria-label:",
-            last_row.get_attribute("aria-label"))
 
-        # 4) Dentro da linha, tentamos clicar no elemento mais específico
-        target = None
+        print("Última linha encontrada:")
+        print(last_row.text.strip())
+
+        # 4) Pega o nome do arquivo/pasta
         try:
-            # span com classe 'file' (texto do nome)
-            target = last_row.find_element(By.CSS_SELECTOR, "span.file")
+            nome_arquivo = last_row.find_element(By.CSS_SELECTOR, "span.file")
         except Exception:
-            # fallback: qualquer span da primeira coluna de nome
-            try:
-                target = last_row.find_element(By.CSS_SELECTOR, "td span")
-            except Exception:
-                # fallback final: a própria <tr>
-                target = last_row
+            raise RuntimeError("Não encontrei o nome do arquivo na última linha.")
 
-        # 5) Garantir que o elemento está visível na tela
+        print("Arquivo encontrado:", nome_arquivo.text)
+
+        # 5) Scroll até o elemento
         self.driver.execute_script(
-            "arguments[0].scrollIntoView({block: 'center'});", target
+            "arguments[0].scrollIntoView({block: 'center'});", nome_arquivo
         )
 
-        # 6) Esperar ficar clicável e clicar
-        try:
-            wait.until(EC.element_to_be_clickable(target))
-        except TimeoutException:
-            # se não ficar "clicável" oficialmente, ainda tentamos via JS
-            print("⚠️ Elemento não ficou clicável pelo EC, tentando mesmo assim...")
+        time.sleep(1)
 
+        # 6) Clique
         try:
-            target.click()
+            nome_arquivo.click()
         except Exception:
-            # fallback robusto: clique via JavaScript
-            self.driver.execute_script("arguments[0].click();", target)
+            self.driver.execute_script("arguments[0].click();", nome_arquivo)
 
-        print("Última pasta/arquivo clicado com sucesso!")
+        print("Última pasta clicada com sucesso!")
 
 
 
@@ -327,7 +314,7 @@ class ExtracaoDados:
         xpath = "//input[@id='button']"
         clicar_elemento_por_xpath(self.driver, xpath)
 
-        time.sleep(2)
+        time.sleep(5)
 
         # Clicar no diretório principal LA_BR_REDE_SIM_DO_SUL
         await self.clicar_diretorio_principal("LA_BR_REDE_SIM_DO_SUL")
@@ -342,74 +329,203 @@ class ExtracaoDados:
 
         # ====== BAIXAR OS ARQUIVOS DENTRO DA PASTA ======
                                 
-       # Localiza as linhas de arquivo na tabela atual (TIBCO MFT)
-        xpath_linhas_arquivos = (
-            "//table[contains(@class,'cursor-pointer') and "
-            "contains(@class,'table-auto')]/tbody/tr[@tabindex='0']"
-        )
+        wait = WebDriverWait(self.driver, 20)
 
-        # Aguarda até 20 segundos pelo menos 1 linha da tabela aparecer
-        WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.XPATH, xpath_linhas_arquivos))
-        )
+        seletor_container = "div.virtual-list"
+        xpath_linhas = "//div[contains(@class,'virtual-list')]//tr[@tabindex='0']"
+        xpath_nome_arquivo_na_linha = ".//span[contains(@class,'file')]"
 
-        linhas_arquivos = busca_lista_elementos_por_xpath(
-            self.driver, xpath_linhas_arquivos
-        )
+        # =========================================================
+        # 1) AGUARDAR A LISTA DE ARQUIVOS APARECER
+        # =========================================================
+        try:
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, seletor_container)))
+            wait.until(EC.presence_of_element_located((By.XPATH, xpath_linhas)))
+        except TimeoutException:
+            raise RuntimeError("Lista de arquivos da pasta não encontrada.")
 
-        qtd_arquivos = len(linhas_arquivos)
-        console.print(
-            f"Total de linhas (arquivos visíveis): {qtd_arquivos}", style="cyan"
-        )
+        container = self.driver.find_element(By.CSS_SELECTOR, seletor_container)
 
-        # Arquivos já existentes na pasta de download (baseline)
-        conhecidos = set(os.listdir(self.caminho_downloads))
+        # =========================================================
+        # 2) VARRER TODA A LISTA VIRTUALIZADA E COLETAR NOMES
+        # =========================================================
+        arquivos_encontrados = []
+        arquivos_set = set()
 
-        for r in range(1, qtd_arquivos + 1):
-            # Linha r
-            xpath_linha = f"{xpath_linhas_arquivos}[{r}]"
+        ultimo_total = -1
+        repeticoes_sem_novos = 0
+        max_repeticoes_sem_novos = 5
 
-            # Coluna Name: span com classe 'file' (link do arquivo)
-            xpath_baixar = rf"{xpath_linha}//span[contains(@class, 'file')]"
-            clicar_elemento_por_xpath(self.driver, xpath_baixar)
-            
+        console.print("Iniciando varredura completa da lista virtualizada...", style="cyan")
+
+        while True:
+            linhas_visiveis = self.driver.find_elements(By.XPATH, xpath_linhas)
+
+            for linha in linhas_visiveis:
+                try:
+                    nome_el = linha.find_element(By.XPATH, xpath_nome_arquivo_na_linha)
+                    nome = nome_el.text.strip()
+                    if nome and nome not in arquivos_set:
+                        arquivos_set.add(nome)
+                        arquivos_encontrados.append(nome)
+                        console.print(f"Arquivo localizado: {nome}", style="green")
+                except Exception:
+                    continue
+
+            total_atual = len(arquivos_encontrados)
+
+            if total_atual == ultimo_total:
+                repeticoes_sem_novos += 1
+            else:
+                repeticoes_sem_novos = 0
+                ultimo_total = total_atual
+
+            if repeticoes_sem_novos >= max_repeticoes_sem_novos:
+                break
+
+            # scroll dentro do container virtualizado
+            self.driver.execute_script(
+                "arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].clientHeight;",
+                container
+            )
             await asyncio.sleep(1)
 
-            # Esperar o download completar (sem .crdownload/.tmp)
+        console.print(
+            f"Total de arquivos únicos encontrados na pasta: {len(arquivos_encontrados)}",
+            style="bold cyan"
+        )
+
+        if not arquivos_encontrados:
+            raise RuntimeError("Nenhum arquivo foi encontrado dentro da pasta.")
+
+        # opcional: voltar a lista para o topo
+        self.driver.execute_script("arguments[0].scrollTop = 0;", container)
+        await asyncio.sleep(1)
+
+        # =========================================================
+        # 3) BASELINE DOS DOWNLOADS
+        # =========================================================
+        conhecidos = set(os.listdir(self.caminho_downloads))
+
+        # =========================================================
+        # 4) BAIXAR UM POR UM PELO NOME
+        # =========================================================
+        for nome_arquivo_lista in arquivos_encontrados:
+            console.print(f"Tentando baixar: {nome_arquivo_lista}", style="bold yellow")
+
+            clicou = False
+            tentativas_localizacao = 0
+            max_tentativas_localizacao = 20
+
+            # antes de procurar, volta o scroll para o topo
+            self.driver.execute_script("arguments[0].scrollTop = 0;", container)
+            await asyncio.sleep(1)
+
+            while tentativas_localizacao < max_tentativas_localizacao and not clicou:
+                tentativas_localizacao += 1
+
+                try:
+                    linhas_visiveis = self.driver.find_elements(By.XPATH, xpath_linhas)
+
+                    for linha in linhas_visiveis:
+                        try:
+                            nome_el = linha.find_element(By.XPATH, xpath_nome_arquivo_na_linha)
+                            nome_visivel = nome_el.text.strip()
+
+                            if nome_visivel == nome_arquivo_lista:
+                                self.driver.execute_script(
+                                    "arguments[0].scrollIntoView({block:'center'});",
+                                    nome_el
+                                )
+                                await asyncio.sleep(0.5)
+
+                                try:
+                                    nome_el.click()
+                                except Exception:
+                                    self.driver.execute_script("arguments[0].click();", nome_el)
+
+                                clicou = True
+                                console.print(
+                                    f"Clique realizado no arquivo: {nome_arquivo_lista}",
+                                    style="green"
+                                )
+                                break
+
+                        except StaleElementReferenceException:
+                            continue
+                        except Exception:
+                            continue
+
+                    if clicou:
+                        break
+
+                    # se não encontrou nessa viewport, rola mais
+                    self.driver.execute_script(
+                        "arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].clientHeight;",
+                        container
+                    )
+                    await asyncio.sleep(1)
+
+                except Exception as e:
+                    console.print(
+                        f"Erro ao procurar '{nome_arquivo_lista}' na tentativa {tentativas_localizacao}: {e}",
+                        style="red"
+                    )
+                    await asyncio.sleep(1)
+
+            if not clicou:
+                console.print(
+                    f"Não foi possível localizar/clicar no arquivo: {nome_arquivo_lista}",
+                    style="bold red"
+                )
+                continue
+
+            # =====================================================
+            # 5) ESPERAR DOWNLOAD COMPLETAR
+            # =====================================================
             timeout_segundos = 180
             inicio = time.time()
             novos_arquivos = set()
 
             while time.time() - inicio < timeout_segundos:
                 arquivos_atual = [
-                    f
-                    for f in os.listdir(self.caminho_downloads)
+                    f for f in os.listdir(self.caminho_downloads)
                     if not f.endswith(".crdownload") and not f.endswith(".tmp")
                 ]
+
                 novos = set(arquivos_atual) - conhecidos
+
                 if novos:
                     novos_arquivos = novos
                     conhecidos.update(novos)
                     break
+
                 await asyncio.sleep(1)
 
             if not novos_arquivos:
                 console.print(
-                    "Nenhum arquivo novo foi baixado dentro do tempo limite.",
+                    f"Nenhum arquivo novo foi baixado para '{nome_arquivo_lista}' dentro do tempo limite.",
                     style="bold red",
                 )
                 continue
 
+            # =====================================================
+            # 6) ENVIAR AO DATALAKE E REMOVER LOCAL
+            # =====================================================
             for arquivo_baixado in sorted(novos_arquivos):
                 caminho_arquivo = os.path.join(self.caminho_downloads, arquivo_baixado)
-                console.print(f"Arquivo baixado: {caminho_arquivo}", style="bold green")
+
+                console.print(
+                    f"Arquivo baixado: {caminho_arquivo}",
+                    style="bold green"
+                )
 
                 try:
                     with open(caminho_arquivo, "rb") as file:
                         file_bytes = file.read()
 
                     nome_arquivo = arquivo_baixado
-                    ext = "doc"  # tipo lógico esperado pelo datalake
+                    ext = "doc"
 
                     await send_file_to_datalake(
                         directory=DATALAKE_DIRECTORY,
@@ -419,6 +535,7 @@ class ExtracaoDados:
                     )
 
                     os.remove(caminho_arquivo)
+
                     console.print(
                         f"Arquivo {nome_arquivo} enviado ao datalake e removido da pasta de download.",
                         style="bold green",
@@ -507,3 +624,17 @@ async def extracao_dados_nielsen(task: RpaProcessoEntradaDTO) -> RpaRetornoProce
                 driver.quit()
             except Exception:
                 pass
+if __name__ == "__main__":
+    task = RpaProcessoEntradaDTO(
+        datEntradaFila=datetime.now(),
+        configEntrada={},
+        uuidProcesso="153a7bf9-8cab-41fd-b6d3-63d881ac1cf9",
+        nomProcesso="importacao_extratos",
+        uuidFila="",
+        sistemas=[
+            {"sistema": "EMSys", "timeout": "1.0"},
+            {"sistema": "AutoSystem", "timeout": "1.0"},
+        ],
+        historico_id="97bfc636-cdeb-4485-8c88-8c165702ac37",
+    )
+    asyncio.run(extracao_dados_nielsen(task))

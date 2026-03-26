@@ -206,6 +206,10 @@ class VolumeUploadTimeoutError(TimeoutError):
     """Raised when a Volume upload times out."""
 
 
+class LogsFetchError(Error):
+    """Raised when trying to fetch too many logs."""
+
+
 class InteractiveTimeoutError(TimeoutError):
     """Raised when interactive frontends time out while trying to connect to a container."""
 
@@ -333,3 +337,39 @@ class ClientClosed(Error):
 
 class FilesystemExecutionError(Error):
     """Raised when an unknown error is thrown during a container filesystem operation."""
+
+
+class SandboxFilesystemError(Error):
+    """Base class for sandbox filesystem errors."""
+
+    pass
+
+
+class SandboxFilesystemNotFoundError(SandboxFilesystemError):
+    """Raised when a file or directory is not found in the sandbox."""
+
+    pass
+
+
+class SandboxFilesystemIsADirectoryError(SandboxFilesystemError):
+    """Raised when a file operation in the sandbox targets a directory when it should target a non-directory file."""
+
+    pass
+
+
+class SandboxFilesystemNotADirectoryError(SandboxFilesystemError):
+    """Raised when a path component in the sandbox is not a directory."""
+
+    pass
+
+
+class SandboxFilesystemPermissionError(SandboxFilesystemError):
+    """Raised when permission is denied for a file operation in the sandbox."""
+
+    pass
+
+
+class SandboxFilesystemFileTooLargeError(SandboxFilesystemError):
+    """Raised when a file exceeds the maximum allowed size for a read operation in the sandbox."""
+
+    pass

@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 
 def bone_select_menu(
     execution_context: int | str | None = None,
@@ -557,7 +558,7 @@ def select_lasso(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,

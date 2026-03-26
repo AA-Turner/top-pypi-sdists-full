@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # File generated from our OpenAPI spec
+from decimal import Decimal
 from typing import Dict, List
 from typing_extensions import Literal, NotRequired, TypedDict
 
@@ -66,7 +67,7 @@ class SubscriptionItemUpdateParams(TypedDict):
     """
     proration_date: NotRequired[int]
     """
-    If set, the proration will be calculated as though the subscription was updated at the given time. This can be used to apply the same proration that was previewed with the [upcoming invoice](https://api.stripe.com#retrieve_customer_invoice) endpoint.
+    If set, the proration will be calculated as though the subscription was updated at the given time. This can be used to apply the same proration that was previewed with the [upcoming invoice](https://docs.stripe.com/api/invoices/create_preview) endpoint.
     """
     quantity: NotRequired[int]
     """
@@ -121,7 +122,7 @@ class SubscriptionItemUpdateParamsPriceData(TypedDict):
     """
     A positive integer in cents (or local equivalent) (or 0 for a free price) representing how much to charge.
     """
-    unit_amount_decimal: NotRequired[str]
+    unit_amount_decimal: NotRequired[Decimal]
     """
     Same as `unit_amount`, but accepts a decimal value in cents (or local equivalent) with at most 12 decimal places. Only one of `unit_amount` and `unit_amount_decimal` can be set.
     """

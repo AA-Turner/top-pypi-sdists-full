@@ -309,6 +309,31 @@ if THREAD_TTL is None and CHECKPOINTER_CONFIG is not None:
 
 N_JOBS_PER_WORKER = env("N_JOBS_PER_WORKER", cast=int, default=10)
 BG_JOB_TIMEOUT_SECS = env("BG_JOB_TIMEOUT_SECS", cast=float, default=86400)
+STREAM_PUBLISH_RETRY_MAX_DURATION_SECS = env(
+    "LSD_STREAM_PUBLISH_RETRY_MAX_DURATION_SECS",
+    cast=float,
+    default=60.0,
+)
+STREAM_PUBLISH_RETRY_INITIAL_INTERVAL_SECS = env(
+    "LSD_STREAM_PUBLISH_RETRY_INITIAL_INTERVAL_SECS",
+    cast=float,
+    default=0.1,
+)
+STREAM_PUBLISH_RETRY_MAX_INTERVAL_SECS = env(
+    "LSD_STREAM_PUBLISH_RETRY_MAX_INTERVAL_SECS",
+    cast=float,
+    default=10.0,
+)
+STREAM_PUBLISH_RETRY_BACKOFF_FACTOR = env(
+    "LSD_STREAM_PUBLISH_RETRY_BACKOFF_FACTOR",
+    cast=float,
+    default=2.0,
+)
+STREAM_PUBLISH_RETRY_JITTER = env(
+    "LSD_STREAM_PUBLISH_RETRY_JITTER",
+    cast=float,
+    default=0.3,  # 0 means no jitter, 1 means max jitter
+)
 
 FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
 FF_LOG_DROPPED_EVENTS = env("FF_LOG_DROPPED_EVENTS", cast=bool, default=False)
@@ -408,6 +433,13 @@ def _first_defined(*values):
     return None
 
 
+def _first_non_empty(*values: str | None) -> str | None:
+    for value in values:
+        if value:
+            return value
+    return None
+
+
 TRACING = _first_defined(
     env("LANGSMITH_TRACING", cast=bool, default=None),
     env("LANGSMITH_TRACING_V2", cast=bool, default=None),
@@ -458,6 +490,18 @@ LANGGRAPH_METRICS_ENDPOINT = env("LANGGRAPH_METRICS_ENDPOINT", cast=str, default
 LANGGRAPH_METRICS_EXPORT_INTERVAL_MS = env(
     "LANGGRAPH_METRICS_EXPORT_INTERVAL_MS", cast=int, default=60000
 )
+LSD_DD_API_KEY = _first_non_empty(
+    env("LSD_DD_API_KEY", cast=str, default=None),
+    env("CUSTOM_LSD_DD_API_KEY", cast=str, default=None),
+)
+LSD_DD_ENDPOINT = _first_non_empty(
+    env("LSD_DD_ENDPOINT", cast=str, default=None),
+    env("CUSTOM_LSD_DD_ENDPOINT", cast=str, default=None),
+    "otlp.us5.datadoghq.com",
+)
+METRIC_PREFIX = env("METRIC_PREFIX", cast=str, default="lg_api_")
+METRIC_MAX_EMITTING_TIER = env("METRIC_MAX_EMITTING_TIER", cast=int, default=2)
+DATADOG_METRICS_ENABLED = bool(LSD_DD_API_KEY)
 LANGGRAPH_LOGS_ENDPOINT = env("LANGGRAPH_LOGS_ENDPOINT", cast=str, default=None)
 LANGGRAPH_LOGS_ENABLED = env("LANGGRAPH_LOGS_ENABLED", cast=bool, default=False)
 
@@ -507,6 +551,7 @@ __all__ = [
     "CORS_CONFIG",
     "CRON_SCHEDULER_SLEEP_TIME",
     "DATABASE_URI",
+    "DATADOG_METRICS_ENABLED",
     "FF_CRONS_ENABLED",
     "FF_LOG_DROPPED_EVENTS",
     "FF_LOG_QUERY_AND_PARAMS",
@@ -538,10 +583,14 @@ __all__ = [
     "LANGSMITH_AUTH_VERIFY_TENANT_ID",
     "LANGSMITH_CONTROL_PLANE_API_KEY",
     "LANGSMITH_TENANT_ID",
+    "LSD_DD_API_KEY",
+    "LSD_DD_ENDPOINT",
     "LSD_GRPC_SERVER_ADDRESS",
     "LSD_GRPC_SERVER_MAX_RECV_MSG_BYTES",
     "LSD_GRPC_SERVER_MAX_SEND_MSG_BYTES",
     "MAX_STREAM_CHUNK_SIZE_BYTES",
+    "METRIC_MAX_EMITTING_TIER",
+    "METRIC_PREFIX",
     "MIGRATIONS_PATH",
     "MOUNT_PREFIX",
     "N_JOBS_PER_WORKER",
@@ -562,6 +611,11 @@ __all__ = [
     "SERDE",
     "STATS_INTERVAL_SECS",
     "STORE_CONFIG",
+    "STREAM_PUBLISH_RETRY_BACKOFF_FACTOR",
+    "STREAM_PUBLISH_RETRY_INITIAL_INTERVAL_SECS",
+    "STREAM_PUBLISH_RETRY_JITTER",
+    "STREAM_PUBLISH_RETRY_MAX_DURATION_SECS",
+    "STREAM_PUBLISH_RETRY_MAX_INTERVAL_SECS",
     "THREAD_TTL",
     "TRACING",
     "UI_USE_BUNDLER",

@@ -201,6 +201,13 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            web_svc:
+                description:
+                    - Enable/disable web-svc performance logging.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             webproxy:
                 description:
                     - Enable/disable web proxy event logging.
@@ -239,6 +246,7 @@ EXAMPLES = """
           user: "enable"
           vpn: "enable"
           wan_opt: "enable"
+          web_svc: "enable"
           webproxy: "enable"
           wireless_activity: "enable"
 """
@@ -353,6 +361,7 @@ def filter_log_eventfilter_data(json):
         "user",
         "vpn",
         "wan_opt",
+        "web_svc",
         "webproxy",
         "wireless_activity",
     ]
@@ -598,6 +607,11 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
+        "web_svc": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
         "webproxy": {
             "v_range": [["v7.2.4", ""]],
             "type": "string",
@@ -662,7 +676,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "log_eventfilter"
         )

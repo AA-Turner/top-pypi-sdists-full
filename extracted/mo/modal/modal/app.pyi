@@ -8,7 +8,6 @@ import modal.client
 import modal.cloud_bucket_mount
 import modal.cls
 import modal.functions
-import modal.gpu
 import modal.image
 import modal.network_file_system
 import modal.partial_function
@@ -16,7 +15,6 @@ import modal.proxy
 import modal.retries
 import modal.running_app
 import modal.schedule
-import modal.scheduler_placement
 import modal.secret
 import modal.server
 import modal.volume
@@ -310,6 +308,7 @@ class _App:
         environment_name: typing.Optional[str] = None,
         tag: str = "",
         client: typing.Optional[modal.client._Client] = None,
+        strategy: str = "rolling",
     ) -> typing_extensions.Self:
         """Deploy the App so that it is available persistently.
 
@@ -466,7 +465,7 @@ class _App:
         schedule: typing.Optional[modal.schedule.Schedule] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         serialized: bool = False,
         network_file_systems: dict[
             typing.Union[str, pathlib.PurePosixPath], modal.network_file_system._NetworkFileSystem
@@ -499,15 +498,8 @@ class _App:
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
-        _experimental_custom_scaling_factor: typing.Optional[float] = None,
         _experimental_restrict_output: bool = False,
-        keep_warm: typing.Optional[int] = None,
-        concurrency_limit: typing.Optional[int] = None,
-        container_idle_timeout: typing.Optional[int] = None,
-        allow_concurrent_inputs: typing.Optional[int] = None,
         max_inputs: typing.Optional[int] = None,
-        _experimental_buffer_containers: typing.Optional[int] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
     ) -> _FunctionDecoratorType:
         """Decorator to register a new Modal Function with this App."""
         ...
@@ -523,7 +515,7 @@ class _App:
         image: typing.Optional[modal.image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         serialized: bool = False,
         network_file_systems: dict[
             typing.Union[str, pathlib.PurePosixPath], modal.network_file_system._NetworkFileSystem
@@ -554,15 +546,8 @@ class _App:
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
-        _experimental_custom_scaling_factor: typing.Optional[float] = None,
         _experimental_restrict_output: bool = False,
-        keep_warm: typing.Optional[int] = None,
-        concurrency_limit: typing.Optional[int] = None,
-        container_idle_timeout: typing.Optional[int] = None,
-        allow_concurrent_inputs: typing.Optional[int] = None,
         max_inputs: typing.Optional[int] = None,
-        _experimental_buffer_containers: typing.Optional[int] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal._partial_function._PartialFunction]], CLS_T]:
         """Decorator to register a new Modal [Cls](https://modal.com/docs/reference/modal.Cls) with this App."""
         ...
@@ -574,7 +559,7 @@ class _App:
         image: typing.Optional[modal.image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         serialized: bool = False,
         volumes: dict[
             typing.Union[str, pathlib.PurePosixPath],
@@ -986,6 +971,7 @@ class App:
             environment_name: typing.Optional[str] = None,
             tag: str = "",
             client: typing.Optional[modal.client.Client] = None,
+            strategy: str = "rolling",
         ) -> SUPERSELF:
             """Deploy the App so that it is available persistently.
 
@@ -1038,6 +1024,7 @@ class App:
             environment_name: typing.Optional[str] = None,
             tag: str = "",
             client: typing.Optional[modal.client.Client] = None,
+            strategy: str = "rolling",
         ) -> SUPERSELF:
             """Deploy the App so that it is available persistently.
 
@@ -1196,7 +1183,7 @@ class App:
         schedule: typing.Optional[modal.schedule.Schedule] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         serialized: bool = False,
         network_file_systems: dict[
             typing.Union[str, pathlib.PurePosixPath], modal.network_file_system.NetworkFileSystem
@@ -1229,15 +1216,8 @@ class App:
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
-        _experimental_custom_scaling_factor: typing.Optional[float] = None,
         _experimental_restrict_output: bool = False,
-        keep_warm: typing.Optional[int] = None,
-        concurrency_limit: typing.Optional[int] = None,
-        container_idle_timeout: typing.Optional[int] = None,
-        allow_concurrent_inputs: typing.Optional[int] = None,
         max_inputs: typing.Optional[int] = None,
-        _experimental_buffer_containers: typing.Optional[int] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
     ) -> _FunctionDecoratorType:
         """Decorator to register a new Modal Function with this App."""
         ...
@@ -1253,7 +1233,7 @@ class App:
         image: typing.Optional[modal.image.Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         serialized: bool = False,
         network_file_systems: dict[
             typing.Union[str, pathlib.PurePosixPath], modal.network_file_system.NetworkFileSystem
@@ -1284,15 +1264,8 @@ class App:
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
-        _experimental_custom_scaling_factor: typing.Optional[float] = None,
         _experimental_restrict_output: bool = False,
-        keep_warm: typing.Optional[int] = None,
-        concurrency_limit: typing.Optional[int] = None,
-        container_idle_timeout: typing.Optional[int] = None,
-        allow_concurrent_inputs: typing.Optional[int] = None,
         max_inputs: typing.Optional[int] = None,
-        _experimental_buffer_containers: typing.Optional[int] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], CLS_T]:
         """Decorator to register a new Modal [Cls](https://modal.com/docs/reference/modal.Cls) with this App."""
         ...
@@ -1304,7 +1277,7 @@ class App:
         image: typing.Optional[modal.image.Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         serialized: bool = False,
         volumes: dict[
             typing.Union[str, pathlib.PurePosixPath],

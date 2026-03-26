@@ -541,7 +541,7 @@ class SubscriptionSchedule(
     """
     livemode: bool
     """
-    Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
+    If the object exists in live mode, the value is `true`. If the object exists in test mode, the value is `false`.
     """
     metadata: Optional[Dict[str, str]]
     """
@@ -629,7 +629,7 @@ class SubscriptionSchedule(
             self._request(
                 "post",
                 "/v1/subscription_schedules/{schedule}/cancel".format(
-                    schedule=sanitize_id(self.get("id"))
+                    schedule=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -686,7 +686,7 @@ class SubscriptionSchedule(
             await self._request_async(
                 "post",
                 "/v1/subscription_schedules/{schedule}/cancel".format(
-                    schedule=sanitize_id(self.get("id"))
+                    schedule=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -849,7 +849,7 @@ class SubscriptionSchedule(
             self._request(
                 "post",
                 "/v1/subscription_schedules/{schedule}/release".format(
-                    schedule=sanitize_id(self.get("id"))
+                    schedule=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -906,7 +906,7 @@ class SubscriptionSchedule(
             await self._request_async(
                 "post",
                 "/v1/subscription_schedules/{schedule}/release".format(
-                    schedule=sanitize_id(self.get("id"))
+                    schedule=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),

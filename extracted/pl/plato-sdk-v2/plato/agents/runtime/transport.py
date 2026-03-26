@@ -275,7 +275,7 @@ class NFSTransport(Transport):
 
         # Export the workspace path directly as the NFSv4 pseudo-root.
         # crossmnt: automatically traverse FUSE sub-mounts (lazy DVC).
-        export_line = f"{self.path} *(rw,sync,fsid=0,crossmnt,no_subtree_check,all_squash,anonuid=1000,anongid=1000)"
+        export_line = f"{self.path} *(rw,sync,fsid=0,crossmnt,no_subtree_check,no_root_squash)"
         exit_code, _, stderr = await run_local(
             f"printf '%s\\n' '{export_line}' > /etc/exports",
             timeout=10,
@@ -311,7 +311,7 @@ class NFSTransport(Transport):
         Raises RuntimeError if the path can't be NFS-exported (e.g. overlayfs).
         """
         await self._setup_workspace_path(path)
-        export_line = f"{path} *(rw,sync,fsid={fsid},crossmnt,no_subtree_check,all_squash,anonuid=1000,anongid=1000)"
+        export_line = f"{path} *(rw,sync,fsid={fsid},crossmnt,no_subtree_check,no_root_squash)"
         exit_code, _, stderr = await run_local(
             f"printf '%s\\n' '{export_line}' >> /etc/exports",
             timeout=10,
@@ -341,10 +341,7 @@ class NFSTransport(Transport):
         if exit_code != 0:
             raise RuntimeError(f"Failed to create workspace path {path}: {stderr}")
         await run_local(
-            f"chown 1000:1000 {path} 2>/dev/null; "
-            f"chmod 1777 {path} 2>/dev/null; "
-            f"setfacl -dm u:1000:rwx,g:1000:rwx {path} 2>/dev/null; "
-            f"true",
+            f"chown 1000:1000 {path} 2>/dev/null; chmod 1777 {path} 2>/dev/null; true",
             timeout=10,
         )
         logger.info(f"Workspace path ready: {path}")
@@ -352,10 +349,6 @@ class NFSTransport(Transport):
     async def setup_agent(self, agent_env: Environment, hostname: str) -> None:
         """Mount the world VM's NFS export on an agent VM via SSH."""
         await self._setup_workspace_path(self.path)
-        await run_local(
-            f"setfacl -Rm u:1000:rwx,g:1000:rwx {self.path} 2>/dev/null; chown -R 1000:1000 {self.path}",
-            timeout=120,
-        )
 
         await run_ssh(
             self.ssh_key_path,

@@ -323,7 +323,8 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
     claimed_by TEXT,
     claimed_at TEXT,
     cancel_requested INTEGER DEFAULT 0,
-    conversation_id TEXT
+    conversation_id TEXT,
+    result_summary TEXT DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS workflow_steps (
@@ -331,7 +332,7 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
     run_id TEXT NOT NULL,
     step_id TEXT NOT NULL,
     step_type TEXT NOT NULL CHECK(step_type IN (
-        'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel'
+        'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel', 'emit'
     )),
     runner_type TEXT,
     status TEXT NOT NULL CHECK(status IN (
@@ -482,6 +483,92 @@ CREATE TABLE IF NOT EXISTS agent_run_events (
     payload_json TEXT DEFAULT NULL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS mission_sessions (
+    id TEXT PRIMARY KEY,
+    status TEXT NOT NULL CHECK(status IN (
+        'pending', 'active', 'paused', 'completed', 'failed', 'cancelled'
+    )),
+    title TEXT,
+    description TEXT,
+    source_type TEXT,
+    source_artifact_id TEXT,
+    source_fqn TEXT,
+    source_version INTEGER,
+    referenced_artifacts_json TEXT,
+    lane_limits_json TEXT,
+    metadata_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mission_items (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL CHECK(status IN (
+        'pending', 'eligible', 'active', 'completed', 'failed', 'dropped', 'blocked'
+    )),
+    priority INTEGER NOT NULL DEFAULT 50,
+    item_type TEXT NOT NULL DEFAULT 'task',
+    adapter_type TEXT NOT NULL DEFAULT 'noop',
+    adapter_config_json TEXT,
+    concurrency_group TEXT,
+    lane TEXT,
+    hold_requested INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES mission_sessions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS mission_item_dependencies (
+    item_id TEXT NOT NULL,
+    depends_on_id TEXT NOT NULL,
+    PRIMARY KEY (item_id, depends_on_id),
+    FOREIGN KEY (item_id) REFERENCES mission_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (depends_on_id) REFERENCES mission_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS mission_executions (
+    id TEXT PRIMARY KEY,
+    item_id TEXT NOT NULL,
+    attempt_number INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK(status IN (
+        'pending', 'running', 'completed', 'failed', 'cancelled'
+    )),
+    adapter_ref TEXT,
+    summary TEXT,
+    artifacts_json TEXT,
+    started_at TEXT,
+    finished_at TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE(item_id, attempt_number),
+    FOREIGN KEY (item_id) REFERENCES mission_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS mission_revisions (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    revision_number INTEGER NOT NULL,
+    operations_json TEXT NOT NULL,
+    plan_snapshot_after_json TEXT NOT NULL,
+    referenced_artifacts_json TEXT,
+    reason TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE(session_id, revision_number),
+    FOREIGN KEY (session_id) REFERENCES mission_sessions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS mission_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    item_id TEXT,
+    event_type TEXT NOT NULL,
+    detail_json TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES mission_sessions(id) ON DELETE CASCADE
 );
 
 """
@@ -734,6 +821,17 @@ def _create_indexes(conn: sqlite3.Connection) -> None:
             "CREATE INDEX IF NOT EXISTS idx_agent_runs_conv_status ON agent_runs(conversation_id, status, created_at)"
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_run_events_run ON agent_run_events(run_id, created_at)")
+    except sqlite3.OperationalError:
+        pass
+
+    # Mission indexes (#1043)
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mission_items_session ON mission_items(session_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mission_items_status ON mission_items(status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mission_executions_item ON mission_executions(item_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mission_events_session ON mission_events(session_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mission_events_type ON mission_events(event_type)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mission_revisions_session ON mission_revisions(session_id)")
     except sqlite3.OperationalError:
         pass
 
@@ -1555,7 +1653,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 claimed_by TEXT,
                 claimed_at TEXT,
                 cancel_requested INTEGER DEFAULT 0,
-                conversation_id TEXT
+                conversation_id TEXT,
+                result_summary TEXT DEFAULT NULL
             )"""
         )
     if "workflow_steps" not in wf_tables:
@@ -1565,7 +1664,7 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 run_id TEXT NOT NULL,
                 step_id TEXT NOT NULL,
                 step_type TEXT NOT NULL CHECK(step_type IN (
-                    'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel'
+                    'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel', 'emit'
                 )),
                 runner_type TEXT,
                 status TEXT NOT NULL CHECK(status IN (
@@ -1784,7 +1883,7 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                     run_id TEXT NOT NULL,
                     step_id TEXT NOT NULL,
                     step_type TEXT NOT NULL CHECK(step_type IN (
-                        'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel'
+                        'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel', 'emit'
                     )),
                     runner_type TEXT,
                     status TEXT NOT NULL CHECK(status IN (
@@ -1879,7 +1978,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                     trigger_source TEXT,
                     trigger_meta_json TEXT,
                     claimed_by TEXT,
-                    claimed_at TEXT
+                    claimed_at TEXT,
+                    result_summary TEXT DEFAULT NULL
                 )"""
             )
             # Build column list from intersection of existing and target columns
@@ -1978,7 +2078,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                     claimed_by TEXT,
                     claimed_at TEXT,
                     cancel_requested INTEGER DEFAULT 0,
-                    conversation_id TEXT
+                    conversation_id TEXT,
+                    result_summary TEXT DEFAULT NULL
                 )"""
             )
             # Copy existing data — new columns get NULL defaults
@@ -2024,7 +2125,81 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             conn.execute("ALTER TABLE workflow_runs ADD COLUMN cancel_requested INTEGER DEFAULT 0")
         if "conversation_id" not in wf_run_cols_v3:
             conn.execute("ALTER TABLE workflow_runs ADD COLUMN conversation_id TEXT DEFAULT NULL")
+        if "result_summary" not in wf_run_cols_v3:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN result_summary TEXT DEFAULT NULL")
         conn.commit()
+
+    # Add 'emit' step type to workflow_steps (#1150)
+    if "workflow_steps" in wf_tables:
+        create_sql_emit = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='workflow_steps'"
+        ).fetchone()
+        if create_sql_emit and "'emit'" not in (create_sql_emit[0] or ""):
+            logger.info("Rebuilding workflow_steps table to add 'emit' step type (#1150)")
+            conn.execute("PRAGMA foreign_keys=OFF")
+            existing_emit_cols = {row[1] for row in conn.execute("PRAGMA table_info(workflow_steps)").fetchall()}
+            conn.execute(
+                """CREATE TABLE workflow_steps_emit (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    step_id TEXT NOT NULL,
+                    step_type TEXT NOT NULL CHECK(step_type IN (
+                        'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel', 'emit'
+                    )),
+                    runner_type TEXT,
+                    status TEXT NOT NULL CHECK(status IN (
+                        'pending', 'running', 'completed', 'failed', 'interrupted', 'skipped'
+                    )),
+                    attempt INTEGER NOT NULL DEFAULT 1,
+                    result_status TEXT,
+                    result_summary TEXT,
+                    result_artifacts_json TEXT,
+                    result_findings_json TEXT,
+                    result_outputs_json TEXT,
+                    raw_output_path TEXT,
+                    duration_ms INTEGER,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    approval_request_id TEXT,
+                    decision_id TEXT,
+                    idempotency_key TEXT,
+                    branch_id TEXT DEFAULT NULL,
+                    is_compensation INTEGER DEFAULT 0
+                )"""
+            )
+            _target_emit_cols = [
+                "id",
+                "run_id",
+                "step_id",
+                "step_type",
+                "runner_type",
+                "status",
+                "attempt",
+                "result_status",
+                "result_summary",
+                "result_artifacts_json",
+                "result_findings_json",
+                "result_outputs_json",
+                "raw_output_path",
+                "duration_ms",
+                "created_at",
+                "started_at",
+                "completed_at",
+                "approval_request_id",
+                "decision_id",
+                "idempotency_key",
+                "branch_id",
+                "is_compensation",
+            ]
+            _sel_emit = ", ".join(c for c in _target_emit_cols if c in existing_emit_cols)
+            conn.execute(f"INSERT INTO workflow_steps_emit ({_sel_emit}) SELECT {_sel_emit} FROM workflow_steps")
+            conn.execute("DROP TABLE workflow_steps")
+            conn.execute("ALTER TABLE workflow_steps_emit RENAME TO workflow_steps")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_wf_steps_run ON workflow_steps(run_id)")
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.commit()
+            logger.info("workflow_steps table rebuilt with 'emit' step type")
 
     # Workflow schedules table (#969)
     if "workflow_schedules" not in wf_tables:
@@ -2107,6 +2282,106 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 payload_json TEXT DEFAULT NULL,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE CASCADE
+            )"""
+        )
+
+    # Mission tables (#1043)
+    if "mission_sessions" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS mission_sessions (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL CHECK(status IN (
+                    'pending', 'active', 'paused', 'completed', 'failed', 'cancelled'
+                )),
+                title TEXT,
+                description TEXT,
+                source_type TEXT,
+                source_artifact_id TEXT,
+                source_fqn TEXT,
+                source_version INTEGER,
+                referenced_artifacts_json TEXT,
+                lane_limits_json TEXT,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )"""
+        )
+    if "mission_items" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS mission_items (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL CHECK(status IN (
+                    'pending', 'eligible', 'active', 'completed', 'failed', 'dropped', 'blocked'
+                )),
+                priority INTEGER NOT NULL DEFAULT 50,
+                item_type TEXT NOT NULL DEFAULT 'task',
+                adapter_type TEXT NOT NULL DEFAULT 'noop',
+                adapter_config_json TEXT,
+                concurrency_group TEXT,
+                lane TEXT,
+                hold_requested INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES mission_sessions(id) ON DELETE CASCADE
+            )"""
+        )
+    if "mission_item_dependencies" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS mission_item_dependencies (
+                item_id TEXT NOT NULL,
+                depends_on_id TEXT NOT NULL,
+                PRIMARY KEY (item_id, depends_on_id),
+                FOREIGN KEY (item_id) REFERENCES mission_items(id) ON DELETE CASCADE,
+                FOREIGN KEY (depends_on_id) REFERENCES mission_items(id) ON DELETE CASCADE
+            )"""
+        )
+    if "mission_executions" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS mission_executions (
+                id TEXT PRIMARY KEY,
+                item_id TEXT NOT NULL,
+                attempt_number INTEGER NOT NULL,
+                status TEXT NOT NULL CHECK(status IN (
+                    'pending', 'running', 'completed', 'failed', 'cancelled'
+                )),
+                adapter_ref TEXT,
+                summary TEXT,
+                artifacts_json TEXT,
+                started_at TEXT,
+                finished_at TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE(item_id, attempt_number),
+                FOREIGN KEY (item_id) REFERENCES mission_items(id) ON DELETE CASCADE
+            )"""
+        )
+    if "mission_revisions" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS mission_revisions (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                revision_number INTEGER NOT NULL,
+                operations_json TEXT NOT NULL,
+                plan_snapshot_after_json TEXT NOT NULL,
+                referenced_artifacts_json TEXT,
+                reason TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE(session_id, revision_number),
+                FOREIGN KEY (session_id) REFERENCES mission_sessions(id) ON DELETE CASCADE
+            )"""
+        )
+    if "mission_events" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS mission_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                item_id TEXT,
+                event_type TEXT NOT NULL,
+                detail_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES mission_sessions(id) ON DELETE CASCADE
             )"""
         )
     conn.commit()

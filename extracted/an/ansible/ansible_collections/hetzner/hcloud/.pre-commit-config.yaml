@@ -34,12 +34,12 @@ repos:
         args: [--py310-plus]
 
   - repo: https://github.com/pycqa/isort
-    rev: 7.0.0
+    rev: 8.0.1
     hooks:
       - id: isort
 
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 26.1.0
+    rev: 26.3.1
     hooks:
       - id: black
 
@@ -56,7 +56,7 @@ repos:
         name: shfmt
         description: Format shell scripts with shfmt
         language: golang
-        additional_dependencies: [mvdan.cc/sh/v3/cmd/shfmt@v3.12.0]
+        additional_dependencies: [mvdan.cc/sh/v3/cmd/shfmt@v3.13.0]
         entry: shfmt -i 2 -ci -sr -kp -w
         types: [shell]
 

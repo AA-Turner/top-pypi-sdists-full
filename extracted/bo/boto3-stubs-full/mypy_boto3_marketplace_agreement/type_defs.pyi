@@ -20,7 +20,12 @@ import sys
 from collections.abc import Sequence
 from datetime import datetime
 
-from .literals import AgreementStatusType, PaymentRequestApprovalStrategyType, SortOrderType
+from .literals import (
+    AgreementStatusType,
+    PaymentRequestApprovalStrategyType,
+    PaymentRequestStatusType,
+    SortOrderType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
@@ -32,6 +37,8 @@ __all__ = (
     "AcceptorTypeDef",
     "AgreementViewSummaryTypeDef",
     "ByolPricingTermTypeDef",
+    "CancelAgreementPaymentRequestInputTypeDef",
+    "CancelAgreementPaymentRequestOutputTypeDef",
     "ConfigurableUpfrontPricingTermConfigurationTypeDef",
     "ConfigurableUpfrontPricingTermTypeDef",
     "ConfigurableUpfrontRateCardItemTypeDef",
@@ -44,10 +51,17 @@ __all__ = (
     "FilterTypeDef",
     "FixedUpfrontPricingTermTypeDef",
     "FreeTrialPricingTermTypeDef",
+    "GetAgreementPaymentRequestInputTypeDef",
+    "GetAgreementPaymentRequestOutputTypeDef",
     "GetAgreementTermsInputTypeDef",
     "GetAgreementTermsOutputTypeDef",
     "GrantItemTypeDef",
     "LegalTermTypeDef",
+    "ListAgreementPaymentRequestsInputPaginateTypeDef",
+    "ListAgreementPaymentRequestsInputTypeDef",
+    "ListAgreementPaymentRequestsOutputTypeDef",
+    "PaginatorConfigTypeDef",
+    "PaymentRequestSummaryTypeDef",
     "PaymentScheduleTermTypeDef",
     "ProposalSummaryTypeDef",
     "ProposerTypeDef",
@@ -61,6 +75,8 @@ __all__ = (
     "SearchAgreementsInputTypeDef",
     "SearchAgreementsOutputTypeDef",
     "SelectorTypeDef",
+    "SendAgreementPaymentRequestInputTypeDef",
+    "SendAgreementPaymentRequestOutputTypeDef",
     "SortTypeDef",
     "SupportTermTypeDef",
     "UsageBasedPricingTermTypeDef",
@@ -108,6 +124,17 @@ class AcceptorTypeDef(TypedDict):
 class ProposerTypeDef(TypedDict):
     accountId: NotRequired[str]
 
+class CancelAgreementPaymentRequestInputTypeDef(TypedDict):
+    paymentRequestId: str
+    agreementId: str
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
 class DimensionTypeDef(TypedDict):
     dimensionKey: str
     dimensionValue: int
@@ -135,13 +162,6 @@ class EstimatedChargesTypeDef(TypedDict):
     currencyCode: NotRequired[str]
     agreementValue: NotRequired[str]
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
 DocumentItemTypeDef = TypedDict(
     "DocumentItemTypeDef",
     {
@@ -159,10 +179,39 @@ class GrantItemTypeDef(TypedDict):
     dimensionKey: NotRequired[str]
     maxQuantity: NotRequired[int]
 
+class GetAgreementPaymentRequestInputTypeDef(TypedDict):
+    paymentRequestId: str
+    agreementId: str
+
 class GetAgreementTermsInputTypeDef(TypedDict):
     agreementId: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class ListAgreementPaymentRequestsInputTypeDef(TypedDict):
+    partyType: str
+    agreementType: NotRequired[str]
+    catalog: NotRequired[str]
+    agreementId: NotRequired[str]
+    status: NotRequired[PaymentRequestStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class PaymentRequestSummaryTypeDef(TypedDict):
+    paymentRequestId: NotRequired[str]
+    agreementId: NotRequired[str]
+    status: NotRequired[PaymentRequestStatusType]
+    name: NotRequired[str]
+    chargeId: NotRequired[str]
+    chargeAmount: NotRequired[str]
+    currencyCode: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
 
 class ScheduleItemTypeDef(TypedDict):
     chargeDate: NotRequired[datetime]
@@ -183,9 +232,54 @@ class SortTypeDef(TypedDict):
     sortBy: NotRequired[str]
     sortOrder: NotRequired[SortOrderType]
 
+class SendAgreementPaymentRequestInputTypeDef(TypedDict):
+    agreementId: str
+    termId: str
+    name: str
+    chargeAmount: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+
 class VariablePaymentTermConfigurationTypeDef(TypedDict):
     paymentRequestApprovalStrategy: PaymentRequestApprovalStrategyType
     expirationDuration: NotRequired[str]
+
+class CancelAgreementPaymentRequestOutputTypeDef(TypedDict):
+    paymentRequestId: str
+    agreementId: str
+    status: PaymentRequestStatusType
+    name: str
+    description: str
+    chargeAmount: str
+    currencyCode: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgreementPaymentRequestOutputTypeDef(TypedDict):
+    paymentRequestId: str
+    agreementId: str
+    status: PaymentRequestStatusType
+    statusMessage: str
+    name: str
+    description: str
+    chargeId: str
+    chargeAmount: str
+    currencyCode: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SendAgreementPaymentRequestOutputTypeDef(TypedDict):
+    paymentRequestId: str
+    agreementId: str
+    status: PaymentRequestStatusType
+    name: str
+    description: str
+    chargeAmount: str
+    currencyCode: str
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ConfigurableUpfrontPricingTermConfigurationTypeDef(TypedDict):
     selectorValue: str
@@ -224,6 +318,20 @@ FreeTrialPricingTermTypeDef = TypedDict(
         "grants": NotRequired[list[GrantItemTypeDef]],
     },
 )
+
+class ListAgreementPaymentRequestsInputPaginateTypeDef(TypedDict):
+    partyType: str
+    agreementType: NotRequired[str]
+    catalog: NotRequired[str]
+    agreementId: NotRequired[str]
+    status: NotRequired[PaymentRequestStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAgreementPaymentRequestsOutputTypeDef(TypedDict):
+    items: list[PaymentRequestSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 PaymentScheduleTermTypeDef = TypedDict(
     "PaymentScheduleTermTypeDef",
     {

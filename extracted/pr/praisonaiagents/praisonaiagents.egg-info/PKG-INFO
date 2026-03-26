@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.5.83
+Version: 1.5.85
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -17,7 +17,7 @@ Requires-Dist: uvicorn>=0.34.0; extra == "mcp"
 Requires-Dist: websockets>=12.0; extra == "mcp"
 Provides-Extra: memory
 Requires-Dist: chromadb>=1.0.0; extra == "memory"
-Requires-Dist: litellm>=1.81.0; extra == "memory"
+Requires-Dist: litellm<=1.82.6,>=1.81.0; extra == "memory"
 Provides-Extra: knowledge
 Requires-Dist: mem0ai>=0.1.0; extra == "knowledge"
 Requires-Dist: chromadb>=1.0.0; extra == "knowledge"
@@ -27,7 +27,7 @@ Provides-Extra: graph
 Requires-Dist: mem0ai[graph]>=0.1.0; extra == "graph"
 Requires-Dist: chromadb>=1.0.0; extra == "graph"
 Provides-Extra: llm
-Requires-Dist: litellm>=1.81.0; extra == "llm"
+Requires-Dist: litellm<=1.82.6,>=1.81.0; extra == "llm"
 Requires-Dist: pydantic>=2.10.0; extra == "llm"
 Provides-Extra: api
 Requires-Dist: fastapi>=0.115.0; extra == "api"
@@ -112,7 +112,7 @@ PraisonAI 🦞 — Automate and solve complex challenges with AI agent teams tha
 > - 📦 **Installing?** → [Installation](#-installation)
 > - 🐍 **Python SDK?** → [Python Examples](#-using-python-code)
 > - 🎯 **CLI user?** → [CLI Quick Reference](#cli-quick-reference)
-> - 🤝 **Contributing?** → [Development](#-development)
+> - 🤝 **Contributing?** → [Contributing](#-contributing)
 
 ---
 

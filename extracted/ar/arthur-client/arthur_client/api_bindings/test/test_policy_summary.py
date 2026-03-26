@@ -36,7 +36,8 @@ class TestPolicySummary(unittest.TestCase):
         if include_optional:
             return PolicySummary(
                 id = '',
-                name = ''
+                name = '',
+                description = ''
             )
         else:
             return PolicySummary(

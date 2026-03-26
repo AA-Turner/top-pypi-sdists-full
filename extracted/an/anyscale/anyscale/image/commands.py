@@ -59,7 +59,8 @@ _GET_ARG_DOCSTRINGS = {
         "Get the details of an image.\n\n"
         "The name can contain an optional version, e.g., 'name:version'. "
         "If no version is provided, the latest one will be used.\n\n"
-    )
+    ),
+    "cloud_id": "The ID of the Anyscale Cloud. Required for Azure Control Plane only.",
 }
 
 
@@ -69,12 +70,17 @@ _GET_ARG_DOCSTRINGS = {
     doc_py_example=_GET_EXAMPLE,
     arg_docstrings=_GET_ARG_DOCSTRINGS,
 )
-def get(*, name: str, _private_sdk: Optional[PrivateImageSDK] = None) -> ImageBuild:
+def get(
+    *,
+    name: str,
+    cloud_id: Optional[str] = None,
+    _private_sdk: Optional[PrivateImageSDK] = None,
+) -> ImageBuild:
     """The name can contain an optional version tag, i.e., 'name:version'.
 
     If no version is provided, the latest one will be returned.
     """
-    return _private_sdk.get(name)  # type: ignore
+    return _private_sdk.get(name, cloud_id=cloud_id)  # type: ignore
 
 
 _LIST_EXAMPLE = """
@@ -94,6 +100,7 @@ _LIST_ARG_DOCSTRINGS = {
     "include_anonymous": "Include anonymous (workspace-scoped) images (default: False).",
     "max_items": "Maximum total number of items to yield (default: iterate all).",
     "page_size": "Number of items to fetch per API request (default: API default).",
+    "cloud_id": "The ID of the Anyscale Cloud. Required for Azure Control Plane only.",
 }
 
 
@@ -114,6 +121,7 @@ def list(  # noqa: A001, PLR0913
     include_anonymous: bool = False,
     max_items: Optional[int] = None,
     page_size: Optional[int] = None,
+    cloud_id: Optional[str] = None,
     _private_sdk: Optional[PrivateImageSDK] = None,
 ) -> ResultIterator[ImageBuild]:
     """List images or fetch a single image by ID."""
@@ -127,6 +135,7 @@ def list(  # noqa: A001, PLR0913
         include_anonymous=include_anonymous,
         max_items=max_items,
         page_size=page_size,
+        cloud_id=cloud_id,
     )
 
 
@@ -182,6 +191,7 @@ anyscale.image.archive(name="my-old-image")
 
 _ARCHIVE_ARG_DOCSTRINGS = {
     "name": "Name of the image to archive. Can include an optional version tag (e.g., 'name:version').",
+    "cloud_id": "The ID of the Anyscale Cloud. Required for Azure Control Plane only.",
 }
 
 
@@ -191,10 +201,15 @@ _ARCHIVE_ARG_DOCSTRINGS = {
     doc_py_example=_ARCHIVE_EXAMPLE,
     arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
 )
-def archive(name: str, *, _private_sdk: Optional[PrivateImageSDK] = None,) -> None:
+def archive(
+    name: str,
+    *,
+    cloud_id: Optional[str] = None,
+    _private_sdk: Optional[PrivateImageSDK] = None,
+) -> None:
     """Archive an image and all of its versions.
 
     Once archived, the image name will no longer be usable in the organization.
     Archived images can still be viewed using `include_archived=True` in list().
     """
-    return _private_sdk.archive(name=name)  # type: ignore
+    return _private_sdk.archive(name=name, cloud_id=cloud_id)  # type: ignore

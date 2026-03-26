@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import builtins
 import json
+import logging
 import operator
 import sys
 import types
@@ -10,7 +11,7 @@ from _ast import AnnAssign
 from collections.abc import Iterable, Sequence
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, NoReturn, TypedDict, cast
 
 from frozendict import frozendict
 from RestrictedPython import (
@@ -31,6 +32,8 @@ from RestrictedPython.transformer import (
     INSPECT_ATTRIBUTES,
     copy_locations,
 )
+
+logger = logging.getLogger("plugin_runner_logger")
 
 if TYPE_CHECKING:
 
@@ -66,11 +69,31 @@ SAFE_INTERNAL_DUNDER_READ_ATTRIBUTES = {
 
 
 SAFE_EXTERNAL_DUNDER_READ_ATTRIBUTES = {
+    "__class__",
     "__dict__",
     "__eq__",
     "__init__",
     "__name__",
 }
+
+
+class _SafeClass:
+    """A read-only proxy for __class__ that only exposes __name__."""
+
+    __slots__ = ("__name__",)
+
+    def __init__(self, name: str) -> None:
+        object.__setattr__(self, "__name__", name)
+
+    def __getattr__(self, name: str) -> NoReturn:
+        raise AttributeError(f'Access to "{name}" on external __class__ is restricted')
+
+    def __setattr__(self, name: str, value: Any) -> NoReturn:
+        raise AttributeError("Cannot set attributes on external __class__")
+
+    def __repr__(self) -> str:
+        return f"<SafeClass '{self.__name__}'>"
+
 
 STANDARD_LIBRARY_MODULES = {
     "__future__": {
@@ -123,6 +146,7 @@ STANDARD_LIBRARY_MODULES = {
     },
     "functools": {
         "reduce",
+        "wraps",
     },
     "hashlib": {
         "sha256",
@@ -151,6 +175,7 @@ STANDARD_LIBRARY_MODULES = {
         "compile",
         "DOTALL",
         "IGNORECASE",
+        "findall",
         "fullmatch",
         "match",
         "search",
@@ -167,7 +192,9 @@ STANDARD_LIBRARY_MODULES = {
     },
     "typing": {
         "Any",
+        "Callable",
         "cast",
+        "ClassVar",
         "Dict",
         "Final",
         "Iterable",
@@ -176,6 +203,7 @@ STANDARD_LIBRARY_MODULES = {
         "NamedTuple",
         "NotRequired",
         "Optional",
+        "Pattern",
         "Protocol",
         "Sequence",
         "Tuple",
@@ -213,6 +241,9 @@ THIRD_PARTY_MODULES = {
     },
     "django.contrib.postgres.indexes": {
         "GinIndex",
+    },
+    "django.db": {
+        "IntegrityError",
     },
     "django.db.transaction": {
         "atomic",
@@ -302,6 +333,7 @@ THIRD_PARTY_MODULES = {
         "request",
         "RequestException",
         "Response",
+        "Session",
     },
 }
 
@@ -891,12 +923,31 @@ class Sandbox:
             # deny writes to dictionary underscore keys
             or (isinstance(_ob, dict) and isinstance(attribute, str) and attribute.startswith("_"))
         ):
+            # Deprecated: allow plugins to override _MAX_REQUEST_TIMEOUT_SECONDS on
+            # Http instances. This will be removed in a future release.
+            if attribute == "_MAX_REQUEST_TIMEOUT_SECONDS" and self._is_http_instance(_ob):
+                logger.warning(
+                    "Plugin '%s' is overriding %s._MAX_REQUEST_TIMEOUT_SECONDS. "
+                    "This is deprecated and will be forbidden in a future release. "
+                    "Use the timeout parameter on individual requests instead.",
+                    self.package_name,
+                    type(_ob).__name__,
+                )
+                return _ob
+
             raise AttributeError(
                 f"Forbidden assignment to a non-module attribute: {full_name} "
                 f"at {name}.{attribute}."
             )
 
         return _ob
+
+    @staticmethod
+    def _is_http_instance(_ob: Any) -> bool:
+        """Check if _ob is an instance of canvas_sdk.utils.http.Http."""
+        from canvas_sdk.utils.http import Http
+
+        return isinstance(_ob, Http)
 
     def _safe_getitem(self, ob: Any, index: Any) -> Any:
         """
@@ -964,6 +1015,13 @@ class Sandbox:
             raise AttributeError(
                 f'"{module}.{name}" is an invalid attribute name (not in ALLOWED_MODULES)'
             )
+
+        # Prevent sandbox escape via __class__.__mro__, __subclasses__, etc.
+        if isinstance(_ob, _SafeClass) and name != "__name__":
+            raise AttributeError(f'Access to "{name}" on external __class__ is restricted')
+
+        if name == "__class__" and not self._same_module(module):
+            return _SafeClass(_ob.__class__.__name__)
 
         return getattr(_ob, name, default)
 

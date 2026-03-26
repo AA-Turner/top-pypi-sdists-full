@@ -78,6 +78,42 @@ def _link(label: str, url: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def find_agent_configs(config: dict, prefix: str = "") -> dict[str, dict]:
+    """Recursively find agent-like dicts (with 'package' or 'image' key) in config."""
+    agents: dict[str, dict] = {}
+    for key, value in config.items():
+        if not isinstance(value, dict):
+            continue
+        path = f"{prefix}.{key}" if prefix else key
+        if "package" in value or "image" in value:
+            agents[path] = value
+        else:
+            agents.update(find_agent_configs(value, path))
+    return agents
+
+
+async def resolve_agent_images(config: dict, api_key: str | None = None) -> None:
+    """Resolve package → image for all agent configs in a world config dict.
+
+    Mutates agent dicts in-place, setting ``image`` from the registry.
+    """
+    agents = find_agent_configs(config)
+    for name, agent in agents.items():
+        image = agent.get("image")
+        package = agent.get("package")
+        version = agent.get("version")
+
+        if package and ":" in package and not version:
+            package, version = parse_package_string(package)
+
+        if package and not image:
+            image = await _fetch_agent_image_from_registry(package, version, api_key)
+            if image:
+                agent["image"] = image
+            else:
+                raise ValueError(f"Could not resolve image for agent '{name}' (package={package})")
+
+
 async def _fetch_agent_image_from_registry(
     package: str, version: str | None = None, api_key: str | None = None
 ) -> str | None:
@@ -426,42 +462,18 @@ class DevRunner:
             if name in world_config and isinstance(world_config[name], dict)
         }
 
-    def _find_agent_configs(self, config: dict, prefix: str = "") -> dict[str, dict]:
-        """Recursively find agent-like dicts (with 'package' or 'image' key) in config."""
-        agents: dict[str, dict] = {}
-        for key, value in config.items():
-            if not isinstance(value, dict):
-                continue
-            path = f"{prefix}.{key}" if prefix else key
-            if "package" in value or "image" in value:
-                agents[path] = value
-            else:
-                agents.update(self._find_agent_configs(value, path))
-        return agents
-
     async def _ensure_images(self) -> None:
         """Ensure images exist in ECR."""
         images: list[tuple[str, str]] = [("World", self.world_image)]
 
         all_agents = self._get_agent_fields()
         world_config = self.config.world.config or {}
-        all_agents.update(self._find_agent_configs(world_config))
+        all_agents.update(find_agent_configs(world_config))
+
+        await resolve_agent_images(world_config, self.api_key)
 
         for name, agent in all_agents.items():
             image = agent.get("image")
-            package = agent.get("package")
-            version = agent.get("version")
-
-            if package and ":" in package and not version:
-                package, version = parse_package_string(package)
-
-            if package and not image:
-                image = await _fetch_agent_image_from_registry(package, version, self.api_key)
-                if image:
-                    agent["image"] = image
-                else:
-                    raise ValueError(f"Could not resolve image for agent '{name}' (package={package})")
-
             if image:
                 images.append((f"Agent ({name})", image))
 
@@ -844,8 +856,8 @@ class DevRunner:
                     )
                     self._force_fresh_next_run = False
                 # Copy previously resolved agent images
-                old_agents = self._find_agent_configs(old_config.world.config or {})
-                new_agents = self._find_agent_configs(self.config.world.config or {})
+                old_agents = find_agent_configs(old_config.world.config or {})
+                new_agents = find_agent_configs(self.config.world.config or {})
                 for name, new_agent in new_agents.items():
                     old_agent = old_agents.get(name)
                     if old_agent and "image" in old_agent and "image" not in new_agent:

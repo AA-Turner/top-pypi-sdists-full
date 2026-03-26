@@ -476,6 +476,8 @@ class PrivateJobSDK(WorkloadSDK):
             config=config,
             creator_id=model.creator_id,
             created_at=model.created_at,
+            updated_at=model.updated_at,
+            status_updated_at=model.status_updated_at,
         )
 
     def _decorated_job_to_status(
@@ -517,6 +519,8 @@ class PrivateJobSDK(WorkloadSDK):
             config=config,
             creator_id=decorated_job.creator_id,
             created_at=decorated_job.created_at,
+            updated_at=decorated_job.updated_at,
+            status_updated_at=decorated_job.status_updated_at,
         )
 
     def _resolve_to_job_model(
@@ -961,6 +965,12 @@ class PrivateJobSDK(WorkloadSDK):
         max_items: Optional[int] = None,
         sort_field: Optional[str] = None,
         sort_order: Optional[str] = None,
+        created_at_from: Optional[str] = None,
+        created_at_to: Optional[str] = None,
+        updated_at_from: Optional[str] = None,
+        updated_at_to: Optional[str] = None,
+        status_updated_at_from: Optional[str] = None,
+        status_updated_at_to: Optional[str] = None,
     ) -> ResultIterator[JobStatus]:
         """List jobs with filtering and pagination.
 
@@ -978,6 +988,12 @@ class PrivateJobSDK(WorkloadSDK):
             max_items: Maximum total items to return.
             sort_field: Field to sort by (CREATED_AT, NAME, STATUS, etc.).
             sort_order: Sort order (ASC or DESC).
+            created_at_from: Filter for jobs created at or after this time (ISO 8601).
+            created_at_to: Filter for jobs created at or before this time (ISO 8601).
+            updated_at_from: Filter for jobs updated at or after this time (ISO 8601).
+            updated_at_to: Filter for jobs updated at or before this time (ISO 8601).
+            status_updated_at_from: Filter for jobs whose status was last updated at or after this time (ISO 8601).
+            status_updated_at_to: Filter for jobs whose status was last updated at or before this time (ISO 8601).
 
         Returns:
             ResultIterator that lazily fetches pages of JobStatus objects.
@@ -1056,6 +1072,12 @@ class PrivateJobSDK(WorkloadSDK):
                 "paging_token": token,
                 "sort_field": sort_field,
                 "sort_order": sort_order,
+                "created_at_from": created_at_from,
+                "created_at_to": created_at_to,
+                "updated_at_from": updated_at_from,
+                "updated_at_to": updated_at_to,
+                "status_updated_at_from": status_updated_at_from,
+                "status_updated_at_to": status_updated_at_to,
             }
             if page_size is not None:
                 kwargs["count"] = page_size

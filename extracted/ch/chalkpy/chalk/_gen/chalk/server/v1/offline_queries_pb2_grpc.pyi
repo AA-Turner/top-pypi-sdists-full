@@ -16,12 +16,18 @@ from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     CreateOfflineQueryJobResponse,
     GetBatchReportRequest,
     GetBatchReportResponse,
+    GetOfflineQueryInfraSummaryRequest,
+    GetOfflineQueryInfraSummaryResponse,
     GetOfflineQueryRequest,
     GetOfflineQueryResponse,
+    GetOfflineQueryShardsAggregatedRequest,
+    GetOfflineQueryShardsAggregatedResponse,
     IngestDatasetRequest,
     IngestDatasetResponse,
     ListOfflineQueriesRequest,
     ListOfflineQueriesResponse,
+    ListOfflineQueryShardsRequest,
+    ListOfflineQueryShardsResponse,
     RetryOfflineQueryShardRequest,
     RetryOfflineQueryShardResponse,
 )
@@ -46,15 +52,22 @@ class OfflineQueryMetadataServiceStub:
         GetOfflineQueryRequest,
         GetOfflineQueryResponse,
     ]
+    ListOfflineQueryShards: UnaryUnaryMultiCallable[
+        ListOfflineQueryShardsRequest,
+        ListOfflineQueryShardsResponse,
+    ]
+    GetOfflineQueryShardsAggregated: UnaryUnaryMultiCallable[
+        GetOfflineQueryShardsAggregatedRequest,
+        GetOfflineQueryShardsAggregatedResponse,
+    ]
+    GetOfflineQueryInfraSummary: UnaryUnaryMultiCallable[
+        GetOfflineQueryInfraSummaryRequest,
+        GetOfflineQueryInfraSummaryResponse,
+    ]
     ListOfflineQueryShardPerformanceSummaries: UnaryUnaryMultiCallable[
         ListOfflineQueryShardPerformanceSummariesRequest,
         ListOfflineQueryShardPerformanceSummariesResponse,
     ]
-    """ rpc GetOfflineQueryShards(GetOfflineQueryShardsRequest) returns (GetOfflineQueryShardsResponse) {
-       option(chalk.auth.v1.permission) = PERMISSION_DEPLOY_READ;
-       option idempotency_level = NO_SIDE_EFFECTS;
-     }
-    """
     CreateOfflineQueryJob: UnaryUnaryMultiCallable[
         CreateOfflineQueryJobRequest,
         CreateOfflineQueryJobResponse,
@@ -94,16 +107,29 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetOfflineQueryResponse: ...
     @abstractmethod
+    def ListOfflineQueryShards(
+        self,
+        request: ListOfflineQueryShardsRequest,
+        context: ServicerContext,
+    ) -> ListOfflineQueryShardsResponse: ...
+    @abstractmethod
+    def GetOfflineQueryShardsAggregated(
+        self,
+        request: GetOfflineQueryShardsAggregatedRequest,
+        context: ServicerContext,
+    ) -> GetOfflineQueryShardsAggregatedResponse: ...
+    @abstractmethod
+    def GetOfflineQueryInfraSummary(
+        self,
+        request: GetOfflineQueryInfraSummaryRequest,
+        context: ServicerContext,
+    ) -> GetOfflineQueryInfraSummaryResponse: ...
+    @abstractmethod
     def ListOfflineQueryShardPerformanceSummaries(
         self,
         request: ListOfflineQueryShardPerformanceSummariesRequest,
         context: ServicerContext,
-    ) -> ListOfflineQueryShardPerformanceSummariesResponse:
-        """rpc GetOfflineQueryShards(GetOfflineQueryShardsRequest) returns (GetOfflineQueryShardsResponse) {
-          option(chalk.auth.v1.permission) = PERMISSION_DEPLOY_READ;
-          option idempotency_level = NO_SIDE_EFFECTS;
-        }
-        """
+    ) -> ListOfflineQueryShardPerformanceSummariesResponse: ...
     @abstractmethod
     def CreateOfflineQueryJob(
         self,

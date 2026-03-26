@@ -423,9 +423,7 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
         ws_paths = [self._ws.path, self._tracked.path]
         export_lines = []
         for i, p in enumerate(ws_paths):
-            export_lines.append(
-                f"{p} *(rw,sync,fsid={i},crossmnt,no_subtree_check,all_squash,anonuid=1000,anongid=1000)"
-            )
+            export_lines.append(f"{p} *(rw,sync,fsid={i},crossmnt,no_subtree_check,no_root_squash)")
         exports_content = "\n".join(export_lines)
         await run_local(f"printf '%s\\n' '{exports_content}' > /etc/exports", timeout=10)
         await run_local("exportfs -ra", timeout=10)

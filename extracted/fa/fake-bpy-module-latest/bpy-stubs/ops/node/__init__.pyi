@@ -2,7 +2,9 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bl_operators.node
 import bpy.stub_internal.rna_enums
+import bpy.types
 
 def activate_viewer(
     execution_context: int | str | None = None,
@@ -19,7 +21,8 @@ def add_closure_zone(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -68,7 +71,8 @@ def add_empty_group(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     use_transform: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a group node with an empty group
@@ -83,7 +87,8 @@ def add_foreach_geometry_element_zone(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -154,7 +159,8 @@ def add_image(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -263,7 +269,8 @@ def add_import_node(
     /,
     *,
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an import node to the node tree
 
@@ -307,7 +314,8 @@ def add_node(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     use_transform: bool | None = False,
     type: str | None = "",
     visible_output: str | None = "",
@@ -341,7 +349,8 @@ def add_repeat_zone(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -358,7 +367,7 @@ def add_reroute(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     cursor: int | None = 11,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a reroute node
@@ -373,7 +382,8 @@ def add_simulation_zone(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -390,7 +400,8 @@ def add_zone(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
     input_node_type: str | None = "",
@@ -454,10 +465,12 @@ def backimage_zoom(
     /,
     *,
     factor: float | None = 1.2,
+    use_mouse_pos: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in/out the background image
 
     :param factor: Factor, (in [0, 10], optional)
+    :param use_mouse_pos: Use Mouse Position, Zoom to mouse position (optional)
     :return: Result of the operator call.
     """
 
@@ -1671,7 +1684,7 @@ def links_cut(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     cursor: int | None = 15,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the mouse to cut (remove) some links
@@ -1696,7 +1709,7 @@ def links_mute(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     cursor: int | None = 39,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the mouse to mute links
@@ -2082,7 +2095,7 @@ def select_lasso(
     /,
     *,
     tweak: bool | None = False,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -2266,7 +2279,8 @@ def swap_empty_group(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace active node with an empty group
 
@@ -2299,7 +2313,8 @@ def swap_node(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     type: str | None = "",
     visible_output: str | None = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2316,7 +2331,8 @@ def swap_zone(
     undo: bool | None = None,
     /,
     *,
-    settings=None,
+    settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
+    | None = None,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
     input_node_type: str | None = "",
     output_node_type: str | None = "",

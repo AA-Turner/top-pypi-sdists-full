@@ -546,6 +546,106 @@ fn test_remove_label() {
     assert!(result.rows.is_empty());
 }
 
+// ── Regression: SET/REMOVE label variable binding (#178, #182) ──────────────
+
+#[test]
+fn test_set_label_preserves_variable_binding() {
+    let db = GrafeoDB::new_in_memory();
+    let session = db.session();
+    session.execute("INSERT (:Person {name: 'Alix'})").unwrap();
+    let r = session
+        .execute("MATCH (n:Person {name: 'Alix'}) SET n:Employee RETURN n.name")
+        .unwrap();
+    assert_eq!(r.row_count(), 1);
+    assert_eq!(r.rows[0][0], Value::String("Alix".into()));
+}
+
+#[test]
+fn test_remove_label_preserves_variable_binding() {
+    let db = GrafeoDB::new_in_memory();
+    let session = db.session();
+    session
+        .execute("INSERT (:Person:Employee {name: 'Alix'})")
+        .unwrap();
+    let r = session
+        .execute("MATCH (n:Person {name: 'Alix'}) REMOVE n:Employee RETURN n.name")
+        .unwrap();
+    assert_eq!(r.row_count(), 1);
+    assert_eq!(r.rows[0][0], Value::String("Alix".into()));
+}
+
+#[test]
+fn test_count_star_after_set_label() {
+    let db = GrafeoDB::new_in_memory();
+    let session = db.session();
+    session.execute("INSERT (:Node {id: '1'})").unwrap();
+    session.execute("INSERT (:Node {id: '2'})").unwrap();
+    session.execute("INSERT (:Node {id: '3'})").unwrap();
+    let r = session
+        .execute("MATCH (n:Node) SET n:Tagged RETURN count(*) AS cnt")
+        .unwrap();
+    assert_eq!(r.row_count(), 1);
+    assert_eq!(r.rows[0][0], Value::Int64(3));
+}
+
+#[test]
+fn test_set_label_then_set_property() {
+    let db = GrafeoDB::new_in_memory();
+    let session = db.session();
+    session.execute("INSERT (:Person {name: 'Alix'})").unwrap();
+    session
+        .execute("MATCH (n:Person {name: 'Alix'}) SET n:Employee SET n.role = 'Engineer'")
+        .unwrap();
+    let r = session
+        .execute("MATCH (n:Employee {name: 'Alix'}) RETURN n.role")
+        .unwrap();
+    assert_eq!(r.row_count(), 1);
+    assert_eq!(r.rows[0][0], Value::String("Engineer".into()));
+}
+
+// ── Regression: phantom nodes from MATCH...CREATE edge (#181) ───────────────
+
+#[test]
+#[cfg(feature = "cypher")]
+fn test_match_create_edge_no_phantom_nodes() {
+    let db = GrafeoDB::new_in_memory();
+    let session = db.session();
+    session
+        .execute_cypher("CREATE (:Person {name: 'Alix'})")
+        .unwrap();
+    session
+        .execute_cypher("CREATE (:Person {name: 'Gus'})")
+        .unwrap();
+
+    let before = session
+        .execute_cypher("MATCH (n) RETURN count(n) AS cnt")
+        .unwrap();
+    let count_before = match &before.rows[0][0] {
+        Value::Int64(n) => *n,
+        other => panic!("expected Int64, got {other:?}"),
+    };
+
+    session
+        .execute_cypher(
+            "MATCH (a:Person {name: 'Alix'}), (b:Person {name: 'Gus'}) CREATE (a)-[:KNOWS]->(b)",
+        )
+        .unwrap();
+
+    let after = session
+        .execute_cypher("MATCH (n) RETURN count(n) AS cnt")
+        .unwrap();
+    assert_eq!(
+        after.rows[0][0],
+        Value::Int64(count_before),
+        "phantom nodes created"
+    );
+
+    let edges = session
+        .execute_cypher("MATCH ()-[r:KNOWS]->() RETURN count(r) AS cnt")
+        .unwrap();
+    assert_eq!(edges.rows[0][0], Value::Int64(1));
+}
+
 // ============================================================================
 // OPTIONAL MATCH: covers plan_left_join
 // ============================================================================
@@ -596,6 +696,7 @@ fn test_optional_match_null_when_missing() {
 // OPTIONAL MATCH WHERE pushdown: right-side predicates become join conditions
 // ============================================================================
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_where_right_side_preserves_left() {
     // WHERE on right-side variable should not filter out left rows.
@@ -632,6 +733,7 @@ fn test_optional_match_where_right_side_preserves_left() {
     assert_eq!(result.rows[2][1], Value::Null);
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_where_left_side_filters_correctly() {
     // WHERE on left-side variable should filter left rows normally.
@@ -654,6 +756,7 @@ fn test_optional_match_where_left_side_filters_correctly() {
     assert_eq!(result.rows[1][0], Value::String("Gus".into()));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_where_mixed_predicates() {
     // WHERE with both left-side and right-side predicates.
@@ -680,6 +783,7 @@ fn test_optional_match_where_mixed_predicates() {
     assert_eq!(result.rows[1][1], Value::String("TechCorp".into()));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_where_right_property_no_match() {
     // WHERE right-side predicate that no right-side row satisfies.
@@ -708,6 +812,7 @@ fn test_optional_match_where_right_property_no_match() {
     }
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_where_cross_side_predicate() {
     // WHERE predicate referencing both left and right side variables.
@@ -778,6 +883,7 @@ fn test_optional_match_gql_where_pushdown() {
     assert_eq!(result.rows[2][1], Value::Null);
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_chained_optional_matches() {
     // Two independent OPTIONAL MATCHHes.
@@ -800,6 +906,7 @@ fn test_chained_optional_matches() {
     assert_eq!(result.rows[0][2], Value::Null);
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_is_null_check() {
     // Verify IS NULL works with OPTIONAL MATCH NULL values.
@@ -826,6 +933,7 @@ fn test_optional_match_is_null_check() {
 // OPTIONAL MATCH Phase 4: Chained OPTIONAL MATCH
 // ============================================================================
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_chained_independent_optional_matches_mixed() {
     // Two independent OPTIONAL MATCHHes where one matches and one does not.
@@ -848,6 +956,7 @@ fn test_chained_independent_optional_matches_mixed() {
     assert_eq!(result.rows[0][2], Value::Null);
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_chained_dependent_optional_matches() {
     // Dependent optionals: second OPTIONAL depends on result of first.
@@ -871,6 +980,7 @@ fn test_chained_dependent_optional_matches() {
     assert_eq!(result.rows[0][2], Value::Null);
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_chained_dependent_optional_partial_match() {
     // Alix-KNOWS->Gus and Alix-KNOWS->Harm.
@@ -901,6 +1011,7 @@ fn test_chained_dependent_optional_partial_match() {
     assert_eq!(result.rows[1][2], Value::Null);
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_with_node_label_filter() {
     // OPTIONAL MATCH with label on optional side node.
@@ -931,6 +1042,7 @@ fn test_optional_match_with_node_label_filter() {
     assert_eq!(result.rows[0][1], Value::String("Gus".into()));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_with_vle() {
     // OPTIONAL MATCH with variable-length path.
@@ -976,6 +1088,7 @@ fn test_optional_match_with_vle() {
     assert!(names.contains(&"Harm".to_owned()));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_with_vle_no_path() {
     // OPTIONAL MATCH with VLE where no path exists: should produce NULL.
@@ -1028,6 +1141,7 @@ fn test_chained_independent_optional_gql() {
 // OPTIONAL MATCH Phase 5: NULL Semantics
 // ============================================================================
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_is_not_null() {
     // IS NOT NULL should correctly identify non-NULL optional values.
@@ -1055,6 +1169,7 @@ fn test_optional_match_is_not_null() {
     assert_eq!(result.rows[2][1], Value::Bool(false));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_coalesce() {
     // COALESCE should return the first non-NULL argument.
@@ -1076,6 +1191,7 @@ fn test_optional_match_coalesce() {
     assert_eq!(result.rows[2][1], Value::String("unemployed".into()));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_case_when() {
     // CASE WHEN with NULL from OPTIONAL MATCH.
@@ -1098,6 +1214,7 @@ fn test_optional_match_case_when() {
     assert_eq!(result.rows[2][1], Value::String("none".into()));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_count_star_vs_count_expr() {
     // COUNT(*) should count all rows (including NULLs from OPTIONAL MATCH).
@@ -1120,6 +1237,7 @@ fn test_optional_match_count_star_vs_count_expr() {
     assert_eq!(result.rows[0][1], Value::Int64(2));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_collect_skips_nulls() {
     // COLLECT should omit NULL values from the result list.
@@ -1152,6 +1270,7 @@ fn test_optional_match_collect_skips_nulls() {
     }
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_sum_skips_nulls() {
     // SUM should skip NULL values from OPTIONAL MATCH.
@@ -1177,6 +1296,7 @@ fn test_optional_match_sum_skips_nulls() {
     assert_eq!(result.rows[0][0], Value::Int64(200));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_count_per_group() {
     // COUNT with GROUP BY from OPTIONAL MATCH.
@@ -1204,6 +1324,7 @@ fn test_optional_match_count_per_group() {
     assert_eq!(result.rows[2][1], Value::Int64(0));
 }
 
+#[cfg(feature = "cypher")]
 #[test]
 fn test_optional_match_boolean_null_comparison() {
     // Comparing NULL to a value should produce NULL (falsy), not true or false.
@@ -1243,9 +1364,89 @@ fn test_optional_match_boolean_null_comparison() {
 }
 
 // ============================================================================
+// OPTIONAL MATCH WHERE cross-side predicates (Area 3a regression)
+// ============================================================================
+
+#[cfg(feature = "cypher")]
+#[test]
+fn test_optional_match_where_cross_predicate_preserves_null_rows() {
+    // WHERE referencing both a left-side and right-side variable (cross-predicate).
+    // The cross-side predicate must not eliminate NULL-padded rows (unmatched optional side).
+    let db = GrafeoDB::new_in_memory();
+    let session = db.session();
+
+    session
+        .execute_cypher(
+            "CREATE (a:Person {name: 'Alix', age: 30}), \
+             (b:Person {name: 'Gus', age: 25}), \
+             (c:Person {name: 'Harm', age: 40}), \
+             (a)-[:KNOWS]->(b)",
+        )
+        .unwrap();
+
+    // Cross-predicate: b.age < a.age references both left (a) and right (b) sides.
+    // Harm has no KNOWS edge, so the right side is NULL for Harm.
+    // NULL-padded rows must pass through even though (NULL < 40) evaluates to NULL.
+    let result = session
+        .execute_cypher(
+            "MATCH (a:Person) \
+             OPTIONAL MATCH (a)-[:KNOWS]->(b:Person) \
+             WHERE b.age < a.age \
+             RETURN a.name, b.name \
+             ORDER BY a.name",
+        )
+        .unwrap();
+
+    // All 3 persons must be preserved by the left join.
+    assert_eq!(
+        result.rows.len(),
+        3,
+        "Cross-predicate WHERE must not eliminate unmatched left rows, got {} rows",
+        result.rows.len()
+    );
+
+    // Alix (age 30) knows Gus (age 25): cross-predicate 25 < 30 is TRUE, Gus should appear.
+    let alix_row = result
+        .rows
+        .iter()
+        .find(|r| r[0] == Value::String("Alix".into()))
+        .expect("Alix row missing");
+    assert_eq!(
+        alix_row[1],
+        Value::String("Gus".into()),
+        "Alix->Gus should match (25 < 30)"
+    );
+
+    // Gus knows nobody: right side NULL, row must be preserved.
+    let gus_row = result
+        .rows
+        .iter()
+        .find(|r| r[0] == Value::String("Gus".into()))
+        .expect("Gus row missing");
+    assert_eq!(
+        gus_row[1],
+        Value::Null,
+        "Gus has no KNOWS, right side must be NULL"
+    );
+
+    // Harm knows nobody: right side NULL, row must be preserved.
+    let harm_row = result
+        .rows
+        .iter()
+        .find(|r| r[0] == Value::String("Harm".into()))
+        .expect("Harm row missing");
+    assert_eq!(
+        harm_row[1],
+        Value::Null,
+        "Harm has no KNOWS, right side must be NULL"
+    );
+}
+
+// ============================================================================
 // CALL PROCEDURE: covers plan_call_procedure, plan_static_result
 // ============================================================================
 
+#[cfg(feature = "algos")]
 #[test]
 fn test_call_list_procedures() {
     let db = create_social_network();
@@ -1257,6 +1458,7 @@ fn test_call_list_procedures() {
     assert!(!result.rows.is_empty());
 }
 
+#[cfg(feature = "algos")]
 #[test]
 fn test_call_degree_centrality() {
     let db = create_social_network();
@@ -1268,6 +1470,7 @@ fn test_call_degree_centrality() {
     assert!(!result.rows.is_empty());
 }
 
+#[cfg(feature = "algos")]
 #[test]
 fn test_call_procedure_with_yield() {
     let db = create_social_network();
@@ -1534,6 +1737,7 @@ fn test_traits_create_with_props_convenience() {
 mod cypher_mutations {
     use super::*;
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_merge_relationship_creates() {
         let db = create_social_network();
@@ -1550,6 +1754,7 @@ mod cypher_mutations {
         assert_eq!(db.edge_count(), edges_before + 1);
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_merge_relationship_matches() {
         let db = create_social_network();
@@ -1566,6 +1771,7 @@ mod cypher_mutations {
         assert_eq!(db.edge_count(), edges_before);
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_merge_relationship_on_create() {
         let db = create_social_network();
@@ -1589,6 +1795,7 @@ mod cypher_mutations {
         assert_eq!(result.rows[0][0], Value::Int64(2025));
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_delete_without_detach_connected_node() {
         let db = create_social_network();
@@ -1601,6 +1808,7 @@ mod cypher_mutations {
         );
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_unwind_standalone_create() {
         let db = GrafeoDB::new_in_memory();
@@ -1622,6 +1830,7 @@ mod cypher_mutations {
         assert_eq!(result.rows[1][0], Value::String("Gus".into()));
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_set_map_replace() {
         let db = GrafeoDB::new_in_memory();
@@ -1644,6 +1853,7 @@ mod cypher_mutations {
         assert_eq!(result.rows[0][2], Value::Null);
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_set_map_merge() {
         let db = GrafeoDB::new_in_memory();
@@ -1666,6 +1876,7 @@ mod cypher_mutations {
         assert_eq!(result.rows[0][2], Value::String("blue".into()));
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_foreach_set_property() {
         let db = create_social_network();
@@ -1685,6 +1896,7 @@ mod cypher_mutations {
         assert_eq!(result.rows.len(), 3);
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_multi_pattern_shared_vars() {
         let db = create_social_network();
@@ -1704,6 +1916,7 @@ mod cypher_mutations {
         }
     }
 
+    #[cfg(feature = "cypher")]
     #[test]
     fn test_multi_pattern_no_shared_vars() {
         let db = GrafeoDB::new_in_memory();

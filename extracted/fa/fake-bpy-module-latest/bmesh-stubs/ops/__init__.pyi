@@ -588,6 +588,7 @@ def dissolve_edges(
     use_verts: bool = False,
     use_face_split: bool = False,
     angle_threshold: float = 0,
+    use_preserve_quads: bool = False,
 ) -> dict[str, typing.Any]:
     """Dissolve Edges.
 
@@ -597,6 +598,7 @@ def dissolve_edges(
         :param use_face_split: Split off face corners to maintain surrounding geometry.
         :param angle_threshold: Do not dissolve verts between 2 edges when their angle exceeds this threshold.
     Disabled by default.
+        :param use_preserve_quads: When dissolving the edge between 2 triangles, dont dissolve the verts.
         :return: region:
 
     type list[`bmesh.types.BMFace`]

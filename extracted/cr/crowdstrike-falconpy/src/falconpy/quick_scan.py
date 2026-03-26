@@ -231,6 +231,7 @@ class QuickScan(ServiceClass):
     GetScans = get_scans
     ScanSamples = scan_samples
     QuerySubmissionsMixin0 = query_submissions
+    QuerySubmissions = query_submissions
 
 
 # The legacy name for this class does not conform to PascalCase / PEP8

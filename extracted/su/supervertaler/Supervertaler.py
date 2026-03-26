@@ -3136,11 +3136,11 @@ class ReadOnlyGridTextEditor(QTextEdit):
         # QuickLauncher (prompt-based actions + QuickTrans)
         try:
             main_window = self._get_main_window()
-            quickmenu_items = []
+            quicklauncher_items = []
             if main_window and hasattr(main_window, 'prompt_manager_qt') and main_window.prompt_manager_qt:
                 lib = getattr(main_window.prompt_manager_qt, 'library', None)
-                if lib and hasattr(lib, 'get_quickmenu_grid_prompts'):
-                    quickmenu_items = lib.get_quickmenu_grid_prompts() or []
+                if lib and hasattr(lib, 'get_quicklauncher_grid_prompts'):
+                    quicklauncher_items = lib.get_quicklauncher_grid_prompts() or []
 
             qm_menu = menu.addMenu("⚡ QuickLauncher")
 
@@ -3170,20 +3170,20 @@ class ReadOnlyGridTextEditor(QTextEdit):
             )
             qm_menu.addAction(assistant_action)
 
-            if quickmenu_items:
+            if quicklauncher_items:
                 qm_menu.addSeparator()
-                for rel_path, label in sorted(quickmenu_items, key=lambda x: (x[1] or x[0]).lower()):
+                for rel_path, label in sorted(quicklauncher_items, key=lambda x: (x[1] or x[0]).lower()):
                     prompt_menu = qm_menu.addMenu(label or rel_path)
 
                     run_show = QAction("▶ Run (show response)…", self)
                     run_show.triggered.connect(
-                        lambda checked=False, p=rel_path: main_window.run_grid_quickmenu_prompt(p, origin_widget=self, behavior="show")
+                        lambda checked=False, p=rel_path: main_window.run_grid_quicklauncher_prompt(p, origin_widget=self, behavior="show")
                     )
                     prompt_menu.addAction(run_show)
 
                     run_replace = QAction("↺ Run and replace target selection", self)
                     run_replace.triggered.connect(
-                        lambda checked=False, p=rel_path: main_window.run_grid_quickmenu_prompt(p, origin_widget=self, behavior="replace")
+                        lambda checked=False, p=rel_path: main_window.run_grid_quicklauncher_prompt(p, origin_widget=self, behavior="replace")
                     )
                     prompt_menu.addAction(run_replace)
 
@@ -3934,14 +3934,14 @@ class EditableGridTextEditor(QTextEdit):
         # QuickLauncher (prompt-based actions + QuickTrans)
         try:
             main_window = self.table.parent() if self.table else None
-            while main_window and not hasattr(main_window, 'run_grid_quickmenu_prompt'):
+            while main_window and not hasattr(main_window, 'run_grid_quicklauncher_prompt'):
                 main_window = main_window.parent()
 
-            quickmenu_items = []
+            quicklauncher_items = []
             if main_window and hasattr(main_window, 'prompt_manager_qt') and main_window.prompt_manager_qt:
                 lib = getattr(main_window.prompt_manager_qt, 'library', None)
-                if lib and hasattr(lib, 'get_quickmenu_grid_prompts'):
-                    quickmenu_items = lib.get_quickmenu_grid_prompts() or []
+                if lib and hasattr(lib, 'get_quicklauncher_grid_prompts'):
+                    quicklauncher_items = lib.get_quicklauncher_grid_prompts() or []
 
             qm_menu = menu.addMenu("⚡ QuickLauncher")
 
@@ -3971,20 +3971,20 @@ class EditableGridTextEditor(QTextEdit):
             )
             qm_menu.addAction(assistant_action)
 
-            if quickmenu_items:
+            if quicklauncher_items:
                 qm_menu.addSeparator()
-                for rel_path, label in sorted(quickmenu_items, key=lambda x: (x[1] or x[0]).lower()):
+                for rel_path, label in sorted(quicklauncher_items, key=lambda x: (x[1] or x[0]).lower()):
                     prompt_menu = qm_menu.addMenu(label or rel_path)
 
                     run_show = QAction("▶ Run (show response)…", self)
                     run_show.triggered.connect(
-                        lambda checked=False, p=rel_path: main_window.run_grid_quickmenu_prompt(p, origin_widget=self, behavior="show")
+                        lambda checked=False, p=rel_path: main_window.run_grid_quicklauncher_prompt(p, origin_widget=self, behavior="show")
                     )
                     prompt_menu.addAction(run_show)
 
                     run_replace = QAction("↺ Run and replace selection", self)
                     run_replace.triggered.connect(
-                        lambda checked=False, p=rel_path: main_window.run_grid_quickmenu_prompt(p, origin_widget=self, behavior="replace")
+                        lambda checked=False, p=rel_path: main_window.run_grid_quicklauncher_prompt(p, origin_widget=self, behavior="replace")
                     )
                     prompt_menu.addAction(run_replace)
 
@@ -7645,6 +7645,7 @@ class SupervertalerQt(QMainWindow):
         # Migrate old settings files to unified settings/settings.json (one-time)
         if not self._needs_data_location_dialog:
             self._migrate_settings_to_unified()
+            self._migrate_to_workbench_layout()
 
         # Database Manager for Termbases
         self.db_manager = DatabaseManager(
@@ -7686,7 +7687,7 @@ class SupervertalerQt(QMainWindow):
         self.fr_history = FindReplaceHistory(str(self.user_data_path))
         
         # Shortcut Manager for keyboard shortcuts (including enable/disable)
-        self.shortcut_manager = ShortcutManager(Path(self.user_data_path) / "settings" / "shortcuts.json")
+        self.shortcut_manager = ShortcutManager(Path(self.user_data_path) / "workbench" / "settings" / "shortcuts.json")
         
         # Voice Command Manager for Talon-style voice commands
         self.voice_command_manager = VoiceCommandManager(self.user_data_path, main_window=self)
@@ -7706,7 +7707,7 @@ class SupervertalerQt(QMainWindow):
         # If .supervertaler.local exists: uses "user_data_private" (git-ignored)
         # Otherwise: uses "user_data" (safe to commit)
         base_folder = "user_data_private" if ENABLE_PRIVATE_FEATURES else "user_data"
-        self.recent_projects_file = self.user_data_path / "settings" / "recent_projects.json"
+        self.recent_projects_file = self.user_data_path / "workbench" / "settings" / "recent_projects.json"
         
         # Initialize UI
         self.init_ui()
@@ -7924,6 +7925,7 @@ class SupervertalerQt(QMainWindow):
         try:
             # Migrate settings if needed for the new data path
             self._migrate_settings_to_unified()
+            self._migrate_to_workbench_layout()
 
             # Close existing database connection
             if hasattr(self, 'db_manager') and self.db_manager:
@@ -7953,7 +7955,7 @@ class SupervertalerQt(QMainWindow):
             # Update other managers
             self.spellcheck_manager = get_spellcheck_manager(str(self.user_data_path))
             self.fr_history = FindReplaceHistory(str(self.user_data_path))
-            self.shortcut_manager = ShortcutManager(Path(self.user_data_path) / "settings" / "shortcuts.json")
+            self.shortcut_manager = ShortcutManager(Path(self.user_data_path) / "workbench" / "settings" / "shortcuts.json")
             self.voice_command_manager = VoiceCommandManager(self.user_data_path, main_window=self)
             
             # Update theme manager
@@ -7965,7 +7967,7 @@ class SupervertalerQt(QMainWindow):
             self.theme_manager.apply_theme(QApplication.instance())
             
             # Update recent projects file path
-            self.recent_projects_file = self.user_data_path / "settings" / "recent_projects.json"
+            self.recent_projects_file = self.user_data_path / "workbench" / "settings" / "recent_projects.json"
             
             self.log(f"✅ Re-initialized all managers with new data path")
             
@@ -8316,7 +8318,7 @@ class SupervertalerQt(QMainWindow):
             api_keys = load_api_keys()
 
             # Initialize checker with cache in user_data
-            cache_path = self.user_data_path / "settings" / "model_version_cache.json"
+            cache_path = self.user_data_path / "workbench" / "settings" / "model_version_cache.json"
             checker = ModelVersionChecker(cache_path=str(cache_path))
 
             # Check if we should run (unless forced)
@@ -8668,7 +8670,7 @@ class SupervertalerQt(QMainWindow):
         create_shortcut("editor_focus_notes", "Ctrl+N", self.focus_segment_notes)
         
         # Alt+K - Open QuickLauncher directly
-        create_shortcut("editor_open_quickmenu", "Alt+K", self.open_quickmenu)
+        create_shortcut("editor_open_quicklauncher", "Alt+K", self.open_quicklauncher)
 
         # Lone Ctrl tap — Term Insert Popup (memoQ-style glossary + NT insert list).
         # Implemented as an app-level event filter rather than a QShortcut because
@@ -8697,18 +8699,18 @@ class SupervertalerQt(QMainWindow):
         if hasattr(self, 'bottom_notes_edit'):
             self.bottom_notes_edit.setFocus()
     
-    def open_quickmenu(self):
+    def open_quicklauncher(self):
         """Open QuickLauncher popup at current cursor position for quick AI prompt selection.
-        
+
         User can navigate with arrow keys and press Enter to select a prompt.
         """
         try:
             # Get QuickLauncher items from prompt library
-            quickmenu_items = []
+            quicklauncher_items = []
             if hasattr(self, 'prompt_manager_qt') and self.prompt_manager_qt:
                 lib = getattr(self.prompt_manager_qt, 'library', None)
-                if lib and hasattr(lib, 'get_quickmenu_grid_prompts'):
-                    quickmenu_items = lib.get_quickmenu_grid_prompts() or []
+                if lib and hasattr(lib, 'get_quicklauncher_grid_prompts'):
+                    quicklauncher_items = lib.get_quicklauncher_grid_prompts() or []
             
             # Find the currently focused widget and capture selected text NOW
             # (before the menu takes focus and potentially invalidates the widget)
@@ -8755,24 +8757,24 @@ class SupervertalerQt(QMainWindow):
             )
             menu.addAction(superlookup_action)
 
-            if quickmenu_items:
+            if quicklauncher_items:
                 menu.addSeparator()
 
-            for rel_path, label in sorted(quickmenu_items, key=lambda x: (x[1] or x[0]).lower()):
+            for rel_path, label in sorted(quicklauncher_items, key=lambda x: (x[1] or x[0]).lower()):
                 prompt_menu = menu.addMenu(label or rel_path)
-                
+
                 run_show = QAction("▶ Run (show response)…", self)
                 run_show.triggered.connect(
-                    lambda checked=False, p=rel_path, w=focus_widget: self.run_grid_quickmenu_prompt(p, origin_widget=w, behavior="show")
+                    lambda checked=False, p=rel_path, w=focus_widget: self.run_grid_quicklauncher_prompt(p, origin_widget=w, behavior="show")
                 )
                 prompt_menu.addAction(run_show)
-                
+
                 run_replace = QAction("↺ Run and replace target selection", self)
                 run_replace.triggered.connect(
-                    lambda checked=False, p=rel_path, w=focus_widget: self.run_grid_quickmenu_prompt(p, origin_widget=w, behavior="replace")
+                    lambda checked=False, p=rel_path, w=focus_widget: self.run_grid_quicklauncher_prompt(p, origin_widget=w, behavior="replace")
                 )
                 prompt_menu.addAction(run_replace)
-            
+
             # Show menu at cursor position (or center of focused widget)
             if focus_widget:
                 # Get cursor rectangle if it's a text editor
@@ -18608,41 +18610,42 @@ class SupervertalerQt(QMainWindow):
         prefs_layout.addSpacing(10)
 
         # --- Document Context (for AI Prompts) ---
-        quickmenu_context_label = QLabel("<b>Document Context (for QuickLauncher AI prompts):</b>")
-        prefs_layout.addWidget(quickmenu_context_label)
+        ql_context_label = QLabel("<b>Document Context (for QuickLauncher AI prompts):</b>")
+        prefs_layout.addWidget(ql_context_label)
 
-        quickmenu_context_percent = general_prefs.get('quickmenu_context_percent', 50)
-        quickmenu_context_layout = QHBoxLayout()
-        quickmenu_context_layout.addWidget(QLabel("  Document context size:"))
-        quickmenu_context_slider = QSlider(Qt.Orientation.Horizontal)
-        quickmenu_context_slider.setMinimum(0)
-        quickmenu_context_slider.setMaximum(100)
-        quickmenu_context_slider.setValue(quickmenu_context_percent)
-        quickmenu_context_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        quickmenu_context_slider.setTickInterval(10)
-        quickmenu_context_layout.addWidget(quickmenu_context_slider)
-        quickmenu_context_value_label = QLabel(f"{quickmenu_context_percent}%")
-        quickmenu_context_value_label.setMinimumWidth(60)
-        quickmenu_context_layout.addWidget(quickmenu_context_value_label)
-        quickmenu_context_layout.addStretch()
-        prefs_layout.addLayout(quickmenu_context_layout)
+        ql_context_percent = general_prefs.get('quicklauncher_context_percent',
+                                               general_prefs.get('quickmenu_context_percent', 50))
+        ql_context_layout = QHBoxLayout()
+        ql_context_layout.addWidget(QLabel("  Document context size:"))
+        quicklauncher_context_slider = QSlider(Qt.Orientation.Horizontal)
+        quicklauncher_context_slider.setMinimum(0)
+        quicklauncher_context_slider.setMaximum(100)
+        quicklauncher_context_slider.setValue(ql_context_percent)
+        quicklauncher_context_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        quicklauncher_context_slider.setTickInterval(10)
+        ql_context_layout.addWidget(quicklauncher_context_slider)
+        ql_context_value_label = QLabel(f"{ql_context_percent}%")
+        ql_context_value_label.setMinimumWidth(60)
+        ql_context_layout.addWidget(ql_context_value_label)
+        ql_context_layout.addStretch()
+        prefs_layout.addLayout(ql_context_layout)
 
-        quickmenu_context_info = QLabel(
+        ql_context_info = QLabel(
             "  ⓘ When using {{SOURCE+TARGET_CONTEXT}} or {{SOURCE_CONTEXT}} placeholders in QuickLauncher prompts.\n"
             "  0% = disabled, 50% = half the document (default), 100% = entire document.\n"
             "  Limit: maximum 100 segments for performance."
         )
-        quickmenu_context_info.setStyleSheet("font-size: 9pt; color: #666; padding-left: 20px;")
-        quickmenu_context_info.setWordWrap(True)
-        prefs_layout.addWidget(quickmenu_context_info)
+        ql_context_info.setStyleSheet("font-size: 9pt; color: #666; padding-left: 20px;")
+        ql_context_info.setWordWrap(True)
+        prefs_layout.addWidget(ql_context_info)
 
-        def update_quickmenu_context_label(value):
+        def update_ql_context_label(value):
             if value == 0:
-                quickmenu_context_value_label.setText("0% (disabled)")
+                ql_context_value_label.setText("0% (disabled)")
             else:
-                quickmenu_context_value_label.setText(f"{value}%")
+                ql_context_value_label.setText(f"{value}%")
 
-        quickmenu_context_slider.valueChanged.connect(update_quickmenu_context_label)
+        quicklauncher_context_slider.valueChanged.connect(update_ql_context_label)
 
         prefs_group.setLayout(prefs_layout)
         layout.addWidget(prefs_group)
@@ -18704,7 +18707,7 @@ class SupervertalerQt(QMainWindow):
             tm_no_check_rb, tm_fuzzy_rb, tm_exact_rb, auto_propagate_cb, delay_spin,
             ollama_keepwarm_cb,
             llm_matching_cb, auto_markdown_cb, llm_spin,
-            quickmenu_context_slider,
+            quicklauncher_context_slider,
             custom_radio=custom_radio, custom_endpoint_input=custom_endpoint_input,
             custom_model_input=custom_model_input, custom_enable_cb=custom_enable_cb,
             custom_profile_combo=custom_profile_combo, custom_key_input=custom_key_input
@@ -21173,7 +21176,7 @@ class SupervertalerQt(QMainWindow):
     def _open_voice_scripts_folder(self):
         """Open the voice scripts folder"""
         import subprocess
-        scripts_folder = self.user_data_path / "voice_scripts"
+        scripts_folder = self.user_data_path / "workbench" / "voice_scripts"
         scripts_folder.mkdir(parents=True, exist_ok=True)
         subprocess.Popen(['explorer', str(scripts_folder)])
 
@@ -22494,7 +22497,7 @@ class SupervertalerQt(QMainWindow):
                                    tm_no_check_rb, tm_fuzzy_rb, tm_exact_rb, auto_propagate_cb, delay_spin,
                                    ollama_keepwarm_cb,
                                    llm_matching_cb, auto_markdown_cb, llm_spin,
-                                   quickmenu_context_slider,
+                                   quicklauncher_context_slider,
                                    custom_radio=None, custom_endpoint_input=None,
                                    custom_model_input=None, custom_enable_cb=None,
                                    custom_profile_combo=None, custom_key_input=None):
@@ -22581,7 +22584,7 @@ class SupervertalerQt(QMainWindow):
         general_prefs['surrounding_segments'] = surrounding_spin.value()
         general_prefs['use_full_context'] = full_context_cb.isChecked()
         general_prefs['context_window_size'] = context_slider.value()
-        general_prefs['quickmenu_context_percent'] = quickmenu_context_slider.value()
+        general_prefs['quicklauncher_context_percent'] = quicklauncher_context_slider.value()
         # Save TM check mode settings
         general_prefs['check_tm_before_api'] = not tm_no_check_rb.isChecked()
         general_prefs['check_tm_exact_only'] = tm_exact_rb.isChecked()
@@ -36899,7 +36902,7 @@ class SupervertalerQt(QMainWindow):
 
     def _get_settings_dir(self) -> Path:
         """Get the settings subdirectory path"""
-        return self.user_data_path / "settings"
+        return self.user_data_path / "workbench" / "settings"
 
     def _get_unified_settings_path(self) -> Path:
         """Get the unified settings.json file path"""
@@ -37033,6 +37036,73 @@ class SupervertalerQt(QMainWindow):
             print(f"[Settings] Migration complete: {unified_file}")
         except Exception as e:
             print(f"[Settings] Error writing unified settings: {e}")
+
+    def _migrate_to_workbench_layout(self):
+        """One-time migration: move Workbench files into a workbench/ subfolder.
+
+        Old layout:
+            ~/Supervertaler/settings/         → workbench/settings/
+            ~/Supervertaler/dictionaries/     → workbench/dictionaries/
+            ~/Supervertaler/voice_scripts/    → workbench/voice_scripts/
+            ~/Supervertaler/ai_assistant/     → workbench/ai_assistant/
+            ~/Supervertaler/superbrowser_profiles/ → workbench/superbrowser_profiles/
+            ~/Supervertaler/web_cache/        → workbench/web_cache/
+            ~/Supervertaler/projects/         → workbench/projects/
+
+        Shared resources (prompt_library/, resources/) stay at the root.
+        """
+        import shutil
+
+        flag_file = self.user_data_path / "workbench" / ".migrated"
+        if flag_file.exists():
+            return
+
+        old_settings = self.user_data_path / "settings" / "settings.json"
+        if not old_settings.exists():
+            # Nothing to migrate — fresh install or already migrated.
+            # Just ensure the workbench dir exists and write the flag.
+            try:
+                (self.user_data_path / "workbench" / "settings").mkdir(parents=True, exist_ok=True)
+                flag_file.write_text(datetime.utcnow().isoformat(), encoding='utf-8')
+            except Exception:
+                pass
+            return
+
+        print("[Layout] Migrating to workbench/ subfolder layout ...")
+        wb = self.user_data_path / "workbench"
+
+        try:
+            # Move settings/ → workbench/settings/
+            old_settings_dir = self.user_data_path / "settings"
+            new_settings_dir = wb / "settings"
+            if old_settings_dir.exists() and not new_settings_dir.exists():
+                new_settings_dir.mkdir(parents=True, exist_ok=True)
+                for f in old_settings_dir.iterdir():
+                    if f.is_file():
+                        dest = new_settings_dir / f.name
+                        if not dest.exists():
+                            shutil.move(str(f), str(dest))
+                # Remove old dir if empty
+                try:
+                    old_settings_dir.rmdir()
+                except OSError:
+                    pass
+
+            # Move top-level directories → workbench/
+            for dirname in ['dictionaries', 'voice_scripts', 'ai_assistant',
+                            'superbrowser_profiles', 'web_cache', 'projects']:
+                old_dir = self.user_data_path / dirname
+                new_dir = wb / dirname
+                if old_dir.exists() and not new_dir.exists():
+                    try:
+                        shutil.move(str(old_dir), str(new_dir))
+                    except Exception as e:
+                        print(f"[Layout] Warning: could not move {dirname}: {e}")
+
+            flag_file.write_text(datetime.utcnow().isoformat(), encoding='utf-8')
+            print("[Layout] Migration to workbench/ layout complete.")
+        except Exception as e:
+            print(f"[Layout] Warning: migration incomplete: {e}")
 
     def _load_general_settings_from_file(self) -> Dict[str, Any]:
         """Load general settings from unified settings.json (general section)"""
@@ -48377,10 +48447,10 @@ class SupervertalerQt(QMainWindow):
             self.status_bar.showMessage("Translation failed", 3000)
 
     # =========================================================================
-    # GRID QUICKMENU
+    # GRID QUICKLAUNCHER
     # =========================================================================
 
-    def _quickmenu_get_selection_text(self, widget: QTextEdit) -> str:
+    def _quicklauncher_get_selection_text(self, widget: QTextEdit) -> str:
         """Get selected text (or full text) from a QTextEdit, normalized for LLMs."""
         cursor = widget.textCursor()
         text = cursor.selectedText() if cursor.hasSelection() else widget.toPlainText()
@@ -48395,7 +48465,7 @@ class SupervertalerQt(QMainWindow):
 
         return text.strip()
 
-    def _quickmenu_build_custom_prompt(self, prompt_relative_path: str, source_text: str, source_lang: str, target_lang: str, target_text: str = "") -> str:
+    def _quicklauncher_build_custom_prompt(self, prompt_relative_path: str, source_text: str, source_lang: str, target_lang: str, target_text: str = "") -> str:
         """Build a prompt for QuickLauncher using the selected prompt as instructions.
 
         This is a GENERIC prompt builder (not translation-specific) that allows QuickLauncher prompts
@@ -48437,13 +48507,13 @@ class SupervertalerQt(QMainWindow):
         
         if (has_source_target or has_source_only or has_target_only) and hasattr(self, 'current_project') and self.current_project:
             if has_source_target:
-                source_target_context = self._build_quickmenu_document_context(mode="both")
+                source_target_context = self._build_quicklauncher_document_context(mode="both")
                 self.log(f"🔍 QuickLauncher: Built SOURCE+TARGET context ({len(source_target_context)} chars)")
             if has_source_only:
-                source_only_context = self._build_quickmenu_document_context(mode="source")
+                source_only_context = self._build_quicklauncher_document_context(mode="source")
                 self.log(f"🔍 QuickLauncher: Built SOURCE_ONLY context ({len(source_only_context)} chars)")
             if has_target_only:
-                target_only_context = self._build_quickmenu_document_context(mode="target")
+                target_only_context = self._build_quicklauncher_document_context(mode="target")
                 self.log(f"🔍 QuickLauncher: Built TARGET_ONLY context ({len(target_only_context)} chars)")
         else:
             if has_source_target:
@@ -48475,7 +48545,7 @@ class SupervertalerQt(QMainWindow):
         
         return prompt_content
     
-    def _build_quickmenu_document_context(self, mode: str = "both") -> str:
+    def _build_quicklauncher_document_context(self, mode: str = "both") -> str:
         """Build document context for QuickLauncher prompts.
         
         Args:
@@ -48485,7 +48555,7 @@ class SupervertalerQt(QMainWindow):
                 - "target": Include only target text (for consistency/style analysis)
         
         Returns a formatted string with segments from the project for context.
-        Uses the 'quickmenu_context_segments' setting (default: 50% of total segments).
+        Uses the 'quicklauncher_context_percent' setting (default: 50% of total segments).
         """
         if not hasattr(self, 'current_project') or not self.current_project or not self.current_project.segments:
             return "(No project context available)"
@@ -48493,8 +48563,10 @@ class SupervertalerQt(QMainWindow):
         try:
             # Get settings
             general_prefs = self.load_general_settings()
-            context_percent = general_prefs.get('quickmenu_context_percent', 50)  # Default: 50%
-            max_context_segments = general_prefs.get('quickmenu_context_max', 100)  # Safety limit
+            context_percent = general_prefs.get('quicklauncher_context_percent',
+                                               general_prefs.get('quickmenu_context_percent', 50))  # Default: 50%
+            max_context_segments = general_prefs.get('quicklauncher_context_max',
+                                                     general_prefs.get('quickmenu_context_max', 100))  # Safety limit
             
             # Calculate how many segments to include
             total_segments = len(self.current_project.segments)
@@ -48536,7 +48608,7 @@ class SupervertalerQt(QMainWindow):
         except Exception as e:
             return f"(Error building document context: {e})"
 
-    def _quickmenu_show_result_dialog(self, title: str, output_text: str, apply_callback=None):
+    def _quicklauncher_show_result_dialog(self, title: str, output_text: str, apply_callback=None):
         from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QDialogButtonBox, QPushButton, QApplication
 
         dlg = QDialog(self)
@@ -48563,7 +48635,7 @@ class SupervertalerQt(QMainWindow):
         layout.addWidget(buttons)
         dlg.exec()
 
-    def run_grid_quickmenu_prompt(self, prompt_relative_path: str, origin_widget: QTextEdit, behavior: str = "show"):
+    def run_grid_quicklauncher_prompt(self, prompt_relative_path: str, origin_widget: QTextEdit, behavior: str = "show"):
         """Run a QuickLauncher prompt on the current selection and either show the result or replace selection/target."""
         from PyQt6.QtWidgets import QMessageBox, QApplication
         from modules.llm_clients import LLMClient
@@ -48571,7 +48643,7 @@ class SupervertalerQt(QMainWindow):
         if not origin_widget:
             return
 
-        input_text = self._quickmenu_get_selection_text(origin_widget)
+        input_text = self._quicklauncher_get_selection_text(origin_widget)
         if not input_text:
             QMessageBox.information(self, "QuickLauncher", "Please select some text first (or click inside a non-empty cell).")
             return
@@ -48617,7 +48689,7 @@ class SupervertalerQt(QMainWindow):
             self.status_bar.showMessage(f"⚡ QuickLauncher: running '{prompt_relative_path}'…")
             QApplication.processEvents()
 
-            custom_prompt = self._quickmenu_build_custom_prompt(
+            custom_prompt = self._quicklauncher_build_custom_prompt(
                 prompt_relative_path=prompt_relative_path,
                 source_text=input_text,
                 source_lang=source_lang,
@@ -48686,7 +48758,7 @@ class SupervertalerQt(QMainWindow):
 
         if behavior == "replace":
             if not target_widget or not isinstance(target_widget, QTextEdit):
-                self._quickmenu_show_result_dialog("Supervertaler QuickLauncher", output_text)
+                self._quicklauncher_show_result_dialog("Supervertaler QuickLauncher", output_text)
                 return
 
             apply_replacement()
@@ -48695,7 +48767,7 @@ class SupervertalerQt(QMainWindow):
         # Default: show dialog (with optional Replace button)
         can_apply = target_widget is not None and isinstance(target_widget, QTextEdit)
         title = "Supervertaler QuickLauncher"
-        self._quickmenu_show_result_dialog(title, output_text, apply_callback=apply_replacement if can_apply else None)
+        self._quicklauncher_show_result_dialog(title, output_text, apply_callback=apply_replacement if can_apply else None)
     
     def translate_multiple_segments(self, scope: str):
         """Translate segments by scope (selected, status-based, or all)."""
@@ -52727,10 +52799,10 @@ class SuperlookupTab(QWidget):
             
             # Create persistent profile for login/cookie storage
             if self.user_data_path:
-                storage_path = os.path.join(str(self.user_data_path), 'web_cache')
+                storage_path = os.path.join(str(self.user_data_path), 'workbench', 'web_cache')
             else:
                 # Fallback to script directory if user_data_path not provided
-                storage_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'user_data', 'web_cache')
+                storage_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'user_data', 'workbench', 'web_cache')
             os.makedirs(storage_path, exist_ok=True)
             self.web_profile = QWebEngineProfile("SuperlookupProfile", self)
             self.web_profile.setPersistentStoragePath(storage_path)
@@ -55511,7 +55583,7 @@ class SuperlookupTab(QWidget):
         if sm:
             sl_shortcut = sm.get_shortcut('global_superlookup').lower().replace('+', '+')
             qt_shortcut = sm.get_shortcut('global_quicktrans').lower().replace('+', '+')
-            qm_shortcut = sm.get_shortcut('global_quickmenu').lower().replace('+', '+')
+            qm_shortcut = sm.get_shortcut('global_quicklauncher').lower().replace('+', '+')
         else:
             sl_shortcut = 'ctrl+alt+l'
             qt_shortcut = 'ctrl+alt+m'
@@ -55530,7 +55602,7 @@ class SuperlookupTab(QWidget):
             if manager.is_available:
                 manager.register(sl_shortcut, self._on_pynput_superlookup)
                 manager.register(qt_shortcut, self._on_pynput_quicktrans)
-                manager.register(qm_shortcut, self._on_pynput_quickmenu)
+                manager.register(qm_shortcut, self._on_pynput_quicklauncher)
                 started = manager.start()
                 if started:
                     self._hotkey_manager = manager
@@ -55593,15 +55665,15 @@ class SuperlookupTab(QWidget):
         except Exception as e:
             print(f"[QuickTrans] Error signaling main thread: {e}")
 
-    def _on_pynput_quickmenu(self):
+    def _on_pynput_quicklauncher(self):
         """Called from pynput background thread when Ctrl+Alt+K is pressed.
 
-        IMPORTANT: Do NO work here — see _on_pynput_superlookup docstring.
+        IMPORTANT: Do NO work here -- see _on_pynput_superlookup docstring.
         """
         try:
             from PyQt6.QtCore import QMetaObject, Qt as QtConst
             QMetaObject.invokeMethod(
-                self, "_handle_quickmenu_hotkey",
+                self, "_handle_quicklauncher_hotkey",
                 QtConst.ConnectionType.QueuedConnection,
             )
         except Exception as e:
@@ -55857,29 +55929,29 @@ class SuperlookupTab(QWidget):
             self.on_ahk_mt_lookup_capture(text)
 
     @pyqtSlot()
-    def _handle_quickmenu_hotkey(self):
+    def _handle_quicklauncher_hotkey(self):
         """Runs on Qt main thread after the QuickLauncher global hotkey fires."""
         try:
             from modules.platform_helpers import CrossPlatformKeySender, get_foreground_window
-            self._quickmenu_source_window = get_foreground_window()
+            self._quicklauncher_source_window = get_foreground_window()
             # Also store on main window so the Prompt Manager can access it
             # (self here is SuperlookupTab, but _return_from_assistant reads from SupervertalerQt)
             mw = self.main_window or self.window()
             if mw and mw is not self:
-                mw._quickmenu_source_window = self._quickmenu_source_window
-            print(f"[QuickLauncher] Captured source window: {self._quickmenu_source_window}")
+                mw._quicklauncher_source_window = self._quicklauncher_source_window
+            print(f"[QuickLauncher] Captured source window: {self._quicklauncher_source_window}")
 
             sender = CrossPlatformKeySender()
             sender.send_copy()
-            QTimer.singleShot(350, self._read_clipboard_for_quickmenu)
+            QTimer.singleShot(350, self._read_clipboard_for_quicklauncher)
         except Exception as e:
             print(f"[QuickLauncher] Error in hotkey handler: {e}")
 
-    def _read_clipboard_for_quickmenu(self):
+    def _read_clipboard_for_quicklauncher(self):
         """Read clipboard and dispatch to external QuickLauncher (main thread)."""
         text = pyperclip.paste()
         if text:
-            self.show_quickmenu_external(text)
+            self.show_quicklauncher_external(text)
 
     def _launch_superlookup_external(self, text):
         """Launch Superlookup with given text, bringing the window to foreground first."""
@@ -56094,7 +56166,7 @@ class SuperlookupTab(QWidget):
         except Exception as e:
             print(f"[QuickTrans] Error pasting translation: {e}")
 
-    def show_quickmenu_external(self, text):
+    def show_quicklauncher_external(self, text):
         """Show QuickLauncher popup with text captured from an external app (global hotkey).
 
         Builds a floating QMenu with QuickTrans + all prompt-based items.
@@ -56104,7 +56176,7 @@ class SuperlookupTab(QWidget):
             from PyQt6.QtWidgets import QMenu
             from PyQt6.QtGui import QAction, QCursor
 
-            print(f"[QuickLauncher] show_quickmenu_external called with text: {text[:50]}...")
+            print(f"[QuickLauncher] show_quicklauncher_external called with text: {text[:50]}...")
 
             main_window = self.main_window or self.window()
             if not main_window:
@@ -56146,26 +56218,26 @@ class SuperlookupTab(QWidget):
             menu.addAction(superlookup_action)
 
             # Prompt-based items
-            quickmenu_items = []
+            quicklauncher_items = []
             if hasattr(main_window, 'prompt_manager_qt') and main_window.prompt_manager_qt:
                 lib = getattr(main_window.prompt_manager_qt, 'library', None)
-                if lib and hasattr(lib, 'get_quickmenu_grid_prompts'):
-                    quickmenu_items = lib.get_quickmenu_grid_prompts() or []
+                if lib and hasattr(lib, 'get_quicklauncher_grid_prompts'):
+                    quicklauncher_items = lib.get_quicklauncher_grid_prompts() or []
 
-            if quickmenu_items:
+            if quicklauncher_items:
                 menu.addSeparator()
-                for rel_path, label in sorted(quickmenu_items, key=lambda x: (x[1] or x[0]).lower()):
+                for rel_path, label in sorted(quicklauncher_items, key=lambda x: (x[1] or x[0]).lower()):
                     prompt_submenu = menu.addMenu(label or rel_path)
 
                     run_show = QAction("▶ Run (show response)…", prompt_submenu)
                     run_show.triggered.connect(
-                        lambda checked=False, p=rel_path: self._run_external_quickmenu_prompt(p, text, behavior="show")
+                        lambda checked=False, p=rel_path: self._run_external_quicklauncher_prompt(p, text, behavior="show")
                     )
                     prompt_submenu.addAction(run_show)
 
                     run_paste = QAction("↺ Run and paste into app", prompt_submenu)
                     run_paste.triggered.connect(
-                        lambda checked=False, p=rel_path: self._run_external_quickmenu_prompt(p, text, behavior="paste")
+                        lambda checked=False, p=rel_path: self._run_external_quicklauncher_prompt(p, text, behavior="paste")
                     )
                     prompt_submenu.addAction(run_paste)
 
@@ -56177,10 +56249,10 @@ class SuperlookupTab(QWidget):
             import traceback
             traceback.print_exc()
 
-    def _run_external_quickmenu_prompt(self, prompt_relative_path: str, source_text: str, behavior: str = "show"):
+    def _run_external_quicklauncher_prompt(self, prompt_relative_path: str, source_text: str, behavior: str = "show"):
         """Run a QuickLauncher prompt on text captured from an external app.
 
-        Similar to run_grid_quickmenu_prompt() but works without a grid widget.
+        Similar to run_grid_quicklauncher_prompt() but works without a grid widget.
         """
         from PyQt6.QtWidgets import QMessageBox, QApplication
         from modules.llm_clients import LLMClient
@@ -56230,7 +56302,7 @@ class SuperlookupTab(QWidget):
             main_window.status_bar.showMessage(f"⚡ QuickLauncher: running '{prompt_relative_path}'…")
             QApplication.processEvents()
 
-            custom_prompt = main_window._quickmenu_build_custom_prompt(
+            custom_prompt = main_window._quicklauncher_build_custom_prompt(
                 prompt_relative_path=prompt_relative_path,
                 source_text=source_text,
                 source_lang=source_lang,
@@ -56270,7 +56342,7 @@ class SuperlookupTab(QWidget):
             self._paste_translation_to_external_app(output_text)
         else:
             # Show result dialog (with Copy button)
-            main_window._quickmenu_show_result_dialog("Supervertaler QuickLauncher", output_text)
+            main_window._quicklauncher_show_result_dialog("Supervertaler QuickLauncher", output_text)
 
     def show_superlookup(self, text):
         """Show Superlookup with pre-filled text"""

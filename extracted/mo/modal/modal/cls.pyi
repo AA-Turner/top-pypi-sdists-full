@@ -8,7 +8,6 @@ import modal.app
 import modal.client
 import modal.cloud_bucket_mount
 import modal.functions
-import modal.gpu
 import modal.object
 import modal.partial_function
 import modal.retries
@@ -146,25 +145,6 @@ class _Obj:
         """
         ...
 
-    async def keep_warm(self, warm_pool_size: int) -> None:
-        """mdmd:hidden
-        Set the warm pool size for the class containers
-
-        DEPRECATED: Please adapt your code to use the more general `update_autoscaler` method instead:
-
-        ```python notest
-        Model = modal.Cls.from_name("my-app", "Model")
-        model = Model()  # This method is called on an *instance* of the class
-
-        # Old pattern (deprecated)
-        model.keep_warm(2)
-
-        # New pattern
-        model.update_autoscaler(min_containers=2)
-        ```
-        """
-        ...
-
     def _cached_user_cls_instance(self):
         """Get or construct the local object
 
@@ -275,47 +255,6 @@ class Obj:
 
     update_autoscaler: __update_autoscaler_spec
 
-    class __keep_warm_spec(typing_extensions.Protocol):
-        def __call__(self, /, warm_pool_size: int) -> None:
-            """mdmd:hidden
-            Set the warm pool size for the class containers
-
-            DEPRECATED: Please adapt your code to use the more general `update_autoscaler` method instead:
-
-            ```python notest
-            Model = modal.Cls.from_name("my-app", "Model")
-            model = Model()  # This method is called on an *instance* of the class
-
-            # Old pattern (deprecated)
-            model.keep_warm(2)
-
-            # New pattern
-            model.update_autoscaler(min_containers=2)
-            ```
-            """
-            ...
-
-        async def aio(self, /, warm_pool_size: int) -> None:
-            """mdmd:hidden
-            Set the warm pool size for the class containers
-
-            DEPRECATED: Please adapt your code to use the more general `update_autoscaler` method instead:
-
-            ```python notest
-            Model = modal.Cls.from_name("my-app", "Model")
-            model = Model()  # This method is called on an *instance* of the class
-
-            # Old pattern (deprecated)
-            model.keep_warm(2)
-
-            # New pattern
-            model.update_autoscaler(min_containers=2)
-            ```
-            """
-            ...
-
-    keep_warm: __keep_warm_spec
-
     def _cached_user_cls_instance(self):
         """Get or construct the local object
 
@@ -377,7 +316,6 @@ class _Cls(modal._object._Object):
         app_name: str,
         name: str,
         *,
-        namespace: typing.Any = None,
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
     ) -> _Cls:
@@ -398,7 +336,7 @@ class _Cls(modal._object._Object):
         *,
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         volumes: dict[
@@ -412,9 +350,6 @@ class _Cls(modal._object._Object):
         timeout: typing.Optional[int] = None,
         region: typing.Union[str, typing.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
-        concurrency_limit: typing.Optional[int] = None,
-        container_idle_timeout: typing.Optional[int] = None,
-        allow_concurrent_inputs: typing.Optional[int] = None,
     ) -> _Cls:
         """Override the static Function configuration at runtime.
 
@@ -536,7 +471,6 @@ class Cls(modal.object.Object):
         app_name: str,
         name: str,
         *,
-        namespace: typing.Any = None,
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client.Client] = None,
     ) -> Cls:
@@ -557,7 +491,7 @@ class Cls(modal.object.Object):
         *,
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
         volumes: dict[
@@ -571,9 +505,6 @@ class Cls(modal.object.Object):
         timeout: typing.Optional[int] = None,
         region: typing.Union[str, typing.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
-        concurrency_limit: typing.Optional[int] = None,
-        container_idle_timeout: typing.Optional[int] = None,
-        allow_concurrent_inputs: typing.Optional[int] = None,
     ) -> Cls:
         """Override the static Function configuration at runtime.
 

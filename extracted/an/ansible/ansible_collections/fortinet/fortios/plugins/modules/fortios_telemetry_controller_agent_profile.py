@@ -98,6 +98,9 @@ options:
                     - Model.
                 type: str
                 choices:
+                    - 'ftl-100g'
+                    - 'windows'
+                    - 'macos'
                     - 'FTL100G'
                     - 'WINDOWS'
             name:
@@ -115,7 +118,7 @@ EXAMPLES = """
       access_token: "<your_own_value>"
       telemetry_controller_agent_profile:
           comment: "Comment."
-          model: "FTL100G"
+          model: "ftl-100g"
           name: "default_name_5"
 """
 
@@ -302,7 +305,13 @@ versioned_schema = {
         "model": {
             "v_range": [["v7.6.3", ""]],
             "type": "string",
-            "options": [{"value": "FTL100G"}, {"value": "WINDOWS"}],
+            "options": [
+                {"value": "ftl-100g", "v_range": [["v7.6.5", ""]]},
+                {"value": "windows", "v_range": [["v7.6.5", ""]]},
+                {"value": "macos", "v_range": [["v7.6.5", ""]]},
+                {"value": "FTL100G", "v_range": [["v7.6.3", "v7.6.4"]]},
+                {"value": "WINDOWS", "v_range": [["v7.6.3", "v7.6.4"]]},
+            ],
         },
     },
     "v_range": [["v7.6.3", ""]],
@@ -357,7 +366,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "telemetry_controller_agent_profile"
         )

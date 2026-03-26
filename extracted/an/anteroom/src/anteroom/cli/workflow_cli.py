@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import ast
 import asyncio
+import copy
 import json
 import logging
 import os
@@ -396,6 +397,14 @@ def _describe_transcript_event(event_type: str, payload: dict[str, Any]) -> tupl
             summary = f"{summary} [{_human_count(chars)} chars]"
         return ("prompt", summary, "yellow")
 
+    if event_type == "step_emitted":
+        msg = str(payload.get("message", "")).strip()
+        if not msg:
+            return None
+        lvl = payload.get("level", "info")
+        color_map = {"info": "cyan", "warning": "yellow", "success": "green", "error": "red"}
+        return ("emit", msg, color_map.get(lvl, "cyan"))
+
     content = str(payload.get("content", "")).strip()
     if not content:
         return None
@@ -457,6 +466,12 @@ def _make_progress_callback(*, show_transcript: bool = True) -> Any:
             console.print(f"  [{status_color('failed')}]{icon}[/{status_color('failed')}] {step_id}")
             if reason:
                 console.print(f"    [red]reason:[/red] {reason}")
+        elif event_type == "step_emitted":
+            msg = payload.get("message", "")
+            lvl = payload.get("level", "info")
+            color_map = {"info": "cyan", "warning": "yellow", "success": "green", "error": "red"}
+            color = color_map.get(lvl, "cyan")
+            console.print(f"  [{color}]{msg}[/{color}]")
         elif event_type == "step_skipped" and step_id:
             icon = status_icon("skipped")
             console.print(f"  [{status_color('skipped')}]{icon}[/{status_color('skipped')}] {step_id}  (skipped)")
@@ -499,7 +514,9 @@ def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -
         ai_service = create_ai_service(config.ai)
         tool_reg = ToolRegistry()
         register_default_tools(tool_reg, working_dir=str(Path.cwd()))
-        tool_reg.set_safety_config(config.safety, working_dir=str(Path.cwd()))
+        workflow_safety = copy.copy(config.safety)
+        workflow_safety.approval_mode = config.workflow.approval_mode
+        tool_reg.set_safety_config(workflow_safety, working_dir=str(Path.cwd()))
         tool_executor = tool_reg.call_tool
         tools_openai = tool_reg.get_openai_tools()
     except Exception as exc:
@@ -566,7 +583,7 @@ def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -
         db,
         config.workflow,
         registry,
-        effective_approval_mode=config.safety.approval_mode,
+        effective_approval_mode=config.workflow.approval_mode,
         ai_service=ai_service,
         tool_executor=tool_executor,
         tools_openai=tools_openai,
@@ -743,9 +760,18 @@ def _print_run_progress(db: Any, run: dict[str, Any]) -> None:
 
     # Diagnosis hint for non-success runs
     run_status = run.get("status", "unknown")
-    non_success = {"failed", "blocked", "cancelled", "paused", "compensated", "compensation_failed"}
+    non_success = {
+        "failed",
+        "blocked",
+        "cancelled",
+        "paused",
+        "compensated",
+        "compensation_failed",
+        "waiting_for_approval",
+        "waiting_for_input",
+    }
     if run_status in non_success:
-        from ..services.workflow_diagnosis import diagnose
+        from ..services.workflow_diagnosis import diagnose, recovery_actions_for_run
 
         events = list_workflow_events(db, run["id"])
         dx = diagnose(run, steps, events)
@@ -754,8 +780,19 @@ def _print_run_progress(db: Any, run: dict[str, Any]) -> None:
         console.print(f"\n  [{color}]{icon} {dx.what}[/{color}]")
         console.print(f"  [dim]{dx.why}[/dim]")
         console.print(f"  [dim]Run: aroom workflow diagnose {run['id'][:8]}[/dim]")
+
+        actions = recovery_actions_for_run(run, steps, events)
+        if actions:
+            console.print("\n  [bold]Recovery options:[/bold]")
+            for i, action in enumerate(actions, 1):
+                console.print(f"    {i}. {action}")
     elif run_status == "completed":
         console.print(f"\n  {status_icon('completed')} Workflow completed successfully")
+
+    # Show result summary if present (#1150)
+    summary = run.get("result_summary")
+    if summary:
+        console.print(f"\n  {summary}")
 
 
 def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
@@ -1041,16 +1078,31 @@ def _handle_status(db: Any, args: argparse.Namespace) -> None:
             console.print(f"[{color}]{line}[/{color}]")
 
     # Compact diagnosis hint for non-success runs (#1103)
-    non_success = {"failed", "blocked", "cancelled", "paused", "compensated", "compensation_failed"}
+    non_success = {
+        "failed",
+        "blocked",
+        "cancelled",
+        "paused",
+        "compensated",
+        "compensation_failed",
+        "waiting_for_approval",
+        "waiting_for_input",
+    }
     if run.get("status") in non_success:
-        from ..services.workflow_diagnosis import diagnose
+        from ..services.workflow_diagnosis import diagnose, recovery_actions_for_run
         from ..services.workflow_storage import list_workflow_events
 
         events = list_workflow_events(db, run["id"])
         dx = diagnose(run, steps, events)
         run_id_short = run["id"][:8]
-        console.print(f"\n  💡 {dx.what}: {dx.why}")
+        console.print(f"\n  {dx.what}: {dx.why}")
         console.print(f"  [dim]Run: aroom workflow diagnose {run_id_short}[/dim]")
+
+        actions = recovery_actions_for_run(run, steps, events)
+        if actions:
+            console.print("\n  [bold]Recovery options:[/bold]")
+            for i, action in enumerate(actions, 1):
+                console.print(f"    {i}. {action}")
 
 
 def _handle_list(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
@@ -1359,10 +1411,13 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
     # Recover any stale runs first (on-demand recovery)
     asyncio.run(engine.recover_interrupted_runs())
 
-    if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input", "compensating", "failed"):
+    from ..services.workflow_storage import _RESUMABLE_RUN_STATUSES
+
+    if run["status"] not in _RESUMABLE_RUN_STATUSES:
         console.print(
             f"[red]Error:[/red] Run is not resumable (status: {run['status']}). "
-            "Only paused, waiting_for_approval, waiting_for_input, compensating, or failed runs can be resumed."
+            "Only paused, waiting_for_approval, waiting_for_input, compensating, "
+            "failed, or blocked runs can be resumed."
         )
         return
 
@@ -1524,7 +1579,7 @@ def _handle_cancel(db: Any, args: argparse.Namespace) -> None:
     run = get_workflow_run(db, run_id)
     assert run is not None
 
-    terminal = {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
+    terminal = {"completed", "failed", "cancelled", "compensated", "compensation_failed"}
     if run["status"] in terminal:
         console.print(f"[red]Error:[/red] Run is already in terminal status: {run['status']}. Cannot cancel.")
         return
@@ -1712,6 +1767,7 @@ def _handle_diagnose(db: Any, args: argparse.Namespace) -> None:
 def _handle_watch(db: Any, args: argparse.Namespace) -> None:
     """Handle `aroom workflow watch <run_id>`. Poll and display live timeline with transcript."""
     import collections
+    import json as _json
     import time
 
     from rich.live import Live
@@ -1738,7 +1794,7 @@ def _handle_watch(db: Any, args: argparse.Namespace) -> None:
     run = get_workflow_run(db, run_id)
     assert run is not None
 
-    terminal_statuses = {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
+    terminal_statuses = {"completed", "failed", "cancelled", "compensated", "compensation_failed"}
     max_transcript_lines = 50
     transcript: collections.deque[dict[str, Any]] = collections.deque(maxlen=max_transcript_lines)
     last_output_event_id = 0
@@ -1804,6 +1860,8 @@ def _handle_watch(db: Any, args: argparse.Namespace) -> None:
         console.print(f"  {icon} Run {status}")
         if run.get("stop_reason"):
             console.print(f"  Reason: {run['stop_reason']}")
+        if run.get("result_summary"):
+            console.print(f"  {run['result_summary']}")
         return
 
     try:
@@ -1817,8 +1875,20 @@ def _handle_watch(db: Any, args: argparse.Namespace) -> None:
 
                 steps = list_workflow_steps(db, run_id)
 
-                # Fetch new transcript events since last poll
+                # Fetch new transcript + step_emitted events since last poll
                 new_outputs = list_transcript_events(db, run_id, since_id=last_output_event_id)
+                # Also fetch step_emitted events for watch display (#1150)
+                emit_rows = db.execute_fetchall(
+                    "SELECT * FROM workflow_events "
+                    "WHERE run_id = ? AND event_type = 'step_emitted' AND id > ? ORDER BY id",
+                    (run_id, last_output_event_id),
+                )
+                for r in emit_rows:
+                    d = dict(r)
+                    raw_p = d.pop("payload_json", None)
+                    d["payload"] = _json.loads(raw_p) if raw_p else None
+                    new_outputs.append(d)
+                new_outputs.sort(key=lambda e: e.get("id", 0))
                 for evt in new_outputs:
                     payload = evt.get("payload") or {}
                     step_id = evt.get("step_id", "")
@@ -1849,6 +1919,8 @@ def _handle_watch(db: Any, args: argparse.Namespace) -> None:
                     console.print(f"  [{color}]{icon} Run {status}[/{color}]")
                     if run.get("stop_reason"):
                         console.print(f"  Reason: {run['stop_reason']}")
+                    if run.get("result_summary"):
+                        console.print(f"  {run['result_summary']}")
                     break
 
                 time.sleep(2)

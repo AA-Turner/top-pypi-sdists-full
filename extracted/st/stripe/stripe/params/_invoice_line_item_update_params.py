@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # File generated from our OpenAPI spec
+from decimal import Decimal
 from typing import Dict, List
 from typing_extensions import Literal, NotRequired, TypedDict
 
@@ -29,7 +30,7 @@ class InvoiceLineItemUpdateParams(TypedDict):
     """
     metadata: NotRequired["Literal['']|Dict[str, str]"]
     """
-    Set of [key-value pairs](https://docs.stripe.com/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`. For [type=subscription](https://docs.stripe.com/api/invoices/line_item#invoice_line_item_object-type) line items, the incoming metadata specified on the request is directly used to set this value, in contrast to [type=invoiceitem](api/invoices/line_item#invoice_line_item_object-type) line items, where any existing metadata on the invoice line is merged with the incoming data.
+    Set of [key-value pairs](https://docs.stripe.com/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`. For [type=subscription](https://docs.stripe.com/api/invoices/line_item) line items, the incoming metadata specified on the request is directly used to set this value, in contrast to [type=invoiceitem](https://docs.stripe.com/api/invoices/line_item) line items, where any existing metadata on the invoice line is merged with the incoming data.
     """
     period: NotRequired["InvoiceLineItemUpdateParamsPeriod"]
     """
@@ -45,7 +46,11 @@ class InvoiceLineItemUpdateParams(TypedDict):
     """
     quantity: NotRequired[int]
     """
-    Non-negative integer. The quantity of units for the line item.
+    Non-negative integer. The quantity of units for the line item. Use `quantity_decimal` instead to provide decimal precision. This field will be deprecated in favor of `quantity_decimal` in a future version.
+    """
+    quantity_decimal: NotRequired[Decimal]
+    """
+    Non-negative decimal with at most 12 decimal places. The quantity of units for the line item.
     """
     tax_amounts: NotRequired[
         "Literal['']|List[InvoiceLineItemUpdateParamsTaxAmount]"
@@ -108,7 +113,7 @@ class InvoiceLineItemUpdateParamsPriceData(TypedDict):
     """
     A non-negative integer in cents (or local equivalent) representing how much to charge. One of `unit_amount` or `unit_amount_decimal` is required.
     """
-    unit_amount_decimal: NotRequired[str]
+    unit_amount_decimal: NotRequired[Decimal]
     """
     Same as `unit_amount`, but accepts a decimal value in cents (or local equivalent) with at most 12 decimal places. Only one of `unit_amount` and `unit_amount_decimal` can be set.
     """

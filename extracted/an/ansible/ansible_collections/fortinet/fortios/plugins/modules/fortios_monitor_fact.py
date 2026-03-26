@@ -481,6 +481,7 @@ options:
                  - 'system_5g-modem_status'
                  - 'system_interface_poe-usage'
                  - 'vpn_ipsec_connection-count'
+                 - 'registration_forticare_check-connectivity'
 
     selector:
         description:
@@ -842,6 +843,7 @@ options:
          - 'system_5g-modem_status'
          - 'system_interface_poe-usage'
          - 'vpn_ipsec_connection-count'
+         - 'registration_forticare_check-connectivity'
 
     params:
         description:
@@ -1609,10 +1611,7 @@ module_selectors_defs = {
     },
     "webfilter_fortiguard-categories": {
         "url": "webfilter/fortiguard-categories",
-        "params": {
-            "include_unrated": {"type": "boolean", "required": "False"},
-            "convert_unrated_id": {"type": "boolean", "required": "False"},
-        },
+        "params": {},
     },
     "webfilter_trusted-urls": {"url": "webfilter/trusted-urls", "params": {}},
     "vpn_ipsec": {
@@ -2597,6 +2596,10 @@ module_selectors_defs = {
     },
     "system_interface_poe-usage": {"url": "system/interface/poe-usage", "params": {}},
     "vpn_ipsec_connection-count": {"url": "vpn/ipsec/connection-count", "params": {}},
+    "registration_forticare_check-connectivity": {
+        "url": "registration/forticare/check-connectivity",
+        "params": {},
+    },
 }
 
 
@@ -3064,6 +3067,7 @@ def main():
                 "system_5g-modem_status",
                 "system_interface_poe-usage",
                 "vpn_ipsec_connection-count",
+                "registration_forticare_check-connectivity",
             ],
         },
         "selectors": {
@@ -3433,6 +3437,7 @@ def main():
                         "system_5g-modem_status",
                         "system_interface_poe-usage",
                         "vpn_ipsec_connection-count",
+                        "registration_forticare_check-connectivity",
                     ],
                 },
             },

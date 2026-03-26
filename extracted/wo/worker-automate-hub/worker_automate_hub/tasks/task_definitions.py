@@ -162,6 +162,10 @@ from worker_automate_hub.tasks.jobs.extracao_lancamento_contabeis_sap import (
     extracao_lancamento_contabeis_sap,
 )
 
+from worker_automate_hub.tasks.jobs.consulta_preco_raizen import (
+    consulta_preco_raizen,
+)
+
 task_definitions = {
     "5b295021-8df7-40a1-a45e-fe7109ae3902": exemplo_processo,
     "a0788650-de48-454f-acbf-3537ead2d8ed": login_emsys,
@@ -284,6 +288,7 @@ task_definitions = {
     "f2136556-b27b-4b40-96d2-de3060bd2859": extracao_pedidos_compras_sap,
     "e126fdae-3ce5-4dbe-839f-1bd39965c8af": extracao_movimento_estoque_sap,
     "55c2918c-27d3-4b68-8072-e6cb7ad54cd3": extracao_lancamento_contabeis_sap,
+    "bb79955b-ba96-43f1-8cf5-a9e1e04de039": consulta_preco_raizen,
 }
 
 

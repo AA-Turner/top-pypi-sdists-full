@@ -101,20 +101,22 @@ TEST_CASE("BinaryNode") {
 
             WHEN("We flip the states") {
                 for (int i = 0, stop = ptr->size(); i < stop; ++i) {
-                    CHECK(ptr->flip(state, i));
+                    // Note, index-wise bounds are all [0,1]
+                    ptr->flip(state, i);
                     vec_d[i] = !vec_d[i];
                 }
 
                 THEN("Elments are flipped properly") {
                     CHECK_THAT(ptr->view(state), RangeEquals(vec_d));
+                    CHECK(static_cast<ssize_t>(ptr->diff(state).size()) == ptr->size());
                 }
             }
 
             WHEN("We set all the elements") {
-                auto set_count = 0;
-                auto set_count_ground = 0;
+                int set_count_ground = 0;
                 for (int i = 0, stop = ptr->size(); i < stop; ++i) {
-                    set_count += ptr->set(state, i);
+                    // Note, index-wise bounds are all [0,1]
+                    ptr->set(state, i);
                     set_count_ground += !vec_d[i];
                 }
 
@@ -123,15 +125,15 @@ TEST_CASE("BinaryNode") {
                 }
 
                 THEN("The number of elements set equals the number of initially unset elements") {
-                    CHECK(set_count == set_count_ground);
+                    CHECK(static_cast<int>(ptr->diff(state).size()) == set_count_ground);
                 }
             }
 
             WHEN("We unset all the elements") {
-                auto unset_count = 0;
-                auto unset_count_ground = 0;
+                int unset_count_ground = 0;
                 for (int i = 0, stop = ptr->size(); i < stop; ++i) {
-                    unset_count += ptr->unset(state, i);
+                    // Note, index-wise bounds are all [0,1]
+                    ptr->unset(state, i);
                     unset_count_ground += vec_d[i];
                 }
 
@@ -140,15 +142,15 @@ TEST_CASE("BinaryNode") {
                 }
 
                 THEN("The number of elements unset equals the number of initially set elements") {
-                    CHECK(unset_count == unset_count_ground);
+                    CHECK(static_cast<int>(ptr->diff(state).size()) == unset_count_ground);
                 }
             }
 
             WHEN("We exchange the elements") {
-                auto exchange_count = 0;
-                auto exchange_count_ground = 0;
+                int exchange_count_ground = 0;
                 for (int i = 0, stop = ptr->size() - 1; i < stop; ++i) {
-                    exchange_count += ptr->exchange(state, i, i + 1);
+                    // Note, index-wise bounds are all [0,1]
+                    ptr->exchange(state, i, i + 1);
                     std::swap(vec_d[i], vec_d[i + 1]);
                     exchange_count_ground += (vec_d[i] != vec_d[i + 1]);
                 }
@@ -158,7 +160,8 @@ TEST_CASE("BinaryNode") {
                 }
 
                 THEN("The number of effective exchanges are correct") {
-                    CHECK(exchange_count == exchange_count_ground);
+                    // Two updates per exchange
+                    CHECK(static_cast<int>(ptr->diff(state).size()) == 2 * exchange_count_ground);
                 }
             }
         }
@@ -223,20 +226,25 @@ TEST_CASE("BinaryNode") {
 
             WHEN("We flip the states") {
                 for (int i = 0, stop = ptr->size(); i < stop; ++i) {
-                    CHECK(ptr->flip(state, i));
+                    // Note, index-wise bounds are all [0,1]
+                    ptr->flip(state, i);
                     vec_d[i] = !vec_d[i];
                 }
 
                 THEN("Elments are flipped properly") {
                     CHECK(std::ranges::equal(ptr->view(state), vec_d));
                 }
+
+                THEN("The number of elements set equals the number of initially unset elements") {
+                    CHECK(static_cast<ssize_t>(ptr->diff(state).size()) == ptr->size());
+                }
             }
 
             WHEN("We set all the elements") {
-                auto set_count = 0;
-                auto set_count_ground = 0;
+                int set_count_ground = 0;
                 for (int i = 0, stop = ptr->size(); i < stop; ++i) {
-                    set_count += ptr->set(state, i);
+                    // Note, index-wise bounds are all [0,1]
+                    ptr->set(state, i);
                     set_count_ground += !vec_d[i];
                 }
 
@@ -245,15 +253,15 @@ TEST_CASE("BinaryNode") {
                 }
 
                 THEN("The number of elements set equals the number of initially unset elements") {
-                    CHECK(set_count == set_count_ground);
+                    CHECK(static_cast<int>(ptr->diff(state).size()) == set_count_ground);
                 }
             }
 
             WHEN("We unset all the elements") {
-                auto unset_count = 0;
-                auto unset_count_ground = 0;
+                int unset_count_ground = 0;
                 for (int i = 0, stop = ptr->size(); i < stop; ++i) {
-                    unset_count += ptr->unset(state, i);
+                    // Note, index-wise bounds are all [0,1]
+                    ptr->unset(state, i);
                     unset_count_ground += vec_d[i];
                 }
 
@@ -262,15 +270,15 @@ TEST_CASE("BinaryNode") {
                 }
 
                 THEN("The number of elements unset equals the number of initially set elements") {
-                    CHECK(unset_count == unset_count_ground);
+                    CHECK(static_cast<int>(ptr->diff(state).size()) == unset_count_ground);
                 }
             }
 
             WHEN("We exchange the elements") {
-                auto exchange_count = 0;
-                auto exchange_count_ground = 0;
+                int exchange_count_ground = 0;
                 for (int i = 0, stop = ptr->size() - 1; i < stop; ++i) {
-                    exchange_count += ptr->exchange(state, i, i + 1);
+                    // Note, index-wise bounds are all [0,1]
+                    ptr->exchange(state, i, i + 1);
                     std::swap(vec_d[i], vec_d[i + 1]);
                     exchange_count_ground += (vec_d[i] != vec_d[i + 1]);
                 }
@@ -280,15 +288,16 @@ TEST_CASE("BinaryNode") {
                 }
 
                 THEN("The number of effective exchanges are correct") {
-                    CHECK(exchange_count == exchange_count_ground);
+                    // Two updates per exchange
+                    CHECK(static_cast<int>(ptr->diff(state).size()) == 2 * exchange_count_ground);
                 }
             }
         }
     }
 
     GIVEN("Binary node with index-wise bounds") {
-        auto bnode_ptr = graph.emplace_node<dwave::optimization::BinaryNode>(
-                3, std::vector<double>{-1, 0, 1}, std::vector<double>{2, 1, 1});
+        auto bnode_ptr = graph.emplace_node<BinaryNode>(3, std::vector<double>{-1, 0, 1},
+                                                        std::vector<double>{2, 1, 1});
 
         THEN("The shape, max, min, and bounds are correct") {
             CHECK(bnode_ptr->size() == 3);
@@ -314,67 +323,54 @@ TEST_CASE("BinaryNode") {
                 CHECK_THAT(bnode_ptr->view(state), RangeEquals({0, 0, 1}));
             }
 
-            THEN("An exception is raised if it's out of bounds") {
-                REQUIRE_THROWS(bnode_ptr->set_value(state, 0, 1.9));
-            }
+            // Note, index-wise bounds are [[0,1], [0,1], [1,1]]
+            bnode_ptr->set_value(state, 0, 1.0);
 
-            THEN("The value is within bounds") { CHECK(bnode_ptr->is_valid(0, 1.0)); }
-
-            CHECK(bnode_ptr->set_value(state, 0, 1.0));
-
-            THEN("The value is correct") { CHECK(bnode_ptr->get_value(state, 0) == 1.0); }
-
-            AND_WHEN("We commit the state") {
-                graph.commit(state);
-
-                THEN("Cannot flip() index outside of bounds") {
-                    CHECK(bnode_ptr->flip(state, 2) == false);
-                }
-
-                THEN("Cannot exchange() index outside of bounds") {
-                    CHECK(bnode_ptr->exchange(state, 0, 2) == false);
-                }
-
-                THEN("Cannot unset() index outside of bounds") {
-                    CHECK(bnode_ptr->unset(state, 2) == false);
-                }
+            THEN("The value is correct") {
+                CHECK(bnode_ptr->diff(state).size() == 1);
+                CHECK(bnode_ptr->get_value(state, 0) == 1.0);
             }
         }
 
         AND_WHEN("We set the state at the indices using set()") {
             auto state = graph.initialize_state();
-            THEN("The value is within bounds") { CHECK(bnode_ptr->is_valid(0, 0.0)); }
-            THEN("The value is within bounds") { CHECK(bnode_ptr->is_valid(1, 1.0)); }
+            // Note, index-wise bounds are [[0,1], [0,1], [1,1]]
+            bnode_ptr->set(state, 1);
 
-            CHECK(bnode_ptr->set(state, 1) == true);
-
-            THEN("The value at index 0 is correct") {
-                CHECK(bnode_ptr->get_value(state, 0) == 0.0);
-            }
-            THEN("The value at index 1 is correct") {
-                CHECK(bnode_ptr->get_value(state, 1) == 1.0);
+            THEN("The values at index 0 and 1 are correct") {
+                CHECK(bnode_ptr->get_value(state, 0) == 0.0);  // Default value
+                CHECK(bnode_ptr->get_value(state, 1) == 1.0);  // Set value
             }
 
             AND_WHEN("We commit the state") {
                 graph.commit(state);
 
                 THEN("We can perform a flip()") {
-                    CHECK(bnode_ptr->flip(state, 1) == true);
+                    // Note, index-wise bounds are [[0,1], [0,1], [1,1]]
+                    CHECK(bnode_ptr->get_value(state, 1) == 1.0);
+                    bnode_ptr->flip(state, 1);
                     CHECK(bnode_ptr->get_value(state, 1) == 0.0);
                 }
 
                 THEN("We can perform an unset()") {
-                    CHECK(bnode_ptr->unset(state, 1) == true);
+                    // Note, index-wise bounds are [[0,1], [0,1], [1,1]]
+                    CHECK(bnode_ptr->get_value(state, 1) == 1.0);
+                    bnode_ptr->unset(state, 1);
                     CHECK(bnode_ptr->get_value(state, 1) == 0.0);
                 }
 
-                THEN("We can perform an unset()") {
-                    CHECK(bnode_ptr->set(state, 0) == true);
+                THEN("We can perform a set()") {
+                    // Note, index-wise bounds are [[0,1], [0,1], [1,1]]
+                    CHECK(bnode_ptr->get_value(state, 0) == 0.0);
+                    bnode_ptr->set(state, 0);
                     CHECK(bnode_ptr->get_value(state, 0) == 1.0);
                 }
 
                 THEN("We can perform an exchange()") {
-                    CHECK(bnode_ptr->exchange(state, 0, 1) == true);
+                    // Note, index-wise bounds are [[0,1], [0,1], [1,1]]
+                    CHECK(bnode_ptr->get_value(state, 0) == 0.0);
+                    CHECK(bnode_ptr->get_value(state, 1) == 1.0);
+                    bnode_ptr->exchange(state, 0, 1);
                     CHECK(bnode_ptr->get_value(state, 0) == 1.0);
                     CHECK(bnode_ptr->get_value(state, 1) == 0.0);
                 }
@@ -389,6 +385,7 @@ TEST_CASE("BinaryNode") {
             bnode_ptr->clip_and_set_value(state, 2, 2);
 
             THEN("Clip set the values correctly") {
+                // Note, index-wise bounds are [[0,1], [0,1], [1,1]]
                 CHECK(bnode_ptr->get_value(state, 0) == 0);
                 CHECK(bnode_ptr->get_value(state, 1) == 0);
                 CHECK(bnode_ptr->get_value(state, 2) == 1);
@@ -397,8 +394,7 @@ TEST_CASE("BinaryNode") {
     }
 
     GIVEN("Binary node with index-wise upper bound and general lower bound") {
-        auto bnode_ptr = graph.emplace_node<dwave::optimization::BinaryNode>(
-                2, -2.0, std::vector<double>{0.0, 1.1});
+        auto bnode_ptr = graph.emplace_node<BinaryNode>(2, -2.0, std::vector<double>{0.0, 1.1});
 
         THEN("The max, min, and bounds are correct") {
             CHECK(bnode_ptr->max() == 1.0);
@@ -414,8 +410,7 @@ TEST_CASE("BinaryNode") {
     }
 
     GIVEN("Binary node with index-wise lower bound and general upper bound") {
-        auto bnode_ptr = graph.emplace_node<dwave::optimization::BinaryNode>(
-                2, std::vector<double>{-1.0, 1.0}, 100.0);
+        auto bnode_ptr = graph.emplace_node<BinaryNode>(2, std::vector<double>{-1.0, 1.0}, 100.0);
 
         THEN("The max, min, and bounds are correct") {
             CHECK(bnode_ptr->max() == 1.0);
@@ -431,18 +426,18 @@ TEST_CASE("BinaryNode") {
     }
 
     GIVEN("Binary node with invalid index-wise lower bounds at index 0") {
-        REQUIRE_THROWS(graph.emplace_node<dwave::optimization::BinaryNode>(
-                2, std::vector<double>{2, 0}, std::vector<double>{1, 1}));
+        REQUIRE_THROWS(graph.emplace_node<BinaryNode>(2, std::vector<double>{2, 0},
+                                                      std::vector<double>{1, 1}));
     }
 
     GIVEN("Binary node with invalid index-wise upper bounds at index 1") {
-        REQUIRE_THROWS(graph.emplace_node<dwave::optimization::BinaryNode>(
-                2, std::vector<double>{0, 0}, std::vector<double>{1, -1}));
+        REQUIRE_THROWS(graph.emplace_node<BinaryNode>(2, std::vector<double>{0, 0},
+                                                      std::vector<double>{1, -1}));
     }
 
     GIVEN("Invalid dynamically sized BinaryNode") {
         REQUIRE_THROWS_WITH(graph.emplace_node<BinaryNode>(std::initializer_list<ssize_t>{-1, 2}),
-                            "NumberNode cannot have dynamic size.");
+                            "Number array cannot have dynamic size.");
     }
 }
 
@@ -537,8 +532,8 @@ TEST_CASE("IntegerNode") {
     }
 
     GIVEN("Integer node with index-wise bounds") {
-        auto inode_ptr = graph.emplace_node<dwave::optimization::IntegerNode>(
-                3, std::vector<double>{-1, 3, 5}, std::vector<double>{1, 7, 7});
+        auto inode_ptr = graph.emplace_node<IntegerNode>(3, std::vector<double>{-1, 3, 5},
+                                                         std::vector<double>{1, 7, 7});
 
         THEN("The shape, max, min, and bounds are correct") {
             CHECK(inode_ptr->size() == 3);
@@ -559,15 +554,14 @@ TEST_CASE("IntegerNode") {
 
         AND_WHEN("We set the state at one of the indices") {
             auto state = graph.initialize_state();
-            THEN("An exception is raised if it's out of bounds") {
-                REQUIRE_THROWS(inode_ptr->set_value(state, 2, -1.0));
+
+            // Note, index-wise bounds are [[-1,1], [3,7], [5,7]]
+            inode_ptr->set_value(state, 2, 6.0);
+
+            THEN("The value is correct") {
+                CHECK(inode_ptr->diff(state).size() == 1);
+                CHECK(inode_ptr->get_value(state, 2) == 6.0);
             }
-
-            THEN("The value is within bounds") { CHECK(inode_ptr->is_valid(2, 6.0)); }
-
-            CHECK(inode_ptr->set_value(state, 2, 6.0) == true);
-
-            THEN("The value is correct") { CHECK(inode_ptr->get_value(state, 2) == 6.0); }
         }
 
         AND_WHEN("We set the state at the indices using clip") {
@@ -578,6 +572,7 @@ TEST_CASE("IntegerNode") {
             inode_ptr->clip_and_set_value(state, 2, 9);
 
             THEN("Clip set the values correctly") {
+                // Note, index-wise bounds are [[-1,1], [3,7], [5,7]]
                 CHECK(inode_ptr->get_value(state, 0) == -1);
                 CHECK(inode_ptr->get_value(state, 1) == 5);
                 CHECK(inode_ptr->get_value(state, 2) == 7);
@@ -586,12 +581,11 @@ TEST_CASE("IntegerNode") {
             AND_THEN("We commit the state") {
                 graph.commit(state);
 
-                THEN("We cannot exchange() outside of bounds") {
-                    CHECK(inode_ptr->exchange(state, 0, 2) == false);
-                }
-
                 THEN("We can exchange() within bounds") {
-                    CHECK(inode_ptr->exchange(state, 1, 2) == true);
+                    // Note, index-wise bounds are [[-1,1], [3,7], [5,7]]
+                    CHECK(inode_ptr->get_value(state, 1) == 5);
+                    CHECK(inode_ptr->get_value(state, 2) == 7);
+                    inode_ptr->exchange(state, 1, 2);
                     CHECK(inode_ptr->get_value(state, 1) == 7);
                     CHECK(inode_ptr->get_value(state, 2) == 5);
                 }
@@ -600,8 +594,7 @@ TEST_CASE("IntegerNode") {
     }
 
     GIVEN("Integer node with index-wise upper bound and general integer lower bound") {
-        auto inode_ptr = graph.emplace_node<dwave::optimization::IntegerNode>(
-                2, 10, std::vector<double>{20, 10});
+        auto inode_ptr = graph.emplace_node<IntegerNode>(2, 10, std::vector<double>{20, 10});
 
         THEN("The max, min, and bounds are correct") {
             CHECK(inode_ptr->max() == 20.0);
@@ -617,8 +610,8 @@ TEST_CASE("IntegerNode") {
     }
 
     GIVEN("Integer node with invalid index-wise bounds at index 0") {
-        REQUIRE_THROWS(graph.emplace_node<dwave::optimization::IntegerNode>(
-                2, std::vector<double>{19, 12}, std::vector<double>{20, 11}));
+        REQUIRE_THROWS(graph.emplace_node<IntegerNode>(2, std::vector<double>{19, 12},
+                                                       std::vector<double>{20, 11}));
     }
 
     GIVEN("An Integer Node representing an 1d array of 10 elements with lower bound -10") {
@@ -681,14 +674,14 @@ TEST_CASE("IntegerNode") {
 
             THEN("We can read the state") { CHECK(std::ranges::equal(ptr->view(state), vec_d)); }
 
-            WHEN("We set all the elements to different values") {
+            WHEN("We set half the elements to 9 and leave the other half unchange") {
                 auto initial_state = vec_d;
-                auto set_count = 0;
                 std::vector<double> new_values;
                 auto view = ptr->view(state);
                 for (int i = 0, stop = ptr->size(); i < stop; ++i) {
                     double new_val = (i % 2) ? 9 : view[i];
-                    set_count += ptr->set_value(state, i, new_val);
+                    // Note, index-wise bounds are all [-10, 2000000000]
+                    ptr->set_value(state, i, new_val);
                     new_values.push_back(new_val);
                 }
 
@@ -697,7 +690,7 @@ TEST_CASE("IntegerNode") {
                 }
 
                 THEN("The number of elements set is correct") {
-                    CHECK(set_count == ptr->size() / 2);
+                    CHECK(static_cast<ssize_t>(ptr->diff(state).size()) == ptr->size() / 2);
                 }
 
                 WHEN("We revert") {
@@ -711,10 +704,10 @@ TEST_CASE("IntegerNode") {
 
             WHEN("We exchange the elements") {
                 auto initial_state = vec_d;
-                auto exchange_count = 0;
-                auto exchange_count_ground = 0;
+                int exchange_count_ground = 0;
                 for (int i = 0, stop = ptr->size() - 1; i < stop; ++i) {
-                    exchange_count += ptr->exchange(state, i, i + 1);
+                    // Note, index-wise bounds are all [-10, 2000000000]
+                    ptr->exchange(state, i, i + 1);
                     std::swap(vec_d[i], vec_d[i + 1]);
                     exchange_count_ground += (vec_d[i] != vec_d[i + 1]);
                 }
@@ -724,7 +717,8 @@ TEST_CASE("IntegerNode") {
                 }
 
                 THEN("The number of effective exchanges are correct") {
-                    CHECK(exchange_count == exchange_count_ground);
+                    // Two updates per exchange
+                    CHECK(static_cast<int>(ptr->diff(state).size()) == 2 * exchange_count_ground);
                 }
 
                 WHEN("We revert") {
@@ -740,7 +734,7 @@ TEST_CASE("IntegerNode") {
 
     GIVEN("Invalid dynamically sized IntegerNode") {
         REQUIRE_THROWS_WITH(graph.emplace_node<IntegerNode>(std::initializer_list<ssize_t>{-1, 3}),
-                            "NumberNode cannot have dynamic size.");
+                            "Number array cannot have dynamic size.");
     }
 }
 

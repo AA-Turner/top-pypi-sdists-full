@@ -33194,6 +33194,12 @@ class DefaultApi(object):
         :param str cloud_id: cloud_id to filter by
         :param str job_queue_id: job_queue_id to filter by
         :param list[str] tag_filter: Repeatable filter of tags in the form key:value. Can be specified multiple times. Values with the same key are ORed; keys are ANDed.
+        :param datetime created_at_from: Filter for jobs created at or after this time (inclusive). If not set, no lower bound is applied.
+        :param datetime created_at_to: Filter for jobs created at or before this time (inclusive). If not set, no upper bound is applied.
+        :param datetime updated_at_from: Filter for jobs last updated at or after this time (inclusive). If not set, no lower bound is applied.
+        :param datetime updated_at_to: Filter for jobs last updated at or before this time (inclusive). If not set, no upper bound is applied.
+        :param datetime status_updated_at_from: Filter for jobs whose status was last updated at or after this time (inclusive). If not set, no lower bound is applied.
+        :param datetime status_updated_at_to: Filter for jobs whose status was last updated at or before this time (inclusive). If not set, no upper bound is applied.
         :param int count_limit: When set, skip expensive COUNT if total exceeds this limit. total will be null in the response when exceeded.
         :param HaJobsSortField sort_field: If absent, the sort order will be determined according to the type_filter.
         :param SortOrder sort_order: If sort_field is absent, this field is ignored.If absent, this field defaults to ascending.
@@ -33233,6 +33239,12 @@ class DefaultApi(object):
         :param str cloud_id: cloud_id to filter by
         :param str job_queue_id: job_queue_id to filter by
         :param list[str] tag_filter: Repeatable filter of tags in the form key:value. Can be specified multiple times. Values with the same key are ORed; keys are ANDed.
+        :param datetime created_at_from: Filter for jobs created at or after this time (inclusive). If not set, no lower bound is applied.
+        :param datetime created_at_to: Filter for jobs created at or before this time (inclusive). If not set, no upper bound is applied.
+        :param datetime updated_at_from: Filter for jobs last updated at or after this time (inclusive). If not set, no lower bound is applied.
+        :param datetime updated_at_to: Filter for jobs last updated at or before this time (inclusive). If not set, no upper bound is applied.
+        :param datetime status_updated_at_from: Filter for jobs whose status was last updated at or after this time (inclusive). If not set, no lower bound is applied.
+        :param datetime status_updated_at_to: Filter for jobs whose status was last updated at or before this time (inclusive). If not set, no upper bound is applied.
         :param int count_limit: When set, skip expensive COUNT if total exceeds this limit. total will be null in the response when exceeded.
         :param HaJobsSortField sort_field: If absent, the sort order will be determined according to the type_filter.
         :param SortOrder sort_order: If sort_field is absent, this field is ignored.If absent, this field defaults to ascending.
@@ -33266,6 +33278,12 @@ class DefaultApi(object):
             'cloud_id',
             'job_queue_id',
             'tag_filter',
+            'created_at_from',
+            'created_at_to',
+            'updated_at_from',
+            'updated_at_to',
+            'status_updated_at_from',
+            'status_updated_at_to',
             'count_limit',
             'sort_field',
             'sort_order',
@@ -33323,6 +33341,18 @@ class DefaultApi(object):
         if 'tag_filter' in local_var_params and local_var_params['tag_filter'] is not None:  # noqa: E501
             query_params.append(('tag_filter', local_var_params['tag_filter']))  # noqa: E501
             collection_formats['tag_filter'] = 'multi'  # noqa: E501
+        if 'created_at_from' in local_var_params and local_var_params['created_at_from'] is not None:  # noqa: E501
+            query_params.append(('created_at_from', local_var_params['created_at_from']))  # noqa: E501
+        if 'created_at_to' in local_var_params and local_var_params['created_at_to'] is not None:  # noqa: E501
+            query_params.append(('created_at_to', local_var_params['created_at_to']))  # noqa: E501
+        if 'updated_at_from' in local_var_params and local_var_params['updated_at_from'] is not None:  # noqa: E501
+            query_params.append(('updated_at_from', local_var_params['updated_at_from']))  # noqa: E501
+        if 'updated_at_to' in local_var_params and local_var_params['updated_at_to'] is not None:  # noqa: E501
+            query_params.append(('updated_at_to', local_var_params['updated_at_to']))  # noqa: E501
+        if 'status_updated_at_from' in local_var_params and local_var_params['status_updated_at_from'] is not None:  # noqa: E501
+            query_params.append(('status_updated_at_from', local_var_params['status_updated_at_from']))  # noqa: E501
+        if 'status_updated_at_to' in local_var_params and local_var_params['status_updated_at_to'] is not None:  # noqa: E501
+            query_params.append(('status_updated_at_to', local_var_params['status_updated_at_to']))  # noqa: E501
         if 'count_limit' in local_var_params and local_var_params['count_limit'] is not None:  # noqa: E501
             query_params.append(('count_limit', local_var_params['count_limit']))  # noqa: E501
         if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501

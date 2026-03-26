@@ -61,9 +61,7 @@ class Policies(WMLResource):
         """
 
         response = self._client.httpx_client.delete(
-            self._client._href_definitions.get_gateway_policies_href()
-            + "/"
-            + policy_id,
+            self._client._href_definitions.get_gateway_policy_href(policy_id),
             headers=self._client._get_headers(),
         )
 

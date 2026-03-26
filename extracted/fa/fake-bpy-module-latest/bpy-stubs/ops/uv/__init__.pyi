@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def align(
@@ -847,7 +848,7 @@ def select_lasso(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -1237,7 +1238,7 @@ def stitch(
     clear_seams: bool | None = True,
     mode: typing.Literal["VERTEX", "EDGE"] | None = "VERTEX",
     stored_mode: typing.Literal["VERTEX", "EDGE"] | None = "VERTEX",
-    selection=None,
+    selection: bpy.types.bpy_prop_collection[bpy.types.SelectedUvElement] | None = None,
     objects_selection_count: collections.abc.Sequence[int] | None = (0, 0, 0, 0, 0, 0),
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Stitch selected UV vertices by proximity

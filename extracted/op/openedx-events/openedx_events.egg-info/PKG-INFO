@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-events
-Version: 11.0.0
+Version: 11.1.0
 Summary: Open edX events from the Hooks Extensions Framework
 Home-page: https://github.com/openedx/openedx-events
 Author: edX
@@ -184,6 +184,14 @@ Change Log
 Unreleased
 __________
 
+
+[11.1.0] - 2026-03-19
+---------------------
+
+Added
+~~~~~
+
+* Added ``enabled`` field to ``CourseDiscussionConfigurationData`` to preserve course discussion enabled state during imports and reruns.
 
 [10.6.0] - 2026-03-09
 ---------------------

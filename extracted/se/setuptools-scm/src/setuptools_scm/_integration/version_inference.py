@@ -1,18 +1,110 @@
 from __future__ import annotations
 
+import logging
+import os
+
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 from typing import Any
-from typing import Union
+from typing import Protocol
+from typing import TypeAlias
 
 from setuptools import Distribution
+from vcs_versioning._pyproject_reading import PyProjectData
 
-from .. import _log
+from .build_py import VersionInferenceData
+from .build_py import set_version_inference_data
+from .pyproject_reading import should_infer
 
-if TYPE_CHECKING:
-    from .pyproject_reading import PyProjectData
+log = logging.getLogger(__name__)
 
-log = _log.log.getChild("version_inference")
+# Environment variable to control writing version files to the source tree
+# at inference time. By default, version files ARE written to source.
+# Set to "0"/"false"/"no" to disable (e.g., for read-only source trees).
+WRITE_TO_SOURCE_ENV_VAR = "SETUPTOOLS_SCM_WRITE_TO_SOURCE"
+
+
+def _should_write_to_source() -> bool:
+    """Check if version files should be written to source at inference time.
+
+    Returns True by default. Returns False only if SETUPTOOLS_SCM_WRITE_TO_SOURCE
+    is explicitly set to a falsy value ("0", "false", "no").
+    """
+    value = os.environ.get(WRITE_TO_SOURCE_ENV_VAR, "").lower()
+    if value in ("0", "false", "no"):
+        return False
+    return True
+
+
+def infer_version_with_config(
+    dist_name: str | None,
+    pyproject_data: PyProjectData,
+    overrides: dict[str, Any] | None = None,
+) -> VersionInferenceData:
+    """Infer version and return VersionInferenceData.
+
+    By default, version files are written to the source tree during inference.
+    This ensures they are available for editable installs and development workflows.
+
+    Version files are also written to the build directory during build_py
+    (for wheel builds and strict editable installs).
+
+    Set SETUPTOOLS_SCM_WRITE_TO_SOURCE=0 to disable writing to the source tree
+    (e.g., for read-only source directories like Bazel builds).
+
+    Returns:
+        VersionInferenceData containing version string, Configuration, and ScmVersion
+    """
+    from vcs_versioning._config import Configuration
+    from vcs_versioning._get_version_impl import _version_missing
+    from vcs_versioning._get_version_impl import parse_version
+    from vcs_versioning._get_version_impl import write_version_files
+    from vcs_versioning._version_schemes import format_version
+
+    config = Configuration.from_file(
+        dist_name=dist_name, pyproject_data=pyproject_data, **(overrides or {})
+    )
+
+    scm_version = parse_version(config)
+    if scm_version is None:
+        _version_missing(config)
+
+    version_string = format_version(scm_version)
+
+    if _should_write_to_source():
+        try:
+            write_version_files(config, version=version_string, scm_version=scm_version)
+        except OSError as e:
+            log.warning(
+                "Could not write version file to source tree: %s. "
+                "The file will still be written to the build directory during build.",
+                e,
+            )
+
+    return VersionInferenceData(
+        version=version_string,
+        config=config,
+        scm_version=scm_version,
+    )
+
+
+class VersionInferenceApplicable(Protocol):
+    """A result object from version inference decision that can be applied to a dist."""
+
+    def apply(self, dist: Distribution) -> None:  # pragma: no cover - structural type
+        ...
+
+
+class GetVersionInferenceConfig(Protocol):
+    """Callable protocol for the decision function used by integration points."""
+
+    def __call__(
+        self,
+        dist_name: str | None,
+        current_version: str | None,
+        pyproject_data: PyProjectData,
+        overrides: dict[str, object] | None = None,
+    ) -> VersionInferenceApplicable:  # pragma: no cover - structural type
+        ...
 
 
 @dataclass
@@ -24,14 +116,24 @@ class VersionInferenceConfig:
     overrides: dict[str, Any] | None
 
     def apply(self, dist: Distribution) -> None:
-        """Apply version inference to the distribution."""
-        version_string = infer_version_string(
+        """Apply version inference to the distribution.
+
+        Version files are written to the source tree by default (unless
+        SETUPTOOLS_SCM_WRITE_TO_SOURCE=0). The version inference data is also
+        stored on the distribution for build_py to write to the build directory.
+        """
+        data = infer_version_with_config(
             self.dist_name,
             self.pyproject_data,  # type: ignore[arg-type]
             self.overrides,
-            force_write_version_files=True,
         )
-        dist.metadata.version = version_string
+        dist.metadata.version = data.version
+
+        # Store version inference data for build_py to write to build directory
+        set_version_inference_data(dist, data)
+        log.debug(
+            "Stored version inference data for build_py: version=%s", data.version
+        )
 
         # Mark that this version was set by infer_version if overrides is None (infer_version context)
         if self.overrides is None:
@@ -39,16 +141,16 @@ class VersionInferenceConfig:
 
 
 @dataclass
-class VersionInferenceWarning:
-    """Error message for user."""
+class VersionAlreadySetWarning:
+    """Warning that version was already set, inference would override it."""
 
-    message: str
+    dist_name: str | None
 
     def apply(self, dist: Distribution) -> None:
-        """Apply error handling to the distribution."""
+        """Warn user that version is already set."""
         import warnings
 
-        warnings.warn(self.message)
+        warnings.warn(f"version of {self.dist_name} already set")
 
 
 @dataclass(frozen=True)
@@ -59,11 +161,11 @@ class VersionInferenceNoOp:
         """Apply no-op to the distribution."""
 
 
-VersionInferenceResult = Union[
-    VersionInferenceConfig,  # Proceed with inference
-    VersionInferenceWarning,  # Show warning
-    VersionInferenceNoOp,  # Don't infer (silent)
-]
+VersionInferenceResult: TypeAlias = (
+    VersionInferenceConfig  # Proceed with inference
+    | VersionAlreadySetWarning  # Warn: version already set
+    | VersionInferenceNoOp  # Don't infer (silent)
+)
 
 
 def infer_version_string(
@@ -87,20 +189,17 @@ def infer_version_string(
     Returns:
         The computed version string.
     """
-    from .. import _config as _config_module
-    from .._get_version_impl import _get_version
-    from .._get_version_impl import _version_missing
-
-    config = _config_module.Configuration.from_file(
-        dist_name=dist_name, pyproject_data=pyproject_data, **(overrides or {})
+    from vcs_versioning._version_inference import (
+        infer_version_string as _vcs_infer_version_string,
     )
 
-    maybe_version = _get_version(
-        config, force_write_version_files=force_write_version_files
+    # Delegate to vcs_versioning implementation
+    return _vcs_infer_version_string(
+        dist_name,
+        pyproject_data,
+        overrides,
+        force_write_version_files=force_write_version_files,
     )
-    if maybe_version is None:
-        _version_missing(config)
-    return maybe_version
 
 
 def get_version_inference_config(
@@ -128,14 +227,12 @@ def get_version_inference_config(
         overrides=overrides,
     )
 
-    inference_implied = pyproject_data.should_infer() or overrides is not None
+    inference_implied = should_infer(pyproject_data) or overrides is not None
 
     if inference_implied:
         if current_version is None:
             return config
         else:
-            return VersionInferenceWarning(
-                f"version of {dist_name} already set",
-            )
+            return VersionAlreadySetWarning(dist_name)
     else:
         return VersionInferenceNoOp()

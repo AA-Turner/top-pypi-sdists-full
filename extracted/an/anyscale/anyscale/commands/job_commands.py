@@ -70,6 +70,12 @@ def _print_job_list_diagnostics(  # noqa: PLR0913
     interactive: bool,
     page_size: int,
     effective_max: Optional[int],
+    created_at_from: Optional[str] = None,
+    created_at_to: Optional[str] = None,
+    updated_at_from: Optional[str] = None,
+    updated_at_to: Optional[str] = None,
+    status_updated_at_from: Optional[str] = None,
+    status_updated_at_to: Optional[str] = None,
 ) -> None:
     """Prints diagnostic information for the list command."""
     stderr.print("[bold]Listing jobs with:[/]")
@@ -83,6 +89,12 @@ def _print_job_list_diagnostics(  # noqa: PLR0913
         f"• states          = {', '.join(str(s) for s in states) if states else '<all>'}"
     )
     stderr.print(f"• tags            = {', '.join(tags) if tags else '<none>'}")
+    stderr.print(f"• created_at_from    = {created_at_from or '<any>'}")
+    stderr.print(f"• created_at_to      = {created_at_to or '<any>'}")
+    stderr.print(f"• updated_at_from    = {updated_at_from or '<any>'}")
+    stderr.print(f"• updated_at_to      = {updated_at_to or '<any>'}")
+    stderr.print(f"• status_updated_at_from = {status_updated_at_from or '<any>'}")
+    stderr.print(f"• status_updated_at_to   = {status_updated_at_to or '<any>'}")
     stderr.print(f"• sort            = {sort or '<none>'}")
     stderr.print(f"• mode            = {'interactive' if interactive else 'batch'}")
     stderr.print(f"• per-page limit  = {page_size}")
@@ -543,13 +555,13 @@ def _create_jobs_table_v2(is_first: bool) -> Table:
 
 
 def _format_job_row_v2(job: JobStatus) -> Dict[str, Any]:
-    """Format a JobStatus for table row or JSON output.
+    """Format a JobStatus for table row display.
 
     Args:
         job: The JobStatus object to format.
 
     Returns:
-        Dictionary with formatted job data.
+        Dictionary with formatted job data (6 table-visible fields only).
     """
     entrypoint = ""
     if job.config and job.config.entrypoint:
@@ -566,6 +578,31 @@ def _format_job_row_v2(job: JobStatus) -> Dict[str, Any]:
         "created_at": job.created_at.isoformat() if job.created_at else "",
         "project": job.config.project if job.config else "",
         "entrypoint": entrypoint,
+    }
+
+
+def _format_job_json_v2(job: JobStatus) -> Dict[str, Any]:
+    """Format a JobStatus for JSON output.
+
+    Args:
+        job: The JobStatus object to format.
+
+    Returns:
+        Dictionary with all job fields including timestamps.
+    """
+    return {
+        "id": job.id,
+        "name": job.name,
+        "state": str(job.state),
+        "entrypoint": job.config.entrypoint
+        if job.config and job.config.entrypoint
+        else "",
+        "project": job.config.project if job.config else "",
+        "created_at": job.created_at.isoformat() if job.created_at else "",
+        "updated_at": job.updated_at.isoformat() if job.updated_at else "",
+        "status_updated_at": job.status_updated_at.isoformat()
+        if job.status_updated_at
+        else "",
     }
 
 
@@ -694,6 +731,42 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
     ),
 )
 @click.option(
+    "--created-at-from",
+    required=False,
+    default=None,
+    help="Filter for jobs created at or after this time (ISO 8601, e.g. 2024-01-01T00:00:00Z). Only with --v2.",
+)
+@click.option(
+    "--created-at-to",
+    required=False,
+    default=None,
+    help="Filter for jobs created at or before this time (ISO 8601, e.g. 2024-12-31T23:59:59Z). Only with --v2.",
+)
+@click.option(
+    "--updated-at-from",
+    required=False,
+    default=None,
+    help="Filter for jobs last updated at or after this time (ISO 8601, e.g. 2024-01-01T00:00:00Z). Only with --v2.",
+)
+@click.option(
+    "--updated-at-to",
+    required=False,
+    default=None,
+    help="Filter for jobs last updated at or before this time (ISO 8601, e.g. 2024-12-31T23:59:59Z). Only with --v2.",
+)
+@click.option(
+    "--status-updated-at-from",
+    required=False,
+    default=None,
+    help="Filter for jobs whose status was last updated at or after this time (ISO 8601, e.g. 2024-01-01T00:00:00Z). Only with --v2.",
+)
+@click.option(
+    "--status-updated-at-to",
+    required=False,
+    default=None,
+    help="Filter for jobs whose status was last updated at or before this time (ISO 8601, e.g. 2024-12-31T23:59:59Z). Only with --v2.",
+)
+@click.option(
     "--json",
     "-j",
     "json_output",
@@ -721,6 +794,12 @@ def list(  # noqa: A001 PLR0913 PLR0912
     tags: List[str],
     page_size: Optional[int],
     sort: Optional[str],
+    created_at_from: Optional[str],
+    created_at_to: Optional[str],
+    updated_at_from: Optional[str],
+    updated_at_to: Optional[str],
+    status_updated_at_from: Optional[str],
+    status_updated_at_to: Optional[str],
     json_output: bool,
     interactive: bool,
 ) -> None:
@@ -788,6 +867,12 @@ def list(  # noqa: A001 PLR0913 PLR0912
                 interactive=interactive,
                 page_size=effective_page_size,
                 effective_max=effective_max if not interactive else None,
+                created_at_from=created_at_from,
+                created_at_to=created_at_to,
+                updated_at_from=updated_at_from,
+                updated_at_to=updated_at_to,
+                status_updated_at_from=status_updated_at_from,
+                status_updated_at_to=status_updated_at_to,
             )
 
         iterator = anyscale.job.list(
@@ -803,12 +888,18 @@ def list(  # noqa: A001 PLR0913 PLR0912
             max_items=effective_max if not interactive else None,
             sort_field=sort_field,
             sort_order=sort_order,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
+            updated_at_from=updated_at_from,
+            updated_at_to=updated_at_to,
+            status_updated_at_from=status_updated_at_from,
+            status_updated_at_to=status_updated_at_to,
         )
 
         console = Console()
         total = display_list(
             iterator=iterator,
-            item_formatter=_format_job_row_v2,
+            item_formatter=_format_job_json_v2 if json_output else _format_job_row_v2,
             table_creator=_create_jobs_table_v2,
             json_output=json_output,
             page_size=effective_page_size,

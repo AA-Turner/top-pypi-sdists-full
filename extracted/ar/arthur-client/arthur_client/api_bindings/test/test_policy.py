@@ -43,7 +43,7 @@ class TestPolicy(unittest.TestCase):
                 description = '',
                 owner_group_id = '',
                 webhook_id = '',
-                grace_period_days = 56,
+                enforcement_delay_days = 56,
                 alert_rules = [
                     arthur_client.api_bindings.models.policy_alert_rule.PolicyAlertRule(
                         created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -65,7 +65,7 @@ class TestPolicy(unittest.TestCase):
                         policy_id = '', 
                         name = '', 
                         description = '', 
-                        interval_days = 56, )
+                        validity_period_days = 56, )
                     ],
                 last_updated_by_user_id = ''
             )
@@ -78,7 +78,7 @@ class TestPolicy(unittest.TestCase):
                 name = '',
                 owner_group_id = '',
                 webhook_id = '',
-                grace_period_days = 56,
+                enforcement_delay_days = 56,
                 alert_rules = [
                     arthur_client.api_bindings.models.policy_alert_rule.PolicyAlertRule(
                         created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -100,7 +100,7 @@ class TestPolicy(unittest.TestCase):
                         policy_id = '', 
                         name = '', 
                         description = '', 
-                        interval_days = 56, )
+                        validity_period_days = 56, )
                     ],
         )
         """

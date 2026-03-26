@@ -4,7 +4,7 @@
 na_ontap_snapmirror
 '''
 
-# (c) 2018-2025, NetApp, Inc
+# (c) 2018-2026, NetApp, Inc
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
@@ -121,6 +121,7 @@ options:
     description:
      - Specifies the upper bound, in kilobytes per second, at which data is transferred.
      - Default is unlimited, it can be explicitly set to 0 as unlimited.
+     - Not supported with REST.
     type: int
     version_added: 2.9.0
   initialize:
@@ -161,6 +162,7 @@ options:
      - Specifies whether or not the identity of the source Vserver is replicated to the destination Vserver.
      - If this parameter is set to true, the source Vserver's configuration will additionally be replicated to the destination.
      - If the parameter is set to false, then only the source Vserver's volumes and RBAC configuration are replicated to the destination.
+     - Not supported with REST.
     type: bool
     version_added: 2.9.0
   create_destination:
@@ -334,6 +336,43 @@ options:
       - Only supported with REST.
     type: bool
     version_added: 23.1.0
+  time_out:
+    version_added: 23.4.0
+    description:
+      - With C(wait_for_completion) set, specifies time to wait for snapmirror operation in seconds.
+      - Only supported with REST.
+    type: int
+    default: 30
+  wait_for_completion:
+    version_added: 23.4.0
+    description:
+      - Set this parameter to 'true' for synchronous execution.
+      - For asynchronous, execution exits as soon as the request is sent, and the operation continues in the background.
+      - Only supported with REST.
+    type: bool
+    default: true
+
+  lambda_config:
+    description:
+      - Configuration parameters for AWS Lambda proxy functionality.
+      - These option and suboptions are only supported with REST.
+    type: dict
+    version_added: 23.4.0
+    suboptions:
+      function_name:
+        description:
+          - The name of the AWS Lambda function to invoke.
+        type: str
+        required: true
+      aws_region:
+        description:
+          - The name of the AWS region.
+        type: str
+        required: true
+      aws_profile:
+        description:
+          - The name of the AWS profile to use for authentication.
+        type: str
 
 short_description: "NetApp ONTAP or ElementSW Manage SnapMirror"
 version_added: 2.7.0
@@ -344,6 +383,7 @@ notes:
   - snapmirror runs on the destination for most operations, peer_options identify the source cluster.
   - ONTAP supports either username/password or a SSL certificate for authentication.
   - ElementSW only supports username/password for authentication.
+  - Supports AWS Lambda proxy functionality when using REST. See README for example usage.
 '''
 
 EXAMPLES = """
@@ -359,6 +399,8 @@ EXAMPLES = """
     policy: MirrorAllSnapshots
     max_transfer_rate: 1000
     initialize: false
+    wait_for_completion: true
+    time_out: 90
     hostname: "{{ destination_cluster_hostname }}"
     username: "{{ destination_cluster_username }}"
     password: "{{ destination_cluster_password }}"
@@ -602,7 +644,12 @@ class NetAppONTAPSnapmirror(object):
             clean_up_failure=dict(required=False, type='bool', default=False),
             validate_source_path=dict(required=False, type='bool', default=True),
             quick_resync=dict(required=False, type='bool'),
+            time_out=dict(required=False, type='int', default=30),
+            wait_for_completion=dict(required=False, type='bool', default=True),
         ))
+        self.argument_spec.update(netapp_utils.na_ontap_lambda_argument_spec())
+        # Add Lambda support to peer_options
+        self.argument_spec['peer_options']['options'].update(netapp_utils.na_ontap_lambda_argument_spec())
 
         self.module = AnsibleModule(
             argument_spec=self.argument_spec,
@@ -619,6 +666,9 @@ class NetAppONTAPSnapmirror(object):
                 ('peer_options', 'source_username'),
                 ('peer_options', 'source_password'),
                 ('identity_preserve', 'identity_preservation')
+            ],
+            required_if=[
+                ['use_lambda', True, ('lambda_config',)]
             ],
             required_together=(['source_volume', 'destination_volume'],
                                ['source_vserver', 'destination_vserver'],
@@ -644,6 +694,8 @@ class NetAppONTAPSnapmirror(object):
         self.set_source_peer()
         self.rest_api, self.use_rest = self.setup_rest()
         if not self.use_rest:
+            if self.parameters.get('use_lambda'):
+                self.module.fail_json(msg="Error: AWS Lambda proxy for ONTAP APIs is only supported with REST.")
             self.server = self.setup_zapi()
 
     def set_source_peer(self):
@@ -691,6 +743,8 @@ class NetAppONTAPSnapmirror(object):
         return rest_api, use_rest
 
     def setup_zapi(self):
+        if 'wait_for_completion' in self.parameters or 'time_out' in self.parameters:
+            self.module.warn("'wait_for_completion' and 'time_out' parameters are only supported when using REST.")
         if self.parameters.get('identity_preservation'):
             self.module.fail_json(msg="Error: The option identity_preservation is supported only with REST.")
         if not netapp_utils.has_netapp_lib():
@@ -1393,7 +1447,8 @@ class NetAppONTAPSnapmirror(object):
         # if the source_hostname is unknown, do not run snapmirror_restore
         body = {'destination.path': self.parameters['destination_path'], 'source.path': self.parameters['source_path'], 'restore': 'true'}
         api = 'snapmirror/relationships'
-        dummy, error = rest_generic.post_async(self.rest_api, api, body, timeout=120)
+        timeout = 30 if not self.parameters['wait_for_completion'] else self.parameters['time_out']
+        dummy, error = rest_generic.post_async(self.rest_api, api, body, timeout=timeout, job_timeout=timeout)
         if error:
             self.module.fail_json(msg='Error restoring SnapMirror: %s' % to_native(error), exception=traceback.format_exc())
         relationship_uuid = self.get_relationship_uuid()
@@ -1403,7 +1458,8 @@ class NetAppONTAPSnapmirror(object):
 
         body = {'source_snapshot': self.parameters['source_snapshot']} if self.parameters.get('source_snapshot') else {}
         api = 'snapmirror/relationships/%s/transfers' % relationship_uuid
-        dummy, error = rest_generic.post_async(self.rest_api, api, body, timeout=60, job_timeout=120)
+        timeout = 30 if not self.parameters['wait_for_completion'] else self.parameters['time_out']
+        dummy, error = rest_generic.post_async(self.rest_api, api, body, timeout=timeout, job_timeout=timeout)
         if error:
             self.module.fail_json(msg='Error restoring SnapMirror Transfer: %s' % to_native(error), exception=traceback.format_exc())
 
@@ -1444,7 +1500,9 @@ class NetAppONTAPSnapmirror(object):
             self.na_helper.changed = False
             return
         api = 'snapmirror/relationships'
-        dummy, error = rest_generic.patch_async(self.rest_api, api, uuid, body)
+        query = {'return_timeout': 0} if not self.parameters['wait_for_completion'] else None
+        timeout = 30 if not self.parameters['wait_for_completion'] else self.parameters['time_out']
+        dummy, error = rest_generic.patch_async(self.rest_api, api, uuid, body, query, job_timeout=timeout)
         if error:
             msg = 'Error patching SnapMirror: %s: %s' % (body, to_native(error))
             if before_delete:
@@ -1461,7 +1519,9 @@ class NetAppONTAPSnapmirror(object):
             self.module.fail_json(msg="Error in updating SnapMirror relationship: unable to get UUID for the SnapMirror relationship.")
         api = 'snapmirror/relationships/%s/transfers' % uuid
         body = {}
-        dummy, error = rest_generic.post_async(self.rest_api, api, body)
+        query = {'return_timeout': 0} if not self.parameters['wait_for_completion'] else None
+        timeout = 30 if not self.parameters['wait_for_completion'] else self.parameters['time_out']
+        dummy, error = rest_generic.post_async(self.rest_api, api, body, query, job_timeout=timeout)
         if error:
             self.module.fail_json(msg='Error updating SnapMirror relationship: %s:' % to_native(error), exception=traceback.format_exc())
 
@@ -1498,10 +1558,11 @@ class NetAppONTAPSnapmirror(object):
         if uuid is None:
             self.module.fail_json(msg='Error in deleting SnapMirror: %s, unable to get UUID for the SnapMirror relationship.' % uuid)
         api = 'snapmirror/relationships'
-        query = dict(return_timeout=120)
+        query = {'return_timeout': 0} if not self.parameters['wait_for_completion'] else None
+        timeout = 30 if not self.parameters['wait_for_completion'] else self.parameters['time_out']
         retry = 3
         while retry > 0:
-            dummy, error = rest_generic.delete_async(self.rest_api, api, uuid, query)
+            dummy, error = rest_generic.delete_async(self.rest_api, api, uuid, query, job_timeout=timeout)
             if error and 'Timeout error: Process still running' in error:
                 time.sleep(120)
                 retry -= 1
@@ -1519,7 +1580,9 @@ class NetAppONTAPSnapmirror(object):
         """
         body, initialized = self.get_create_body()
         api = 'snapmirror/relationships'
-        dummy, error = rest_generic.post_async(self.rest_api, api, body, timeout=120)
+        query = {'return_timeout': 0} if not self.parameters['wait_for_completion'] else None
+        timeout = 30 if not self.parameters['wait_for_completion'] else self.parameters['time_out']
+        dummy, error = rest_generic.post_async(self.rest_api, api, body, query, timeout=timeout, job_timeout=timeout)
         if error:
             self.module.fail_json(msg='Error creating SnapMirror: %s' % to_native(error), exception=traceback.format_exc())
         if self.parameters['initialize']:

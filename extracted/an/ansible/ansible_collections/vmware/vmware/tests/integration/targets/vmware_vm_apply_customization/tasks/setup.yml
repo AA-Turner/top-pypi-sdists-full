@@ -59,6 +59,10 @@
     ansible_host_key_checking: false
     ansible_python_interpreter: /usr/bin/python
 
+- name: Pause for 15 seconds to ensure host is ready
+  ansible.builtin.pause:
+    seconds: 15
+
 # Unreachable errors kill the playbook, so we will handle them specifically
 - name: Check connection
   ansible.builtin.ping: {}

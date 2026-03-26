@@ -34,6 +34,7 @@ class StageExternalAzureArgs:
                  use_privatelink_endpoint: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a StageExternalAzure resource.
+
         :param pulumi.Input[_builtins.str] database: The database in which to create the stage. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] schema: The schema in which to create the stage. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] url: Specifies the URL for the Azure storage container (e.g., 'azure://account.blob.core.windows.net/container').
@@ -220,6 +221,7 @@ class _StageExternalAzureState:
                  use_privatelink_endpoint: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering StageExternalAzure resources.
+
         :param pulumi.Input[_builtins.str] cloud: Specifies a cloud provider for the stage. This field is used for checking external changes and recreating the resources if needed.
         :param pulumi.Input[_builtins.str] comment: Specifies a comment for the stage.
         :param pulumi.Input['StageExternalAzureCredentialsArgs'] credentials: Specifies the Azure SAS token credentials for the external stage.
@@ -490,6 +492,8 @@ class StageExternalAzure(pulumi.CustomResource):
 
         > **Note** Due to Snowflake limitations, when `directory.auto_refresh` is set to a new value in the configuration, the resource is recreated. When it is unset, the provider alters the whole `directory` field with the `enable` value from the configuration.
 
+        > **Note** If you experience persistent diffs after importing this resource, enable the `IMPORT_BOOLEAN_DEFAULT` experimental feature and reimport the resource for the fix to take effect. See the migration guide for details.
+
         Resource used to manage external Azure stages. For more information, check [external stage documentation](https://docs.snowflake.com/en/sql-reference/sql/create-stage#external-stage-parameters-externalstageparams).
 
         ## Example Usage
@@ -701,6 +705,7 @@ class StageExternalAzure(pulumi.CustomResource):
         ```sh
         $ pulumi import snowflake:index/stageExternalAzure:StageExternalAzure example '"<database_name>"."<schema_name>"."<stage_name>"'
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -731,6 +736,8 @@ class StageExternalAzure(pulumi.CustomResource):
 
         > **Note** Due to Snowflake limitations, when `directory.auto_refresh` is set to a new value in the configuration, the resource is recreated. When it is unset, the provider alters the whole `directory` field with the `enable` value from the configuration.
 
+        > **Note** If you experience persistent diffs after importing this resource, enable the `IMPORT_BOOLEAN_DEFAULT` experimental feature and reimport the resource for the fix to take effect. See the migration guide for details.
+
         Resource used to manage external Azure stages. For more information, check [external stage documentation](https://docs.snowflake.com/en/sql-reference/sql/create-stage#external-stage-parameters-externalstageparams).
 
         ## Example Usage
@@ -942,6 +949,7 @@ class StageExternalAzure(pulumi.CustomResource):
         ```sh
         $ pulumi import snowflake:index/stageExternalAzure:StageExternalAzure example '"<database_name>"."<schema_name>"."<stage_name>"'
         ```
+
 
         :param str resource_name: The name of the resource.
         :param StageExternalAzureArgs args: The arguments to use to populate this resource's properties.

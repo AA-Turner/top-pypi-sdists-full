@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import _bpy_types
+import bl_ui.utils
 import bpy.types
 import rna_prop_ui
 
@@ -289,6 +290,12 @@ class STRIP_PT_effect(StripButtonsPanel, _bpy_types.Panel):
         :param context:
         """
 
+    def draw_header_preset(self, context) -> None:
+        """
+
+        :param context:
+        """
+
     @classmethod
     def poll(cls, context) -> None:
         """
@@ -486,6 +493,28 @@ class STRIP_PT_effect_text_style(StripButtonsPanel, _bpy_types.Panel):
         """
 
         :param context:
+        """
+
+class STRIP_PT_effect_text_style_presets(bl_ui.utils.PresetPanel, _bpy_types.Panel):
+    bl_label: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+    preset_add_operator: typing.Any
+    preset_operator: typing.Any
+    preset_subdir: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
         """
 
 class STRIP_PT_mask(StripButtonsPanel, _bpy_types.Panel):

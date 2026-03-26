@@ -13,6 +13,7 @@ $spec = @{
         state = @{ type = "str"; choices = "absent", "present"; default = "present" }
         ttl = @{ type = "int"; default = "3600" }
         aging = @{ type = "bool"; default = $false }
+        allow_update_any = @{ type = "bool"; default = $false }
         type = @{ type = "str"; choices = "A", "AAAA", "CNAME", "DHCID", "NS", "PTR", "SRV", "TXT"; required = $true }
         value = @{ type = "list"; elements = "str"; default = @() ; aliases = @( 'values' ) }
         weight = @{ type = "int" }
@@ -31,6 +32,7 @@ $priority = $module.Params.priority
 $state = $module.Params.state
 $ttl = $module.Params.ttl
 $aging = $module.Params.aging
+$allow_update_any = $module.Params.allow_update_any
 $type = $module.Params.type
 $values = $module.Params.value
 $weight = $module.Params.weight
@@ -49,6 +51,9 @@ if ($null -ne $zone_scope) {
 }
 if ($aging -eq $true) {
     $extra_args_new_records.AgeRecord = $true
+}
+if ($allow_update_any -eq $true) {
+    $extra_args_new_records.AllowUpdateAny = $true
 }
 
 if ($state -eq 'present') {
@@ -134,7 +139,7 @@ if ($null -ne $records) {
                 $record_weight_old = $record.RecordData.Weight.ToString()
 
                 if ($record.TimeToLive -ne $ttl -or $port -ne $record_port_old -or $priority -ne $record_priority_old -or $weight -ne $record_weight_old) {
-                    $new_record = $record.Clone()
+                    $new_record = [CimInstance]::new($record)
                     $new_record.TimeToLive = $ttl
                     $new_record.RecordData.Port = $port
                     $new_record.RecordData.Priority = $priority
@@ -154,7 +159,7 @@ if ($null -ne $records) {
             else {
                 # This record matches one of the values; but does it match the TTL?
                 if ($record.TimeToLive -ne $ttl) {
-                    $new_record = $record.Clone()
+                    $new_record = [CimInstance]::new($record)
                     $new_record.TimeToLive = $ttl
                     Set-DnsServerResourceRecord -ZoneName $zone -OldInputObject $record -NewInputObject $new_record -WhatIf:$module.CheckMode @extra_args
                     $changes.before += "[$zone{0}] $($record.HostName) $($record.TimeToLive.TotalSeconds) IN $type $record_value`n" `
@@ -187,7 +192,7 @@ if ($null -ne $values -and $values.Count -gt 0) {
                 Add-DnsServerResourceRecord -SRV -Name $name -ZoneName $zone @srv_args @extra_args @extra_args_new_records -WhatIf:$module.CheckMode
             }
             else {
-                Add-DnsServerResourceRecord -Name $name -AllowUpdateAny -ZoneName $zone -TimeToLive $ttl @splat_args -WhatIf:$module.CheckMode `
+                Add-DnsServerResourceRecord -Name $name -ZoneName $zone -TimeToLive $ttl @splat_args -WhatIf:$module.CheckMode `
                     @extra_args @extra_args_new_records
             }
         }

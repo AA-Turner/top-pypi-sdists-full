@@ -40,7 +40,8 @@ class MSOTemplate:
                 self.template = self.mso.query_obj(self.template_path)
                 self.template_name = self.template.get("displayName")
                 self.template_type = self.template.get("templateType")
-                if template_type == "application":
+                self._set_deployment_properties()
+                if self.template_type == "application":
                     self._set_schema_properties()
             else:
                 self.mso.fail_json(
@@ -67,6 +68,7 @@ class MSOTemplate:
                 self.template = self.mso.query_obj(self.template_path)
                 self.template_id = self.template.get("templateId")
                 self.template_type = self.template.get("templateType")
+                self._set_deployment_properties()
                 if template_type == "application":
                     self._set_schema_properties()
 
@@ -95,6 +97,13 @@ class MSOTemplate:
         self.schema_name = self.template_summary.get("schemaName")
         self.schema_id = self.template_summary.get("schemaId")
         self.schema_path = "schemas/{0}".format(self.schema_id)
+
+    def _set_deployment_properties(self):
+        # "deploySummmary" is a typo in the API
+        # Checking both keys to be safe
+        deploy_summary = self.template_summary.get("deploySummmary", {}) or self.template_summary.get("deploySummary", {})
+        self.deploy_task_id = deploy_summary.get("teTaskId")
+        self.deployed_site_ids = [summary.get("siteId") for summary in deploy_summary.get("siteDeploymentSummaries", []) if summary.get("siteId") is not None]
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):
@@ -213,8 +222,8 @@ class MSOTemplate:
         vrf_objects = self.mso.query_objs(vrf_path)
         vrf_kv_list = [
             KVPair("name", vrf_dict.get("name")),
-            KVPair("templateName", vrf_dict.get("template")),
-            KVPair("schemaName", vrf_dict.get("schema")),
+            KVPair("templateId", vrf_dict.get("template_id")) if vrf_dict.get("template_id") else KVPair("templateName", vrf_dict.get("template")),
+            KVPair("schemaId", vrf_dict.get("schema_id")) if vrf_dict.get("schema_id") else KVPair("schemaName", vrf_dict.get("schema")),
             KVPair("tenantId", tenant_id),
         ]
 
@@ -224,6 +233,25 @@ class MSOTemplate:
             return vrf_object[0]
         else:
             self.mso.fail_json(msg="Provided VRF {0} not found.".format(vrf_dict.get("name")))
+
+    def get_bd_object(self, bd_dict, tenant_id, templates_objects_path):
+        """
+        Get Bridge Domain object based on provided parameters.
+        :param bd_dict: Dictionary containing Bridge Domain details. -> Dict
+        :param tenant_id: Id of the tenant. -> Str
+        :param templates_objects_path: Path to the templates objects. -> Str
+        :return: Bridge Domain object if found, otherwise fail with an error message. -> Dict
+        """
+
+        bd_path = generate_api_endpoint(templates_objects_path, **{"type": "bd", "tenant-id": tenant_id, "include-common": "true"})
+        bd_objects = self.mso.query_objs(bd_path)
+        bd_kv_list = [
+            KVPair("name", bd_dict.get("name")),
+            KVPair("templateId", bd_dict.get("template_id")) if bd_dict.get("template_id") else KVPair("templateName", bd_dict.get("template")),
+            KVPair("schemaId", bd_dict.get("schema_id")) if bd_dict.get("schema_id") else KVPair("schemaName", bd_dict.get("schema")),
+            KVPair("tenantId", tenant_id),
+        ]
+        return self.get_object_by_key_value_pairs("Bridge Domain", bd_objects, bd_kv_list, fail_module=True)
 
     def get_l3out_node_routing_policy_object(self, uuid=None, name=None, fail_module=False):
         """
@@ -784,6 +812,60 @@ class MSOTemplate:
             )
         return existing_objects  # Query all objects
 
+    def get_endpoint_mac_tag_policy_object(self, uuid=None, mac=None, bd_uuid=None, vrf_uuid=None, search_object=None, fail_module=False):
+        """
+        Get the Endpoint MAC Tag Policy by uuid or mac and bd_uuid or vrf_uuid.
+        :param uuid: UUID of the Endpoint MAC Tag Policy to search for -> Str
+        :param mac: The MAC address of the Endpoint MAC Tag Policy to search for -> Str
+        :param bd_uuid: UUID of the Bridge Domain referenced by the Endpoint MAC Tag Policy to search for -> Str
+        :param vrf_uuid: UUID of the VRF referenced by the Endpoint MAC Tag Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | MAC address and (VRF UUID | Bridge Domain UUID) are existing in the search list -> Dict
+                 When the UUID | MAC address and (VRF UUID | Bridge Domain UUID) are not existing in the search list -> None
+                 When UUID is None and MAC address | (VRF UUID and Bridge Domain UUID) are None, and the search list is not empty -> List[Dict]
+                 When UUID and MAC address | (VRF UUID and Bridge Domain UUID) are None, and the search list is empty -> List[]
+        """
+        kv_list = []
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("endpointMacTagPolicies", [])
+        if uuid:
+            kv_list = [KVPair("uuid", uuid)]
+        elif mac and bd_uuid:
+            kv_list = [KVPair("mac", mac), KVPair("bdRef", bd_uuid)]
+        elif mac and vrf_uuid:
+            kv_list = [KVPair("mac", mac), KVPair("vrfRef", vrf_uuid)]
+        if kv_list:
+            return self.get_object_by_key_value_pairs("Endpoint MAC Tag Policy", existing_objects, kv_list, fail_module)
+        return existing_objects  # Query all objects
+
+    def get_endpoint_ip_tag_policy_object(self, uuid=None, ip=None, vrf_uuid=None, search_object=None, fail_module=False):
+        """
+        Get the Endpoint IP Tag Policy by uuid or ip and vrf_uuid.
+        :param uuid: UUID of the Endpoint IP Tag Policy to search for -> Str
+        :param ip: The IP address of the Endpoint IP Tag Policy to search for -> Str
+        :param vrf_uuid: UUID of the VRF referenced by the Endpoint IP Tag Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                When the UUID | IP address and VRF UUID are existing in the search list -> Dict
+                When the UUID | IP address and VRF UUID are not existing in the search list -> None
+                When UUID is None and IP address | VRF UUID is None, and the search list is not empty -> List[Dict]
+                When UUID is None and IP address | VRF UUID is None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("endpointIPTagPolicies", [])
+        if uuid or (ip and vrf_uuid):
+            if uuid:
+                kv_list = [KVPair("uuid", uuid)]
+            else:
+                kv_list = [KVPair("ip", ip), KVPair("vrfRef", vrf_uuid)]
+            return self.get_object_by_key_value_pairs("Endpoint IP Tag Policy", existing_objects, kv_list, fail_module)
+        return existing_objects  # Query all objects
+
     def get_direct_child_object(self, parent_object, description, endpoint, identifiers=None, fail_module=False):
         """
         Get the direct child object using its identifiers and its parent object.
@@ -1332,3 +1414,22 @@ class MSOTemplate:
             )
 
         return existing_objects  # Query all objects
+
+    def get_netflow_record(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the NetFlow Record by uuid or name.
+        :param uuid: UUID of the NetFlow Record to search for -> Str
+        :param name: Name of the NetFlow Record to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        search_object = search_object if search_object else self.template
+        match = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("netFlowRecords", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("NetFlow Record", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return match  # Query all objects

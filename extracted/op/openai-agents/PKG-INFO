@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openai-agents
-Version: 0.13.0
+Version: 0.13.1
 Summary: OpenAI Agents SDK
 Project-URL: Homepage, https://openai.github.io/openai-agents-python/
 Project-URL: Repository, https://github.com/openai/openai-agents-python
@@ -26,6 +26,8 @@ Requires-Dist: pydantic<3,>=2.12.2
 Requires-Dist: requests<3,>=2.0
 Requires-Dist: types-requests<3,>=2.0
 Requires-Dist: typing-extensions<5,>=4.12.2
+Provides-Extra: any-llm
+Requires-Dist: any-llm-sdk<2,>=1.11.0; (python_version >= '3.11') and extra == 'any-llm'
 Provides-Extra: dapr
 Requires-Dist: dapr>=1.16.0; extra == 'dapr'
 Requires-Dist: grpcio>=1.60.0; extra == 'dapr'

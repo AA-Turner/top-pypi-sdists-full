@@ -54,8 +54,13 @@ class AWSTokenAuth(RefreshableTokenAuth):
         :returns: token info to be used by auth method
         :rtype: TokenInfo
         """
+        token_url = (
+            self._api_client._href_definitions.get_user_auth_url()
+            or self._api_client._href_definitions.get_aws_token_url()
+        )
+
         response = self._api_client.httpx_client.post(
-            url=self._api_client._href_definitions.get_aws_token_url(),
+            url=token_url,
             headers={"Content-Type": "application/json"},
             json={"apikey": self._api_client.credentials.api_key},
         )
@@ -73,8 +78,13 @@ class AWSTokenAuth(RefreshableTokenAuth):
         :returns: token info to be used by auth method
         :rtype: TokenInfo
         """
+        token_url = (
+            self._api_client._href_definitions.get_user_auth_url()
+            or self._api_client._href_definitions.get_aws_token_url()
+        )
+
         response = await self._api_client.async_httpx_client.post(
-            url=self._api_client._href_definitions.get_aws_token_url(),
+            url=token_url,
             headers={"Content-Type": "application/json"},
             json={"apikey": self._api_client.credentials.api_key},
         )

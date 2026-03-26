@@ -64,7 +64,9 @@ ListServiceLevelObjectivesPaginatorName = Literal["list_service_level_objectives
 ListServiceOperationsPaginatorName = Literal["list_service_operations"]
 ListServiceStatesPaginatorName = Literal["list_service_states"]
 ListServicesPaginatorName = Literal["list_services"]
-MetricSourceTypeType = Literal["CloudWatchMetric", "ServiceDependency", "ServiceOperation"]
+MetricSourceTypeType = Literal[
+    "AppMonitor", "Canary", "CloudWatchMetric", "Service", "ServiceDependency", "ServiceOperation"
+]
 ServiceLevelIndicatorComparisonOperatorType = Literal[
     "GreaterThan", "GreaterThanOrEqualTo", "LessThan", "LessThanOrEqualTo"
 ]
@@ -501,6 +503,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

@@ -12,11 +12,25 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class UploadFeaturesOptions(_message.Message):
+    __slots__ = ("update_mataggs", "write_offline", "write_online")
+    UPDATE_MATAGGS_FIELD_NUMBER: _ClassVar[int]
+    WRITE_OFFLINE_FIELD_NUMBER: _ClassVar[int]
+    WRITE_ONLINE_FIELD_NUMBER: _ClassVar[int]
+    update_mataggs: bool
+    write_offline: bool
+    write_online: bool
+    def __init__(self, update_mataggs: bool = ..., write_offline: bool = ..., write_online: bool = ...) -> None: ...
+
 class UploadFeaturesRequest(_message.Message):
-    __slots__ = ("inputs_table",)
+    __slots__ = ("inputs_table", "options")
     INPUTS_TABLE_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
     inputs_table: bytes
-    def __init__(self, inputs_table: _Optional[bytes] = ...) -> None: ...
+    options: UploadFeaturesOptions
+    def __init__(
+        self, inputs_table: _Optional[bytes] = ..., options: _Optional[_Union[UploadFeaturesOptions, _Mapping]] = ...
+    ) -> None: ...
 
 class UploadFeaturesResponse(_message.Message):
     __slots__ = ("errors", "operation_id")

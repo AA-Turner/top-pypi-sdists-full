@@ -1,7 +1,8 @@
 Metadata-Version: 2.4
 Name: pygls
-Version: 2.1.0
+Version: 2.1.1
 Summary: A pythonic generic language server (pronounced like 'pie glass')
+License-Expression: Apache-2.0
 License-File: LICENSE.txt
 Author: Open Law Library
 Author-email: info@openlawlib.org

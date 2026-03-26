@@ -33,77 +33,77 @@ class ConnectionConfigResponse(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'connection_type': 'str',
-        'connection_name': 'str'
+        'type': 'str',
+        'name': 'str'
     }
 
     attribute_map = {
-        'connection_type': 'connection_type',
-        'connection_name': 'connection_name'
+        'type': 'type',
+        'name': 'name'
     }
 
-    def __init__(self, connection_type=None, connection_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, type=None, name=None, local_vars_configuration=None):  # noqa: E501
         """ConnectionConfigResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._connection_type = None
-        self._connection_name = None
+        self._type = None
+        self._name = None
         self.discriminator = None
 
-        self.connection_type = connection_type
-        self.connection_name = connection_name
+        self.type = type
+        self.name = name
 
     @property
-    def connection_type(self):
-        """Gets the connection_type of this ConnectionConfigResponse.  # noqa: E501
+    def type(self):
+        """Gets the type of this ConnectionConfigResponse.  # noqa: E501
 
         Connection type (e.g., databricks).  # noqa: E501
 
-        :return: The connection_type of this ConnectionConfigResponse.  # noqa: E501
+        :return: The type of this ConnectionConfigResponse.  # noqa: E501
         :rtype: str
         """
-        return self._connection_type
+        return self._type
 
-    @connection_type.setter
-    def connection_type(self, connection_type):
-        """Sets the connection_type of this ConnectionConfigResponse.
+    @type.setter
+    def type(self, type):
+        """Sets the type of this ConnectionConfigResponse.
 
         Connection type (e.g., databricks).  # noqa: E501
 
-        :param connection_type: The connection_type of this ConnectionConfigResponse.  # noqa: E501
+        :param type: The type of this ConnectionConfigResponse.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and connection_type is None:  # noqa: E501
-            raise ValueError("Invalid value for `connection_type`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and type is None:  # noqa: E501
+            raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
 
-        self._connection_type = connection_type
+        self._type = type
 
     @property
-    def connection_name(self):
-        """Gets the connection_name of this ConnectionConfigResponse.  # noqa: E501
+    def name(self):
+        """Gets the name of this ConnectionConfigResponse.  # noqa: E501
 
         Name of the connection.  # noqa: E501
 
-        :return: The connection_name of this ConnectionConfigResponse.  # noqa: E501
+        :return: The name of this ConnectionConfigResponse.  # noqa: E501
         :rtype: str
         """
-        return self._connection_name
+        return self._name
 
-    @connection_name.setter
-    def connection_name(self, connection_name):
-        """Sets the connection_name of this ConnectionConfigResponse.
+    @name.setter
+    def name(self, name):
+        """Sets the name of this ConnectionConfigResponse.
 
         Name of the connection.  # noqa: E501
 
-        :param connection_name: The connection_name of this ConnectionConfigResponse.  # noqa: E501
+        :param name: The name of this ConnectionConfigResponse.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and connection_name is None:  # noqa: E501
-            raise ValueError("Invalid value for `connection_name`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and name is None:  # noqa: E501
+            raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
 
-        self._connection_name = connection_name
+        self._name = name
 
     def to_dict(self):
         """Returns the model properties as a dict"""

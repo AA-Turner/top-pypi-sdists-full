@@ -89,6 +89,27 @@ def diagnose(
                     confidence="high",
                 )
 
+            # Loop no-progress detection (#1152)
+            if fail_artifacts.get("loop_end_reason") == "no_progress":
+                return Diagnosis(
+                    category="loop_no_progress",
+                    what=f"Loop {failing_step_id} stopped: same failure repeated without progress",
+                    why=_truncate(
+                        step.get("result_summary") or "The same failure signature repeated for consecutive rounds",
+                        180,
+                    ),
+                    evidence=[
+                        DiagnosisEvidence(source="stop_reason", content=stop_reason),
+                        DiagnosisEvidence(source="loop_end_reason", content="no_progress", location=failing_step_id),
+                    ],
+                    next_actions=[
+                        f"Inspect loop output: aroom workflow history {run_id_short}",
+                        "The loop detected identical failures across rounds — fix the root cause before retrying",
+                        f"After fixing, resume: aroom workflow resume {run_id_short}",
+                    ],
+                    confidence="high",
+                )
+
         evidence = [DiagnosisEvidence(source="stop_reason", content=stop_reason)]
         analysis = (
             _analyze_step_output(step, step_id=failing_step_id)
@@ -151,6 +172,7 @@ def diagnose(
             next_actions=[
                 "Satisfy the gate condition (e.g., add required label, fix upstream issue)",
                 f"Then resume: aroom workflow resume {run_id_short}",
+                f"Or cancel: aroom workflow cancel {run_id_short}",
             ],
         )
 
@@ -310,6 +332,36 @@ def diagnose(
         ],
         confidence="low",
     )
+
+
+def recovery_actions_for_run(
+    run: dict[str, Any],
+    steps: list[dict[str, Any]],
+    events: list[dict[str, Any]],
+) -> list[str]:
+    """Return concrete recovery action strings for any non-success run.
+
+    Handles waiting states directly (which have no stop_reason for diagnose()),
+    then delegates all other non-success states to diagnose().next_actions.
+    """
+    status = run.get("status", "")
+    run_id_short = run.get("id", "?")[:8]
+
+    if status == "waiting_for_approval":
+        return [
+            f"Approve: aroom workflow approve {run_id_short}",
+            f"Deny: aroom workflow deny {run_id_short}",
+        ]
+    if status == "waiting_for_input":
+        return [
+            f"Respond: aroom workflow respond {run_id_short}",
+        ]
+    if status in ("completed", "running", "pending", "claimed"):
+        return []
+
+    # For all other non-success states, delegate to diagnose()
+    dx = diagnose(run, steps, events)
+    return dx.next_actions
 
 
 def _find_step(steps: list[dict[str, Any]], step_id: str) -> dict[str, Any] | None:

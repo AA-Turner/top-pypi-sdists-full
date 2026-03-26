@@ -37,6 +37,15 @@ class SnowflakeQueryExecutionParameters:
     I.e. '@CHALK_UNLOAD_STAGE/test_1'
     """
 
+    snowflake_storage_integration: Optional[str]
+    """
+    The name of the storage integration to use for unloading data, specified with STORAGE_INTEGRATION = 'foo' in the
+    underlying unload query. Required if `snowflake_unload_stage` is set to cloud storage directly instead of a stage
+    created from `CREATE STAGE`.
+
+    Only impacts and works with the native snowflake driver.
+    """
+
 
 @dataclass(frozen=True)
 class BigqueryQueryExecutionParameters:
@@ -93,6 +102,7 @@ def query_execution_parameters_from_env_vars():
         ),
         snowflake=SnowflakeQueryExecutionParameters(
             snowflake_unload_stage=os.getenv("CHALK_SNOWFLAKE_UNLOAD_STAGE", None),
+            snowflake_storage_integration=os.getenv("CHALK_SNOWFLAKE_STORAGE_INTEGRATION", None),
         ),
         bigquery=BigqueryQueryExecutionParameters(
             bigquery_unload_path=os.getenv("CHALK_BIGQUERY_UNLOAD_PATH", None),

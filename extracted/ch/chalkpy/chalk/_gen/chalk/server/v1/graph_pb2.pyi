@@ -1,4 +1,5 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
+from chalk._gen.chalk.artifacts.v1 import diff_pb2 as _diff_pb2
 from chalk._gen.chalk.artifacts.v1 import export_pb2 as _export_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
@@ -542,3 +543,49 @@ class GetOfflineStoreTableResponse(_message.Message):
     TABLES_FIELD_NUMBER: _ClassVar[int]
     tables: _containers.RepeatedCompositeFieldContainer[OfflineTable]
     def __init__(self, tables: _Optional[_Iterable[_Union[OfflineTable, _Mapping]]] = ...) -> None: ...
+
+class DiffDeploymentsRequest(_message.Message):
+    __slots__ = ("deployment_id_before", "deployment_id_after")
+    DEPLOYMENT_ID_BEFORE_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_AFTER_FIELD_NUMBER: _ClassVar[int]
+    deployment_id_before: str
+    deployment_id_after: str
+    def __init__(
+        self, deployment_id_before: _Optional[str] = ..., deployment_id_after: _Optional[str] = ...
+    ) -> None: ...
+
+class DiffDeploymentsResponse(_message.Message):
+    __slots__ = ("deploy_id_before", "deploy_id_after", "diff")
+    DEPLOY_ID_BEFORE_FIELD_NUMBER: _ClassVar[int]
+    DEPLOY_ID_AFTER_FIELD_NUMBER: _ClassVar[int]
+    DIFF_FIELD_NUMBER: _ClassVar[int]
+    deploy_id_before: str
+    deploy_id_after: str
+    diff: _diff_pb2.ExportDiff
+    def __init__(
+        self,
+        deploy_id_before: _Optional[str] = ...,
+        deploy_id_after: _Optional[str] = ...,
+        diff: _Optional[_Union[_diff_pb2.ExportDiff, _Mapping]] = ...,
+    ) -> None: ...
+
+class SmartDiffDeploymentRequest(_message.Message):
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class SmartDiffDeploymentResponse(_message.Message):
+    __slots__ = ("deploy_id_before", "deploy_id_after", "diff")
+    DEPLOY_ID_BEFORE_FIELD_NUMBER: _ClassVar[int]
+    DEPLOY_ID_AFTER_FIELD_NUMBER: _ClassVar[int]
+    DIFF_FIELD_NUMBER: _ClassVar[int]
+    deploy_id_before: str
+    deploy_id_after: str
+    diff: _diff_pb2.ExportDiff
+    def __init__(
+        self,
+        deploy_id_before: _Optional[str] = ...,
+        deploy_id_after: _Optional[str] = ...,
+        diff: _Optional[_Union[_diff_pb2.ExportDiff, _Mapping]] = ...,
+    ) -> None: ...

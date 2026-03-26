@@ -38,6 +38,186 @@ For more information, please refer to <https://unlicense.org>
 
 _ml_exclusions_endpoints = [
   [
+    "exclusions_aggregates_v2",
+    "POST",
+    "/exclusions/aggregates/exclusions/GET/v2",
+    "Get exclusion aggregates as specified via json in request body.",
+    "ml_exclusions",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "exclusions_get_all_v2",
+    "GET",
+    "/exclusions/entities/all-exclusions/v2",
+    "Get all exclusions.",
+    "ml_exclusions",
+    []
+  ],
+  [
+    "exclusions_perform_action_v2",
+    "POST",
+    "/exclusions/entities/exclusion-actions/v2",
+    "Actions used to manipulate the content of exclusions, with ancestor fields.",
+    "ml_exclusions",
+    [
+      {
+        "enum": [
+          "add_item",
+          "remove_item",
+          "validate_filepath"
+        ],
+        "type": "string",
+        "description": "The action to perform.",
+        "name": "action_name",
+        "in": "query",
+        "required": True
+      },
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "exclusions_get_reports_v2",
+    "POST",
+    "/exclusions/entities/exclusions/reports/v2",
+    "Create a report of ML exclusions scoped by the given filters",
+    "ml_exclusions",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "exclusions_get_v2",
+    "GET",
+    "/exclusions/entities/exclusions/v2",
+    "Get the exclusions by id, with ancestor fields.",
+    "ml_exclusions",
+    [
+      {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "collectionFormat": "multi",
+        "description": "The ids of the exclusions to retrieve",
+        "name": "ids",
+        "in": "query",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "exclusions_create_v2",
+    "POST",
+    "/exclusions/entities/exclusions/v2",
+    "Create the exclusions, with ancestor fields.",
+    "ml_exclusions",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "exclusions_update_v2",
+    "PATCH",
+    "/exclusions/entities/exclusions/v2",
+    "Update the exclusions by id, with ancestor fields.",
+    "ml_exclusions",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "exclusions_delete_v2",
+    "DELETE",
+    "/exclusions/entities/exclusions/v2",
+    "Delete the exclusions by id, with ancestor fields.",
+    "ml_exclusions",
+    [
+      {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "collectionFormat": "multi",
+        "description": "The ids of the exclusions to delete",
+        "name": "ids",
+        "in": "query",
+        "required": True
+      },
+      {
+        "type": "string",
+        "description": "The comment why these exclusions were deleted",
+        "name": "comment",
+        "in": "query"
+      }
+    ]
+  ],
+  [
+    "exclusions_search_v2",
+    "GET",
+    "/exclusions/queries/exclusions/v2",
+    "Search for exclusions, with ancestor fields.",
+    "ml_exclusions",
+    [
+      {
+        "type": "string",
+        "description": "The filter expression that should be used to limit the results.",
+        "name": "filter",
+        "in": "query"
+      },
+      {
+        "type": "integer",
+        "description": "The offset to start retrieving records from",
+        "name": "offset",
+        "in": "query"
+      },
+      {
+        "type": "integer",
+        "description": "The maximum records to return. [1-500]",
+        "name": "limit",
+        "in": "query"
+      },
+      {
+        "enum": [
+          "parent_value",
+          "value",
+          "grandparent_value",
+          "applied_globally",
+          "created_on",
+          "created_by",
+          "last_modified",
+          "modified_by",
+          "is_descendant_process"
+        ],
+        "type": "string",
+        "description": "The sort expression that should be used to sort the results.",
+        "name": "sort",
+        "in": "query"
+      }
+    ]
+  ],
+  [
     "getMLExclusionsV1",
     "GET",
     "/policy/entities/ml-exclusions/v1",

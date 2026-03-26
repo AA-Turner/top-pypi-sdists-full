@@ -144,6 +144,7 @@ options:
                     - 'interface'
                     - 'ospf-nbr-state-change'
                     - 'ospf-virtnbr-state-change'
+                    - 'bfd'
                     - 'power-supply-failure'
             hosts:
                 description:
@@ -855,6 +856,7 @@ versioned_schema = {
                 {"value": "interface", "v_range": [["v7.6.0", ""]]},
                 {"value": "ospf-nbr-state-change", "v_range": [["v7.0.0", ""]]},
                 {"value": "ospf-virtnbr-state-change", "v_range": [["v7.0.0", ""]]},
+                {"value": "bfd", "v_range": [["v7.6.5", ""]]},
                 {"value": "power-supply-failure", "v_range": [["v6.0.0", "v7.4.1"]]},
             ],
             "multiple_values": True,
@@ -926,7 +928,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_snmp_community"
         )

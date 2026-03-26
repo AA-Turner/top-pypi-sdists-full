@@ -1,11 +1,12 @@
 """
 Utilities related to filesystem paths
 """
+
+from __future__ import annotations
+
 import os
-from os.path import exists
-from os.path import join
-from os.path import normpath
 import shutil
+from os.path import exists, join, normpath
 
 
 class TempDir:
@@ -25,16 +26,18 @@ class TempDir:
         >>> self.cleanup()
         >>> assert not exists(dpath)
     """
-    def __init__(self, persist=False):
-        self.dpath = None
+
+    def __init__(self, persist: bool = False) -> None:
+        self.dpath: str | None = None
         self.persist = persist
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.cleanup()
 
-    def ensure(self):
-        import tempfile
+    def ensure(self) -> str:
         import sys
+        import tempfile
+
         if not self.dpath:
             dpath = tempfile.mkdtemp()
             if sys.platform.startswith('win32'):
@@ -42,29 +45,33 @@ class TempDir:
                 # References:
                 # https://stackoverflow.com/questions/11420689/how-to-get-long-file-system-path-from-python-on-windows
                 from ctypes import create_unicode_buffer, windll
+
                 BUFFER_SIZE = 500
                 buffer = create_unicode_buffer(BUFFER_SIZE)
                 get_long_path_name = windll.kernel32.GetLongPathNameW
                 get_long_path_name(dpath, buffer, BUFFER_SIZE)
                 dpath = buffer.value
             self.dpath = dpath
+        assert self.dpath is not None
         return self.dpath
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         if not self.persist:
             if self.dpath:
                 shutil.rmtree(self.dpath)
                 self.dpath = None
 
-    def __enter__(self):
+    def __enter__(self) -> TempDir:
         self.ensure()
         return self
 
-    def __exit__(self, type_, value, trace):
+    def __exit__(self, type_: object, value: object, trace: object) -> None:
         self.cleanup()
 
 
-def ensuredir(dpath, mode=0o1777):
+def ensuredir(
+    dpath: str | tuple[str, ...] | list[str], mode: int = 0o1777
+) -> str:
     """
     Ensures that directory will exist. creates new dir with sticky bits by
     default

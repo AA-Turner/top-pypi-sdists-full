@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geonamescache
-Version: 3.0.0
+Version: 3.0.1
 Summary: Geonames data for continents, cities and US states.
 Project-URL: Documentation, https://github.com/yaph/geonamescache#readme
 Project-URL: Issues, https://github.com/yaph/geonamescache/issues

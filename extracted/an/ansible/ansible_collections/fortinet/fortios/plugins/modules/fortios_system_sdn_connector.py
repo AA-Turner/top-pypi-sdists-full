@@ -372,6 +372,10 @@ options:
                 choices:
                     - 'commercial'
                     - 'government'
+            par_id:
+                description:
+                    - Public address range ID.
+                type: str
             password:
                 description:
                     - Password of the remote SDN connector as login credentials.
@@ -632,6 +636,7 @@ EXAMPLES = """
               -
                   region: "<your_own_value>"
           oci_region_type: "commercial"
+          par_id: "<your_own_value>"
           password: "<your_own_value>"
           private_key: "<your_own_value>"
           proxy: "<your_own_value> (source system.sdn-proxy.name)"
@@ -640,14 +645,14 @@ EXAMPLES = """
           resource_url: "<your_own_value>"
           route:
               -
-                  name: "default_name_60"
+                  name: "default_name_61"
           route_table:
               -
-                  name: "default_name_62"
+                  name: "default_name_63"
                   resource_group: "<your_own_value>"
                   route:
                       -
-                          name: "default_name_65"
+                          name: "default_name_66"
                           next_hop: "<your_own_value>"
                   subscription_id: "<your_own_value>"
           secret_key: "<your_own_value>"
@@ -800,6 +805,7 @@ def filter_system_sdn_connector_data(json):
         "oci_region",
         "oci_region_list",
         "oci_region_type",
+        "par_id",
         "password",
         "private_key",
         "proxy",
@@ -1319,6 +1325,7 @@ versioned_schema = {
                 },
             ],
         },
+        "par_id": {"v_range": [["v7.6.5", ""]], "type": "string"},
         "update_interval": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "compute_generation": {"v_range": [["v6.4.0", "v7.6.0"]], "type": "integer"},
         "compartment_id": {"v_range": [["v6.0.0", "v7.2.4"]], "type": "string"},
@@ -1413,7 +1420,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_sdn_connector"
         )

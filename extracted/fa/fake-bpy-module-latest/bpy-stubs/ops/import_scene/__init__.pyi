@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 
 def fbx(
     execution_context: int | str | None = None,
@@ -12,7 +13,8 @@ def fbx(
     filepath: str | None = "",
     directory: str | None = "",
     filter_glob: str | None = "*.fbx",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     ui_tab: typing.Literal["MAIN", "ARMATURE"] | None = "MAIN",
     use_manual_orientation: bool | None = False,
     global_scale: float | None = 1.0,
@@ -101,7 +103,8 @@ def gltf(
     | None = "SPEC",
     filter_glob: str | None = "*.glb;*.gltf",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     loglevel: int | None = 0,
     import_pack_images: bool | None = True,
     merge_vertices: bool | None = False,

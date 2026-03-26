@@ -34,6 +34,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <https://unlicense.org>
 """
+import json
 from typing import Dict, Union
 from ._util import (
     force_default,
@@ -68,6 +69,10 @@ class QuickScanPro(ServiceClass):
         file -- Binary file to be uploaded. Max file size: 256 MB.
         scan -- If true, after upload, it starts scanning immediately. Default scan mode is 'false'
         file_name -- Name of the file uploaded. Defaults to "UploadedFile".
+        password -- MULTIPART ONLY - Password for encrypted archives (use for multipart/form-data uploads).
+        If 'scan' is true, the value is used for the scan just starting. String.
+        x_file_password -- OCTET-STREAM ONLY - Password for encrypted archives (use for octet-stream uploads).
+        If 'scan' is true, the value is used for the scan just starting. String.
 
         This method only supports keywords for providing arguments.
 
@@ -76,8 +81,11 @@ class QuickScanPro(ServiceClass):
         HTTP Method: POST
 
         Swagger URL
-        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/quick-scan-pro/UploadFileMixin0Mixin93
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/quick-scan-pro/UploadFileQuickScanPro
         """
+        header_payload = json.loads(json.dumps(self.headers))
+        if kwargs.get("x_file_password"):
+            header_payload["X-File-Password"] = kwargs.pop("x_file_password")
         method_args = ["file", "scan"]
         file_name = kwargs.get("file_name", "UploadedFile")
         kwargs = params_to_keywords(method_args,
@@ -100,7 +108,8 @@ class QuickScanPro(ServiceClass):
             data=file_extended,
             files=[("file", (file_name, file_data))],  # Passed as a list of tuples
             keywords=kwargs,
-            params=parameters
+            params=parameters,
+            headers=header_payload
             )
 
     @force_default(defaults=["parameters"], default_types=["dict"])

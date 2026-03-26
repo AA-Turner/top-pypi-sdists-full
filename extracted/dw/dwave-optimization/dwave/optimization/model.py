@@ -136,7 +136,7 @@ class Model(_Graph):
         self.states = States(self)
 
     @property
-    def objective(self) -> typing.Optional[ArraySymbol]:
+    def objective(self) -> None | ArraySymbol:
         """Objective to be minimized.
 
         Examples:
@@ -163,9 +163,9 @@ class Model(_Graph):
     def objective(self, value: ArraySymbol):
         self.minimize(value)
 
-    def binary(self, shape: typing.Optional[_ShapeLike] = None,
-               lower_bound: typing.Optional[np.typing.ArrayLike] = None,
-               upper_bound: typing.Optional[np.typing.ArrayLike] = None) -> BinaryVariable:
+    def binary(self, shape: None | _ShapeLike = None,
+               lower_bound: None | np.typing.ArrayLike = None,
+               upper_bound: None | np.typing.ArrayLike = None) -> BinaryVariable:
         r"""Create a binary symbol as a decision variable.
 
         Args:
@@ -381,6 +381,15 @@ class Model(_Graph):
             10
             >>> disjoint_lists.num_disjoint_lists()
             4
+            >>> with model.lock():
+            ...    model.states.resize(1)
+            ...    disjoint_lists.set_state(0, [[0, 1, 2], [3, 5, 6], [4], [7, 8, 9]])
+            ...    for i, disjoint_list in enumerate(disjoint_lists):
+            ...        print(f"Element {i}: {disjoint_list.state(0)}")
+            Element 0: [0. 1. 2.]
+            Element 1: [3. 5. 6.]
+            Element 2: [4.]
+            Element 3: [7. 8. 9.]
         """
         from dwave.optimization.symbols import DisjointLists, DisjointList  # avoid circular import
         disjoint_lists = DisjointLists(self, primary_set_size, num_disjoint_lists)
@@ -424,9 +433,9 @@ class Model(_Graph):
     def input(
         self,
         shape: tuple[int, ...] = (),
-        lower_bound: typing.Optional[float] = -float("inf"),
-        upper_bound: typing.Optional[float] = float("inf"),
-        integral: typing.Optional[bool] = None,
+        lower_bound: None | float = -float("inf"),
+        upper_bound: None | float = float("inf"),
+        integral: None | bool = None,
     ) -> Input:
         """Create an "input" symbol.
 
@@ -475,9 +484,9 @@ class Model(_Graph):
 
     def integer(
             self,
-            shape: typing.Optional[_ShapeLike] = None,
-            lower_bound: typing.Optional[numpy.typing.ArrayLike] = None,
-            upper_bound: typing.Optional[numpy.typing.ArrayLike] = None,
+            shape: None | _ShapeLike = None,
+            lower_bound: None | numpy.typing.ArrayLike = None,
+            upper_bound: None | numpy.typing.ArrayLike = None,
             ) -> IntegerVariable:
         r"""Create an integer symbol as a decision variable.
 
@@ -539,11 +548,17 @@ class Model(_Graph):
         from dwave.optimization.symbols import IntegerVariable  # avoid circular import
         return IntegerVariable(self, shape, lower_bound, upper_bound)
 
-    def list(self, n: int) -> ListVariable:
+    def list(self,
+            n: int,
+            min_size: None | int = None,
+            max_size: None | int = None,
+            ) -> ListVariable:
         """Create a list symbol as a decision variable.
 
         Args:
             n: Values in the list are permutations of ``range(n)``.
+            min_size: Minimum list size. Defaults to ``max_size``.
+            max_size: Maximum list size. Defaults to ``n``.
 
         Returns:
             A list symbol.
@@ -554,9 +569,26 @@ class Model(_Graph):
             >>> from dwave.optimization.model import Model
             >>> model = Model()
             >>> routes = model.list(200)
+
+            This example creates a list symbol with at least 2 elements and at
+            most 4 elements with values between 0 to 99.
+
+            >>> from dwave.optimization.model import Model
+            >>> model = Model()
+            >>> routes = model.list(99, min_size=2, max_size=4)
+
+        .. versionchanged:: 0.6.12
+            Beginning in version 0.6.12, sub-lists are supported.
         """
         from dwave.optimization.symbols import ListVariable  # avoid circular import
-        return ListVariable(self, n)
+
+        if max_size is None:
+            max_size = n
+
+        if min_size is None:
+            min_size = max_size
+
+        return ListVariable(self, n, min_size, max_size)
 
     def lock(self) -> contextlib.AbstractContextManager:
         """Lock the model.
@@ -633,7 +665,7 @@ class Model(_Graph):
     def set(self,
             n: int,
             min_size: int = 0,
-            max_size: typing.Optional[int] = None,
+            max_size: None | int = None,
             ) -> SetVariable:
         """Create a set symbol as a decision variable.
 

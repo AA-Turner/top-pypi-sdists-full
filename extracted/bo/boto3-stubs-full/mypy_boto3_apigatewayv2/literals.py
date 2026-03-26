@@ -100,7 +100,14 @@ OAS30Type = Literal["OAS30"]
 PassthroughBehaviorType = Literal["NEVER", "WHEN_NO_MATCH", "WHEN_NO_TEMPLATES"]
 PreviewStatusType = Literal["PREVIEW_FAILED", "PREVIEW_IN_PROGRESS", "PREVIEW_READY"]
 ProtocolTypeType = Literal["HTTP", "WEBSOCKET"]
-PublishStatusType = Literal["DISABLED", "PUBLISHED", "PUBLISH_FAILED", "PUBLISH_IN_PROGRESS"]
+PublishStatusType = Literal[
+    "DISABLED",
+    "DISABLE_FAILED",
+    "DISABLE_IN_PROGRESS",
+    "PUBLISHED",
+    "PUBLISH_FAILED",
+    "PUBLISH_IN_PROGRESS",
+]
 RoutingModeType = Literal["API_MAPPING_ONLY", "ROUTING_RULE_ONLY", "ROUTING_RULE_THEN_API_MAPPING"]
 SecurityPolicyType = Literal["TLS_1_0", "TLS_1_2"]
 StatusType = Literal["AVAILABLE", "FAILED", "IN_PROGRESS"]
@@ -508,6 +515,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

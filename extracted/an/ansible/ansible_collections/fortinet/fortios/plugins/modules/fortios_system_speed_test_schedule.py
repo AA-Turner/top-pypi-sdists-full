@@ -105,6 +105,22 @@ options:
                 choices:
                     - 'disable'
                     - 'enable'
+            expected_inbandwidth_maximum:
+                description:
+                    - Set the maximum inbandwidth threshold for applying speedtest results on shaping-profile.
+                type: int
+            expected_inbandwidth_minimum:
+                description:
+                    - Set the minimum inbandwidth threshold for applying speedtest results on shaping-profile.
+                type: int
+            expected_outbandwidth_maximum:
+                description:
+                    - Set the maximum outbandwidth threshold for applying speedtest results on shaping-profile.
+                type: int
+            expected_outbandwidth_minimum:
+                description:
+                    - Set the minimum outbandwidth threshold for applying speedtest results on shaping-profile.
+                type: int
             interface:
                 description:
                     - Interface name. Source system.interface.name.
@@ -118,6 +134,14 @@ options:
                     - 'UDP'
                     - 'TCP'
                     - 'Auto'
+            retries:
+                description:
+                    - Maximum number of times the FortiGate unit will attempt to contact the same server before considering the speed test has failed (1 - 10).
+                type: int
+            retry_pause:
+                description:
+                    - Number of seconds the FortiGate pauses between successive speed tests before trying a different server (60 - 3600).
+                type: int
             schedules:
                 description:
                     - Schedules for the interface.
@@ -131,7 +155,8 @@ options:
                         type: str
             server_name:
                 description:
-                    - Speed test server name.
+                    - Speed test server name in system.speed-test-server list or leave it as empty to choose default server "FTNT_Auto". Source system
+                      .speed-test-server.name.
                 type: str
             server_port:
                 description:
@@ -159,6 +184,13 @@ options:
                 description:
                     - Minimum downloading bandwidth (kbps) to be considered effective.
                 type: int
+            update_interface_shaping:
+                description:
+                    - Enable/disable using the speedtest results as reference for interface shaping (overriding configured in/outbandwidth).
+                type: str
+                choices:
+                    - 'disable'
+                    - 'enable'
             update_outbandwidth:
                 description:
                     - Enable/disable bypassing interface"s outbound bandwidth setting.
@@ -195,17 +227,24 @@ EXAMPLES = """
           ctrl_port: "5200"
           diffserv: "<your_own_value>"
           dynamic_server: "disable"
+          expected_inbandwidth_maximum: "0"
+          expected_inbandwidth_minimum: "0"
+          expected_outbandwidth_maximum: "0"
+          expected_outbandwidth_minimum: "0"
           interface: "<your_own_value> (source system.interface.name)"
           mode: "UDP"
+          retries: "5"
+          retry_pause: "300"
           schedules:
               -
-                  name: "default_name_9 (source firewall.schedule.recurring.name)"
-          server_name: "<your_own_value>"
+                  name: "default_name_15 (source firewall.schedule.recurring.name)"
+          server_name: "<your_own_value> (source system.speed-test-server.name)"
           server_port: "5201"
           status: "disable"
           update_inbandwidth: "disable"
           update_inbandwidth_maximum: "0"
           update_inbandwidth_minimum: "0"
+          update_interface_shaping: "disable"
           update_outbandwidth: "disable"
           update_outbandwidth_maximum: "0"
           update_outbandwidth_minimum: "0"
@@ -308,8 +347,14 @@ def filter_system_speed_test_schedule_data(json):
         "ctrl_port",
         "diffserv",
         "dynamic_server",
+        "expected_inbandwidth_maximum",
+        "expected_inbandwidth_minimum",
+        "expected_outbandwidth_maximum",
+        "expected_outbandwidth_minimum",
         "interface",
         "mode",
+        "retries",
+        "retry_pause",
         "schedules",
         "server_name",
         "server_port",
@@ -317,6 +362,7 @@ def filter_system_speed_test_schedule_data(json):
         "update_inbandwidth",
         "update_inbandwidth_maximum",
         "update_inbandwidth_minimum",
+        "update_interface_shaping",
         "update_outbandwidth",
         "update_outbandwidth_maximum",
         "update_outbandwidth_minimum",
@@ -548,10 +594,33 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "disable"}, {"value": "enable"}],
         },
+        "update_interface_shaping": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "disable"}, {"value": "enable"}],
+        },
         "update_inbandwidth_maximum": {"v_range": [["v7.0.0", ""]], "type": "integer"},
         "update_inbandwidth_minimum": {"v_range": [["v7.0.0", ""]], "type": "integer"},
         "update_outbandwidth_maximum": {"v_range": [["v7.0.0", ""]], "type": "integer"},
         "update_outbandwidth_minimum": {"v_range": [["v7.0.0", ""]], "type": "integer"},
+        "expected_inbandwidth_minimum": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "integer",
+        },
+        "expected_inbandwidth_maximum": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "integer",
+        },
+        "expected_outbandwidth_minimum": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "integer",
+        },
+        "expected_outbandwidth_maximum": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "integer",
+        },
+        "retries": {"v_range": [["v7.6.5", ""]], "type": "integer"},
+        "retry_pause": {"v_range": [["v7.6.5", ""]], "type": "integer"},
     },
     "v_range": [["v7.0.0", ""]],
 }
@@ -605,7 +674,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_speed_test_schedule"
         )

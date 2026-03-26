@@ -140,7 +140,7 @@ class HttpClientConfig:
 
     from httpx import Limits, Timeout
 
-    timeout: float | Timeout = field(default_factory=lambda: HTTPX_DEFAULT_TIMEOUT)
+    timeout: Timeout = field(default_factory=lambda: HTTPX_DEFAULT_TIMEOUT)
     limits: Limits = field(default_factory=lambda: HTTPX_DEFAULT_LIMIT)
 
 
@@ -1214,6 +1214,7 @@ def _create_href_definitions(client: APIClient) -> HrefDefinitions:
         cp4d_platform_spaces=client.ICP_PLATFORM_SPACES,
         platform_url=client.PLATFORM_URL,
         project_type=client.project_type,
+        auth_url=client.credentials.auth_url,
     )
 
 

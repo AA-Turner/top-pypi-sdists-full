@@ -956,7 +956,6 @@ def show_agent_connector_stats(ctx, connector_id, **kwargs):
             add_table_stats_rows(instancesStats, stat, value)
     for stat, entries in instancesStats.items():
         row = []
-        print(f"stat={stat}, entries={entries}")
         row.append(stat)
         row.extend(entries[:num_cols] + [""] * (num_cols - len(entries)))
         table.add_row(row)
@@ -981,11 +980,14 @@ def show_agent_connector_dynamic_stats(
     table.add_row(("last_updated", stats.metadata.collection_time))
     stat_rows = _collate_upstream_stats(ctx, stats.upstream_totals, detailed)
     stat_rows.extend(_collate_forwarder_stats(ctx, stats.forwarder_totals, detailed))
+    stat_rows.extend(_collate_audit_stats(ctx, stats.audit_totals, detailed))
     to_add_breakdown = []
     to_add_forwarder_breakdown = []
+    to_add_audit_breakdown = []
     if breakdown:
         to_add_breakdown = stats.upstream_breakdown
         to_add_forwarder_breakdown = stats.forwarder_breakdown
+        to_add_audit_breakdown = stats.audit_breakdown
 
     for item in to_add_breakdown:
         prefix = [item.connector_instance_id, item.application_service_id]
@@ -997,6 +999,14 @@ def show_agent_connector_dynamic_stats(
         prefix = [item.connector_instance_id, item.forwarder_id]
         stat_rows.extend(
             _collate_forwarder_stats(ctx, item.forwarder_stats, detailed, prefix)
+        )
+
+    for item in to_add_audit_breakdown:
+        prefix = [item.instance_id, item.audit_destination_id]
+        stat_rows.extend(
+            _collate_per_destination_stats(
+                ctx, item.audit_destination_stats.to_dict(), detailed, prefix
+            )
         )
     for stat, val in stat_rows:
         row = []
@@ -1121,6 +1131,47 @@ def _collate_forwarder_stats(ctx, forwarder_stats, detailed, name_prefix=None):
     detailed = forwarder_stats.get("forwarder_detailed_stats")
     results.extend(
         _collate_stats_object(ctx, detailed, name_prefix=name_prefix, name_remap=remap)
+    )
+    return results
+
+
+def _collate_per_destination_stats(ctx, destination_stats, detailed, name_prefix=None):
+    results = []
+    summary = destination_stats.get("destination_summary_stats")
+
+    def remap(name):
+        return "audit_" + name
+
+    results.extend(
+        _collate_stats_object(ctx, summary, name_prefix=name_prefix, name_remap=remap)
+    )
+
+    if not detailed:
+        return results
+
+    detailed = destination_stats.get("destination_detailed_stats")
+    results.extend(
+        _collate_stats_object(ctx, detailed, name_prefix=name_prefix, name_remap=remap)
+    )
+
+    return results
+
+
+def _collate_audit_stats(ctx, audit_stats, detailed, name_prefix=None):
+    results = []
+    audit_stats = audit_stats.to_dict()
+
+    def remap(name):
+        return "audit_" + name
+
+    system = audit_stats.get("system_stats")
+    results.extend(
+        _collate_stats_object(ctx, system, name_prefix=name_prefix, name_remap=remap)
+    )
+
+    destination_stats = audit_stats.get("destination_stats")
+    results.extend(
+        _collate_per_destination_stats(ctx, destination_stats, detailed, name_prefix)
     )
     return results
 
@@ -1459,6 +1510,8 @@ def configure_stats_publishing(
     share_detailed_duration_s,
     forwarder_summary_duration_s,
     forwarder_detailed_duration_s,
+    audit_summary_duration_s,
+    audit_detailed_duration_s,
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
@@ -1468,6 +1521,7 @@ def configure_stats_publishing(
     http = agilicus_api.StatsPublishingLevelConfig()
     share = agilicus_api.StatsPublishingLevelConfig()
     forwarder = agilicus_api.StatsPublishingLevelConfig()
+    audit = agilicus_api.StatsPublishingLevelConfig()
 
     if net_summary_duration_s:
         net.summary_duration_seconds = net_summary_duration_s
@@ -1486,11 +1540,16 @@ def configure_stats_publishing(
     if forwarder_detailed_duration_s:
         forwarder.detailed_duration_seconds = forwarder_detailed_duration_s
 
+    if audit_summary_duration_s:
+        audit.summary_duration_seconds = audit_summary_duration_s
+    if audit_detailed_duration_s:
+        audit.detailed_duration_seconds = audit_detailed_duration_s
     cfg = agilicus_api.StatsPublishingConfig(
         upstream_network_publishing=net,
         upstream_http_publishing=http,
         upstream_share_publishing=share,
         forwarder_publishing=forwarder,
+        audit_publishing=audit,
         publish_period_seconds=publish_period_s,
     )
     req = agilicus_api.ConfigureConnectorStatsPublishingRequest(

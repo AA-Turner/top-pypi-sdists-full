@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: anyscale
-Version: 0.26.91
+Version: 0.26.92
 Summary: Command Line Interface for Anyscale
 Author: Anyscale Inc.
 License: AS License
@@ -14,7 +14,6 @@ Requires-Dist: aiohttp>=3.7.4.post0
 Requires-Dist: certifi>=2024.8.30
 Requires-Dist: Click>=7.0
 Requires-Dist: colorama
-Requires-Dist: GitPython
 Requires-Dist: google-auth
 Requires-Dist: jsonpatch
 Requires-Dist: jsonschema

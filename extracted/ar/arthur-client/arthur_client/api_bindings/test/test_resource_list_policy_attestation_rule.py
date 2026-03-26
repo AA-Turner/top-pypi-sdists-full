@@ -43,7 +43,7 @@ class TestResourceListPolicyAttestationRule(unittest.TestCase):
                         policy_id = '', 
                         name = '', 
                         description = '', 
-                        interval_days = 56, )
+                        validity_period_days = 56, )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -61,7 +61,7 @@ class TestResourceListPolicyAttestationRule(unittest.TestCase):
                         policy_id = '', 
                         name = '', 
                         description = '', 
-                        interval_days = 56, )
+                        validity_period_days = 56, )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

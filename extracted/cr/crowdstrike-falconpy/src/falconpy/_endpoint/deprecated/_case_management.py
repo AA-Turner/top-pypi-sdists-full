@@ -227,10 +227,38 @@ _case_management_endpoints = [
     ]
   ],
   [
+    "entities.get-rtr-file-metadata.post.v1",
+    "POST",
+    "/case-files/entities/get-rtr-file-metadata/v1",
+    "gets metadata for a file via RTR without retrieving it",
+    "case_management",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
     "entities.retrieve-rtr-file.post.v1",
     "POST",
     "/case-files/entities/retrieve-rtr-file/v1",
     "retrieves a file from host using RTR and adds it to a case",
+    "case_management",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "entities.retrieve-rtr-recent-file.post.v1",
+    "POST",
+    "/case-files/entities/retrieve-rtr-recent-file/v1",
+    "RetrieveRecentRTRFile retrieves a recently fetched RTR file and adds it to a case",
     "case_management",
     [
       {
@@ -267,6 +295,20 @@ _case_management_endpoints = [
         "description": "Page offset",
         "name": "offset",
         "in": "query"
+      }
+    ]
+  ],
+  [
+    "aggregates.access-tags.post.v1",
+    "POST",
+    "/casemgmt/aggregates/access-tags/v1",
+    "Get access tag aggregates",
+    "case_management",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
       }
     ]
   ],
@@ -323,6 +365,33 @@ _case_management_endpoints = [
         "name": "body",
         "in": "body",
         "required": True
+      }
+    ]
+  ],
+  [
+    "entities.access-tags.get.v1",
+    "GET",
+    "/casemgmt/entities/access-tags/v1",
+    "Get access tags",
+    "case_management",
+    [
+      {
+        "uniqueItems": True,
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "collectionFormat": "multi",
+        "description": "Resource IDs",
+        "name": "ids",
+        "in": "query",
+        "required": True
+      },
+      {
+        "type": "boolean",
+        "description": "Evaluate FGAC and return has_access property",
+        "name": "with_has_access",
+        "in": "query"
       }
     ]
   ],
@@ -676,6 +745,12 @@ _case_management_endpoints = [
         "name": "ids",
         "in": "query",
         "required": True
+      },
+      {
+        "type": "boolean",
+        "description": "Evaluate FGAC and return has_access property",
+        "name": "with_has_access",
+        "in": "query"
       }
     ]
   ],
@@ -725,6 +800,41 @@ _case_management_endpoints = [
         "name": "ids",
         "in": "query",
         "required": True
+      }
+    ]
+  ],
+  [
+    "queries.access-tags.get.v1",
+    "GET",
+    "/casemgmt/queries/access-tags/v1",
+    "Query access tags",
+    "case_management",
+    [
+      {
+        "type": "string",
+        "description": "FQL filter expression",
+        "name": "filter",
+        "in": "query"
+      },
+      {
+        "type": "string",
+        "description": "Sort expression",
+        "name": "sort",
+        "in": "query"
+      },
+      {
+        "maximum": 200,
+        "minimum": 1,
+        "type": "integer",
+        "description": "Page size",
+        "name": "limit",
+        "in": "query"
+      },
+      {
+        "type": "string",
+        "description": "Pagination token",
+        "name": "after",
+        "in": "query"
       }
     ]
   ],

@@ -85,7 +85,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.54.0"  # RAY_RELEASE_UPDATE: update to latest version
+DEFAULT_RAY_VERSION = "2.54.1"  # RAY_RELEASE_UPDATE: update to latest version
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -342,7 +342,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_application_templates(
+    def list_application_templates(  # noqa: PLR0913
         self,
         *,
         name: Optional[str],
@@ -353,6 +353,7 @@ class AnyscaleClientInterface(ABC):
         defaults_first: bool,
         count: Optional[int],
         paging_token: Optional[str],
+        cloud_id: Optional[str] = None,
     ) -> DecoratedapplicationtemplateListResponse:
         """List application templates accessible to the current user."""
         raise NotImplementedError
@@ -604,6 +605,12 @@ class AnyscaleClientInterface(ABC):
         paging_token: Optional[str] = None,
         sort_field: Optional[str] = None,
         sort_order: Optional[str] = None,
+        created_at_from: Optional[str] = None,
+        created_at_to: Optional[str] = None,
+        updated_at_from: Optional[str] = None,
+        updated_at_to: Optional[str] = None,
+        status_updated_at_from: Optional[str] = None,
+        status_updated_at_to: Optional[str] = None,
     ) -> DecoratedproductionjobListResponse:
         """List jobs with filtering and pagination."""
         raise NotImplementedError

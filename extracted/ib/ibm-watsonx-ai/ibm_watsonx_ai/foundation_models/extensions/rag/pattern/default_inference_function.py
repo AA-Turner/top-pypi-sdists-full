@@ -83,12 +83,11 @@ def default_inference_function(params=None):
 
         result = {"predictions": [{"fields": ["answer", "reference_documents"]}]}
         all_prompts = []
-        all_retrieved_docs = []
+        all_reference_documents = []
 
         for question in questions:
-            retrieved_docs = retriever.retrieve(query=question)
-            all_retrieved_docs.append(retrieved_docs)
-            reference_documents = [doc.page_content for doc in retrieved_docs]
+            reference_documents = retriever.retrieve(query=question)
+            all_reference_documents.append(reference_documents)
 
             prompt_input_text = build_prompt(
                 question=question,
@@ -104,10 +103,10 @@ def default_inference_function(params=None):
                 answer,
                 [
                     {"page_content": doc.page_content, "metadata": doc.metadata}
-                    for doc in retrieved_docs
+                    for doc in reference_documents
                 ],
             ]
-            for answer, retrieved_docs in zip(answers, all_retrieved_docs)
+            for answer, reference_documents in zip(answers, all_reference_documents)
         ]
 
         result["predictions"][0]["values"] = predictions

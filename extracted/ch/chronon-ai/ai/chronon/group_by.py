@@ -129,6 +129,7 @@ def Aggregation(
     windows: Optional[List[ttypes.Window]] = None,
     buckets: Optional[List[str]] = None,
     tags: Optional[Dict[str, str]] = None,
+    element_wise: Optional[bool] = None,
 ) -> ttypes.Aggregation:
     """
     :param input_column:
@@ -148,6 +149,13 @@ def Aggregation(
         Besides the GroupBy.keys, this is another level of keys for use under this aggregation.
         Using this would create an output as a map of string to aggregate.
     :type buckets: List[str]
+    :param element_wise:
+        When set to True and input_column is an array/list type, applies the operation element-wise across the arrays.
+        For example, AVERAGE with element_wise=True on [[1,2,3], [4,5,6]] produces [2.5, 3.5, 4.5].
+        This allows any operation (SUM, AVERAGE, MAX, MIN, etc.) to work on lists.
+        All lists must have the same length and must not include null values.
+        Defaults to None.
+    :type element_wise: bool
     :return: An aggregate defined with the specified operation.
     """
     # Default to last
@@ -157,16 +165,21 @@ def Aggregation(
         operation, arg_map = operation[0], operation[1]
 
     if operation == ttypes.Operation.UNIQUE_COUNT:
-        LOGGER.warning("When using UNIQUE_COUNT operation, please consider using "
-                       "BOUNDED_UNIQUE_COUNT_K or APPROX_UNIQUE_COUNT "
-                       "for better performance and scalability.")
+        LOGGER.warning(
+            "When using UNIQUE_COUNT operation, please consider using "
+            "BOUNDED_UNIQUE_COUNT_K or APPROX_UNIQUE_COUNT "
+            "for better performance and scalability."
+        )
     elif operation == ttypes.Operation.HISTOGRAM:
-        LOGGER.warning("When using HISTOGRAM operation, please consider using "
-                       "APPROX_HISTOGRAM_K for better performance and "
-                       "bounded memory usage.")
+        LOGGER.warning(
+            "When using HISTOGRAM operation, please consider using "
+            "APPROX_HISTOGRAM_K for better performance and "
+            "bounded memory usage."
+        )
 
     agg = ttypes.Aggregation(input_column, operation, arg_map, windows, buckets)
     agg.tags = tags
+    agg.elementWise = element_wise
     return agg
 
 
@@ -225,6 +238,19 @@ def validate_group_by(group_by: ttypes.GroupBy):
                 )
             else:
                 assert not utils.is_streaming(src), "SNAPSHOT accuracy should not be specified for streaming sources"
+        elif src.joinSource:
+            # When using a join as a source, the parent join must have a topic for streaming
+            # If you want to chain batch only joins, use regular EventSource/EntitySource instead
+            parent_join = src.joinSource.join
+            parent_left = parent_join.left if parent_join else None
+            assert parent_left and utils.is_streaming(parent_left), (
+                "When using a JoinSource as the source for a GroupBy, the parent join must have a topic. "
+                "Please specify either events.topic for EventSource or entities.mutationTopic for EntitySource "
+                "in the parent join's left source. Otherwise, use a regular EventSource or EntitySource."
+                "If you want to chain batch only joins, use regular EventSource/EntitySource instead"
+                "There are helper methods like get_join_output_table_name, get_staging_query_output_table_name"
+                "and group_by_output_table_name."
+            )
         else:
             if contains_windowed_aggregation(aggregations):
                 assert query.timeColumn, "Please specify timeColumn for entity source with windowed aggregations"
@@ -361,6 +387,7 @@ def GroupBy(
     name: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     derivations: Optional[List[ttypes.Derivation]] = None,
+    historical_backfill: Optional[bool] = None,
     deprecation_date: Optional[str] = None,
     description: Optional[str] = None,
     **kwargs,
@@ -474,6 +501,11 @@ def GroupBy(
         Derivation allows arbitrary SQL select clauses to be computed using columns from the output of group by backfill
         output schema. It is supported for offline computations for now.
     :type derivations: List[ai.chronon.api.ttypes.Derivation]
+    :param historical_backfill:
+        Flag to indicate whether GroupBy backfill should fill all historical holes.
+        Setting to False will only backfill the latest single partition.
+        Only applicable when backfill_start_date is set.
+    :type historical_backfill: bool
     :param deprecation_date:
         Expected deprecation date of the group by. This is useful to track the deprecation status of the group by.
     :type deprecation_date: str
@@ -486,6 +518,11 @@ def GroupBy(
         A GroupBy object containing specified aggregations.
     """
     assert sources, "Sources are not specified"
+
+    if historical_backfill is not None:
+        assert backfill_start_date is not None, (
+            "historical_backfill can only be set when backfill_start_date is specified."
+        )
 
     agg_inputs = []
     if aggregations is not None:
@@ -558,6 +595,7 @@ def GroupBy(
         tableProperties=table_properties,
         team=team,
         offlineSchedule=offline_schedule,
+        historicalBackfill=historical_backfill,
         deprecationDate=deprecation_date,
         description=description,
     )

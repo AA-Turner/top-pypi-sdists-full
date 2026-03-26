@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs"
-version = "1.42.75"
+version = "1.42.76"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.42.75 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.42.76 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.42.0, <1.43.0",
 ]
 boto3 = [
-    "boto3==1.42.75",
+    "boto3==1.42.76",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.42.0, <1.43.0",
@@ -471,6 +471,7 @@ all = [
     "mypy-boto3-transfer>=1.42.0, <1.43.0",
     "mypy-boto3-translate>=1.42.0, <1.43.0",
     "mypy-boto3-trustedadvisor>=1.42.0, <1.43.0",
+    "mypy-boto3-uxc>=1.42.0, <1.43.0",
     "mypy-boto3-verifiedpermissions>=1.42.0, <1.43.0",
     "mypy-boto3-voice-id>=1.42.0, <1.43.0",
     "mypy-boto3-vpc-lattice>=1.42.0, <1.43.0",
@@ -1694,6 +1695,9 @@ translate = [
 ]
 trustedadvisor = [
     "mypy-boto3-trustedadvisor>=1.42.0, <1.43.0",
+]
+uxc = [
+    "mypy-boto3-uxc>=1.42.0, <1.43.0",
 ]
 verifiedpermissions = [
     "mypy-boto3-verifiedpermissions>=1.42.0, <1.43.0",

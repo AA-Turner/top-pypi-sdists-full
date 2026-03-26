@@ -13,7 +13,7 @@ from falconpy import CompleteDashboard
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = CompleteDashboard(auth_object=config)
-AllowedResponses = [200, 403, 429]
+AllowedResponses = [200, 403, 404, 429]
 
 
 class TestFalconCompleteDashboard:
@@ -38,13 +38,6 @@ class TestFalconCompleteDashboard:
     def ServiceFCD_QueryBlockListFilter(self):
         returned = False
         if falcon.QueryBlockListFilter()["status_code"] in AllowedResponses:
-            returned = True
-
-        return returned
-
-    def ServiceFCD_QueryDetectionIdsByFilter(self):
-        returned = False
-        if falcon.QueryDetectionIdsByFilter(bananas="yellow")["status_code"] in AllowedResponses:
             returned = True
 
         return returned
@@ -84,7 +77,6 @@ class TestFalconCompleteDashboard:
             "AggregateAlerts": falcon.aggregate_alerts(),
             "AggregateAllowList": falcon.aggregate_allow_list(),
             "AggregateBlockList": falcon.aggregate_block_list(),
-            "AggregateDetections": falcon.aggregate_detections(),
             "AggregateDeviceCountCollection": falcon.aggregate_device_count_collection(),
             "AggregateEscalations": falcon.aggregate_escalations(),
             "AggregateFCIncidents": falcon.aggregate_fc_incidents(),
@@ -112,9 +104,6 @@ class TestFalconCompleteDashboard:
 
     def test_QueryBlockListFilter(self):
         assert self.ServiceFCD_QueryBlockListFilter() is True
-
-    def test_QueryDetectionIdsByFilter(self):
-        assert self.ServiceFCD_QueryDetectionIdsByFilter() is True
 
     def test_GetDeviceCountCollectionQueriesByFilter(self):
         assert self.ServiceFCD_GetDeviceCountCollectionQueriesByFilter() is True

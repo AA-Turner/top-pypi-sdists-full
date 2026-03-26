@@ -10,7 +10,7 @@ from pathlib import Path
 import typer
 
 from plato.cli.utils import console, maybe_bump_package_version, require_api_key
-from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image
+from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image, retag_image
 
 world_app = typer.Typer(help="Manage and deploy worlds")
 
@@ -99,6 +99,11 @@ def world_publish(
         help="Publish the next dated PEP 440 dev version without prompting",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Build without uploading"),
+    skip_docker: bool = typer.Option(
+        False,
+        "--skip-docker",
+        help="Skip Docker build; retag the current :latest image with the new version tag instead",
+    ),
 ):
     """Build and publish a world package to the Plato worlds repository.
 
@@ -297,11 +302,6 @@ def world_publish(
     if dockerfile.exists():
         console.print()
 
-        # Check Docker is available
-        if not shutil.which("docker"):
-            console.print("[red]Error: docker not found[/red]")
-            raise typer.Exit(1)
-
         # Extract short name (remove common prefixes)
         short_name = package_name
         for prefix in ("plato-world-", "plato-"):
@@ -317,7 +317,20 @@ def world_publish(
             console.print("[yellow]Dry run - would build and push Docker image:[/yellow]")
             console.print(f"  {ecr_image}")
             console.print(f"  {latest_image}")
+        elif skip_docker:
+            console.print("[cyan]Retagging existing :latest image...[/cyan]")
+            if retag_image(repository, "latest", version):
+                ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
+                console.print(f"[green]Retagged:[/green] {ecr_image}")
+            else:
+                console.print("[red]Failed to retag image. Is there an existing :latest?[/red]")
+                raise typer.Exit(1)
         else:
+            # Check Docker is available
+            if not shutil.which("docker"):
+                console.print("[red]Error: docker not found[/red]")
+                raise typer.Exit(1)
+
             # Get current :latest digest before pushing (to detect changes)
             old_digest = get_image_digest(repository, "latest")
 

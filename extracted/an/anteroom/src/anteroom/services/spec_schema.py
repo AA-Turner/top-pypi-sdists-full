@@ -106,6 +106,87 @@ class SpecDiff:
 
 
 # ---------------------------------------------------------------------------
+# Dashboard / portfolio dataclasses (#1016)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RunSummary:
+    total: int = 0
+    completed: int = 0
+    failed: int = 0
+    running: int = 0
+    blocked: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "total": self.total,
+            "completed": self.completed,
+            "failed": self.failed,
+            "running": self.running,
+            "blocked": self.blocked,
+        }
+
+
+@dataclass(frozen=True)
+class SpecSummary:
+    fqn: str
+    mode: str
+    source: str
+    phases: dict[str, str]
+    overall_status: str
+    stale_reasons: dict[str, str]
+    run_summary: RunSummary
+    updated_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "fqn": self.fqn,
+            "mode": self.mode,
+            "source": self.source,
+            "phases": self.phases,
+            "overall_status": self.overall_status,
+            "stale_reasons": self.stale_reasons,
+            "run_summary": self.run_summary.to_dict(),
+            "updated_at": self.updated_at,
+        }
+
+
+@dataclass(frozen=True)
+class DashboardTotals:
+    total_specs: int = 0
+    all_approved: int = 0
+    in_progress: int = 0
+    stale: int = 0
+    blocked: int = 0
+    draft: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "total_specs": self.total_specs,
+            "all_approved": self.all_approved,
+            "in_progress": self.in_progress,
+            "stale": self.stale,
+            "blocked": self.blocked,
+            "draft": self.draft,
+        }
+
+
+@dataclass(frozen=True)
+class SpecDashboard:
+    specs: list[SpecSummary]
+    totals: DashboardTotals
+    filters_applied: dict[str, str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "specs": [s.to_dict() for s in self.specs],
+            "totals": self.totals.to_dict(),
+            "filters_applied": self.filters_applied,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Parse / serialize
 # ---------------------------------------------------------------------------
 

@@ -24,6 +24,7 @@ mod search;
 #[cfg(feature = "wal")]
 pub(crate) mod wal_store;
 
+use grafeo_common::grafeo_error;
 #[cfg(feature = "wal")]
 use std::path::Path;
 use std::sync::Arc;
@@ -120,6 +121,10 @@ pub struct GrafeoDB {
     /// When set, each call to `session()` pre-configures the session to this graph.
     /// Updated after every one-shot `execute()` to reflect `USE GRAPH` / `SESSION RESET`.
     current_graph: RwLock<Option<String>>,
+    /// Persistent schema context for one-shot `execute()` calls.
+    /// When set, each call to `session()` pre-configures the session to this schema.
+    /// Updated after every one-shot `execute()` to reflect `SESSION SET SCHEMA` / `SESSION RESET`.
+    current_schema: RwLock<Option<String>>,
     /// Whether this database is open in read-only mode.
     /// When true, sessions automatically enforce read-only transactions.
     read_only: bool,
@@ -439,6 +444,7 @@ impl GrafeoDB {
             #[cfg(feature = "metrics")]
             metrics: Some(Arc::new(crate::metrics::MetricsRegistry::new())),
             current_graph: RwLock::new(None),
+            current_schema: RwLock::new(None),
             read_only: is_read_only,
         })
     }
@@ -511,6 +517,7 @@ impl GrafeoDB {
             #[cfg(feature = "metrics")]
             metrics: Some(Arc::new(crate::metrics::MetricsRegistry::new())),
             current_graph: RwLock::new(None),
+            current_schema: RwLock::new(None),
             read_only: false,
         })
     }
@@ -950,6 +957,11 @@ impl GrafeoDB {
             session.use_graph(graph);
         }
 
+        // Propagate persistent schema context to the new session
+        if let Some(ref schema) = *self.current_schema.read() {
+            session.set_schema(schema);
+        }
+
         // Suppress unused_mut when cdc/wal are disabled
         let _ = &mut session;
 
@@ -972,6 +984,23 @@ impl GrafeoDB {
     /// Pass `None` to reset to the default graph.
     pub fn set_current_graph(&self, name: Option<&str>) {
         *self.current_graph.write() = name.map(ToString::to_string);
+    }
+
+    /// Returns the current schema name, if any.
+    ///
+    /// This is the persistent schema context used by one-shot `execute()` calls.
+    /// It is updated whenever `execute()` encounters `SESSION SET SCHEMA` or `SESSION RESET`.
+    #[must_use]
+    pub fn current_schema(&self) -> Option<String> {
+        self.current_schema.read().clone()
+    }
+
+    /// Sets the current schema context for subsequent one-shot `execute()` calls.
+    ///
+    /// This is equivalent to running `SESSION SET SCHEMA <name>` but without creating
+    /// a session. Pass `None` to clear the schema context.
+    pub fn set_current_schema(&self, name: Option<&str>) {
+        *self.current_schema.write() = name.map(ToString::to_string);
     }
 
     /// Returns the adaptive execution configuration.
@@ -1203,27 +1232,24 @@ impl GrafeoDB {
             fm.close()?;
         }
 
-        // Commit and checkpoint WAL (legacy directory format only)
+        // Commit and sync WAL (legacy directory format only).
+        // We intentionally do NOT call wal.checkpoint() here. Directory format
+        // has no snapshot: the WAL files are the sole source of truth. Writing
+        // checkpoint.meta would cause recovery to skip older WAL files, losing
+        // all data that predates the current log sequence.
         #[cfg(feature = "wal")]
         if !is_single_file && let Some(ref wal) = self.wal {
-            let epoch = self.store.current_epoch();
-
-            // Use the last assigned transaction ID, or create a checkpoint-only tx
-            let checkpoint_tx = self
+            // Use the last assigned transaction ID, or create one for the commit record
+            let commit_tx = self
                 .transaction_manager
                 .last_assigned_transaction_id()
-                .unwrap_or_else(|| {
-                    // No transactions have been started; begin one for checkpoint
-                    self.transaction_manager.begin()
-                });
+                .unwrap_or_else(|| self.transaction_manager.begin());
 
             // Log a TransactionCommit to mark all pending records as committed
             wal.log(&WalRecord::TransactionCommit {
-                transaction_id: checkpoint_tx,
+                transaction_id: commit_tx,
             })?;
 
-            // Then checkpoint
-            wal.checkpoint(checkpoint_tx, epoch)?;
             wal.sync()?;
         }
 
@@ -1291,7 +1317,7 @@ impl GrafeoDB {
 impl Drop for GrafeoDB {
     fn drop(&mut self) {
         if let Err(e) = self.close() {
-            tracing::error!("Error closing database: {}", e);
+            grafeo_error!("Error closing database: {}", e);
         }
     }
 }

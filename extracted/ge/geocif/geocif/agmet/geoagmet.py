@@ -488,6 +488,11 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 country_norm = obj.country.replace("_", " ").lower()
                 mask = gdf[adm0_col].str.lower().str.replace("_", " ") == country_norm
                 boundary_gdf = gdf[mask].copy()
+                # Clip antimeridian wraparound (e.g., Russia's Chukotka past 180°E)
+                b = boundary_gdf.total_bounds
+                if b[2] - b[0] > 300:
+                    from shapely.geometry import box
+                    boundary_gdf = gpd.clip(boundary_gdf, box(0, b[1], 180, b[3]))
     except Exception:
         pass
 

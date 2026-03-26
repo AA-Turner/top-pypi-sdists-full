@@ -57,33 +57,14 @@ def JoinPart(
         JoinPart specifies how the left side of a join, or the query in online setting, would join with the right side
         components like GroupBys.
     """
-    # used for reset for next run
-    import_copy = __builtins__["__import__"]
-    # get group_by's module info from garbage collector
-    gc.collect()
-    group_by_module_name = None
-    for ref in gc.get_referrers(group_by):
-        if "__name__" in ref and ref["__name__"].startswith("group_bys"):
-            group_by_module_name = ref["__name__"]
-            break
-    if group_by_module_name:
-        logging.debug("group_by's module info from garbage collector {}".format(group_by_module_name))
-        group_by_module = importlib.import_module(group_by_module_name)
-        __builtins__["__import__"] = eo.import_module_set_name(group_by_module, api.GroupBy)
-    else:
-        if not group_by.metaData.name:
-            logging.error("No group_by file or custom group_by name found")
-            raise ValueError(
-                "[GroupBy] Must specify a group_by name if group_by is not defined in separate file. "
-                "You may pass it in via GroupBy.name. \n"
-            )
+    # Automatically set the GroupBy name if not already set
+    _auto_set_group_by_name(group_by)
+
     if key_mapping:
         utils.check_contains(key_mapping.values(), group_by.keyColumns, "key", group_by.metaData.name)
 
     join_part = api.JoinPart(groupBy=group_by, keyMapping=key_mapping, prefix=prefix)
     join_part.tags = tags
-    # reset before next run
-    __builtins__["__import__"] = import_copy
     return join_part
 
 
@@ -140,6 +121,7 @@ def ExternalSource(
     custom_json: Optional[str] = None,
     factory_name: Optional[str] = None,
     factory_params: Optional[Dict[str, str]] = None,
+    offline_group_by: Optional[api.GroupBy] = None,
 ) -> api.ExternalSource:
     """
     External sources are online only data sources. During fetching, using
@@ -180,9 +162,16 @@ def ExternalSource(
         creating the external source handler.
     :param factory_params: Optional parameters to pass to the factory when
         creating the handler.
+    :param offline_group_by: Optional GroupBy configuration to be used for
+        offline backfill computation consuming from a mutation table for the service data.
+        When provided, enables point-in-time correct (PITC) offline computation for the external source.
 
     """
     assert name != "contextual", "Please use `ContextualSource`"
+
+    # Automatically set the name for offline_group_by if not already set
+    if offline_group_by is not None:
+        _auto_set_group_by_name(offline_group_by)
 
     factory_config = None
     if factory_name is not None or factory_params is not None:
@@ -193,6 +182,7 @@ def ExternalSource(
         keySchema=DataType.STRUCT(f"ext_{name}_keys", *key_fields),
         valueSchema=DataType.STRUCT(f"ext_{name}_values", *value_fields),
         factoryConfig=factory_config,
+        offlineGroupBy=offline_group_by,
     )
 
 
@@ -413,7 +403,7 @@ def Join(
     env: Optional[Dict[str, Dict[str, str]]] = None,
     lag: int = 0,
     skew_keys: Optional[Dict[str, List[str]]] = None,
-    sample_percent: float = 100.0,
+    sample_percent: Optional[float] = None,
     consistency_sample_percent: float = 5.0,
     online_external_parts: Optional[List[api.ExternalPart]] = None,
     offline_schedule: str = "@daily",
@@ -497,6 +487,8 @@ def Join(
         This is used to blacklist crawlers etc
     :param sample_percent:
         Online only parameter. What percent of online serving requests to this join should be logged into warehouse.
+        Default is None (logging disabled).
+        Set to a value between 0-100 to enable logging (e.g., 100.0 for all requests).
     :param consistency_sample_percent:
         Online only parameter. What percent of online serving requests to this join should be sampled to compute
         online offline consistency metrics.
@@ -615,7 +607,7 @@ def Join(
         assert has_duplicates is False, "Please address all the above mentioned duplicates."
 
     if bootstrap_from_log:
-        has_logging = sample_percent > 0 and online
+        has_logging = sample_percent is not None and sample_percent > 0 and online
         assert has_logging, "Join must be online with sample_percent set in order to use bootstrap_from_log option"
         bootstrap_parts = (bootstrap_parts or []) + [
             api.BootstrapPart(
@@ -654,3 +646,38 @@ def Join(
         derivations=derivations,
         modelTransforms=model_transforms,
     )
+
+
+def _auto_set_group_by_name(group_by: api.GroupBy) -> None:
+    """
+    Automatically set the GroupBy name by finding its source module using garbage collection.
+    This is used by both JoinPart and ExternalSource to automatically name GroupBys.
+
+    :param group_by: The GroupBy object to set the name for
+    """
+    # Save and restore __import__ to preserve original behavior
+    import_copy = __builtins__["__import__"]
+
+    try:
+        # Use garbage collector to find the module where this GroupBy was defined
+        gc.collect()
+        group_by_module_name = None
+        for ref in gc.get_referrers(group_by):
+            if "__name__" in ref and ref["__name__"].startswith("group_bys"):
+                group_by_module_name = ref["__name__"]
+                break
+
+        if group_by_module_name:
+            logging.debug("group_by's module info from garbage collector {}".format(group_by_module_name))
+            group_by_module = importlib.import_module(group_by_module_name)
+            __builtins__["__import__"] = eo.import_module_set_name(group_by_module, api.GroupBy)
+        else:
+            if not group_by.metaData.name:
+                logging.error("No group_by file or custom group_by name found")
+                raise ValueError(
+                    "[GroupBy] Must specify a group_by name if group_by is not defined in separate file. "
+                    "You may pass it in via GroupBy.name. \n"
+                )
+    finally:
+        # Reset before next run
+        __builtins__["__import__"] = import_copy

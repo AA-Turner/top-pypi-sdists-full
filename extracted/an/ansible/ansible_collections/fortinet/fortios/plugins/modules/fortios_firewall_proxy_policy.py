@@ -487,6 +487,17 @@ options:
                             - IP pool name. Source firewall.ippool.name.
                         required: true
                         type: str
+            poolname6:
+                description:
+                    - Name of IPv6 pool object.
+                type: list
+                elements: dict
+                suboptions:
+                    name:
+                        description:
+                            - IPv6 pool name. Source firewall.ippool6.name.
+                        required: true
+                        type: str
             profile_group:
                 description:
                     - Name of profile group. Source firewall.profile-group.name.
@@ -851,6 +862,9 @@ EXAMPLES = """
           poolname:
               -
                   name: "default_name_74 (source firewall.ippool.name)"
+          poolname6:
+              -
+                  name: "default_name_76 (source firewall.ippool6.name)"
           profile_group: "<your_own_value> (source firewall.profile-group.name)"
           profile_protocol_options: "<your_own_value> (source firewall.profile-protocol-options.name)"
           profile_type: "single"
@@ -862,21 +876,21 @@ EXAMPLES = """
           sctp_filter_profile: "<your_own_value> (source sctp-filter.profile.name)"
           service:
               -
-                  name: "default_name_85 (source firewall.service.custom.name firewall.service.group.name)"
+                  name: "default_name_87 (source firewall.service.custom.name firewall.service.group.name)"
           service_negate: "enable"
           session_ttl: "0"
           spamfilter_profile: "<your_own_value> (source spamfilter.profile.name)"
           srcaddr:
               -
-                  name: "default_name_90 (source firewall.address.name firewall.addrgrp.name firewall.proxy-address.name firewall.proxy-addrgrp.name system
+                  name: "default_name_92 (source firewall.address.name firewall.addrgrp.name firewall.proxy-address.name firewall.proxy-addrgrp.name system
                     .external-resource.name)"
           srcaddr_negate: "enable"
           srcaddr6:
               -
-                  name: "default_name_93 (source firewall.address6.name firewall.addrgrp6.name system.external-resource.name)"
+                  name: "default_name_95 (source firewall.address6.name firewall.addrgrp6.name system.external-resource.name)"
           srcintf:
               -
-                  name: "default_name_95 (source system.interface.name system.zone.name system.sdwan.zone.name)"
+                  name: "default_name_97 (source system.interface.name system.zone.name system.sdwan.zone.name)"
           ssh_filter_profile: "<your_own_value> (source ssh-filter.profile.name)"
           ssh_policy_redirect: "enable"
           ssl_ssh_profile: "<your_own_value> (source firewall.ssl-ssh-profile.name)"
@@ -885,10 +899,10 @@ EXAMPLES = """
           transparent: "enable"
           url_risk:
               -
-                  name: "default_name_103 (source webfilter.ftgd-risk-level.name)"
+                  name: "default_name_105 (source webfilter.ftgd-risk-level.name)"
           users:
               -
-                  name: "default_name_105 (source user.local.name user.certificate.name)"
+                  name: "default_name_107 (source user.local.name user.certificate.name)"
           utm_status: "enable"
           uuid: "<your_own_value>"
           videofilter_profile: "<your_own_value> (source videofilter.profile.name)"
@@ -902,11 +916,11 @@ EXAMPLES = """
           webproxy_profile: "<your_own_value> (source web-proxy.profile.name)"
           ztna_ems_tag:
               -
-                  name: "default_name_118 (source firewall.address.name firewall.addrgrp.name)"
+                  name: "default_name_120 (source firewall.address.name firewall.addrgrp.name)"
           ztna_ems_tag_negate: "enable"
           ztna_proxy:
               -
-                  name: "default_name_121 (source ztna.traffic-forward-proxy.name ztna.web-proxy.name ztna.web-portal.name)"
+                  name: "default_name_123 (source ztna.traffic-forward-proxy.name ztna.web-proxy.name ztna.web-portal.name)"
           ztna_tags_match_logic: "or"
 """
 
@@ -1057,6 +1071,7 @@ def filter_firewall_proxy_policy_data(json):
         "name",
         "policyid",
         "poolname",
+        "poolname6",
         "profile_group",
         "profile_protocol_options",
         "profile_type",
@@ -1368,6 +1383,18 @@ versioned_schema = {
                 }
             },
             "v_range": [["v6.0.0", ""]],
+        },
+        "poolname6": {
+            "type": "list",
+            "elements": "dict",
+            "children": {
+                "name": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "string",
+                    "required": True,
+                }
+            },
+            "v_range": [["v7.6.5", ""]],
         },
         "dstaddr": {
             "type": "list",
@@ -1847,7 +1874,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "firewall_proxy_policy"
         )

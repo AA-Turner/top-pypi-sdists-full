@@ -32,8 +32,6 @@ from ibm_watsonx_ai._wrappers import httpx_wrapper
 from ibm_watsonx_ai._wrappers.httpx_wrapper import (
     _get_async_httpx_client,
     _get_httpx_client,
-    _httpx_async_transport_params,
-    _httpx_transport_params,
 )
 from ibm_watsonx_ai.ai_services import AIServices
 from ibm_watsonx_ai.assets import Assets
@@ -338,26 +336,34 @@ to `APIClient.service_instance.get_details` method.
         if self.credentials.url[-1] == "/":
             self.credentials.url = self.credentials.url.rstrip("/")
 
+        if (
+            self.credentials.auth_url
+            and urlparse(self.credentials.auth_url).scheme != "https"
+        ):
+            raise WMLClientError(Messages.get_message(message_id="invalid_auth_url"))
+
         # check whether it is Gov Cloud
         _validate_gov_cloud_env(cast(str, credentials.url), self._logger)
 
-        if isinstance(httpx_client, HttpClientConfig):
-            self._httpx_client: httpx.Client = _get_httpx_client(
-                transport=_httpx_transport_params(self, limits=httpx_client.limits),
+        self._httpx_client = (
+            _get_httpx_client(
+                self,
+                limits=httpx_client.limits,
                 timeout=httpx_client.timeout,
             )
-        else:
-            self._httpx_client = httpx_client
+            if isinstance(httpx_client, HttpClientConfig)
+            else httpx_client
+        )
 
-        if isinstance(async_httpx_client, HttpClientConfig):
-            self._async_httpx_client: httpx.AsyncClient = _get_async_httpx_client(
-                transport=_httpx_async_transport_params(
-                    self, limits=async_httpx_client.limits
-                ),
-                timeout=async_httpx_client.timeout,
+        self._async_httpx_client = (
+            _get_async_httpx_client(
+                self,
+                async_httpx_client.limits,
+                async_httpx_client.timeout,
             )
-        else:
-            self._async_httpx_client = async_httpx_client
+            if isinstance(async_httpx_client, HttpClientConfig)
+            else async_httpx_client
+        )
 
         if self.credentials.instance_id is not None:
             warn(

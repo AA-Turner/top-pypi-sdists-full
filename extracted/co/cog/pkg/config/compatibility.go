@@ -18,7 +18,7 @@ import (
 	"github.com/replicate/cog/pkg/util/version"
 )
 
-// TODO(andreas): check tf/py versions. tf 1.5.0 didn't install on py 3.8
+// TODO(andreas): check tf/py versions. tf 1.5.0 didn't install on py 3.10
 // TODO(andreas): support more tf versions. No matching tensorflow CPU package for version 1.15.4, etc.
 // TODO(andreas): allow user to install versions that aren't compatible
 // TODO(andreas): allow user to install tf cpu package on gpu
@@ -82,15 +82,15 @@ func (i *CUDABaseImage) ImageTag() string {
 	return "nvidia/cuda:" + i.Tag
 }
 
-//go:embed cuda_base_images.json
+//go:embed cuda_compatibility.json
 var cudaBaseImagesData []byte
 var CUDABaseImages []CUDABaseImage
 
-//go:embed tf_compatibility_matrix.json
+//go:embed tf_compatibility.json
 var tfCompatibilityMatrixData []byte
 var TFCompatibilityMatrix []TFCompatibility
 
-//go:embed torch_compatibility_matrix.json
+//go:embed torch_compatibility.json
 var torchCompatibilityMatrixData []byte
 var TorchCompatibilityMatrix []TorchCompatibility
 
@@ -256,7 +256,7 @@ func versionGreater(a string, b string) (bool, error) {
 	return aVer.Greater(bVer), nil
 }
 
-func CUDABaseImageFor(cuda string, cuDNN string) (string, error) {
+func cudaBaseImageFor(cuda string, cuDNN string) (string, error) {
 	var images []CUDABaseImage
 	for _, image := range CUDABaseImages {
 		if version.Matches(cuda, image.CUDA) && image.CuDNN == cuDNN {

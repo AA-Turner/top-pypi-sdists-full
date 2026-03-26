@@ -4,8 +4,10 @@ Provides a simple script for running module doctests.
 
 This should work even if the target module is unaware of xdoctest.
 """
-import sys
 
+from __future__ import annotations
+
+import sys
 
 __tests__ = """
 Ignore:
@@ -16,7 +18,7 @@ Ignore:
 """
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> int:
     """
     Args:
         argv (List[str] | None):
@@ -43,13 +45,15 @@ def main(argv=None):
 
     import argparse
     import textwrap
-    from xdoctest import utils
     from os.path import exists
+
+    from xdoctest import utils
 
     # FIXME: default values are reporting incorrectly or are missformated
     class RawDescriptionDefaultsHelpFormatter(
-            argparse.RawDescriptionHelpFormatter,
-            argparse.ArgumentDefaultsHelpFormatter):
+        argparse.RawDescriptionHelpFormatter,
+        argparse.ArgumentDefaultsHelpFormatter,
+    ):
         pass
 
     parser = argparse.ArgumentParser(
@@ -65,17 +69,27 @@ def main(argv=None):
     # Defaults --modname to arg.pop(0).
     # Defaults --command to arg.pop(0).
     parser.add_argument(
-        'arg', nargs='*', help=utils.codeblock(
-            '''
+        'arg',
+        nargs='*',
+        help=utils.codeblock(
+            """
             If the `--command` key / value pair is unspecified, the first
             positional argument is used as the command.
-            '''))
-    parser.add_argument('--version', action='store_true', help='Display version and quit')
-    parser.add_argument('--version-info', action='store_true', help='Display version and other info and quit')
+            """
+        ),
+    )
+    parser.add_argument(
+        '--version', action='store_true', help='Display version and quit'
+    )
+    parser.add_argument(
+        '--version-info',
+        action='store_true',
+        help='Display version and other info and quit',
+    )
 
     # The bulk of the argparse CLI is defined in the doctest example
-    from xdoctest import doctest_example
-    from xdoctest import runner
+    from xdoctest import doctest_example, runner
+
     runner._update_argparse_cli(parser.add_argument)
     doctest_example.DoctestConfig()._update_argparse_cli(parser.add_argument)
 
@@ -115,8 +129,9 @@ def main(argv=None):
         if len(errors) == 1:
             errmsg = errors[0]
         else:
-            listed_errors = ', '.join(['({}) {}'.format(c, e)
-                                       for c, e in enumerate(errors, start=1)])
+            listed_errors = ', '.join(
+                ['({}) {}'.format(c, e) for c, e in enumerate(errors, start=1)]
+            )
             errmsg = '{} errors: {}'.format(len(errors), listed_errors)
         parser.error(errmsg)
     # ---
@@ -126,49 +141,65 @@ def main(argv=None):
         options = ''
         pyproject_fpath = 'pyproject.toml'
         if exists(pyproject_fpath):
+            toml_loader = None
             try:
                 import tomllib
             except ImportError:
                 try:
-                    import tomli as tomllib
+                    import tomli  # type: ignore[unresolved-import]
                 except ImportError:
                     pass
+                else:
+                    toml_loader = tomli
             else:
+                toml_loader = tomllib
+
+            if toml_loader is not None:
                 with open(pyproject_fpath, 'rb') as file:
-                    pyproject_settings = tomllib.load(file)
+                    pyproject_settings = toml_loader.load(file)
                 try:
                     options = pyproject_settings['tool']['xdoctest']['options']
                 except KeyError:
                     pass
         if exists('pytest.ini'):
             import configparser
-            parser = configparser.ConfigParser()
-            parser.read('pytest.ini')
+
+            config_parser = configparser.ConfigParser()
+            config_parser.read('pytest.ini')
             try:
-                options = parser.get('pytest', 'xdoctest_options')
+                options = config_parser.get('pytest', 'xdoctest_options')
             except configparser.NoOptionError:
                 pass
         ns['options'] = options
 
     from xdoctest import doctest_example
+
     config = doctest_example.DoctestConfig()._populate_from_cli(ns)
 
     if config['verbose'] > 2:
-        print(textwrap.dedent(
-            r'''
+        print(
+            textwrap.dedent(
+                r"""
             =====================================
             _  _ ___  ____ ____ ___ ____ ____ ___
              \/  |  \ |  | |     |  |___ [__   |
             _/\_ |__/ |__| |___  |  |___ ___]  |
 
             =====================================
-            '''))
+            """
+            )
+        )
 
-    run_summary = xdoctest.doctest_module(modname, argv=[], style=style,
-                                          command=command,
-                                          verbose=config['verbose'],
-                                          config=config, durations=durations,
-                                          analysis=analysis)
+    run_summary = xdoctest.doctest_module(
+        modname,
+        argv=[],
+        style=style,
+        command=command,
+        verbose=config['verbose'],
+        config=config,
+        durations=durations,
+        analysis=analysis,
+    )
     n_failed = run_summary.get('n_failed', 0)
     if n_failed > 0:
         return 1

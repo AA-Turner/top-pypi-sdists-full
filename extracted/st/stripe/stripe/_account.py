@@ -81,6 +81,8 @@ class Account(
     UpdateableAPIResource["Account"],
 ):
     """
+    For new integrations, we recommend using the [Accounts v2 API](https://docs.stripe.com/api/v2/core/accounts), in place of /v1/accounts and /v1/customers to represent a user.
+
     This is an object representing a Stripe account. You can retrieve it to see
     properties on the account like its current requirements or if the account is
     enabled to make live charges or receive payouts.
@@ -471,6 +473,10 @@ class Account(
         twint_payments: Optional[Literal["active", "inactive", "pending"]]
         """
         The status of the TWINT capability of the account, or whether the account can directly process TWINT charges.
+        """
+        upi_payments: Optional[Literal["active", "inactive", "pending"]]
+        """
+        The status of the upi payments capability of the account, or whether the account can directly process upi charges.
         """
         us_bank_account_ach_payments: Optional[
             Literal["active", "inactive", "pending"]
@@ -1765,7 +1771,7 @@ class Account(
             self._request(
                 "get",
                 "/v1/accounts/{account}/persons".format(
-                    account=sanitize_id(self.get("id"))
+                    account=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1820,7 +1826,7 @@ class Account(
             await self._request_async(
                 "get",
                 "/v1/accounts/{account}/persons".format(
-                    account=sanitize_id(self.get("id"))
+                    account=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1881,7 +1887,7 @@ class Account(
             self._request(
                 "post",
                 "/v1/accounts/{account}/reject".format(
-                    account=sanitize_id(self.get("id"))
+                    account=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1944,7 +1950,7 @@ class Account(
             await self._request_async(
                 "post",
                 "/v1/accounts/{account}/reject".format(
-                    account=sanitize_id(self.get("id"))
+                    account=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1984,7 +1990,7 @@ class Account(
         return "%s/%s" % (base, extn)
 
     def instance_url(self):
-        return self._build_instance_url(self.get("id"))
+        return self._build_instance_url(self._data.get("id"))
 
     def deauthorize(self, **params):
         params["stripe_user_id"] = self.id
@@ -1994,7 +2000,7 @@ class Account(
         params = super(Account, self).serialize(previous)
         previous = previous or self._previous or {}
 
-        for k, v in iter(self.items()):
+        for k, v in iter(self._data.items()):
             if k == "individual" and isinstance(v, Person) and k not in params:
                 params[k] = v.serialize(previous.get(k, None))
 

@@ -146,7 +146,7 @@ options:
                 type: int
             minimum_length:
                 description:
-                    - Minimum password length (8 - 128).
+                    - Minimum password length (12 - 128).
                 type: int
             reuse_password:
                 description:
@@ -180,11 +180,11 @@ EXAMPLES = """
           login_lockout_upon_downgrade: "enable"
           login_lockout_upon_weaker_encryption: "enable"
           min_change_characters: "0"
-          min_lower_case_letter: "0"
-          min_non_alphanumeric: "0"
-          min_number: "0"
-          min_upper_case_letter: "0"
-          minimum_length: "8"
+          min_lower_case_letter: "1"
+          min_non_alphanumeric: "1"
+          min_number: "1"
+          min_upper_case_letter: "1"
+          minimum_length: "12"
           reuse_password: "enable"
           reuse_password_limit: "0"
           status: "enable"
@@ -590,7 +590,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_password_policy"
         )

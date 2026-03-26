@@ -94,6 +94,7 @@ from anyscale_client.models.grpc_protocol_config import GrpcProtocolConfig
 from anyscale_client.models.http_validation_error import HTTPValidationError
 from anyscale_client.models.ha_job_goal_states import HaJobGoalStates
 from anyscale_client.models.ha_job_states import HaJobStates
+from anyscale_client.models.ha_jobs_sort_field import HaJobsSortField
 from anyscale_client.models.http_protocol_config import HttpProtocolConfig
 from anyscale_client.models.idle_termination_status import IdleTerminationStatus
 from anyscale_client.models.job import Job

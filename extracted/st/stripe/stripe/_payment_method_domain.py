@@ -183,7 +183,7 @@ class PaymentMethodDomain(
     """
     livemode: bool
     """
-    Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
+    If the object exists in live mode, the value is `true`. If the object exists in test mode, the value is `false`.
     """
     object: Literal["payment_method_domain"]
     """
@@ -394,7 +394,7 @@ class PaymentMethodDomain(
             self._request(
                 "post",
                 "/v1/payment_method_domains/{payment_method_domain}/validate".format(
-                    payment_method_domain=sanitize_id(self.get("id"))
+                    payment_method_domain=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -472,7 +472,7 @@ class PaymentMethodDomain(
             await self._request_async(
                 "post",
                 "/v1/payment_method_domains/{payment_method_domain}/validate".format(
-                    payment_method_domain=sanitize_id(self.get("id"))
+                    payment_method_domain=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),

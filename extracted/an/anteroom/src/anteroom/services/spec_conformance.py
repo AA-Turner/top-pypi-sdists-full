@@ -153,12 +153,22 @@ def _check_run_health(
                     details={"run_id": run_id, "status": status},
                 )
             )
-        elif status in ("blocked", "cancelled"):
+        elif status == "cancelled":
             findings.append(
                 ConformanceFinding(
                     severity=ConformanceSeverity.WARNING,
                     category="run_health",
                     message=f"Run {run_id} is {status}",
+                    task_id=task_id,
+                    details={"run_id": run_id, "status": status},
+                )
+            )
+        elif status == "blocked":
+            findings.append(
+                ConformanceFinding(
+                    severity=ConformanceSeverity.INFO,
+                    category="run_health",
+                    message=f"Run {run_id} is blocked (resumable)",
                     task_id=task_id,
                     details={"run_id": run_id, "status": status},
                 )

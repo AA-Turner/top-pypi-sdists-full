@@ -134,7 +134,7 @@ async def perform_task(task: RpaProcessoEntradaDTO):
         err_msg = f"Erro ao performar o processo: {e}"
         console.print(f"\n{err_msg}\n", style="red")
         logger.error(err_msg)
-        task_bar_toast("Erro", err_msg, "Worker Automate Hub")
+        # task_bar_toast("Erro", err_msg, "Worker Automate Hub")
 
         if registrar_historico:
             await create_update_historico(

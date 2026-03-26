@@ -69,7 +69,8 @@ pipelines_extra_require = [
     "pyyaml>=5.3.1,<7",
 ]
 datasets_extra_require = [
-    "pyarrow >= 3.0.0, < 8.0.0; python_version<'3.11'",
+    "pyarrow >= 3.0.0, < 8.0.0; python_version<'3.10'",
+    "pyarrow >= 10.0.1; python_version=='3.10'",
     "pyarrow >= 10.0.1; python_version=='3.11'",
     "pyarrow >= 14.0.0; python_version>='3.12'",
 ]
@@ -180,7 +181,8 @@ evaluation_extra_require = [
     "jsonschema",
     "ruamel.yaml",
     "pyyaml",
-    "litellm >= 1.72.4, != 1.77.2, != 1.77.3, != 1.77.4",
+    "litellm>=1.75.5, <=1.82.6",
+    # For LiteLLM tests. Upper bound pinned: versions 1.82.7+ compromised in supply chain attack.
 ]
 
 langchain_extra_require = [

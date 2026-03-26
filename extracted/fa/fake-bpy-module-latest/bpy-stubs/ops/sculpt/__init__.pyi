@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def brush_stroke(
@@ -10,7 +11,8 @@ def brush_stroke(
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
@@ -55,7 +57,8 @@ def cloth_filter(
     area_normal_radius: float | None = 0.25,
     strength: float | None = 1.0,
     iteration_count: int | None = 1,
-    event_history=None,
+    event_history: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     type: typing.Literal["GRAVITY", "INFLATE", "EXPAND", "PINCH", "SCALE"]
     | None = "GRAVITY",
     force_axis: set[typing.Literal["X", "Y", "Z"]] | None = {"X", "Y", "Z"},
@@ -124,7 +127,8 @@ def color_filter(
     area_normal_radius: float | None = 0.25,
     strength: float | None = 1.0,
     iteration_count: int | None = 1,
-    event_history=None,
+    event_history: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     type: typing.Literal[
         "FILL",
         "HUE",
@@ -369,7 +373,7 @@ def face_set_lasso_gesture(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -417,7 +421,7 @@ def face_set_polyline_gesture(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_front_faces_only: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set in a shape defined by the cursor
@@ -649,7 +653,8 @@ def mesh_filter(
     area_normal_radius: float | None = 0.25,
     strength: float | None = 1.0,
     iteration_count: int | None = 1,
-    event_history=None,
+    event_history: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     type: typing.Literal[
         "SMOOTH",
         "SCALE",
@@ -973,7 +978,7 @@ def trim_lasso_gesture(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -1105,7 +1110,7 @@ def trim_polyline_gesture(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_front_faces_only: bool | None = False,
     location: collections.abc.Sequence[int] | None = (0, 0),
     trim_mode: typing.Literal["DIFFERENCE", "UNION", "JOIN"] | None = "DIFFERENCE",

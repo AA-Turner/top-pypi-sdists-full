@@ -5,7 +5,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generator, Literal, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Generator,
+    Literal,
+    cast,
+    overload,
+)
 
 from cachetools import TTLCache, cached
 
@@ -305,7 +313,7 @@ class Projects(WMLResource):
             for entry in client.projects.get_details(
                 limit=100, asynchronous=True, get_all=True
             ):
-                project_details.extend(entry)
+                project_details.append(entry)
 
         """
         Projects._validate_type(project_id, "project_id", str, False)
@@ -341,6 +349,121 @@ class Projects(WMLResource):
             _silent_response_logging=True,
         )
 
+    @overload
+    async def aget_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        *,
+        asynchronous: Literal[True],
+        get_all: bool = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[Any, None]: ...
+
+    @overload
+    async def aget_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: Literal[False] = False,
+        get_all: bool = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]: ...
+
+    @overload
+    async def aget_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | AsyncGenerator[Any, None]: ...
+
+    async def aget_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | AsyncGenerator[Any, None]:
+        """Asynchronously get metadata of stored project(s).
+
+        :param project_id: ID of the project
+        :type project_id: str, optional
+
+        :param limit: applicable when `project_id` is not provided, otherwise `limit` will be ignored
+        :type limit: int, optional
+
+        :param asynchronous: if `True`, it will work as a generator, defaults to `False`
+        :type asynchronous: bool, optional
+
+        :param get_all:  if `True`, it will get all entries in 'limited' chunks, defaults to `False`
+        :type get_all: bool, optional
+
+        :param project_name: name of the stored project, can be used only when `project_id` is None
+        :type project_name: str, optional
+
+        :return: metadata of stored project(s)
+        :rtype:
+            - **dict** - if project_id is not None
+            - **{"resources": [dict]}** - if project_id is None
+
+        **Example:**
+
+        .. code-block:: python
+
+            project_details = await client.projects.aget_details(project_id)
+            project_details = await client.projects.aget_details(project_name)
+            project_details = await client.projects.aget_details(limit=100)
+            project_details = await client.projects.aget_details(
+                limit=100, get_all=True
+            )
+            project_details = []
+            async for entry in await client.projects.aget_details(
+                limit=100, asynchronous=True, get_all=True
+            ):
+                project_details.append(entry)
+
+        """
+        Projects._validate_type(project_id, "project_id", str, False)
+
+        query_params = {}
+        if include := kwargs.get("include"):
+            query_params["include"] = include
+
+        if project_id is not None:
+            response_get = await self._client.async_httpx_client.get(
+                url=self._client._href_definitions.get_project_href(project_id),
+                headers=await self._client._aget_headers(),
+                params=query_params,
+            )
+
+            return self._handle_response(
+                200, "Get project", response_get, _silent_response_logging=True
+            )
+
+        if project_name:
+            query_params.update({"name": project_name})
+
+        return await self._aget_with_or_without_limit(
+            self._client._href_definitions.get_projects_href(),
+            100 if not limit or limit > 100 else limit,
+            "projects",
+            summary=False,
+            pre_defined=False,
+            skip_space_project_chk=True,
+            query_params=query_params,
+            _async=asynchronous,
+            _all=get_all,
+            _silent_response_logging=True,
+        )
+
     @cached(
         cache=TTLCache(maxsize=32, ttl=4.5 * 60)
     )  # Projects API doesn't refresh credentials until 5 minutes before expiration
@@ -356,6 +479,26 @@ class Projects(WMLResource):
         """Get metadata of stored project(s) with caching. It's dedicated for internal usage."""
 
         return self.get_details(
+            project_id=project_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            project_name=project_name,
+            **kwargs,
+        )
+
+    async def _aget_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | AsyncGenerator[Any, None]:
+        """Internal wrapper around `aget_details` that forwards all arguments."""
+
+        return await self.aget_details(
             project_id=project_id,
             limit=limit,
             asynchronous=asynchronous,

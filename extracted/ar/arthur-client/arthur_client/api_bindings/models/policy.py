@@ -37,11 +37,11 @@ class Policy(BaseModel):
     description: Optional[StrictStr] = None
     owner_group_id: StrictStr = Field(description="The ID of the group that owns this policy.")
     webhook_id: StrictStr = Field(description="The ID of the notification webhook.")
-    grace_period_days: StrictInt = Field(description="The number of days for the grace period.")
+    enforcement_delay_days: StrictInt = Field(description="The number of days for the enforcement delay.")
     alert_rules: List[PolicyAlertRule] = Field(description="Alert rules attached to this policy.")
     attestation_rules: List[PolicyAttestationRule] = Field(description="Attestation rules attached to this policy.")
     last_updated_by_user_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "organization_id", "name", "description", "owner_group_id", "webhook_id", "grace_period_days", "alert_rules", "attestation_rules", "last_updated_by_user_id"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "organization_id", "name", "description", "owner_group_id", "webhook_id", "enforcement_delay_days", "alert_rules", "attestation_rules", "last_updated_by_user_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -126,7 +126,7 @@ class Policy(BaseModel):
             "description": obj.get("description"),
             "owner_group_id": obj.get("owner_group_id"),
             "webhook_id": obj.get("webhook_id"),
-            "grace_period_days": obj.get("grace_period_days"),
+            "enforcement_delay_days": obj.get("enforcement_delay_days"),
             "alert_rules": [PolicyAlertRule.from_dict(_item) for _item in obj["alert_rules"]] if obj.get("alert_rules") is not None else None,
             "attestation_rules": [PolicyAttestationRule.from_dict(_item) for _item in obj["attestation_rules"]] if obj.get("attestation_rules") is not None else None,
             "last_updated_by_user_id": obj.get("last_updated_by_user_id")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.41.0
+Version: 1.41.1
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10

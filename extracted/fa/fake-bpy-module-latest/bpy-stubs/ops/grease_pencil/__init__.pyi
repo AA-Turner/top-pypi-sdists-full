@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 
 def active_frame_delete(
     execution_context: int | str | None = None,
@@ -64,7 +65,8 @@ def brush_stroke(
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
@@ -298,7 +300,7 @@ def erase_lasso(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -1166,7 +1168,8 @@ def sculpt_paint(
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
@@ -1740,7 +1743,7 @@ def stroke_trim(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -1835,7 +1838,8 @@ def vertex_brush_stroke(
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
@@ -2004,7 +2008,8 @@ def weight_brush_stroke(
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,

@@ -26,6 +26,21 @@ class OfflineQueryMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryResponse.FromString,
         )
+        self.ListOfflineQueryShards = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/ListOfflineQueryShards",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListOfflineQueryShardsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListOfflineQueryShardsResponse.FromString,
+        )
+        self.GetOfflineQueryShardsAggregated = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryShardsAggregated",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryShardsAggregatedRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryShardsAggregatedResponse.FromString,
+        )
+        self.GetOfflineQueryInfraSummary = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryInfraSummary",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryResponse.FromString,
+        )
         self.ListOfflineQueryShardPerformanceSummaries = channel.unary_unary(
             "/chalk.server.v1.OfflineQueryMetadataService/ListOfflineQueryShardPerformanceSummaries",
             request_serializer=chalk_dot_server_dot_v1_dot_performance__summary__pb2.ListOfflineQueryShardPerformanceSummariesRequest.SerializeToString,
@@ -78,13 +93,26 @@ class OfflineQueryMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def ListOfflineQueryShardPerformanceSummaries(self, request, context):
-        """rpc GetOfflineQueryShards(GetOfflineQueryShardsRequest) returns (GetOfflineQueryShardsResponse) {
-        option(chalk.auth.v1.permission) = PERMISSION_DEPLOY_READ;
-        option idempotency_level = NO_SIDE_EFFECTS;
-        }
+    def ListOfflineQueryShards(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
-        """
+    def GetOfflineQueryShardsAggregated(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOfflineQueryInfraSummary(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListOfflineQueryShardPerformanceSummaries(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -137,6 +165,21 @@ def add_OfflineQueryMetadataServiceServicer_to_server(servicer, server):
             servicer.GetOfflineQuery,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryResponse.SerializeToString,
+        ),
+        "ListOfflineQueryShards": grpc.unary_unary_rpc_method_handler(
+            servicer.ListOfflineQueryShards,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListOfflineQueryShardsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListOfflineQueryShardsResponse.SerializeToString,
+        ),
+        "GetOfflineQueryShardsAggregated": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineQueryShardsAggregated,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryShardsAggregatedRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryShardsAggregatedResponse.SerializeToString,
+        ),
+        "GetOfflineQueryInfraSummary": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineQueryInfraSummary,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryResponse.SerializeToString,
         ),
         "ListOfflineQueryShardPerformanceSummaries": grpc.unary_unary_rpc_method_handler(
             servicer.ListOfflineQueryShardPerformanceSummaries,
@@ -232,6 +275,93 @@ class OfflineQueryMetadataService(object):
             "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQuery",
             chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListOfflineQueryShards(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineQueryMetadataService/ListOfflineQueryShards",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListOfflineQueryShardsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListOfflineQueryShardsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineQueryShardsAggregated(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryShardsAggregated",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryShardsAggregatedRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryShardsAggregatedResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineQueryInfraSummary(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryInfraSummary",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryInfraSummaryResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -28,8 +28,8 @@ class PatchPolicyAttestationRule(BaseModel):
     """ # noqa: E501
     name: Optional[StrictStr] = None
     description: Optional[StrictStr] = None
-    interval_days: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["name", "description", "interval_days"]
+    validity_period_days: Optional[StrictInt] = None
+    __properties: ClassVar[List[str]] = ["name", "description", "validity_period_days"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,10 +80,10 @@ class PatchPolicyAttestationRule(BaseModel):
         if self.description is None and "description" in self.model_fields_set:
             _dict['description'] = None
 
-        # set to None if interval_days (nullable) is None
+        # set to None if validity_period_days (nullable) is None
         # and model_fields_set contains the field
-        if self.interval_days is None and "interval_days" in self.model_fields_set:
-            _dict['interval_days'] = None
+        if self.validity_period_days is None and "validity_period_days" in self.model_fields_set:
+            _dict['validity_period_days'] = None
 
         return _dict
 
@@ -99,7 +99,7 @@ class PatchPolicyAttestationRule(BaseModel):
         _obj = cls.model_validate({
             "name": obj.get("name"),
             "description": obj.get("description"),
-            "interval_days": obj.get("interval_days")
+            "validity_period_days": obj.get("validity_period_days")
         })
         return _obj
 

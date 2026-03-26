@@ -461,6 +461,14 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            remote_https_cert_check:
+                description:
+                    - Configure how the FortiGate unit checks and responds to the remote HTTPS server"s certificate .
+                type: str
+                choices:
+                    - 'no-check'
+                    - 'warn-on-error'
+                    - 'reject-on-error'
             reqclientcert:
                 description:
                     - Enable/disable to require client certificates for all Agentless VPN users.
@@ -573,6 +581,28 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            tls_groups:
+                description:
+                    - Configure the supported groups for TLS negotiation.
+                type: list
+                elements: str
+                choices:
+                    - 'P-521'
+                    - 'P-384'
+                    - 'P-256'
+                    - 'ML-KEM512'
+                    - 'ML-KEM768'
+                    - 'ML-KEM1024'
+                    - 'P-384-MLKEM1024'
+                    - 'P-256-MLKEM768'
+                    - 'X25519-MLKEM768'
+                    - 'X448'
+                    - 'X25519'
+                    - 'FFDHE2048'
+                    - 'FFDHE3072'
+                    - 'FFDHE4096'
+                    - 'FFDHE6144'
+                    - 'FFDHE8192'
             tlsv1_0:
                 description:
                     - tlsv1-0
@@ -771,6 +801,7 @@ EXAMPLES = """
           login_timeout: "30"
           port: "10443"
           port_precedence: "enable"
+          remote_https_cert_check: "no-check"
           reqclientcert: "enable"
           route_source_interface: "enable"
           saml_redirect_port: "8020"
@@ -778,20 +809,21 @@ EXAMPLES = """
           servercert: "<your_own_value> (source vpn.certificate.local.name)"
           source_address:
               -
-                  name: "default_name_72 (source firewall.address.name firewall.addrgrp.name system.external-resource.name)"
+                  name: "default_name_73 (source firewall.address.name firewall.addrgrp.name system.external-resource.name)"
           source_address_negate: "enable"
           source_address6:
               -
-                  name: "default_name_75 (source firewall.address6.name firewall.addrgrp6.name system.external-resource.name)"
+                  name: "default_name_76 (source firewall.address6.name firewall.addrgrp6.name system.external-resource.name)"
           source_address6_negate: "enable"
           source_interface:
               -
-                  name: "default_name_78 (source system.interface.name system.zone.name)"
+                  name: "default_name_79 (source system.interface.name system.zone.name)"
           ssl_client_renegotiation: "disable"
           ssl_insert_empty_fragment: "enable"
           ssl_max_proto_ver: "tls1-0"
           ssl_min_proto_ver: "tls1-0"
           status: "enable"
+          tls_groups: "P-521"
           tlsv1_0: "enable"
           tlsv1_1: "enable"
           tlsv1_2: "enable"
@@ -801,10 +833,10 @@ EXAMPLES = """
           tunnel_connect_without_reauth: "enable"
           tunnel_ip_pools:
               -
-                  name: "default_name_92 (source firewall.address.name firewall.addrgrp.name)"
+                  name: "default_name_94 (source firewall.address.name firewall.addrgrp.name)"
           tunnel_ipv6_pools:
               -
-                  name: "default_name_94 (source firewall.address6.name firewall.addrgrp6.name)"
+                  name: "default_name_96 (source firewall.address6.name firewall.addrgrp6.name)"
           tunnel_user_session_timeout: "30"
           unsafe_legacy_renegotiation: "enable"
           url_obscuration: "enable"
@@ -953,6 +985,7 @@ def filter_vpn_ssl_settings_data(json):
         "login_timeout",
         "port",
         "port_precedence",
+        "remote_https_cert_check",
         "reqclientcert",
         "route_source_interface",
         "saml_redirect_port",
@@ -968,6 +1001,7 @@ def filter_vpn_ssl_settings_data(json):
         "ssl_max_proto_ver",
         "ssl_min_proto_ver",
         "status",
+        "tls_groups",
         "tlsv1_0",
         "tlsv1_1",
         "tlsv1_2",
@@ -1022,6 +1056,7 @@ def flatten_multilists_attributes(data):
     multilist_attrs = [
         ["banned_cipher"],
         ["ciphersuite"],
+        ["tls_groups"],
     ]
 
     for attr in multilist_attrs:
@@ -1293,6 +1328,30 @@ versioned_schema = {
                 {"value": "low"},
             ],
         },
+        "tls_groups": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "list",
+            "options": [
+                {"value": "P-521"},
+                {"value": "P-384"},
+                {"value": "P-256"},
+                {"value": "ML-KEM512"},
+                {"value": "ML-KEM768"},
+                {"value": "ML-KEM1024"},
+                {"value": "P-384-MLKEM1024"},
+                {"value": "P-256-MLKEM768"},
+                {"value": "X25519-MLKEM768"},
+                {"value": "X448"},
+                {"value": "X25519"},
+                {"value": "FFDHE2048"},
+                {"value": "FFDHE3072"},
+                {"value": "FFDHE4096"},
+                {"value": "FFDHE6144"},
+                {"value": "FFDHE8192"},
+            ],
+            "multiple_values": True,
+            "elements": "str",
+        },
         "idle_timeout": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "auth_timeout": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "login_attempt_limit": {"v_range": [["v6.0.0", ""]], "type": "integer"},
@@ -1537,6 +1596,15 @@ versioned_schema = {
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "server_hostname": {"v_range": [["v7.4.0", ""]], "type": "string"},
+        "remote_https_cert_check": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [
+                {"value": "no-check"},
+                {"value": "warn-on-error"},
+                {"value": "reject-on-error"},
+            ],
+        },
         "tunnel_ip_pools": {
             "type": "list",
             "elements": "dict",
@@ -1688,7 +1756,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "vpn_ssl_settings"
         )

@@ -158,6 +158,7 @@ options:
                  - 'system_ha-monitor'
                  - 'system_storage'
                  - 'system_dedicated-mgmt'
+                 - 'system_sov-sase'
                  - 'system_gi-gk'
                  - 'system_arp-table'
                  - 'system_ipv6-neighbor-cache'
@@ -241,6 +242,8 @@ options:
                  - 'system_fortisandbox'
                  - 'system_fortindr'
                  - 'system_fortidata'
+                 - 'system_affinity-interrupt'
+                 - 'system_affinity-packet-redistribution'
                  - 'system_vdom-exception'
                  - 'system_csf'
                  - 'system_automation-trigger'
@@ -292,6 +295,7 @@ options:
                  - 'wireless-controller_vap-group'
                  - 'wireless-controller_wids-profile'
                  - 'wireless-controller_ble-profile'
+                 - 'wireless-controller_lw-profile'
                  - 'wireless-controller_syslog-profile'
                  - 'wireless-controller_wtp-profile'
                  - 'wireless-controller_wtp'
@@ -693,8 +697,6 @@ options:
                  - 'system.autoupdate_tunneling'
                  - 'vpn.ssl.web_host-check-software'
                  - 'vpn.ssl_client'
-                 - 'system_affinity-interrupt'
-                 - 'system_affinity-packet-redistribution'
                  - 'nsxt_setting'
                  - 'nsxt_service-chain'
                  - 'dpdk_global'
@@ -930,6 +932,7 @@ options:
          - 'system_ha-monitor'
          - 'system_storage'
          - 'system_dedicated-mgmt'
+         - 'system_sov-sase'
          - 'system_gi-gk'
          - 'system_arp-table'
          - 'system_ipv6-neighbor-cache'
@@ -1013,6 +1016,8 @@ options:
          - 'system_fortisandbox'
          - 'system_fortindr'
          - 'system_fortidata'
+         - 'system_affinity-interrupt'
+         - 'system_affinity-packet-redistribution'
          - 'system_vdom-exception'
          - 'system_csf'
          - 'system_automation-trigger'
@@ -1064,6 +1069,7 @@ options:
          - 'wireless-controller_vap-group'
          - 'wireless-controller_wids-profile'
          - 'wireless-controller_ble-profile'
+         - 'wireless-controller_lw-profile'
          - 'wireless-controller_syslog-profile'
          - 'wireless-controller_wtp-profile'
          - 'wireless-controller_wtp'
@@ -1465,8 +1471,6 @@ options:
          - 'system.autoupdate_tunneling'
          - 'vpn.ssl.web_host-check-software'
          - 'vpn.ssl_client'
-         - 'system_affinity-interrupt'
-         - 'system_affinity-packet-redistribution'
          - 'nsxt_setting'
          - 'nsxt_service-chain'
          - 'dpdk_global'
@@ -1867,6 +1871,10 @@ MODULE_MKEY_DEFINITONS = {
         "mkey": "None",
         "mkey_type": None,
     },
+    "system_sov-sase": {
+        "mkey": "None",
+        "mkey_type": None,
+    },
     "system_gi-gk": {
         "mkey": "None",
         "mkey_type": None,
@@ -2199,6 +2207,14 @@ MODULE_MKEY_DEFINITONS = {
         "mkey": "None",
         "mkey_type": None,
     },
+    "system_affinity-interrupt": {
+        "mkey": "id",
+        "mkey_type": int,
+    },
+    "system_affinity-packet-redistribution": {
+        "mkey": "id",
+        "mkey_type": int,
+    },
     "system_vdom-exception": {
         "mkey": "id",
         "mkey_type": int,
@@ -2400,6 +2416,10 @@ MODULE_MKEY_DEFINITONS = {
         "mkey_type": str,
     },
     "wireless-controller_ble-profile": {
+        "mkey": "name",
+        "mkey_type": str,
+    },
+    "wireless-controller_lw-profile": {
         "mkey": "name",
         "mkey_type": str,
     },
@@ -4007,14 +4027,6 @@ MODULE_MKEY_DEFINITONS = {
         "mkey": "name",
         "mkey_type": str,
     },
-    "system_affinity-interrupt": {
-        "mkey": "id",
-        "mkey_type": int,
-    },
-    "system_affinity-packet-redistribution": {
-        "mkey": "id",
-        "mkey_type": int,
-    },
     "nsxt_setting": {
         "mkey": "None",
         "mkey_type": None,
@@ -4979,7 +4991,7 @@ SPECIAL_ATTRIBUTE_TABLE = {
         ["radio_3", "band"],
         ["radio_4", "band"],
     ],
-    "wireless_controller_snmp": [["user", "notify_hosts"]],
+    "wireless_controller_snmp": [["user", "notify_hosts"], ["user", "notify_hosts6"]],
     "switch_controller_security_policy_local_access": [
         ["mgmt_allowaccess"],
         ["internal_allowaccess"],
@@ -5065,7 +5077,7 @@ SPECIAL_ATTRIBUTE_TABLE = {
     "firewall_security_policy": [["url_category"]],
     "firewall_ipv6_eh_filter": [["hdopt_type"], ["routing_type"]],
     "vpn_ssl_web_portal": [["allow_user_access"]],
-    "vpn_ssl_settings": [["banned_cipher"], ["ciphersuite"]],
+    "vpn_ssl_settings": [["banned_cipher"], ["ciphersuite"], ["tls_groups"]],
     "vpn_ipsec_phase1": [
         ["proposal"],
         ["dhgrp"],
@@ -5548,6 +5560,7 @@ def main():
                 "system_ha-monitor",
                 "system_storage",
                 "system_dedicated-mgmt",
+                "system_sov-sase",
                 "system_gi-gk",
                 "system_arp-table",
                 "system_ipv6-neighbor-cache",
@@ -5631,6 +5644,8 @@ def main():
                 "system_fortisandbox",
                 "system_fortindr",
                 "system_fortidata",
+                "system_affinity-interrupt",
+                "system_affinity-packet-redistribution",
                 "system_vdom-exception",
                 "system_csf",
                 "system_automation-trigger",
@@ -5682,6 +5697,7 @@ def main():
                 "wireless-controller_vap-group",
                 "wireless-controller_wids-profile",
                 "wireless-controller_ble-profile",
+                "wireless-controller_lw-profile",
                 "wireless-controller_syslog-profile",
                 "wireless-controller_wtp-profile",
                 "wireless-controller_wtp",
@@ -6083,8 +6099,6 @@ def main():
                 "system.autoupdate_tunneling",
                 "vpn.ssl.web_host-check-software",
                 "vpn.ssl_client",
-                "system_affinity-interrupt",
-                "system_affinity-packet-redistribution",
                 "nsxt_setting",
                 "nsxt_service-chain",
                 "dpdk_global",
@@ -6328,6 +6342,7 @@ def main():
                         "system_ha-monitor",
                         "system_storage",
                         "system_dedicated-mgmt",
+                        "system_sov-sase",
                         "system_gi-gk",
                         "system_arp-table",
                         "system_ipv6-neighbor-cache",
@@ -6411,6 +6426,8 @@ def main():
                         "system_fortisandbox",
                         "system_fortindr",
                         "system_fortidata",
+                        "system_affinity-interrupt",
+                        "system_affinity-packet-redistribution",
                         "system_vdom-exception",
                         "system_csf",
                         "system_automation-trigger",
@@ -6462,6 +6479,7 @@ def main():
                         "wireless-controller_vap-group",
                         "wireless-controller_wids-profile",
                         "wireless-controller_ble-profile",
+                        "wireless-controller_lw-profile",
                         "wireless-controller_syslog-profile",
                         "wireless-controller_wtp-profile",
                         "wireless-controller_wtp",
@@ -6863,8 +6881,6 @@ def main():
                         "system.autoupdate_tunneling",
                         "vpn.ssl.web_host-check-software",
                         "vpn.ssl_client",
-                        "system_affinity-interrupt",
-                        "system_affinity-packet-redistribution",
                         "nsxt_setting",
                         "nsxt_service-chain",
                         "dpdk_global",

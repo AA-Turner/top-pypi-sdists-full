@@ -35,9 +35,26 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <https://unlicense.org>
 """
+from typing import Dict, List
 
 
-def sensor_policy_payload(passed_keywords: dict) -> dict:
+def maintenance_token_payload(passed_keywords: dict) -> Dict[str, str]:
+    """Create a properly formatted payload for incrementing an uninstall token.
+
+    {
+        "audit_message": "string"
+    }
+    """
+    returned_payload = {}
+    keys = ["audit_message"]
+    for key in keys:
+        if passed_keywords.get(key, None) is not None:
+            returned_payload[key] = passed_keywords[key]
+
+    return returned_payload
+
+
+def sensor_policy_payload(passed_keywords: dict) -> Dict[str, List[dict]]:
     """Create a properly formatted prevention policy payload.
 
     Supports create and update operations. Single policy only.

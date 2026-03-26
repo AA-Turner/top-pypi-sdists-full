@@ -92,7 +92,7 @@ LanguageCodeType = Literal[
 ]
 ListLexiconsPaginatorName = Literal["list_lexicons"]
 ListSpeechSynthesisTasksPaginatorName = Literal["list_speech_synthesis_tasks"]
-OutputFormatType = Literal["json", "mp3", "ogg_opus", "ogg_vorbis", "pcm"]
+OutputFormatType = Literal["alaw", "json", "mp3", "mulaw", "ogg_opus", "ogg_vorbis", "pcm"]
 QuotaCodeType = Literal["input-stream-inbound-event-timeout", "input-stream-timeout"]
 ServiceCodeType = Literal["polly"]
 SpeechMarkTypeType = Literal["sentence", "ssml", "viseme", "word"]
@@ -610,6 +610,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

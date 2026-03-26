@@ -4,15 +4,16 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json},
     routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
 
-use crate::health::{Health, SetupResult};
-use crate::prediction::PredictionStatus;
+#[cfg(test)]
+use crate::health::Health;
+use crate::health::{HealthResponse, SetupResult};
 use crate::predictor::PredictionError;
 use crate::service::{CreatePredictionError, HealthSnapshot, PredictionService};
 use crate::version::VersionInfo;
@@ -20,25 +21,30 @@ use crate::webhook::{TraceContext, WebhookConfig, WebhookEventType, WebhookSende
 
 #[derive(Debug, Serialize)]
 pub struct HealthCheckResponse {
-    pub status: Health,
+    pub status: HealthResponse,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub setup: Option<SetupResult>,
     pub version: VersionInfo,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_healthcheck_error: Option<String>,
 }
 
-impl From<HealthSnapshot> for HealthCheckResponse {
-    fn from(snapshot: HealthSnapshot) -> Self {
-        // If ready but at capacity, report BUSY
-        let status = if snapshot.is_busy() {
-            Health::Busy
+impl HealthCheckResponse {
+    pub fn from_snapshot(snapshot: HealthSnapshot, user_healthcheck_error: Option<String>) -> Self {
+        // Determine response status
+        let status = if user_healthcheck_error.is_some() {
+            HealthResponse::Unhealthy
+        } else if snapshot.is_busy() {
+            HealthResponse::Busy
         } else {
-            snapshot.state
+            snapshot.state.into()
         };
 
         Self {
             status,
             setup: snapshot.setup_result,
             version: snapshot.version,
+            user_healthcheck_error,
         }
     }
 }
@@ -51,6 +57,9 @@ pub struct PredictionRequest {
         deserialize_with = "deserialize_input"
     )]
     pub input: serde_json::Value,
+    /// Per-prediction context made available to predictors via `current_scope().context`.
+    #[serde(default)]
+    pub context: std::collections::HashMap<String, String>,
     pub webhook: Option<String>,
     #[serde(default = "default_webhook_events_filter")]
     pub webhook_events_filter: Vec<WebhookEventType>,
@@ -92,14 +101,81 @@ fn generate_prediction_id() -> String {
     format!("pred_{:x}", timestamp)
 }
 
-async fn health_check(State(service): State<Arc<PredictionService>>) -> Json<HealthCheckResponse> {
-    let snapshot = service.health().await;
+/// Root discovery endpoint — returns a map of available API endpoints.
+///
+/// Restores the `GET /` endpoint from cog <= 0.16.x for service discovery.
+/// `cog_version` reports the Python SDK version when available (matching the
+/// old Python server behaviour), falling back to the coglet runtime version.
+async fn root(State(service): State<Arc<PredictionService>>) -> Json<serde_json::Value> {
+    let version = service.version();
+    let cog_version = version.python_sdk.as_deref().unwrap_or(version.coglet);
+    let mut doc = serde_json::json!({
+        "cog_version": cog_version,
+        "docs_url": "/docs",
+        "openapi_url": "/openapi.json",
+        "shutdown_url": "/shutdown",
+        "healthcheck_url": "/health-check",
+        "predictions_url": "/predictions",
+        "predictions_idempotent_url": "/predictions/{prediction_id}",
+        "predictions_cancel_url": "/predictions/{prediction_id}/cancel",
+    });
 
-    if snapshot.is_ready() && !snapshot.is_busy() {
-        write_readiness_file();
+    if service.supports_training().await {
+        let obj = doc.as_object_mut().expect("doc is an object");
+        obj.insert("trainings_url".to_string(), serde_json::json!("/trainings"));
+        obj.insert(
+            "trainings_idempotent_url".to_string(),
+            serde_json::json!("/trainings/{training_id}"),
+        );
+        obj.insert(
+            "trainings_cancel_url".to_string(),
+            serde_json::json!("/trainings/{training_id}/cancel"),
+        );
     }
 
-    Json(snapshot.into())
+    Json(doc)
+}
+
+async fn health_check(State(service): State<Arc<PredictionService>>) -> Json<HealthCheckResponse> {
+    tracing::trace!("Health check endpoint called");
+    let snapshot = service.health().await;
+    tracing::trace!(
+        state = ?snapshot.state,
+        available_slots = snapshot.available_slots,
+        total_slots = snapshot.total_slots,
+        has_setup_result = snapshot.setup_result.is_some(),
+        "Health snapshot retrieved"
+    );
+
+    // Run user healthcheck if ready (even when busy — healthcheck health
+    // and slot availability are orthogonal concerns).
+    let user_healthcheck_error = if snapshot.is_ready() {
+        write_readiness_file();
+
+        // Run user-defined healthcheck
+        tracing::trace!("Running user-defined healthcheck");
+        match service.healthcheck().await {
+            Ok(result) if result.is_healthy() => {
+                tracing::trace!("User healthcheck passed");
+                None
+            }
+            Ok(result) => {
+                tracing::debug!(error = ?result.error, "User healthcheck reported unhealthy");
+                result.error
+            }
+            Err(e) => {
+                tracing::debug!(error = %e, "User healthcheck returned error");
+                Some(format!("Healthcheck error: {}", e))
+            }
+        }
+    } else {
+        tracing::trace!(state = ?snapshot.state, "Skipping user healthcheck (not ready)");
+        None
+    };
+
+    let response = HealthCheckResponse::from_snapshot(snapshot, user_healthcheck_error);
+    tracing::trace!(status = ?response.status, "Health check response");
+    Json(response)
 }
 
 /// Write /var/run/cog/ready for K8s readiness probe.
@@ -154,6 +230,7 @@ async fn create_prediction(
     let request = body.map(|Json(r)| r).unwrap_or_else(|| PredictionRequest {
         id: None,
         input: serde_json::json!({}),
+        context: Default::default(),
         webhook: None,
         webhook_events_filter: default_webhook_events_filter(),
     });
@@ -164,10 +241,12 @@ async fn create_prediction(
         service,
         prediction_id,
         request.input,
+        request.context,
         request.webhook,
         request.webhook_events_filter,
         respond_async,
         trace_context,
+        false,
     )
     .await
 }
@@ -181,6 +260,7 @@ async fn create_prediction_idempotent(
     let request = body.map(|Json(r)| r).unwrap_or_else(|| PredictionRequest {
         id: None,
         input: serde_json::json!({}),
+        context: Default::default(),
         webhook: None,
         webhook_events_filter: default_webhook_events_filter(),
     });
@@ -201,9 +281,8 @@ async fn create_prediction_idempotent(
     }
 
     // Check if prediction with this ID is already in-flight
-    let supervisor = service.supervisor();
-    if let Some(state) = supervisor.get_state(&prediction_id) {
-        return (StatusCode::ACCEPTED, Json(state.to_response()));
+    if let Some(response) = service.get_prediction_response(&prediction_id) {
+        return (StatusCode::ACCEPTED, Json(response));
     }
 
     let respond_async = should_respond_async(&headers);
@@ -212,10 +291,12 @@ async fn create_prediction_idempotent(
         service,
         prediction_id,
         request.input,
+        request.context,
         request.webhook,
         request.webhook_events_filter,
         respond_async,
         trace_context,
+        false,
     )
     .await
 }
@@ -244,50 +325,64 @@ fn build_webhook_sender(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn create_prediction_with_id(
     service: Arc<PredictionService>,
     prediction_id: String,
     input: serde_json::Value,
+    context: std::collections::HashMap<String, String>,
     webhook: Option<String>,
     webhook_events_filter: Vec<WebhookEventType>,
     respond_async: bool,
     trace_context: TraceContext,
+    is_training: bool,
 ) -> (StatusCode, Json<serde_json::Value>) {
+    // Validate input against the appropriate schema
+    let validation_result = if is_training {
+        service.validate_train_input(&input).await
+    } else {
+        service.validate_input(&input).await
+    };
+    if let Err(errors) = validation_result {
+        let detail: Vec<serde_json::Value> = errors
+            .into_iter()
+            .map(|e| {
+                serde_json::json!({
+                    "loc": ["body", "input", e.field],
+                    "msg": e.msg,
+                    "type": e.error_type
+                })
+            })
+            .collect();
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({ "detail": detail })),
+        );
+    }
+
     let webhook_sender = build_webhook_sender(
         webhook.clone(),
         webhook_events_filter.clone(),
         trace_context.clone(),
     );
 
-    // Submit to supervisor (tracks lifecycle, owns webhook)
-    let supervisor = service.supervisor();
-    let handle = supervisor.submit(prediction_id.clone(), input.clone(), webhook_sender);
-
-    // Try to create prediction slot (acquires permit, checks health)
-    let mut slot = match service.create_prediction(prediction_id.clone(), None).await {
-        Ok(p) => p,
+    // Submit prediction: creates Prediction, acquires slot, registers in service
+    let (handle, unregistered_slot) = match service
+        .submit_prediction(prediction_id.clone(), input.clone(), webhook_sender)
+        .await
+    {
+        Ok(r) => r,
         Err(CreatePredictionError::NotReady) => {
-            supervisor.update_status(
-                &prediction_id,
-                PredictionStatus::Failed,
-                None,
-                Some("Predictor not ready".to_string()),
-            );
+            let msg = PredictionError::NotReady.to_string();
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
                 Json(serde_json::json!({
-                    "error": "Predictor not ready",
+                    "error": msg,
                     "status": "failed"
                 })),
             );
         }
         Err(CreatePredictionError::AtCapacity) => {
-            supervisor.update_status(
-                &prediction_id,
-                PredictionStatus::Failed,
-                None,
-                Some("At capacity".to_string()),
-            );
             return (
                 StatusCode::CONFLICT,
                 Json(serde_json::json!({
@@ -298,44 +393,20 @@ async fn create_prediction_with_id(
         }
     };
 
-    supervisor.update_status(&prediction_id, PredictionStatus::Processing, None, None);
+    let prediction = unregistered_slot.prediction();
 
     // Async mode: spawn background task, return immediately
     if respond_async {
         let service_clone = Arc::clone(&service);
-        let supervisor_clone = Arc::clone(supervisor);
         let id_for_cleanup = prediction_id.clone();
+        let context_async = context.clone();
         tokio::spawn(async move {
-            let result = service_clone.predict(&mut slot, input).await;
-
-            match result {
-                Ok(r) => {
-                    supervisor_clone.update_status(
-                        &id_for_cleanup,
-                        PredictionStatus::Succeeded,
-                        Some(serde_json::json!(r.output)),
-                        None,
-                    );
-                }
-                Err(PredictionError::Cancelled) => {
-                    supervisor_clone.update_status(
-                        &id_for_cleanup,
-                        PredictionStatus::Canceled,
-                        None,
-                        None,
-                    );
-                }
-                Err(e) => {
-                    supervisor_clone.update_status(
-                        &id_for_cleanup,
-                        PredictionStatus::Failed,
-                        None,
-                        Some(e.to_string()),
-                    );
-                }
-            }
-
-            service_clone.unregister_prediction(&id_for_cleanup);
+            let _result = service_clone
+                .predict(unregistered_slot, input, context_async)
+                .await;
+            // Prediction state is already updated by predict() internally
+            // (set_succeeded/set_failed/set_canceled fire webhooks automatically)
+            service_clone.remove_prediction(&id_for_cleanup);
         });
 
         return (
@@ -347,50 +418,68 @@ async fn create_prediction_with_id(
         );
     }
 
-    // Sync mode: use sync guard for connection-drop cancellation
-    let mut sync_guard = handle.sync_guard();
+    // Sync mode: spawn prediction into a background task so the slot lifetime
+    // is NOT tied to the HTTP connection. If the client disconnects, the
+    // SyncPredictionGuard fires cancel, but the slot/permit stays alive in the
+    // spawned task until the worker acknowledges the cancel.
+    let mut sync_guard = handle.sync_guard(Arc::clone(&service));
 
-    let result = service.predict(&mut slot, input).await;
-    let predict_time = slot.elapsed().as_secs_f64();
+    let service_bg = Arc::clone(&service);
+    let id_bg = prediction_id.clone();
+    let result_rx = {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            let result = service_bg.predict(unregistered_slot, input, context).await;
+            // Prediction state is already updated by predict() internally
+            service_bg.remove_prediction(&id_bg);
+            let _ = tx.send(result);
+        });
+        rx
+    };
 
-    // Disarm guard - prediction completed normally
+    // Wait for the prediction to complete. If the connection drops, axum
+    // cancels this future, dropping sync_guard which fires cancel.
+    let result = match result_rx.await {
+        Ok(r) => r,
+        Err(_) => {
+            // Background task panicked or was cancelled
+            Err(PredictionError::Failed("prediction task lost".to_string()))
+        }
+    };
+
+    let predict_time = prediction
+        .try_lock()
+        .map(|p| p.elapsed())
+        .unwrap_or(std::time::Duration::ZERO)
+        .as_secs_f64();
+
+    // Disarm guard - prediction completed normally (connection still alive)
     sync_guard.disarm();
 
-    match &result {
-        Ok(r) => {
-            supervisor.update_status(
-                &prediction_id,
-                PredictionStatus::Succeeded,
-                Some(serde_json::json!(r.output)),
-                None,
-            );
+    // Build metrics object: user metrics + predict_time
+    let build_metrics = |user_metrics: &std::collections::HashMap<String, serde_json::Value>| {
+        let mut m = serde_json::Map::new();
+        for (k, v) in user_metrics {
+            m.insert(k.clone(), v.clone());
         }
-        Err(PredictionError::Cancelled) => {
-            supervisor.update_status(&prediction_id, PredictionStatus::Canceled, None, None);
-        }
-        Err(e) => {
-            supervisor.update_status(
-                &prediction_id,
-                PredictionStatus::Failed,
-                None,
-                Some(e.to_string()),
-            );
-        }
-    }
-
-    service.unregister_prediction(&prediction_id);
+        m.insert("predict_time".to_string(), serde_json::json!(predict_time));
+        serde_json::Value::Object(m)
+    };
 
     match result {
-        Ok(r) => (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "id": prediction_id,
-                "output": r.output,
-                "logs": r.logs,
-                "status": "succeeded",
-                "metrics": { "predict_time": predict_time }
-            })),
-        ),
+        Ok(r) => {
+            let metrics = build_metrics(&r.metrics);
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "id": prediction_id,
+                    "output": r.output,
+                    "logs": r.logs,
+                    "status": "succeeded",
+                    "metrics": metrics
+                })),
+            )
+        }
         Err(PredictionError::InvalidInput(msg)) => (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(serde_json::json!({
@@ -401,15 +490,18 @@ async fn create_prediction_with_id(
                 "metrics": { "predict_time": predict_time }
             })),
         ),
-        Err(PredictionError::NotReady) => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "id": prediction_id,
-                "error": "Predictor not ready",
-                "logs": "",
-                "status": "failed"
-            })),
-        ),
+        Err(PredictionError::NotReady) => {
+            let msg = PredictionError::NotReady.to_string();
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "id": prediction_id,
+                    "error": msg,
+                    "logs": "",
+                    "status": "failed"
+                })),
+            )
+        }
         Err(PredictionError::Failed(msg)) => (
             // 200 for parity with Python - prediction failure is data, not HTTP error
             StatusCode::OK,
@@ -464,15 +556,36 @@ async fn openapi_schema(State(service): State<Arc<PredictionService>>) -> impl I
     }
 }
 
-// Training routes - bug-for-bug compatibility with cog mainline
-// In cog, training routes actually call predict(), not train()
+// Training routes — same dispatch as predictions but validated against
+// TrainingInput schema instead of Input.
 
 async fn create_training(
     State(service): State<Arc<PredictionService>>,
     headers: HeaderMap,
     body: Option<Json<PredictionRequest>>,
 ) -> impl IntoResponse {
-    create_prediction(State(service), headers, body).await
+    let request = body.map(|Json(r)| r).unwrap_or_else(|| PredictionRequest {
+        id: None,
+        input: serde_json::json!({}),
+        context: Default::default(),
+        webhook: None,
+        webhook_events_filter: default_webhook_events_filter(),
+    });
+    let prediction_id = request.id.unwrap_or_else(generate_prediction_id);
+    let respond_async = should_respond_async(&headers);
+    let trace_context = extract_trace_context(&headers);
+    create_prediction_with_id(
+        service,
+        prediction_id,
+        request.input,
+        request.context,
+        request.webhook,
+        request.webhook_events_filter,
+        respond_async,
+        trace_context,
+        true,
+    )
+    .await
 }
 
 async fn create_training_idempotent(
@@ -481,7 +594,48 @@ async fn create_training_idempotent(
     headers: HeaderMap,
     body: Option<Json<PredictionRequest>>,
 ) -> impl IntoResponse {
-    create_prediction_idempotent(State(service), Path(training_id), headers, body).await
+    let request = body.map(|Json(r)| r).unwrap_or_else(|| PredictionRequest {
+        id: None,
+        input: serde_json::json!({}),
+        context: Default::default(),
+        webhook: None,
+        webhook_events_filter: default_webhook_events_filter(),
+    });
+
+    if let Some(ref req_id) = request.id
+        && req_id != &training_id
+    {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({
+                "detail": [{
+                    "loc": ["body", "id"],
+                    "msg": "training ID must match the ID supplied in the URL",
+                    "type": "value_error"
+                }]
+            })),
+        );
+    }
+
+    // Idempotent: return existing state if already submitted
+    if let Some(response) = service.get_prediction_response(&training_id) {
+        return (StatusCode::ACCEPTED, Json(response));
+    }
+
+    let respond_async = should_respond_async(&headers);
+    let trace_context = extract_trace_context(&headers);
+    create_prediction_with_id(
+        service,
+        training_id,
+        request.input,
+        request.context,
+        request.webhook,
+        request.webhook_events_filter,
+        respond_async,
+        trace_context,
+        true,
+    )
+    .await
 }
 
 async fn cancel_training(
@@ -491,8 +645,16 @@ async fn cancel_training(
     cancel_prediction(State(service), Path(training_id)).await
 }
 
+/// Maximum HTTP request body size (100 MiB).
+///
+/// Axum defaults to 2 MiB which is too small for models that accept large
+/// inline inputs (e.g. base64-encoded images).  Inputs that exceed the IPC
+/// frame limit are automatically spilled to disk by `build_slot_request`.
+const MAX_HTTP_BODY_SIZE: usize = 100 * 1024 * 1024;
+
 pub fn routes(service: Arc<PredictionService>) -> Router {
     Router::new()
+        .route("/", get(root))
         .route("/health-check", get(health_check))
         .route("/openapi.json", get(openapi_schema))
         .route("/shutdown", post(shutdown))
@@ -502,6 +664,7 @@ pub fn routes(service: Arc<PredictionService>) -> Router {
         .route("/trainings", post(create_training))
         .route("/trainings/{id}", put(create_training_idempotent))
         .route("/trainings/{id}/cancel", post(cancel_training))
+        .layer(DefaultBodyLimit::max(MAX_HTTP_BODY_SIZE))
         .with_state(service)
 }
 
@@ -569,7 +732,12 @@ mod tests {
 
         let json = response_json(response).await;
         assert_eq!(json["status"], "failed");
-        assert!(json["error"].as_str().unwrap().contains("not ready"));
+        assert!(
+            json["error"]
+                .as_str()
+                .unwrap()
+                .contains("Setup has not finished yet")
+        );
     }
 
     #[tokio::test]
@@ -649,12 +817,27 @@ mod tests {
             &self,
             _slot_id: SlotId,
             prediction: Arc<StdMutex<crate::prediction::Prediction>>,
+            _idle_sender: tokio::sync::oneshot::Sender<crate::permit::SlotIdleToken>,
         ) {
             self.register_count.fetch_add(1, Ordering::SeqCst);
             if self.complete_immediately {
                 let mut pred = prediction.lock().unwrap();
                 pred.set_succeeded(PredictionOutput::Single(serde_json::json!("mock output")));
             }
+        }
+
+        async fn cancel_by_prediction_id(
+            &self,
+            _prediction_id: &str,
+        ) -> Result<(), crate::orchestrator::OrchestratorError> {
+            Ok(())
+        }
+
+        async fn healthcheck(
+            &self,
+        ) -> Result<crate::orchestrator::HealthcheckResult, crate::orchestrator::OrchestratorError>
+        {
+            Ok(crate::orchestrator::HealthcheckResult::healthy())
         }
 
         async fn shutdown(&self) -> Result<(), crate::orchestrator::OrchestratorError> {
@@ -918,6 +1101,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn training_idempotent_put() {
+        let service = create_ready_service().await;
+        let app = routes(service);
+
+        let response = app
+            .oneshot(
+                Request::put("/trainings/train-123")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"input":{}}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let json = response_json(response).await;
+        assert_eq!(json["id"], "train-123");
+        assert_eq!(json["status"], "succeeded");
+    }
+
+    #[tokio::test]
+    async fn training_idempotent_id_mismatch() {
+        let service = create_ready_service().await;
+        let app = routes(service);
+
+        let response = app
+            .oneshot(
+                Request::put("/trainings/url-id")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"id":"body-id","input":{}}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let json = response_json(response).await;
+        assert!(
+            json["detail"][0]["msg"]
+                .as_str()
+                .unwrap()
+                .contains("must match")
+        );
+    }
+
+    #[tokio::test]
     async fn shutdown_triggers_service_shutdown() {
         let service = create_ready_service().await;
         let mut rx = service.shutdown_rx();
@@ -933,5 +1162,99 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         rx.changed().await.unwrap();
         assert!(*rx.borrow());
+    }
+
+    #[tokio::test]
+    async fn root_returns_discovery_document() {
+        let service = Arc::new(PredictionService::new_no_pool());
+        let app = routes(service);
+
+        let response = app
+            .oneshot(Request::get("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "application/json"
+        );
+
+        let json = response_json(response).await;
+        // Without a python_sdk version set, falls back to coglet version
+        assert_eq!(json["cog_version"], crate::version::COGLET_VERSION);
+        assert_eq!(json["docs_url"], "/docs");
+        assert_eq!(json["openapi_url"], "/openapi.json");
+        assert_eq!(json["shutdown_url"], "/shutdown");
+        assert_eq!(json["healthcheck_url"], "/health-check");
+        assert_eq!(json["predictions_url"], "/predictions");
+        assert_eq!(
+            json["predictions_idempotent_url"],
+            "/predictions/{prediction_id}"
+        );
+        assert_eq!(
+            json["predictions_cancel_url"],
+            "/predictions/{prediction_id}/cancel"
+        );
+        // No training URLs without a TrainingInput schema
+        assert!(json.get("trainings_url").is_none());
+        assert!(json.get("trainings_idempotent_url").is_none());
+        assert!(json.get("trainings_cancel_url").is_none());
+    }
+
+    #[tokio::test]
+    async fn root_includes_training_urls_when_schema_has_training() {
+        let service = Arc::new(PredictionService::new_no_pool());
+        // Set a schema that includes a TrainingInput component
+        service
+            .set_schema(serde_json::json!({
+                "openapi": "3.0.2",
+                "info": {"title": "Cog", "version": "0.1.0"},
+                "components": {
+                    "schemas": {
+                        "TrainingInput": {
+                            "type": "object",
+                            "properties": {
+                                "data": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            }))
+            .await;
+        let app = routes(service);
+
+        let response = app
+            .oneshot(Request::get("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let json = response_json(response).await;
+        // Base fields still present
+        assert_eq!(json["predictions_url"], "/predictions");
+        // Training URLs included
+        assert_eq!(json["trainings_url"], "/trainings");
+        assert_eq!(json["trainings_idempotent_url"], "/trainings/{training_id}");
+        assert_eq!(
+            json["trainings_cancel_url"],
+            "/trainings/{training_id}/cancel"
+        );
+    }
+
+    #[tokio::test]
+    async fn root_cog_version_prefers_python_sdk() {
+        let version = VersionInfo::new().with_python_sdk("0.14.0".to_string());
+        let service = Arc::new(PredictionService::new_no_pool().with_version(version));
+        let app = routes(service);
+
+        let response = app
+            .oneshot(Request::get("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        let json = response_json(response).await;
+        assert_eq!(json["cog_version"], "0.14.0");
     }
 }

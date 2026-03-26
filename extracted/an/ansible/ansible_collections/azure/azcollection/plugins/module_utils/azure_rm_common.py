@@ -135,6 +135,7 @@ AZURE_API_PROFILES = {
         'CdnManagementClient': '2017-04-02',
         'BatchManagementClient': 'latest',
         'EventGridManagementClient': '2025-02-15',
+        'AppConfigurationManagementClient': '2024-05-01'
     },
     '2019-03-01-hybrid': {
         'StorageManagementClient': '2017-10-01',
@@ -215,12 +216,9 @@ CIDR_PATTERN = re.compile(r"(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.)
                           r"[0-9]{2}|2[0-4][0-9]|25[0-5])(/([0-9]|[1-2][0-9]|3[0-2]))")
 
 AZURE_SUCCESS_STATE = "Succeeded"
-AZURE_FAILED_STATE = "Failed"
 
-HAS_AZURE = True
-HAS_AZURE_EXC = None
-HAS_AZURE_CLI_CORE = True
-HAS_AZURE_CLI_CORE_EXC = None
+AZURE_IMPORT_ERROR = None
+
 
 try:
     import importlib
@@ -229,15 +227,7 @@ except ImportError:
     # Doing so would require catching Exception for all imports of Azure dependencies in modules and module_utils.
     importlib = None
 
-try:
-    from packaging.version import Version
-    HAS_PACKAGING_VERSION = True
-    HAS_PACKAGING_VERSION_EXC = None
-except ImportError:
-    Version = None
-    HAS_PACKAGING_VERSION = False
-    HAS_PACKAGING_VERSION_EXC = traceback.format_exc()
-
+# Imports
 try:
     from enum import Enum
     from azure.mgmt.core.tools import parse_resource_id, resource_id, is_valid_resource_id
@@ -275,11 +265,7 @@ try:
     from azure.mgmt.iothub import models as IoTHubModels
     from azure.mgmt.resource.locks import ManagementLockClient
     from azure.mgmt.recoveryservicesbackup import RecoveryServicesBackupClient
-    try:
-        #  Older versions of the library exposed the modules at the root of the package
-        import azure.mgmt.recoveryservicesbackup.models as RecoveryServicesBackupModels
-    except ImportError:
-        import azure.mgmt.recoveryservicesbackup.activestamp.models as RecoveryServicesBackupModels
+    import azure.mgmt.recoveryservicesbackup.activestamp.models as RecoveryServicesBackupModels
     from azure.mgmt.search import SearchManagementClient
     from azure.mgmt.notificationhubs import NotificationHubsManagementClient
     from azure.mgmt.eventhub import EventHubManagementClient
@@ -294,11 +280,8 @@ try:
     from azure.mgmt.batch import models as BatchManagementModel
     from azure.mgmt.resourcehealth import ResourceHealthMgmtClient
     from azure.mgmt.cdn import CdnManagementClient
-
 except ImportError as exc:
-    Authentication = object
-    HAS_AZURE_EXC = traceback.format_exc()
-    HAS_AZURE = False
+    AZURE_IMPORT_ERROR = traceback.format_exc()
 
 from base64 import b64encode, b64decode
 from hashlib import sha256
@@ -315,8 +298,6 @@ try:
     from azure.cli.core.util import CLIError
     from azure.cli.core import cloud as azure_cloud
 except ImportError:
-    HAS_AZURE_CLI_CORE = False
-    HAS_AZURE_CLI_CORE_EXC = None
     CLIError = Exception
 
 
@@ -342,53 +323,19 @@ def normalize_location_name(name):
     return name.replace(' ', '').lower()
 
 
-# FUTURE: either get this from the requirements file (if we can be sure it's always available at runtime)
-# or generate the requirements files from this so we only have one source of truth to maintain...
-AZURE_PKG_VERSIONS = {
-    'StorageManagementClient': {
-        'package_name': 'storage',
-        'expected_version': '19.0.0'
-    },
-    'ComputeManagementClient': {
-        'package_name': 'compute',
-        'expected_version': '4.4.0'
-    },
-    'ContainerInstanceManagementClient': {
-        'package_name': 'containerinstance',
-        'expected_version': '9.0.0'
-    },
-    'NetworkManagementClient': {
-        'package_name': 'network',
-        'expected_version': '26.0.0'
-    },
-    'ResourceManagementClient': {
-        'package_name': 'resource',
-        'expected_version': '2.1.0'
-    },
-    'DnsManagementClient': {
-        'package_name': 'dns',
-        'expected_version': '8.0.0'
-    },
-    'PrivateDnsManagementClient': {
-        'package_name': 'privatedns',
-        'expected_version': '1.0.0'
-    },
-    'WebSiteManagementClient': {
-        'package_name': 'web',
-        'expected_version': '6.1.0'
-    },
-    'TrafficManagerManagementClient': {
-        'package_name': 'trafficmanager',
-        'expected_version': '1.0.0'
-    },
-    'EventHubManagementClient': {
-        'package_name': 'azure-mgmt-eventhub',
-        'expected_version': '2.0.0'
-    },
-} if HAS_AZURE else {}
+def _extract_missing_module(import_error):
+    """
+    Extract missing module name from ImportError traceback.
+    Returns None if not detectable.
+    """
+    if not import_error:
+        return None
 
+    match = re.search(r"No module named '([^']+)'", import_error)
+    if match:
+        return match.group(1)
 
-AZURE_MIN_RELEASE = '2.0.0'
+    return None
 
 
 class AzureRMModuleBase(object):
@@ -424,13 +371,22 @@ class AzureRMModuleBase(object):
                                     required_if=merged_required_if,
                                     required_by=required_by)
 
-        if not HAS_PACKAGING_VERSION:
-            self.fail(msg=missing_required_lib('packaging'),
-                      exception=HAS_PACKAGING_VERSION_EXC)
+        if AZURE_IMPORT_ERROR:
+            missing_mod = _extract_missing_module(AZURE_IMPORT_ERROR)
 
-        if not HAS_AZURE:
-            self.fail(msg=missing_required_lib('ansible[azure] (azure >= {0})'.format(AZURE_MIN_RELEASE)),
-                      exception=HAS_AZURE_EXC)
+            if missing_mod:
+                msg = (
+                    "Failed to import the required Python library ({0}). "
+                    "Please install them by running: "
+                    "pip install -r requirements.txt. "
+                    "If the required library is installed, but Ansible is using the wrong "
+                    "Python interpreter, please consult the documentation on "
+                    "ansible_python_interpreter."
+                ).format(missing_mod)
+            else:
+                msg = missing_required_lib("Azure SDK dependencies")
+
+            self.fail(msg=msg, exception=AZURE_IMPORT_ERROR)
 
         self._authorization_client = None
         self._network_client = None
@@ -499,25 +455,6 @@ class AzureRMModuleBase(object):
         if not skip_exec:
             res = self.exec_module(**self.module.params)
             self.module.exit_json(**res)
-
-    def check_client_version(self, client_type):
-        # Ensure Azure modules are at least 2.0.0rc5.
-        package_version = AZURE_PKG_VERSIONS.get(client_type.__name__, None)
-        if package_version is not None:
-            client_name = package_version.get('package_name')
-            try:
-                client_module = importlib.import_module(client_type.__module__)
-                client_version = client_module.VERSION
-            except (RuntimeError, AttributeError):
-                # can't get at the module version for some reason, just fail silently...
-                return
-            expected_version = package_version.get('expected_version')
-            if Version(client_version) < Version(expected_version):
-                self.fail("Installed azure-mgmt-{0} client version is {1}. The minimum supported version is {2}. Try "
-                          "`pip install ansible[azure]`".format(client_name, client_version, expected_version))
-            if Version(client_version) != Version(expected_version):
-                self.module.warn("Installed azure-mgmt-{0} client version is {1}. The expected version is {2}. Try "
-                                 "`pip install ansible[azure]`".format(client_name, client_version, expected_version))
 
     def exec_module(self, **kwargs):
         self.fail("Error: {0} failed to implement exec_module method.".format(self.__class__.__name__))
@@ -936,7 +873,6 @@ class AzureRMModuleBase(object):
 
     def get_mgmt_svc_client(self, client_type, base_url=None, api_version=None, suppress_subscription_id=False):
         self.log('Getting management service client {0}'.format(client_type.__name__))
-        self.check_client_version(client_type)
 
         client_argspec = inspect.signature(client_type.__init__)
 
@@ -1634,12 +1570,8 @@ class AzureRMAuth(object):
             disable_instance_discovery=disable_instance_discovery)
 
         if not self.credentials:
-            if HAS_AZURE_CLI_CORE:
-                self.fail("Failed to get credentials. Either pass as parameters, set environment variables, "
-                          "define a profile in ~/.azure/credentials, or log in with Azure CLI (`az login`).")
-            else:
-                self.fail("Failed to get credentials. Either pass as parameters, set environment variables, "
-                          "define a profile in ~/.azure/credentials, or install Azure CLI and log in (`az login`).")
+            self.fail("Failed to get credentials. Either pass as parameters, set environment variables, "
+                      "define a profile in ~/.azure/credentials, or log in with Azure CLI (`az login`).")
 
         # cert validation mode precedence: module-arg, credential profile, env, "validate"
         self._cert_validation_mode = cert_validation_mode or \
@@ -1674,7 +1606,7 @@ class AzureRMAuth(object):
                 if not urlparse.urlparse(raw_cloud_env).scheme:
                     self.fail("cloud_environment must be an endpoint discovery URL or one of {0}".format([x.name for x in all_clouds]))
                 try:
-                    self._cloud_environment = azure_cloud.get_cloud_from_metadata_endpoint(raw_cloud_env)
+                    self._cloud_environment = self._get_cloud_from_metadata_endpoint(raw_cloud_env)
                 except Exception as e:
                     self.fail("cloud_environment {0} could not be resolved: {1}".format(raw_cloud_env, e.message), exception=traceback.format_exc())
 
@@ -1791,7 +1723,7 @@ class AzureRMAuth(object):
                 if not urlparse.urlparse(_cloud_environment).scheme:
                     self.fail("cloud_environment must be an endpoint discovery URL or one of {0}".format([x.name for x in all_clouds]))
                 try:
-                    cloud_environment = azure_cloud.get_cloud_from_metadata_endpoint(_cloud_environment)
+                    cloud_environment = self._get_cloud_from_metadata_endpoint(_cloud_environment)
                 except Exception as exc:
                     self.fail("cloud_environment {0} could not be resolved: {1}".format(_cloud_environment, str(exc)), exception=traceback.format_exc())
 
@@ -1869,9 +1801,6 @@ class AzureRMAuth(object):
                                              _cloud_environment=params.get('cloud_environment'))
 
         if auth_source == 'cli':
-            if not HAS_AZURE_CLI_CORE:
-                self.fail(msg=missing_required_lib('azure-cli', reason='for `cli` auth_source'),
-                          exception=HAS_AZURE_CLI_CORE_EXC)
             try:
                 self.log('Retrieving credentials from Azure CLI profile')
                 cli_credentials = self._get_azure_cli_credentials(subscription_id=params.get('subscription_id'))
@@ -1914,14 +1843,17 @@ class AzureRMAuth(object):
             return default_credentials
 
         try:
-            if HAS_AZURE_CLI_CORE:
-                self.log('Retrieving credentials from AzureCLI profile')
+            self.log('Retrieving credentials from AzureCLI profile')
             cli_credentials = self._get_azure_cli_credentials(subscription_id=params.get('subscription_id'))
             return cli_credentials
         except CLIError as ce:
             self.log('Error getting AzureCLI profile credentials - {0}'.format(ce))
 
         return None
+
+    def _get_cloud_from_metadata_endpoint(self, metadata_endpoint):
+        _knownClouds = azure_cloud.KNOWN_CLOUDS
+        return next(cloud for cloud in _knownClouds if cloud.endpoints.resource_manager.lower().rstrip('/') == metadata_endpoint.lower().rstrip('/'))
 
     def log(self, msg, pretty_print=False):
         pass

@@ -35,6 +35,7 @@ class StageExternalS3Args:
                  use_privatelink_endpoint: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a StageExternalS3 resource.
+
         :param pulumi.Input[_builtins.str] database: The database in which to create the stage. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] schema: The schema in which to create the stage. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] url: Specifies the URL for the S3 bucket (e.g., 's3://bucket-name/path/').
@@ -237,6 +238,7 @@ class _StageExternalS3State:
                  use_privatelink_endpoint: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering StageExternalS3 resources.
+
         :param pulumi.Input[_builtins.str] aws_access_point_arn: Specifies the ARN for an AWS S3 Access Point to use for data transfer.
         :param pulumi.Input[_builtins.str] cloud: Specifies a cloud provider for the stage. This field is used for checking external changes and recreating the resources if needed.
         :param pulumi.Input[_builtins.str] comment: Specifies a comment for the stage.
@@ -527,6 +529,8 @@ class StageExternalS3(pulumi.CustomResource):
 
         > **Note** This resource is meant only for S3 stages, not S3-compatible stages. For S3-compatible stages, use the `StageExternalS3Compatible` resource instead. Do not use this resource with `s3compat://` URLs.
 
+        > **Note** If you experience persistent diffs after importing this resource, enable the `IMPORT_BOOLEAN_DEFAULT` experimental feature and reimport the resource for the fix to take effect. See the migration guide for details.
+
         Resource used to manage external S3 stages. For more information, check [external stage documentation](https://docs.snowflake.com/en/sql-reference/sql/create-stage#external-stage-parameters-externalstageparams).
 
         ## Example Usage
@@ -763,6 +767,7 @@ class StageExternalS3(pulumi.CustomResource):
         ```sh
         $ pulumi import snowflake:index/stageExternalS3:StageExternalS3 example '"<database_name>"."<schema_name>"."<stage_name>"'
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -798,6 +803,8 @@ class StageExternalS3(pulumi.CustomResource):
 
         > **Note** This resource is meant only for S3 stages, not S3-compatible stages. For S3-compatible stages, use the `StageExternalS3Compatible` resource instead. Do not use this resource with `s3compat://` URLs.
 
+        > **Note** If you experience persistent diffs after importing this resource, enable the `IMPORT_BOOLEAN_DEFAULT` experimental feature and reimport the resource for the fix to take effect. See the migration guide for details.
+
         Resource used to manage external S3 stages. For more information, check [external stage documentation](https://docs.snowflake.com/en/sql-reference/sql/create-stage#external-stage-parameters-externalstageparams).
 
         ## Example Usage
@@ -1034,6 +1041,7 @@ class StageExternalS3(pulumi.CustomResource):
         ```sh
         $ pulumi import snowflake:index/stageExternalS3:StageExternalS3 example '"<database_name>"."<schema_name>"."<stage_name>"'
         ```
+
 
         :param str resource_name: The name of the resource.
         :param StageExternalS3Args args: The arguments to use to populate this resource's properties.

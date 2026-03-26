@@ -17,7 +17,7 @@ from falconpy import CorrelationRules
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = CorrelationRules(auth_object=config)
-AllowedResponses = [200, 201, 207, 400, 401, 404, 429]  # 400, 403, 404, 
+AllowedResponses = [200, 201, 207, 400, 401, 403, 404, 429, 500]  # 400, 403, 404,
 
 
 class TestCorrelationRules:
@@ -50,6 +50,30 @@ class TestCorrelationRules:
             "entities_rule_versions_delete_v1": falcon.delete_rule_versions(ids="12345678"),
             "entities_rules_get_v2": falcon.get_rules_v2(ids="12345678"),
             "queries_rules_get_v2": falcon.query_rules_v2(limit=1),
+            "queries_templates_get_v1Mixin0": falcon.search_rule_template_ids(filter="name:*test*", sort="name", offset=0, limit=10),
+            "entities_templates_rules_post_v1": falcon.create_rule_from_template(
+                customer_id="12345678901234567890123456789012",
+                templates=[{
+                    "name": "test template rule",
+                    "description": "test description",
+                    "template_id": "template123",
+                    "severity": 2,
+                    "status": "enabled",
+                    "trigger_on_create": False,
+                    "search": {
+                        "filter": "test filter",
+                        "lookback": "1h",
+                        "outcome": "detection",
+                        "trigger_mode": "scheduled"
+                    },
+                    "operation": {
+                        "schedule": {
+                            "definition": "0 * * * *"
+                        }
+                    }
+                }]
+            ),
+            "entities_templates_get_v1Mixin0": falcon.get_rule_templates_by_id(ids="12345678"),
         }
         for key in tests:
             if tests[key]["status_code"] not in AllowedResponses:

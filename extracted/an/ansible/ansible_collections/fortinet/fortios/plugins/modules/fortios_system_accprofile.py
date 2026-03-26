@@ -314,6 +314,36 @@ options:
                     - 'none'
                     - 'read'
                     - 'read-write'
+                    - 'custom'
+            secfabgrp_permission:
+                description:
+                    - Custom Security Fabric permissions.
+                type: dict
+                suboptions:
+                    csffoo:
+                        description:
+                            - Fabric Overlay Orchestrator profiles and settings.
+                        type: str
+                        choices:
+                            - 'none'
+                            - 'read'
+                            - 'read-write'
+                    csfsys:
+                        description:
+                            - Security Fabric system profiles and settings.
+                        type: str
+                        choices:
+                            - 'none'
+                            - 'read'
+                            - 'read-write'
+                    mmsgtp:
+                        description:
+                            - UTM permission.
+                        type: str
+                        choices:
+                            - 'none'
+                            - 'read'
+                            - 'read-write'
             sysgrp:
                 description:
                     - System Configuration.
@@ -619,6 +649,10 @@ EXAMPLES = """
               route_cfg: "none"
           scope: "vdom"
           secfabgrp: "none"
+          secfabgrp_permission:
+              csffoo: "none"
+              csfsys: "none"
+              mmsgtp: "none"
           sysgrp: "none"
           sysgrp_permission:
               admin: "none"
@@ -767,6 +801,7 @@ def filter_system_accprofile_data(json):
         "netgrp_permission",
         "scope",
         "secfabgrp",
+        "secfabgrp_permission",
         "sysgrp",
         "sysgrp_permission",
         "system_diagnostics",
@@ -958,7 +993,12 @@ versioned_schema = {
         "secfabgrp": {
             "v_range": [["v6.0.0", ""]],
             "type": "string",
-            "options": [{"value": "none"}, {"value": "read"}, {"value": "read-write"}],
+            "options": [
+                {"value": "none"},
+                {"value": "read"},
+                {"value": "read-write"},
+                {"value": "custom", "v_range": [["v7.6.5", ""]]},
+            ],
         },
         "ftviewgrp": {
             "v_range": [["v6.0.0", ""]],
@@ -1359,7 +1399,7 @@ versioned_schema = {
                     "v_range": [
                         ["v6.0.0", "v7.0.8"],
                         ["v7.2.0", "v7.2.4"],
-                        ["v7.4.3", ""],
+                        ["v7.4.3", "v7.6.4"],
                     ],
                     "type": "string",
                     "options": [
@@ -1388,6 +1428,39 @@ versioned_schema = {
                 },
                 "spamfilter": {
                     "v_range": [["v6.0.0", "v6.0.11"]],
+                    "type": "string",
+                    "options": [
+                        {"value": "none"},
+                        {"value": "read"},
+                        {"value": "read-write"},
+                    ],
+                },
+            },
+        },
+        "secfabgrp_permission": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "dict",
+            "children": {
+                "csfsys": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "string",
+                    "options": [
+                        {"value": "none"},
+                        {"value": "read"},
+                        {"value": "read-write"},
+                    ],
+                },
+                "csffoo": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "string",
+                    "options": [
+                        {"value": "none"},
+                        {"value": "read"},
+                        {"value": "read-write"},
+                    ],
+                },
+                "mmsgtp": {
+                    "v_range": [["v7.6.5", ""]],
                     "type": "string",
                     "options": [
                         {"value": "none"},
@@ -1494,7 +1567,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_accprofile"
         )

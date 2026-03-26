@@ -30,14 +30,14 @@ type RequestContext struct {
 
 type Request struct {
 	// TODO: could this be Inputs?
-	Input   map[string]interface{} `json:"input"`
-	Context RequestContext         `json:"context"`
+	Input   map[string]any `json:"input"`
+	Context RequestContext `json:"context"`
 }
 
 type Response struct {
-	Status status       `json:"status"`
-	Output *interface{} `json:"output"`
-	Error  string       `json:"error"`
+	Status status `json:"status"`
+	Output *any   `json:"output"`
+	Error  string `json:"error"`
 }
 
 type ValidationErrorResponse struct {
@@ -58,20 +58,11 @@ type Predictor struct {
 	port        int
 }
 
-func NewPredictor(ctx context.Context, runOptions command.RunOptions, isTrain bool, fastFlag bool, dockerCommand command.Command) (*Predictor, error) {
-	if fastFlag {
-		console.Info("Fast predictor enabled.")
-	}
-
+func NewPredictor(ctx context.Context, runOptions command.RunOptions, isTrain bool, dockerCommand command.Command) (*Predictor, error) {
 	if global.Debug {
 		runOptions.Env = append(runOptions.Env, "COG_LOG_LEVEL=debug")
 	} else {
 		runOptions.Env = append(runOptions.Env, "COG_LOG_LEVEL=warning")
-	}
-
-	runOptions, err := docker.FillInWeightsManifestVolumes(ctx, dockerCommand, runOptions)
-	if err != nil {
-		return nil, err
 	}
 
 	return &Predictor{
@@ -136,7 +127,7 @@ func (p *Predictor) waitForContainerReady(ctx context.Context, timeout time.Dura
 				return nil, fmt.Errorf("Failed to create HTTP request to %s: %w", url, err)
 			}
 
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: URL from localhost health check
 			if err != nil {
 				return nil, nil
 			}
@@ -199,7 +190,7 @@ func (p *Predictor) Predict(inputs Inputs, context RequestContext) (*Response, e
 	req.Close = true
 
 	httpClient := &http.Client{}
-	resp, err := httpClient.Do(req)
+	resp, err := httpClient.Do(req) //nolint:gosec // G704: URL from localhost prediction endpoint
 	if err != nil {
 		return nil, fmt.Errorf("Failed to POST HTTP request to %s: %w", url, err)
 	}
@@ -270,7 +261,7 @@ func (p *Predictor) buildInputValidationErrorMessage(errorResponse *ValidationEr
 	}
 
 	return fmt.Errorf(
-		`The inputs you passed to cog %[1]s could not be validated:
+		`The inputs you passed could not be validated:
 
 %[2]s
 

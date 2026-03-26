@@ -21,7 +21,6 @@ from warnings import warn
 from ibm_watsonx_ai._wrappers.httpx_wrapper import (
     _get_async_httpx_client,
     _get_httpx_client,
-    _httpx_transport_params,
 )
 from ibm_watsonx_ai.foundation_models.schema import (
     Crypto,
@@ -253,8 +252,6 @@ class ModelInference(WMLResource):
                 delay_time=delay_time,
                 retry_status_codes=retry_status_codes,
             )
-
-        self._transport_params = _httpx_transport_params(self._client)
 
         WMLResource.__init__(self, __name__, self._client)
 
@@ -1315,7 +1312,7 @@ class ModelInference(WMLResource):
         limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY)
         """
         self._client.httpx_client.close()
-        self._client.httpx_client = _get_httpx_client(transport=self._transport_params)
+        self._client.httpx_client = _get_httpx_client(self._client)
 
     def set_api_client(self, api_client: APIClient) -> None:
         """
@@ -1409,9 +1406,7 @@ class ModelInference(WMLResource):
         limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY)
         """
         await self._client.async_httpx_client.aclose()
-        self._client.async_httpx_client = _get_async_httpx_client(
-            transport=self._transport_params
-        )
+        self._client.async_httpx_client = _get_async_httpx_client(self._client)
 
     def _return_guardrails_stats(  # Added for backward compatibility
         self, single_response: dict

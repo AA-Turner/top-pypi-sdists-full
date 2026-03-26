@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Union, Mapping, Optional, cast
 from typing_extensions import Self, Literal, override
 
 import httpx
@@ -18,6 +18,7 @@ from ._types import (
     Headers,
     Timeout,
     NotGiven,
+    FileTypes,
     Transport,
     ProxiesTypes,
     RequestOptions,
@@ -26,7 +27,9 @@ from ._types import (
 )
 from ._utils import (
     is_given,
+    extract_files,
     maybe_transform,
+    deepcopy_minimal,
     get_async_library,
     async_maybe_transform,
 )
@@ -50,17 +53,15 @@ from ._base_client import (
 from .types.shared.upload import Upload
 
 if TYPE_CHECKING:
-    from .resources import job, edit, parse, split, cancel, extract, version, classify, pipeline, configure_webhook
+    from .resources import job, edit, parse, split, extract, webhook, classify, pipeline
     from .resources.job import JobResource, AsyncJobResource
     from .resources.edit import EditResource, AsyncEditResource
     from .resources.parse import ParseResource, AsyncParseResource
     from .resources.split import SplitResource, AsyncSplitResource
-    from .resources.cancel import CancelResource, AsyncCancelResource
     from .resources.extract import ExtractResource, AsyncExtractResource
-    from .resources.version import VersionResource, AsyncVersionResource
+    from .resources.webhook import WebhookResource, AsyncWebhookResource
     from .resources.classify import ClassifyResource, AsyncClassifyResource
     from .resources.pipeline import PipelineResource, AsyncPipelineResource
-    from .resources.configure_webhook import ConfigureWebhookResource, AsyncConfigureWebhookResource
 
 __all__ = [
     "ENVIRONMENTS",
@@ -197,22 +198,10 @@ class Reducto(SyncAPIClient):
         return ClassifyResource(self)
 
     @cached_property
-    def cancel(self) -> CancelResource:
-        from .resources.cancel import CancelResource
+    def webhook(self) -> WebhookResource:
+        from .resources.webhook import WebhookResource
 
-        return CancelResource(self)
-
-    @cached_property
-    def configure_webhook(self) -> ConfigureWebhookResource:
-        from .resources.configure_webhook import ConfigureWebhookResource
-
-        return ConfigureWebhookResource(self)
-
-    @cached_property
-    def version(self) -> VersionResource:
-        from .resources.version import VersionResource
-
-        return VersionResource(self)
+        return WebhookResource(self)
 
     @cached_property
     def job(self) -> JobResource:
@@ -306,11 +295,30 @@ class Reducto(SyncAPIClient):
     # client.with_options(timeout=10).foo.create(...)
     with_options = copy
 
+    def api_version(
+        self,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> str:
+        """Get Version"""
+        return self.get(
+            "/version",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=str,
+        )
+
     def upload(
         self,
         *,
         extension: Optional[str] | Omit = omit,
-        file: Optional[str] | Omit = omit,
+        file: Union[FileTypes, str, None] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -330,9 +338,16 @@ class Reducto(SyncAPIClient):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        body = deepcopy_minimal({})
+        if file is not omit:
+            body["file"] = file
+        files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
+        if files:
+            extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self.post(
             "/upload",
-            body=maybe_transform({"file": file}, client_upload_params.ClientUploadParams),
+            body=maybe_transform(body, client_upload_params.ClientUploadParams),
+            files=files,
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -493,22 +508,10 @@ class AsyncReducto(AsyncAPIClient):
         return AsyncClassifyResource(self)
 
     @cached_property
-    def cancel(self) -> AsyncCancelResource:
-        from .resources.cancel import AsyncCancelResource
+    def webhook(self) -> AsyncWebhookResource:
+        from .resources.webhook import AsyncWebhookResource
 
-        return AsyncCancelResource(self)
-
-    @cached_property
-    def configure_webhook(self) -> AsyncConfigureWebhookResource:
-        from .resources.configure_webhook import AsyncConfigureWebhookResource
-
-        return AsyncConfigureWebhookResource(self)
-
-    @cached_property
-    def version(self) -> AsyncVersionResource:
-        from .resources.version import AsyncVersionResource
-
-        return AsyncVersionResource(self)
+        return AsyncWebhookResource(self)
 
     @cached_property
     def job(self) -> AsyncJobResource:
@@ -602,11 +605,30 @@ class AsyncReducto(AsyncAPIClient):
     # client.with_options(timeout=10).foo.create(...)
     with_options = copy
 
+    async def api_version(
+        self,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> str:
+        """Get Version"""
+        return await self.get(
+            "/version",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=str,
+        )
+
     async def upload(
         self,
         *,
         extension: Optional[str] | Omit = omit,
-        file: Optional[str] | Omit = omit,
+        file: Union[FileTypes, str, None] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -626,9 +648,16 @@ class AsyncReducto(AsyncAPIClient):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        body = deepcopy_minimal({})
+        if file is not omit:
+            body["file"] = file
+        files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
+        if files:
+            extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self.post(
             "/upload",
-            body=await async_maybe_transform({"file": file}, client_upload_params.ClientUploadParams),
+            body=await async_maybe_transform(body, client_upload_params.ClientUploadParams),
+            files=files,
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -679,6 +708,9 @@ class ReductoWithRawResponse:
     def __init__(self, client: Reducto) -> None:
         self._client = client
 
+        self.api_version = to_raw_response_wrapper(
+            client.api_version,
+        )
         self.upload = to_raw_response_wrapper(
             client.upload,
         )
@@ -720,22 +752,10 @@ class ReductoWithRawResponse:
         return ClassifyResourceWithRawResponse(self._client.classify)
 
     @cached_property
-    def cancel(self) -> cancel.CancelResourceWithRawResponse:
-        from .resources.cancel import CancelResourceWithRawResponse
+    def webhook(self) -> webhook.WebhookResourceWithRawResponse:
+        from .resources.webhook import WebhookResourceWithRawResponse
 
-        return CancelResourceWithRawResponse(self._client.cancel)
-
-    @cached_property
-    def configure_webhook(self) -> configure_webhook.ConfigureWebhookResourceWithRawResponse:
-        from .resources.configure_webhook import ConfigureWebhookResourceWithRawResponse
-
-        return ConfigureWebhookResourceWithRawResponse(self._client.configure_webhook)
-
-    @cached_property
-    def version(self) -> version.VersionResourceWithRawResponse:
-        from .resources.version import VersionResourceWithRawResponse
-
-        return VersionResourceWithRawResponse(self._client.version)
+        return WebhookResourceWithRawResponse(self._client.webhook)
 
     @cached_property
     def job(self) -> job.JobResourceWithRawResponse:
@@ -750,6 +770,9 @@ class AsyncReductoWithRawResponse:
     def __init__(self, client: AsyncReducto) -> None:
         self._client = client
 
+        self.api_version = async_to_raw_response_wrapper(
+            client.api_version,
+        )
         self.upload = async_to_raw_response_wrapper(
             client.upload,
         )
@@ -791,22 +814,10 @@ class AsyncReductoWithRawResponse:
         return AsyncClassifyResourceWithRawResponse(self._client.classify)
 
     @cached_property
-    def cancel(self) -> cancel.AsyncCancelResourceWithRawResponse:
-        from .resources.cancel import AsyncCancelResourceWithRawResponse
+    def webhook(self) -> webhook.AsyncWebhookResourceWithRawResponse:
+        from .resources.webhook import AsyncWebhookResourceWithRawResponse
 
-        return AsyncCancelResourceWithRawResponse(self._client.cancel)
-
-    @cached_property
-    def configure_webhook(self) -> configure_webhook.AsyncConfigureWebhookResourceWithRawResponse:
-        from .resources.configure_webhook import AsyncConfigureWebhookResourceWithRawResponse
-
-        return AsyncConfigureWebhookResourceWithRawResponse(self._client.configure_webhook)
-
-    @cached_property
-    def version(self) -> version.AsyncVersionResourceWithRawResponse:
-        from .resources.version import AsyncVersionResourceWithRawResponse
-
-        return AsyncVersionResourceWithRawResponse(self._client.version)
+        return AsyncWebhookResourceWithRawResponse(self._client.webhook)
 
     @cached_property
     def job(self) -> job.AsyncJobResourceWithRawResponse:
@@ -821,6 +832,9 @@ class ReductoWithStreamedResponse:
     def __init__(self, client: Reducto) -> None:
         self._client = client
 
+        self.api_version = to_streamed_response_wrapper(
+            client.api_version,
+        )
         self.upload = to_streamed_response_wrapper(
             client.upload,
         )
@@ -862,22 +876,10 @@ class ReductoWithStreamedResponse:
         return ClassifyResourceWithStreamingResponse(self._client.classify)
 
     @cached_property
-    def cancel(self) -> cancel.CancelResourceWithStreamingResponse:
-        from .resources.cancel import CancelResourceWithStreamingResponse
+    def webhook(self) -> webhook.WebhookResourceWithStreamingResponse:
+        from .resources.webhook import WebhookResourceWithStreamingResponse
 
-        return CancelResourceWithStreamingResponse(self._client.cancel)
-
-    @cached_property
-    def configure_webhook(self) -> configure_webhook.ConfigureWebhookResourceWithStreamingResponse:
-        from .resources.configure_webhook import ConfigureWebhookResourceWithStreamingResponse
-
-        return ConfigureWebhookResourceWithStreamingResponse(self._client.configure_webhook)
-
-    @cached_property
-    def version(self) -> version.VersionResourceWithStreamingResponse:
-        from .resources.version import VersionResourceWithStreamingResponse
-
-        return VersionResourceWithStreamingResponse(self._client.version)
+        return WebhookResourceWithStreamingResponse(self._client.webhook)
 
     @cached_property
     def job(self) -> job.JobResourceWithStreamingResponse:
@@ -892,6 +894,9 @@ class AsyncReductoWithStreamedResponse:
     def __init__(self, client: AsyncReducto) -> None:
         self._client = client
 
+        self.api_version = async_to_streamed_response_wrapper(
+            client.api_version,
+        )
         self.upload = async_to_streamed_response_wrapper(
             client.upload,
         )
@@ -933,22 +938,10 @@ class AsyncReductoWithStreamedResponse:
         return AsyncClassifyResourceWithStreamingResponse(self._client.classify)
 
     @cached_property
-    def cancel(self) -> cancel.AsyncCancelResourceWithStreamingResponse:
-        from .resources.cancel import AsyncCancelResourceWithStreamingResponse
+    def webhook(self) -> webhook.AsyncWebhookResourceWithStreamingResponse:
+        from .resources.webhook import AsyncWebhookResourceWithStreamingResponse
 
-        return AsyncCancelResourceWithStreamingResponse(self._client.cancel)
-
-    @cached_property
-    def configure_webhook(self) -> configure_webhook.AsyncConfigureWebhookResourceWithStreamingResponse:
-        from .resources.configure_webhook import AsyncConfigureWebhookResourceWithStreamingResponse
-
-        return AsyncConfigureWebhookResourceWithStreamingResponse(self._client.configure_webhook)
-
-    @cached_property
-    def version(self) -> version.AsyncVersionResourceWithStreamingResponse:
-        from .resources.version import AsyncVersionResourceWithStreamingResponse
-
-        return AsyncVersionResourceWithStreamingResponse(self._client.version)
+        return AsyncWebhookResourceWithStreamingResponse(self._client.webhook)
 
     @cached_property
     def job(self) -> job.AsyncJobResourceWithStreamingResponse:

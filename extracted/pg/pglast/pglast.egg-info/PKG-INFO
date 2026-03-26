@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pglast
-Version: 7.12
+Version: 7.13
 Summary: PostgreSQL Languages AST and statements prettifier
 Author-email: Lele Gaifax <lele@metapensiero.it>
 License-Expression: GPL-3.0-or-later
@@ -24,7 +24,7 @@ Classifier: Topic :: Utilities
 Description-Content-Type: text/x-rst
 Provides-Extra: dev
 Requires-Dist: bump-my-version==1.2.5; extra == "dev"
-Requires-Dist: cython==3.2.3; extra == "dev"
+Requires-Dist: cython==3.2.4; extra == "dev"
 Requires-Dist: pycparser==2.23; extra == "dev"
 Requires-Dist: readme-renderer==44.0; extra == "dev"
 Requires-Dist: setuptools==80.9.0; extra == "dev"

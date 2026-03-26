@@ -1023,7 +1023,7 @@ options:
                 type: str
             permit_any_host:
                 description:
-                    - Accept UDP packets from any host.
+                    - Enable/disable fullcone NAT. Accept UDP packets from any host.
                 type: str
                 choices:
                     - 'enable'
@@ -3289,36 +3289,6 @@ versioned_schema = {
             },
             "v_range": [["v6.2.0", ""]],
         },
-        "scim": {
-            "v_range": [["v7.6.4", ""]],
-            "type": "string",
-            "options": [{"value": "enable"}, {"value": "disable"}],
-        },
-        "saml_server": {"v_range": [["v7.6.4", ""]], "type": "string"},
-        "scim_users": {
-            "type": "list",
-            "elements": "dict",
-            "children": {
-                "name": {
-                    "v_range": [["v7.6.4", ""]],
-                    "type": "string",
-                    "required": True,
-                }
-            },
-            "v_range": [["v7.6.4", ""]],
-        },
-        "scim_groups": {
-            "type": "list",
-            "elements": "dict",
-            "children": {
-                "name": {
-                    "v_range": [["v7.6.4", ""]],
-                    "type": "string",
-                    "required": True,
-                }
-            },
-            "v_range": [["v7.6.4", ""]],
-        },
         "auth_path": {
             "v_range": [["v6.0.0", ""]],
             "type": "string",
@@ -3539,6 +3509,36 @@ versioned_schema = {
             },
             "v_range": [["v7.6.4", ""]],
         },
+        "scim": {
+            "v_range": [["v7.6.4", "v7.6.4"]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
+        "saml_server": {"v_range": [["v7.6.4", "v7.6.4"]], "type": "string"},
+        "scim_users": {
+            "type": "list",
+            "elements": "dict",
+            "children": {
+                "name": {
+                    "v_range": [["v7.6.4", "v7.6.4"]],
+                    "type": "string",
+                    "required": True,
+                }
+            },
+            "v_range": [["v7.6.4", "v7.6.4"]],
+        },
+        "scim_groups": {
+            "type": "list",
+            "elements": "dict",
+            "children": {
+                "name": {
+                    "v_range": [["v7.6.4", "v7.6.4"]],
+                    "type": "string",
+                    "required": True,
+                }
+            },
+            "v_range": [["v7.6.4", "v7.6.4"]],
+        },
         "cifs_profile": {"v_range": [["v6.2.0", "v7.6.0"]], "type": "string"},
         "dlp_sensor": {"v_range": [["v6.0.0", "v7.0.12"]], "type": "string"},
         "internet_service_id": {
@@ -3743,7 +3743,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "firewall_policy"
         )

@@ -20,16 +20,25 @@ References:
     .. [GoogleStyleDocs1] https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html#example-google
     .. [GoogleStyleDocs2] http://www.sphinx-doc.org/en/stable/ext/example_google.html#example-google
 """
+
+from __future__ import annotations
+
+import collections
 import re
 import textwrap
-import collections
+import typing
+from typing import NamedTuple
+
 from xdoctest import exceptions
 from xdoctest.utils.util_str import ensure_unicode
 
-DocBlock = collections.namedtuple('DocBlock', ['text', 'offset'])
+
+class DocBlock(NamedTuple):
+    text: str
+    offset: int
 
 
-def split_google_docblocks(docstr):
+def split_google_docblocks(docstr: str) -> list[tuple[str, DocBlock]]:
     """
     Breaks a docstring into parts defined by google style
 
@@ -118,11 +127,12 @@ def split_google_docblocks(docstr):
         >>> assert offset == 1
     """
     if not isinstance(docstr, str):
-        raise TypeError('Input docstr must be a string. Got {} instead'.format(
-            type(docstr)))
+        raise TypeError(
+            'Input docstr must be a string. Got {} instead'.format(type(docstr))
+        )
 
     def get_indentation(line_):
-        """ returns number of preceding spaces """
+        """returns number of preceding spaces"""
         return len(line_) - len(line_.lstrip())
 
     # Parse out initial documentation lines
@@ -198,7 +208,9 @@ def split_google_docblocks(docstr):
         ['Todo'],
     ]
     # Map aliased tags to a canonical name (the first item in the group).
-    tag_aliases = dict([(item, group[0]) for group in tag_groups for item in group])
+    tag_aliases = dict(
+        [(item, group[0]) for group in tag_groups for item in group]
+    )
     # Allow for single or double colon (support for pytorch)
     tag_pattern = '^' + '(' + '|'.join(tag_aliases.keys()) + ') *::? *$'
 
@@ -216,7 +228,7 @@ def split_google_docblocks(docstr):
                 indent_increase = true_indent[line_num + 1] > base_indent
                 indent_zero = line_len[line_num + 1] == 0
                 matches_tag = re.match(tag_pattern, docstr_lines[line_num + 1])
-                if (indent_increase or indent_zero or matches_tag):
+                if indent_increase or indent_zero or matches_tag:
                     group_id += 1
                     in_tag = True
             else:
@@ -260,7 +272,7 @@ def split_google_docblocks(docstr):
     return groups
 
 
-def parse_google_args(docstr):
+def parse_google_args(docstr: str) -> typing.Iterator[dict[str, str]]:
     r"""
     Generates dictionaries of argument hints based on a google docstring
 
@@ -284,7 +296,9 @@ def parse_google_args(docstr):
                 yield argdict
 
 
-def parse_google_returns(docstr, return_annot=None):
+def parse_google_returns(
+    docstr: str, return_annot: str | None = None
+) -> typing.Iterator[dict[str, str]]:
     r"""
     Generates dictionaries of possible return hints based on a google docstring
 
@@ -320,7 +334,9 @@ def parse_google_returns(docstr, return_annot=None):
                 yield retdict
 
 
-def parse_google_retblock(lines, return_annot=None):
+def parse_google_retblock(
+    lines: str, return_annot: str | None = None
+) -> typing.Iterator[dict[str, typing.Any]]:
     r"""
     Parse information out of a returns or yields block.
 
@@ -386,7 +402,7 @@ def parse_google_retblock(lines, return_annot=None):
         # If the function has a return type annotation then the return block
         # should only be interpreted as a description. The formatting of the
         # lines is not modified in this case.
-        retdict = {'type': return_annot, 'desc': lines}
+        retdict = {'type': return_annot, 'desc': [lines]}
         yield retdict
     else:
         # Otherwise, this examines each line without any extra indentation (wrt
@@ -398,6 +414,7 @@ def parse_google_retblock(lines, return_annot=None):
             final_desc = ' '.join([p for p in retdict['desc'] if p])
             retdict['desc'] = final_desc
             return retdict
+
         retdict = None
         noindent_pat = re.compile(r'^[^\s]')
         for line in lines.split('\n'):
@@ -425,12 +442,13 @@ def parse_google_retblock(lines, return_annot=None):
                     USE_TYPE_HACK = 1
                     if USE_TYPE_HACK:
                         import ast
+
                         try:
                             ast.parse(line.strip())
                         except Exception:
                             # Not parseable, assume this is a description.
                             retdict = {
-                                'type': None,
+                                'type': '',
                                 'desc': [line.strip()],
                             }
                         else:
@@ -442,12 +460,16 @@ def parse_google_retblock(lines, return_annot=None):
             else:
                 # Lines with indentation should extend previous descriptions.
                 if retdict is not None:
-                    retdict['desc'].append(line.strip())
+                    desc_list = list(retdict['desc'])
+                    desc_list.append(line.strip())
+                    retdict['desc'] = desc_list
         if retdict is not None:
             yield finalize(retdict)
 
 
-def parse_google_argblock(lines, clean_desc=True):
+def parse_google_argblock(
+    lines: str, clean_desc: bool = True
+) -> typing.Iterator[dict[str, str]]:
     r"""
     Parse out individual items from google-style args blocks.
 
@@ -459,7 +481,7 @@ def parse_google_argblock(lines, clean_desc=True):
             Defaults to True.
 
     Yields:
-        Dict[str, str | None]:
+        Dict[str, str]:
             A dictionary containing keys, "name", "type", and "desc"
             corresponding to an argument in the Args block.
 
@@ -496,14 +518,19 @@ def parse_google_argblock(lines, clean_desc=True):
         >>> assert len(argdict_list) == len(line_list) - 5
         >>> assert argdict_list[1]['desc'] == 'a description with a newline'
     """
+
     def named(key, pattern):
         return '(?P<{}>{})'.format(key, pattern)
+
     def optional(pattern):
         return '({})?'.format(pattern)
+
     def positive_lookahead(pattern):
         return '(?={})'.format(pattern)
+
     def regex_or(patterns):
         return '({})'.format('|'.join(patterns))
+
     whitespace = r'\s*'
     endofstr = r'\Z'
 

@@ -307,12 +307,11 @@ You can also run doctests
 :doc:`inside Jupyter Notebooks <../manual/xdoc_with_jupyter>`.
 '''
 
-
-__autogen__ = '''
+__autogen__ = """
 mkinit xdoctest --nomods
-'''
+"""
 
-__version__ = '1.3.0'
+__version__ = '1.3.1'
 
 
 # Expose only select submodules
@@ -322,13 +321,26 @@ __submodules__ = [
 ]
 
 
-from xdoctest import utils
-from xdoctest import docstr
-from xdoctest.runner import (doctest_module, doctest_callable,)
-from xdoctest.exceptions import (DoctestParseError, ExitTestException,
-                                 MalformedDocstr, ExistingEventLoopError)
+from xdoctest import docstr, utils
+from xdoctest.exceptions import (
+    DoctestParseError,
+    ExistingEventLoopError,
+    ExitTestException,
+    MalformedDocstr,
+)
+from xdoctest.runner import (
+    doctest_callable,
+    doctest_module,
+)
 
-__all__ = ['DoctestParseError', 'ExitTestException', 'MalformedDocstr',
-           'ExistingEventLoopError',
-           'doctest_module', 'doctest_callable', 'utils', 'docstr',
-           '__version__']
+__all__ = [
+    'DoctestParseError',
+    'ExitTestException',
+    'MalformedDocstr',
+    'ExistingEventLoopError',
+    'doctest_module',
+    'doctest_callable',
+    'utils',
+    'docstr',
+    '__version__',
+]

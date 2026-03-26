@@ -1,9 +1,9 @@
 //! coglet: Rust execution engine for cog models.
 
 mod health;
+pub mod input_validation;
 mod prediction;
 mod predictor;
-mod supervisor;
 mod version;
 
 pub mod bridge;
@@ -19,11 +19,10 @@ mod worker_tracing_layer;
 
 pub use orchestrator::Orchestrator;
 
-pub use supervisor::{
-    PredictionHandle, PredictionState, PredictionSupervisor, SyncPredictionGuard,
-};
+pub use service::{PredictionHandle, SyncPredictionGuard};
 
 pub use health::{Health, SetupResult, SetupStatus};
+pub use input_validation::InputValidator;
 pub use prediction::{CancellationToken, Prediction, PredictionOutput, PredictionStatus};
 pub use predictor::{PredictionError, PredictionGuard, PredictionMetrics, PredictionResult};
 pub use service::{CreatePredictionError, HealthSnapshot, PredictionService};

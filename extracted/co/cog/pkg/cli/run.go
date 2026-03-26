@@ -7,10 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/replicate/cog/pkg/config"
 	"github.com/replicate/cog/pkg/docker"
 	"github.com/replicate/cog/pkg/docker/command"
-	"github.com/replicate/cog/pkg/image"
+	"github.com/replicate/cog/pkg/model"
 	"github.com/replicate/cog/pkg/registry"
 	"github.com/replicate/cog/pkg/util/console"
 )
@@ -26,8 +25,24 @@ func addGpusFlag(cmd *cobra.Command) {
 
 func newRunCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "run <command> [arg...]",
-		Short:   "Run a command inside a Docker environment",
+		Use:   "run <command> [arg...]",
+		Short: "Run a command inside a Docker environment",
+		Long: `Run a command inside a Docker environment defined by cog.yaml.
+
+Cog builds a temporary image from your cog.yaml configuration and runs the
+given command inside it. This is useful for debugging, running scripts, or
+exploring the environment your model will run in.`,
+		Example: `  # Open a Python interpreter inside the model environment
+  cog run python
+
+  # Run a script
+  cog run python train.py
+
+  # Run with environment variables
+  cog run -e HUGGING_FACE_HUB_TOKEN=abc123 python download.py
+
+  # Expose a port (e.g. for Jupyter)
+  cog run -p 8888 jupyter notebook`,
 		RunE:    run,
 		PreRunE: checkMutuallyExclusiveFlags,
 		Args:    cobra.MinimumNArgs(1),
@@ -37,10 +52,7 @@ func newRunCommand() *cobra.Command {
 	addUseCudaBaseImageFlag(cmd)
 	addUseCogBaseImageFlag(cmd)
 	addGpusFlag(cmd)
-	addFastFlag(cmd)
-	addLocalImage(cmd)
 	addConfigFlag(cmd)
-	addPipelineImage(cmd)
 
 	flags := cmd.Flags()
 	// Flags after first argument are considered args and passed to command
@@ -61,51 +73,27 @@ func run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	client := registry.NewRegistryClient()
 
-	cfg, projectDir, err := config.GetConfig(configFilename)
+	src, err := model.NewSource(configFilename)
 	if err != nil {
 		return err
 	}
 
-	var imageName string
-	if cfg.Build.Fast || buildFast || pipelinesImage {
-		imageName = config.DockerImageName(projectDir)
-		err = image.Build(
-			ctx,
-			cfg,
-			projectDir,
-			imageName,
-			buildSecrets,
-			buildNoCache,
-			buildSeparateWeights,
-			buildUseCudaBaseImage,
-			buildProgressOutput,
-			buildSchemaFile,
-			buildDockerfileFile,
-			DetermineUseCogBaseImage(cmd),
-			buildStrip,
-			buildPrecompile,
-			cfg.Build.Fast || buildFast,
-			nil,
-			buildLocalImage,
-			dockerClient,
-			client,
-			pipelinesImage)
-		if err != nil {
-			return err
-		}
-	} else {
-		imageName, err = image.BuildBase(ctx, dockerClient, cfg, projectDir, buildUseCudaBaseImage, DetermineUseCogBaseImage(cmd), buildProgressOutput, client, true)
-		if err != nil {
-			return err
-		}
+	resolver := model.NewResolver(dockerClient, registry.NewRegistryClient())
+
+	console.Info("Building Docker image from environment in cog.yaml...")
+	console.Info("")
+	opts := serveBuildOptions(cmd)
+	opts.SkipSchemaValidation = true
+	m, err := resolver.Build(ctx, src, opts)
+	if err != nil {
+		return err
 	}
 
 	gpus := ""
 	if gpusFlag != "" {
 		gpus = gpusFlag
-	} else if cfg.Build.GPU {
+	} else if m.HasGPU() {
 		gpus = "all"
 	}
 
@@ -119,13 +107,9 @@ func run(cmd *cobra.Command, args []string) error {
 		Args:    args,
 		Env:     env,
 		GPUs:    gpus,
-		Image:   imageName,
-		Volumes: []command.Volume{{Source: projectDir, Destination: "/src"}},
+		Image:   m.ImageRef(),
+		Volumes: []command.Volume{{Source: src.ProjectDir, Destination: "/src"}},
 		Workdir: "/src",
-	}
-	runOptions, err = docker.FillInWeightsManifestVolumes(ctx, dockerClient, runOptions)
-	if err != nil {
-		return err
 	}
 
 	for _, portString := range runPorts {
@@ -138,10 +122,11 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	console.Info("")
-	console.Infof("Running '%s' in Docker with the current directory mounted as a volume...", strings.Join(args, " "))
+	console.Infof("Running %s in Docker with the current directory mounted as a volume...", console.Bold(strings.Join(args, " ")))
+	console.Info("")
 
 	err = docker.Run(ctx, dockerClient, runOptions)
-	// Only retry if we're using a GPU but but the user didn't explicitly select a GPU with --gpus
+	// Only retry if we're using a GPU but the user didn't explicitly select a GPU with --gpus
 	// If the user specified the wrong GPU, they are explicitly selecting a GPU and they'll want to hear about it
 	if runOptions.GPUs == "all" && err == docker.ErrMissingDeviceDriver {
 		console.Info("Missing device driver, re-trying without GPU")

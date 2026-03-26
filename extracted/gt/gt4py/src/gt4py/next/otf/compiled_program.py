@@ -113,6 +113,16 @@ def compile_variant_hook(
             },
         )
 
+    if __debug__:
+        # Note: We set the stack level to point to something internally as we don't want to show this warning for every program call.
+        # It's an ad-hoc pragmatic choice that could be revisited in the future.
+        warnings.warn(
+            "Python is not running in optimized mode, which may impact performance."
+            " Consider running with `python -O` or setting the environment"
+            " variable `PYTHONOPTIMIZE=1`.",
+            stacklevel=3,
+        )
+
 
 @hook_machinery.context_hook
 def compiled_program_call_context(
@@ -140,7 +150,7 @@ def compiled_program_call_context(
     # which will take care of unsetting it. This is because the compiled program call
     # is part of a program call, but we want the metrics to be associated with a
     # specific compiled program variant, not just the generic outer program.
-    return metrics.metrics_context_key_at_enter(metrics_source_key(program_pool, key))
+    return metrics.metrics_source_key_setter(metrics_source_key(program_pool, key))
 
 
 # TODO(havogt): We would like this to be a ProcessPoolExecutor, which requires (to decide what) to pickle.
@@ -379,11 +389,12 @@ class CompiledProgramsPool(Generic[ffront_stages.DSLDefinitionT]):
             # type, add the argument types to the cache key as the argument types are used during
             # compilation. In case the program is not generic we can avoid the potentially
             # expensive type deduction for all arguments and not include it in the key.
-            warnings.warn(
-                "Calling generic programs / direct calls to scan operators are not optimized. "
-                "Consider calling a specialized version instead.",
-                stacklevel=2,
-            )
+            if enable_jit:
+                warnings.warn(
+                    "Calling generic programs / direct calls to scan operators are not optimized. "
+                    "Consider calling a specialized version instead.",
+                    stacklevel=3,
+                )
             arg_specialization_key = eve_utils.content_hash(
                 (
                     tuple(type_translation.from_value(arg) for arg in canonical_args),

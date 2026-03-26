@@ -30,6 +30,13 @@ options:
       - Mutually exclusive with I(url).
       - I(instance) or I(url) is required if I(state=present).
     type: str
+  uefi:
+    description:
+      - Whether or not the snapshot uses UEFI.
+      - Only considered on creation when I(url) is provided.
+    type: bool
+    default: false
+    version_added: "1.14.0"
   url:
     description:
       - The URL of the snapshot image (RAW) to be uploaded.
@@ -54,8 +61,14 @@ EXAMPLES = """
 
 - name: Ensure a snapshot is present
   vultr.cloud.snapshot:
-    description: debian 11 generic
-    url: https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-generic-amd64.raw
+    description: debian 13 generic
+    url: https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.raw
+
+- name: Ensure a snapshot is present with UEFI
+  vultr.cloud.snapshot:
+    description: debian 13 generic
+    url: https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.raw
+    uefi: true
 
 - name: Ensure a snapshot is absent
   vultr.cloud.snapshot:
@@ -85,6 +98,11 @@ vultr_api:
       returned: success
       type: int
       sample: 12
+    api_results_per_page:
+      description: Number of results returned per call to API.
+      returned: success
+      type: int
+      sample: 100
     api_endpoint:
       description: Endpoint used for the API requests.
       returned: success
@@ -155,10 +173,15 @@ class AnsibleVultrSnapshot(AnsibleVultr):
     def create(self):
         param_keys = ("url", "instance")
         if not any(self.module.params.get(x) is not None for x in param_keys):
-            self.module.fail_json(msg="missing required arguements, one of the following required: %s" % ", ".join(param_keys))
+            self.module.fail_json(
+                msg="missing required arguements, one of the following required: %s"
+                % ", ".join(param_keys)
+            )
 
         if self.module.params.get("url") is not None:
             self.resource_create_param_keys.append("url")
+            if self.module.params.get("uefi") is not None:
+                self.resource_create_param_keys.append("uefi")
             # Upload by URL has a different endpoint
             self.resource_path = self.resource_path + "/create-from-url"
         else:
@@ -171,7 +194,9 @@ class AnsibleVultrSnapshot(AnsibleVultr):
         self.resource_path = "/snapshots"
 
         if resource:
-            resource = self.wait_for_state(resource=resource, key="status", states=["complete"])
+            resource = self.wait_for_state(
+                resource=resource, key="status", states=["complete"]
+            )
 
         return resource
 
@@ -182,6 +207,7 @@ def main():
         dict(
             description=dict(type="str", required=True, aliases=["name"]),
             instance=dict(type="str"),
+            uefi=dict(type="bool", default=False),
             url=dict(type="str"),
             state=dict(type="str", choices=["present", "absent"], default="present"),
         )  # type: ignore

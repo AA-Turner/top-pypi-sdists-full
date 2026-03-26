@@ -1189,54 +1189,53 @@ class ComparisonType(pycarlo.lib.types.Enum):
 class ConnectionModelType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
-    * `AIRFLOW`: Airflow
-    * `ATHENA`: Athena
-    * `AZURE_DATA_FACTORY`: Azure Data Factory
-    * `BIGQUERY`: BigQuery
-    * `CLICKHOUSE`: ClickHouse
-    * `CONFLUENT_KAFKA`: Confluent Kafka
-    * `CONFLUENT_KAFKA_CONNECT`: Confluent Kafka Connect
-    * `DATABRICKS_METASTORE_SQL_WAREHOUSE`: Databricks Metastore Sql
-      Warehouse
-    * `DATABRICKS_SQL_WAREHOUSE`: Databricks Sql Warehouse
-    * `DB2`: Db2
-    * `DBT_CLOUD`: dbt Cloud
-    * `DBT_CLOUD_V2`: dbt Cloud v2
-    * `DBT_CLOUD_WEBHOOK`: dbt Cloud Webhook
-    * `DBT_CORE`: dbt Core
-    * `DREMIO`: dremio
-    * `FIVETRAN`: Fivetran
-    * `GLUE`: Glue
-    * `HIVE`: Hive
-    * `HIVE_MYSQL`: Hive (MySQL)
-    * `HIVE_S3`: Hive (S3 Location)
-    * `INFORMATICA`: Informatica
-    * `LOOKER`: Looker
-    * `LOOKER_GIT`: Looker Git
-    * `LOOKER_GIT_CLONE`: Looker Git Clone either ssh or https
-    * `LOOKER_GIT_SSH`: Looker Git SSH
-    * `MSK_KAFKA`: MSK Kafka
-    * `MSK_KAFKA_CONNECT`: MSK Kafka Connect
-    * `MYSQL`: MySQL
-    * `ORACLE`: Oracle
-    * `PINECONE`: Pinecone
-    * `POWER_BI`: Power BI
-    * `PRESTO`: Presto
-    * `REDSHIFT`: Amazon Redshift
-    * `S3`: S3
-    * `S3_METADATA_EVENTS`: S3 Metadata Events
-    * `S3_QL_EVENTS`: S3 Query Log Events
-    * `SALESFORCE_CRM`: Salesforce CRM
-    * `SALESFORCE_DATA_CLOUD`: Salesforce Data Cloud
-    * `SELF_HOSTED_KAFKA`: Self Hosted Kafka
-    * `SELF_HOSTED_KAFKA_CONNECT`: Self Hosted Kafka Connect
-    * `SNOWFLAKE`: Snowflake
-    * `SPARK`: Spark
-    * `STARBURST_ENTERPRISE`: Starburst Enterprise
-    * `STARBURST_GALAXY`: Starburst Galaxy
-    * `TABLEAU`: Tableau
-    * `TERADATA`: teradata
-    * `TRANSACTIONAL_DB`: transactional-db
+    * `AIRFLOW`None
+    * `ATHENA`None
+    * `AZURE_DATA_FACTORY`None
+    * `BIGQUERY`None
+    * `CLICKHOUSE`None
+    * `CONFLUENT_KAFKA`None
+    * `CONFLUENT_KAFKA_CONNECT`None
+    * `DATABRICKS_METASTORE_SQL_WAREHOUSE`None
+    * `DATABRICKS_SQL_WAREHOUSE`None
+    * `DB2`None
+    * `DBT_CLOUD`None
+    * `DBT_CLOUD_V2`None
+    * `DBT_CLOUD_WEBHOOK`None
+    * `DBT_CORE`None
+    * `DREMIO`None
+    * `FIVETRAN`None
+    * `GLUE`None
+    * `HIVE`None
+    * `HIVE_MYSQL`None
+    * `HIVE_S3`None
+    * `INFORMATICA`None
+    * `LOOKER`None
+    * `LOOKER_GIT`None
+    * `LOOKER_GIT_CLONE`None
+    * `LOOKER_GIT_SSH`None
+    * `MSK_KAFKA`None
+    * `MSK_KAFKA_CONNECT`None
+    * `MYSQL`None
+    * `ORACLE`None
+    * `PINECONE`None
+    * `POWER_BI`None
+    * `PRESTO`None
+    * `REDSHIFT`None
+    * `S3`None
+    * `S3_METADATA_EVENTS`None
+    * `S3_QL_EVENTS`None
+    * `SALESFORCE_CRM`None
+    * `SALESFORCE_DATA_CLOUD`None
+    * `SELF_HOSTED_KAFKA`None
+    * `SELF_HOSTED_KAFKA_CONNECT`None
+    * `SNOWFLAKE`None
+    * `SPARK`None
+    * `STARBURST_ENTERPRISE`None
+    * `STARBURST_GALAXY`None
+    * `TABLEAU`None
+    * `TERADATA`None
+    * `TRANSACTIONAL_DB`None
     """
 
     __schema__ = schema
@@ -16101,6 +16100,8 @@ class AssetSelectionResult(sgqlc.types.Type):
         "count_database_schema",
         "selected",
         "mcon",
+        "count_require_row_count_monitoring",
+        "count_has_row_count_monitoring",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -16119,6 +16120,14 @@ class AssetSelectionResult(sgqlc.types.Type):
     selected = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="selected")
 
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    count_require_row_count_monitoring = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="countRequireRowCountMonitoring"
+    )
+
+    count_has_row_count_monitoring = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="countHasRowCountMonitoring"
+    )
 
 
 class AssetUsageNode(sgqlc.types.Type):
@@ -18904,6 +18913,7 @@ class Connection(sgqlc.types.Type):
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
     type = sgqlc.types.Field(sgqlc.types.non_null(ConnectionModelType), graphql_name="type")
+    """Connection type identifier"""
 
     subtype = sgqlc.types.Field(String, graphql_name="subtype")
     """Subtype of a plugin connection"""
@@ -31533,6 +31543,7 @@ class Mutation(sgqlc.types.Type):
         "run_monitor",
         "update_monitors_priorities",
         "update_monitors_schedules",
+        "update_monitors_sensitivity",
         "pause_monitors",
         "delete_monitors",
         "run_monitors",
@@ -40014,6 +40025,38 @@ class Mutation(sgqlc.types.Type):
     * `monitor_uuids` (`[UUID!]!`): UUIDs of the metric monitors or
       custom rules
     * `schedule_config` (`ScheduleConfigInput!`): Schedule
+    """
+
+    update_monitors_sensitivity = sgqlc.types.Field(
+        "UpdateMonitorsSensitivityResponse",
+        graphql_name="updateMonitorsSensitivity",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="monitorUuids",
+                        default=None,
+                    ),
+                ),
+                (
+                    "sensitivity",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(SensitivityLevels),
+                        graphql_name="sensitivity",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Bulk update sensitivity for monitors
+
+    Arguments:
+
+    * `monitor_uuids` (`[UUID!]!`): UUIDs of the monitors to update
+    * `sensitivity` (`SensitivityLevels!`): Target sensitivity level
     """
 
     pause_monitors = sgqlc.types.Field(
@@ -72800,6 +72843,12 @@ class Query(sgqlc.types.Type):
                     "is_monitored",
                     sgqlc.types.Arg(Boolean, graphql_name="isMonitored", default=None),
                 ),
+                (
+                    "include_require_row_count_monitoring",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="includeRequireRowCountMonitoring", default=None
+                    ),
+                ),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=100)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
             )
@@ -72822,6 +72871,9 @@ class Query(sgqlc.types.Type):
     * `search_full_table_id` (`String`)None
     * `is_monitored` (`Boolean`): Filter by monitored status if
       provided
+    * `include_require_row_count_monitoring` (`Boolean`): Include
+      counts of tables that require row count monitoring: those
+      needing it enabled vs those already enabled.
     * `limit` (`Int`)None (default: `100`)
     * `offset` (`Int`)None (default: `0`)
     """
@@ -81407,6 +81459,16 @@ class UpdateMonitorsSchedules(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class UpdateMonitorsSensitivityResponse(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("updated", "skipped")
+    updated = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="updated")
+    """Number of monitors whose sensitivity was updated"""
+
+    skipped = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="skipped")
+    """Number of monitors skipped (manual thresholds or unsupported type)"""
+
+
 class UpdateNotificationReadStatus(sgqlc.types.Type):
     """Update notification read status for a specific notification"""
 
@@ -86131,7 +86193,6 @@ class ConnectionRestriction(sgqlc.types.Type, Node):
         "last_update_user",
         "deleted_at",
         "uuid",
-        "type",
         "subtype",
         "name",
         "warehouse",
@@ -86163,8 +86224,6 @@ class ConnectionRestriction(sgqlc.types.Type, Node):
     deleted_at = sgqlc.types.Field(DateTime, graphql_name="deletedAt")
 
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-
-    type = sgqlc.types.Field(sgqlc.types.non_null(ConnectionModelType), graphql_name="type")
 
     subtype = sgqlc.types.Field(String, graphql_name="subtype")
     """Subtype of a plugin connection"""

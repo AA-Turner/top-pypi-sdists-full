@@ -402,7 +402,7 @@ class AgmetPlotter:
         import matplotlib.image as image
 
         im = image.imread(str(self.logos[0]))
-        fig.figimage(im, 150, 2270, zorder=3)
+        fig.figimage(im, 150, 2250, zorder=3)
         im = image.imread(str(self.logos[1]))
         fig.figimage(im, 450, 2300, zorder=3)
 
@@ -461,10 +461,15 @@ class AgmetPlotter:
             if name_col is None:
                 return
 
-            # Derive available space from actual subplot layout
+            # Derive available space from subplot layout and title position
             all_axes = fig.get_axes()
             subplot_top = max(a.get_position().y1 for a in all_axes)
-            max_w = all_axes[1].get_position().x0 if len(all_axes) > 1 else all_axes[0].get_position().width
+
+            renderer = fig.canvas.get_renderer()
+            title_bbox = fig._suptitle.get_window_extent(renderer)
+            title_right = title_bbox.transformed(fig.transFigure.inverted()).x1
+            x_left = title_right
+            max_w = 0.99 - x_left
 
             available_h = 0.98 - subplot_top
             h = available_h * 0.95
@@ -480,7 +485,7 @@ class AgmetPlotter:
                 w = max_w
                 h = w / geo_aspect
 
-            ax_map = fig.add_axes([0.995 - w, 0.98 - h, w, h])
+            ax_map = fig.add_axes([x_left, 0.99 - h, w, h])
 
             # Draw regions with thin edges, then country outline with thick edge
             gdf.plot(ax=ax_map, color="lightgray", edgecolor="gray", linewidth=0.3)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anteroom"
-version = "1.138.0"
+version = "1.144.0"
 description = "Anteroom - your gateway to AI conversation"
 readme = "README.md"
 license = "Apache-2.0"
@@ -35,6 +35,7 @@ dependencies = [
     "usearch>=2.0",
     "numpy>=1.24.0",
     "urllib3>=2.6.3",
+    "pyperclip>=1.8.0",
     # Transitive dependency floors for CVE remediation (see #194)
     "aiohttp>=3.12.14",
     "requests>=2.32.4",

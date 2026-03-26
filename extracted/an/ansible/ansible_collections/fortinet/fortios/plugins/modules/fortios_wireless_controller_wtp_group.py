@@ -132,12 +132,14 @@ options:
                     - '432G'
                     - '433G'
                     - '231K'
+                    - '231KD'
                     - '23JK'
                     - '222KL'
                     - '241K'
                     - '243K'
                     - '244K'
                     - '441K'
+                    - '432K'
                     - '443K'
                     - 'U421E'
                     - 'U422EV'
@@ -153,6 +155,7 @@ options:
                     - 'U234F'
                     - 'U432F'
                     - 'U231G'
+                    - 'MVP'
                     - '220B'
                     - '210B'
                     - '222B'
@@ -550,12 +553,14 @@ versioned_schema = {
                 {"value": "432G", "v_range": [["v7.4.2", ""]]},
                 {"value": "433G", "v_range": [["v7.0.8", "v7.0.12"], ["v7.2.1", ""]]},
                 {"value": "231K", "v_range": [["v7.6.1", ""]]},
+                {"value": "231KD", "v_range": [["v7.6.5", ""]]},
                 {"value": "23JK", "v_range": [["v7.6.1", ""]]},
                 {"value": "222KL", "v_range": [["v7.6.4", ""]]},
                 {"value": "241K", "v_range": [["v7.4.2", ""]]},
                 {"value": "243K", "v_range": [["v7.4.2", ""]]},
                 {"value": "244K", "v_range": [["v7.6.4", ""]]},
                 {"value": "441K", "v_range": [["v7.4.2", ""]]},
+                {"value": "432K", "v_range": [["v7.6.5", ""]]},
                 {"value": "443K", "v_range": [["v7.4.2", ""]]},
                 {"value": "U421E"},
                 {"value": "U422EV"},
@@ -571,6 +576,7 @@ versioned_schema = {
                 {"value": "U234F", "v_range": [["v6.4.4", ""]]},
                 {"value": "U432F", "v_range": [["v6.4.4", ""]]},
                 {"value": "U231G", "v_range": [["v7.0.8", "v7.0.12"], ["v7.2.4", ""]]},
+                {"value": "MVP", "v_range": [["v7.6.5", ""]]},
                 {"value": "220B", "v_range": [["v6.0.0", "v7.2.4"]]},
                 {"value": "210B", "v_range": [["v6.0.0", "v7.2.4"]]},
                 {"value": "222B", "v_range": [["v6.0.0", "v7.2.4"]]},
@@ -679,7 +685,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "wireless_controller_wtp_group"
         )

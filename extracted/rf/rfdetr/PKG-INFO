@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfdetr
-Version: 1.6.0
+Version: 1.6.1
 Summary: RF-DETR
 Author-email: "Roboflow, Inc" <develop@roboflow.com>
 License: Apache License 2.0
@@ -58,6 +58,7 @@ Requires-Dist: tensorrt>=8.6.1; extra == "trt"
 Requires-Dist: polygraphy; extra == "trt"
 Provides-Extra: loggers
 Requires-Dist: tensorboard>=2.13.0; extra == "loggers"
+Requires-Dist: protobuf<4.0.0,>=3.20.0; extra == "loggers"
 Requires-Dist: wandb; extra == "loggers"
 Requires-Dist: mlflow; extra == "loggers"
 Requires-Dist: clearml; extra == "loggers"
@@ -75,6 +76,7 @@ Dynamic: license-file
 
 [![version](https://badge.fury.io/py/rfdetr.svg)](https://badge.fury.io/py/rfdetr)
 [![downloads](https://img.shields.io/pypi/dm/rfdetr)](https://pypistats.org/packages/rfdetr)
+[![codecov](https://codecov.io/gh/roboflow/rf-detr/graph/badge.svg?token=K8V4ARR3XV)](https://codecov.io/gh/roboflow/rf-detr)
 [![python-version](https://img.shields.io/pypi/pyversions/rfdetr)](https://badge.fury.io/py/rfdetr)
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/roboflow/rfdetr/blob/main/LICENSE)
 

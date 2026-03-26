@@ -41,7 +41,7 @@ class TestPolicyAttestationRule(unittest.TestCase):
                 policy_id = '',
                 name = '',
                 description = '',
-                interval_days = 56
+                validity_period_days = 56
             )
         else:
             return PolicyAttestationRule(
@@ -50,7 +50,7 @@ class TestPolicyAttestationRule(unittest.TestCase):
                 id = '',
                 policy_id = '',
                 name = '',
-                interval_days = 56,
+                validity_period_days = 56,
         )
         """
 

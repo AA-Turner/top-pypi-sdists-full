@@ -466,7 +466,6 @@ class _Queue(modal._object._Object):
     def from_name(
         name: str,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         client: typing.Optional[modal.client._Client] = None,
@@ -790,7 +789,6 @@ class Queue(modal.object.Object):
     def from_name(
         name: str,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         client: typing.Optional[modal.client.Client] = None,

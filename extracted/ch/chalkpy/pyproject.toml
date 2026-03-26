@@ -346,7 +346,7 @@ mssql = [
 
 mysql = [
     "pymysql>=1.0.2,<2",
-    "aiomysql>=0.1.1,<0.3",
+    "aiomysql>=0.3.0,<0.4",
     # And the sql dependencies
     # [[[cog
     # import pathlib, tomli
@@ -459,7 +459,7 @@ all = [
     # ]]]
     "PyAthena>=3.0.0",
     "adlfs",
-    "aiomysql>=0.1.1,<0.3",
+    "aiomysql>=0.3.0,<0.4",
     "aiosqlite>=0.19.0,<0.21",
     "azure-identity>=1.12.0,<2",
     "boto3",

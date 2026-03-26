@@ -9,23 +9,25 @@ import modal.client
 import modal.cloud_bucket_mount
 import modal.container_process
 import modal.file_io
-import modal.gpu
 import modal.image
 import modal.io_streams
 import modal.mount
 import modal.network_file_system
 import modal.object
 import modal.proxy
+import modal.sandbox_fs
 import modal.secret
 import modal.snapshot
 import modal.stream_type
 import modal.volume
 import modal_proto.api_pb2
+import modal_proto.task_command_router_pb2
 import os
 import pathlib
 import typing
 import typing_extensions
 
+def _result_returncode(result: typing.Optional[modal_proto.api_pb2.GenericResult]) -> typing.Optional[int]: ...
 def _validate_exec_args(args: collections.abc.Sequence[str]) -> None: ...
 
 class DefaultSandboxNameOverride(str):
@@ -85,6 +87,8 @@ class _Sandbox(modal._object._Object):
     _enable_snapshot: bool
     _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
     _attached: bool
+    _filesystem: typing.Optional[modal.sandbox_fs._SandboxFilesystem]
+    _is_v2: bool
 
     @staticmethod
     def _default_pty_info() -> modal_proto.api_pb2.PTYInfo: ...
@@ -97,7 +101,7 @@ class _Sandbox(modal._object._Object):
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cpu: typing.Optional[float] = None,
@@ -120,6 +124,7 @@ class _Sandbox(modal._object._Object):
         enable_snapshot: bool = False,
         verbose: bool = False,
         custom_domain: typing.Optional[str] = None,
+        include_oidc_identity_token: bool = False,
     ) -> _Sandbox:
         """mdmd:hidden"""
         ...
@@ -136,7 +141,7 @@ class _Sandbox(modal._object._Object):
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cpu: typing.Union[float, tuple[float, float], None] = None,
@@ -153,6 +158,7 @@ class _Sandbox(modal._object._Object):
         unencrypted_ports: collections.abc.Sequence[int] = [],
         custom_domain: typing.Optional[str] = None,
         proxy: typing.Optional[modal.proxy._Proxy] = None,
+        include_oidc_identity_token: bool = False,
         verbose: bool = False,
         experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_enable_snapshot: bool = False,
@@ -188,7 +194,7 @@ class _Sandbox(modal._object._Object):
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cpu: typing.Union[float, tuple[float, float], None] = None,
@@ -204,6 +210,7 @@ class _Sandbox(modal._object._Object):
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
+        include_oidc_identity_token: bool = False,
         experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_enable_snapshot: bool = False,
         client: typing.Optional[modal.client._Client] = None,
@@ -216,6 +223,38 @@ class _Sandbox(modal._object._Object):
         This method exposes some internal arguments (currently `mounts`) which are not in the public API.
         `mounts` is currently only used by modal shell (cli) to provide a function's mounts to the
         sandbox that runs the shell session.
+        """
+        ...
+
+    @staticmethod
+    async def _experimental_create(
+        *args: str,
+        app: typing.Optional[modal.app._App] = None,
+        name: typing.Optional[str] = None,
+        image: typing.Optional[modal.image._Image] = None,
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        timeout: int = 300,
+        idle_timeout: typing.Optional[int] = None,
+        workdir: typing.Optional[str] = None,
+        cpu: typing.Optional[float] = None,
+        cloud: typing.Optional[str] = None,
+        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        block_network: bool = False,
+        cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        pty: bool = False,
+        encrypted_ports: collections.abc.Sequence[int] = [],
+        h2_ports: collections.abc.Sequence[int] = [],
+        unencrypted_ports: collections.abc.Sequence[int] = [],
+        include_oidc_identity_token: bool = False,
+        verbose: bool = False,
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> _Sandbox:
+        """Create a sandbox using the V2 backend.
+
+        Only CPU is configurable; memory is derived as a fixed ratio of CPU.
+        Features like tags, snapshots, exec, volumes, network file systems,
+        GPUs, custom domains, and proxies are not supported.
         """
         ...
 
@@ -232,10 +271,11 @@ class _Sandbox(modal._object._Object):
         ...
 
     @property
-    def _client(self): ...
+    def _client(self) -> modal.client._Client: ...
     @_client.setter
     def _client(self, value): ...
     def _ensure_attached(self): ...
+    def _ensure_v1(self, method_name: str): ...
     @staticmethod
     async def from_name(
         app_name: str,
@@ -299,12 +339,6 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    async def _experimental_mount_image(
-        self, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image._Image]
-    ):
-        """Deprecated alias for `Sandbox.mount_image()`."""
-        ...
-
     async def snapshot_directory(self, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image._Image:
         """Snapshot a directory in a running Sandbox, creating a new Image with its content.
 
@@ -320,12 +354,6 @@ class _Sandbox(modal._object._Object):
         sandbox_session_2.ls("/user_project")
         ```
         """
-        ...
-
-    async def _experimental_snapshot_directory(
-        self, path: typing.Union[pathlib.PurePosixPath, str]
-    ) -> modal.image._Image:
-        """Deprecated alias for `Sandbox.snapshot_directory()`."""
         ...
 
     async def wait(self, raise_on_termination: bool = True):
@@ -372,10 +400,15 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    async def _get_task_id(self) -> str: ...
+    async def _get_task_id(self, raise_if_task_complete=False) -> str: ...
     async def _get_command_router_client(
         self, task_id: str
     ) -> typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]: ...
+    @property
+    def _experimental_containers(self) -> _SandboxContainerManager:
+        """Manage additional containers running in this Sandbox."""
+        ...
+
     @typing.overload
     async def exec(
         self,
@@ -420,6 +453,7 @@ class _Sandbox(modal._object._Object):
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         text: bool = True,
         bufsize: typing.Literal[-1, 1] = -1,
+        container_id: typing.Optional[str] = None,
     ) -> typing.Union[modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]]:
         """Private method used internally.
 
@@ -440,6 +474,7 @@ class _Sandbox(modal._object._Object):
         text: bool = True,
         bufsize: typing.Literal[-1, 1] = -1,
         runtime_debug: bool = False,
+        container_id: typing.Optional[str] = None,
     ) -> typing.Union[modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]]:
         """Execute a command through the Modal server."""
         ...
@@ -458,6 +493,7 @@ class _Sandbox(modal._object._Object):
         text: bool = True,
         bufsize: typing.Literal[-1, 1] = -1,
         runtime_debug: bool = False,
+        container_id: typing.Optional[str] = None,
     ) -> typing.Union[modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]]:
         """Execute a command through a task command router running on the Modal worker."""
         ...
@@ -470,6 +506,11 @@ class _Sandbox(modal._object._Object):
         *,
         name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
     ): ...
+    @property
+    def filesystem(self) -> modal.sandbox_fs._SandboxFilesystem:
+        """Namespace for filesystem APIs."""
+        ...
+
     @typing.overload
     async def open(self, path: str) -> modal.file_io._FileIO[str]: ...
     @typing.overload
@@ -536,6 +577,220 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+class _SandboxContainer:
+    """Handle to an additional container running in a Sandbox."""
+
+    _result: typing.Optional[modal_proto.api_pb2.GenericResult]
+
+    def __init__(
+        self,
+        sandbox: _Sandbox,
+        container_id: str,
+        container_name: str,
+        result: typing.Optional[modal_proto.api_pb2.GenericResult] = None,
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    @property
+    def object_id(self) -> str: ...
+    @property
+    def name(self) -> str: ...
+    @staticmethod
+    def _from_container_info(
+        sandbox: _Sandbox, container_info: modal_proto.task_command_router_pb2.TaskContainerInfo
+    ) -> _SandboxContainer: ...
+    async def _get_command_router(self) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
+        """Get task ID and command router client, raising if unavailable."""
+        ...
+
+    async def exec(
+        self,
+        *args: str,
+        stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        timeout: typing.Optional[int] = None,
+        workdir: typing.Optional[str] = None,
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        text: bool = True,
+        bufsize: typing.Literal[-1, 1] = -1,
+        pty: bool = False,
+    ) -> typing.Union[
+        modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]
+    ]: ...
+    async def wait(self, raise_on_termination: bool = True) -> None: ...
+    async def poll(self) -> typing.Optional[int]: ...
+    @typing.overload
+    async def terminate(self, *, wait: typing.Literal[True]) -> int: ...
+    @typing.overload
+    async def terminate(self, *, wait: typing.Literal[False] = False) -> None: ...
+
+class _SandboxContainerManager:
+    """Creates and manages additional containers in a Sandbox."""
+    def __init__(self, sandbox: _Sandbox) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    async def _get_command_router(self) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
+        """Get task ID and command router client, raising if unavailable."""
+        ...
+
+    async def create(
+        self,
+        *args: str,
+        name: str,
+        image: modal.image._Image,
+        env: typing.Optional[dict[str, str]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        workdir: typing.Optional[str] = None,
+    ) -> _SandboxContainer: ...
+    async def get(self, *, name: str, include_terminated: bool = False) -> _SandboxContainer: ...
+    async def list(self, include_terminated: bool = False) -> list[_SandboxContainer]: ...
+
+class SandboxContainer:
+    """Handle to an additional container running in a Sandbox."""
+
+    _result: typing.Optional[modal_proto.api_pb2.GenericResult]
+
+    def __init__(
+        self,
+        sandbox: Sandbox,
+        container_id: str,
+        container_name: str,
+        result: typing.Optional[modal_proto.api_pb2.GenericResult] = None,
+    ) -> None: ...
+    @property
+    def object_id(self) -> str: ...
+    @property
+    def name(self) -> str: ...
+    @staticmethod
+    def _from_container_info(
+        sandbox: Sandbox, container_info: modal_proto.task_command_router_pb2.TaskContainerInfo
+    ) -> SandboxContainer: ...
+
+    class ___get_command_router_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
+            """Get task ID and command router client, raising if unavailable."""
+            ...
+
+        async def aio(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
+            """Get task ID and command router client, raising if unavailable."""
+            ...
+
+    _get_command_router: ___get_command_router_spec
+
+    class __exec_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *args: str,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: bool = True,
+            bufsize: typing.Literal[-1, 1] = -1,
+            pty: bool = False,
+        ) -> typing.Union[
+            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
+        ]: ...
+        async def aio(
+            self,
+            /,
+            *args: str,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: bool = True,
+            bufsize: typing.Literal[-1, 1] = -1,
+            pty: bool = False,
+        ) -> typing.Union[
+            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
+        ]: ...
+
+    exec: __exec_spec
+
+    class __wait_spec(typing_extensions.Protocol):
+        def __call__(self, /, raise_on_termination: bool = True) -> None: ...
+        async def aio(self, /, raise_on_termination: bool = True) -> None: ...
+
+    wait: __wait_spec
+
+    class __poll_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> typing.Optional[int]: ...
+        async def aio(self, /) -> typing.Optional[int]: ...
+
+    poll: __poll_spec
+
+    class __terminate_spec(typing_extensions.Protocol):
+        @typing.overload
+        def __call__(self, /, *, wait: typing.Literal[True]) -> int: ...
+        @typing.overload
+        def __call__(self, /, *, wait: typing.Literal[False] = False) -> None: ...
+        @typing.overload
+        async def aio(self, /, *, wait: typing.Literal[True]) -> int: ...
+        @typing.overload
+        async def aio(self, /, *, wait: typing.Literal[False] = False) -> None: ...
+
+    terminate: __terminate_spec
+
+class SandboxContainerManager:
+    """Creates and manages additional containers in a Sandbox."""
+    def __init__(self, sandbox: Sandbox) -> None: ...
+
+    class ___get_command_router_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
+            """Get task ID and command router client, raising if unavailable."""
+            ...
+
+        async def aio(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
+            """Get task ID and command router client, raising if unavailable."""
+            ...
+
+    _get_command_router: ___get_command_router_spec
+
+    class __create_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *args: str,
+            name: str,
+            image: modal.image.Image,
+            env: typing.Optional[dict[str, str]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            workdir: typing.Optional[str] = None,
+        ) -> SandboxContainer: ...
+        async def aio(
+            self,
+            /,
+            *args: str,
+            name: str,
+            image: modal.image.Image,
+            env: typing.Optional[dict[str, str]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            workdir: typing.Optional[str] = None,
+        ) -> SandboxContainer: ...
+
+    create: __create_spec
+
+    class __get_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, name: str, include_terminated: bool = False) -> SandboxContainer: ...
+        async def aio(self, /, *, name: str, include_terminated: bool = False) -> SandboxContainer: ...
+
+    get: __get_spec
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(self, /, include_terminated: bool = False) -> list[SandboxContainer]: ...
+        async def aio(self, /, include_terminated: bool = False) -> list[SandboxContainer]: ...
+
+    list: __list_spec
+
 class Sandbox(modal.object.Object):
     """A `Sandbox` object lets you interact with a running sandbox. This API is similar to Python's
     [asyncio.subprocess.Process](https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.subprocess.Process).
@@ -552,6 +807,8 @@ class Sandbox(modal.object.Object):
     _enable_snapshot: bool
     _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
     _attached: bool
+    _filesystem: typing.Optional[modal.sandbox_fs.SandboxFilesystem]
+    _is_v2: bool
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -568,7 +825,7 @@ class Sandbox(modal.object.Object):
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+        gpu: typing.Optional[str] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cpu: typing.Optional[float] = None,
@@ -590,6 +847,7 @@ class Sandbox(modal.object.Object):
         enable_snapshot: bool = False,
         verbose: bool = False,
         custom_domain: typing.Optional[str] = None,
+        include_oidc_identity_token: bool = False,
     ) -> Sandbox:
         """mdmd:hidden"""
         ...
@@ -610,7 +868,7 @@ class Sandbox(modal.object.Object):
             timeout: int = 300,
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+            gpu: typing.Optional[str] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
@@ -627,6 +885,7 @@ class Sandbox(modal.object.Object):
             unencrypted_ports: collections.abc.Sequence[int] = [],
             custom_domain: typing.Optional[str] = None,
             proxy: typing.Optional[modal.proxy.Proxy] = None,
+            include_oidc_identity_token: bool = False,
             verbose: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
@@ -664,7 +923,7 @@ class Sandbox(modal.object.Object):
             timeout: int = 300,
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+            gpu: typing.Optional[str] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
@@ -681,6 +940,7 @@ class Sandbox(modal.object.Object):
             unencrypted_ports: collections.abc.Sequence[int] = [],
             custom_domain: typing.Optional[str] = None,
             proxy: typing.Optional[modal.proxy.Proxy] = None,
+            include_oidc_identity_token: bool = False,
             verbose: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
@@ -722,7 +982,7 @@ class Sandbox(modal.object.Object):
             timeout: int = 300,
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+            gpu: typing.Optional[str] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
@@ -738,6 +998,7 @@ class Sandbox(modal.object.Object):
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
+            include_oidc_identity_token: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
             client: typing.Optional[modal.client.Client] = None,
@@ -769,7 +1030,7 @@ class Sandbox(modal.object.Object):
             timeout: int = 300,
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
+            gpu: typing.Optional[str] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             cpu: typing.Union[float, tuple[float, float], None] = None,
@@ -785,6 +1046,7 @@ class Sandbox(modal.object.Object):
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
+            include_oidc_identity_token: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
             client: typing.Optional[modal.client.Client] = None,
@@ -801,6 +1063,75 @@ class Sandbox(modal.object.Object):
             ...
 
     _create: typing.ClassVar[___create_spec]
+
+    class ___experimental_create_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *args: str,
+            app: typing.Optional[modal.app.App] = None,
+            name: typing.Optional[str] = None,
+            image: typing.Optional[modal.image.Image] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            timeout: int = 300,
+            idle_timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            cpu: typing.Optional[float] = None,
+            cloud: typing.Optional[str] = None,
+            region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+            block_network: bool = False,
+            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            pty: bool = False,
+            encrypted_ports: collections.abc.Sequence[int] = [],
+            h2_ports: collections.abc.Sequence[int] = [],
+            unencrypted_ports: collections.abc.Sequence[int] = [],
+            include_oidc_identity_token: bool = False,
+            verbose: bool = False,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> Sandbox:
+            """Create a sandbox using the V2 backend.
+
+            Only CPU is configurable; memory is derived as a fixed ratio of CPU.
+            Features like tags, snapshots, exec, volumes, network file systems,
+            GPUs, custom domains, and proxies are not supported.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *args: str,
+            app: typing.Optional[modal.app.App] = None,
+            name: typing.Optional[str] = None,
+            image: typing.Optional[modal.image.Image] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            timeout: int = 300,
+            idle_timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            cpu: typing.Optional[float] = None,
+            cloud: typing.Optional[str] = None,
+            region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+            block_network: bool = False,
+            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            pty: bool = False,
+            encrypted_ports: collections.abc.Sequence[int] = [],
+            h2_ports: collections.abc.Sequence[int] = [],
+            unencrypted_ports: collections.abc.Sequence[int] = [],
+            include_oidc_identity_token: bool = False,
+            verbose: bool = False,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> Sandbox:
+            """Create a sandbox using the V2 backend.
+
+            Only CPU is configurable; memory is derived as a fixed ratio of CPU.
+            Features like tags, snapshots, exec, volumes, network file systems,
+            GPUs, custom domains, and proxies are not supported.
+            """
+            ...
+
+    _experimental_create: typing.ClassVar[___experimental_create_spec]
 
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _initialize_from_other(self, other): ...
@@ -828,10 +1159,11 @@ class Sandbox(modal.object.Object):
     detach: __detach_spec
 
     @property
-    def _client(self): ...
+    def _client(self) -> modal.client.Client: ...
     @_client.setter
     def _client(self, value): ...
     def _ensure_attached(self): ...
+    def _ensure_v1(self, method_name: str): ...
 
     class __from_name_spec(typing_extensions.Protocol):
         def __call__(
@@ -977,21 +1309,6 @@ class Sandbox(modal.object.Object):
 
     mount_image: __mount_image_spec
 
-    class ___experimental_mount_image_spec(typing_extensions.Protocol):
-        def __call__(
-            self, /, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image.Image]
-        ):
-            """Deprecated alias for `Sandbox.mount_image()`."""
-            ...
-
-        async def aio(
-            self, /, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image.Image]
-        ):
-            """Deprecated alias for `Sandbox.mount_image()`."""
-            ...
-
-    _experimental_mount_image: ___experimental_mount_image_spec
-
     class __snapshot_directory_spec(typing_extensions.Protocol):
         def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
             """Snapshot a directory in a running Sandbox, creating a new Image with its content.
@@ -1028,17 +1345,6 @@ class Sandbox(modal.object.Object):
             ...
 
     snapshot_directory: __snapshot_directory_spec
-
-    class ___experimental_snapshot_directory_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
-            """Deprecated alias for `Sandbox.snapshot_directory()`."""
-            ...
-
-        async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
-            """Deprecated alias for `Sandbox.snapshot_directory()`."""
-            ...
-
-    _experimental_snapshot_directory: ___experimental_snapshot_directory_spec
 
     class __wait_spec(typing_extensions.Protocol):
         def __call__(self, /, raise_on_termination: bool = True):
@@ -1148,8 +1454,8 @@ class Sandbox(modal.object.Object):
     poll: __poll_spec
 
     class ___get_task_id_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> str: ...
-        async def aio(self, /) -> str: ...
+        def __call__(self, /, raise_if_task_complete=False) -> str: ...
+        async def aio(self, /, raise_if_task_complete=False) -> str: ...
 
     _get_task_id: ___get_task_id_spec
 
@@ -1162,6 +1468,11 @@ class Sandbox(modal.object.Object):
         ) -> typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]: ...
 
     _get_command_router_client: ___get_command_router_client_spec
+
+    @property
+    def _experimental_containers(self) -> SandboxContainerManager:
+        """Manage additional containers running in this Sandbox."""
+        ...
 
     class __exec_spec(typing_extensions.Protocol):
         @typing.overload
@@ -1249,6 +1560,7 @@ class Sandbox(modal.object.Object):
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
+            container_id: typing.Optional[str] = None,
         ) -> typing.Union[
             modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
         ]:
@@ -1271,6 +1583,7 @@ class Sandbox(modal.object.Object):
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
+            container_id: typing.Optional[str] = None,
         ) -> typing.Union[
             modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
         ]:
@@ -1297,6 +1610,7 @@ class Sandbox(modal.object.Object):
             text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
             runtime_debug: bool = False,
+            container_id: typing.Optional[str] = None,
         ) -> typing.Union[
             modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
         ]:
@@ -1317,6 +1631,7 @@ class Sandbox(modal.object.Object):
             text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
             runtime_debug: bool = False,
+            container_id: typing.Optional[str] = None,
         ) -> typing.Union[
             modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
         ]:
@@ -1341,6 +1656,7 @@ class Sandbox(modal.object.Object):
             text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
             runtime_debug: bool = False,
+            container_id: typing.Optional[str] = None,
         ) -> typing.Union[
             modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
         ]:
@@ -1362,6 +1678,7 @@ class Sandbox(modal.object.Object):
             text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
             runtime_debug: bool = False,
+            container_id: typing.Optional[str] = None,
         ) -> typing.Union[
             modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
         ]:
@@ -1395,6 +1712,11 @@ class Sandbox(modal.object.Object):
         ): ...
 
     _experimental_from_snapshot: typing.ClassVar[___experimental_from_snapshot_spec]
+
+    @property
+    def filesystem(self) -> modal.sandbox_fs.SandboxFilesystem:
+        """Namespace for filesystem APIs."""
+        ...
 
     class __open_spec(typing_extensions.Protocol):
         @typing.overload

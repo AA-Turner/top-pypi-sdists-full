@@ -1,21 +1,19 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 6.7.0
+Version: 6.8.0
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
 Author-email: oscm@edx.org
-License: AGPL 3.0
+License: AGPL-3.0-or-later
 Keywords: Django edx
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
 Requires-Dist: bleach
 Requires-Dist: celery
@@ -164,6 +162,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.8.0] - 2026-03-24
+---------------------
+* feat: register enterprise and consent as openedx LMS plugins (ENT-11663)
 
 [6.7.0] - 2026-03-10
 ---------------------

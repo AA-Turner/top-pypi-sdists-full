@@ -589,6 +589,116 @@ _aspm_endpoints = [
     ]
   ],
   [
+    "PostGroupV2",
+    "POST",
+    "/aspm-api-gateway/api/v1/group/v2",
+    "Create group",
+    "aspm",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "DeleteGroup",
+    "DELETE",
+    "/aspm-api-gateway/api/v1/group/{}",
+    "",
+    "aspm",
+    [
+      {
+        "pattern": "[0-9]+",
+        "type": "integer",
+        "description": "Group ID",
+        "name": "ID",
+        "in": "path",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "UpdateDefaultGroup",
+    "POST",
+    "/aspm-api-gateway/api/v1/group/{}/update_default",
+    "Update default group",
+    "aspm",
+    [
+      {
+        "pattern": "[0-9]+",
+        "type": "integer",
+        "description": "Group ID",
+        "name": "ID",
+        "in": "path",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "GetGroupV2",
+    "GET",
+    "/aspm-api-gateway/api/v1/group/{}/v2",
+    "Get group details",
+    "aspm",
+    [
+      {
+        "pattern": "[0-9]+",
+        "type": "integer",
+        "description": "Group ID",
+        "name": "ID",
+        "in": "path",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "UpdateGroup",
+    "POST",
+    "/aspm-api-gateway/api/v1/group/{}/v2",
+    "Update group",
+    "aspm",
+    [
+      {
+        "pattern": "[0-9]+",
+        "type": "integer",
+        "description": "Group ID",
+        "name": "ID",
+        "in": "path",
+        "required": True
+      },
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "GetGroupHierarchy",
+    "GET",
+    "/aspm-api-gateway/api/v1/groups/hier/v2",
+    "Get group hierarchy",
+    "aspm",
+    []
+  ],
+  [
+    "GetGroupsV2",
+    "GET",
+    "/aspm-api-gateway/api/v1/groups/list/v2",
+    "",
+    "aspm",
+    [
+      {
+        "type": "string",
+        "description": "Group types to query - can either be empty (all), parents, children",
+        "name": "type",
+        "in": "query"
+      }
+    ]
+  ],
+  [
     "GetIntegrationTasks",
     "GET",
     "/aspm-api-gateway/api/v1/integration_tasks",
@@ -1218,6 +1328,21 @@ _aspm_endpoints = [
         "name": "body",
         "in": "body",
         "required": True
+      }
+    ]
+  ],
+  [
+    "GetUsersV2",
+    "GET",
+    "/aspm-api-gateway/api/v1/users/v2",
+    "List users",
+    "aspm",
+    [
+      {
+        "type": "string",
+        "description": "URL encoded pagination JSON - limit, offset, direction, orderBy",
+        "name": "pagination",
+        "in": "query"
       }
     ]
   ]

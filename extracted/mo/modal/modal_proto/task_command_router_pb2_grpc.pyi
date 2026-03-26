@@ -10,6 +10,31 @@ import modal_proto.task_command_router_pb2
 
 class TaskCommandRouterStub:
     def __init__(self, channel: grpc.Channel) -> None: ...
+    TaskContainerCreate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskContainerCreateRequest,
+        modal_proto.task_command_router_pb2.TaskContainerCreateResponse,
+    ]
+    """Create an additional container for a task."""
+    TaskContainerGet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskContainerGetRequest,
+        modal_proto.task_command_router_pb2.TaskContainerGetResponse,
+    ]
+    """Get the latest container associated with a logical name."""
+    TaskContainerList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskContainerListRequest,
+        modal_proto.task_command_router_pb2.TaskContainerListResponse,
+    ]
+    """List containers associated with the task."""
+    TaskContainerTerminate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskContainerTerminateRequest,
+        modal_proto.task_command_router_pb2.TaskContainerTerminateResponse,
+    ]
+    """Terminate or release a tracked container."""
+    TaskContainerWait: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskContainerWaitRequest,
+        modal_proto.task_command_router_pb2.TaskContainerWaitResponse,
+    ]
+    """Wait for a tracked container to reach a terminal result."""
     TaskExecPoll: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskExecPollRequest,
         modal_proto.task_command_router_pb2.TaskExecPollResponse,
@@ -47,6 +72,41 @@ class TaskCommandRouterStub:
     """Snapshot a directory with a mounted image, including any local changes, into a new image."""
 
 class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def TaskContainerCreate(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskContainerCreateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskContainerCreateResponse:
+        """Create an additional container for a task."""
+    @abc.abstractmethod
+    def TaskContainerGet(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskContainerGetRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskContainerGetResponse:
+        """Get the latest container associated with a logical name."""
+    @abc.abstractmethod
+    def TaskContainerList(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskContainerListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskContainerListResponse:
+        """List containers associated with the task."""
+    @abc.abstractmethod
+    def TaskContainerTerminate(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskContainerTerminateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskContainerTerminateResponse:
+        """Terminate or release a tracked container."""
+    @abc.abstractmethod
+    def TaskContainerWait(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskContainerWaitRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskContainerWaitResponse:
+        """Wait for a tracked container to reach a terminal result."""
     @abc.abstractmethod
     def TaskExecPoll(
         self,

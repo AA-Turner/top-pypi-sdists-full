@@ -222,6 +222,7 @@ class AnthropicCompletion(BaseLLM):
         self.previous_thinking_blocks: list[ThinkingBlock] = []
         self.response_format = response_format
         # Tool search config
+        self.tool_search: AnthropicToolSearchConfig | None
         if tool_search is True:
             self.tool_search = AnthropicToolSearchConfig()
         elif isinstance(tool_search, AnthropicToolSearchConfig):
@@ -1766,7 +1767,14 @@ class AnthropicCompletion(BaseLLM):
         Returns:
             True if the model supports images and PDFs.
         """
-        return "claude-3" in self.model.lower() or "claude-4" in self.model.lower()
+        model_lower = self.model.lower()
+        return (
+            "claude-3" in model_lower
+            or "claude-4" in model_lower
+            or "claude-sonnet-4" in model_lower
+            or "claude-opus-4" in model_lower
+            or "claude-haiku-4" in model_lower
+        )
 
     def get_file_uploader(self) -> Any:
         """Get an Anthropic file uploader using this LLM's clients.

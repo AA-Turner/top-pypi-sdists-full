@@ -47,14 +47,14 @@ _cloud_oci_registration_endpoints = [
       {
         "type": "string",
         "description": "FQL (Falcon Query Language) string for filtering results. Allowed filters are "
-        "Set{tenancy_name, home_region, key_age, overall_status, created_at, updated_at, tenancy_ocid}",
+        "Set{updated_at, tenancy_ocid, tenancy_name, home_region, key_age, overall_status, created_at}",
         "name": "filter",
         "in": "query"
       },
       {
         "type": "string",
-        "description": "Field and direction for sorting results - allowed sort fields are Set{home_region, "
-        "key_age, overall_status, created_at, updated_at, tenancy_ocid, tenancy_name}",
+        "description": "Field and direction for sorting results - allowed sort fields are Set{tenancy_name, "
+        "home_region, key_age, overall_status, created_at, updated_at, tenancy_ocid}",
         "name": "sort",
         "in": "query"
       },
@@ -101,7 +101,7 @@ _cloud_oci_registration_endpoints = [
     "cloud-security-registration-oci-validate-tenancy",
     "POST",
     "/cloud-security-registration-oci/entities/account-validate/v1",
-    "Validate the OCI account in CSPM for a provided CID. For internal clients only.",
+    "Validate the OCI account in CSPM for a provided CID.",
     "cloud_oci_registration",
     [
       {

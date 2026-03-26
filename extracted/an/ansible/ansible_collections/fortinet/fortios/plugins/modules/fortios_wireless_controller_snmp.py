@@ -103,6 +103,21 @@ options:
                                 description:
                                     - IPv4 address of the SNMP manager (host).
                                 type: str
+                    hosts6:
+                        description:
+                            - Configure IPv6 SNMP managers (hosts).
+                        type: list
+                        elements: dict
+                        suboptions:
+                            id:
+                                description:
+                                    - Host6 entry ID. see <a href='#notes'>Notes</a>.
+                                required: true
+                                type: int
+                            ipv6:
+                                description:
+                                    - IPv6 address of the SNMP manager (host).
+                                type: str
                     id:
                         description:
                             - Community ID. see <a href='#notes'>Notes</a>.
@@ -194,6 +209,11 @@ options:
                             - Configure SNMP User Notify Hosts.
                         type: list
                         elements: str
+                    notify_hosts6:
+                        description:
+                            - Configure IPv6 SNMP User Notify Hosts.
+                        type: list
+                        elements: str
                     priv_proto:
                         description:
                             - Privacy (encryption) protocol.
@@ -249,8 +269,12 @@ EXAMPLES = """
                       -
                           id: "5"
                           ip: "<your_own_value>"
-                  id: "7"
-                  name: "default_name_8"
+                  hosts6:
+                      -
+                          id: "8"
+                          ipv6: "<your_own_value>"
+                  id: "10"
+                  name: "default_name_11"
                   query_v1_status: "enable"
                   query_v2c_status: "enable"
                   status: "enable"
@@ -264,8 +288,9 @@ EXAMPLES = """
               -
                   auth_proto: "md5"
                   auth_pwd: "<your_own_value>"
-                  name: "default_name_21"
+                  name: "default_name_24"
                   notify_hosts: "<your_own_value>"
+                  notify_hosts6: "<your_own_value>"
                   priv_proto: "aes"
                   priv_pwd: "<your_own_value>"
                   queries: "enable"
@@ -408,6 +433,7 @@ def flatten_single_path(data, path, index):
 def flatten_multilists_attributes(data):
     multilist_attrs = [
         ["user", "notify_hosts"],
+        ["user", "notify_hosts6"],
     ]
 
     for attr in multilist_attrs:
@@ -622,6 +648,19 @@ versioned_schema = {
                     },
                     "v_range": [["v6.2.0", ""]],
                 },
+                "hosts6": {
+                    "type": "list",
+                    "elements": "dict",
+                    "children": {
+                        "id": {
+                            "v_range": [["v7.6.5", ""]],
+                            "type": "integer",
+                            "required": True,
+                        },
+                        "ipv6": {"v_range": [["v7.6.5", ""]], "type": "string"},
+                    },
+                    "v_range": [["v7.6.5", ""]],
+                },
             },
             "v_range": [["v6.2.0", ""]],
         },
@@ -688,6 +727,12 @@ versioned_schema = {
                     "multiple_values": True,
                     "elements": "str",
                 },
+                "notify_hosts6": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "list",
+                    "multiple_values": True,
+                    "elements": "str",
+                },
             },
             "v_range": [["v6.2.0", ""]],
         },
@@ -742,7 +787,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "wireless_controller_snmp"
         )

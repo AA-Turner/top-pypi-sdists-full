@@ -104,8 +104,9 @@ options:
       sharing_type:
         description:
           - Type of VLAN sharing when enable_sharing is true.
+          - Use lowercase values (primary, isolated, community).
         type: str
-        choices: ['Primary', 'Isolated', 'Community']
+        choices: ['primary', 'isolated', 'community']
       primary_vlan_id:
         description:
           - The Primary VLAN ID of the VLAN, if the sharing type of the VLAN is Isolated or Community.
@@ -163,18 +164,18 @@ EXAMPLES = r'''
       - prefix: "primary"
         vlan_id: 79
         enable_sharing: true
-        sharing_type: "Primary"
+        sharing_type: "primary"
         auto_allow_on_uplinks: true
       - prefix: "isolated"
         vlan_id: 90
         enable_sharing: true
-        sharing_type: "Isolated"
+        sharing_type: "isolated"
         primary_vlan_id: 79
         auto_allow_on_uplinks: true
       - prefix: "community"
         vlan_id: 91
         enable_sharing: true
-        sharing_type: "Community"
+        sharing_type: "community"
         primary_vlan_id: 79
         auto_allow_on_uplinks: true
     state: present
@@ -201,13 +202,13 @@ EXAMPLES = r'''
       - prefix: "dmz_primary"
         vlan_id: 50
         enable_sharing: true
-        sharing_type: "Primary"
+        sharing_type: "primary"
         auto_allow_on_uplinks: true
         state: present
       - prefix: "dmz_isolated"
         vlan_id: 51
         enable_sharing: true
-        sharing_type: "Isolated"
+        sharing_type: "isolated"
         primary_vlan_id: 50
         auto_allow_on_uplinks: true
     state: present
@@ -350,15 +351,82 @@ def validate_vlan_id(vlan_id):
     return True
 
 
-def build_vlan_sharing_config(enable_sharing, sharing_type, primary_vlan_id, multicast_policy_moid):
+def get_vlans_map_for_policy(intersight, vlan_policy_moid, top=1000):
     """
-    Build VLAN sharing configuration (common for POST and PATCH).
+    Fetch all VLANs for a given VLAN policy and build lookup maps.
+
+    Args:
+        intersight: IntersightModule instance
+        vlan_policy_moid: VLAN policy MOID
+        top: Page size for pagination (will be capped to 1000)
+
+    Returns:
+        dict -> VLAN object (keyed by VlanId)
+    """
+    if top <= 0:
+        top = 1000
+    if top > 1000:
+        top = 1000
+
+    filter_str = f"EthNetworkPolicy.Moid eq '{vlan_policy_moid}'"
+    resource_path = '/fabric/Vlans'
+
+    count_options = {
+        'http_method': 'get',
+        'resource_path': resource_path,
+        'query_params': {
+            '$filter': filter_str,
+            '$count': 'true'
+        },
+    }
+    count_resp = intersight.call_api(**count_options)
+    total_count = count_resp.get('Count', 0)
+    if not isinstance(total_count, int) or total_count < 0:
+        total_count = 0
+
+    pages = 0
+    if total_count > 0:
+        # Calculate number of pages to fetch all VLANs
+        pages = (total_count + top - 1) // top
+
+    all_vlans = []
+    for page_idx in range(pages):
+        skip = page_idx * top
+        page_options = {
+            'http_method': 'get',
+            'resource_path': resource_path,
+            'query_params': {
+                '$filter': filter_str,
+                '$top': top,
+                '$skip': skip,
+            },
+        }
+        page_resp = intersight.call_api(**page_options)
+        page_results = page_resp.get('Results')
+        if isinstance(page_results, list) and page_results:
+            all_vlans.extend(page_results)
+
+    vlan_id_map = {}
+    for vlan in all_vlans:
+        vlan_id = vlan.get('VlanId')
+        if isinstance(vlan_id, int):
+            # VlanId is unique per policy; keep the first occurrence if duplicates appear due to paging instability.
+            if vlan_id not in vlan_id_map:
+                vlan_id_map[vlan_id] = vlan
+
+    return vlan_id_map
+
+
+def build_vlan_sharing_config(enable_sharing, sharing_type, primary_vlan_id, multicast_policy_moid, is_patch=False):
+    """
+    Build VLAN sharing configuration for POST or PATCH operations.
 
     Args:
         enable_sharing: Whether VLAN sharing is enabled
         sharing_type: Type of sharing (Primary, Isolated, Community)
         primary_vlan_id: Primary VLAN ID for Isolated/Community types
         multicast_policy_moid: MOID of multicast policy (if not sharing)
+        is_patch: True for PATCH operations, False for POST operations
 
     Returns:
         Dictionary with SharingType, PrimaryVlanId, and optionally MulticastPolicy
@@ -368,6 +436,10 @@ def build_vlan_sharing_config(enable_sharing, sharing_type, primary_vlan_id, mul
     if enable_sharing:
         config['SharingType'] = sharing_type
         config['PrimaryVlanId'] = primary_vlan_id if sharing_type in ['Isolated', 'Community'] else 0
+        # For PATCH operations, explicitly set MulticastPolicy to None to clear it
+        # when switching from non-shared to shared VLANs
+        if is_patch:
+            config['MulticastPolicy'] = None
     else:
         config['SharingType'] = 'None'
         config['PrimaryVlanId'] = 0
@@ -412,7 +484,7 @@ def build_vlan_body_for_post(vlan_name, vlan_id, auto_allow_on_uplinks, is_nativ
     """
     body = build_vlan_base_body(vlan_name, vlan_id, auto_allow_on_uplinks, is_native)
     body['EthNetworkPolicy'] = vlan_policy_moid
-    body.update(build_vlan_sharing_config(enable_sharing, sharing_type, primary_vlan_id, multicast_policy_moid))
+    body.update(build_vlan_sharing_config(enable_sharing, sharing_type, primary_vlan_id, multicast_policy_moid, is_patch=False))
     return body
 
 
@@ -422,12 +494,14 @@ def build_vlan_body_for_patch(vlan_name, vlan_id, auto_allow_on_uplinks, is_nati
     Build VLAN API body for PATCH (update) operations.
 
     Note: Excludes EthNetworkPolicy as it cannot be changed after creation.
+    For PATCH operations, MulticastPolicy is explicitly set to None when switching
+    to shared VLANs to clear any previously configured multicast policy.
 
     Returns:
         API body for VLAN update
     """
     body = build_vlan_base_body(vlan_name, vlan_id, auto_allow_on_uplinks, is_native)
-    body.update(build_vlan_sharing_config(enable_sharing, sharing_type, primary_vlan_id, multicast_policy_moid))
+    body.update(build_vlan_sharing_config(enable_sharing, sharing_type, primary_vlan_id, multicast_policy_moid, is_patch=True))
     return body
 
 
@@ -445,7 +519,7 @@ def main():
             auto_allow_on_uplinks=dict(type='bool', default=True),
             enable_sharing=dict(type='bool', default=False),
             multicast_policy_name=dict(type='str'),
-            sharing_type=dict(type='str', choices=['Primary', 'Isolated', 'Community']),
+            sharing_type=dict(type='str', choices=['primary', 'isolated', 'community']),
             primary_vlan_id=dict(type='int'),
             is_native=dict(type='bool', default=False),
             state=dict(type='str', choices=['present', 'absent'], default='present')
@@ -504,7 +578,7 @@ def main():
         else:
             # Cache for multicast policy MOIDs to avoid redundant API calls
             multicast_policy_cache = {}
-            total_vlans_to_create = 0
+            vlan_id_map = {}
 
             # Build all VLAN configurations and validate
             vlan_operations = {'create': [], 'update': [], 'delete': []}
@@ -532,56 +606,73 @@ def main():
 
                 # Process each VLAN ID in the range
                 for vlan_id in vlan_ids:
-                    # Check if we exceed the maximum VLAN limit (only for VLANs being created)
-                    if vlan_state == 'present':
-                        total_vlans_to_create += 1
-                        if total_vlans_to_create > 3000:
-                            module.fail_json(msg="Total number of VLANs exceeds the maximum limit of 3000")
-
                     # Generate VLAN name: prefix_vlan_id
                     vlan_name = f"{prefix}_{vlan_id}"
 
-                    # Resolve multicast policy MOID if needed
+                    # Resolve multicast policy MOID / sharing config only when VLAN is being created/updated
                     multicast_policy_moid = None
                     sharing_type = None
                     primary_vlan_id_value = 0
-
-                    if enable_sharing:
-                        sharing_type = vlan_config.get('sharing_type')
-                        if sharing_type in ['Isolated', 'Community']:
-                            if 'primary_vlan_id' not in vlan_config:
-                                module.fail_json(msg=f"primary_vlan_id is required when sharing_type is {sharing_type}")
-                            primary_vlan_id_value = vlan_config['primary_vlan_id']
-                    else:
-                        # Get multicast policy name from vlan config
-                        multicast_policy_name = vlan_config.get('multicast_policy_name')
-                        if not multicast_policy_name:
-                            module.fail_json(msg="multicast_policy_name is required when enable_sharing is false")
-                        # Check if multicast policy MOID is already cached
-                        if multicast_policy_name in multicast_policy_cache:
-                            multicast_policy_moid = multicast_policy_cache[multicast_policy_name]
-                        else:
-                            # Fetch multicast policy MOID and cache it
-                            multicast_policy_moid = intersight.get_moid_by_name_and_org(
-                                resource_path='/fabric/MulticastPolicies',
-                                resource_name=multicast_policy_name,
-                                organization_name=intersight.module.params['organization']
-                            )
-                            if not multicast_policy_moid:
+                    if vlan_state == 'present':
+                        if enable_sharing:
+                            sharing_type_raw = vlan_config.get('sharing_type')
+                            if not sharing_type_raw:
                                 module.fail_json(
-                                    msg=f"Multicast policy '{multicast_policy_name}' not found in organization '{intersight.module.params['organization']}'"
+                                    msg=f"Configuration error for VLAN '{vlan_name}': sharing_type is required when enable_sharing is true. "
+                                        f"Valid options: 'primary', 'isolated', or 'community'. "
+                                        f"Example: sharing_type: 'primary'"
                                 )
-                            multicast_policy_cache[multicast_policy_name] = multicast_policy_moid
+                            # Normalize lowercase input to proper case for API
+                            sharing_type_map = {'primary': 'Primary', 'isolated': 'Isolated', 'community': 'Community'}
+                            sharing_type = sharing_type_map.get(sharing_type_raw)
+                            if sharing_type not in ['Primary', 'Isolated', 'Community']:
+                                module.fail_json(
+                                    msg=f"Configuration error for VLAN '{vlan_name}': Invalid sharing_type '{sharing_type_raw}'. "
+                                        f"Valid options are: 'primary', 'isolated', or 'community'"
+                                )
+                            if sharing_type in ['Isolated', 'Community']:
+                                if 'primary_vlan_id' not in vlan_config:
+                                    module.fail_json(
+                                        msg=f"Configuration error for VLAN '{vlan_name}': primary_vlan_id is required when sharing_type is '{sharing_type}'. "
+                                            f"Specify the VLAN ID of the Primary VLAN. "
+                                            f"Example: primary_vlan_id: 79"
+                                    )
+                                primary_vlan_id_value = vlan_config['primary_vlan_id']
+                        else:
+                            multicast_policy_name = vlan_config.get('multicast_policy_name')
+                            if not multicast_policy_name:
+                                module.fail_json(
+                                    msg=f"Configuration error for VLAN prefix '{prefix}': multicast_policy_name is required when enable_sharing is false. "
+                                        f"Specify the name of an existing multicast policy. "
+                                        f"Example: multicast_policy_name: 'default'"
+                                )
+                            if multicast_policy_name in multicast_policy_cache:
+                                multicast_policy_moid = multicast_policy_cache[multicast_policy_name]
+                            else:
+                                multicast_policy_moid = intersight.get_moid_by_name_and_org(
+                                    resource_path='/fabric/MulticastPolicies',
+                                    resource_name=multicast_policy_name,
+                                    organization_name=intersight.module.params['organization']
+                                )
+                                if not multicast_policy_moid:
+                                    module.fail_json(
+                                        msg=f"Multicast policy '{multicast_policy_name}' not found in organization '{intersight.module.params['organization']}'"
+                                    )
+                                multicast_policy_cache[multicast_policy_name] = multicast_policy_moid
 
-                    # Check if VLAN already exists
-                    custom_filter = f"Name eq '{vlan_name}' and EthNetworkPolicy.Moid eq '{vlan_policy_moid}'"
-                    intersight.get_resource(
-                        resource_path='/fabric/Vlans',
-                        query_params={'$filter': custom_filter}
-                    )
+                    # Build VLAN-ID map only once (after we know the policy MOID and before we start checking VLANs)
+                    if not vlan_id_map:
+                        vlan_id_map = get_vlans_map_for_policy(
+                            intersight=intersight,
+                            vlan_policy_moid=vlan_policy_moid,
+                            top=1000
+                        )
 
-                    existing_vlan = intersight.result.get('api_response', {})
+                    # Check if VLAN already exists using cached map (VlanId is unique per policy)
+                    existing_vlan = vlan_id_map.get(vlan_id, {})
+
                     existing_moid = existing_vlan.get('Moid')
+                    custom_filter = f"VlanId eq {vlan_id} and EthNetworkPolicy.Moid eq '{vlan_policy_moid}'"
 
                     # Determine operation type
                     if vlan_state == 'present':

@@ -164,6 +164,7 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
         "env_overrides",
         "cron_query_name",
         "store_plan_stages",
+        "unload_resolvers",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -190,6 +191,7 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
     ENV_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
     CRON_QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     STORE_PLAN_STAGES_FIELD_NUMBER: _ClassVar[int]
+    UNLOAD_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     cron_query_id: int
     planner_options: _containers.MessageMap[str, _struct_pb2.Value]
     incremental_resolvers: _containers.RepeatedScalarFieldContainer[str]
@@ -197,6 +199,7 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
     env_overrides: _containers.ScalarMap[str, str]
     cron_query_name: str
     store_plan_stages: bool
+    unload_resolvers: _containers.RepeatedCompositeFieldContainer[_offline_query_pb2.UnloadResolverSpec]
     def __init__(
         self,
         cron_query_id: _Optional[int] = ...,
@@ -206,6 +209,7 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
         env_overrides: _Optional[_Mapping[str, str]] = ...,
         cron_query_name: _Optional[str] = ...,
         store_plan_stages: bool = ...,
+        unload_resolvers: _Optional[_Iterable[_Union[_offline_query_pb2.UnloadResolverSpec, _Mapping]]] = ...,
     ) -> None: ...
 
 class ManualTriggerScheduledQueryResponse(_message.Message):

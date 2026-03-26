@@ -522,12 +522,14 @@ def dissolve_edges(
     use_verts: bool | None = True,
     angle_threshold: float | None = 3.14159,
     use_face_split: bool | None = False,
+    use_preserve_quads: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dissolve edges, merging faces
 
     :param use_verts: Dissolve Vertices, Dissolve remaining vertices which connect to only two edges (optional)
     :param angle_threshold: Angle Threshold, Remaining vertices which separate edge pairs are preserved if their edge angle exceeds this threshold. (in [0, 3.14159], optional)
     :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry (optional)
+    :param use_preserve_quads: Preserve Quads, When dissolving the edge between two triangles, dont dissolve vertices (optional)
     :return: Result of the operator call.
     """
 
@@ -569,6 +571,7 @@ def dissolve_mode(
     *,
     use_verts: bool | None = False,
     angle_threshold: float | None = 3.14159,
+    use_preserve_quads: bool | None = True,
     use_face_split: bool | None = False,
     use_boundary_tear: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -576,6 +579,7 @@ def dissolve_mode(
 
     :param use_verts: Dissolve Vertices, Dissolve remaining vertices which connect to only two edges (optional)
     :param angle_threshold: Angle Threshold, Remaining vertices which separate edge pairs are preserved if their edge angle exceeds this threshold. (in [0, 3.14159], optional)
+    :param use_preserve_quads: Preserve Quads, When dissolving the edge between two triangles, dont dissolve vertices (optional)
     :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry (optional)
     :param use_boundary_tear: Tear Boundary, Split off face corners instead of merging faces (optional)
     :return: Result of the operator call.

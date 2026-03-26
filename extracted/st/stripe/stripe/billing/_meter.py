@@ -95,7 +95,7 @@ class Meter(
     """
     livemode: bool
     """
-    Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
+    If the object exists in live mode, the value is `true`. If the object exists in test mode, the value is `false`.
     """
     object: Literal["billing.meter"]
     """
@@ -189,7 +189,7 @@ class Meter(
             self._request(
                 "post",
                 "/v1/billing/meters/{id}/deactivate".format(
-                    id=sanitize_id(self.get("id"))
+                    id=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -244,7 +244,7 @@ class Meter(
             await self._request_async(
                 "post",
                 "/v1/billing/meters/{id}/deactivate".format(
-                    id=sanitize_id(self.get("id"))
+                    id=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -367,7 +367,7 @@ class Meter(
             self._request(
                 "post",
                 "/v1/billing/meters/{id}/reactivate".format(
-                    id=sanitize_id(self.get("id"))
+                    id=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -422,7 +422,7 @@ class Meter(
             await self._request_async(
                 "post",
                 "/v1/billing/meters/{id}/reactivate".format(
-                    id=sanitize_id(self.get("id"))
+                    id=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),

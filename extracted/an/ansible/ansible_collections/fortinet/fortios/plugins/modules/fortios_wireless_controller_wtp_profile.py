@@ -326,6 +326,115 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            apcfg_auto_cert:
+                description:
+                    - Enable/disable AP local auto cert configuration .
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
+            apcfg_auto_cert_auto_regen_days:
+                description:
+                    - Number of days to wait before expiry of an updated local certificate is requested (0 = disabled) .
+                type: int
+            apcfg_auto_cert_crypto_algo:
+                description:
+                    - 'Cryptography algorithm: rsa-1024, rsa-1536, rsa-2048, rsa-4096, ec-secp256r1, ec-secp384r1, ec-secp521r1 '
+                type: str
+                choices:
+                    - 'rsa-1024'
+                    - 'rsa-1536'
+                    - 'rsa-2048'
+                    - 'rsa-4096'
+                    - 'ec-secp256r1'
+                    - 'ec-secp384r1'
+                    - 'ec-secp521r1'
+            apcfg_auto_cert_enroll_protocol:
+                description:
+                    - Certificate enrollment protocol
+                type: str
+                choices:
+                    - 'none'
+                    - 'est'
+                    - 'scep'
+            apcfg_auto_cert_est_ca_id:
+                description:
+                    - CA identifier of the CA server for signing via EST.
+                type: str
+            apcfg_auto_cert_est_http_password:
+                description:
+                    - HTTP Authentication password for signing via EST.
+                type: str
+            apcfg_auto_cert_est_http_username:
+                description:
+                    - HTTP Authentication username for signing via EST.
+                type: str
+            apcfg_auto_cert_est_https_ca:
+                description:
+                    - PEM format https CA Certificate. Source vpn.certificate.ca.name.
+                type: str
+            apcfg_auto_cert_est_server:
+                description:
+                    - 'Address and port for EST server (e.g. https://example.com:1234).'
+                type: str
+            apcfg_auto_cert_est_subject:
+                description:
+                    - Subject e.g. "CN=User,DC=example,DC=COM"
+                type: str
+            apcfg_auto_cert_est_subject_alt_name:
+                description:
+                    - 'Subject alternative name (optional, e.g. "DNS:dns1.com,IP:192.168.1.99")'
+                type: str
+            apcfg_auto_cert_scep_ca_id:
+                description:
+                    - CA identifier of the CA server for signing via SCEP.
+                type: str
+            apcfg_auto_cert_scep_ec_name:
+                description:
+                    - 'Elliptic curve name: secp256r1, secp384r1 and secp521r1. .'
+                type: str
+                choices:
+                    - 'secp256r1'
+                    - 'secp384r1'
+                    - 'secp521r1'
+            apcfg_auto_cert_scep_https_ca:
+                description:
+                    - PEM format https CA Certificate. Source vpn.certificate.ca.name.
+                type: str
+            apcfg_auto_cert_scep_keysize:
+                description:
+                    - 'Key size: 1024, 1536, 2048, 4096 .'
+                type: str
+                choices:
+                    - '1024'
+                    - '1536'
+                    - '2048'
+                    - '4096'
+            apcfg_auto_cert_scep_keytype:
+                description:
+                    - Key type
+                type: str
+                choices:
+                    - 'rsa'
+                    - 'ec'
+            apcfg_auto_cert_scep_password:
+                description:
+                    - SCEP server challenge password for auto-regeneration.
+                type: str
+            apcfg_auto_cert_scep_sub_fully_dn:
+                description:
+                    - 'Full DN of the subject (e.g C=US,ST=CA,L=Sunnyvale,O=Fortinet,OU=Dep1,emailAddress=test@example.com). There should be no space in
+                       between the attributes. Supported DN attributes (case-sensitive) are:C,ST,L,O,OU,emailAddress. The CN defaults to the device"s SN and
+                          cannot be changed.'
+                type: str
+            apcfg_auto_cert_scep_subject_alt_name:
+                description:
+                    - 'Subject alternative name (optional, e.g. "DNS:dns1.com,IP:192.168.1.99")'
+                type: str
+            apcfg_auto_cert_scep_url:
+                description:
+                    - SCEP server URL.
+                type: str
             apcfg_mesh:
                 description:
                     - Enable/disable AP local mesh configuration .
@@ -993,6 +1102,10 @@ options:
                     - 'yes'
                     - 'default'
                     - 'no'
+            lw_profile:
+                description:
+                    - LoRaWAN profile name. Source wireless-controller.lw-profile.name.
+                type: str
             max_clients:
                 description:
                     - Maximum number of stations (STAs) supported by the WTP .
@@ -1055,12 +1168,14 @@ options:
                             - '432G'
                             - '433G'
                             - '231K'
+                            - '231KD'
                             - '23JK'
                             - '222KL'
                             - '241K'
                             - '243K'
                             - '244K'
                             - '441K'
+                            - '432K'
                             - '443K'
                             - 'U421E'
                             - 'U422EV'
@@ -1076,6 +1191,7 @@ options:
                             - 'U234F'
                             - 'U432F'
                             - 'U231G'
+                            - 'MVP'
                             - '220B'
                             - '210B'
                             - '222B'
@@ -1130,6 +1246,14 @@ options:
                     - Configuration options for radio 1.
                 type: dict
                 suboptions:
+                    ai_darrp_support:
+                        description:
+                            - Enable/disable support for FortiAIOps to retrieve Distributed Automatic Radio Resource Provisioning (DARRP) data through REST
+                               API calls .
+                        type: str
+                        choices:
+                            - 'enable'
+                            - 'disable'
                     airtime_fairness:
                         description:
                             - Enable/disable airtime fairness .
@@ -1690,6 +1814,14 @@ options:
                     - Configuration options for radio 2.
                 type: dict
                 suboptions:
+                    ai_darrp_support:
+                        description:
+                            - Enable/disable support for FortiAIOps to retrieve Distributed Automatic Radio Resource Provisioning (DARRP) data through REST
+                               API calls .
+                        type: str
+                        choices:
+                            - 'enable'
+                            - 'disable'
                     airtime_fairness:
                         description:
                             - Enable/disable airtime fairness .
@@ -2250,6 +2382,14 @@ options:
                     - Configuration options for radio 3.
                 type: dict
                 suboptions:
+                    ai_darrp_support:
+                        description:
+                            - Enable/disable support for FortiAIOps to retrieve Distributed Automatic Radio Resource Provisioning (DARRP) data through REST
+                               API calls .
+                        type: str
+                        choices:
+                            - 'enable'
+                            - 'disable'
                     airtime_fairness:
                         description:
                             - Enable/disable airtime fairness .
@@ -2810,6 +2950,14 @@ options:
                     - Configuration options for radio 4.
                 type: dict
                 suboptions:
+                    ai_darrp_support:
+                        description:
+                            - Enable/disable support for FortiAIOps to retrieve Distributed Automatic Radio Resource Provisioning (DARRP) data through REST
+                               API calls .
+                        type: str
+                        choices:
+                            - 'enable'
+                            - 'disable'
                     airtime_fairness:
                         description:
                             - Enable/disable airtime fairness .
@@ -3468,6 +3616,26 @@ EXAMPLES = """
           allowaccess: "https"
           ap_country: "--"
           ap_handoff: "enable"
+          apcfg_auto_cert: "enable"
+          apcfg_auto_cert_auto_regen_days: "30"
+          apcfg_auto_cert_crypto_algo: "rsa-1024"
+          apcfg_auto_cert_enroll_protocol: "none"
+          apcfg_auto_cert_est_ca_id: "<your_own_value>"
+          apcfg_auto_cert_est_http_password: "<your_own_value>"
+          apcfg_auto_cert_est_http_username: "<your_own_value>"
+          apcfg_auto_cert_est_https_ca: "<your_own_value> (source vpn.certificate.ca.name)"
+          apcfg_auto_cert_est_server: "<your_own_value>"
+          apcfg_auto_cert_est_subject: "<your_own_value>"
+          apcfg_auto_cert_est_subject_alt_name: "<your_own_value>"
+          apcfg_auto_cert_scep_ca_id: "<your_own_value>"
+          apcfg_auto_cert_scep_ec_name: "secp256r1"
+          apcfg_auto_cert_scep_https_ca: "<your_own_value> (source vpn.certificate.ca.name)"
+          apcfg_auto_cert_scep_keysize: "1024"
+          apcfg_auto_cert_scep_keytype: "rsa"
+          apcfg_auto_cert_scep_password: "<your_own_value>"
+          apcfg_auto_cert_scep_sub_fully_dn: "<your_own_value>"
+          apcfg_auto_cert_scep_subject_alt_name: "<your_own_value>"
+          apcfg_auto_cert_scep_url: "<your_own_value>"
           apcfg_mesh: "enable"
           apcfg_mesh_ap_type: "ethernet"
           apcfg_mesh_eth_bridge: "enable"
@@ -3481,7 +3649,7 @@ EXAMPLES = """
           default_mesh_root: "enable"
           deny_mac_list:
               -
-                  id: "20"
+                  id: "40"
                   mac: "<your_own_value>"
           dtls_in_kernel: "enable"
           dtls_policy: "clear-text"
@@ -3579,19 +3747,21 @@ EXAMPLES = """
               station_locate: "enable"
           led_schedules:
               -
-                  name: "default_name_117 (source firewall.schedule.group.name firewall.schedule.recurring.name firewall.schedule.onetime.name)"
+                  name: "default_name_137 (source firewall.schedule.group.name firewall.schedule.recurring.name firewall.schedule.onetime.name)"
           led_state: "enable"
           lldp: "enable"
           login_passwd: "<your_own_value>"
           login_passwd_change: "yes"
+          lw_profile: "<your_own_value> (source wireless-controller.lw-profile.name)"
           max_clients: "0"
-          name: "default_name_123"
+          name: "default_name_144"
           platform:
               ddscan: "enable"
               mode: "single-5G"
               type: "AP-11N"
           poe_mode: "auto"
           radio_1:
+              ai_darrp_support: "enable"
               airtime_fairness: "enable"
               amsdu: "enable"
               ap_handoff: "enable"
@@ -3677,10 +3847,11 @@ EXAMPLES = """
               vap_all: "tunnel"
               vaps:
                   -
-                      name: "default_name_213 (source wireless-controller.vap-group.name system.interface.name)"
+                      name: "default_name_235 (source wireless-controller.vap-group.name system.interface.name)"
               wids_profile: "<your_own_value> (source wireless-controller.wids-profile.name)"
               zero_wait_dfs: "enable"
           radio_2:
+              ai_darrp_support: "enable"
               airtime_fairness: "enable"
               amsdu: "enable"
               ap_handoff: "enable"
@@ -3766,10 +3937,11 @@ EXAMPLES = """
               vap_all: "tunnel"
               vaps:
                   -
-                      name: "default_name_300 (source wireless-controller.vap-group.name system.interface.name)"
+                      name: "default_name_323 (source wireless-controller.vap-group.name system.interface.name)"
               wids_profile: "<your_own_value> (source wireless-controller.wids-profile.name)"
               zero_wait_dfs: "enable"
           radio_3:
+              ai_darrp_support: "enable"
               airtime_fairness: "enable"
               amsdu: "enable"
               ap_handoff: "enable"
@@ -3855,10 +4027,11 @@ EXAMPLES = """
               vap_all: "tunnel"
               vaps:
                   -
-                      name: "default_name_387 (source wireless-controller.vap-group.name system.interface.name)"
+                      name: "default_name_411 (source wireless-controller.vap-group.name system.interface.name)"
               wids_profile: "<your_own_value> (source wireless-controller.wids-profile.name)"
               zero_wait_dfs: "enable"
           radio_4:
+              ai_darrp_support: "enable"
               airtime_fairness: "enable"
               amsdu: "enable"
               ap_handoff: "enable"
@@ -3943,13 +4116,13 @@ EXAMPLES = """
               vap_all: "tunnel"
               vaps:
                   -
-                      name: "default_name_473 (source wireless-controller.vap-group.name system.interface.name)"
+                      name: "default_name_498 (source wireless-controller.vap-group.name system.interface.name)"
               wids_profile: "<your_own_value> (source wireless-controller.wids-profile.name)"
               zero_wait_dfs: "enable"
           split_tunneling_acl:
               -
                   dest_ip: "<your_own_value>"
-                  id: "478"
+                  id: "503"
           split_tunneling_acl_local_ap_subnet: "enable"
           split_tunneling_acl_path: "tunnel"
           syslog_profile: "<your_own_value> (source wireless-controller.syslog-profile.name)"
@@ -4063,6 +4236,26 @@ def filter_wireless_controller_wtp_profile_data(json):
         "allowaccess",
         "ap_country",
         "ap_handoff",
+        "apcfg_auto_cert",
+        "apcfg_auto_cert_auto_regen_days",
+        "apcfg_auto_cert_crypto_algo",
+        "apcfg_auto_cert_enroll_protocol",
+        "apcfg_auto_cert_est_ca_id",
+        "apcfg_auto_cert_est_http_password",
+        "apcfg_auto_cert_est_http_username",
+        "apcfg_auto_cert_est_https_ca",
+        "apcfg_auto_cert_est_server",
+        "apcfg_auto_cert_est_subject",
+        "apcfg_auto_cert_est_subject_alt_name",
+        "apcfg_auto_cert_scep_ca_id",
+        "apcfg_auto_cert_scep_ec_name",
+        "apcfg_auto_cert_scep_https_ca",
+        "apcfg_auto_cert_scep_keysize",
+        "apcfg_auto_cert_scep_keytype",
+        "apcfg_auto_cert_scep_password",
+        "apcfg_auto_cert_scep_sub_fully_dn",
+        "apcfg_auto_cert_scep_subject_alt_name",
+        "apcfg_auto_cert_scep_url",
         "apcfg_mesh",
         "apcfg_mesh_ap_type",
         "apcfg_mesh_eth_bridge",
@@ -4093,6 +4286,7 @@ def filter_wireless_controller_wtp_profile_data(json):
         "lldp",
         "login_passwd",
         "login_passwd_change",
+        "lw_profile",
         "max_clients",
         "name",
         "platform",
@@ -4472,12 +4666,14 @@ versioned_schema = {
                             "v_range": [["v7.0.8", "v7.0.12"], ["v7.2.1", ""]],
                         },
                         {"value": "231K", "v_range": [["v7.6.1", ""]]},
+                        {"value": "231KD", "v_range": [["v7.6.5", ""]]},
                         {"value": "23JK", "v_range": [["v7.6.1", ""]]},
                         {"value": "222KL", "v_range": [["v7.6.4", ""]]},
                         {"value": "241K", "v_range": [["v7.4.2", ""]]},
                         {"value": "243K", "v_range": [["v7.4.2", ""]]},
                         {"value": "244K", "v_range": [["v7.6.4", ""]]},
                         {"value": "441K", "v_range": [["v7.4.2", ""]]},
+                        {"value": "432K", "v_range": [["v7.6.5", ""]]},
                         {"value": "443K", "v_range": [["v7.4.2", ""]]},
                         {"value": "U421E"},
                         {"value": "U422EV"},
@@ -4496,6 +4692,7 @@ versioned_schema = {
                             "value": "U231G",
                             "v_range": [["v7.0.8", "v7.0.12"], ["v7.2.4", ""]],
                         },
+                        {"value": "MVP", "v_range": [["v7.6.5", ""]]},
                         {"value": "220B", "v_range": [["v6.0.0", "v7.2.4"]]},
                         {"value": "210B", "v_range": [["v6.0.0", "v7.2.4"]]},
                         {"value": "222B", "v_range": [["v6.0.0", "v7.2.4"]]},
@@ -4586,6 +4783,7 @@ versioned_schema = {
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "ble_profile": {"v_range": [["v6.0.0", ""]], "type": "string"},
+        "lw_profile": {"v_range": [["v7.6.5", ""]], "type": "string"},
         "syslog_profile": {"v_range": [["v7.0.2", ""]], "type": "string"},
         "wan_port_mode": {
             "v_range": [["v6.0.0", ""]],
@@ -5406,6 +5604,11 @@ versioned_schema = {
                     "options": [{"value": "enable"}, {"value": "disable"}],
                 },
                 "wids_profile": {"v_range": [["v6.0.0", ""]], "type": "string"},
+                "ai_darrp_support": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "string",
+                    "options": [{"value": "enable"}, {"value": "disable"}],
+                },
                 "darrp": {
                     "v_range": [["v6.0.0", ""]],
                     "type": "string",
@@ -5835,6 +6038,11 @@ versioned_schema = {
                     "options": [{"value": "enable"}, {"value": "disable"}],
                 },
                 "wids_profile": {"v_range": [["v6.0.0", ""]], "type": "string"},
+                "ai_darrp_support": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "string",
+                    "options": [{"value": "enable"}, {"value": "disable"}],
+                },
                 "darrp": {
                     "v_range": [["v6.0.0", ""]],
                     "type": "string",
@@ -6264,6 +6472,11 @@ versioned_schema = {
                     "options": [{"value": "enable"}, {"value": "disable"}],
                 },
                 "wids_profile": {"v_range": [["v6.2.0", ""]], "type": "string"},
+                "ai_darrp_support": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "string",
+                    "options": [{"value": "enable"}, {"value": "disable"}],
+                },
                 "darrp": {
                     "v_range": [["v6.2.0", ""]],
                     "type": "string",
@@ -6756,6 +6969,11 @@ versioned_schema = {
                     "v_range": [["v6.2.0", "v6.2.0"], ["v6.2.5", ""]],
                     "type": "string",
                 },
+                "ai_darrp_support": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "string",
+                    "options": [{"value": "enable"}, {"value": "disable"}],
+                },
                 "darrp": {
                     "v_range": [["v6.2.0", "v6.2.0"], ["v6.2.5", ""]],
                     "type": "string",
@@ -7177,6 +7395,91 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
+        "apcfg_auto_cert": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
+        "apcfg_auto_cert_enroll_protocol": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "none"}, {"value": "est"}, {"value": "scep"}],
+        },
+        "apcfg_auto_cert_crypto_algo": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [
+                {"value": "rsa-1024"},
+                {"value": "rsa-1536"},
+                {"value": "rsa-2048"},
+                {"value": "rsa-4096"},
+                {"value": "ec-secp256r1"},
+                {"value": "ec-secp384r1"},
+                {"value": "ec-secp521r1"},
+            ],
+        },
+        "apcfg_auto_cert_est_server": {"v_range": [["v7.6.5", ""]], "type": "string"},
+        "apcfg_auto_cert_est_ca_id": {"v_range": [["v7.6.5", ""]], "type": "string"},
+        "apcfg_auto_cert_est_http_username": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+        },
+        "apcfg_auto_cert_est_http_password": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+        },
+        "apcfg_auto_cert_est_subject": {"v_range": [["v7.6.5", ""]], "type": "string"},
+        "apcfg_auto_cert_est_subject_alt_name": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+        },
+        "apcfg_auto_cert_auto_regen_days": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "integer",
+        },
+        "apcfg_auto_cert_est_https_ca": {"v_range": [["v7.6.5", ""]], "type": "string"},
+        "apcfg_auto_cert_scep_keytype": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "rsa"}, {"value": "ec"}],
+        },
+        "apcfg_auto_cert_scep_keysize": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [
+                {"value": "1024"},
+                {"value": "1536"},
+                {"value": "2048"},
+                {"value": "4096"},
+            ],
+        },
+        "apcfg_auto_cert_scep_ec_name": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [
+                {"value": "secp256r1"},
+                {"value": "secp384r1"},
+                {"value": "secp521r1"},
+            ],
+        },
+        "apcfg_auto_cert_scep_sub_fully_dn": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+        },
+        "apcfg_auto_cert_scep_url": {"v_range": [["v7.6.5", ""]], "type": "string"},
+        "apcfg_auto_cert_scep_password": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+        },
+        "apcfg_auto_cert_scep_ca_id": {"v_range": [["v7.6.5", ""]], "type": "string"},
+        "apcfg_auto_cert_scep_subject_alt_name": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+        },
+        "apcfg_auto_cert_scep_https_ca": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+        },
         "unii_4_5ghz_band": {
             "v_range": [["v7.4.0", ""]],
             "type": "string",
@@ -7241,7 +7544,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "wireless_controller_wtp_profile"
         )

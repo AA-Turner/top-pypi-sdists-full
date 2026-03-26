@@ -16,7 +16,7 @@ from plato.cli.utils import (
     prepare_build_context_with_sdk,
     require_api_key,
 )
-from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image
+from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image, retag_image
 from plato.v2 import Env, Plato
 from plato.v2.types import SimConfigCompute
 
@@ -310,6 +310,7 @@ def _publish_agent_image(
     description: str,
     dry_run: bool,
     build_args: dict[str, str] | None = None,
+    no_cache: bool = False,
 ) -> None:
     """Build and publish an agent Docker image to ECR."""
     # Check Docker is available
@@ -341,6 +342,7 @@ def _publish_agent_image(
         build_path=str(build_path),
         repo_prefix="vm/rootfs/plato-agents",
         build_args=build_args,
+        no_cache=no_cache,
     )
 
     if not result.success:
@@ -671,6 +673,12 @@ def agent_publish(
         help="Publish the next dated PEP 440 dev version without prompting",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Build without uploading"),
+    skip_docker: bool = typer.Option(
+        False,
+        "--skip-docker",
+        help="Skip Docker build; retag the current :latest image with the new version tag instead",
+    ),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Build Docker image without cache"),
 ):
     """Build and publish an agent package to the Plato agents repository.
 
@@ -685,6 +693,7 @@ def agent_publish(
     Options:
         -a, --all: Publish all agents found in the target directory
         --dry-run: Build without uploading
+        --skip-docker: Retag :latest instead of rebuilding Docker image
     """
 
     # Handle --all flag with directory
@@ -713,7 +722,7 @@ def agent_publish(
             console.print(f"[bold cyan]{'=' * 50}[/bold cyan]\n")
 
             try:
-                _push_single_agent(agent_dir, dry_run, minor=minor, dev=dev)
+                _push_single_agent(agent_dir, dry_run, minor=minor, dev=dev, skip_docker=skip_docker, no_cache=no_cache)
                 succeeded.append(agent_dir.name)
             except SystemExit:
                 failed.append(agent_dir.name)
@@ -734,10 +743,18 @@ def agent_publish(
         console.print(f"[red]Error: '{target}' is not a valid path[/red]")
         raise typer.Exit(1)
 
-    _push_single_agent(pkg_path, dry_run, minor=minor, dev=dev)
+    _push_single_agent(pkg_path, dry_run, minor=minor, dev=dev, skip_docker=skip_docker, no_cache=no_cache)
 
 
-def _push_single_agent(pkg_path: Path, dry_run: bool, *, minor: bool = False, dev: bool = False) -> None:
+def _push_single_agent(
+    pkg_path: Path,
+    dry_run: bool,
+    *,
+    minor: bool = False,
+    dev: bool = False,
+    skip_docker: bool = False,
+    no_cache: bool = False,
+) -> None:
     """Publish a single agent package to PyPI and optionally Docker.
 
     Builds the package and uploads to the Plato agents repository.
@@ -880,15 +897,25 @@ def _push_single_agent(pkg_path: Path, dry_run: bool, *, minor: bool = False, de
     dockerfile = pkg_path / "Dockerfile"
     if dockerfile.exists():
         console.print()
-        console.print("[bold]Step 3: Building and pushing Docker image...[/bold]")
-
-        _publish_agent_image(
-            agent_name=short_name,
-            version=version,
-            build_path=pkg_path,
-            description=description,
-            dry_run=dry_run,
-        )
+        if skip_docker:
+            console.print("[bold]Step 3: Retagging existing Docker image...[/bold]")
+            repository = f"vm/rootfs/plato-agents/{short_name}"
+            if retag_image(repository, "latest", version):
+                ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
+                console.print(f"[green]Retagged:[/green] {ecr_image}")
+            else:
+                console.print("[red]Failed to retag image. Is there an existing :latest?[/red]")
+                raise typer.Exit(1)
+        else:
+            console.print("[bold]Step 3: Building and pushing Docker image...[/bold]")
+            _publish_agent_image(
+                agent_name=short_name,
+                version=version,
+                build_path=pkg_path,
+                description=description,
+                dry_run=dry_run,
+                no_cache=no_cache,
+            )
     else:
         console.print()
         console.print("[dim]No Dockerfile found - skipping Docker image build[/dim]")

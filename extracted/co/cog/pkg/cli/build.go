@@ -8,11 +8,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/replicate/cog/pkg/coglog"
 	"github.com/replicate/cog/pkg/config"
 	"github.com/replicate/cog/pkg/docker"
-	"github.com/replicate/cog/pkg/http"
-	"github.com/replicate/cog/pkg/image"
+	"github.com/replicate/cog/pkg/model"
 	"github.com/replicate/cog/pkg/registry"
 	"github.com/replicate/cog/pkg/util/console"
 )
@@ -28,16 +26,30 @@ var buildDockerfileFile string
 var buildUseCogBaseImage bool
 var buildStrip bool
 var buildPrecompile bool
-var buildFast bool
-var buildLocalImage bool
 var configFilename string
 
 const useCogBaseImageFlagKey = "use-cog-base-image"
 
 func newBuildCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "build",
-		Short:   "Build an image from cog.yaml",
+		Use:   "build",
+		Short: "Build an image from cog.yaml",
+		Long: `Build a Docker image from the cog.yaml in the current directory.
+
+The generated image contains your model code, dependencies, and the Cog
+runtime. It can be run locally with 'cog predict' or pushed to a registry
+with 'cog push'.`,
+		Example: `  # Build with default settings
+  cog build
+
+  # Build and tag the image
+  cog build -t my-model:latest
+
+  # Build without using the cache
+  cog build --no-cache
+
+  # Build with model weights in a separate layer
+  cog build --separate-weights -t my-model:v1`,
 		Args:    cobra.NoArgs,
 		RunE:    buildCommand,
 		PreRunE: checkMutuallyExclusiveFlags,
@@ -53,10 +65,7 @@ func newBuildCommand() *cobra.Command {
 	addBuildTimestampFlag(cmd)
 	addStripFlag(cmd)
 	addPrecompileFlag(cmd)
-	addFastFlag(cmd)
-	addLocalImage(cmd)
 	addConfigFlag(cmd)
-	addPipelineImage(cmd)
 	cmd.Flags().StringVarP(&buildTag, "tag", "t", "", "A name for the built image in the form 'repository:tag'")
 	return cmd
 }
@@ -69,69 +78,30 @@ func buildCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := http.ProvideHTTPClient(ctx, dockerClient)
+	src, err := model.NewSource(configFilename)
 	if err != nil {
 		return err
 	}
-	logClient := coglog.NewClient(client)
-	logCtx := logClient.StartBuild(buildLocalImage)
 
-	cfg, projectDir, err := config.GetConfig(configFilename)
-	if err != nil {
-		logClient.EndBuild(ctx, err, logCtx)
-		return err
-	}
-	// In case one of `--x-fast` & `fast: bool` is set
-	if cfg.Build.Fast {
-		buildFast = cfg.Build.Fast
-	}
-	logCtx.Fast = buildFast
-	logCtx.CogRuntime = false
-	if cfg.Build.CogRuntime != nil {
-		logCtx.CogRuntime = *cfg.Build.CogRuntime
-	}
-
-	imageName := cfg.Image
+	imageName := src.Config.Image
 	if buildTag != "" {
 		imageName = buildTag
 	}
 	if imageName == "" {
-		imageName = config.DockerImageName(projectDir)
+		imageName = config.DockerImageName(src.ProjectDir)
 	}
 
-	err = config.ValidateModelPythonVersion(cfg)
+	console.Infof("Building Docker image from environment in cog.yaml as %s...", console.Bold(imageName))
+	console.Info("")
+
+	resolver := model.NewResolver(dockerClient, registry.NewRegistryClient())
+	m, err := resolver.Build(ctx, src, buildOptionsFromFlags(cmd, imageName, nil))
 	if err != nil {
-		logClient.EndBuild(ctx, err, logCtx)
-		return err
-	}
-	registryClient := registry.NewRegistryClient()
-	if err := image.Build(
-		ctx,
-		cfg,
-		projectDir,
-		imageName,
-		buildSecrets,
-		buildNoCache,
-		buildSeparateWeights,
-		buildUseCudaBaseImage,
-		buildProgressOutput,
-		buildSchemaFile,
-		buildDockerfileFile,
-		DetermineUseCogBaseImage(cmd),
-		buildStrip,
-		buildPrecompile,
-		buildFast,
-		nil,
-		buildLocalImage,
-		dockerClient,
-		registryClient,
-		pipelinesImage); err != nil {
-		logClient.EndBuild(ctx, err, logCtx)
 		return err
 	}
 
-	console.Infof("\nImage built as %s", imageName)
-	logClient.EndBuild(ctx, nil, logCtx)
+	console.Info("")
+	console.Successf("Image built as %s", console.Bold(m.ImageRef()))
 
 	return nil
 }
@@ -181,7 +151,7 @@ func addUseCogBaseImageFlag(cmd *cobra.Command) {
 }
 
 func addBuildTimestampFlag(cmd *cobra.Command) {
-	cmd.Flags().Int64Var(&config.BuildSourceEpochTimestamp, "timestamp", -1, "Number of seconds sing Epoch to use for the build timestamp; this rewrites the timestamp of each layer. Useful for reproducibility. (`-1` to disable timestamp rewrites)")
+	cmd.Flags().Int64Var(&config.BuildSourceEpochTimestamp, "timestamp", -1, "Number of seconds since Epoch to use for the build timestamp; this rewrites the timestamp of each layer. Useful for reproducibility. (`-1` to disable timestamp rewrites)")
 	_ = cmd.Flags().MarkHidden("timestamp")
 }
 
@@ -195,18 +165,6 @@ func addPrecompileFlag(cmd *cobra.Command) {
 	const precompileFlag = "precompile"
 	cmd.Flags().BoolVar(&buildPrecompile, precompileFlag, false, "Whether to precompile python files for faster load times")
 	_ = cmd.Flags().MarkHidden(precompileFlag)
-}
-
-func addFastFlag(cmd *cobra.Command) {
-	const fastFlag = "x-fast"
-	cmd.Flags().BoolVar(&buildFast, fastFlag, false, "Whether to use the experimental fast features")
-	_ = cmd.Flags().MarkHidden(fastFlag)
-}
-
-func addLocalImage(cmd *cobra.Command) {
-	const localImage = "x-localimage"
-	cmd.Flags().BoolVar(&buildLocalImage, localImage, false, "Whether to use the experimental local image features")
-	_ = cmd.Flags().MarkHidden(localImage)
 }
 
 func addConfigFlag(cmd *cobra.Command) {
@@ -234,4 +192,24 @@ func DetermineUseCogBaseImage(cmd *cobra.Command) *bool {
 	useCogBaseImage := new(bool)
 	*useCogBaseImage = buildUseCogBaseImage
 	return useCogBaseImage
+}
+
+// buildOptionsFromFlags creates BuildOptions from the current CLI flag values.
+// The imageName and annotations parameters vary by command and must be provided.
+func buildOptionsFromFlags(cmd *cobra.Command, imageName string, annotations map[string]string) model.BuildOptions {
+	return model.BuildOptions{
+		ImageName:        imageName,
+		Secrets:          buildSecrets,
+		NoCache:          buildNoCache,
+		SeparateWeights:  buildSeparateWeights,
+		UseCudaBaseImage: buildUseCudaBaseImage,
+		ProgressOutput:   buildProgressOutput,
+		SchemaFile:       buildSchemaFile,
+		DockerfileFile:   buildDockerfileFile,
+		UseCogBaseImage:  DetermineUseCogBaseImage(cmd),
+		Strip:            buildStrip,
+		Precompile:       buildPrecompile,
+		Annotations:      annotations,
+		OCIIndex:         model.OCIIndexEnabled(),
+	}
 }

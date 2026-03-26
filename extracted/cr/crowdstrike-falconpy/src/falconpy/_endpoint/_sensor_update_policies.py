@@ -38,12 +38,26 @@ For more information, please refer to <https://unlicense.org>
 
 _sensor_update_policies_endpoints = [
   [
+    "incrementUninstallToken",
+    "POST",
+    "/policy/combined/increment-uninstall-token/v1",
+    "Increments a bulk maintenance token.",
+    "sensor_update_policy",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
     "revealUninstallToken",
     "POST",
     "/policy/combined/reveal-uninstall-token/v1",
     "Reveals an uninstall token for a specific device. To retrieve the bulk maintenance token pass the value "
     "'MAINTENANCE' as the value for 'device_id'",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "name": "body",
@@ -57,7 +71,7 @@ _sensor_update_policies_endpoints = [
     "GET",
     "/policy/combined/sensor-update-builds/v1",
     "Retrieve available builds for use with Sensor Update Policies",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "enum": [
@@ -93,7 +107,7 @@ _sensor_update_policies_endpoints = [
     "GET",
     "/policy/combined/sensor-update-kernels/v1",
     "Retrieve kernel compatibility info for Sensor Update Builds",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "string",
@@ -124,7 +138,7 @@ _sensor_update_policies_endpoints = [
     "/policy/combined/sensor-update-members/v1",
     "Search for members of a Sensor Update Policy in your environment by providing an FQL filter and paging "
     "details. Returns a set of host details which match the filter criteria",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "string",
@@ -167,7 +181,7 @@ _sensor_update_policies_endpoints = [
     "/policy/combined/sensor-update/v1",
     "Search for Sensor Update Policies in your environment by providing an FQL filter and paging details. "
     "Returns a set of Sensor Update Policies which match the filter criteria",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "string",
@@ -223,7 +237,7 @@ _sensor_update_policies_endpoints = [
     "Search for Sensor Update Policies with additional support for uninstall protection in your environment by "
     " providing an FQL filter and paging details. Returns a set of Sensor Update Policies which match the filter "
     "criteria",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "string",
@@ -277,7 +291,7 @@ _sensor_update_policies_endpoints = [
     "POST",
     "/policy/entities/sensor-update-actions/v1",
     "Perform the specified action on the Sensor Update Policies specified in the request",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "enum": [
@@ -308,7 +322,7 @@ _sensor_update_policies_endpoints = [
     "Sets the precedence of Sensor Update Policies based on the order of IDs specified in the request. The "
     "first ID specified will have the highest precedence and the last ID specified will have the lowest. You must "
     "specify all non-Default Policies for a platform when updating precedence",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "name": "body",
@@ -322,7 +336,7 @@ _sensor_update_policies_endpoints = [
     "GET",
     "/policy/entities/sensor-update/v1",
     "Retrieve a set of Sensor Update Policies by specifying their IDs",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "array",
@@ -342,7 +356,7 @@ _sensor_update_policies_endpoints = [
     "POST",
     "/policy/entities/sensor-update/v1",
     "Create Sensor Update Policies by specifying details about the policy to create",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "name": "body",
@@ -356,7 +370,7 @@ _sensor_update_policies_endpoints = [
     "PATCH",
     "/policy/entities/sensor-update/v1",
     "Update Sensor Update Policies by specifying the ID of the policy and details to update",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "name": "body",
@@ -370,7 +384,7 @@ _sensor_update_policies_endpoints = [
     "DELETE",
     "/policy/entities/sensor-update/v1",
     "Delete a set of Sensor Update Policies by specifying their IDs",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "array",
@@ -390,7 +404,7 @@ _sensor_update_policies_endpoints = [
     "GET",
     "/policy/entities/sensor-update/v2",
     "Retrieve a set of Sensor Update Policies with additional support for uninstall protection by specifying their IDs",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "array",
@@ -411,7 +425,7 @@ _sensor_update_policies_endpoints = [
     "/policy/entities/sensor-update/v2",
     "Create Sensor Update Policies by specifying details about the policy to create with additional support "
     "for uninstall protection",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "name": "body",
@@ -426,7 +440,7 @@ _sensor_update_policies_endpoints = [
     "/policy/entities/sensor-update/v2",
     "Update Sensor Update Policies by specifying the ID of the policy and details to update with additional "
     "support for uninstall protection",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "name": "body",
@@ -440,7 +454,7 @@ _sensor_update_policies_endpoints = [
     "GET",
     "/policy/queries/sensor-update-kernels/{}/v1",
     "Retrieve kernel compatibility info for Sensor Update Builds",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "string",
@@ -478,7 +492,7 @@ _sensor_update_policies_endpoints = [
     "/policy/queries/sensor-update-members/v1",
     "Search for members of a Sensor Update Policy in your environment by providing an FQL filter and paging "
     "details. Returns a set of Agent IDs which match the filter criteria",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "string",
@@ -521,7 +535,7 @@ _sensor_update_policies_endpoints = [
     "/policy/queries/sensor-update/v1",
     "Search for Sensor Update Policies in your environment by providing an FQL filter and paging details. "
     "Returns a set of Sensor Update Policy IDs which match the filter criteria",
-    "sensor_update_policies",
+    "sensor_update_policy",
     [
       {
         "type": "string",

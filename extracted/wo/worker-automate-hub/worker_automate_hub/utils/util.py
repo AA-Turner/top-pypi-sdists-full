@@ -2205,8 +2205,6 @@ async def wait_window_close(window_name):
             return True
 
 
-
-
 async def verify_nf_incuded() -> bool:
     """
     Verifica se a nota fiscal foi incluída com sucesso.
@@ -5339,3 +5337,108 @@ async def kill_chrome_driver():
             subprocess.run(f"taskkill /f /im {p} /t", shell=True, capture_output=True)
         except:
             console.print("Processo nao encontrado")
+
+async def compare_itens(fuel_list, config_entrada, fuel_itens, desc):
+    """
+    Compare itens and update config.
+
+    desc: nome do campo dentro da configuração.
+          Ex: descricaoRaizen, descricaoIpiranga
+
+    fuel_list: lista de combustíveis extraídos do site
+               Ex: [{"name": "...", "price": 5.99}, ...]
+
+    config_entrada: config_entrada completo
+
+    fuel_itens: pode vir em dois formatos:
+        1) {"CombustiveisIds": [...]}
+        2) lista simples de itens
+    """
+    try:
+        logger.info("Comparing items")
+
+        if not isinstance(config_entrada, dict):
+            raise Exception("config_entrada inválido: esperado dict.")
+
+        if "precos" not in config_entrada or not isinstance(config_entrada["precos"], list):
+            raise Exception("config_entrada inválido: chave 'precos' ausente ou não é lista.")
+
+        if not isinstance(fuel_list, list):
+            raise Exception("fuel_list inválido: esperado lista.")
+
+        combustiveis_ids = []
+
+        if isinstance(fuel_itens, dict):
+            combustiveis_ids = fuel_itens.get("CombustiveisIds") or []
+        elif isinstance(fuel_itens, list):
+            combustiveis_ids = fuel_itens
+        else:
+            combustiveis_ids = []
+
+        fuel_itens_dict = {}
+        for item in combustiveis_ids:
+            if not isinstance(item, dict):
+                continue
+
+            uuid = item.get("uuid")
+            if not uuid:
+                continue
+
+            fuel_itens_dict[uuid] = item
+
+        fuel_list_normalizado = {}
+        for fuel in fuel_list:
+            if not isinstance(fuel, dict):
+                continue
+
+            nome = str(fuel.get("name") or "").strip().lower()
+            preco = fuel.get("price")
+
+            if not nome or preco is None:
+                continue
+
+            fuel_list_normalizado[nome] = fuel
+
+        for item in config_entrada["precos"]:
+            if not isinstance(item, dict):
+                continue
+
+            uuid_item = item.get("uuidItem")
+            if not uuid_item:
+                logger.warning("Item sem uuidItem em config_entrada['precos']")
+                continue
+
+            fuel_searched = fuel_itens_dict.get(uuid_item)
+            if not fuel_searched:
+                logger.warning(f"UUID não encontrado: {uuid_item}")
+                continue
+
+            find_fuel = fuel_searched.get(desc)
+            if not find_fuel:
+                logger.warning(f"Campo '{desc}' não encontrado para UUID {uuid_item}")
+                continue
+
+            find_fuel_normalizado = str(find_fuel).strip().lower()
+            fuel_encontrado = fuel_list_normalizado.get(find_fuel_normalizado)
+
+            if not fuel_encontrado:
+                logger.warning(
+                    f"Combustível não encontrado no retorno do site para UUID {uuid_item} | "
+                    f"Descrição esperada: {find_fuel}"
+                )
+                continue
+
+            try:
+                item["preco"] = float(fuel_encontrado["price"])
+            except Exception as erro_preco:
+                logger.warning(
+                    f"Não foi possível converter o preço para float | "
+                    f"uuidItem={uuid_item} | valor={fuel_encontrado.get('price')} | erro={erro_preco}"
+                )
+                continue
+
+        return config_entrada
+
+    except Exception as e:
+        logger.error(f"Error comparing items: {str(e)}")
+        raise Exception(f"Erro ao comparar os itens: {str(e)}")

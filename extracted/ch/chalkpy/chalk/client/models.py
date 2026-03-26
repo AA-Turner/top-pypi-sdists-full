@@ -45,6 +45,7 @@ MEMORY_REGEX = r"^\d+([EPTGMK]i|[EPTGMk])?$"
 TIMEDELTA_PREFIX = "delta:"  # used to disambiguate datetimes and timedeltas in string form
 
 FeatureReference: TypeAlias = Union[str, Any]
+UnloadResolvers: TypeAlias = Union[Sequence[Union[str, Resolver]], Mapping[Union[str, Resolver], Tuple[Any, ...]], None]
 
 _CHALK_DEBUG_FULL_TRACE = os.getenv("CHALK_DEBUG_FULL_TRACE") == "1"
 
@@ -957,6 +958,9 @@ class CreateOfflineQueryJobRequest(BaseModel):
 
     None means the server chooses whether to use the metaplanner.
     """
+
+    unload_resolvers: Optional[List[Dict[str, Any]]] = None
+    """Resolvers to pre-compute and unload from shard jobs. Each entry has 'fqn' and optional 'partition_by'."""
 
     @root_validator
     def _validate_multiple_computers(cls, values: Dict[str, Any]):

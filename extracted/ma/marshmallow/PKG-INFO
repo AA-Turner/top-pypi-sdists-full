@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: marshmallow
-Version: 4.2.2
+Version: 4.2.3
 Summary: A lightweight library for converting complex datatypes to and from native Python datatypes.
 Author-email: Steven Loria <oss@stevenloria.com>
 Maintainer-email: Steven Loria <oss@stevenloria.com>, Jérôme Lafréchoux <jerome@jolimont.fr>, Jared Deckard <jared@shademaps.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -24,7 +24,7 @@ Requires-Dist: pre-commit>=3.5,<5.0 ; extra == "dev"
 Requires-Dist: autodocsumm==0.2.14 ; extra == "docs"
 Requires-Dist: furo==2025.12.19 ; extra == "docs"
 Requires-Dist: sphinx-copybutton==0.5.2 ; extra == "docs"
-Requires-Dist: sphinx-issues==5.0.1 ; extra == "docs"
+Requires-Dist: sphinx-issues==6.0.0 ; extra == "docs"
 Requires-Dist: sphinx==8.2.3 ; extra == "docs"
 Requires-Dist: sphinxext-opengraph==0.13.0 ; extra == "docs"
 Requires-Dist: pytest ; extra == "tests"

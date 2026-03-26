@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic
 from jinja2 import Environment as JinjaEnvironment
-from jinja2 import StrictUndefined, TemplateError, UndefinedError
+from jinja2 import FileSystemLoader, StrictUndefined, TemplateError, UndefinedError
 from kaos.path import KaosPath
 from kosong.tooling import Toolset
 
@@ -115,7 +115,7 @@ class Runtime:
         llm: LLM | None,
         session: Session,
         yolo: bool,
-        skills_dir: KaosPath | None = None,
+        extra_skills_dirs: list[KaosPath] | None = None,
     ) -> Runtime:
         ls_output, agents_md, environment = await asyncio.gather(
             list_directory(session.work_dir),
@@ -124,7 +124,10 @@ class Runtime:
         )
 
         # Discover and format skills
-        skills_roots = await resolve_skills_roots(session.work_dir, skills_dir_override=skills_dir)
+        skills_roots = await resolve_skills_roots(
+            session.work_dir,
+            extra_skills_dirs=extra_skills_dirs,
+        )
         skills = await discover_skills_from_roots(skills_roots)
         skills_by_name = index_skills(skills)
         logger.info("Discovered {count} skill(s)", count=len(skills))
@@ -386,6 +389,7 @@ def _load_system_prompt(
         spec_args=args,
     )
     env = JinjaEnvironment(
+        loader=FileSystemLoader(path.parent),
         keep_trailing_newline=True,
         lstrip_blocks=True,
         trim_blocks=True,

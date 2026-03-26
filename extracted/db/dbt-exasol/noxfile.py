@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import warnings
 
 import nox
 from exasol.toolbox.nox._format import _code_format
@@ -16,10 +17,15 @@ from exasol.toolbox.nox._shared import (
     get_filtered_python_files,
 )
 from exasol.toolbox.nox.plugin import NoxTasks
-from exasol.toolbox.nox.tasks import *  # noqa: F403,F401  # pylint: disable=wildcard-import,unused-wildcard-import
-from nox import Session
 
-from noxconfig import (
+# Suppress FutureWarning about duplicate session registration.
+# The toolbox registers default sessions via @nox.session at import time;
+# we intentionally override several of them below with project-specific versions.
+warnings.filterwarnings("ignore", message=".*has already been registered.*", category=FutureWarning)
+from exasol.toolbox.nox.tasks import *  # noqa: E402,F403,F401  # pylint: disable=wildcard-import,unused-wildcard-import
+from nox import Session  # noqa: E402
+
+from noxconfig import (  # noqa: E402
     DEFAULT_DB_VERSION,
     PROJECT_CONFIG,
     start_test_db,
@@ -112,11 +118,12 @@ def artifacts_copy(session: Session) -> None:
             session.log(f"Copying {artifact_file.name}")
             shutil.copy(str(artifact_file), str(PROJECT_CONFIG.root_path))
 
-    # Generate coverage report
+    # Generate coverage report (enforce threshold after combining all jobs)
     session.run(
         "coverage",
         "report",
         "-m",
+        "--fail-under=85",
         f"--rcfile={PROJECT_CONFIG.root_path / 'pyproject.toml'}",
     )
 
@@ -228,7 +235,7 @@ def coverage(session: Session) -> None:
     coverage_file.unlink(missing_ok=True)
     _run_unit_tests(session, context)
     _run_integration_tests(session, context)
-    session.run("coverage", "report", "-m")
+    session.run("coverage", "report", "-m", "--fail-under=85")
 
 
 @nox.session(name="project:check", python=False)  # type: ignore[no-redef]
@@ -244,4 +251,4 @@ def project_check(session: Session) -> None:
     _type_check(session, py_files)
     _run_unit_tests(session, context)
     _run_integration_tests(session, context)
-    session.run("coverage", "report", "-m")
+    session.run("coverage", "report", "-m", "--fail-under=85")

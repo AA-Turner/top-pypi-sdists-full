@@ -35,6 +35,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <https://unlicense.org>
 """
+# pylint: disable=C0302,R0904
 import re
 from os.path import exists
 from typing import Dict, Union
@@ -42,8 +43,7 @@ from ._util import (
     force_default,
     process_service_request,
     handle_single_argument,
-    generate_error_result,
-    args_to_params
+    generate_error_result
     )
 from ._payload import (
     simple_action_parameter,
@@ -197,6 +197,8 @@ class Workflows(ServiceClass):
 
         Keyword arguments:
         filter -- FQL query specifying filter parameters. String.
+        offset -- Starting pagination offset of records to return. String.
+        limit -- Maximum number of records to return. Integer.
         parameters -- Full parameters payload dictionary. Not required if using other keywords.
 
         This method only supports keywords for providing arguments.
@@ -402,9 +404,7 @@ class Workflows(ServiceClass):
         Keyword arguments:
         batch_size -- Used to set the size of the batch. Integer.
         body -- full body payload, not required if using other keywords.
-                {
-                    Workflow schema
-                }
+                {}
         definition_id -- Definition ID to execute. Either a name or ID can be specified.
                          String or List of Strings.
         execution_cid -- CID(s) to execute on. This can be a child for Flight Control scenarios.
@@ -768,18 +768,12 @@ class Workflows(ServiceClass):
 
     @force_default(defaults=["body"], default_types=["dict"])
     def provision(self: object, body: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
-        """Promote a version of a system definition.
-
-        Tenant must be already provisioned. This allows the caller to apply an updated template
-        version on a CID and expects all parameters to be supplied. If the template supports
-        multi-instance, the customer scope definition ID must be supplied to determine which
-        customer workflow should be update.
+        """Provision a system definition onto the target CID by using the template and provided parameters.
 
         Keyword arguments:
         activities -- Dictionary.
-        body -- Template to use for update. Not required if using other keywords. Dictionary.
+        body -- Template to provision. Not required if using other keywords. Dictionary.
                 {
-                    "customer_definition_id": "string",
                     "name": "string",
                     "parameters": {
                         "activities": {
@@ -818,12 +812,12 @@ class Workflows(ServiceClass):
                     "template_version": "string"
                 }
         conditions -- List of dictionaries.
-        customer_definition_id -- String.
-        name -- String.
-        parameters -- Dictionary. Overrides specified activities, conditions and trigger keywords.
-        template_id -- String.
-        template_name -- String.
-        template_version -- String.
+        name -- Optional name to be set on the customer scope definition. Must be unique within a given CID. String.
+        parameters -- Runtime parameters to be interpolated to template model. Dictionary.
+                      Overrides specified activities, conditions and trigger keywords.
+        template_id -- ID of the system definition template that was previously created. String.
+        template_name -- Name of the system definition template to provision. String.
+        template_version -- Version of system definition template, if omitted the latest version will be used. String.
         trigger -- Dictionary.
 
         This method only supports keywords for providing arguments.
@@ -880,26 +874,94 @@ class Workflows(ServiceClass):
         if not body:
             body = generic_payload_list(submitted_keywords=kwargs, payload_value="ids")
 
-        _allowed_actions = ['enable', 'disable', 'cancel']
-        operation_id = "WorkflowDefinitionsAction"
-        parameter_payload = args_to_params(parameters, kwargs, Endpoints, operation_id)
-        action_name = parameter_payload.get("action_name", "Not Specified")
-        # Only process allowed actions
-        if action_name.lower() in _allowed_actions:
-            returned = process_service_request(
-                calling_object=self,
-                endpoints=Endpoints,
-                operation_id=operation_id,
-                body=body,
-                keywords=kwargs,
-                params=parameters,
-                body_validator={"ids": list} if self.validate_payloads else None,
-                body_required=["ids"] if self.validate_payloads else None
-                )
-        else:
-            returned = generate_error_result("Invalid value specified for action_name parameter.")
+        returned = process_service_request(
+            calling_object=self,
+            endpoints=Endpoints,
+            operation_id="WorkflowDefinitionsAction",
+            body=body,
+            keywords=kwargs,
+            params=parameters,
+            )
 
         return returned
+
+    @force_default(defaults=["body", "parameters"], default_types=["dict", "dict"])
+    def execute_single_activity_node(self: object,
+                                     body: dict = None,
+                                     parameters: dict = None,
+                                     **kwargs
+                                     ) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Execute a single activity node.
+
+        Results in an execution where test_mode=true and
+        single_node_execution=true, associated with a definition ID if provided.
+
+        Keyword arguments:
+        execution_cid -- CID(s) to execute on. String or list of strings.
+        This can be a child if this is a flight control enabled definition.
+        definition_id -- Definition ID to execute. String.
+        name -- Workflow name to execute. String.
+        Either a name or an ID, or the definition itself in the request body, can be specified.
+        key -- Key used to help deduplicate executions, if unset a new UUID is used. String.
+        depth -- Used to record the execution depth to help limit execution loops when a workflow triggers another. Integer.
+        The maximum depth is 4.
+        body -- full body payload, not required if ids are provided as keyword.
+        Please visit the Swagger URL to view the full payload. It's long.
+        definition -- Dictionary.
+        parameters -- Full parameters payload dictionary. Not required if using other keywords.
+
+        This method only supports keywords for providing arguments.
+
+        Returns: dict object containing API response.
+
+        HTTP Method: POST
+
+        Swagger URL
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/workflows/WorkflowExecuteSingleNodeV1
+        """
+        if not body:
+            body = {}
+            if kwargs.get("definition", None):
+                body["definition"] = kwargs.get("definition", None)
+
+        return process_service_request(
+            calling_object=self,
+            endpoints=Endpoints,
+            operation_id="WorkflowExecuteSingleNodeV1",
+            keywords=kwargs,
+            params=parameters,
+            body=body
+            )
+
+    @force_default(defaults=["parameters"], default_types=["dict"])
+    def query_child_executions(self: object, parameters: dict = None, **kwargs) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Search for child executions by providing a FQL filter and paging details.
+
+        Returns the set of child workflow execution IDs which match the filter criteria.
+
+        Keyword arguments:
+        filter -- FQL query specifying filter parameters. String.
+        offset -- Starting pagination offset of records to return. String.
+        limit -- Maximum number of records to return. Integer.
+        sort -- Sort items by providing a comma separated list of property and direction (eg name.desc,time.asc). String.
+        parameters -- Full parameters payload dictionary. Not required if using other keywords.
+
+        This method only supports keywords for providing arguments.
+
+        Returns: dict object containing API response.
+
+        HTTP Method: GET
+
+        Swagger URL
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/workflows/v1.child-executions.query
+        """
+        return process_service_request(
+            calling_object=self,
+            endpoints=Endpoints,
+            operation_id="v1_child_executions_query",
+            keywords=kwargs,
+            params=parameters
+            )
 
     # These method names align to the operation IDs in the API but
     # do not conform to snake_case / PEP8 and are defined here for
@@ -924,3 +986,5 @@ class Workflows(ServiceClass):
     WorkflowSystemDefinitionsDeProvision = deprovision
     WorkflowSystemDefinitionsPromote = promote
     WorkflowSystemDefinitionsProvision = provision
+    WorkflowExecuteSingleNodeV1 = execute_single_activity_node
+    v1_child_executions_query = query_child_executions

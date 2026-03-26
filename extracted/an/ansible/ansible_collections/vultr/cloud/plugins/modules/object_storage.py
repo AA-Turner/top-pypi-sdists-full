@@ -30,11 +30,16 @@ options:
       - Cluster hostname where the object storage will be created.
     required: true
     type: str
+  tier:
+    description:
+      - Name of storage tier to use for object storage. Must be available for specified cluster. Required if I(state) is present.
+    type: str
+    default: Legacy
   state:
     description:
       - State of the object storage.
     default: present
-    choices: [ present, absent]
+    choices: [ present, absent ]
     type: str
 extends_documentation_fragment:
   - vultr.cloud.vultr_v2
@@ -46,6 +51,7 @@ EXAMPLES = """
   vultr.cloud.object_storage:
     label: my object storage
     cluster: ewr1.vultrobjects.com
+    tier: standard
 
 - name: Ensure an object storage is absent
   vultr.cloud.object_storage:
@@ -81,6 +87,11 @@ vultr_api:
       returned: success
       type: int
       sample: 12
+    api_results_per_page:
+      description: Number of results returned per call to API.
+      returned: success
+      type: int
+      sample: 100
     api_endpoint:
       description: Endpoint used for the API requests.
       returned: success
@@ -110,7 +121,7 @@ vultr_block_storage:
       description: The region for this object storage.
       returned: success
       type: str
-      sample: ews
+      sample: ewr
     status:
       description: The status of this object storage.
       returned: success
@@ -143,8 +154,14 @@ class AnsibleVultrObjectStorage(AnsibleVultr):
         super(AnsibleVultrObjectStorage, self).configure()
         cluster = self.get_cluster()
         self.module.params["cluster_id"] = cluster["id"]
-        # Use region to distinguish labels  between regions
+        # Use region to distinguish labels between regions
         self.module.params["region"] = cluster["region"]
+
+        if self.module.params["tier"] == "Legacy":
+            tier_id = 1
+        else:
+            tier_id = self.get_tier().get("id", 0)
+        self.module.params["tier_id"] = tier_id
 
     def get_cluster(self):
         return self.query_filter_list_by_name(
@@ -152,6 +169,15 @@ class AnsibleVultrObjectStorage(AnsibleVultr):
             param_key="cluster",
             path="/object-storage/clusters",
             result_key="clusters",
+            fail_not_found=True,
+        )
+
+    def get_tier(self):
+        return self.query_filter_list_by_name(
+            key_name="sales_name",
+            param_key="tier",
+            path="/object-storage/clusters/%s/tiers" % self.module.params["cluster_id"],
+            result_key="tiers",
             fail_not_found=True,
         )
 
@@ -168,6 +194,7 @@ def main():
         dict(
             label=dict(type="str", required=True, aliases=["name"]),
             cluster=dict(type="str", required=True),
+            tier=dict(type="str", default="Legacy"),
             state=dict(type="str", choices=["present", "absent"], default="present"),
         )  # type: ignore
     )
@@ -175,6 +202,7 @@ def main():
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
+        required_if=[["state", "present", ["tier"]]],
     )
 
     vultr = AnsibleVultrObjectStorage(
@@ -182,7 +210,7 @@ def main():
         namespace="vultr_object_storage",
         resource_path="/object-storage",
         ressource_result_key_singular="object_storage",
-        resource_create_param_keys=["label", "cluster_id"],
+        resource_create_param_keys=["label", "cluster_id", "tier_id"],
         resource_update_param_keys=["label"],
         resource_key_name="label",
     )

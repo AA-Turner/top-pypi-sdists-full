@@ -9,8 +9,6 @@
  * from the same core functionality.
  */
 
-import './common/extensions';
-
 import {
     AbstractCancellationTokenSource,
     CallHierarchyIncomingCallsParams,
@@ -173,6 +171,7 @@ import { convertOffsetToPosition, convertPositionToOffset } from './common/posit
 import { findNodeByOffset } from './analyzer/parseTreeUtils';
 import { ParseNodeType } from './parser/parseNodes';
 import { StringTokenFlags } from './parser/tokenizerTypes';
+import toSpliced from '@core-js/pure/es/array/to-spliced';
 
 const UncomputedDiagnosticsVersion = -1;
 
@@ -1407,7 +1406,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         const changeStructure = params.change.cells?.structure;
         if (changeStructure) {
             const previousCells = [...openCells];
-            const newCells = openCells.toSpliced(
+
+            const newCells = toSpliced(
+                // @ts-expect-error https://github.com/zloirock/core-js/issues/1532
+                openCells,
                 changeStructure.array.start,
                 changeStructure.array.deleteCount,
                 ...(changeStructure.array.cells?.map((changedTextDocumentItem) => {
@@ -2094,9 +2096,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             if (cellIndex === undefined) {
                 const notebookUri = Uri.file(parsedUri.getPath(), this.serviceProvider);
                 cellIndex = this._openCells.get(notebookUri.key)?.findIndex((cell) => cell.uri === uri);
-                if (cellIndex === undefined) {
+                if (
                     // can happen if it's a newly created notebook that hasn't been saved to disk yet or if it's an
                     // interactive cell
+                    cellIndex === undefined ||
+                    // can happen when viewing previous versions of the notebook in the timeline view
+                    cellIndex === -1
+                ) {
                     return parsedUri;
                 }
             }

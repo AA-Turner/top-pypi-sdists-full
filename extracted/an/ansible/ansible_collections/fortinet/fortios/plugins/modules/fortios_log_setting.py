@@ -265,6 +265,13 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            rest_api_performance:
+                description:
+                    - Enable/disable REST API memory and performance stats in rest-api-get/set logs.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             rest_api_set:
                 description:
                     - Enable/disable REST API POST/PUT/DELETE request logging.
@@ -282,6 +289,13 @@ options:
             user_anonymize:
                 description:
                     - Enable/disable anonymizing user names in log messages.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
+            web_svc_perf:
+                description:
+                    - Enable/disable web-svc performance logging.
                 type: str
                 choices:
                     - 'enable'
@@ -328,9 +342,11 @@ EXAMPLES = """
           resolve_ip: "enable"
           resolve_port: "enable"
           rest_api_get: "enable"
+          rest_api_performance: "enable"
           rest_api_set: "enable"
           syslog_override: "enable"
           user_anonymize: "enable"
+          web_svc_perf: "enable"
           zone_name: "enable"
 """
 
@@ -453,9 +469,11 @@ def filter_log_setting_data(json):
         "resolve_ip",
         "resolve_port",
         "rest_api_get",
+        "rest_api_performance",
         "rest_api_set",
         "syslog_override",
         "user_anonymize",
+        "web_svc_perf",
         "zone_name",
     ]
 
@@ -735,6 +753,11 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
+        "rest_api_performance": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
         "long_live_session_stat": {
             "v_range": [["v7.4.2", ""]],
             "type": "string",
@@ -747,6 +770,11 @@ versioned_schema = {
         },
         "zone_name": {
             "v_range": [["v7.6.4", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
+        "web_svc_perf": {
+            "v_range": [["v7.6.5", ""]],
             "type": "string",
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
@@ -822,7 +850,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "log_setting"
         )

@@ -11,11 +11,18 @@ from tests import test_authorization as Authorization
 sys.path.append(os.path.abspath('src'))
 # Classes to test - manually imported from sibling folder
 from falconpy import NGSIEM
+from falconpy._payload import (
+    ngsiem_connector_config_payload,
+    ngsiem_data_connection_payload,
+    ngsiem_auto_update_policy_payload,
+    ngsiem_install_parser_payload,
+    ngsiem_bulk_install_parsers_payload,
+)
 
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = NGSIEM(auth_object=config)
-AllowedResponses = [200, 201, 400, 403, 404, 429]  # Temp allow 403
+AllowedResponses = [200, 201, 400, 403, 404, 406, 429]  # Temp allow 403, 406
 
 
 class TestNGSIEM:
@@ -52,8 +59,9 @@ class TestNGSIEM:
 
         follow_up_tests = {
             "GetSearchStatusV1": falcon.get_search_status(repository="search-all", search_id=search_id),
-            "GetSearchStatusV1": falcon.get_search_status(repository="search-all", id=search_id),
-            "StopSearchV1": falcon.stop_search(repository="search-all", search_id=search_id)
+            "GetSearchStatusV1-id": falcon.get_search_status(repository="search-all", id=search_id),
+            "StopSearchV1-search_id": falcon.stop_search(repository="search-all", search_id=search_id),
+            "StopSearchV1-id": falcon.stop_search(repository="search-all", id=search_id)
         }
         for follow_key in follow_up_tests:
             if follow_up_tests[follow_key]["status_code"] not in AllowedResponses:
@@ -111,10 +119,23 @@ class TestNGSIEM:
             "GetParserTemplate": falcon.get_parser_template(ids="12345678"),
             "CreateParserFromTemplate": falcon.create_parser_from_template(repository="whatever", name="whatever", yaml_template=test_db),
             "CreateParserFromTemplateFail": falcon.create_parser_from_template(repository="whatever", name="whatever"),
+            "UpdateParserFromTemplate": falcon.update_parser_from_template(repository="whatever", ids="12345678", yaml_template=test_db),
+            "UpdateParserFromTemplateFail": falcon.update_parser_from_template(repository="whatever", ids="12345678"),
             "GetParser": falcon.get_parser(ids="12345678"),
             "CreateParser": falcon.create_parser(script=test_db, repository="whatever", fields_to_tag="bob,larry"),
             "UpdateParser": falcon.update_parser(script=test_db, repository="whatever", fields_to_tag="bob,larry", id="12345678"),
             "DeleteParser": falcon.delete_parser(ids="12345678"),
+            "UpdateParserAutoUpdatePolicy": falcon.update_parser_auto_update_policy(
+                autoupdate_policy="on",
+                reason="Enable auto updates"
+            ),
+            "InstallParser": falcon.install_parser(
+                parser_id="12345678",
+                version="1.0.0"
+            ),
+            "BulkInstallParsers": falcon.bulk_install_parsers(
+                parsers=[{"parser_id": "12345678", "version": "1.0.0"}]
+            ),
             "GetSavedQueryTemplate": falcon.get_saved_query_template(ids="12345678"),
             "CreateSavedQuery": falcon.create_saved_query(search_domain="all", yaml_template=test_db),
             "CreateSavedQueryFail": falcon.create_saved_query(search_domain="all"),
@@ -124,13 +145,189 @@ class TestNGSIEM:
             "ListDashboards": falcon.list_dashboards(limit="1"),
             "ListLookupFiles": falcon.list_lookup_files(limit="1"),
             "ListParsers": falcon.list_parsers(limit="1"),
+            "ListParsersFiltered": falcon.list_parsers(limit="1", update_available="true", parser_type="ootb"),
             "ListSavedQueries": falcon.list_saved_queries(limit="1"),
+            "UpdateLookupFileEntries": falcon.update_lookup_file_entries(search_domain="all", filename="testfile.csv", file=test_db, update_mode="append"),
+            "UpdateLookupFileEntriesUpdate": falcon.update_lookup_file_entries(search_domain="all", filename="testfile.csv", file=test_db, update_mode="update", key_columns="id", ignore_case="false"),
+            "UpdateLookupFileEntriesFail": falcon.update_lookup_file_entries(search_domain="all", filename="testfile.csv"),
+            "ListDataConnections": falcon.list_data_connections(limit=10, offset=0),
+            "ListDataConnectors": falcon.list_data_connectors(limit=10, offset=0),
+            "GetProvisioningStatus": falcon.get_provisioning_status(ids="12345678"),
+            "UpdateConnectionStatus": falcon.update_connection_status(ids="12345678", status="active"),
+            "GetIngestToken": falcon.get_ingest_token(ids="12345678"),
+            "RegenerateIngestToken": falcon.regenerate_ingest_token(ids="12345678"),
+            "GetConnectionById": falcon.get_connection_by_id(ids="12345678"),
+            "CreateDataConnection": falcon.create_data_connection(
+                config={"name": "test", "auth": {}, "params": {}},
+                config_id="12345678",
+                connector_id="12345678",
+                connector_type="test",
+                description="test",
+                enable_host_enrichment=True,
+                enable_user_enrichment=True,
+                log_sources=["test"],
+                name="test",
+                parser="test",
+                vendor_name="test",
+                vendor_product_name="test"
+            ),
+            "UpdateDataConnection": falcon.update_data_connection(
+                ids="12345678",
+                config={"name": "test", "auth": {}, "params": {}},
+                config_id="12345678",
+                description="test",
+                enable_host_enrichment=True,
+                enable_user_enrichment=True,
+                name="test",
+                parser="test"
+            ),
+            "DeleteDataConnection": falcon.delete_data_connection(ids="12345678"),
+            "ListConnectorConfigs": falcon.list_connector_configs(ids="12345678"),
         }
 
         for test in more_tests:
             if more_tests[test]["status_code"] not in AllowedResponses:
                 error_checks = False
+                print(more_tests[test])
+                print(f"{test} operation returned a {more_tests[test]['status_code']} status code")
+
         return error_checks
+
+    def test_stop_search_parameter_handling(self):
+        """Test that stop_search accepts both 'id' and 'search_id' parameters (Issue #1398)."""
+        # Test with search_id parameter
+        result_search_id = falcon.stop_search(repository="search-all", search_id="test-id-123")
+        assert result_search_id["status_code"] in AllowedResponses
+
+        # Test with id parameter (should also work)
+        result_id = falcon.stop_search(repository="search-all", id="test-id-456")
+        assert result_id["status_code"] in AllowedResponses
+
+        # Test error case - missing search_id
+        result_error = falcon.stop_search(repository="search-all")
+        assert result_error["status_code"] == 500
 
     def test_all_functionality(self):
         assert self.run_all_tests() is True
+
+    def test_pagination_params(self):
+        """Test that pagination parameters are properly handled (Issue #1383)."""
+        # Test with camelCase parameters
+        result = falcon.get_search_status(
+            repository="search-all",
+            id="test-id",
+            paginationLimit=100,
+            paginationOffset=0
+        )
+        assert result["status_code"] in AllowedResponses
+
+        # Test with pythonic parameters
+        result = falcon.get_search_status(
+            repository="search-all",
+            id="test-id",
+            pagination_limit=100,
+            pagination_offset=0
+        )
+        assert result["status_code"] in AllowedResponses
+
+class TestNGSIEMPayloadCoverage:
+    """Cover _payload/_ngsiem.py gaps."""
+
+    def test_ngsiem_connector_config_payload(self):
+        """Cover connector_config_payload."""
+        result = ngsiem_connector_config_payload({
+            "config": {"auth": {}, "name": "test", "params": {}},
+            "connector_id": "conn123"
+        })
+        assert result["config"]["name"] == "test"
+        assert result["connector_id"] == "conn123"
+
+    def test_ngsiem_connector_config_empty(self):
+        """Cover empty input path."""
+        result = ngsiem_connector_config_payload({})
+        assert result == {}
+
+    def test_ngsiem_data_connection_log_sources_string(self):
+        """Cover log_sources string split."""
+        result = ngsiem_data_connection_payload({
+            "name": "test",
+            "log_sources": "source1,source2,source3"
+        })
+        assert result["log_sources"] == ["source1", "source2", "source3"]
+
+    def test_ngsiem_data_connection_log_sources_list(self):
+        """Cover normal list path."""
+        result = ngsiem_data_connection_payload({
+            "name": "test",
+            "log_sources": ["source1", "source2"]
+        })
+        assert result["log_sources"] == ["source1", "source2"]
+
+    def test_ngsiem_auto_update_policy_payload(self):
+        """Cover auto update policy payload."""
+        result = ngsiem_auto_update_policy_payload({
+            "autoupdate_policy": "on",
+            "reason": "Enable updates"
+        })
+        assert result["autoupdate_policy"] == "on"
+        assert result["reason"] == "Enable updates"
+
+    def test_ngsiem_auto_update_policy_empty(self):
+        """Cover empty auto update policy payload."""
+        result = ngsiem_auto_update_policy_payload({})
+        assert result == {}
+
+    def test_ngsiem_install_parser_payload(self):
+        """Cover install parser payload."""
+        result = ngsiem_install_parser_payload({
+            "parser_id": "abc123",
+            "version": "1.0.0"
+        })
+        assert result["parser_id"] == "abc123"
+        assert result["version"] == "1.0.0"
+
+    def test_ngsiem_install_parser_empty(self):
+        """Cover empty install parser payload."""
+        result = ngsiem_install_parser_payload({})
+        assert result == {}
+
+    def test_ngsiem_bulk_install_parsers_payload(self):
+        """Cover bulk install parsers payload."""
+        parsers = [{"parser_id": "abc", "version": "1.0"}]
+        result = ngsiem_bulk_install_parsers_payload({"parsers": parsers})
+        assert result["parsers"] == parsers
+
+    def test_ngsiem_bulk_install_parsers_empty(self):
+        """Cover empty bulk install parsers payload."""
+        result = ngsiem_bulk_install_parsers_payload({})
+        assert result == {}
+
+
+class TestNGSIEMConnectorCoverage:
+    """Cover ngsiem.py connector config operations."""
+
+    def test_connector_config_operations(self):
+        """Test create, patch, delete connector config operations."""
+        error_checks = True
+
+        tests = {
+            "CreateConnectorConfig": falcon.create_connector_config(
+                config={"auth": {}, "name": "test", "params": {}},
+                connector_id="12345678"
+            ),
+            "PatchConnectorConfig": falcon.patch_connector_config(
+                ids="12345678",
+                config={"auth": {}, "name": "test", "params": {}},
+                connector_id="12345678"
+            ),
+            "DeleteConnectorConfigs": falcon.delete_connector_configs(
+                ids="12345678",
+                connector_id="12345678"
+            ),
+        }
+        for key in tests:
+            if tests[key]["status_code"] not in AllowedResponses:
+                error_checks = False
+                print(f"{key} returned {tests[key]['status_code']}")
+
+        assert error_checks

@@ -127,13 +127,21 @@ class PreviewConfig(BaseModel):
 class AgentConfig(BaseModel):
     """Configuration for an agent.
 
+    Provide either ``package`` (resolved to an image at launch time) or
+    ``image`` (direct ECR URI).  When both are absent the config is treated
+    as an empty/unconfigured agent placeholder.
+
     Attributes:
-        image: Docker image URI for the agent
+        package: Agent package name with optional version (e.g. "claude-code:latest").
+            Resolved to a Docker image URI by the Chronos backend before launch.
+        image: Docker image URI for the agent (set by Chronos after resolving package,
+            or provided directly for local/test runs).
         runtime: Runtime configuration (docker or vm with resources)
         config: Agent-specific configuration passed to the agent
     """
 
-    image: str
+    package: str | None = None
+    image: str = ""
     runtime: RuntimeConfig = Field(default_factory=VMRuntimeConfig)
     config: dict[str, Any] = Field(default_factory=dict)
 
@@ -263,6 +271,22 @@ class RunConfig(BaseModel):
     review: ReviewSpec | None = Field(
         default=None,
         description="How this session should be reviewed. None = no auto-review.",
+    )
+
+    # E2E test mode — when set, runs test functions from this directory after
+    # reset() instead of the normal step() loop.  Tests receive the fully
+    # initialized world instance (with workspaces, agents, etc.).
+    e2e_test_dir: str | None = Field(
+        default=None,
+        description=(
+            "Path to a directory of test_*.py files.  When set, the world runs "
+            "reset() normally, then discovers and executes test functions instead "
+            "of the step() loop.  Each test_*(world) receives the live world."
+        ),
+    )
+    e2e_test_filter: str = Field(
+        default="",
+        description="Only run tests whose names contain this substring.",
     )
 
     # Optional Tailscale VPN — joins the tailnet before reset() if auth_key is set

@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def add(
@@ -4629,7 +4630,8 @@ def volume_import(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,

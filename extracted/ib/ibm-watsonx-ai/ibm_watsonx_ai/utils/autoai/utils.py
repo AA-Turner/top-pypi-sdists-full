@@ -744,7 +744,7 @@ def load_file_from_file_system(
     buffer = io.BytesIO()
     # --- end note
 
-    url = api_client._href_definitions.get_wsd_model_attachment_href() + file_path
+    url = api_client._href_definitions.get_wsd_attachment_file_href(file_path)
     headers = api_client._get_headers()
     params = api_client._params()
 
@@ -795,7 +795,7 @@ async def aload_file_from_file_system(
     file_path = file_path.split("/assets/", 1)[-1]
     buffer = io.BytesIO()
 
-    url = api_client._href_definitions.get_wsd_model_attachment_href() + file_path
+    url = api_client._href_definitions.get_wsd_attachment_file_href(file_path)
     headers = await api_client._aget_headers()
     params = api_client._params()
 
@@ -867,7 +867,7 @@ def load_file_from_file_system_nonautoai(
 
     buffer = io.BytesIO()
 
-    url = api_client._href_definitions.get_wsd_model_attachment_href() + file_path
+    url = api_client._href_definitions.get_wsd_attachment_file_href(file_path)
     headers = api_client._get_headers()
     params = api_client._params()
 
@@ -909,7 +909,7 @@ async def aload_file_from_file_system_nonautoai(
 
     buffer = io.BytesIO()
 
-    url = api_client._href_definitions.get_wsd_model_attachment_href() + file_path
+    url = api_client._href_definitions.get_wsd_attachment_file_href(file_path)
     headers = await api_client._aget_headers()
     params = api_client._params()
 

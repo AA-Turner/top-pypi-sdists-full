@@ -7,6 +7,7 @@ from __future__ import annotations
 
 __all__ = ["BaseDataConnection"]
 
+import asyncio
 import io
 import json
 import os
@@ -57,6 +58,7 @@ class BaseDataConnection(ABC):
         self._datasource_type = None
         self._s3_type: Literal["ibm", "aws"] | None = None
         self._connection_details: dict | None = None
+        self._cached_is_connection_asset_s3: bool | None = None
         self.__connectable_self: BaseDataConnection | None = None
 
     @property
@@ -127,9 +129,8 @@ class BaseDataConnection(ABC):
             path = path.replace("//", "/")
 
         if self.type == DataConnectionTypes.FS:
-            csv_url = (
-                self._api_client._href_definitions.get_wsd_model_attachment_href()
-                + f"/auto_ml/{path.split('/auto_ml/')[-1]}"
+            csv_url = self._api_client._href_definitions.get_wsd_automl_file_href(
+                path.split("/auto_ml/")[-1]
             )
             with self._api_client.httpx_client.stream(
                 method="GET",
@@ -219,18 +220,19 @@ class BaseDataConnection(ABC):
         elif self.type == DataConnectionTypes.FS:
             if tuning_type == "prompt_tuning":
                 json_url = (
-                    self._api_client._href_definitions.get_wsd_model_attachment_href()
-                    + f"wx_prompt_tune/{path.split('/wx_prompt_tune/')[-1]}"
+                    self._api_client._href_definitions.get_wsd_prompt_tune_file_href(
+                        path.split("/wx_prompt_tune/")[-1]
+                    )
                 )
             elif tuning_type == "fine_tuning":
                 json_url = (
-                    self._api_client._href_definitions.get_wsd_model_attachment_href()
-                    + f"wx_fine_tune/{path.split('/wx_fine_tune/')[-1]}"
+                    self._api_client._href_definitions.get_wsd_fine_tune_file_href(
+                        path.split("/wx_fine_tune/")[-1]
+                    )
                 )
             else:
-                json_url = (
-                    self._api_client._href_definitions.get_wsd_model_attachment_href()
-                    + f"/auto_ml/{path.split('/auto_ml/')[-1]}"
+                json_url = self._api_client._href_definitions.get_wsd_automl_file_href(
+                    path.split("/auto_ml/")[-1]
                 )
 
             with self._api_client.httpx_client.stream(
@@ -365,6 +367,38 @@ class BaseDataConnection(ABC):
 
         return connection_details
 
+    async def _aprepare_connection_details(self) -> dict:
+        connection_details = {}
+
+        if self.type == DataConnectionTypes.CA:
+            if self._api_client is not None:
+                connection_details = await self._api_client.connections.aget_details(
+                    self.connection.id
+                )
+            else:
+
+                def _get_ws_connection():
+                    from ibm_watson_studio_lib import access_project_or_space
+
+                    wslib = access_project_or_space()
+                    return wslib.by_id.get_connection(self.connection.id)
+
+                try:
+                    connection_details = await asyncio.to_thread(_get_ws_connection)
+
+                except ModuleNotFoundError:
+                    raise NotImplementedError(
+                        "This functionality can be run only on Watson Studio."
+                    )
+
+        elif self.type == DataConnectionTypes.CN:
+            connection_details = await self._acreate_conn_details_for_container()
+
+        else:
+            raise NotS3Connection(_internal=True)
+
+        return connection_details
+
     def _is_shared_bucket(self) -> bool:
         try:
             connection_details = self._prepare_connection_details()
@@ -461,6 +495,102 @@ class BaseDataConnection(ABC):
             else:
                 return False  # if we are in WS, ignore this check even if there was some error
 
+    async def _acompute_is_connection_asset_s3(self) -> bool:
+        try:
+            # fast return true if the connection is an instance of S3Connection and non s3 type,
+            # or its attribute "is_s3" takes True
+            from .connections import S3Connection
+
+            if (
+                isinstance(self.connection, S3Connection)
+                and self.type != DataConnectionTypes.S3
+                and self.connection.to_dict()
+            ) or (
+                self.connection is not None and getattr(self.connection, "is_s3", False)
+            ):
+                return True
+
+            if self.type in {
+                DataConnectionTypes.S3,
+                DataConnectionTypes.FS,
+                DataConnectionTypes.DS,
+            }:
+                return False
+
+            try:
+                self._connection_details = await self._aprepare_connection_details()
+            except NotS3Connection:
+                return False
+
+            # Note: Check with project libs if connection points to S3 (COS or AWS)
+            if self._api_client is not None:
+                datasource_type = self._connection_details["entity"]["datasource_type"]
+                self._datasource_type = datasource_type
+                datasource_type_id_ibm_cos = (
+                    await self._api_client.connections.aget_datasource_type_id_by_name(
+                        "bluemixcloudobjectstorage"
+                    )
+                )
+                datasource_type_id_aws_cos = (
+                    await self._api_client.connections.aget_datasource_type_id_by_name(
+                        "cloudobjectstorage"
+                    )
+                )
+
+                if self._datasource_type in {
+                    datasource_type_id_ibm_cos,
+                    datasource_type_id_aws_cos,
+                    "bluemixcloudobjectstorage",
+                    "cloudobjectstorage",
+                    "amazons3",
+                }:
+                    is_s3 = True
+
+                else:
+                    is_s3 = False
+
+            elif self.type == DataConnectionTypes.CN:
+                is_s3 = True
+
+            elif "url" in self._connection_details:
+                is_s3 = True
+                self._connection_details["entity"] = {
+                    "properties": self._connection_details
+                }
+
+            else:
+                is_s3 = False
+            # --- end note
+
+            if is_s3:
+                if self._datasource_type == "amazons3":
+                    self._s3_type = "aws"
+                else:
+                    self._s3_type = "ibm"
+
+            return is_s3
+
+        except Exception as e:
+            if (
+                os.environ.get("USER_ACCESS_TOKEN") is None
+                and os.environ.get("RUNTIME_ENV_ACCESS_TOKEN_FILE") is None
+            ):
+                raise e
+
+            else:
+                return False  # if we are in WS, ignore this check even if there was some error
+
+    async def _ais_connection_asset_s3(self):
+        """Async version of _is_connection_asset_s3 with manual caching."""
+        if self._cached_is_connection_asset_s3 is not None:
+            return self._cached_is_connection_asset_s3
+
+        self._cached_is_connection_asset_s3 = (
+            await self._acompute_is_connection_asset_s3()
+        )
+
+        return self._cached_is_connection_asset_s3
+
     def _init_s3_connection(self) -> None:
         """
         Helper function that initializes internal `S3Connection` or `_AmazonS3Connection` object based on `_s3_type`.
@@ -473,6 +603,22 @@ class BaseDataConnection(ABC):
         if not self._is_connection_asset_s3:
             raise NotS3Connection()
 
+        if self._s3_type == "aws":
+            self._init_s3_aws_connection()
+        elif self._s3_type == "ibm":
+            self._init_s3_cos_connection()
+
+    async def _ainit_s3_connection(self) -> None:
+        """
+        Asynchronous helper function that initializes internal `S3Connection` or `_AmazonS3Connection` object based on `_s3_type`.
+        Raises `NotS3Connection` if connection asset is not S3.
+        """
+        if self.__connectable_self is not None:
+            # To avoid multiple s3 connection init for the same object
+            return
+
+        if not await self._ais_connection_asset_s3():
+            raise NotS3Connection()
         if self._s3_type == "aws":
             self._init_s3_aws_connection()
         elif self._s3_type == "ibm":
@@ -771,7 +917,11 @@ class BaseDataConnection(ABC):
                 attachment_url = asset_details["attachments"][0]["handle"]["key"]
 
                 # note: make the whole url pointing out the csv
-                artifact_content_url = f"{self._api_client._href_definitions.get_wsd_model_attachment_href()}{attachment_url}"
+                artifact_content_url = (
+                    self._api_client._href_definitions.get_wsd_attachment_file_href(
+                        attachment_url
+                    )
+                )
 
                 # note: stream the whole CSV file
                 csv_response = self._api_client.httpx_client.get(
@@ -869,9 +1019,8 @@ class BaseDataConnection(ABC):
         """Download training data for this connection. File system version."""
 
         try:
-            url = (
-                self._api_client._href_definitions.get_wsd_model_attachment_href()
-                + f"/{self.location.path.split('/assets/', maxsplit=1)[-1]}"
+            url = self._api_client._href_definitions.get_wsd_asset_file_href(
+                self.location.path.split("/assets/", maxsplit=1)[-1]
             )
             # note: stream the whole CSV file
             csv_response = self._api_client.httpx_client.get(
@@ -916,9 +1065,8 @@ class BaseDataConnection(ABC):
         """Download indices for this connection. File system version."""
 
         try:
-            url = (
-                self._api_client._href_definitions.get_wsd_model_attachment_href()
-                + f"/{location_path.split('/assets/', maxsplit=1)[-1]}"
+            url = self._api_client._href_definitions.get_wsd_asset_file_href(
+                location_path.split("/assets/", maxsplit=1)[-1]
             )
             # note: stream the whole CSV file
             csv_response = self._api_client.httpx_client.get(
@@ -1092,6 +1240,99 @@ class BaseDataConnection(ABC):
 
         return data
 
+    @staticmethod
+    def _create_conn_details(details: dict) -> dict:
+        match details["entity"]["storage"]["type"]:
+            case "bmcos_object_storage":
+                properties = details["entity"]["storage"]["properties"]
+                creds = details["entity"]["storage"]["properties"]["credentials"].get(
+                    "admin"
+                )
+
+                if (
+                    creds
+                    and creds.get("access_key_id", False)
+                    and creds.get("secret_access_key", False)
+                ):
+                    pass
+                else:  # missing admin credentials
+                    creds = details["entity"]["storage"]["properties"][
+                        "credentials"
+                    ].get("editor")
+
+                properties.update(creds)
+                properties["url"] = properties["endpoint_url"]
+                properties["access_key"] = properties.get("access_key_id")
+                properties["secret_key"] = properties.get("secret_access_key")
+
+                return {
+                    "entity": {
+                        "datasource_type": "bluemixcloudobjectstorage",
+                        "properties": properties,
+                    }
+                }
+            case "amazon_s3":
+                properties = details["entity"]["storage"]["properties"]
+                properties["url"] = (
+                    f"https://s3.{properties['bucket_region']}.amazonaws.com"
+                )
+                return {
+                    "entity": {
+                        "datasource_type": "amazons3",
+                        "properties": properties,
+                    }
+                }
+
+            case _:
+                raise ValueError(
+                    f"Container type not supported in the project with storage {details['entity']['storage']['type']}."
+                )
+
+    def _conn_details_from_wslib(self) -> dict:
+        """Build connection_details using ibm_watson_studio_lib (sync)."""
+        try:
+            from ibm_watson_studio_lib import access_project_or_space
+
+            token = self._get_token_from_environment()
+
+            if token is None:
+                raise NotImplementedError(
+                    """To successfully read the training data used in AutoAI experiment, you need to provide the project token.
+                **To insert the project token to your notebook:**
+                    Click the More icon on your notebook toolbar and then click Insert project token.
+                    Run the inserted code cell.
+                Note:
+                If you are told in a message that no project token exists, click the link in the message to be redirected to the project's Settings page where you can create a project token.
+                **To create a project token:**
+                    Click New token in the Access tokens section on the Settings page of your project.
+                    Enter a name, select Editor role for the project, and create a token.
+                    Go back to your notebook, click the More icon on the notebook toolbar and then click Insert project token.
+                    Run the inserted code cell."""
+                )
+
+            token = token.split("Bearer ")[-1]
+
+            wslib = access_project_or_space({"token": token})
+            details = wslib.here.get_storage()
+
+            properties = details["properties"]
+            properties.update(properties["credentials"]["editor"])
+            properties["url"] = properties["endpoint_url"]
+            properties["access_key"] = properties.get("access_key_id")
+            properties["secret_key"] = properties.get("secret_access_key")
+
+            return {
+                "entity": {
+                    "datasource_type": "bluemixcloudobjectstorage",
+                    "properties": properties,
+                }
+            }
+
+        except ModuleNotFoundError:
+            raise NotImplementedError(
+                "This functionality can be run only on Watson Studio."
+            )
+
     def _create_conn_details_for_container(self) -> dict:
         if self._api_client is not None:
             self._api_client._check_if_either_is_set()  # Space or project is required to use Container.
@@ -1110,95 +1351,33 @@ class BaseDataConnection(ABC):
                     include="everything,credentials",
                 )
 
-            match details["entity"]["storage"]["type"]:
-                case "bmcos_object_storage":
-                    properties = details["entity"]["storage"]["properties"]
-                    creds = details["entity"]["storage"]["properties"][
-                        "credentials"
-                    ].get("admin")
-
-                    if (
-                        creds
-                        and creds.get("access_key_id", False)
-                        and creds.get("secret_access_key", False)
-                    ):
-                        pass
-                    else:  # missing admin credentials
-                        creds = details["entity"]["storage"]["properties"][
-                            "credentials"
-                        ].get("editor")
-
-                    properties.update(creds)
-                    properties["url"] = properties["endpoint_url"]
-                    properties["access_key"] = properties.get("access_key_id")
-                    properties["secret_key"] = properties.get("secret_access_key")
-
-                    connection_details = {
-                        "entity": {
-                            "datasource_type": "bluemixcloudobjectstorage",
-                            "properties": properties,
-                        }
-                    }
-                case "amazon_s3":
-                    properties = details["entity"]["storage"]["properties"]
-                    properties["url"] = (
-                        f"https://s3.{properties['bucket_region']}.amazonaws.com"
-                    )
-                    connection_details = {
-                        "entity": {
-                            "datasource_type": "amazons3",
-                            "properties": properties,
-                        }
-                    }
-
-                case _:
-                    raise ValueError(
-                        f"Container type not supported in the project with storage {details['entity']['storage']['type']}."
-                    )
+            connection_details = self._create_conn_details(details)
 
         else:
-            try:
-                from ibm_watson_studio_lib import access_project_or_space
+            connection_details = self._conn_details_from_wslib()
 
-                token = self._get_token_from_environment()
+        return connection_details
 
-                if token is None:
-                    raise NotImplementedError(
-                        """To successfully read the training data used in AutoAI experiment, you need to provide the project token.
-                    **To insert the project token to your notebook:**
-                        Click the More icon on your notebook toolbar and then click Insert project token.
-                        Run the inserted code cell.
-                    Note:
-                    If you are told in a message that no project token exists, click the link in the message to be redirected to the project's Settings page where you can create a project token.
-                    **To create a project token:**
-                        Click New token in the Access tokens section on the Settings page of your project.
-                        Enter a name, select Editor role for the project, and create a token.
-                        Go back to your notebook, click the More icon on the notebook toolbar and then click Insert project token.
-                        Run the inserted code cell."""
-                    )
-
-                token = token.split("Bearer ")[-1]
-
-                wslib = access_project_or_space({"token": token})
-                details = wslib.here.get_storage()
-
-                properties = details["properties"]
-                properties.update(properties["credentials"]["editor"])
-                properties["url"] = properties["endpoint_url"]
-                properties["access_key"] = properties.get("access_key_id")
-                properties["secret_key"] = properties.get("secret_access_key")
-
-                connection_details = {
-                    "entity": {
-                        "datasource_type": "bluemixcloudobjectstorage",
-                        "properties": properties,
-                    }
-                }
-
-            except ModuleNotFoundError:
-                raise NotImplementedError(
-                    "This functionality can be run only on Watson Studio."
+    async def _acreate_conn_details_for_container(self) -> dict:
+        if self._api_client is not None:
+            self._api_client._check_if_either_is_set()  # Space or project is required to use Container.
+            if self._api_client.default_space_id is not None:
+                if self._api_client.ICP_PLATFORM_SPACES:
+                    raise ContainerTypeNotSupported()
+                details = await self._api_client.spaces._aget_details(
+                    self._api_client.default_space_id,
+                    include="everything,credentials",
                 )
+            else:
+                details = await self._api_client.projects._aget_details(
+                    self._api_client.default_project_id,
+                    include="everything,credentials",
+                )
+
+            connection_details = self._create_conn_details(details)
+
+        else:
+            connection_details = await asyncio.to_thread(self._conn_details_from_wslib)
 
         return connection_details
 
@@ -1486,8 +1665,7 @@ class BaseDataConnection(ABC):
             asset_path = asset_path.replace("//", "/")
 
         content_upload_url = (
-            self._api_client._href_definitions.get_wsd_model_attachment_href()
-            + asset_path
+            self._api_client._href_definitions.get_wsd_attachment_file_href(asset_path)
         )
 
         response = self._api_client.httpx_client.put(

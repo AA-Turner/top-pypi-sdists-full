@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vulture
-Version: 2.15
+Version: 2.16
 Summary: Find dead code
 Author-email: Jendrik Seipp <jendrikseipp@gmail.com>
 License: The MIT License (MIT)

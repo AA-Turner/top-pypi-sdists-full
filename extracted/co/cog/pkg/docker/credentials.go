@@ -94,7 +94,6 @@ func tryLoadAuthForHost(ctx context.Context, conf *configfile.ConfigFile, host s
 			Username:      auth.Username,
 			Password:      auth.Password,
 			Auth:          auth.Auth,
-			Email:         auth.Email,
 			ServerAddress: host,
 			IdentityToken: auth.IdentityToken,
 			RegistryToken: auth.RegistryToken,
@@ -107,7 +106,7 @@ func tryLoadAuthForHost(ctx context.Context, conf *configfile.ConfigFile, host s
 func loadAuthFromCredentialsStore(ctx context.Context, credsStore string, registryHost string) (*CredentialHelperInput, error) {
 	var out strings.Builder
 	binary := dockerCredentialBinary(credsStore)
-	cmd := exec.CommandContext(ctx, binary, "get")
+	cmd := exec.CommandContext(ctx, binary, "get") //nolint:gosec // G702: binary is from Docker config, not user input
 	cmd.Env = os.Environ()
 	cmd.Stdout = &out
 	cmd.Stderr = &out

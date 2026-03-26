@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def add_bezier(
@@ -182,7 +183,8 @@ def draw(
     | None = "REFIT",
     corner_angle: float | None = 1.22173,
     use_cyclic: bool | None = True,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     wait_for_input: bool | None = True,
     is_curve_2d: bool | None = False,
     bezier_as_nurbs: bool | None = False,

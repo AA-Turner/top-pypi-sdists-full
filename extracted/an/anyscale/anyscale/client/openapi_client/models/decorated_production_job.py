@@ -37,6 +37,8 @@ class DecoratedProductionJob(object):
         'name': 'str',
         'description': 'str',
         'created_at': 'datetime',
+        'updated_at': 'datetime',
+        'status_updated_at': 'datetime',
         'creator_id': 'str',
         'config': 'ProductionJobConfig',
         'job_queue_config': 'JobQueueConfig',
@@ -68,6 +70,8 @@ class DecoratedProductionJob(object):
         'name': 'name',
         'description': 'description',
         'created_at': 'created_at',
+        'updated_at': 'updated_at',
+        'status_updated_at': 'status_updated_at',
         'creator_id': 'creator_id',
         'config': 'config',
         'job_queue_config': 'job_queue_config',
@@ -94,7 +98,7 @@ class DecoratedProductionJob(object):
         'position_in_job_queue': 'position_in_job_queue'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -104,6 +108,8 @@ class DecoratedProductionJob(object):
         self._name = None
         self._description = None
         self._created_at = None
+        self._updated_at = None
+        self._status_updated_at = None
         self._creator_id = None
         self._config = None
         self._job_queue_config = None
@@ -135,6 +141,10 @@ class DecoratedProductionJob(object):
         if description is not None:
             self.description = description
         self.created_at = created_at
+        if updated_at is not None:
+            self.updated_at = updated_at
+        if status_updated_at is not None:
+            self.status_updated_at = status_updated_at
         self.creator_id = creator_id
         self.config = config
         if job_queue_config is not None:
@@ -272,6 +282,52 @@ class DecoratedProductionJob(object):
             raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
 
         self._created_at = created_at
+
+    @property
+    def updated_at(self):
+        """Gets the updated_at of this DecoratedProductionJob.  # noqa: E501
+
+        The time this job was last updated  # noqa: E501
+
+        :return: The updated_at of this DecoratedProductionJob.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, updated_at):
+        """Sets the updated_at of this DecoratedProductionJob.
+
+        The time this job was last updated  # noqa: E501
+
+        :param updated_at: The updated_at of this DecoratedProductionJob.  # noqa: E501
+        :type: datetime
+        """
+
+        self._updated_at = updated_at
+
+    @property
+    def status_updated_at(self):
+        """Gets the status_updated_at of this DecoratedProductionJob.  # noqa: E501
+
+        The time this job's status was last updated  # noqa: E501
+
+        :return: The status_updated_at of this DecoratedProductionJob.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._status_updated_at
+
+    @status_updated_at.setter
+    def status_updated_at(self, status_updated_at):
+        """Sets the status_updated_at of this DecoratedProductionJob.
+
+        The time this job's status was last updated  # noqa: E501
+
+        :param status_updated_at: The status_updated_at of this DecoratedProductionJob.  # noqa: E501
+        :type: datetime
+        """
+
+        self._status_updated_at = status_updated_at
 
     @property
     def creator_id(self):

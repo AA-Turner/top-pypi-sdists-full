@@ -1,7 +1,10 @@
+from importlib.metadata import version
+
 import pytest
-from pymongo import IndexModel
+from pymongo import AsyncMongoClient, IndexModel
 
 from beanie import Document, Indexed, init_beanie
+from beanie import __version__ as beanie_version
 from beanie.exceptions import CollectionWasNotInitialized
 from beanie.odm.utils.projection import get_projection
 from tests.odm.models import (
@@ -15,15 +18,19 @@ from tests.odm.models import (
     DocumentTestModelWithIndexFlags,
     DocumentTestModelWithIndexFlagsAliases,
     DocumentTestModelWithSimpleIndex,
+    DocumentToBeLinked,
     DocumentWithCustomInit,
     DocumentWithIndexMerging2,
     DocumentWithLink,
     DocumentWithListLink,
+    DocumentWithOptionalTypingOptionalBackLink,
+    DocumentWithOptionalTypingOptionalLink,
     DocumentWithUnionTypeExpressionOptionalBackLink,
+    DocumentWithUnionTypeExpressionOptionalLink,
 )
 
 
-async def test_init_collection_was_not_initialized():
+def test_init_collection_was_not_initialized():
     class NewDocument(Document):
         test_str: str
 
@@ -35,13 +42,18 @@ async def test_init_connection_string(settings):
     class NewDocumentCS(Document):
         test_str: str
 
-    await init_beanie(
-        connection_string=settings.mongodb_dsn, document_models=[NewDocumentCS]
-    )
-    assert (
-        NewDocumentCS.get_pymongo_collection().database.name
-        == settings.mongodb_dsn.split("/")[-1]
-    )
+    try:
+        await init_beanie(
+            connection_string=settings.mongodb_dsn,
+            document_models=[NewDocumentCS],
+        )
+        assert (
+            NewDocumentCS.get_pymongo_collection().database.name
+            == settings.mongodb_dsn.split("/")[-1]
+        )
+
+    finally:
+        await NewDocumentCS.get_pymongo_collection().database.client.close()
 
 
 async def test_init_wrong_params(settings, db):
@@ -62,7 +74,42 @@ async def test_init_wrong_params(settings, db):
         await init_beanie(connection_string=settings.mongodb_dsn)
 
 
-async def test_collection_with_custom_name():
+async def test_metadata_connection_string(settings):
+    class NewDocument(Document):
+        test_str: str
+
+    try:
+        await init_beanie(
+            connection_string=settings.mongodb_dsn,
+            document_models=[NewDocument],
+        )
+
+        metadata = NewDocument.get_pymongo_collection().database.client.options.pool_options.metadata
+        assert "beanie" in metadata["driver"]["name"]
+        assert beanie_version in metadata["driver"]["version"]
+
+    finally:
+        await NewDocument.get_pymongo_collection().database.client.close()
+
+
+@pytest.mark.skipif(
+    version("pymongo") < "4.14",
+    reason="append_metadata was added in PyMongo 4.14",
+)
+async def test_metadata_database(settings):
+    class NewDocument(Document):
+        test_str: str
+
+    async with AsyncMongoClient(settings.mongodb_dsn) as client:
+        db = client[settings.mongodb_db_name]
+        await init_beanie(database=db, document_models=[NewDocument])
+
+        metadata = NewDocument.get_pymongo_collection().database.client.options.pool_options.metadata
+        assert "beanie" in metadata["driver"]["name"]
+        assert beanie_version in metadata["driver"]["version"]
+
+
+def test_collection_with_custom_name():
     collection = (
         DocumentTestModelWithCustomCollectionName.get_pymongo_collection()
     )
@@ -244,7 +291,7 @@ async def test_document_string_import(db):
         )
 
 
-async def test_projection():
+def test_projection():
     projection = get_projection(DocumentTestModel)
     assert projection == {
         "_id": 1,
@@ -256,7 +303,7 @@ async def test_projection():
     }
 
 
-async def test_index_recreation(db):
+async def test_index_recreation(settings):
     class Sample1(Document):
         name: Indexed(str, unique=True)
 
@@ -277,18 +324,20 @@ async def test_index_recreation(db):
             ]
             name = "sample"
 
-    await db.drop_collection("sample")
+    async with AsyncMongoClient(settings.mongodb_dsn) as client:
+        db = client[settings.mongodb_db_name]
+        await db.drop_collection("sample")
 
-    await init_beanie(
-        database=db,
-        document_models=[Sample1],
-    )
+        await init_beanie(
+            database=db,
+            document_models=[Sample1],
+        )
 
-    await init_beanie(
-        database=db, document_models=[Sample2], allow_index_dropping=True
-    )
+        await init_beanie(
+            database=db, document_models=[Sample2], allow_index_dropping=True
+        )
 
-    await db.drop_collection("sample")
+        await db.drop_collection("sample")
 
 
 async def test_merge_indexes():
@@ -305,25 +354,57 @@ async def test_merge_indexes():
     )
 
 
-async def test_custom_init():
+def test_custom_init():
     assert DocumentWithCustomInit.s == "TEST2"
 
 
-async def test_index_on_custom_types(db):
+async def test_index_on_custom_types(settings):
     class Sample1(Document):
         name: Indexed(Color, unique=True)
 
         class Settings:
             name = "sample"
 
-    await db.drop_collection("sample")
+    async with AsyncMongoClient(settings.mongodb_dsn) as client:
+        db = client[settings.mongodb_db_name]
+        await db.drop_collection("sample")
 
+        await init_beanie(
+            database=db,
+            document_models=[Sample1],
+        )
+
+        await db.drop_collection("sample")
+
+
+async def test_init_document_with_union_type_expression_optional_link(db):
     await init_beanie(
         database=db,
-        document_models=[Sample1],
+        document_models=[
+            DocumentToBeLinked,
+            DocumentWithUnionTypeExpressionOptionalLink,
+        ],
     )
 
-    await db.drop_collection("sample")
+    assert (
+        DocumentWithUnionTypeExpressionOptionalLink.get_link_fields().keys()
+        == {"link", "link_list"}
+    )
+
+
+async def test_init_document_with_typing_optional_link(db):
+    await init_beanie(
+        database=db,
+        document_models=[
+            DocumentToBeLinked,
+            DocumentWithOptionalTypingOptionalLink,
+        ],
+    )
+
+    assert DocumentWithOptionalTypingOptionalLink.get_link_fields().keys() == {
+        "link",
+        "link_list",
+    }
 
 
 async def test_init_document_with_union_type_expression_optional_back_link(db):
@@ -345,7 +426,23 @@ async def test_init_document_with_union_type_expression_optional_back_link(db):
     )
 
 
-async def test_init_document_can_inhert_and_extend_settings(db):
+async def test_init_document_with_typing_optional_back_link(db):
+    await init_beanie(
+        database=db,
+        document_models=[
+            DocumentWithOptionalTypingOptionalBackLink,
+            DocumentWithListLink,
+            DocumentWithLink,
+        ],
+    )
+
+    assert (
+        DocumentWithOptionalTypingOptionalBackLink.get_link_fields().keys()
+        == {"back_link_list", "back_link"}
+    )
+
+
+async def test_init_document_can_inherit_and_extend_settings(settings):
     class Sample1(Document):
         class Settings:
             name = "sample1"
@@ -355,31 +452,37 @@ async def test_init_document_can_inhert_and_extend_settings(db):
         class Settings(Sample1.Settings):
             name = "sample2"
 
-    await init_beanie(
-        database=db,
-        document_models=[Sample2],
-    )
+    async with AsyncMongoClient(settings.mongodb_dsn) as client:
+        db = client[settings.mongodb_db_name]
+        await init_beanie(
+            database=db,
+            document_models=[Sample2],
+        )
 
-    assert Sample2.get_settings().bson_encoders != {}
-    assert Sample2.get_settings().name == "sample2"
+        assert Sample2.get_settings().bson_encoders != {}
+        assert Sample2.get_settings().name == "sample2"
 
 
-async def test_init_beanie_with_skip_indexes(db):
+async def test_init_beanie_with_skip_indexes(settings):
     class NewDocument(Document):
         test_str: str
 
         class Settings:
             indexes = ["test_str"]
 
-    await init_beanie(
-        database=db,
-        document_models=[NewDocument],
-        skip_indexes=True,
-    )
+    async with AsyncMongoClient(settings.mongodb_dsn) as client:
+        db = client[settings.mongodb_db_name]
+        await init_beanie(
+            database=db,
+            document_models=[NewDocument],
+            skip_indexes=True,
+        )
 
-    # To force collection creation
-    await NewDocument(test_str="Roman Right").save()
+        # To force collection creation
+        await NewDocument(test_str="Roman Right").save()
 
-    collection = NewDocument.get_pymongo_collection()
-    index_info = await collection.index_information()
-    assert len(index_info) == 1  # Only the default _id index should be present
+        collection = NewDocument.get_pymongo_collection()
+        index_info = await collection.index_information()
+        assert (
+            len(index_info) == 1
+        )  # Only the default _id index should be present

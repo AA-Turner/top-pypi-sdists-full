@@ -240,6 +240,69 @@ def get_image_digest(repository: str, tag: str) -> str | None:
     return None
 
 
+def retag_image(repository: str, source_tag: str, target_tag: str) -> bool:
+    """Retag an existing ECR image without rebuilding.
+
+    Copies the image manifest from source_tag to target_tag in the same repository.
+    Returns True on success.
+    """
+    import json
+
+    # Get the manifest for the source tag
+    result = subprocess.run(
+        [
+            "aws",
+            "ecr",
+            "batch-get-image",
+            "--repository-name",
+            repository,
+            "--image-ids",
+            f"imageTag={source_tag}",
+            "--region",
+            ECR_REGION,
+            "--output",
+            "json",
+            "--query",
+            "images[].imageManifest",
+        ],
+        capture_output=True,
+        text=True,
+        env=_clean_aws_env(),
+    )
+    if result.returncode != 0:
+        return False
+
+    try:
+        manifests = json.loads(result.stdout)
+        if not manifests:
+            return False
+        manifest = manifests[0]
+    except (json.JSONDecodeError, IndexError):
+        return False
+
+    # Put the manifest with the new tag
+    result = subprocess.run(
+        [
+            "aws",
+            "ecr",
+            "put-image",
+            "--repository-name",
+            repository,
+            "--image-tag",
+            target_tag,
+            "--image-manifest",
+            manifest,
+            "--region",
+            ECR_REGION,
+        ],
+        capture_output=True,
+        text=True,
+        env=_clean_aws_env(),
+    )
+    # ImageAlreadyExistsException is fine — means the tag already points to the same digest
+    return result.returncode == 0 or "ImageAlreadyExistsException" in result.stderr
+
+
 @dataclass
 class DockerPublishResult:
     """Result of a Docker publish operation."""
@@ -258,6 +321,7 @@ def publish_docker_image(
     target: str | None = None,
     build_args: dict[str, str] | None = None,
     disable_provenance: bool = True,
+    no_cache: bool = False,
 ) -> DockerPublishResult:
     """Build and publish a Docker image to ECR.
 
@@ -310,7 +374,10 @@ def publish_docker_image(
     docker_cmd.extend(["--build-arg", "SOURCE_DATE_EPOCH=0"])
 
     # Registry cache
-    docker_cmd.extend(["--cache-from", f"type=registry,ref={cache_image}"])
+    if no_cache:
+        docker_cmd.append("--no-cache")
+    else:
+        docker_cmd.extend(["--cache-from", f"type=registry,ref={cache_image}"])
     docker_cmd.extend(["--cache-to", f"type=registry,ref={cache_image},mode=max"])
 
     # Add --target if specified, or auto-detect from Dockerfile

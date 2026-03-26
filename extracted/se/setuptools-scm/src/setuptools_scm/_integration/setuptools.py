@@ -3,20 +3,62 @@ from __future__ import annotations
 import logging
 import warnings
 
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
+from typing import cast
 
 import setuptools
 
-from .. import _types as _t
+from vcs_versioning._pyproject_reading import GivenPyProjectResult
+from vcs_versioning._toml import InvalidTomlError
+from vcs_versioning.overrides import GlobalOverrides
+from vcs_versioning.overrides import ensure_context
+
+from .build_py import ScmVersionFileMixin
+from .build_py import build_py as scm_build_py
 from .pyproject_reading import PyProjectData
 from .pyproject_reading import read_pyproject
 from .setup_cfg import SetuptoolsBasicData
 from .setup_cfg import extract_from_legacy
-from .toml import InvalidTomlError
+from .version_inference import GetVersionInferenceConfig
 from .version_inference import get_version_inference_config
 
 log = logging.getLogger(__name__)
+_setuptools_scm_logger = logging.getLogger("setuptools_scm")
+
+
+def _register_build_py_command(dist: setuptools.Distribution) -> None:
+    """Register our custom build_py command to write version files to build dir.
+
+    This ensures version files are written to the build directory instead of
+    the source tree, supporting read-only source installations.
+    """
+    # dist.cmdclass can be None at runtime despite type stubs
+    if not dist.cmdclass:
+        dist.cmdclass = {}
+
+    existing_build_py = dist.cmdclass.get("build_py")
+
+    # Default case: no project override, use setuptools-scm implementation.
+    if existing_build_py is None:
+        dist.cmdclass["build_py"] = scm_build_py
+        log.debug("Registered setuptools_scm build_py command")
+        return
+
+    project_build_py = cast(type[setuptools.Command], existing_build_py)
+
+    if issubclass(project_build_py, ScmVersionFileMixin):
+        return
+
+    # Mixin at front of MRO: our methods run first, then delegate via super()
+    wrapped = type(
+        "_SetuptoolsScmWrappedBuildPy",
+        (ScmVersionFileMixin, project_build_py),
+        {},
+    )
+
+    dist.cmdclass["build_py"] = wrapped
+    log.debug("Wrapped project build_py with setuptools_scm version-file mixin")
 
 
 def _warn_on_old_setuptools(_version: str = setuptools.__version__) -> None:
@@ -64,19 +106,19 @@ def get_keyword_overrides(
         return value
 
 
+@ensure_context("SETUPTOOLS_SCM", additional_loggers=_setuptools_scm_logger)
 def version_keyword(
     dist: setuptools.Distribution,
     keyword: str,
     value: bool | dict[str, Any] | Callable[[], dict[str, Any]],
     *,
-    _given_pyproject_data: _t.GivenPyProjectResult = None,
+    _given_pyproject_data: GivenPyProjectResult = None,
     _given_legacy_data: SetuptoolsBasicData | None = None,
-    _get_version_inference_config: _t.GetVersionInferenceConfig = get_version_inference_config,
+    _get_version_inference_config: GetVersionInferenceConfig = get_version_inference_config,
 ) -> None:
     """apply version infernce when setup(use_scm_version=...) is used
     this takes priority over the finalize_options based version
     """
-
     _log_hookstart("version_keyword", dist)
 
     # Parse overrides (integration point responsibility)
@@ -100,7 +142,7 @@ def version_keyword(
         pyproject_data = read_pyproject(_given_result=_given_pyproject_data)
     except FileNotFoundError:
         log.debug("pyproject.toml not found, proceeding with empty configuration")
-        pyproject_data = PyProjectData.empty()
+        pyproject_data = PyProjectData.empty(tool_name="setuptools_scm")
     except InvalidTomlError as e:
         log.debug("Configuration issue in pyproject.toml: %s", e)
         return
@@ -112,22 +154,27 @@ def version_keyword(
         else (legacy_data.version or pyproject_data.project_version)
     )
 
-    result = _get_version_inference_config(
-        dist_name=dist_name,
-        current_version=current_version,
-        pyproject_data=pyproject_data,
-        overrides=overrides,
-    )
+    # Always use from_active to inherit current context settings
+    with GlobalOverrides.from_active(dist_name=dist_name):
+        result = _get_version_inference_config(
+            dist_name=dist_name,
+            current_version=current_version,
+            pyproject_data=pyproject_data,
+            overrides=overrides,
+        )
+        result.apply(dist)
 
-    result.apply(dist)
+    # Register custom build_py to write version files to build directory
+    _register_build_py_command(dist)
 
 
+@ensure_context("SETUPTOOLS_SCM", additional_loggers=_setuptools_scm_logger)
 def infer_version(
     dist: setuptools.Distribution,
     *,
-    _given_pyproject_data: _t.GivenPyProjectResult = None,
+    _given_pyproject_data: GivenPyProjectResult = None,
     _given_legacy_data: SetuptoolsBasicData | None = None,
-    _get_version_inference_config: _t.GetVersionInferenceConfig = get_version_inference_config,
+    _get_version_inference_config: GetVersionInferenceConfig = get_version_inference_config,
 ) -> None:
     """apply version inference from the finalize_options hook
     this is the default for pyproject.toml based projects that don't use the use_scm_version keyword
@@ -135,12 +182,31 @@ def infer_version(
     if the version keyword is used, it will override the version from this hook
     as user might have passed custom code version schemes
     """
-
     _log_hookstart("infer_version", dist)
 
     legacy_data = extract_from_legacy(dist, _given_legacy_data=_given_legacy_data)
-    dist_name = legacy_data.name
+    dist_name: str | None = legacy_data.name
 
+    # Always use from_active to inherit current context settings
+    with GlobalOverrides.from_active(dist_name=dist_name):
+        _infer_version_impl(
+            dist,
+            dist_name=dist_name,
+            legacy_data=legacy_data,
+            _given_pyproject_data=_given_pyproject_data,
+            _get_version_inference_config=_get_version_inference_config,
+        )
+
+
+def _infer_version_impl(
+    dist: setuptools.Distribution,
+    *,
+    dist_name: str | None,
+    legacy_data: SetuptoolsBasicData,
+    _given_pyproject_data: GivenPyProjectResult = None,
+    _get_version_inference_config: GetVersionInferenceConfig = get_version_inference_config,
+) -> None:
+    """Internal implementation of infer_version."""
     try:
         pyproject_data = read_pyproject(_given_result=_given_pyproject_data)
     except FileNotFoundError:
@@ -157,3 +223,6 @@ def infer_version(
         pyproject_data=pyproject_data,
     )
     result.apply(dist)
+
+    # Register custom build_py to write version files to build directory
+    _register_build_py_command(dist)

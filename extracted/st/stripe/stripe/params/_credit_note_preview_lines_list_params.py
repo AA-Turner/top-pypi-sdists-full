@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # File generated from our OpenAPI spec
+from decimal import Decimal
 from typing import Dict, List
 from typing_extensions import Literal, NotRequired, TypedDict
 
@@ -92,6 +93,10 @@ class CreditNotePreviewLinesListParamsLine(TypedDict):
     """
     The invoice line item to credit. Only valid when the `type` is `invoice_line_item`.
     """
+    metadata: NotRequired[Dict[str, str]]
+    """
+    Set of [key-value pairs](https://docs.stripe.com/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`.
+    """
     quantity: NotRequired[int]
     """
     The line item quantity to credit.
@@ -114,7 +119,7 @@ class CreditNotePreviewLinesListParamsLine(TypedDict):
     """
     The integer unit amount in cents (or local equivalent) of the credit note line item. This `unit_amount` will be multiplied by the quantity to get the full amount to credit for this line item. Only valid when `type` is `custom_line_item`.
     """
-    unit_amount_decimal: NotRequired[str]
+    unit_amount_decimal: NotRequired[Decimal]
     """
     Same as `unit_amount`, but accepts a decimal value in cents (or local equivalent) with at most 12 decimal places. Only one of `unit_amount` and `unit_amount_decimal` can be set.
     """

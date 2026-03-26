@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def add_simple_uvs(
@@ -261,7 +262,7 @@ def hide_show_lasso_gesture(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -360,7 +361,7 @@ def hide_show_polyline_gesture(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
@@ -404,7 +405,8 @@ def image_paint(
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
@@ -501,7 +503,7 @@ def mask_lasso_gesture(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -575,7 +577,7 @@ def mask_polyline_gesture(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_front_faces_only: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
@@ -871,7 +873,8 @@ def vertex_paint(
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
@@ -997,7 +1000,8 @@ def weight_paint(
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,

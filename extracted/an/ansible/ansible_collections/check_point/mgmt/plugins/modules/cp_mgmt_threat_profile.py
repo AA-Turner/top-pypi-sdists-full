@@ -53,6 +53,31 @@ options:
       - Protections with this severity only will be activated in the profile.
     type: str
     choices: ['Critical', 'High', 'Medium or above', 'Low or above']
+  advanced_dns_settings:
+    description:
+      - Advanced DNS Settings.
+    type: dict
+    suboptions:
+      dga_detection:
+        description:
+          - Enable/Disable DGA based domains detection.
+        type: str
+        choices: ['true', 'false']
+      dns_domain_tunneling:
+        description:
+          - Enable/Disable DNS Tunneling based on domains detection.
+        type: str
+        choices: ['true', 'false']
+      dns_over_https:
+        description:
+          - Enable/Disable parsing of DNS over HTTPS protocol.
+        type: str
+        choices: ['true', 'false']
+      nxns_attack_detection:
+        description:
+          - Enable/Disable NXNS attack detection.
+        type: str
+        choices: ['true', 'false']
   confidence_level_high:
     description:
       - Action for protections with high confidence level.
@@ -194,6 +219,19 @@ options:
           - Tracking method for protection.
         type: str
         choices: ['none', 'log', 'alert', 'mail', 'snmp trap', 'user alert', 'user alert 1', 'user alert 2']
+  scan_malicious_links:
+    description:
+      - Scans malicious links (URLs) inside email messages.
+    type: dict
+    suboptions:
+      max_bytes:
+        description:
+          - Scan links in the first bytes of the mail body.
+        type: int
+      max_links:
+        description:
+          - Maximum links to scan in mail body.
+        type: int
   tags:
     description:
       - Collection of tag identifiers.
@@ -218,6 +256,14 @@ options:
   threat_emulation:
     description:
       - Is Threat Emulation blade activated.
+    type: bool
+  threat_extraction:
+    description:
+      - Is Threat Extraction blade activated.
+    type: bool
+  zero_phishing:
+    description:
+      - Is Zero Phishing blade activated.
     type: bool
   activate_protections_by_extended_attributes:
     description:
@@ -346,6 +392,15 @@ def main():
             type="str",
             choices=["Critical", "High", "Medium or above", "Low or above"],
         ),
+        advanced_dns_settings=dict(
+            type='dict',
+            options=dict(
+                dga_detection=dict(type='str', choices=['true', 'false']),
+                dns_domain_tunneling=dict(type='str', choices=['true', 'false']),
+                dns_over_https=dict(type='str', choices=['true', 'false']),
+                nxns_attack_detection=dict(type='str', choices=['true', 'false'])
+            )
+        ),
         confidence_level_high=dict(
             type="str", choices=["Inactive", "Ask", "Prevent", "Detect"]
         ),
@@ -442,12 +497,18 @@ def main():
                 ),
             ),
         ),
+        scan_malicious_links=dict(type='dict', options=dict(
+            max_bytes=dict(type='int'),
+            max_links=dict(type='int')
+        )),
         tags=dict(type="list", elements="str"),
         use_indicators=dict(type="bool"),
         anti_bot=dict(type="bool"),
         anti_virus=dict(type="bool"),
         ips=dict(type="bool"),
         threat_emulation=dict(type="bool"),
+        threat_extraction=dict(type='bool'),
+        zero_phishing=dict(type='bool'),
         activate_protections_by_extended_attributes=dict(
             type="list",
             elements="dict",

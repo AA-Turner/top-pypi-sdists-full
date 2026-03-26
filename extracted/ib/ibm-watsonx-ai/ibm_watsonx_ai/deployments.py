@@ -674,6 +674,42 @@ class Deployments(WMLResource):
 
         return status_code != 409
 
+    def _validate_and_prepare_get_details(
+        self,
+        deployment_id: str | None,
+        serving_name: str | None,
+        attempt_activation: bool | None,
+    ) -> tuple[str, dict]:
+        Deployments._validate_type(deployment_id, "deployment_id", str, False)
+
+        if deployment_id is not None and not is_id(deployment_id):
+            raise WMLClientError(f"'deployment_id' is not an id: '{deployment_id}'")
+
+        url = self._client._href_definitions.get_deployments_href()
+
+        query_params = self._client._params()
+
+        if serving_name:
+            query_params["serving_name"] = serving_name
+
+        if attempt_activation is not None:
+            query_params["attempt_activation"] = attempt_activation
+
+        return url, query_params
+
+    @staticmethod
+    def _print_get_details_msg_if_not_gen(
+        deployment_details: dict,
+        silent: bool,
+        gen_type: type[Generator] | type[AsyncGenerator],
+    ) -> None:
+        if (
+            not isinstance(deployment_details, gen_type)
+            and "system" in deployment_details
+            and not silent
+        ):
+            print("Note: " + deployment_details["system"]["warnings"][0]["message"])
+
     def get_details(
         self,
         deployment_id: str | None = None,
@@ -754,20 +790,9 @@ class Deployments(WMLResource):
             can_be_none=True,
         )
 
-        Deployments._validate_type(deployment_id, "deployment_id", str, False)
-
-        if deployment_id is not None and not is_id(deployment_id):
-            raise WMLClientError(f"'deployment_id' is not an id: '{deployment_id}'")
-
-        url = self._client._href_definitions.get_deployments_href()
-
-        query_params = self._client._params()
-
-        if serving_name:
-            query_params["serving_name"] = serving_name
-
-        if attempt_activation is not None:
-            query_params["attempt_activation"] = attempt_activation
+        url, query_params = self._validate_and_prepare_get_details(
+            deployment_id, serving_name, attempt_activation
+        )
 
         if deployment_id is None:
             filter_func = (
@@ -793,12 +818,7 @@ class Deployments(WMLResource):
                 query_params=query_params,
             )
 
-        if (
-            not isinstance(deployment_details, Generator)
-            and "system" in deployment_details
-            and not _silent
-        ):
-            print("Note: " + deployment_details["system"]["warnings"][0]["message"])
+        self._print_get_details_msg_if_not_gen(deployment_details, _silent, Generator)
 
         return deployment_details
 
@@ -876,21 +896,9 @@ class Deployments(WMLResource):
                         deployments_details.extend(entry["resources"])
 
         """
-
-        Deployments._validate_type(deployment_id, "deployment_id", str, False)
-
-        if deployment_id is not None and not is_id(deployment_id):
-            raise WMLClientError(f"'deployment_id' is not an id: '{deployment_id}'")
-
-        url = self._client._href_definitions.get_deployments_href()
-
-        query_params = self._client._params()
-
-        if attempt_activation is not None:
-            query_params["attempt_activation"] = attempt_activation
-
-        if serving_name:
-            query_params["serving_name"] = serving_name
+        url, query_params = self._validate_and_prepare_get_details(
+            deployment_id, serving_name, attempt_activation
+        )
 
         if deployment_id is None:
             filter_func = (
@@ -916,12 +924,9 @@ class Deployments(WMLResource):
                 query_params=query_params,
             )
 
-        if (
-            not isinstance(deployment_details, AsyncGenerator)
-            and "system" in deployment_details
-            and not _silent
-        ):
-            print("Note: " + deployment_details["system"]["warnings"][0]["message"])
+        self._print_get_details_msg_if_not_gen(
+            deployment_details, _silent, AsyncGenerator
+        )
 
         return deployment_details
 
@@ -1006,6 +1011,13 @@ class Deployments(WMLResource):
                 str(e),
             )
 
+    @staticmethod
+    def _validate_delete_input(deployment_id: str | None) -> None:
+        Deployments._validate_type(deployment_id, "deployment_id", str, True)
+
+        if deployment_id is not None and not is_id(deployment_id):
+            raise WMLClientError(f"'deployment_id' is not an id: '{deployment_id}'")
+
     def delete(
         self, deployment_id: str | None = None, **kwargs: Any
     ) -> Literal["SUCCESS"]:
@@ -1029,10 +1041,7 @@ class Deployments(WMLResource):
             kwargs=kwargs, resource_id=deployment_id, resource_name="deployment"
         )
 
-        Deployments._validate_type(deployment_id, "deployment_id", str, True)
-
-        if deployment_id is not None and not is_id(deployment_id):
-            raise WMLClientError(f"'deployment_id' is not an id: '{deployment_id}'")
+        self._validate_delete_input(deployment_id)
 
         response_delete = self._client.httpx_client.delete(
             self._client._href_definitions.get_deployment_href(deployment_id),
@@ -1062,11 +1071,7 @@ class Deployments(WMLResource):
             await client.deployments.adelete(deployment_id)
 
         """
-
-        Deployments._validate_type(deployment_id, "deployment_id", str, True)
-
-        if deployment_id is not None and not is_id(deployment_id):
-            raise WMLClientError(f"'deployment_id' is not an id: '{deployment_id}'")
+        self._validate_delete_input(deployment_id)
 
         response_delete = await self._client.async_httpx_client.delete(
             self._client._href_definitions.get_deployment_href(deployment_id),
@@ -1130,6 +1135,26 @@ class Deployments(WMLResource):
 
         return payload
 
+    def _validate_and_prepare_score(
+        self,
+        deployment_id: str,
+        meta_props: dict[str, Any],
+    ) -> tuple[dict[str, Any], dict]:
+        Deployments._validate_type(deployment_id, "deployment_id", str, True)
+        Deployments._validate_type(meta_props, "meta_props", dict, True)
+
+        if meta_props.get(self.ScoringMetaNames.INPUT_DATA) is None:
+            raise WMLClientError(
+                "Scoring data input 'ScoringMetaNames.INPUT_DATA' is mandatory for scoring"
+            )
+
+        payload = self._prepare_scoring_payload(meta_props)
+
+        params = self._client._params()
+        del params["space_id"]
+
+        return payload, params
+
     def score(
         self,
         deployment_id: str,
@@ -1173,23 +1198,11 @@ class Deployments(WMLResource):
             predictions = client.deployments.score(deployment_id, scoring_payload)
 
         """
-
-        Deployments._validate_type(deployment_id, "deployment_id", str, True)
-        Deployments._validate_type(meta_props, "meta_props", dict, True)
-
-        if meta_props.get(self.ScoringMetaNames.INPUT_DATA) is None:
-            raise WMLClientError(
-                "Scoring data input 'ScoringMetaNames.INPUT_DATA' is mandatory for scoring"
-            )
-
-        payload = self._prepare_scoring_payload(meta_props)
+        payload, params = self._validate_and_prepare_score(deployment_id, meta_props)
 
         headers = self._client._get_headers()
         if transaction_id is not None:
             headers["x-global-transaction-id"] = transaction_id
-
-        params = self._client._params()
-        del params["space_id"]
 
         response_scoring = self._client.httpx_client.post(
             self._client._href_definitions.get_deployment_predictions_href(
@@ -1247,23 +1260,11 @@ class Deployments(WMLResource):
             )
 
         """
-
-        Deployments._validate_type(deployment_id, "deployment_id", str, True)
-        Deployments._validate_type(meta_props, "meta_props", dict, True)
-
-        if meta_props.get(self.ScoringMetaNames.INPUT_DATA) is None:
-            raise WMLClientError(
-                "Scoring data input 'ScoringMetaNames.INPUT_DATA' is mandatory for scoring"
-            )
-
-        payload = self._prepare_scoring_payload(meta_props)
+        payload, params = self._validate_and_prepare_score(deployment_id, meta_props)
 
         headers = await self._client._aget_headers()
         if transaction_id is not None:
             headers["x-global-transaction-id"] = transaction_id
-
-        params = self._client._params()
-        del params["space_id"]
 
         response_scoring = await self._client.async_httpx_client.post(
             self._client._href_definitions.get_deployment_predictions_href(
@@ -1609,6 +1610,34 @@ class Deployments(WMLResource):
         # This line is unreachable but satisfies type checker
         raise RuntimeError("Unreachable code")
 
+    @staticmethod
+    def _validate_update_inputs(
+        deployment_id: str,
+        changes: dict,
+    ) -> None:
+        Deployments._validate_type(changes, "changes", dict, True)
+        Deployments._validate_type(deployment_id, "deployment_id", str, True)
+
+        if ("asset" in changes and not changes["asset"]) and (
+            "prompt_template" in changes and not changes["prompt_template"]
+        ):
+            msg = "ASSET/PROMPT_TEMPLATE cannot be empty. 'id' and 'rev' (only ASSET) fields are supported. 'id' is mandatory"
+            print(msg)
+            raise WMLClientError(msg)
+
+    @staticmethod
+    def _validate_update_response(response: httpx.Response) -> None:
+        if response.status_code in {200, 202}:
+            return
+
+        error_msg = "Deployment update failed"
+        reason = response.text
+        print(reason)
+        print_text_header_h2(error_msg)
+        raise WMLClientError(
+            error_msg + ". Error: " + str(response.status_code) + ". " + reason
+        )
+
     def update(
         self,
         deployment_id: str | None = None,
@@ -1661,15 +1690,7 @@ class Deployments(WMLResource):
                 "update() missing 1 required positional argument: 'changes'"
             )
 
-        Deployments._validate_type(changes, "changes", dict, True)
-        Deployments._validate_type(deployment_id, "deployment_id", str, True)
-
-        if ("asset" in changes and not changes["asset"]) and (
-            "prompt_template" in changes and not changes["prompt_template"]
-        ):
-            msg = "ASSET/PROMPT_TEMPLATE cannot be empty. 'id' and 'rev' (only ASSET) fields are supported. 'id' is mandatory"
-            print(msg)
-            raise WMLClientError(msg)
+        self._validate_update_inputs(deployment_id, changes)
 
         is_patch_job, patch_job_field = self._is_patch_job(changes)
 
@@ -1690,14 +1711,7 @@ class Deployments(WMLResource):
         if background_mode:
             return deployment_details
 
-        if response.status_code not in {200, 202}:
-            error_msg = "Deployment update failed"
-            reason = response.text
-            print(reason)
-            print_text_header_h2(error_msg)
-            raise WMLClientError(
-                error_msg + ". Error: " + str(response.status_code) + ". " + reason
-            )
+        self._validate_update_response(response)
 
         return self._wait_for_deployment_update(deployment_id)
 
@@ -1784,16 +1798,7 @@ class Deployments(WMLResource):
             )
 
         """
-
-        Deployments._validate_type(changes, "changes", dict, True)
-        Deployments._validate_type(deployment_id, "deployment_id", str, True)
-
-        if ("asset" in changes and not changes["asset"]) and (
-            "prompt_template" in changes and not changes["prompt_template"]
-        ):
-            msg = "ASSET/PROMPT_TEMPLATE cannot be empty. 'id' and 'rev' (only ASSET) fields are supported. 'id' is mandatory"
-            print(msg)
-            raise WMLClientError(msg)
+        self._validate_update_inputs(deployment_id, changes)
 
         is_patch_job, patch_job_field = self._is_patch_job(changes)
 
@@ -1816,14 +1821,7 @@ class Deployments(WMLResource):
         if background_mode:
             return deployment_details
 
-        if response.status_code not in {200, 202}:
-            error_msg = "Deployment update failed"
-            reason = response.text
-            print(reason)
-            print_text_header_h2(error_msg)
-            raise WMLClientError(
-                error_msg + ". Error: " + str(response.status_code) + ". " + reason
-            )
+        self._validate_update_response(response)
 
         return await self._await_for_deployment_update(deployment_id)
 
@@ -2280,6 +2278,13 @@ class Deployments(WMLResource):
             query_params=params,
         )
 
+    @staticmethod
+    def _extract_get_job_status(job_details: dict[str, Any]) -> dict[str, Any]:
+        if "scoring" not in job_details["entity"]:
+            return job_details["entity"]["decision_optimization"]["status"]
+
+        return job_details["entity"]["scoring"]["status"]
+
     def get_job_status(self, job_id: str) -> dict[str, Any]:
         """Get the status of a deployment job.
 
@@ -2296,13 +2301,9 @@ class Deployments(WMLResource):
             job_status = client.deployments.get_job_status(job_id)
 
         """
-
         job_details = self.get_job_details(job_id)
 
-        if "scoring" not in job_details["entity"]:
-            return job_details["entity"]["decision_optimization"]["status"]
-
-        return job_details["entity"]["scoring"]["status"]
+        return self._extract_get_job_status(job_details)
 
     async def aget_job_status(self, job_id: str) -> dict[str, Any]:
         """Get the status of a deployment job asynchronously.
@@ -2320,15 +2321,12 @@ class Deployments(WMLResource):
             job_status = await client.deployments.aget_job_status(job_id)
 
         """
-
         job_details = await self.aget_job_details(job_id)
 
-        if "scoring" not in job_details["entity"]:
-            return job_details["entity"]["decision_optimization"]["status"]
+        return self._extract_get_job_status(job_details)
 
-        return job_details["entity"]["scoring"]["status"]
-
-    def get_job_id(self, job_details: dict[str, Any]) -> str:
+    @staticmethod
+    def get_job_id(job_details: dict[str, Any]) -> str:
         """Get the unique ID of a deployment job.
 
         :param job_details: metadata of the deployment job
@@ -2373,7 +2371,8 @@ class Deployments(WMLResource):
         warn(get_job_uid_deprecated_warning, category=DeprecationWarning)
         return self.get_job_id(job_details)
 
-    def get_job_href(self, job_details: dict[str, Any]) -> str:
+    @staticmethod
+    def get_job_href(job_details: dict[str, Any]) -> str:
         """Get the href of a deployment job.
 
         :param job_details: metadata of the deployment job
@@ -2391,6 +2390,13 @@ class Deployments(WMLResource):
 
         """
         return f"/ml/v4/deployment_jobs/{job_details['metadata']['id']}"
+
+    @staticmethod
+    def _validate_delete_job_input(job_id: str | None) -> None:
+        Deployments._validate_type(job_id, "job_id", str, True)
+
+        if job_id is not None and not is_id(job_id):
+            raise WMLClientError(f"'job_id' is not an id: '{job_id}'")
 
     def delete_job(
         self, job_id: str | None = None, hard_delete: bool = False, **kwargs: Any
@@ -2424,10 +2430,7 @@ class Deployments(WMLResource):
         job_id = _get_id_from_deprecated_uid(
             kwargs=kwargs, resource_id=job_id, resource_name="job"
         )
-        Deployments._validate_type(job_id, "job_id", str, True)
-
-        if job_id is not None and not is_id(job_id):
-            raise WMLClientError(f"'job_id' is not an id: '{job_id}'")
+        self._validate_delete_job_input(job_id)
 
         params = self._client._params()
 
@@ -2502,10 +2505,7 @@ class Deployments(WMLResource):
             await client.deployments.adelete_job(job_id)
 
         """
-        Deployments._validate_type(job_id, "job_id", str, True)
-
-        if job_id is not None and not is_id(job_id):
-            raise WMLClientError(f"'job_id' is not an id: '{job_id}'")
+        self._validate_delete_job_input(job_id)
 
         params = self._client._params()
 
@@ -3093,6 +3093,33 @@ class Deployments(WMLResource):
             tool_choice_option=tool_choice_option,
         )
 
+    def _validate_run_ai_service_and_get_url(
+        self,
+        deployment_id: str,
+        ai_service_payload: dict[str, Any],
+        path_suffix: str | None,
+    ) -> str:
+        Deployments._validate_type(deployment_id, "deployment_id", str, True)
+        Deployments._validate_type(ai_service_payload, "ai_service_payload", dict, True)
+
+        url = self._client._href_definitions.get_deployment_ai_service_href(
+            deployment_id
+        )
+        if path_suffix is not None:
+            url += f"/{path_suffix}"
+
+        return url
+
+    def _handle_run_ai_service_response(self, response: httpx.Response) -> Any:
+        if response.status_code == 405:
+            raise WMLClientError(
+                "POST is not supported using this method. "
+                "Send requests directly to the deployed ai_service. "
+                f"Error: {response.status_code}. {response.text}"
+            )
+
+        return self._handle_response(200, "AI Service run", response)
+
     def run_ai_service(
         self,
         deployment_id: str,
@@ -3117,14 +3144,9 @@ class Deployments(WMLResource):
             * By executing this class method, a POST request is performed.
             * In case of `method not allowed` error, try sending requests directly to your deployed ai service.
         """
-        Deployments._validate_type(deployment_id, "deployment_id", str, True)
-        Deployments._validate_type(ai_service_payload, "ai_service_payload", dict, True)
-
-        url = self._client._href_definitions.get_deployment_ai_service_href(
-            deployment_id
+        url = self._validate_run_ai_service_and_get_url(
+            deployment_id, ai_service_payload, path_suffix
         )
-        if path_suffix is not None:
-            url += f"/{path_suffix}"
 
         response_scoring = self._client.httpx_client.post(
             url=url,
@@ -3135,14 +3157,7 @@ class Deployments(WMLResource):
             headers=self._client._get_headers(),
         )
 
-        if response_scoring.status_code == 405:
-            raise WMLClientError(
-                "POST is not supported using this method. "
-                "Send requests directly to the deployed ai_service. "
-                f"Error: {response_scoring.status_code}. {response_scoring.text}"
-            )
-
-        return self._handle_response(200, "AI Service run", response_scoring)
+        return self._handle_run_ai_service_response(response_scoring)
 
     async def arun_ai_service(
         self,
@@ -3168,14 +3183,9 @@ class Deployments(WMLResource):
             * By executing this class method, a POST request is performed.
             * In case of `method not allowed` error, try sending requests directly to your deployed ai service.
         """
-        Deployments._validate_type(deployment_id, "deployment_id", str, True)
-        Deployments._validate_type(ai_service_payload, "ai_service_payload", dict, True)
-
-        url = self._client._href_definitions.get_deployment_ai_service_href(
-            deployment_id
+        url = self._validate_run_ai_service_and_get_url(
+            deployment_id, ai_service_payload, path_suffix
         )
-        if path_suffix is not None:
-            url += f"/{path_suffix}"
 
         response_scoring = await self._client.async_httpx_client.post(
             url=url,
@@ -3186,14 +3196,7 @@ class Deployments(WMLResource):
             headers=await self._client._aget_headers(),
         )
 
-        if response_scoring.status_code == 405:
-            raise WMLClientError(
-                "POST is not supported using this method. "
-                "Send requests directly to the deployed ai_service. "
-                f"Error: {response_scoring.status_code}. {response_scoring.text}"
-            )
-
-        return self._handle_response(200, "AI Service run", response_scoring)
+        return self._handle_run_ai_service_response(response_scoring)
 
     def run_ai_service_stream(
         self,

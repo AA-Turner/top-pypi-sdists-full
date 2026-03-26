@@ -2677,6 +2677,38 @@ def main() -> None:
     workflow_exec_pending_parser.add_argument("run_id", help=argparse.SUPPRESS)
     workflow_exec_pending_parser.add_argument("--definition", required=True, help=argparse.SUPPRESS)
 
+    # `aroom mission` subcommand
+    mission_parser = subparsers.add_parser("mission", help="Manage missions")
+    mission_sub = mission_parser.add_subparsers(dest="mission_action")
+
+    mission_create_parser = mission_sub.add_parser("create", help="Create a new mission")
+    mission_create_group = mission_create_parser.add_mutually_exclusive_group(required=True)
+    mission_create_group.add_argument("--spec", help="Spec FQN to compile from")
+    mission_create_group.add_argument("--prompt", help="Free-form prompt to decompose")
+    mission_create_parser.add_argument("--adapter", default="noop", help="Default adapter type")
+    mission_create_parser.add_argument("--workflow-path", help="Workflow definition path")
+    mission_create_parser.add_argument("--launch", action="store_true", help="Launch immediately")
+
+    mission_list_parser = mission_sub.add_parser("list", help="List missions")
+    mission_list_parser.add_argument("--status", help="Filter by status")
+
+    mission_status_parser = mission_sub.add_parser("status", help="Show mission status")
+    mission_status_parser.add_argument("session_id", help="Mission session ID")
+
+    mission_talk_parser = mission_sub.add_parser("talk", help="Steer a mission conversationally")
+    mission_talk_parser.add_argument("session_id", help="Mission session ID")
+
+    mission_update_parser = mission_sub.add_parser("update", help="Update mission plan")
+    mission_update_parser.add_argument("session_id", help="Mission session ID")
+    mission_update_parser.add_argument("--instruction", required=True, help="Edit instruction")
+    mission_update_parser.add_argument("--force", action="store_true", help="Allow edits to active items")
+
+    mission_revisions_parser = mission_sub.add_parser("revisions", help="Show revision history")
+    mission_revisions_parser.add_argument("session_id", help="Mission session ID")
+
+    mission_cancel_parser = mission_sub.add_parser("cancel", help="Cancel a mission")
+    mission_cancel_parser.add_argument("session_id", help="Mission session ID")
+
     # `aroom start` subcommand
     start_parser = subparsers.add_parser("start", help="Start the web UI server in the background")
     start_parser.add_argument("--no-browser", action="store_true", help="Do not open browser on start")
@@ -2856,6 +2888,12 @@ def main() -> None:
         from .cli.workflow_cli import _run_workflow
 
         _run_workflow(config, args)
+        return
+
+    if args.command == "mission":
+        from .cli.mission_cli import _run_mission
+
+        _run_mission(config, args)
         return
 
     if args.command == "start":

@@ -51,12 +51,14 @@ class ImageSDK:
     @sdk_docs(
         doc_py_example=_GET_EXAMPLE, arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
-    def get(self, *, name: str) -> ImageBuild:  # noqa: F811
+    def get(  # noqa: F811
+        self, *, name: str, cloud_id: Optional[str] = None
+    ) -> ImageBuild:
         """The name can contain an optional version tag, i.e., 'name:version'.
 
         If no version is provided, the latest one will be returned.
         """
-        return self._private_sdk.get(name)
+        return self._private_sdk.get(name, cloud_id=cloud_id)
 
     @sdk_docs(
         doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
@@ -73,6 +75,7 @@ class ImageSDK:
         include_anonymous: bool = False,
         max_items: Optional[int] = None,
         page_size: Optional[int] = None,
+        cloud_id: Optional[str] = None,
     ) -> ResultIterator[ImageBuild]:
         """List images or fetch a single image by ID."""
         return self._private_sdk.list(
@@ -85,6 +88,7 @@ class ImageSDK:
             include_anonymous=include_anonymous,
             max_items=max_items,
             page_size=page_size,
+            cloud_id=cloud_id,
         )
 
     @sdk_docs(
@@ -113,10 +117,12 @@ class ImageSDK:
     @sdk_docs(
         doc_py_example=_ARCHIVE_EXAMPLE, arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
     )
-    def archive(self, name: str) -> None:  # noqa: F811
+    def archive(  # noqa: F811
+        self, name: str, *, cloud_id: Optional[str] = None
+    ) -> None:
         """Archive an image and all of its versions.
 
         Once archived, the image name will no longer be usable in the organization.
         Archived images can still be viewed using `include_archived=True` in list().
         """
-        return self._private_sdk.archive(name=name)
+        return self._private_sdk.archive(name=name, cloud_id=cloud_id)

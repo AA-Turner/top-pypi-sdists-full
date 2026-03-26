@@ -32,22 +32,27 @@ In most cases it is best to use stdout to write your got-want tests because it
 is easier to control strings sent to stdout than it is to control the
 representation of expression-based "got-strings".
 """
-import re
-import difflib
-from xdoctest import utils
-from xdoctest import constants
-from xdoctest import directive
 
-unicode_literal_re = re.compile(r"(\W|^)[uU]([rR]?[\'\"])", re.UNICODE)
-bytes_literal_re = re.compile(r"(\W|^)[bB]([rR]?[\'\"])", re.UNICODE)
+from __future__ import annotations
+
+import difflib
+import re
+import typing
+from collections import OrderedDict
+
+from xdoctest import constants, directive, utils
+
+unicode_literal_re = re.compile(r'(\W|^)[uU]([rR]?[\'\"])', re.UNICODE)
+bytes_literal_re = re.compile(r'(\W|^)[bB]([rR]?[\'\"])', re.UNICODE)
 
 BLANKLINE_MARKER = '<BLANKLINE>'
 ELLIPSIS_MARKER = '...'
 
-TRAILING_WS = re.compile(r"[ \t]*$", re.UNICODE | re.MULTILINE)
+TRAILING_WS = re.compile(r'[ \t]*$', re.UNICODE | re.MULTILINE)
 
 
-_EXCEPTION_RE = re.compile(r"""
+_EXCEPTION_RE = re.compile(
+    r"""
     # Grab the traceback header.  Different versions of Python have
     # said different things on the first traceback line.
     ^(?P<hdr> Traceback\ \(
@@ -58,11 +63,17 @@ _EXCEPTION_RE = re.compile(r"""
     \s* $                # toss trailing whitespace on the header.
     (?P<stack> .*?)      # don't blink: absorb stuff until...
     ^ (?P<msg> \w+ .*)   #     a line *starts* with alphanum.
-    """, re.VERBOSE | re.MULTILINE | re.DOTALL)
+    """,
+    re.VERBOSE | re.MULTILINE | re.DOTALL,
+)
 
 
-def check_got_vs_want(want, got_stdout, got_eval=constants.NOT_EVALED,
-                      runstate=None):
+def check_got_vs_want(
+    want: str,
+    got_stdout: str,
+    got_eval: typing.Any = constants.NOT_EVALED,
+    runstate: directive.RuntimeState | None = None,
+):
     """
     Determines to check against either got_stdout or got_eval, and then does
     the comparison.
@@ -90,7 +101,12 @@ def check_got_vs_want(want, got_stdout, got_eval=constants.NOT_EVALED,
             try:
                 got = repr(got_eval)
             except Exception as ex:
-                raise ExtractGotReprException('Error calling repr for {}. Caused by: {!r}'.format(type(got_eval), ex), ex)
+                raise ExtractGotReprException(
+                    'Error calling repr for {}. Caused by: {!r}'.format(
+                        type(got_eval), ex
+                    ),
+                    ex,
+                )
             flag = check_output(got, want, runstate)
         else:
             # If there was eval and stdout, defer to stdout
@@ -111,7 +127,7 @@ def check_got_vs_want(want, got_stdout, got_eval=constants.NOT_EVALED,
     return flag
 
 
-def _strip_exception_details(msg):
+def _strip_exception_details(msg: str) -> str:
     """
     Args:
         msg (str):
@@ -131,7 +147,7 @@ def _strip_exception_details(msg):
 
     start, end = 0, len(msg)
     # The exception name must appear on the first line.
-    i = msg.find("\n")
+    i = msg.find('\n')
     if i >= 0:
         end = i
     # retain up to the first colon (if any)
@@ -142,10 +158,10 @@ def _strip_exception_details(msg):
     i = msg.rfind('.', 0, end)
     if i >= 0:
         start = i + 1
-    return msg[start: end]
+    return msg[start:end]
 
 
-def extract_exc_want(want):
+def extract_exc_want(want: str) -> str | None:
     """
     Args:
         want (str): the message supplied by the user
@@ -166,7 +182,11 @@ def extract_exc_want(want):
     return exc_want
 
 
-def check_exception(exc_got, want, runstate=None):
+def check_exception(
+    exc_got: str,
+    want: str,
+    runstate: directive.RuntimeState | None = None,
+) -> bool:
     """
     Checks want against an exception
 
@@ -190,6 +210,9 @@ def check_exception(exc_got, want, runstate=None):
     # print('exc_got = {!r}'.format(exc_got))
     # print('flag = {!r}'.format(flag))
 
+    if runstate is None:
+        runstate = directive.RuntimeState()
+
     if not flag and runstate['IGNORE_EXCEPTION_DETAIL']:
         exc_got1 = _strip_exception_details(exc_got)
         exc_want1 = _strip_exception_details(exc_want)
@@ -205,7 +228,11 @@ def check_exception(exc_got, want, runstate=None):
     return flag
 
 
-def check_output(got, want, runstate=None):
+def check_output(
+    got: str,
+    want: str,
+    runstate: directive.RuntimeState | None = None,
+) -> bool:
     """
     Does the actual comparison between `got` and `want` as long as the check is
     enabled.
@@ -233,14 +260,16 @@ def check_output(got, want, runstate=None):
     return False
 
 
-def _check_match(got, want, runstate):
+def _check_match(
+    got: str, want: str, runstate: directive.RuntimeState | dict
+) -> bool:
     """
     Does the actual comparison between `got` and `want`
 
     Args:
         got (str): normalized text produced by the test
         want (str): normalized target to match against
-        runstate (xdoctest.directive.RuntimeState | None): current state
+        runstate (xdoctest.directive.RuntimeState): current state
 
     Returns:
         bool: True if got matches want
@@ -255,7 +284,7 @@ def _check_match(got, want, runstate):
     return False
 
 
-def _ellipsis_match(got, want):
+def _ellipsis_match(got: typing.Any, want: typing.Any) -> bool:
     r"""
     The ellipsis matching algorithm taken directly from standard doctest.
 
@@ -297,21 +326,22 @@ def _ellipsis_match(got, want):
     # ws = want.split(ELLIPSIS_MARKER)
     # MODIFICATION: the ellipsis consumes all whitespace around it
     # for compatibility with whitespace normalization.
-    ws = re.split(r'\s*{}\s*'.format(re.escape(ELLIPSIS_MARKER)), want,
-                  flags=re.MULTILINE)
+    ws = re.split(
+        r'\s*{}\s*'.format(re.escape(ELLIPSIS_MARKER)), want, flags=re.MULTILINE
+    )
     assert len(ws) >= 2
 
     # Deal with exact matches possibly needed at one or both ends.
     startpos, endpos = 0, len(got)
     w = ws[0]
-    if w:   # starts with exact match
+    if w:  # starts with exact match
         if got.startswith(w):
             startpos = len(w)
             del ws[0]
         else:
             return False
     w = ws[-1]
-    if w:   # ends with exact match
+    if w:  # ends with exact match
         if got.endswith(w):
             endpos -= len(w)
             del ws[-1]
@@ -338,7 +368,11 @@ def _ellipsis_match(got, want):
     return True
 
 
-def normalize(got, want, runstate=None):
+def normalize(
+    got: str,
+    want: str,
+    runstate: directive.RuntimeState | dict[str, bool | set[str]] | OrderedDict[str, bool | set[str]] | None = None,
+) -> tuple[str, str]:
     r"""
     Normalizes the got and want string based on the runtime state.
 
@@ -413,7 +447,6 @@ def normalize(got, want, runstate=None):
     got = ''.join(got_lines)
 
     if runstate['NORMALIZE_WHITESPACE'] or runstate['IGNORE_WHITESPACE']:
-
         # all whitespace normalization
         # treat newlines and all whitespace as a single space
         got = ' '.join(got.split())
@@ -425,6 +458,7 @@ def normalize(got, want, runstate=None):
         want = re.sub(r'\s', '', want, flags=re.MULTILINE)
 
     if runstate['NORMALIZE_REPR']:
+
         def norm_repr(a, b):
             # If removing quotes would allow for a match, remove them.
             if not _check_match(a, b, runstate):
@@ -433,6 +467,7 @@ def normalize(got, want, runstate=None):
                         if _check_match(a[1:-1], b, runstate):
                             return a[1:-1]
             return a
+
         got = norm_repr(got, want)
         want = norm_repr(want, got)
 
@@ -440,10 +475,12 @@ def normalize(got, want, runstate=None):
 
 
 class ExtractGotReprException(AssertionError):
+    orig_ex: Exception
     """
     Exception used when we are unable to extract a string "got"
     """
-    def __init__(self, msg, orig_ex):
+
+    def __init__(self, msg: str, orig_ex: Exception) -> None:
         """
         Args:
             msg (str): The exception message
@@ -454,11 +491,14 @@ class ExtractGotReprException(AssertionError):
 
 
 class GotWantException(AssertionError):
+    got: str
+    want: str
     """
     Exception used when the "got" output of a doctest differs from the expected
     "want" output.
     """
-    def __init__(self, msg, got, want):
+
+    def __init__(self, msg: str, got: str, want: str) -> None:
         """
         Args:
             msg (str): The exception message
@@ -488,7 +528,11 @@ class GotWantException(AssertionError):
 
         return False
 
-    def output_difference(self, runstate=None, colored=True):
+    def output_difference(
+        self,
+        runstate: directive.RuntimeState | None = None,
+        colored: bool = True,
+    ) -> str:
         """
         Return a string describing the differences between the expected output
         for a given example (`example`) and the actual output (`got`).
@@ -534,12 +578,14 @@ class GotWantException(AssertionError):
             got_lines = got.splitlines(True)
             # Use difflib to find their differences.
             if runstate['REPORT_UDIFF']:
-                diff = difflib.unified_diff(want_lines, got_lines, n=2)
-                diff = list(diff)[2:]  # strip the diff header
+                diff = list(difflib.unified_diff(want_lines, got_lines, n=2))[
+                    2:
+                ]  # strip the diff header
                 kind = 'unified diff with -expected +actual'
             elif runstate['REPORT_CDIFF']:
-                diff = difflib.context_diff(want_lines, got_lines, n=2)
-                diff = list(diff)[2:]  # strip the diff header
+                diff = list(difflib.context_diff(want_lines, got_lines, n=2))[
+                    2:
+                ]  # strip the diff header
                 kind = 'context diff with expected followed by actual'
             elif runstate['REPORT_NDIFF']:
                 # TODO: Is there a way to make Differ ignore whitespace if that
@@ -565,7 +611,8 @@ class GotWantException(AssertionError):
                     got = utils.color_text(got, 'red')
                     want = utils.color_text(want, 'red')
                 text = 'Expected:\n{}\nGot:\n{}'.format(
-                    utils.indent(self.want), utils.indent(self.got))
+                    utils.indent(self.want), utils.indent(self.got)
+                )
             elif want:
                 if colored:
                     got = utils.color_text(got, 'red')
@@ -579,7 +626,9 @@ class GotWantException(AssertionError):
                 text = 'Expected nothing\nGot nothing\n'
         return text
 
-    def output_repr_difference(self, runstate=None):
+    def output_repr_difference(
+        self, runstate: directive.RuntimeState | None = None
+    ) -> str:
         """
         Constructs a repr difference with minimal normalization.
 
@@ -610,7 +659,7 @@ class GotWantException(AssertionError):
         return '\n'.join(lines)
 
 
-def remove_blankline_marker(text):
+def remove_blankline_marker(text: str) -> str:
     r"""
     Args:
         text (str): input text
@@ -631,10 +680,9 @@ def remove_blankline_marker(text):
         >>> assert BLANKLINE_MARKER not in remove_blankline_marker(text5)
     """
     pos_lb = '(?<=\n)'  # positive lookbehind
-    blankline_pattern = '|'.join([
-        '{pos_lb}{marker}\n', '{marker}\n',
-        '\n{marker}', '{marker}']).format(
-            marker=BLANKLINE_MARKER, pos_lb=pos_lb)
+    blankline_pattern = '|'.join(
+        ['{pos_lb}{marker}\n', '{marker}\n', '\n{marker}', '{marker}']
+    ).format(marker=BLANKLINE_MARKER, pos_lb=pos_lb)
     # blankline_pattern = r'(?<=\n)[ ]*{}\n?'.format(re.escape(BLANKLINE_MARKER))
     new_text = re.sub(blankline_pattern, '\n', text, flags=re.MULTILINE)
     return new_text
@@ -646,4 +694,5 @@ if __name__ == '__main__':
         python -m xdoctest.checker all
     """
     import xdoctest as xdoc
+
     xdoc.doctest_module()

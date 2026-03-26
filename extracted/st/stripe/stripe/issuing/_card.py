@@ -59,6 +59,16 @@ class Card(
         The type of fraud warning that most recently took place on this card. This field updates with every new fraud warning, so the value changes over time. If populated, cancel and reissue the card.
         """
 
+    class LifecycleControls(StripeObject):
+        class CancelAfter(StripeObject):
+            payment_count: int
+            """
+            The card is automatically cancelled when it makes this number of non-zero payment authorizations and transactions. The count includes penny authorizations, but doesn't include non-payment actions, such as authorization advice.
+            """
+
+        cancel_after: CancelAfter
+        _inner_class_types = {"cancel_after": CancelAfter}
+
     class Shipping(StripeObject):
         class Address(StripeObject):
             city: Optional[str]
@@ -1247,9 +1257,13 @@ class Card(
     """
     Stripe's assessment of whether this card's details have been compromised. If this property isn't null, cancel and reissue the card to prevent fraudulent activity risk.
     """
+    lifecycle_controls: Optional[LifecycleControls]
+    """
+    Rules that control the lifecycle of this card, such as automatic cancellation. Refer to our [documentation](https://docs.stripe.com/issuing/controls/lifecycle-controls) for more details.
+    """
     livemode: bool
     """
-    Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
+    If the object exists in live mode, the value is `true`. If the object exists in test mode, the value is `false`.
     """
     metadata: Dict[str, str]
     """
@@ -1477,7 +1491,7 @@ class Card(
                 self.resource._request(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/deliver".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1532,7 +1546,7 @@ class Card(
                 await self.resource._request_async(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/deliver".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1585,7 +1599,7 @@ class Card(
                 self.resource._request(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/fail".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1640,7 +1654,7 @@ class Card(
                 await self.resource._request_async(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/fail".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1695,7 +1709,7 @@ class Card(
                 self.resource._request(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/return".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1750,7 +1764,7 @@ class Card(
                 await self.resource._request_async(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/return".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1803,7 +1817,7 @@ class Card(
                 self.resource._request(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/ship".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1858,7 +1872,7 @@ class Card(
                 await self.resource._request_async(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/ship".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1913,7 +1927,7 @@ class Card(
                 self.resource._request(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/submit".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1968,7 +1982,7 @@ class Card(
                 await self.resource._request_async(
                     "post",
                     "/v1/test_helpers/issuing/cards/{card}/shipping/submit".format(
-                        card=sanitize_id(self.resource.get("id"))
+                        card=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1980,6 +1994,7 @@ class Card(
 
     _inner_class_types = {
         "latest_fraud_warning": LatestFraudWarning,
+        "lifecycle_controls": LifecycleControls,
         "shipping": Shipping,
         "spending_controls": SpendingControls,
         "wallets": Wallets,

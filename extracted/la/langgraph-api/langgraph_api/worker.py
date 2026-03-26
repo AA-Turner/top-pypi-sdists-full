@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import structlog
+from langgraph.errors import GraphRecursionError
 from langgraph.pregel.debug import CheckpointPayload, TaskResultPayload
 from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
@@ -28,6 +29,18 @@ from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
+from langgraph_api.metrics_datadog import (
+    COUNTER_GRAPH_RECURSION_LIMIT_ERROR,
+    COUNTER_RUN_ATTEMPT_STARTED,
+    COUNTER_RUN_CANCELED_BY_REQUEST,
+    COUNTER_RUN_EXCEED_MAX_ATTEMPTS_AT_START,
+    COUNTER_RUN_FAILED_AFTER_RETRY,
+    COUNTER_RUN_FAILED_RETRIABLE,
+    COUNTER_RUN_SET_STATUS_ERROR,
+    COUNTER_RUN_SUCCESS,
+    LATENCY_RUN_EXECUTION,
+    get_datadog_metrics_reporter,
+)
 from langgraph_api.otel_context import restore_otel_trace_context
 from langgraph_api.schema import RUN_KWARGS_ENCRYPTION_SUBFIELDS, Run, StreamMode
 from langgraph_api.state import state_snapshot_to_thread_state
@@ -101,6 +114,7 @@ async def worker(
     *,
     encryption_context: dict[str, Any] | None = None,
 ) -> WorkerResult:
+    reporter = get_datadog_metrics_reporter()
     run_id = run["run_id"]
     if attempt == 1:
         incr_runs()
@@ -145,6 +159,9 @@ async def worker(
     run_created_at_dt = run["created_at"]
     run_created_at = run["created_at"].isoformat()
     thread_id = str(run.get("thread_id"))
+    reporter.inc_counter(
+        COUNTER_RUN_ATTEMPT_STARTED,
+    )
     lg_logging.set_logging_context(
         {
             "run_id": str(run_id),
@@ -207,6 +224,7 @@ async def worker(
         # attempt the run
         try:
             if attempt > BG_JOB_MAX_RETRIES:
+                reporter.inc_counter(COUNTER_RUN_EXCEED_MAX_ATTEMPTS_AT_START)
                 await logger.aerror(
                     "Run exceeded max attempts",
                     run_id=str(run["run_id"]),
@@ -287,6 +305,7 @@ async def worker(
 
             if exception is None:
                 status = "success"
+                reporter.inc_counter(COUNTER_RUN_SUCCESS)
 
                 await logger.ainfo(
                     "Background run succeeded",
@@ -326,6 +345,10 @@ async def worker(
                     )
             elif isinstance(exception, TimeoutError):
                 status = "timeout"
+                reporter.inc_counter(
+                    COUNTER_RUN_FAILED_AFTER_RETRY,
+                    attributes={"status": status},
+                )
                 await logger.awarning(
                     "Background run timed out. To increase the timeout, set the BG_JOB_TIMEOUT_SECS environment variable (integer, defaults to 86400).",
                     **log_info,
@@ -342,6 +365,10 @@ async def worker(
                     )
             elif isinstance(exception, UserRollback):
                 status = "rollback"
+                reporter.inc_counter(
+                    COUNTER_RUN_CANCELED_BY_REQUEST,
+                    attributes={"status": status},
+                )
                 if not temporary:
                     try:
                         await Threads.set_joint_status(
@@ -390,6 +417,10 @@ async def worker(
                     checkpoint = None  # reset the checkpoint
             elif isinstance(exception, UserInterrupt):
                 status = "interrupted"
+                reporter.inc_counter(
+                    COUNTER_RUN_CANCELED_BY_REQUEST,
+                    attributes={"status": status},
+                )
                 await logger.ainfo(
                     "Background run interrupted",
                     **log_info,
@@ -406,15 +437,26 @@ async def worker(
                     )
             elif isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
                 status = "retry"
+                reporter.inc_counter(COUNTER_RUN_FAILED_RETRIABLE)
                 await logger.awarning(
                     f"Background run failed, will retry. Exception: {type(exception)}({exception})",
                     **log_info,
                 )
                 # Don't update thread status yet.
                 # Apply this even for temporary runs, so we retry
-                await Runs.set_status(conn, run_id, "pending")
+                try:
+                    await Runs.set_status(conn, run_id, "pending")
+                except Exception:
+                    reporter.inc_counter(COUNTER_RUN_SET_STATUS_ERROR)
+                    raise
             else:
                 status = "error"
+                reporter.inc_counter(
+                    COUNTER_RUN_FAILED_AFTER_RETRY,
+                    attributes={"status": status},
+                )
+                if isinstance(exception, GraphRecursionError):
+                    reporter.inc_counter(COUNTER_GRAPH_RECURSION_LIMIT_ERROR)
 
                 # Convert UserTimeout to TimeoutError for customers
                 if isinstance(exception, UserTimeout):
@@ -449,6 +491,12 @@ async def worker(
             # delete thread if it's temporary and we don't want to retry
             if temporary and not isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
                 await Threads.delete(conn, run["thread_id"])
+
+            reporter.record_latency(
+                LATENCY_RUN_EXECUTION,
+                float(ms(run_ended_at_dt, run_started_at_dt)) / 1000.0,
+                attributes={"status": status or "unknown"},
+            )
 
         if isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
             await logger.awarning("RETRYING", exc_info=exception)

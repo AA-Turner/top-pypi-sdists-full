@@ -82,6 +82,11 @@ vultr_api:
       returned: success
       type: int
       sample: 12
+    api_results_per_page:
+      description: Number of results returned per call to API.
+      returned: success
+      type: int
+      sample: 100
     api_endpoint:
       description: Endpoint used for the API requests.
       returned: success
@@ -127,9 +132,6 @@ def main():
 
     module = AnsibleModule(
         argument_spec=argument_spec,
-        required_if=[
-            ("state", "present", ["ip"]),
-        ],
         supports_check_mode=True,
     )
 

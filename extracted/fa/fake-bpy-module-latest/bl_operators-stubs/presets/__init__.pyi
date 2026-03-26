@@ -427,6 +427,31 @@ class AddPresetTextEditor(AddPresetBase, _bpy_types.Operator):
         :return: The class or default when not found.
         """
 
+class AddPresetTextStripStyle(AddPresetBase, _bpy_types.Operator):
+    """Add or remove a text strip style and layout preset"""
+
+    bl_idname: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    preset_defines: typing.Any
+    preset_menu: typing.Any
+    preset_subdir: typing.Any
+    preset_values: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
 class AddPresetTrackingCamera(AddPresetBase, _bpy_types.Operator):
     """Add or remove a Tracking Camera Intrinsics Preset"""
 

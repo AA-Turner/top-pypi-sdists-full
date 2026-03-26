@@ -83,8 +83,11 @@ def _serialize_llm_for_context(llm: Any) -> dict[str, Any] | str | None:
     subclasses). Falls back to extracting the model string with provider
     prefix for unknown LLM types.
     """
-    if hasattr(llm, "to_config_dict"):
-        return llm.to_config_dict()
+    to_config: Callable[[], dict[str, Any]] | None = getattr(
+        llm, "to_config_dict", None
+    )
+    if to_config is not None:
+        return to_config()
 
     # Fallback for non-BaseLLM objects: just extract model + provider prefix
     model = getattr(llm, "model", None)
@@ -113,10 +116,11 @@ def _deserialize_llm_from_context(
         return LLM(model=llm_data)
 
     if isinstance(llm_data, dict):
-        model = llm_data.pop("model", None)
+        data = dict(llm_data)
+        model = data.pop("model", None)
         if not model:
             return None
-        return LLM(model=model, **llm_data)
+        return LLM(model=model, **data)
     return None
 
 
@@ -371,8 +375,11 @@ def human_feedback(
         ) -> Any:
             """Recall past HITL lessons and use LLM to pre-review the output."""
             try:
+                mem = flow_instance.memory
+                if mem is None:
+                    return method_output
                 query = f"human feedback lessons for {func.__name__}: {method_output!s}"
-                matches = flow_instance.memory.recall(query, source=learn_source)
+                matches = mem.recall(query, source=learn_source)
                 if not matches:
                     return method_output
 
@@ -404,6 +411,9 @@ def human_feedback(
         ) -> None:
             """Extract generalizable lessons from output + feedback, store in memory."""
             try:
+                mem = flow_instance.memory
+                if mem is None:
+                    return
                 llm_inst = _resolve_llm_instance()
                 prompt = _get_hitl_prompt("hitl_distill_user").format(
                     method_name=func.__name__,
@@ -435,18 +445,18 @@ def human_feedback(
                         ]
 
                 if lessons:
-                    flow_instance.memory.remember_many(lessons, source=learn_source)
+                    mem.remember_many(lessons, source=learn_source)  # type: ignore[union-attr]
             except Exception:  # noqa: S110
                 pass  # non-critical: don't fail the flow because lesson storage failed
 
         # -- Core feedback helpers ------------------------------------
 
-        def _request_feedback(flow_instance: Flow[Any], method_output: Any) -> str:
-            """Request feedback using provider or default console."""
+        def _build_feedback_context(
+            flow_instance: Flow[Any], method_output: Any
+        ) -> tuple[Any, Any]:
+            """Build the PendingFeedbackContext and resolve the effective provider."""
             from crewai.flow.async_feedback.types import PendingFeedbackContext
 
-            # Build context for provider
-            # Use flow_id property which handles both dict and BaseModel states
             context = PendingFeedbackContext(
                 flow_id=flow_instance.flow_id or "unknown",
                 flow_class=f"{flow_instance.__class__.__module__}.{flow_instance.__class__.__name__}",
@@ -459,15 +469,53 @@ def human_feedback(
                 llm=llm if isinstance(llm, str) else _serialize_llm_for_context(llm),
             )
 
-            # Determine effective provider:
             effective_provider = provider
             if effective_provider is None:
                 from crewai.flow.flow_config import flow_config
 
                 effective_provider = flow_config.hitl_provider
 
+            return context, effective_provider
+
+        def _request_feedback(flow_instance: Flow[Any], method_output: Any) -> str:
+            """Request feedback using provider or default console (sync)."""
+            context, effective_provider = _build_feedback_context(
+                flow_instance, method_output
+            )
+
             if effective_provider is not None:
-                return effective_provider.request_feedback(context, flow_instance)
+                feedback_result = effective_provider.request_feedback(
+                    context, flow_instance
+                )
+                if asyncio.iscoroutine(feedback_result):
+                    raise TypeError(
+                        f"Provider {type(effective_provider).__name__}.request_feedback() "
+                        "returned a coroutine in a sync flow method. Use an async flow "
+                        "method or a synchronous provider."
+                    )
+                return str(feedback_result)
+            return flow_instance._request_human_feedback(
+                message=message,
+                output=method_output,
+                metadata=metadata,
+                emit=emit,
+            )
+
+        async def _request_feedback_async(
+            flow_instance: Flow[Any], method_output: Any
+        ) -> str:
+            """Request feedback, awaiting the provider if it returns a coroutine."""
+            context, effective_provider = _build_feedback_context(
+                flow_instance, method_output
+            )
+
+            if effective_provider is not None:
+                feedback_result = effective_provider.request_feedback(
+                    context, flow_instance
+                )
+                if asyncio.iscoroutine(feedback_result):
+                    return str(await feedback_result)
+                return str(feedback_result)
             return flow_instance._request_human_feedback(
                 message=message,
                 output=method_output,
@@ -515,10 +563,11 @@ def human_feedback(
             flow_instance.human_feedback_history.append(result)
             flow_instance.last_human_feedback = result
 
-            # Return based on mode
             if emit:
-                # Return outcome for routing
-                return collapsed_outcome  # type: ignore[return-value]
+                if collapsed_outcome is None:
+                    collapsed_outcome = default_outcome or emit[0]
+                    result.outcome = collapsed_outcome
+                return collapsed_outcome
             return result
 
         if asyncio.iscoroutinefunction(func):
@@ -531,7 +580,7 @@ def human_feedback(
                 if learn and getattr(self, "memory", None) is not None:
                     method_output = _pre_review_with_lessons(self, method_output)
 
-                raw_feedback = _request_feedback(self, method_output)
+                raw_feedback = await _request_feedback_async(self, method_output)
                 result = _process_feedback(self, method_output, raw_feedback)
 
                 # Distill: extract lessons from output + feedback, store in memory

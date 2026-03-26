@@ -15,7 +15,7 @@ jobs:
   integration-test:
     name: Integration test Ansible ${{ matrix.ansible }} Py${{ matrix.python }}
     if: ${{ github.event.label.name == 'automation' || github.ref_name == 'main' || github.event_name == 'schedule' }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: ansible_collections/vultr/cloud
@@ -24,17 +24,19 @@ jobs:
       fail-fast: false
       matrix:
         ansible:
-          - stable-2.16
+          - stable-2.18
+          - stable-2.19
+          - stable-2.20
         python:
-          - "3.10"
+          - "3.13"
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: ansible_collections/vultr/cloud
 
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
 
@@ -55,7 +57,7 @@ jobs:
           echo "$VULTR_CONFIG_FILE" > tests/integration/cloud-config-vultr.ini
 
       - name: Ensure no other integration test is currently running
-        uses: softprops/turnstyle@v1
+        uses: softprops/turnstyle@v3
         timeout-minutes: 60
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -68,7 +70,7 @@ jobs:
           integration
           --docker
           -v
-          --color
+          --color yes
           --continue-on-error
           --diff
           --python ${{ matrix.python }}
@@ -83,6 +85,6 @@ jobs:
           --requirements
           --group-by command
           --group-by version
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: false

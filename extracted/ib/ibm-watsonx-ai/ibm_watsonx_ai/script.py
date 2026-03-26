@@ -787,8 +787,9 @@ class Script(WMLResource):
 
             if entity_patch_payload:
                 entity_patch_url = (
-                    self._client._href_definitions.get_asset_href(script_id)
-                    + "/attributes/script"
+                    self._client._href_definitions.get_asset_script_attributes_href(
+                        script_id
+                    )
                 )
 
                 response_patch = self._client.httpx_client.patch(
@@ -969,7 +970,9 @@ class Script(WMLResource):
 
         Script._validate_type(script_id, "script_id", str, True)
 
-        url = self._client._href_definitions.get_asset_href(script_id) + "/revisions"
+        url = self._client._href_definitions.get_asset_definition_revisions_href(
+            script_id
+        )
 
         # /v2/assets/{asset_id}/revisions returns 'results' object
         script_resources = self._get_with_or_without_limit(

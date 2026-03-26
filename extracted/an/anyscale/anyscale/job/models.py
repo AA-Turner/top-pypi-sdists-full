@@ -484,6 +484,7 @@ class JobSortField(ModelEnum):
     STATUS = "STATUS"
     CREATED_AT = "CREATED_AT"
     LAST_UPDATED_AT = "LAST_UPDATED_AT"
+    LAST_STATUS_UPDATED_AT = "LAST_STATUS_UPDATED_AT"
     ENDED_AT = "ENDED_AT"
     NAME = "NAME"
     ID = "ID"
@@ -492,6 +493,7 @@ class JobSortField(ModelEnum):
         STATUS: "Sort by job status.",
         CREATED_AT: "Sort by creation timestamp.",
         LAST_UPDATED_AT: "Sort by last update timestamp.",
+        LAST_STATUS_UPDATED_AT: "Sort by last status update timestamp.",
         ENDED_AT: "Sort by end timestamp.",
         NAME: "Sort by job name.",
         ID: "Sort by job ID.",
@@ -584,6 +586,26 @@ state: STARTING
     def _validate_created_at(self, created_at: Optional[datetime]):
         if created_at is not None and not isinstance(created_at, datetime):
             raise TypeError("'created_at' must be a datetime or None.")
+
+    updated_at: Optional[datetime] = field(
+        default=None,
+        metadata={"docstring": "Timestamp when the job was last updated."},
+    )
+
+    def _validate_updated_at(self, updated_at: Optional[datetime]):
+        if updated_at is not None and not isinstance(updated_at, datetime):
+            raise TypeError("'updated_at' must be a datetime or None.")
+
+    status_updated_at: Optional[datetime] = field(
+        default=None,
+        metadata={"docstring": "Timestamp when the job's status was last updated."},
+    )
+
+    def _validate_status_updated_at(self, status_updated_at: Optional[datetime]):
+        if status_updated_at is not None and not isinstance(
+            status_updated_at, datetime
+        ):
+            raise TypeError("'status_updated_at' must be a datetime or None.")
 
 
 class JobLogMode(ModelEnum):

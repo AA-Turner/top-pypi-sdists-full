@@ -1178,8 +1178,8 @@ class Models(WMLResource):
                     details["entity"]["results_reference"]
                 )
                 results_reference_obj.set_client(self._client)
-                if results_reference_obj._is_connection_asset_s3:
-                    results_reference_obj._init_s3_connection()
+                if await results_reference_obj._ais_connection_asset_s3():
+                    await results_reference_obj._ainit_s3_connection()
 
                 results_reference = results_reference_obj._connectable_self._to_dict()
 
@@ -1188,11 +1188,18 @@ class Models(WMLResource):
                     "bucket", results_reference["connection"].get("bucket")
                 )
 
-            cos_client.meta.client.download_file(
-                Bucket=bucket, Filename="request.json", Key=asset_url
+            await asyncio.to_thread(
+                cos_client.meta.client.download_file,
+                Bucket=bucket,
+                Filename="request.json",
+                Key=asset_url,
             )
-            with open("request.json", "r", encoding="utf-8") as f:
-                request_str = f.read()
+
+            def _read_file() -> str:
+                with open("request.json", "r", encoding="utf-8") as f:
+                    return f.read()
+
+            request_str = await asyncio.to_thread(_read_file)
 
         request_json = self._build_request_json(
             is_onnx, meta_props, request_str, details, model_meta

@@ -877,11 +877,11 @@ class UnifiedPromptManagerQt:
         self.llm_client: Optional[LLMClient] = None
         self.attached_files: List[Dict] = []  # List of {path, name, content, type} - DEPRECATED, use attachment_manager
         self.chat_history: List[Dict] = []  # List of {role, content, timestamp}
-        self.ai_conversation_file = self.user_data_path / "ai_assistant" / "conversation.json"
+        self.ai_conversation_file = self.user_data_path / "workbench" / "ai_assistant" / "conversation.json"
         self._cached_document_markdown: Optional[str] = None  # Cached markdown conversion of current document
 
         # Initialize Attachment Manager
-        ai_assistant_dir = self.user_data_path / "ai_assistant"
+        ai_assistant_dir = self.user_data_path / "workbench" / "ai_assistant"
         self.attachment_manager = AttachmentManager(
             base_dir=str(ai_assistant_dir),
             log_callback=self.log_message
@@ -926,14 +926,11 @@ class UnifiedPromptManagerQt:
         self._ensure_default_folders()
 
     def _ensure_default_folders(self):
-        """Create default prompt library folders if they don't exist, and seed default prompts"""
+        """Create default prompt library folders if they don't exist"""
         default_folders = [
-            "Bulk Operations/Proofreading",
-            "Domain Expertise",
-            "Project Prompts",
-            "Supervertaler Assistant Prompts",
-            "Proofreading",
-            "Translation Help",
+            "Translate",
+            "Proofread",
+            "QuickLauncher",
         ]
         try:
             for folder in default_folders:
@@ -943,64 +940,6 @@ class UnifiedPromptManagerQt:
         except Exception as e:
             self.log_message(f"⚠ Failed to create default folders: {e}")
 
-        # Seed default prompts (only if they don't exist yet)
-        self._seed_default_prompts()
-
-    def _seed_default_prompts(self):
-        """Create built-in default prompts if they don't exist"""
-        default_proofread_path = self.prompt_library_dir / "Bulk Operations" / "Proofreading" / "Default Proofreading Prompt.svprompt"
-        if not default_proofread_path.exists():
-            try:
-                content = '''\
----
-name: "Default Proofreading Prompt"
-description: "Built-in proofreading prompt used by Edit > Bulk Operations > Proofread Translation"
-version: "1.0"
-task_type: "Proofreading"
-read_only: true
-favorite: false
-tags: ["proofreading", "bulk operation", "built-in"]
----
-
-You are a translation proofreader. Your task is to analyze translations for errors.
-
-DO NOT translate anything. DO NOT provide corrected translations unless specifically requested.
-ONLY identify errors using the exact format specified below.
-
-Task: Proofread this translation from {{source_lang}} to {{target_lang}}.
-
-For each segment, verify:
-1. Accuracy – Does the translation correctly convey the source meaning?
-2. Completeness – Is anything missing or added?
-3. Terminology – Are technical terms translated correctly and consistently?
-4. Grammar & Style – Is the text natural and error-free?
-
-LANGUAGE-SPECIFIC CHECKS (applied automatically based on target language):
-
-For Dutch:
-5. Dutch Compound Words – Verify correct spelling of compound words (e.g., "persoonsgegevens" NOT "persoongegevens", "bedrijfsnaam" NOT "bedrijfnaam"). Pay special attention to connecting letters like 's', 'e', 'en'.
-6. Dutch Spelling – Check for common Dutch spelling errors including de/het articles, dt-errors, and capitalization.
-
-For German:
-5. German Compound Words – Verify correct compound noun formation and capitalization of all nouns.
-6. German Cases – Check correct use of cases (Nominativ, Akkusativ, Dativ, Genitiv).
-
-For French:
-5. French Accents – Verify correct use of accents (é, è, ê, à, ù, ô, etc.).
-6. French Agreement – Check gender/number agreement between nouns, adjectives, and articles.
-
-CRITICAL OUTPUT FORMAT (FOLLOW EXACTLY):
-- If segment is OK: [SEGMENT XXXX] ✓
-- If segment has issues: [SEGMENT XXXX] ⚠
-  Issue: <brief description>
-  Suggestion: <recommended fix>
-
-OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
-                default_proofread_path.write_text(content, encoding='utf-8')
-                self.log_message("✓ Created default proofreading prompt in Bulk Operations/Proofreading/")
-            except Exception as e:
-                self.log_message(f"⚠ Failed to create default proofreading prompt: {e}")
-    
     def log_message(self, message):
         """Log a message through parent app or print"""
         self.log(message)
@@ -1080,7 +1019,7 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
         if getattr(self, '_assistant_return_external', False):
             # Try to re-activate the external app that launched the QuickLauncher
             try:
-                source_window = getattr(pa, '_quickmenu_source_window', None)
+                source_window = getattr(pa, '_quicklauncher_source_window', None)
                 if source_window:
                     from modules.platform_helpers import activate_foreground_window
                     activate_foreground_window(source_window)
@@ -1108,7 +1047,7 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
         if hasattr(self.parent_app, 'current_document_path') and self.parent_app.current_document_path:
             doc_path = Path(self.parent_app.current_document_path)
             # Try to load existing markdown
-            markdown_dir = self.user_data_path / "ai_assistant" / "current_document"
+            markdown_dir = self.user_data_path / "workbench" / "ai_assistant" / "current_document"
             markdown_file = markdown_dir / f"{doc_path.stem}.md"
             if markdown_file.exists():
                 try:
@@ -1247,7 +1186,7 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
         
         # Quick Action Button at top
         # Note: && is needed to display a single & (Qt uses & for keyboard shortcuts)
-        action_btn = QPushButton("🔍 Analyze Project && Generate Prompts")
+        action_btn = QPushButton("🔍 AutoPrompt")
         action_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1976D2;
@@ -2263,27 +2202,42 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
         layout.addLayout(metadata_layout)
 
         # QuickLauncher fields
-        quickmenu_layout = QHBoxLayout()
+        quicklauncher_layout = QHBoxLayout()
 
-        quickmenu_layout.addWidget(QLabel("QuickLauncher label:"))
-        self.editor_quickmenu_label_input = QLineEdit()
-        self.editor_quickmenu_label_input.setPlaceholderText("Label shown in QuickLauncher")
-        quickmenu_layout.addWidget(self.editor_quickmenu_label_input, 2)
+        quicklauncher_layout.addWidget(QLabel("QuickLauncher label:"))
+        self.editor_quicklauncher_label_input = QLineEdit()
+        self.editor_quicklauncher_label_input.setPlaceholderText("Label shown in QuickLauncher")
+        quicklauncher_layout.addWidget(self.editor_quicklauncher_label_input, 2)
 
-        self.editor_quickmenu_in_grid_cb = CheckmarkCheckBox("Show in QuickLauncher (in-app)")
-        quickmenu_layout.addWidget(self.editor_quickmenu_in_grid_cb, 2)
+        self.editor_quicklauncher_in_grid_cb = CheckmarkCheckBox("Show in QuickLauncher (in-app)")
+        quicklauncher_layout.addWidget(self.editor_quicklauncher_in_grid_cb, 2)
 
-        self.editor_quickmenu_in_quickmenu_cb = CheckmarkCheckBox("Show in QuickLauncher (global)")
-        quickmenu_layout.addWidget(self.editor_quickmenu_in_quickmenu_cb, 1)
+        self.editor_quicklauncher_in_quicklauncher_cb = CheckmarkCheckBox("Show in QuickLauncher (global)")
+        quicklauncher_layout.addWidget(self.editor_quicklauncher_in_quicklauncher_cb, 1)
 
-        layout.addLayout(quickmenu_layout)
+        layout.addLayout(quicklauncher_layout)
 
-        # Read-only indicator
+        # App selector + Read-only indicator row
+        app_readonly_layout = QHBoxLayout()
+
+        app_readonly_layout.addWidget(QLabel("App:"))
+        from PyQt6.QtWidgets import QComboBox
+        self.editor_app_combo = QComboBox()
+        self.editor_app_combo.addItems(["Both", "Workbench only", "Trados only"])
+        self.editor_app_combo.setToolTip("Which app(s) should show this prompt")
+        self.editor_app_combo.setMaximumWidth(160)
+        app_readonly_layout.addWidget(self.editor_app_combo)
+
+        app_readonly_layout.addSpacing(16)
+
         self.editor_read_only_cb = CheckmarkCheckBox("Read-only")
         self.editor_read_only_cb.setToolTip("Read-only prompts cannot be edited. Uncheck to allow editing.")
         self.editor_read_only_cb.stateChanged.connect(self._on_read_only_toggled)
         self.editor_read_only_cb.setVisible(False)  # Only shown for prompts that have read_only=true
-        layout.addWidget(self.editor_read_only_cb)
+        app_readonly_layout.addWidget(self.editor_read_only_cb)
+
+        app_readonly_layout.addStretch()
+        layout.addLayout(app_readonly_layout)
 
         # Content editor
         self.editor_content = QPlainTextEdit()
@@ -2713,8 +2667,8 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
                 # Recurse
                 self._build_tree_recursive(folder_item, item, rel_path)
             
-            elif item.suffix.lower() in ['.svprompt', '.md', '.txt']:
-                # Prompt file (.svprompt is new format, .md/.txt legacy)
+            elif item.suffix.lower() in ['.md', '.svprompt', '.txt']:
+                # Prompt file (.md is preferred format, .svprompt/.txt legacy)
                 rel_path = str(Path(relative_path) / item.name) if relative_path else item.name
                 
                 self.log_message(f"🔍 DEBUG: Checking prompt file: {rel_path}")
@@ -2728,7 +2682,7 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
                 if rel_path in self.library.prompts:
                     prompt_data = self.library.prompts[rel_path]
                     # Show full filename with extension in tree
-                    name = item.name  # e.g., "prompt.svprompt"
+                    name = item.name  # e.g., "prompt.md"
                     
                     prompt_item = QTreeWidgetItem([name])
                     prompt_item.setData(0, Qt.ItemDataRole.UserRole, {'type': 'prompt', 'path': rel_path})
@@ -2738,9 +2692,9 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
                     indicators = []
                     if prompt_data.get('favorite'):
                         indicators.append("⭐")
-                    if prompt_data.get('sv_quickmenu', prompt_data.get('quick_run', False)):
+                    if prompt_data.get('quicklauncher', prompt_data.get('quick_run', False)):
                         indicators.append("⚡")
-                    if prompt_data.get('quickmenu_grid', False):
+                    if prompt_data.get('quicklauncher_grid', False):
                         indicators.append("🖱️")
                     if indicators:
                         prompt_item.setText(0, f"{' '.join(indicators)} {name}")
@@ -2806,18 +2760,18 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
             action_fav.triggered.connect(lambda: self._toggle_favorite(path))
             
             # Toggle QuickLauncher (legacy: quick_run)
-            if prompt_data.get('sv_quickmenu', prompt_data.get('quick_run', False)):
+            if prompt_data.get('quicklauncher', prompt_data.get('quick_run', False)):
                 action_qr = menu.addAction("⚡ Remove from QuickLauncher")
             else:
                 action_qr = menu.addAction("⚡ Add to QuickLauncher")
             action_qr.triggered.connect(lambda: self._toggle_quick_run(path))
 
             # Toggle Grid right-click QuickLauncher
-            if prompt_data.get('quickmenu_grid', False):
+            if prompt_data.get('quicklauncher_grid', False):
                 action_grid = menu.addAction("🖱️ Remove from Grid QuickLauncher")
             else:
                 action_grid = menu.addAction("🖱️ Add to Grid QuickLauncher")
-            action_grid.triggered.connect(lambda: self._toggle_quickmenu_grid(path))
+            action_grid.triggered.connect(lambda: self._toggle_quicklauncher_grid(path))
             
             menu.addSeparator()
             
@@ -2853,17 +2807,22 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
         
         prompt_data = self.library.prompts[relative_path]
         
-        # Show full filename with extension (e.g., "prompt.svprompt")
+        # Show full filename with extension (e.g., "prompt.md")
         filename = Path(relative_path).name
         self.editor_name_label.setText(f"Editing: {filename}")
         self.editor_name_input.setText(filename)
         self.editor_desc_input.setText(prompt_data.get('description', ''))
-        if hasattr(self, 'editor_quickmenu_label_input'):
-            self.editor_quickmenu_label_input.setText(prompt_data.get('quickmenu_label', '') or prompt_data.get('name', ''))
-        if hasattr(self, 'editor_quickmenu_in_grid_cb'):
-            self.editor_quickmenu_in_grid_cb.setChecked(bool(prompt_data.get('quickmenu_grid', False)))
-        if hasattr(self, 'editor_quickmenu_in_quickmenu_cb'):
-            self.editor_quickmenu_in_quickmenu_cb.setChecked(bool(prompt_data.get('sv_quickmenu', prompt_data.get('quick_run', False))))
+        if hasattr(self, 'editor_quicklauncher_label_input'):
+            self.editor_quicklauncher_label_input.setText(prompt_data.get('quicklauncher_label', '') or prompt_data.get('name', ''))
+        if hasattr(self, 'editor_quicklauncher_in_grid_cb'):
+            self.editor_quicklauncher_in_grid_cb.setChecked(bool(prompt_data.get('quicklauncher_grid', False)))
+        if hasattr(self, 'editor_quicklauncher_in_quicklauncher_cb'):
+            self.editor_quicklauncher_in_quicklauncher_cb.setChecked(bool(prompt_data.get('quicklauncher', prompt_data.get('quick_run', False))))
+        # App selector
+        if hasattr(self, 'editor_app_combo'):
+            app_val = str(prompt_data.get('app', 'both')).lower().strip()
+            idx_map = {'both': 0, 'workbench': 1, 'trados': 2}
+            self.editor_app_combo.setCurrentIndex(idx_map.get(app_val, 0))
         self.editor_content.setPlainText(prompt_data.get('content', ''))
 
         # Handle read-only state
@@ -2893,15 +2852,19 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
             # Name field now represents the complete filename with extension
             # No stripping needed - user sees and edits the full filename
 
-            quickmenu_label = ''
-            quickmenu_grid = False
-            sv_quickmenu = False
-            if hasattr(self, 'editor_quickmenu_label_input'):
-                quickmenu_label = self.editor_quickmenu_label_input.text().strip()
-            if hasattr(self, 'editor_quickmenu_in_grid_cb'):
-                quickmenu_grid = bool(self.editor_quickmenu_in_grid_cb.isChecked())
-            if hasattr(self, 'editor_quickmenu_in_quickmenu_cb'):
-                sv_quickmenu = bool(self.editor_quickmenu_in_quickmenu_cb.isChecked())
+            quicklauncher_label = ''
+            quicklauncher_grid = False
+            quicklauncher_flag = False
+            app_value = 'both'
+            if hasattr(self, 'editor_quicklauncher_label_input'):
+                quicklauncher_label = self.editor_quicklauncher_label_input.text().strip()
+            if hasattr(self, 'editor_quicklauncher_in_grid_cb'):
+                quicklauncher_grid = bool(self.editor_quicklauncher_in_grid_cb.isChecked())
+            if hasattr(self, 'editor_quicklauncher_in_quicklauncher_cb'):
+                quicklauncher_flag = bool(self.editor_quicklauncher_in_quicklauncher_cb.isChecked())
+            if hasattr(self, 'editor_app_combo'):
+                app_map = {0: 'both', 1: 'workbench', 2: 'trados'}
+                app_value = app_map.get(self.editor_app_combo.currentIndex(), 'both')
 
             if not name or not content:
                 QMessageBox.warning(self.main_widget, "Error", "Name and content are required")
@@ -2936,11 +2899,12 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
                 prompt_data['name'] = name_without_ext
                 prompt_data['description'] = description
                 prompt_data['content'] = content
-                prompt_data['quickmenu_label'] = quickmenu_label or name_without_ext
-                prompt_data['quickmenu_grid'] = quickmenu_grid
-                prompt_data['sv_quickmenu'] = sv_quickmenu
+                prompt_data['quicklauncher_label'] = quicklauncher_label or name_without_ext
+                prompt_data['quicklauncher_grid'] = quicklauncher_grid
+                prompt_data['quicklauncher'] = quicklauncher_flag
+                prompt_data['app'] = app_value
                 # Keep legacy field in sync
-                prompt_data['quick_run'] = sv_quickmenu
+                prompt_data['quick_run'] = quicklauncher_flag
                 
                 # Check if filename changed - need to rename file
                 if old_filename != name:
@@ -2990,24 +2954,21 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
                     'name': name,
                     'description': description,
                     'content': content,
-                    'domain': '',
-                    'version': '1.0',
-                    'task_type': 'Translation',
+                    'category': '',
                     'favorite': False,
                     # QuickLauncher
-                    'quickmenu_label': quickmenu_label or name,
-                    'quickmenu_grid': quickmenu_grid,
-                    'sv_quickmenu': sv_quickmenu,
+                    'quicklauncher_label': quicklauncher_label or name,
+                    'quicklauncher_grid': quicklauncher_grid,
+                    'quicklauncher': quicklauncher_flag,
                     # Legacy
-                    'quick_run': sv_quickmenu,
-                    'folder': folder,
+                    'quick_run': quicklauncher_flag,
                     'tags': [],
                     'created': datetime.now().strftime('%Y-%m-%d'),
                     'modified': datetime.now().strftime('%Y-%m-%d')
                 }
 
                 # Create the prompt file (save_prompt creates new file if it doesn't exist)
-                relative_path = f"{folder}/{name}.svprompt"
+                relative_path = f"{folder}/{name}.md"
                 if self.library.save_prompt(relative_path, prompt_data):
                     QMessageBox.information(self.main_widget, "Created", f"Prompt '{name}' created successfully!")
                     self.library.load_all_prompts()  # Reload to get new prompt in memory
@@ -3105,7 +3066,7 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
             self.main_widget,
             "Select External Prompt File",
             "",
-            "Prompt Files (*.svprompt *.txt *.md);;Supervertaler Prompts (*.svprompt);;Text Files (*.txt);;Markdown Files (*.md);;All Files (*.*)"
+            "Prompt Files (*.md *.svprompt *.txt);;Markdown Prompts (*.md);;Supervertaler Prompts (*.svprompt);;Text Files (*.txt);;All Files (*.*)"
         )
         
         if not file_path:
@@ -3229,12 +3190,12 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
         self.editor_desc_input.setReadOnly(is_read_only)
         self.editor_content.setReadOnly(is_read_only)
         self.btn_save_prompt.setEnabled(not is_read_only)
-        if hasattr(self, 'editor_quickmenu_label_input'):
-            self.editor_quickmenu_label_input.setReadOnly(is_read_only)
-        if hasattr(self, 'editor_quickmenu_in_grid_cb'):
-            self.editor_quickmenu_in_grid_cb.setEnabled(not is_read_only)
-        if hasattr(self, 'editor_quickmenu_in_quickmenu_cb'):
-            self.editor_quickmenu_in_quickmenu_cb.setEnabled(not is_read_only)
+        if hasattr(self, 'editor_quicklauncher_label_input'):
+            self.editor_quicklauncher_label_input.setReadOnly(is_read_only)
+        if hasattr(self, 'editor_quicklauncher_in_grid_cb'):
+            self.editor_quicklauncher_in_grid_cb.setEnabled(not is_read_only)
+        if hasattr(self, 'editor_quicklauncher_in_quicklauncher_cb'):
+            self.editor_quicklauncher_in_quicklauncher_cb.setEnabled(not is_read_only)
 
         # Visual feedback
         readonly_style = "background-color: #f5f5f5;" if is_read_only else ""
@@ -3245,9 +3206,9 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
         if self.library.toggle_quick_run(relative_path):
             self._refresh_tree()
 
-    def _toggle_quickmenu_grid(self, relative_path: str):
+    def _toggle_quicklauncher_grid(self, relative_path: str):
         """Toggle whether this prompt appears in the Grid right-click QuickLauncher."""
-        if self.library.toggle_quickmenu_grid(relative_path):
+        if self.library.toggle_quicklauncher_grid(relative_path):
             self._refresh_tree()
     
     def _new_prompt(self):
@@ -3263,13 +3224,13 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
     
     def _new_prompt_in_folder(self, folder_path: str):
         """Create new prompt in specific folder"""
-        name, ok = QInputDialog.getText(self.main_widget, "New Prompt", "Enter prompt filename with extension (e.g., prompt.svprompt):")
+        name, ok = QInputDialog.getText(self.main_widget, "New Prompt", "Enter prompt filename with extension (e.g., prompt.md):")
         if not ok or not name:
             return
-        
-        # Ensure .svprompt extension
-        if not name.endswith('.svprompt'):
-            name = f"{name}.svprompt"
+
+        # Ensure .md extension
+        if not name.endswith(('.md', '.svprompt', '.txt')):
+            name = f"{name}.md"
         
         # Extract name without extension for metadata
         name_without_ext = Path(name).stem
@@ -3280,21 +3241,18 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
             'name': name_without_ext,
             'description': '',
             'content': '# Your prompt content here\n\nProvide translation instructions...',
-            'domain': '',
-            'version': '1.0',
-            'task_type': 'Translation',
+            'category': '',
             'favorite': False,
-            'quickmenu_label': name_without_ext,
-            'quickmenu_grid': False,
-            'sv_quickmenu': False,
+            'quicklauncher_label': name_without_ext,
+            'quicklauncher_grid': False,
+            'quicklauncher': False,
             'quick_run': False,
-            'folder': folder_path,
             'tags': [],
             'created': datetime.now().strftime('%Y-%m-%d'),
             'modified': datetime.now().strftime('%Y-%m-%d')
         }
         
-        # Create .svprompt file (name already includes .svprompt extension)
+        # Create prompt file (name already includes extension)
         relative_path = f"{folder_path}/{name}" if folder_path else name
         
         if self.library.save_prompt(relative_path, prompt_data):
@@ -3334,8 +3292,8 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
         src_data['name'] = new_name
         src_data['favorite'] = False
         src_data['quick_run'] = False
-        src_data['quickmenu_grid'] = False
-        src_data['sv_quickmenu'] = False
+        src_data['quicklauncher_grid'] = False
+        src_data['quicklauncher'] = False
         src_data['folder'] = folder
         src_data['created'] = datetime.now().strftime('%Y-%m-%d')
         src_data['modified'] = datetime.now().strftime('%Y-%m-%d')
@@ -3345,7 +3303,7 @@ OUTPUT ONLY THE SEGMENT MARKERS. DO NOT ADD EXPLANATIONS BEFORE OR AFTER.'''
             self._refresh_tree()
             self._select_and_reveal_prompt(new_path)
             self._load_prompt_in_editor(new_path)
-            self.log_message(f"✓ Duplicated: {src_name} → {new_name} (saved as .svprompt)")
+            self.log_message(f"✓ Duplicated: {src_name} → {new_name}")
         else:
             QMessageBox.warning(self.main_widget, "Duplicate failed", "Failed to duplicate the prompt.")
     
@@ -4732,7 +4690,7 @@ Output ONLY the delimiters and prompt content. No text before ===PROMPT_START===
         """
         try:
             # Create directory for current document markdown
-            doc_dir = self.user_data_path / "ai_assistant" / "current_document"
+            doc_dir = self.user_data_path / "workbench" / "ai_assistant" / "current_document"
             doc_dir.mkdir(parents=True, exist_ok=True)
 
             # Create filename based on original

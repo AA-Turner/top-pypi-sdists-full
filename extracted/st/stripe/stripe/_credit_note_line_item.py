@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 # File generated from our OpenAPI spec
+from decimal import Decimal
 from stripe._expandable_field import ExpandableField
 from stripe._stripe_object import StripeObject
-from typing import ClassVar, List, Optional
+from typing import ClassVar, Dict, List, Optional
 from typing_extensions import Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -128,7 +129,11 @@ class CreditNoteLineItem(StripeObject):
     """
     livemode: bool
     """
-    Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
+    If the object exists in live mode, the value is `true`. If the object exists in test mode, the value is `false`.
+    """
+    metadata: Optional[Dict[str, str]]
+    """
+    Set of [key-value pairs](https://docs.stripe.com/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format.
     """
     object: Literal["credit_note_line_item"]
     """
@@ -158,7 +163,7 @@ class CreditNoteLineItem(StripeObject):
     """
     The cost of each unit of product being credited.
     """
-    unit_amount_decimal: Optional[str]
+    unit_amount_decimal: Optional[Decimal]
     """
     Same as `unit_amount`, but contains a decimal value with at most 12 decimal places.
     """
@@ -167,3 +172,4 @@ class CreditNoteLineItem(StripeObject):
         "pretax_credit_amounts": PretaxCreditAmount,
         "taxes": Tax,
     }
+    _field_encodings = {"unit_amount_decimal": "decimal_string"}

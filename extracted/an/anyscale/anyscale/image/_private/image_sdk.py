@@ -69,7 +69,7 @@ class PrivateImageSDK(BaseSDK):
             ),
         )
 
-    def get(self, name: str) -> ImageBuild:
+    def get(self, name: str, cloud_id: Optional[str] = None) -> ImageBuild:
         """Get an image by name with optional version (name:version format).
 
         If no version is specified, returns the latest build.
@@ -94,6 +94,7 @@ class PrivateImageSDK(BaseSDK):
             defaults_first=False,
             count=50,
             paging_token=None,
+            cloud_id=cloud_id,
         )
 
         # list_application_templates does substring matching, need exact match
@@ -316,6 +317,7 @@ class PrivateImageSDK(BaseSDK):
         include_anonymous: bool = False,
         max_items: Optional[int] = None,
         page_size: Optional[int] = None,
+        cloud_id: Optional[str] = None,
     ) -> ResultIterator[ImageBuild]:
         """List images or fetch a single image by ID."""
         if page_size is not None and not (1 <= page_size <= MAX_PAGE_SIZE):
@@ -363,6 +365,7 @@ class PrivateImageSDK(BaseSDK):
                 defaults_first=False,
                 count=page_size,
                 paging_token=token,
+                cloud_id=cloud_id,
             )
 
             results = response.results if response.results else []
@@ -391,7 +394,11 @@ class PrivateImageSDK(BaseSDK):
         )
 
     def archive(
-        self, *, name: Optional[str] = None, image_id: Optional[str] = None
+        self,
+        *,
+        name: Optional[str] = None,
+        image_id: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> None:  # noqa: A002
         """Archive an image by name or ID.
 
@@ -428,6 +435,7 @@ class PrivateImageSDK(BaseSDK):
                 defaults_first=False,
                 count=50,
                 paging_token=None,
+                cloud_id=cloud_id,
             )
 
             results = response.results if response.results else []

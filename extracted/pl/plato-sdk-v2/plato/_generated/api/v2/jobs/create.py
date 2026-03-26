@@ -37,7 +37,7 @@ def sync(
     body: CreateJobRequest,
     authorization: str | None = None,
     x_api_key: str | None = None,
-) -> Any:
+) -> None:
     """Create a single job end-to-end: make + wait_for_ready + reset.
 
     Combines session creation, job creation, waiting for VM readiness,
@@ -52,7 +52,7 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return None
 
 
 async def asyncio(
@@ -60,7 +60,7 @@ async def asyncio(
     body: CreateJobRequest,
     authorization: str | None = None,
     x_api_key: str | None = None,
-) -> Any:
+) -> None:
     """Create a single job end-to-end: make + wait_for_ready + reset.
 
     Combines session creation, job creation, waiting for VM readiness,
@@ -75,4 +75,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return None

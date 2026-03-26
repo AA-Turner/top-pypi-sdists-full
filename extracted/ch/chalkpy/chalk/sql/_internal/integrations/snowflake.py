@@ -95,11 +95,16 @@ def _stage_prefix(unload_job_identifier: str, snowflake_unload_stage: str) -> st
     return f"{snowflake_unload_stage}/{unload_job_identifier}/"
 
 
-def _rewrite_query_for_unload(sql: str, unload_job_identifier: str, snowflake_unload_stage: str):
+def _rewrite_query_for_unload(
+    sql: str, unload_job_identifier: str, snowflake_unload_stage: str, snowflake_storage_integration: Optional[str]
+):
     rewritten_sql = sql.rstrip(";\n ")
     prefix = _stage_prefix(unload_job_identifier, snowflake_unload_stage)
+    storage_integration_clause = (
+        f"STORAGE_INTEGRATION = {snowflake_storage_integration} " if snowflake_storage_integration is not None else ""
+    )
     new_query = f"""
-    COPY INTO {prefix} FROM ({rewritten_sql}) file_format = (type = 'parquet') overwrite=true header=true; /* {json.dumps({"unload_job_identifier": unload_job_identifier})} */
+    COPY INTO {prefix} FROM ({rewritten_sql}) {storage_integration_clause}file_format = (type = 'parquet') overwrite=true header=true; /* {json.dumps({"unload_job_identifier": unload_job_identifier})} */
     """
     return new_query
 
@@ -521,6 +526,7 @@ class SnowflakeSourceImpl(BaseSQLSource):
                             sql=sql,
                             unload_job_identifier=job_id,
                             snowflake_unload_stage=query_execution_parameters.snowflake.snowflake_unload_stage,
+                            snowflake_storage_integration=query_execution_parameters.snowflake.snowflake_storage_integration,
                         )
                     if env_var_bool("CHALK_SNOWFLAKE_TIMEZONE_UTC"):
                         chalk_logger.info(f"Setting Snowflake timezone to UTC")
@@ -704,6 +710,7 @@ class SnowflakeSourceImpl(BaseSQLSource):
                             sql=sql,
                             unload_job_identifier=job_id,
                             snowflake_unload_stage=query_execution_parameters.snowflake.snowflake_unload_stage,
+                            snowflake_storage_integration=query_execution_parameters.snowflake.snowflake_storage_integration,
                         )
 
                     cancellable_query = SnowflakeCancellableQuery()

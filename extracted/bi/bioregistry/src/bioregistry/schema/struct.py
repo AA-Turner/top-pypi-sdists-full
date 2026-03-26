@@ -1544,11 +1544,11 @@ class Resource(BaseModel):
     def get_publications(self) -> list[Publication]:
         """Get a list of publications."""
         publications = self.publications or []
-        # TODO can look through agroportal, ecoportal, and bioportal for publications too,
-        #  also extend this to _all_ metaprefixes
-        for metaprefix in ("obofoundry", "fairsharing", "prefixcommons", "rrid", "uniprot"):
+        for metaprefix in self.mappings or []:
             for publication in self.get_external(metaprefix).get("publications", []):
-                publications.append(Publication.model_validate(publication))
+                publication = Publication.model_validate(publication)
+                if publication.pubmed or publication.doi or publication.pmc:
+                    publications.append(publication)
         for provider in self.providers or []:
             publications.extend(provider.publications or [])
         return deduplicate_publications(publications)

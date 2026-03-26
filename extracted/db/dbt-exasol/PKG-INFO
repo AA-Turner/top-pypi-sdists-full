@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-exasol
-Version: 1.10.4
+Version: 1.10.5
 Summary: Adapter to dbt-core for warehouse Exasol
 Project-URL: Homepage, https://alligatorcompany.gitlab.io/dbt-exasol
 Project-URL: Repository, https://github.com/tglunde/dbt-exasol
@@ -11,7 +11,7 @@ Requires-Python: <4,>=3.10
 Requires-Dist: dbt-adapters>=1.10.0
 Requires-Dist: dbt-core>=1.10.0
 Requires-Dist: protobuf<7.0,>=5.0
-Requires-Dist: pyexasol>=1.0.0
+Requires-Dist: pyexasol>=2
 Description-Content-Type: text/markdown
 
 # dbt-exasol
@@ -197,6 +197,7 @@ OpenID login through access_token or refresh_token instead of user+password
   <li><strong>protocol_version</strong>: default: v3</li>
   <li><strong>row_separator</strong>: default: CRLF for windows - LF otherwise</li>
   <li><strong>timestamp_format</strong>: default: YYYY-MM-DDTHH:MI:SS.FF6</li>
+  <li><strong>pool_size</strong>: default: None (resolved from dbt <code>threads</code> setting). Maximum number of pooled connections per credentials key. When omitted, the pool size equals the <code>threads</code> value so every thread can reuse a cached connection without creating a new one on each model run.</li>
 </ul>
 
 # Known isues

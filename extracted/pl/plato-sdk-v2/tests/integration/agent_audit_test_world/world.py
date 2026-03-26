@@ -42,6 +42,15 @@ PARALLEL_READ_SUFFIX = """\
    - /workspace/parallel_3.txt
 """
 
+PARALLEL_AGENT_INSTRUCTION = """\
+Complete these steps in order. Use separate tool calls for each step (do NOT batch):
+
+1. Read /workspace/input_{agent_idx}.txt using the Read tool.
+2. Read /workspace/shared_input.txt using the Read tool.
+3. Use a shell/Bash tool to run: echo "agent {agent_idx} was here" > /workspace/agent_{agent_idx}_bash_output.txt
+4. Write /workspace/agent_{agent_idx}_result.json with the Write tool, containing: {{"agent": {agent_idx}, "status": "ok"}}
+"""
+
 
 class AgentAuditTestWorldConfig(RunConfig):
     """Config for audit attribution integration tests."""
@@ -49,6 +58,8 @@ class AgentAuditTestWorldConfig(RunConfig):
     agent: Annotated[AgentConfig, Agent(description="Agent under test")]
     min_distinct_tool_spans: int = 2
     test_parallel_reads: bool = False
+    parallel_agents: int = 1
+    require_read_write_attribution: bool = False
     code: Annotated[
         Path,
         Workspace(
@@ -73,6 +84,15 @@ class AgentAuditTestWorld(BaseWorld[AgentAuditTestWorldConfig]):
         code_ws = self.workspace("code")
         workspace_path = Path(code_ws.path)
         workspace_path.mkdir(parents=True, exist_ok=True)
+
+        session_id = self._session_id or "unknown"
+
+        if self.config.parallel_agents > 1:
+            return await self._step_parallel(code_ws, workspace_path, session_id)
+        return await self._step_single(code_ws, workspace_path, session_id)
+
+    async def _step_single(self, code_ws, workspace_path: Path, session_id: str) -> StepResult:
+        """Original single-agent test flow."""
         (workspace_path / "input_a.txt").write_text("alpha\n", encoding="utf-8")
         (workspace_path / "input_b.txt").write_text("beta\n", encoding="utf-8")
 
@@ -82,11 +102,8 @@ class AgentAuditTestWorld(BaseWorld[AgentAuditTestWorldConfig]):
                 (workspace_path / f"parallel_{i}.txt").write_text(f"parallel content {i}\n", encoding="utf-8")
             instruction += PARALLEL_READ_SUFFIX
 
-        session_id = self._session_id or "unknown"
-        logger.info("Starting agent audit test — session_id=%s", session_id)
+        logger.info("Starting single-agent audit test — session_id=%s", session_id)
 
-        # Run agent with periodic checkpoints every 45s.
-        # Each checkpoint commits the workspace and uploads accumulated audit events.
         async with checkpoint(self.checkpoint, "agent-run", step=1, interval_s=45):
             await self.agent(
                 self.config.agent,
@@ -101,7 +118,49 @@ class AgentAuditTestWorld(BaseWorld[AgentAuditTestWorldConfig]):
         if result != {"status": "ok", "generated_file": "/workspace/generated.txt"}:
             raise RuntimeError(f"Unexpected result.json payload: {result!r}")
 
-        # Validate via API
+        return await self._validate_and_return(session_id)
+
+    async def _step_parallel(self, code_ws, workspace_path: Path, session_id: str) -> StepResult:
+        """Run N agents concurrently and validate all get audit attribution."""
+        import asyncio
+
+        n = self.config.parallel_agents
+        logger.info(
+            "Starting parallel-agent audit test — session_id=%s n_agents=%d",
+            session_id,
+            n,
+        )
+
+        # Seed per-agent input files + a shared input file
+        (workspace_path / "shared_input.txt").write_text("shared content\n", encoding="utf-8")
+        for i in range(n):
+            (workspace_path / f"input_{i}.txt").write_text(f"content for agent {i}\n", encoding="utf-8")
+
+        async def _run_agent(idx: int) -> None:
+            instruction = PARALLEL_AGENT_INSTRUCTION.format(agent_idx=idx)
+            display_name = f"parallel-agent-{idx}"
+            await self.agent(
+                self.config.agent,
+                display_name=display_name,
+                workspaces=[code_ws],
+            ).run(instruction)
+
+        async with checkpoint(self.checkpoint, "parallel-agent-run", step=1, interval_s=60):
+            await asyncio.gather(*[_run_agent(i) for i in range(n)])
+
+        # Verify all agents wrote their result files
+        for i in range(n):
+            result_path = workspace_path / f"agent_{i}_result.json"
+            if not result_path.exists():
+                raise RuntimeError(f"Agent {i} did not create {result_path}")
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            if result.get("agent") != i or result.get("status") != "ok":
+                raise RuntimeError(f"Agent {i} unexpected result: {result!r}")
+
+        return await self._validate_and_return(session_id)
+
+    async def _validate_and_return(self, session_id: str) -> StepResult:
+        """Validate audit events via API and return result."""
         chronos_url = self._get_chronos_base_url()
         api_key = os.environ.get("PLATO_API_KEY", "")
         if not chronos_url or session_id == "unknown" or not api_key:
@@ -175,7 +234,13 @@ async def _validate_via_api(
         all_paths = {e.path for e in api_events}
         all_new_paths = {e.new_path for e in api_events if e.new_path}
         all_audit_paths = all_paths | all_new_paths
-        for expected in ("input_a.txt", "input_b.txt", "generated.txt", "result.json"):
+        if config.parallel_agents > 1:
+            # In parallel mode, only check that some workspace files appear.
+            # Not all agents may have audit events collected due to checkpoint timing.
+            expected_files = ["shared_input.txt"]
+        else:
+            expected_files = ["input_a.txt", "input_b.txt", "generated.txt", "result.json"]
+        for expected in expected_files:
             if not any(p.endswith(expected) for p in all_audit_paths):
                 failures.append(f"API events missing file: {expected}")
 
@@ -208,14 +273,15 @@ async def _validate_via_api(
                 logger.info("span_id filter: %d events for span %s", len(span_resp.events), test_span_id)
 
         # --- Check 7: query by path filter works ---
-        path_resp = await client.get_audit_events(session_id, path="/data/input_a.txt")
+        path_filter = "/data/shared_input.txt" if config.parallel_agents > 1 else "/data/input_a.txt"
+        path_resp = await client.get_audit_events(session_id, path=path_filter)
         if not path_resp.events:
-            failures.append("Filtering by path=/data/input_a.txt returned no events")
+            failures.append(f"Filtering by path={path_filter} returned no events")
         else:
-            bad = [e for e in path_resp.events if e.path != "/data/input_a.txt"]
+            bad = [e for e in path_resp.events if e.path != path_filter]
             if bad:
                 failures.append(f"Path filter returned {len(bad)} events with wrong path")
-            logger.info("Path filter: %d events for input_a.txt", len(path_resp.events))
+            logger.info("Path filter: %d events for %s", len(path_resp.events), path_filter)
 
         # --- Check 8: query by ref_public_id filter works ---
         if ref_ids_in_events:
@@ -247,6 +313,27 @@ async def _validate_via_api(
         # --- Check 10: parallel reads (if enabled) ---
         if config.test_parallel_reads:
             failures.extend(_validate_parallel_reads_api(api_events))
+
+        # --- Check 11: Read/Write tool attribution (if required) ---
+        if config.require_read_write_attribution:
+            from collections import Counter
+
+            tool_name_counts = Counter(e.tool_name for e in api_events)
+            logger.info("Audit event tool_name distribution: %s", dict(tool_name_counts))
+
+            # Read and Write/Bash tools must all appear in audit attribution.
+            # This catches the intermittent bug where only Bash gets attribution.
+            for required_tool in ("Read", "Write", "Bash"):
+                if required_tool not in tool_name_counts:
+                    failures.append(
+                        f"Tool '{required_tool}' has no audit event attribution (got: {dict(tool_name_counts)})"
+                    )
+                else:
+                    logger.info(
+                        "  tool=%s has %d attributed audit events",
+                        required_tool,
+                        tool_name_counts[required_tool],
+                    )
 
     return failures
 

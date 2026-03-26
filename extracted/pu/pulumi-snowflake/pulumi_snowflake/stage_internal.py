@@ -30,6 +30,7 @@ class StageInternalArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a StageInternal resource.
+
         :param pulumi.Input[_builtins.str] database: The database in which to create the stage. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] schema: The schema in which to create the stage. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] comment: Specifies a comment for the stage.
@@ -152,6 +153,7 @@ class _StageInternalState:
                  stage_type: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering StageInternal resources.
+
         :param pulumi.Input[_builtins.str] comment: Specifies a comment for the stage.
         :param pulumi.Input[_builtins.str] database: The database in which to create the stage. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[Sequence[pulumi.Input['StageInternalDescribeOutputArgs']]] describe_outputs: Outputs the result of `DESCRIBE STAGE` for the given stage.
@@ -343,6 +345,8 @@ class StageInternal(pulumi.CustomResource):
 
         > **Note** Due to Snowflake limitations, when `directory.auto_refresh` is set to a new value in the configuration, the resource is recreated. When it is unset, the provider alters the whole `directory` field with the `enable` value from the configuration.
 
+        > **Note** If you experience persistent diffs after importing this resource, enable the `IMPORT_BOOLEAN_DEFAULT` experimental feature and reimport the resource for the fix to take effect. See the migration guide for details.
+
         Resource used to manage internal stages. For more information, check [internal stage documentation](https://docs.snowflake.com/en/sql-reference/sql/create-stage#internal-stage-parameters-internalstageparams).
 
         ## Example Usage
@@ -514,6 +518,7 @@ class StageInternal(pulumi.CustomResource):
         ```sh
         $ pulumi import snowflake:index/stageInternal:StageInternal example '"<database_name>"."<schema_name>"."<stage_name>"'
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -540,6 +545,8 @@ class StageInternal(pulumi.CustomResource):
 
         > **Note** Due to Snowflake limitations, when `directory.auto_refresh` is set to a new value in the configuration, the resource is recreated. When it is unset, the provider alters the whole `directory` field with the `enable` value from the configuration.
 
+        > **Note** If you experience persistent diffs after importing this resource, enable the `IMPORT_BOOLEAN_DEFAULT` experimental feature and reimport the resource for the fix to take effect. See the migration guide for details.
+
         Resource used to manage internal stages. For more information, check [internal stage documentation](https://docs.snowflake.com/en/sql-reference/sql/create-stage#internal-stage-parameters-internalstageparams).
 
         ## Example Usage
@@ -711,6 +718,7 @@ class StageInternal(pulumi.CustomResource):
         ```sh
         $ pulumi import snowflake:index/stageInternal:StageInternal example '"<database_name>"."<schema_name>"."<stage_name>"'
         ```
+
 
         :param str resource_name: The name of the resource.
         :param StageInternalArgs args: The arguments to use to populate this resource's properties.

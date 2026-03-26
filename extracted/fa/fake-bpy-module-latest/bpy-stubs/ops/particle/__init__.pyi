@@ -3,13 +3,15 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 
 def brush_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     pen_flip: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply a stroke of brush to the particles

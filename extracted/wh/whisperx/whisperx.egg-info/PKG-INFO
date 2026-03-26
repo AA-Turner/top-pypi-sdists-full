@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whisperx
-Version: 3.8.2
+Version: 3.8.4
 Summary: Time-Accurate Automatic Speech Recognition using Whisper.
 Author: Max Bain
 License: BSD-2-Clause
@@ -9,7 +9,7 @@ Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ctranslate2>=4.5.0
-Requires-Dist: faster-whisper>=1.1.1
+Requires-Dist: faster-whisper>=1.2.0
 Requires-Dist: nltk>=3.9.1
 Requires-Dist: numpy>=2.1.0
 Requires-Dist: omegaconf>=2.3.0
@@ -20,6 +20,8 @@ Requires-Dist: torch~=2.8.0
 Requires-Dist: torchaudio~=2.8.0
 Requires-Dist: transformers>=4.48.0
 Requires-Dist: triton>=3.3.0; sys_platform == "linux" and platform_machine == "x86_64"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
 Dynamic: license-file
 
 <h1 align="center">WhisperX</h1>

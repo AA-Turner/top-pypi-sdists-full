@@ -351,6 +351,8 @@ default_tool_files = {
     "enamine": os.path.join(current_dir, "data", "enamine_tools.json"),
     # eMolecules - Vendor Aggregator
     "emolecules": os.path.join(current_dir, "data", "emolecules_tools.json"),
+    # EMPIAR - Electron Microscopy Public Image Archive
+    "empiar": os.path.join(current_dir, "data", "empiar_tools.json"),
     # Mcule - Compound Purchasing Platform
     "mcule": os.path.join(current_dir, "data", "mcule_tools.json"),
     # Pharos/TCRD - NIH IDG Understudied Proteins Database
@@ -1079,6 +1081,18 @@ default_tool_files = {
     "kegg_conv_link": os.path.join(current_dir, "data", "kegg_conv_link_tools.json"),
     # TCDB - Transporter Classification Database (membrane transporter lookup/search)
     "tcdb": os.path.join(current_dir, "data", "tcdb_tools.json"),
+    "pathwaycommons": os.path.join(current_dir, "data", "pathwaycommons_tools.json"),
+    "archs4": os.path.join(current_dir, "data", "archs4_tools.json"),
+    # MGI - Mouse Genome Informatics (via Alliance of Genome Resources API)
+    "mgi": os.path.join(current_dir, "data", "mgi_tools.json"),
+    # DrugCentral - Drug targets, indications, approvals (via MyChem.info)
+    "drugcentral": os.path.join(current_dir, "data", "drugcentral_tools.json"),
+    # HOCOMOCO - High-quality transcription factor binding motifs (v14)
+    "hocomoco": os.path.join(current_dir, "data", "hocomoco_tools.json"),
+    # GMrepo - Curated human gut microbiome repository
+    "gmrepo": os.path.join(current_dir, "data", "gmrepo_tools.json"),
+    # Xenbase - Xenopus (frog) model organism database (via Alliance API)
+    "xenbase": os.path.join(current_dir, "data", "xenbase_tools.json"),
 }
 
 # Auto-load any user-provided tools from ~/.tooluniverse/user_tools/

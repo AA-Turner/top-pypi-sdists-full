@@ -795,6 +795,13 @@ options:
                 description:
                     - Maximum time interval for refreshing NPU-offloaded sessions (10 - 1000 sec).
                 type: int
+            mcast_denied_ses_offload:
+                description:
+                    - Enable/disable offloading of multicast denied sessions.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             mcast_session_accounting:
                 description:
                     - Enable/disable traffic accounting for each multicast session through TAE counter.
@@ -3396,25 +3403,26 @@ EXAMPLES = """
           lag_out_port_select: "disable"
           max_receive_unit: "0"
           max_session_timeout: "40"
+          mcast_denied_ses_offload: "enable"
           mcast_session_accounting: "tpe-based"
           napi_break_interval: "0"
           np_queues:
               ethernet_type:
                   -
-                      name: "default_name_112"
+                      name: "default_name_113"
                       queue: "0"
                       type: "<your_own_value>"
                       weight: "15"
               ip_protocol:
                   -
-                      name: "default_name_117"
+                      name: "default_name_118"
                       protocol: "0"
                       queue: "0"
                       weight: "14"
               ip_service:
                   -
                       dport: "0"
-                      name: "default_name_123"
+                      name: "default_name_124"
                       protocol: "0"
                       queue: "0"
                       sport: "0"
@@ -3493,13 +3501,13 @@ EXAMPLES = """
                       dscp7: "queue0"
                       dscp8: "queue0"
                       dscp9: "queue0"
-                      id: "201"
+                      id: "202"
                       type: "cos"
                       weight: "6"
               scheduler:
                   -
                       mode: "none"
-                      name: "default_name_206"
+                      name: "default_name_207"
           npu_group_effective_scope: "255"
           npu_tcam:
               -
@@ -3615,7 +3623,7 @@ EXAMPLES = """
                       vdid: "0"
                   mir_act:
                       vlif: "0"
-                  name: "default_name_321"
+                  name: "default_name_322"
                   oid: "0"
                   pri_act:
                       priority: "0"
@@ -3887,6 +3895,7 @@ def filter_system_npu_data(json):
         "lag_out_port_select",
         "max_receive_unit",
         "max_session_timeout",
+        "mcast_denied_ses_offload",
         "mcast_session_accounting",
         "napi_break_interval",
         "np_queues",
@@ -4115,6 +4124,11 @@ versioned_schema = {
                 ["v7.4.0", "v7.4.1"],
                 ["v7.4.3", ""],
             ],
+        },
+        "mcast_denied_ses_offload": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "fastpath": {
             "v_range": [["v6.0.0", "v7.4.1"], ["v7.4.3", ""]],
@@ -7100,7 +7114,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_npu"
         )

@@ -43,11 +43,12 @@ from typing import Dict, List, Union
 def data_protection_classification_payload(
         passed_keywords: dict
         ) -> Dict[str, List[Dict[str, Union[str, int, bool, list, dict]]]]:
-    """Create classifications.
+    """Create or update classifications.
 
     {
         "resources": [
             {
+            "id": "string",
             "classification_properties": {
                 "content_patterns": [
                 "string"
@@ -98,7 +99,7 @@ def data_protection_classification_payload(
     returned_payload = {}
     resources = []
     resource = {}
-    keys = ["name", "classification_properties"]
+    keys = ["id", "name", "classification_properties"]
     for key in keys:
         if passed_keywords.get(key, None):
             provided = passed_keywords.get(key, None)
@@ -128,7 +129,7 @@ def data_protection_cloud_app_payload(passed_keywords: dict) -> Dict[str, List[D
     for key in keys:
         if passed_keywords.get(key, None):
             provided = passed_keywords.get(key, None)
-            if provided == "urls" and isinstance(provided, dict):
+            if key == "urls" and isinstance(provided, dict):
                 provided = [provided]
             returned_payload[key] = provided
 
@@ -214,11 +215,12 @@ def data_protection_sensitivity_label_payload(
 
 # pylint: disable=R0912
 def data_protection_policy_payload(passed_keywords: dict) -> Dict[str, List[Dict[str, Union[str, int, bool, list, dict]]]]:
-    """Create data protection policies.
+    """Create or update data protection policies.
 
     {
         "resources": [
             {
+            "id": "string",
             "description": "string",
             "name": "string",
             "policy_properties": {
@@ -300,7 +302,7 @@ def data_protection_policy_payload(passed_keywords: dict) -> Dict[str, List[Dict
     resources = []
     resource = {}
 
-    resource_fields = ["description", "name", "precedence", "policy_properties"]
+    resource_fields = ["id", "description", "name", "precedence", "policy_properties"]
     for field in resource_fields:
         if passed_keywords.get(field, None) is not None:
             resource[field] = passed_keywords.get(field, None)
@@ -343,5 +345,84 @@ def data_protection_web_locations_payload(
             web_location[key] = passed_keywords.get(key, None)
     web_locations.append(web_location)
     returned_payload["web_locations"] = web_locations
+
+    return returned_payload
+
+
+def data_protection_local_application_payload(
+        passed_keywords: dict
+        ) -> Dict[str, List[Dict[str, Union[str, int, bool, list, dict]]]]:
+    """Create or update a local application.
+
+    {
+        "apply_rules_for_children_processes": boolean,
+        "executable_name": "string",
+        "group_ids": [
+            "string"
+        ],
+        "name": "string"
+    }
+    """
+    returned_payload = {}
+    keys = ["apply_rules_for_children_processes", "executable_name", "group_ids", "name"]
+    for key in keys:
+        if passed_keywords.get(key, None) is not None:
+            returned_payload[key] = passed_keywords.get(key, None)
+
+    return returned_payload
+
+
+def data_protection_local_application_group_payload(
+        passed_keywords: dict
+        ) -> Dict[str, List[Dict[str, Union[str, int, bool, list, dict]]]]:
+    """Create or update a local application group.
+
+    {
+        "description": "string",
+        "local_application_ids": [
+            "string"
+        ],
+        "name": "string"
+    }
+    """
+    returned_payload = {}
+    keys = ["description", "local_application_ids", "name"]
+    for key in keys:
+        if passed_keywords.get(key, None) is not None:
+            returned_payload[key] = passed_keywords.get(key, None)
+
+    return returned_payload
+
+
+def data_protection_policy_precedence_payload(
+        passed_keywords: dict
+        ) -> Dict[str, List[Dict[str, Union[str, int, bool, list, dict]]]]:
+    """Update policy precedence.
+
+    {
+        "resources": [
+            {
+                "platform": "string",
+                "precedence": [
+                    "object"
+                ]
+            }
+        ]
+    }
+    """
+    returned_payload = {}
+
+    if passed_keywords.get("resources", None) is not None:
+        returned_payload["resources"] = passed_keywords.get("resources", None)
+        return returned_payload
+
+    resources = []
+    resource = {}
+    keys = ["platform", "precedence"]
+    for key in keys:
+        if passed_keywords.get(key, None) is not None:
+            resource[key] = passed_keywords.get(key, None)
+    resources.append(resource)
+    returned_payload["resources"] = resources
 
     return returned_payload

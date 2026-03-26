@@ -126,7 +126,7 @@ options:
                 type: str
             masquerade:
                 description:
-                    - Enable/disable use of the of the IP address of the outgoing interface as the client IP address
+                    - Enable/disable use of the IP address of the outgoing interface as the client IP address
                 type: str
                 choices:
                     - 'enable'
@@ -427,7 +427,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "web_proxy_isolator_server"
         )

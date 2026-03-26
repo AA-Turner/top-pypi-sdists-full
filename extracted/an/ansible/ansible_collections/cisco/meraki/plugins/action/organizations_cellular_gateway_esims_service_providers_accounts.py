@@ -208,6 +208,7 @@ class OrganizationsCellularGatewayEsimsServiceProvidersAccounts(object):
             ("title", "title"),
             ("username", "username"),
             ("organizationId", "organizationId"),
+            ("accountId", "accountId"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (DNAC) params
         # If any does not have eq params, it requires update

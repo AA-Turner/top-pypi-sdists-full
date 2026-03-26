@@ -19,7 +19,6 @@ import httpx
 from ibm_watsonx_ai._wrappers.httpx_wrapper import (
     TokenBucket,
     _get_httpx_client,
-    _httpx_transport_params,
     _with_async_retry,
     _with_retry,
 )
@@ -32,6 +31,7 @@ from .base_embeddings import BaseEmbeddings
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient, Credentials
+    from ibm_watsonx_ai.gateway import Gateway
 
 # Type Aliases
 ParamsType: TypeAlias = dict[str, str | dict[str, str]]
@@ -72,7 +72,13 @@ class Embeddings(BaseEmbeddings, WMLResource):
     :type space_id: str, optional
 
     :param api_client: initialized APIClient object with a set project ID or space ID. If passed, ``credentials`` and ``project_id``/``space_id`` are not required.
+        Mutually exclusive with ``gateway``.
     :type api_client: APIClient, optional
+
+    :param gateway: initialized Gateway object. When provided, ``embed_query`` and ``embed_documents``
+        will delegate to ``gateway.embeddings.create`` using the OpenAI-compatible embeddings API.
+        Mutually exclusive with ``api_client`` (and ``credentials``).
+    :type gateway: Gateway, optional
 
     :param verify: You can pass one of following as verify:
 
@@ -104,30 +110,56 @@ class Embeddings(BaseEmbeddings, WMLResource):
     .. hint::
         You can copy the project_id from the Project's Manage tab (Project -> Manage -> General -> Details).
 
-    **Example:**
+    **Examples:**
 
-    .. code-block:: python
+    .. tab-set::
 
-        from ibm_watsonx_ai import Credentials
-        from ibm_watsonx_ai.foundation_models import Embeddings
-        from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames as EmbedParams
-        from ibm_watsonx_ai.foundation_models.utils.enums import EmbeddingTypes
+        .. tab-item:: Embeddings with inference service
 
-       embed_params = {
-            EmbedParams.TRUNCATE_INPUT_TOKENS: 3,
-            EmbedParams.RETURN_OPTIONS: {
-            'input_text': True
-            }
-        }
+            .. code-block:: python
 
-        embedding = Embeddings(
-            model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
-            params=embed_params,
-            credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"),
-            project_id="*****"
-            )
+                from ibm_watsonx_ai import Credentials
+                from ibm_watsonx_ai.foundation_models import Embeddings
+                from ibm_watsonx_ai.metanames import (
+                    EmbedTextParamsMetaNames as EmbedParams,
+                )
+                from ibm_watsonx_ai.foundation_models.utils.enums import EmbeddingTypes
+
+                embed_params = {
+                    EmbedParams.TRUNCATE_INPUT_TOKENS: 3,
+                    EmbedParams.RETURN_OPTIONS: {"input_text": True},
+                }
+
+                embedding = Embeddings(
+                    model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
+                    params=embed_params,
+                    credentials=Credentials(
+                        api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+                    ),
+                    project_id="*****",
+                )
+
+        .. tab-item:: Embeddings with Model Gateway
+
+            .. code-block:: python
+
+                from ibm_watsonx_ai import APIClient, Credentials
+                from ibm_watsonx_ai.foundation_models import Embeddings
+                from ibm_watsonx_ai.gateway import Gateway
+
+                api_client = APIClient(
+                    credentials=Credentials(
+                        api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+                    ),
+                    project_id="*****",
+                )
+
+                gateway = Gateway(api_client=api_client)
+
+                embedding = Embeddings(
+                    model_id="ibm/slate-125m-english-rtrvr-v2",
+                    gateway=gateway,
+                )
 
     """
 
@@ -140,6 +172,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
         project_id: str | None = None,
         space_id: str | None = None,
         api_client: APIClient | None = None,
+        gateway: Gateway | None = None,
         verify: bool | str | Path | None = None,
         batch_size: int = MAX_INPUTS_LENGTH,
         concurrency_limit: int = DEFAULT_CONCURRENCY_LIMIT,
@@ -182,31 +215,43 @@ class Embeddings(BaseEmbeddings, WMLResource):
         if isinstance(verify, Path):
             verify = str(verify)
 
-        if credentials:
+        # Validate mutual exclusivity of gateway with api_client / credentials
+        if gateway is not None and (api_client is not None or credentials is not None):
+            raise InvalidMultipleArguments(
+                params_names_list=["api_client", "gateway"],
+                reason="'gateway' is mutually exclusive with 'api_client' and 'credentials'. Provide only one of them.",
+            )
+
+        self._gateway: Gateway | None
+        if gateway is not None:
+            self._gateway = gateway
+            self._client = gateway._client
+        elif credentials:
             from ibm_watsonx_ai import APIClient
 
+            self._gateway = None
             self._client = APIClient(credentials, verify=verify)
         elif api_client:
+            self._gateway = None
             self._client = api_client
         else:
             raise InvalidMultipleArguments(
-                params_names_list=["credentials", "api_client"],
+                params_names_list=["credentials", "api_client", "gateway"],
                 reason="None of the arguments were provided.",
             )
 
-        if space_id:
-            self._client.set.default_space(space_id)
-        elif project_id:
-            self._client.set.default_project(project_id)
-        elif not api_client:
-            raise InvalidMultipleArguments(
-                params_names_list=["space_id", "project_id"],
-                reason="None of the arguments were provided.",
-            )
+        if self._gateway is None:
+            if space_id:
+                self._client.set.default_space(space_id)
+            elif project_id:
+                self._client.set.default_project(project_id)
+            elif not api_client:
+                raise InvalidMultipleArguments(
+                    params_names_list=["space_id", "project_id"],
+                    reason="None of the arguments were provided.",
+                )
 
         WMLResource.__init__(self, __name__, self._client)
-
-        self._transport_params = _httpx_transport_params(self._client)
 
         # Set initially 8 requests per second as it is default for prod instances
         # if header "x-requests-limit-rate" is different capacity will be updated
@@ -412,6 +457,10 @@ class Embeddings(BaseEmbeddings, WMLResource):
             embedding_vectors = embedding.embed_documents(texts=q)
             print(embedding_vectors)
         """
+        if self._gateway is not None:
+            response = self._gateway.embeddings.create(model=self.model_id, input=texts)
+            return [el["embedding"] for el in response["data"]]
+
         return [
             vector.get("embedding")
             for vector in self.generate(
@@ -446,6 +495,12 @@ class Embeddings(BaseEmbeddings, WMLResource):
             embedding_vectors = await embedding.aembed_documents(texts=q)
             print(embedding_vectors)
         """
+        if self._gateway is not None:
+            response = await self._gateway.embeddings.acreate(
+                model=self.model_id, input=texts
+            )
+            return [el["embedding"] for el in response["data"]]
+
         response = await self.agenerate(inputs=texts, params=params)
 
         return [vector.get("embedding") for vector in response.get("results", [{}])]
@@ -468,6 +523,10 @@ class Embeddings(BaseEmbeddings, WMLResource):
             embedding_vector = embedding.embed_query(text=q)
             print(embedding_vector)
         """
+        if self._gateway is not None:
+            response = self._gateway.embeddings.create(model=self.model_id, input=text)
+            return response["data"][0]["embedding"]
+
         return get_from_json(
             self.generate(inputs=[text], params=params), ["results", 0, "embedding"]
         )
@@ -492,6 +551,12 @@ class Embeddings(BaseEmbeddings, WMLResource):
             embedding_vector = await embedding.aembed_query(text=q)
             print(embedding_vector)
         """
+        if self._gateway is not None:
+            response = await self._gateway.embeddings.acreate(
+                model=self.model_id, input=text
+            )
+            return response["data"][0]["embedding"]
+
         response = await self.agenerate(inputs=[text], params=params)
 
         return get_from_json(response, ["results", 0, "embedding"])
@@ -596,7 +661,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
         """
         self._client.httpx_client.close()
         self._client.httpx_client = _get_httpx_client(
-            transport=self._transport_params,
+            self._client,
             timeout=EMBEDDINGS_HTTPX_TIMEOUT,
         )
 

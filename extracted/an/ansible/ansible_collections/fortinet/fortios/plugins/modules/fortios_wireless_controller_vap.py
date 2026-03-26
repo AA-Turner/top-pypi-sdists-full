@@ -710,6 +710,13 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            mlo:
+                description:
+                    - Enable/disable WiFi7 Multi-Link-Operation .
+                type: str
+                choices:
+                    - 'disable'
+                    - 'enable'
             mpsk:
                 description:
                     - Enable/disable multiple PSK authentication.
@@ -1671,6 +1678,7 @@ EXAMPLES = """
           mbo_cell_data_conn_pref: "excluded"
           me_disable_thresh: "32"
           mesh_backhaul: "enable"
+          mlo: "disable"
           mpsk: "enable"
           mpsk_concurrent_clients: "32767"
           mpsk_key:
@@ -1680,7 +1688,7 @@ EXAMPLES = """
                   key_name: "<your_own_value>"
                   mpsk_schedules:
                       -
-                          name: "default_name_109 (source firewall.schedule.group.name firewall.schedule.recurring.name firewall.schedule.onetime.name)"
+                          name: "default_name_110 (source firewall.schedule.group.name firewall.schedule.recurring.name firewall.schedule.onetime.name)"
                   passphrase: "<your_own_value>"
           mpsk_profile: "<your_own_value> (source wireless-controller.mpsk-profile.name)"
           mu_mimo: "enable"
@@ -1688,7 +1696,7 @@ EXAMPLES = """
           multicast_rate: "0"
           nac: "enable"
           nac_profile: "<your_own_value> (source wireless-controller.nac-profile.name)"
-          name: "default_name_117"
+          name: "default_name_118"
           nas_filter_rule: "enable"
           neighbor_report_dual_band: "disable"
           okc: "disable"
@@ -1726,7 +1734,7 @@ EXAMPLES = """
           radius_mac_auth_server: "<your_own_value> (source user.radius.name)"
           radius_mac_auth_usergroups:
               -
-                  name: "default_name_154 (source user.group.name)"
+                  name: "default_name_155 (source user.group.name)"
           radius_mac_mpsk_auth: "enable"
           radius_mac_mpsk_timeout: "86400"
           radius_server: "<your_own_value> (source user.radius.name)"
@@ -1753,7 +1761,7 @@ EXAMPLES = """
           scan_botnet_connections: "disable"
           schedule:
               -
-                  name: "default_name_180 (source firewall.schedule.group.name firewall.schedule.recurring.name firewall.schedule.onetime.name)"
+                  name: "default_name_181 (source firewall.schedule.group.name firewall.schedule.recurring.name firewall.schedule.onetime.name)"
           secondary_wag_profile: "<your_own_value> (source wireless-controller.wag-profile.name)"
           security: "open"
           security_exempt_list: "<your_own_value> (source user.security-exempt-list.name)"
@@ -1761,7 +1769,7 @@ EXAMPLES = """
           security_redirect_url: "<your_own_value>"
           selected_usergroups:
               -
-                  name: "default_name_187 (source user.group.name)"
+                  name: "default_name_188 (source user.group.name)"
           set_80211k: "disable"
           set_80211v: "disable"
           split_tunneling: "enable"
@@ -1776,7 +1784,7 @@ EXAMPLES = """
           tunnel_fallback_interval: "7200"
           usergroup:
               -
-                  name: "default_name_201 (source user.group.name)"
+                  name: "default_name_202 (source user.group.name)"
           utm_log: "enable"
           utm_profile: "<your_own_value> (source wireless-controller.utm-profile.name)"
           utm_status: "enable"
@@ -1784,11 +1792,11 @@ EXAMPLES = """
           vlan_auto: "enable"
           vlan_name:
               -
-                  name: "default_name_208"
+                  name: "default_name_209"
                   vlan_id: "<your_own_value>"
           vlan_pool:
               -
-                  id: "211"
+                  id: "212"
                   wtp_group: "<your_own_value> (source wireless-controller.wtp-group.name)"
           vlan_pooling: "wtp-group"
           vlanid: "0"
@@ -1985,6 +1993,7 @@ def filter_wireless_controller_vap_data(json):
         "mbo_cell_data_conn_pref",
         "me_disable_thresh",
         "mesh_backhaul",
+        "mlo",
         "mpsk",
         "mpsk_concurrent_clients",
         "mpsk_key",
@@ -2641,6 +2650,11 @@ versioned_schema = {
         },
         "domain_name_stripping": {
             "v_range": [["v7.6.0", ""]],
+            "type": "string",
+            "options": [{"value": "disable"}, {"value": "enable"}],
+        },
+        "mlo": {
+            "v_range": [["v7.6.5", ""]],
             "type": "string",
             "options": [{"value": "disable"}, {"value": "enable"}],
         },
@@ -3562,7 +3576,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "wireless_controller_vap"
         )

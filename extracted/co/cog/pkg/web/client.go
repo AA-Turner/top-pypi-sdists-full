@@ -155,7 +155,7 @@ func (c *Client) PostPushStart(ctx context.Context, pushID string, buildTime tim
 		return err
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(req) //nolint:gosec // G704: URL from configured endpoint
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (c *Client) PostNewVersion(ctx context.Context, image string, weights []Fil
 		return err
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(req) //nolint:gosec // G704: URL from configured endpoint
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (c *Client) FetchAPIToken(ctx context.Context, entity string) (string, erro
 		return "", err
 	}
 
-	tokenResp, err := c.client.Do(req)
+	tokenResp, err := c.client.Do(req) //nolint:gosec // G704: URL from configured endpoint
 	if err != nil {
 		return "", err
 	}
@@ -421,7 +421,7 @@ func (c *Client) doSingleFileChallenge(ctx context.Context, file File, fileType 
 	if err != nil {
 		return answer, util.WrapError(err, "build HTTP request")
 	}
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Do(req) //nolint:gosec // G704: URL from configured endpoint
 	if err != nil {
 		return answer, util.WrapError(err, "do HTTP request")
 	}
@@ -451,11 +451,8 @@ func (c *Client) doSingleFileChallenge(ctx context.Context, file File, fileType 
 func newVersionURL(image string) (url.URL, error) {
 	imageComponents := strings.Split(image, "/")
 	newVersionUrl := webBaseURL()
-	if len(imageComponents) != 3 {
+	if len(imageComponents) != 3 || imageComponents[0] != global.ReplicateRegistryHost {
 		return newVersionUrl, r8_errors.ErrorBadRegistryURL
-	}
-	if imageComponents[0] != global.ReplicateRegistryHost {
-		return newVersionUrl, r8_errors.ErrorBadRegistryHost
 	}
 	newVersionUrl.Path = strings.Join([]string{"", "api", "models", imageComponents[1], imageComponents[2], "versions"}, "/")
 	return newVersionUrl, nil

@@ -300,6 +300,7 @@ class ProgramClient:
         contact_id: typing.Optional[str] = None,
         params: typing.Optional[str] = None,
         loyalty_subscription_id: typing.Optional[str] = None,
+        include_internal: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetParameterSubscriptionInfoResponse:
         """
@@ -318,6 +319,9 @@ class ProgramClient:
 
         loyalty_subscription_id : typing.Optional[str]
             The loyalty subscription ID to filter by.
+
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -343,6 +347,7 @@ class ProgramClient:
             contact_id=contact_id,
             params=params,
             loyalty_subscription_id=loyalty_subscription_id,
+            include_internal=include_internal,
             request_options=request_options,
         )
         return _response.data
@@ -896,6 +901,7 @@ class AsyncProgramClient:
         contact_id: typing.Optional[str] = None,
         params: typing.Optional[str] = None,
         loyalty_subscription_id: typing.Optional[str] = None,
+        include_internal: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetParameterSubscriptionInfoResponse:
         """
@@ -914,6 +920,9 @@ class AsyncProgramClient:
 
         loyalty_subscription_id : typing.Optional[str]
             The loyalty subscription ID to filter by.
+
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -947,6 +956,7 @@ class AsyncProgramClient:
             contact_id=contact_id,
             params=params,
             loyalty_subscription_id=loyalty_subscription_id,
+            include_internal=include_internal,
             request_options=request_options,
         )
         return _response.data

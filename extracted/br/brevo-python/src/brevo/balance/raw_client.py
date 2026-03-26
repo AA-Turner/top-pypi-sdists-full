@@ -10,6 +10,7 @@ from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
 from ..core.parse_error import ParsingError
 from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
 from ..core.unchecked_base_model import construct_type
 from ..errors.failed_dependency_error import FailedDependencyError
 from ..errors.forbidden_error import ForbiddenError
@@ -35,6 +36,12 @@ from .types.get_contact_balances_response import GetContactBalancesResponse
 from .types.get_loyalty_balance_programs_pid_transaction_history_request_sort import (
     GetLoyaltyBalanceProgramsPidTransactionHistoryRequestSort,
 )
+from .types.get_loyalty_balance_programs_pid_transaction_history_request_status import (
+    GetLoyaltyBalanceProgramsPidTransactionHistoryRequestStatus,
+)
+from .types.get_loyalty_balance_programs_pid_transaction_history_request_transaction_type import (
+    GetLoyaltyBalanceProgramsPidTransactionHistoryRequestTransactionType,
+)
 from .types.get_loyalty_balance_programs_pid_transaction_history_response import (
     GetLoyaltyBalanceProgramsPidTransactionHistoryResponse,
 )
@@ -53,6 +60,9 @@ from .types.post_loyalty_balance_programs_pid_balance_definitions_request_balanc
 )
 from .types.post_loyalty_balance_programs_pid_balance_definitions_request_balance_option_debit_rounding import (
     PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestBalanceOptionDebitRounding,
+)
+from .types.post_loyalty_balance_programs_pid_balance_definitions_request_meta import (
+    PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestMeta,
 )
 from .types.post_loyalty_balance_programs_pid_balance_definitions_request_unit import (
     PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestUnit,
@@ -75,6 +85,7 @@ from .types.update_balance_definition_request_balance_option_credit_rounding imp
 from .types.update_balance_definition_request_balance_option_debit_rounding import (
     UpdateBalanceDefinitionRequestBalanceOptionDebitRounding,
 )
+from .types.update_balance_definition_request_meta import UpdateBalanceDefinitionRequestMeta
 from .types.update_balance_definition_request_unit import UpdateBalanceDefinitionRequestUnit
 from .types.update_balance_limit_request_constraint_type import UpdateBalanceLimitRequestConstraintType
 from .types.update_balance_limit_request_duration_unit import UpdateBalanceLimitRequestDurationUnit
@@ -99,6 +110,7 @@ class RawBalanceClient:
         offset: typing.Optional[int] = None,
         sort_field: typing.Optional[str] = None,
         sort: typing.Optional[str] = None,
+        include_internal: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[BalanceLimit]:
         """
@@ -127,6 +139,9 @@ class RawBalanceClient:
         sort : typing.Optional[str]
             Sort Order
 
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -145,6 +160,7 @@ class RawBalanceClient:
                 "sort": sort,
                 "contact_id": contact_id,
                 "balance_definition_id": balance_definition_id,
+                "includeInternal": include_internal,
             },
             request_options=request_options,
         )
@@ -367,7 +383,7 @@ class RawBalanceClient:
         max_amount: typing.Optional[float] = OMIT,
         max_credit_amount_limit: typing.Optional[float] = OMIT,
         max_debit_amount_limit: typing.Optional[float] = OMIT,
-        meta: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        meta: typing.Optional[PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestMeta] = OMIT,
         min_amount: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[BalanceDefinition]:
@@ -421,7 +437,7 @@ class RawBalanceClient:
         max_debit_amount_limit : typing.Optional[float]
             Maximum debit allowed per operation.
 
-        meta : typing.Optional[typing.Dict[str, typing.Any]]
+        meta : typing.Optional[PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestMeta]
             Additional metadata for the balance definition.
 
         min_amount : typing.Optional[float]
@@ -451,7 +467,11 @@ class RawBalanceClient:
                 "maxAmount": max_amount,
                 "maxCreditAmountLimit": max_credit_amount_limit,
                 "maxDebitAmountLimit": max_debit_amount_limit,
-                "meta": meta,
+                "meta": convert_and_respect_annotation_metadata(
+                    object_=meta,
+                    annotation=PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestMeta,
+                    direction="write",
+                ),
                 "minAmount": min_amount,
                 "name": name,
                 "unit": unit,
@@ -675,7 +695,7 @@ class RawBalanceClient:
         max_amount: typing.Optional[float] = OMIT,
         max_credit_amount_limit: typing.Optional[float] = OMIT,
         max_debit_amount_limit: typing.Optional[float] = OMIT,
-        meta: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        meta: typing.Optional[UpdateBalanceDefinitionRequestMeta] = OMIT,
         min_amount: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[BalanceDefinition]:
@@ -732,7 +752,7 @@ class RawBalanceClient:
         max_debit_amount_limit : typing.Optional[float]
             Maximum debit allowed per operation.
 
-        meta : typing.Optional[typing.Dict[str, typing.Any]]
+        meta : typing.Optional[UpdateBalanceDefinitionRequestMeta]
             Optional metadata for the balance definition.
 
         min_amount : typing.Optional[float]
@@ -762,7 +782,9 @@ class RawBalanceClient:
                 "maxAmount": max_amount,
                 "maxCreditAmountLimit": max_credit_amount_limit,
                 "maxDebitAmountLimit": max_debit_amount_limit,
-                "meta": meta,
+                "meta": convert_and_respect_annotation_metadata(
+                    object_=meta, annotation=UpdateBalanceDefinitionRequestMeta, direction="write"
+                ),
                 "minAmount": min_amount,
                 "name": name,
                 "unit": unit,
@@ -1450,7 +1472,11 @@ class RawBalanceClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get_contact_balances(
-        self, pid: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        pid: str,
+        *,
+        include_internal: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetContactBalancesResponse]:
         """
         Returns balance list
@@ -1459,6 +1485,9 @@ class RawBalanceClient:
         ----------
         pid : str
             Loyalty Program Id
+
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1471,6 +1500,9 @@ class RawBalanceClient:
         _response = self._client_wrapper.httpx_client.request(
             f"loyalty/balance/programs/{jsonable_encoder(pid)}/contact-balances",
             method="GET",
+            params={
+                "includeInternal": include_internal,
+            },
             request_options=request_options,
         )
         try:
@@ -1679,7 +1711,12 @@ class RawBalanceClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get_subscription_balances(
-        self, pid: str, cid: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        pid: str,
+        cid: str,
+        *,
+        include_internal: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSubscriptionBalancesResponse]:
         """
         Returns subscription balances
@@ -1692,6 +1729,9 @@ class RawBalanceClient:
         cid : str
             Contact Id
 
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1703,6 +1743,9 @@ class RawBalanceClient:
         _response = self._client_wrapper.httpx_client.request(
             f"loyalty/balance/programs/{jsonable_encoder(pid)}/subscriptions/{jsonable_encoder(cid)}/balances",
             method="GET",
+            params={
+                "includeInternal": include_internal,
+            },
             request_options=request_options,
         )
         try:
@@ -1901,6 +1944,8 @@ class RawBalanceClient:
         sort_field: typing.Optional[typing.Literal["createdAt"]] = None,
         sort: typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestSort] = None,
         filters: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        status: typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestStatus] = None,
+        transaction_type: typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestTransactionType] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetLoyaltyBalanceProgramsPidTransactionHistoryResponse]:
         """
@@ -1921,7 +1966,7 @@ class RawBalanceClient:
             Limit the number of records returned
 
         offset : typing.Optional[int]
-            Skip a number of records
+            Page number to retrieve
 
         sort_field : typing.Optional[typing.Literal["createdAt"]]
             Field to sort by
@@ -1931,6 +1976,12 @@ class RawBalanceClient:
 
         filters : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filters to apply
+
+        status : typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestStatus]
+            Transaction status filter. Allowed values: draft, completed, rejected, cancelled, expired
+
+        transaction_type : typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestTransactionType]
+            Transaction type filter. Allowed values: credit, debit
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1951,6 +2002,8 @@ class RawBalanceClient:
                 "contactId": contact_id,
                 "balanceDefinitionId": balance_definition_id,
                 "filters": filters,
+                "status": status,
+                "transactionType": transaction_type,
             },
             request_options=request_options,
         )
@@ -2397,6 +2450,7 @@ class AsyncRawBalanceClient:
         offset: typing.Optional[int] = None,
         sort_field: typing.Optional[str] = None,
         sort: typing.Optional[str] = None,
+        include_internal: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[BalanceLimit]:
         """
@@ -2425,6 +2479,9 @@ class AsyncRawBalanceClient:
         sort : typing.Optional[str]
             Sort Order
 
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2443,6 +2500,7 @@ class AsyncRawBalanceClient:
                 "sort": sort,
                 "contact_id": contact_id,
                 "balance_definition_id": balance_definition_id,
+                "includeInternal": include_internal,
             },
             request_options=request_options,
         )
@@ -2665,7 +2723,7 @@ class AsyncRawBalanceClient:
         max_amount: typing.Optional[float] = OMIT,
         max_credit_amount_limit: typing.Optional[float] = OMIT,
         max_debit_amount_limit: typing.Optional[float] = OMIT,
-        meta: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        meta: typing.Optional[PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestMeta] = OMIT,
         min_amount: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[BalanceDefinition]:
@@ -2719,7 +2777,7 @@ class AsyncRawBalanceClient:
         max_debit_amount_limit : typing.Optional[float]
             Maximum debit allowed per operation.
 
-        meta : typing.Optional[typing.Dict[str, typing.Any]]
+        meta : typing.Optional[PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestMeta]
             Additional metadata for the balance definition.
 
         min_amount : typing.Optional[float]
@@ -2749,7 +2807,11 @@ class AsyncRawBalanceClient:
                 "maxAmount": max_amount,
                 "maxCreditAmountLimit": max_credit_amount_limit,
                 "maxDebitAmountLimit": max_debit_amount_limit,
-                "meta": meta,
+                "meta": convert_and_respect_annotation_metadata(
+                    object_=meta,
+                    annotation=PostLoyaltyBalanceProgramsPidBalanceDefinitionsRequestMeta,
+                    direction="write",
+                ),
                 "minAmount": min_amount,
                 "name": name,
                 "unit": unit,
@@ -2973,7 +3035,7 @@ class AsyncRawBalanceClient:
         max_amount: typing.Optional[float] = OMIT,
         max_credit_amount_limit: typing.Optional[float] = OMIT,
         max_debit_amount_limit: typing.Optional[float] = OMIT,
-        meta: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        meta: typing.Optional[UpdateBalanceDefinitionRequestMeta] = OMIT,
         min_amount: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[BalanceDefinition]:
@@ -3030,7 +3092,7 @@ class AsyncRawBalanceClient:
         max_debit_amount_limit : typing.Optional[float]
             Maximum debit allowed per operation.
 
-        meta : typing.Optional[typing.Dict[str, typing.Any]]
+        meta : typing.Optional[UpdateBalanceDefinitionRequestMeta]
             Optional metadata for the balance definition.
 
         min_amount : typing.Optional[float]
@@ -3060,7 +3122,9 @@ class AsyncRawBalanceClient:
                 "maxAmount": max_amount,
                 "maxCreditAmountLimit": max_credit_amount_limit,
                 "maxDebitAmountLimit": max_debit_amount_limit,
-                "meta": meta,
+                "meta": convert_and_respect_annotation_metadata(
+                    object_=meta, annotation=UpdateBalanceDefinitionRequestMeta, direction="write"
+                ),
                 "minAmount": min_amount,
                 "name": name,
                 "unit": unit,
@@ -3748,7 +3812,11 @@ class AsyncRawBalanceClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get_contact_balances(
-        self, pid: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        pid: str,
+        *,
+        include_internal: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetContactBalancesResponse]:
         """
         Returns balance list
@@ -3757,6 +3825,9 @@ class AsyncRawBalanceClient:
         ----------
         pid : str
             Loyalty Program Id
+
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3769,6 +3840,9 @@ class AsyncRawBalanceClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"loyalty/balance/programs/{jsonable_encoder(pid)}/contact-balances",
             method="GET",
+            params={
+                "includeInternal": include_internal,
+            },
             request_options=request_options,
         )
         try:
@@ -3977,7 +4051,12 @@ class AsyncRawBalanceClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get_subscription_balances(
-        self, pid: str, cid: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        pid: str,
+        cid: str,
+        *,
+        include_internal: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSubscriptionBalancesResponse]:
         """
         Returns subscription balances
@@ -3990,6 +4069,9 @@ class AsyncRawBalanceClient:
         cid : str
             Contact Id
 
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -4001,6 +4083,9 @@ class AsyncRawBalanceClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"loyalty/balance/programs/{jsonable_encoder(pid)}/subscriptions/{jsonable_encoder(cid)}/balances",
             method="GET",
+            params={
+                "includeInternal": include_internal,
+            },
             request_options=request_options,
         )
         try:
@@ -4199,6 +4284,8 @@ class AsyncRawBalanceClient:
         sort_field: typing.Optional[typing.Literal["createdAt"]] = None,
         sort: typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestSort] = None,
         filters: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        status: typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestStatus] = None,
+        transaction_type: typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestTransactionType] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetLoyaltyBalanceProgramsPidTransactionHistoryResponse]:
         """
@@ -4219,7 +4306,7 @@ class AsyncRawBalanceClient:
             Limit the number of records returned
 
         offset : typing.Optional[int]
-            Skip a number of records
+            Page number to retrieve
 
         sort_field : typing.Optional[typing.Literal["createdAt"]]
             Field to sort by
@@ -4229,6 +4316,12 @@ class AsyncRawBalanceClient:
 
         filters : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filters to apply
+
+        status : typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestStatus]
+            Transaction status filter. Allowed values: draft, completed, rejected, cancelled, expired
+
+        transaction_type : typing.Optional[GetLoyaltyBalanceProgramsPidTransactionHistoryRequestTransactionType]
+            Transaction type filter. Allowed values: credit, debit
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -4249,6 +4342,8 @@ class AsyncRawBalanceClient:
                 "contactId": contact_id,
                 "balanceDefinitionId": balance_definition_id,
                 "filters": filters,
+                "status": status,
+                "transactionType": transaction_type,
             },
             request_options=request_options,
         )

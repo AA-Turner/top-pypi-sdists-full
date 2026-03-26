@@ -10,6 +10,8 @@ import typing_extensions
 
 V = typing.TypeVar("V")
 
+DEPLOYMENT_STRATEGY_TYPE = typing.Literal["rolling", "recreate"]
+
 async def _heartbeat(client: modal.client._Client, app_id: str) -> None: ...
 async def _init_local_app_existing(
     client: modal.client._Client, existing_app_id: str, environment_name: str
@@ -37,6 +39,10 @@ async def _create_all_objects(
     """
     ...
 
+async def _stop_and_wait_for_containers(
+    client: modal.client._Client, app_id: str, deployed_at: float, environment_name: str
+): ...
+def _validate_deployment_strategy(strategy: str) -> typing.Literal["rolling", "recreate"]: ...
 async def _publish_app(
     client: modal.client._Client,
     running_app: modal.running_app.RunningApp,
@@ -45,7 +51,9 @@ async def _publish_app(
     name: str = "",
     deployment_tag: str = "",
     commit_info: typing.Optional[modal_proto.api_pb2.CommitInfo] = None,
-) -> tuple[str, list[modal_proto.api_pb2.Warning]]:
+    deployment_strategy: str = "rolling",
+    environment_name: typing.Optional[str] = None,
+) -> tuple[str, list[modal_proto.api_pb2.Warning], float]:
     """Wrapper for AppPublish RPC."""
     ...
 
@@ -71,6 +79,7 @@ def _run_app(
     detach: bool = False,
     environment_name: typing.Optional[str] = None,
     interactive: bool = False,
+    deployment_strategy: str = "rolling",
 ) -> typing.AsyncContextManager[modal.app._App]:
     """mdmd:hidden"""
     ...
@@ -116,10 +125,11 @@ class DeployResult:
 async def _deploy_app(
     app: modal.app._App,
     name: typing.Optional[str] = None,
-    namespace: typing.Any = None,
-    client: typing.Optional[modal.client._Client] = None,
+    *,
     environment_name: typing.Optional[str] = None,
     tag: str = "",
+    deployment_strategy: str = "rolling",
+    client: typing.Optional[modal.client._Client] = None,
 ) -> DeployResult:
     """Internal function for deploying an App.
 
@@ -164,6 +174,7 @@ class __run_app_spec(typing_extensions.Protocol):
         detach: bool = False,
         environment_name: typing.Optional[str] = None,
         interactive: bool = False,
+        deployment_strategy: str = "rolling",
     ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[modal.app.App]:
         """mdmd:hidden"""
         ...
@@ -177,6 +188,7 @@ class __run_app_spec(typing_extensions.Protocol):
         detach: bool = False,
         environment_name: typing.Optional[str] = None,
         interactive: bool = False,
+        deployment_strategy: str = "rolling",
     ) -> typing.AsyncContextManager[modal.app.App]:
         """mdmd:hidden"""
         ...
@@ -214,10 +226,11 @@ class __deploy_app_spec(typing_extensions.Protocol):
         /,
         app: modal.app.App,
         name: typing.Optional[str] = None,
-        namespace: typing.Any = None,
-        client: typing.Optional[modal.client.Client] = None,
+        *,
         environment_name: typing.Optional[str] = None,
         tag: str = "",
+        deployment_strategy: str = "rolling",
+        client: typing.Optional[modal.client.Client] = None,
     ) -> DeployResult:
         """Internal function for deploying an App.
 
@@ -230,10 +243,11 @@ class __deploy_app_spec(typing_extensions.Protocol):
         /,
         app: modal.app.App,
         name: typing.Optional[str] = None,
-        namespace: typing.Any = None,
-        client: typing.Optional[modal.client.Client] = None,
+        *,
         environment_name: typing.Optional[str] = None,
         tag: str = "",
+        deployment_strategy: str = "rolling",
+        client: typing.Optional[modal.client.Client] = None,
     ) -> DeployResult:
         """Internal function for deploying an App.
 

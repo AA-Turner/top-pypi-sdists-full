@@ -434,6 +434,7 @@ from mypy_boto3_transcribe.client import TranscribeServiceClient
 from mypy_boto3_transfer.client import TransferClient
 from mypy_boto3_translate.client import TranslateClient
 from mypy_boto3_trustedadvisor.client import TrustedAdvisorPublicAPIClient
+from mypy_boto3_uxc.client import UserExperienceCustomizationClient
 from mypy_boto3_verifiedpermissions.client import VerifiedPermissionsClient
 from mypy_boto3_voice_id.client import VoiceIDClient
 from mypy_boto3_vpc_lattice.client import VPCLatticeClient
@@ -8072,6 +8073,25 @@ class Session:
     ) -> TrustedAdvisorPublicAPIClient:
         """
         Create client for TrustedAdvisorPublicAPI service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["uxc"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> UserExperienceCustomizationClient:
+        """
+        Create client for UserExperienceCustomization service.
         """
 
     @overload

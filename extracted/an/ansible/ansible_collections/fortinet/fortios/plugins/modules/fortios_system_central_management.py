@@ -150,7 +150,8 @@ options:
                     - '443'
             fortigate_cloud_sso_default_profile:
                 description:
-                    - Override access profile. Source system.accprofile.name.
+                    - Override access profile. Permission is set to read-only without a FortiGate Cloud Central Management license. Source system.accprofile
+                      .name.
                 type: str
             include_default_servers:
                 description:
@@ -791,7 +792,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_central_management"
         )

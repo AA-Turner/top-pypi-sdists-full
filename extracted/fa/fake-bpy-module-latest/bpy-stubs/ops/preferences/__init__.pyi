@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 
 def addon_disable(
     execution_context: int | str | None = None,
@@ -522,7 +523,8 @@ def studiolight_install(
     undo: bool | None = None,
     /,
     *,
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     directory: str | None = "",
     filter_folder: bool | None = True,
     filter_glob: str | None = "*.png;*.jpg;*.hdr;*.exr",

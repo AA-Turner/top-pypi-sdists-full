@@ -63,7 +63,11 @@ impl<T: Serialize> Encoder<T> for JsonCodec<T> {
         // a WorkerLog message from triggering another log that creates another WorkerLog, etc.
         tracing::trace!(json_size_bytes = json_len, "Encoding frame");
         if json_len > 100_000 {
-            tracing::warn!(
+            tracing::info!(
+                // This log line should be shipped across the IPC to be emitted, unlike the
+                // above trace line. This is a real indicator that we've encoded a large
+                // frame and is generally useful.
+                target: "coglet::bridge::codec::large_frame",
                 json_size_bytes = json_len,
                 json_size_kb = json_len / 1024,
                 "Large frame being encoded"
@@ -116,7 +120,10 @@ mod tests {
 
         let req = SlotRequest::Predict {
             id: "test".to_string(),
-            input: serde_json::json!({"x": 1}),
+            input: Some(serde_json::json!({"x": 1})),
+            input_file: None,
+            output_dir: "/tmp/coglet/predictions/test/outputs".to_string(),
+            context: Default::default(),
         };
 
         codec.encode(req.clone(), &mut buf).unwrap();
@@ -127,14 +134,22 @@ mod tests {
                 SlotRequest::Predict {
                     id: id1,
                     input: input1,
+                    input_file: file1,
+                    output_dir: dir1,
+                    ..
                 },
                 SlotRequest::Predict {
                     id: id2,
                     input: input2,
+                    input_file: file2,
+                    output_dir: dir2,
+                    ..
                 },
             ) => {
                 assert_eq!(id1, id2);
                 assert_eq!(input1, input2);
+                assert_eq!(file1, file2);
+                assert_eq!(dir1, dir2);
             }
         }
     }
@@ -148,6 +163,7 @@ mod tests {
             id: "test".to_string(),
             output: Some(serde_json::json!("result")),
             predict_time: 1.5,
+            is_stream: false,
         };
         codec.encode(resp, &mut buf).unwrap();
         let decoded = codec.decode(&mut buf).unwrap().unwrap();
@@ -157,10 +173,12 @@ mod tests {
                 id,
                 output,
                 predict_time,
+                is_stream,
             } => {
                 assert_eq!(id, "test");
                 assert_eq!(output, Some(serde_json::json!("result")));
                 assert!((predict_time - 1.5).abs() < 0.001);
+                assert!(!is_stream);
             }
             _ => panic!("wrong variant"),
         }

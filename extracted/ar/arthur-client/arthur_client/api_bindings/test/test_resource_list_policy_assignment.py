@@ -42,13 +42,14 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                         id = '', 
                         policy = arthur_client.api_bindings.models.policy_summary.PolicySummary(
                             id = '', 
-                            name = '', ), 
+                            name = '', 
+                            description = '', ), 
                         model = arthur_client.api_bindings.models.model_summary.ModelSummary(
                             id = '', 
                             name = '', ), 
                         applied_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         applied_by_user_id = '', 
-                        grace_period_ends_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        enforcement_starts_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         compliance_status = 'PENDING', 
                         compliance_job_id = '', )
                     ],
@@ -67,13 +68,14 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                         id = '', 
                         policy = arthur_client.api_bindings.models.policy_summary.PolicySummary(
                             id = '', 
-                            name = '', ), 
+                            name = '', 
+                            description = '', ), 
                         model = arthur_client.api_bindings.models.model_summary.ModelSummary(
                             id = '', 
                             name = '', ), 
                         applied_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         applied_by_user_id = '', 
-                        grace_period_ends_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        enforcement_starts_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         compliance_status = 'PENDING', 
                         compliance_job_id = '', )
                     ],

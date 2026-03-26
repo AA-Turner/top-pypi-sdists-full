@@ -15,7 +15,7 @@ sys.path.append(os.path.abspath('src'))
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = SensorUpdatePolicies(auth_object=config)
-AllowedResponses = [200, 400, 401, 404, 429]
+AllowedResponses = [200, 400, 401, 403, 404, 429]
 
 
 class TestFalconSensorUpdate:
@@ -107,6 +107,7 @@ class TestFalconSensorUpdate:
         error_checks = True
         tests = {
             "uninstall_token": falcon.reveal_uninstall_token(device_id="MAINTENANCE"),
+            "increment_uninstall_token": falcon.increment_uninstall_token(audit_message="test increment"),
             "delete_policy": falcon.delete_policies(ids="12345678"),
             "update_policy": falcon.update_policies(description="whatever",
                                                     name="unit test",

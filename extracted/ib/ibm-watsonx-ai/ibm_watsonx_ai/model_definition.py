@@ -730,14 +730,10 @@ class ModelDefinition(WMLResource):
                     },
                     "entity": response_data["entity"],
                 }
-                href = (
-                    self._client._href_definitions.get_base_asset_with_type_href(
-                        response_data["metadata"]["asset_type"],
-                        response_data["metadata"]["asset_id"],
-                    )
-                    + "?"
-                    + "space_id="
-                    + response_data["metadata"]["space_id"]
+                href = self._client._href_definitions.get_base_asset_with_type_href(
+                    response_data["metadata"]["asset_type"],
+                    response_data["metadata"]["asset_id"],
+                    space_id=response_data["metadata"]["space_id"],
                 )
 
             elif self._client.default_project_id is not None:
@@ -754,14 +750,10 @@ class ModelDefinition(WMLResource):
                     "entity": response_data["entity"],
                 }
 
-                href = (
-                    self._client._href_definitions.get_base_asset_with_type_href(
-                        response_data["metadata"]["asset_type"],
-                        response_data["metadata"]["asset_id"],
-                    )
-                    + "?"
-                    + "project_id="
-                    + response_data["metadata"]["project_id"]
+                href = self._client._href_definitions.get_base_asset_with_type_href(
+                    response_data["metadata"]["asset_type"],
+                    response_data["metadata"]["asset_id"],
+                    project_id=response_data["metadata"]["project_id"],
                 )
 
             if "revision_id" in response_data["metadata"]:
@@ -1193,8 +1185,9 @@ class ModelDefinition(WMLResource):
 
             if entity_patch_payload:
                 entity_patch_url = (
-                    self._client._href_definitions.get_asset_href(model_definition_id)
-                    + "/attributes/wml_model_definition"
+                    self._client._href_definitions.get_asset_attributes_href(
+                        model_definition_id
+                    )
                 )
 
                 response_patch = self._client.httpx_client.patch(
@@ -1303,8 +1296,9 @@ class ModelDefinition(WMLResource):
 
             if entity_patch_payload:
                 entity_patch_url = (
-                    self._client._href_definitions.get_asset_href(model_definition_id)
-                    + "/attributes/wml_model_definition"
+                    self._client._href_definitions.get_asset_attributes_href(
+                        model_definition_id
+                    )
                 )
 
                 response_patch = await self._client.async_httpx_client.patch(
@@ -1560,7 +1554,7 @@ class ModelDefinition(WMLResource):
 
         # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
-        href = self._client._href_definitions.get_model_definition_revisions_href(
+        href = self._client._href_definitions.get_asset_definition_revisions_href(
             model_definition_id
         )
         params = self._client._params()

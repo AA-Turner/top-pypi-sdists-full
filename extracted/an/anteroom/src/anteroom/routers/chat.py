@@ -24,6 +24,7 @@ from ..cli.instructions import load_instructions
 from ..config import CliConfig, build_runtime_context
 from ..models import ChatRequest
 from ..services import storage
+from ..services.agent_loop import run_agent_loop
 from ..services.ai_service import AIService, create_ai_service
 from ..services.context_trust import trusted_section_marker, untrusted_section_marker, wrap_untrusted
 from ..services.space_storage import get_space_local_dirs
@@ -1191,7 +1192,6 @@ async def _with_keepalive(gen: Any, interval: float = _KEEPALIVE_INTERVAL) -> An
 
 async def _stream_chat_events(ctx: StreamContext) -> Any:
     """Async generator that yields SSE events for the chat stream."""
-    from ..services.agent_loop import run_agent_loop
 
     current_assistant_msg = None
     _pending_tool_inputs: dict[str, Any] = {}

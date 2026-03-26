@@ -415,6 +415,7 @@ versioned_schema = {
                 ["v7.0.0", "v7.0.12"],
                 ["v7.2.1", "v7.2.2"],
                 ["v7.4.0", "v7.6.1"],
+                ["v7.6.5", ""],
             ],
             "type": "integer",
             "required": True,
@@ -424,6 +425,7 @@ versioned_schema = {
                 ["v7.0.0", "v7.0.12"],
                 ["v7.2.1", "v7.2.2"],
                 ["v7.4.0", "v7.6.1"],
+                ["v7.6.5", ""],
             ],
             "type": "string",
         },
@@ -432,11 +434,12 @@ versioned_schema = {
                 ["v7.0.0", "v7.0.12"],
                 ["v7.2.1", "v7.2.2"],
                 ["v7.4.0", "v7.6.1"],
+                ["v7.6.5", ""],
             ],
             "type": "integer",
         },
         "round_robin": {
-            "v_range": [["v7.4.0", "v7.6.1"]],
+            "v_range": [["v7.4.0", "v7.6.1"], ["v7.6.5", ""]],
             "type": "string",
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
@@ -445,11 +448,17 @@ versioned_schema = {
                 ["v7.0.0", "v7.0.12"],
                 ["v7.2.1", "v7.2.2"],
                 ["v7.4.0", "v7.6.1"],
+                ["v7.6.5", ""],
             ],
             "type": "string",
         },
     },
-    "v_range": [["v7.0.0", "v7.0.12"], ["v7.2.1", "v7.2.2"], ["v7.4.0", "v7.6.1"]],
+    "v_range": [
+        ["v7.0.0", "v7.0.12"],
+        ["v7.2.1", "v7.2.2"],
+        ["v7.4.0", "v7.6.1"],
+        ["v7.6.5", ""],
+    ],
 }
 
 
@@ -501,7 +510,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_affinity_packet_redistribution"
         )

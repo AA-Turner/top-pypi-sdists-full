@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/anaskhan96/soup"
@@ -31,6 +32,17 @@ func FetchTorchCompatibilityMatrix() ([]config.TorchCompatibility, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Remove entries with no supported Python versions
+	filtered := make([]config.TorchCompatibility, 0, len(compats))
+	for _, c := range compats {
+		if len(c.Pythons) > 0 {
+			filtered = append(filtered, c)
+		} else {
+			console.Warnf("Dropping %s: no supported Python versions", c.Torch)
+		}
+	}
+	compats = filtered
 
 	// sanity check
 	if len(compats) < 21 {
@@ -222,7 +234,7 @@ func parsePreviousTorchVersionsCode(code string, compats []config.TorchCompatibi
 	var cuda *string
 	skipSection := false
 
-	for _, line := range strings.Split(code, "\n") {
+	for line := range strings.SplitSeq(code, "\n") {
 		// Set section
 		if strings.HasPrefix(line, "#") {
 			skipSection = false
@@ -421,6 +433,15 @@ func fetchTorchPackagesFromURL(url string) ([]TorchPackage, error) {
 
 		// 310 -> 3.10
 		pythonVersion = pythonVersion[:1] + "." + pythonVersion[1:]
+		if minor, ok := strings.CutPrefix(pythonVersion, "3."); ok {
+			minorInt, err := strconv.Atoi(minor)
+			if err != nil {
+				return nil, fmt.Errorf("invalid python version %q: %w", pythonVersion, err)
+			}
+			if minorInt < config.MinimumMinorPythonVersion {
+				continue
+			}
+		}
 
 		pkg := TorchPackage{
 			Name:          name,

@@ -3,7 +3,7 @@ Type annotations for apigatewayv2 service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -98,7 +98,14 @@ OAS30Type = Literal["OAS30"]
 PassthroughBehaviorType = Literal["NEVER", "WHEN_NO_MATCH", "WHEN_NO_TEMPLATES"]
 PreviewStatusType = Literal["PREVIEW_FAILED", "PREVIEW_IN_PROGRESS", "PREVIEW_READY"]
 ProtocolTypeType = Literal["HTTP", "WEBSOCKET"]
-PublishStatusType = Literal["DISABLED", "PUBLISHED", "PUBLISH_FAILED", "PUBLISH_IN_PROGRESS"]
+PublishStatusType = Literal[
+    "DISABLED",
+    "DISABLE_FAILED",
+    "DISABLE_IN_PROGRESS",
+    "PUBLISHED",
+    "PUBLISH_FAILED",
+    "PUBLISH_IN_PROGRESS",
+]
 RoutingModeType = Literal["API_MAPPING_ONLY", "ROUTING_RULE_ONLY", "ROUTING_RULE_THEN_API_MAPPING"]
 SecurityPolicyType = Literal["TLS_1_0", "TLS_1_2"]
 StatusType = Literal["AVAILABLE", "FAILED", "IN_PROGRESS"]
@@ -208,6 +215,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -247,16 +255,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -296,7 +303,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -471,7 +477,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -505,6 +513,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -512,6 +521,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

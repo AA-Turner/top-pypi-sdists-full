@@ -24,6 +24,13 @@ pub const STANDARD_BUFFER_THRESHOLD: u64 = 8 * 1024; // 8KB - balanced for laten
 // Error message constants to avoid repeated allocations in hot paths
 const QUEUE_FULL_ERROR: &str = "Queue full - backpressure required (loss-intolerant protocol)";
 const DATACHANNEL_CLOSED_ERROR: &str = "DataChannel closed";
+/// Timeout for dc.send() to prevent the outbound task from blocking indefinitely
+/// on webrtc-sctp's PendingQueue semaphore (128KB capacity). Under SCTP congestion,
+/// semaphore.acquire_many().await blocks until the write_loop drains the queue,
+/// but the write_loop is starved by mutex contention with the read_loop that
+/// processes SACKs. A 100ms timeout breaks this cycle by returning control to
+/// the caller, which queues the frame at the application level instead.
+const DC_SEND_TIMEOUT: Duration = Duration::from_millis(100);
 
 // Type alias for complex callback type - callbacks still need Mutex (can't be atomic)
 type BufferedAmountLowCallback =
@@ -527,9 +534,12 @@ pub struct EventDrivenSender {
     data_channel: Arc<WebRTCDataChannel>,
     /// Lock-free queue for pending frames - SegQueue provides MPSC without locks
     pending_frames: Arc<SegQueue<Bytes>>,
+    /// Priority re-queue for frames that failed a previous send attempt.
+    /// Drained BEFORE pending_frames to preserve strict ordering.
+    requeue_frames: Arc<SegQueue<Bytes>>,
     can_send: Arc<AtomicBool>,
     threshold: u64,               // Backpressure threshold for monitoring
-    queue_size: Arc<AtomicUsize>, // Lock-free queue depth counter
+    queue_size: Arc<AtomicUsize>, // Lock-free queue depth counter (covers both queues)
 
     // Queue monitoring for alerts (lock-free atomics)
     /// Timestamp when queue first exceeded 75% threshold (nanoseconds since Unix epoch, 0 = None)
@@ -547,6 +557,7 @@ impl EventDrivenSender {
         let sender = Self {
             data_channel: data_channel.clone(),
             pending_frames: Arc::new(SegQueue::new()),
+            requeue_frames: Arc::new(SegQueue::new()),
             can_send: Arc::new(AtomicBool::new(true)),
             threshold,
             queue_size: Arc::new(AtomicUsize::new(0)),
@@ -560,6 +571,7 @@ impl EventDrivenSender {
 
         let can_send_clone = sender.can_send.clone();
         let pending_clone = sender.pending_frames.clone();
+        let requeue_clone = sender.requeue_frames.clone();
         let queue_size_clone = sender.queue_size.clone();
         let dc_clone = data_channel.clone();
 
@@ -567,9 +579,16 @@ impl EventDrivenSender {
         data_channel.on_buffered_amount_low(Some(Box::new(move || {
             can_send_clone.store(true, Ordering::Release);
 
-            // Drain pending frames when space becomes available (batched)
-            // Lock-free: pop from SegQueue without any locks
+            // Drain frames when space becomes available (batched, lock-free).
+            // Pop from requeue_frames FIRST to preserve ordering of frames
+            // that failed a previous send attempt, then from pending_frames.
             let mut to_send = Vec::with_capacity(2000);
+            while to_send.len() < 2000 {
+                match requeue_clone.pop() {
+                    Some(frame) => to_send.push(frame),
+                    None => break,
+                }
+            }
             while to_send.len() < 2000 {
                 match pending_clone.pop() {
                     Some(frame) => to_send.push(frame),
@@ -577,7 +596,7 @@ impl EventDrivenSender {
                 }
             }
 
-            // Update atomic counter after draining
+            // Update atomic counter after draining (covers both queues)
             let old_size = queue_size_clone.fetch_sub(to_send.len(), Ordering::AcqRel);
 
             // Sanity check: counter should never underflow (indicates a bug in increment/decrement logic)
@@ -602,19 +621,34 @@ impl EventDrivenSender {
             if !to_send.is_empty() {
                 let dc = dc_clone.clone();
                 let can_send_for_batch = can_send_clone.clone();
-                // Note: retry_state not accessible here (would need Arc in closure)
-                // Retry logic handled at send_with_natural_backpressure level
+                let requeue_for_batch = requeue_clone.clone();
+                let requeue_counter = queue_size_clone.clone();
 
                 tokio::spawn(async move {
-                    for frame in to_send {
-                        match dc.send(frame).await {
-                            Ok(_) => continue,
-                            Err(_) => {
-                                // On failure, mark as unable to send
+                    let total = to_send.len();
+                    let mut failed_at = total; // assume all succeed
+
+                    for (i, frame) in to_send.iter().enumerate() {
+                        // Timeout prevents blocking on SCTP semaphore during congestion
+                        match tokio::time::timeout(DC_SEND_TIMEOUT, dc.send(frame.clone())).await {
+                            Ok(Ok(_)) => continue,
+                            Ok(Err(_)) | Err(_) => {
                                 can_send_for_batch.store(false, Ordering::Release);
+                                failed_at = i;
                                 break;
                             }
                         }
+                    }
+
+                    // Re-queue unsent frames into the priority requeue_frames queue
+                    // to preserve strict ordering on the next drain cycle.
+                    if failed_at < total {
+                        let unsent = &to_send[failed_at..];
+                        let requeue_count = unsent.len();
+                        for frame in unsent {
+                            requeue_for_batch.push(frame.clone());
+                        }
+                        requeue_counter.fetch_add(requeue_count, Ordering::AcqRel);
                     }
                 });
             }
@@ -628,11 +662,16 @@ impl EventDrivenSender {
     pub async fn send_with_natural_backpressure(&self, frame: Bytes) -> Result<(), &'static str> {
         let frame_len = frame.len(); // Capture for logging
 
-        // Fast path: send immediately if buffer has space
-        if self.can_send.load(Ordering::Acquire) {
-            match self.data_channel.send(frame.clone()).await {
-                Ok(_) => return Ok(()),
-                Err(e) => {
+        // Fast path: send immediately if buffer has space AND no queued frames.
+        // When queue is non-empty, ALL frames must go through the queue to preserve
+        // strict ordering — otherwise a new frame could bypass older queued frames.
+        if self.can_send.load(Ordering::Acquire) && self.queue_size.load(Ordering::Acquire) == 0 {
+            // Timeout prevents blocking on SCTP's PendingQueue semaphore (128KB)
+            // which causes outbound task starvation under congestion.
+            match tokio::time::timeout(DC_SEND_TIMEOUT, self.data_channel.send(frame.clone())).await
+            {
+                Ok(Ok(_)) => return Ok(()),
+                Ok(Err(e)) => {
                     let error_str = e.to_string();
 
                     // Detect permanent failures (WebRTC closed) vs temporary failures (buffer full)
@@ -665,6 +704,12 @@ impl EventDrivenSender {
                         );
                     }
 
+                    self.can_send.store(false, Ordering::Release);
+                    // Fall through to queueing
+                }
+                Err(_elapsed) => {
+                    // Timeout: SCTP PendingQueue semaphore is full (congestion).
+                    // Don't block — queue at application level for retry.
                     self.can_send.store(false, Ordering::Release);
                     // Fall through to queueing
                 }
@@ -820,5 +865,417 @@ impl EventDrivenSender {
         } else {
             false // Clock went backwards
         }
+    }
+}
+
+#[cfg(test)]
+mod drain_callback_tests {
+    use bytes::Bytes;
+    use crossbeam_queue::SegQueue;
+    use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+
+    fn make_frame(seq: u32) -> Bytes {
+        Bytes::from(seq.to_be_bytes().to_vec())
+    }
+
+    fn seq_of(frame: &Bytes) -> u32 {
+        u32::from_be_bytes(frame[..4].try_into().unwrap())
+    }
+
+    /// Simulate the drain callback logic with a controllable "send" function.
+    /// Returns the sequence numbers in the order they were "sent".
+    fn simulate_drain_cycle(
+        pending: &SegQueue<Bytes>,
+        requeue: &SegQueue<Bytes>,
+        queue_size: &AtomicUsize,
+        batch_size: usize,
+        send_fn: &dyn Fn(&Bytes) -> bool,
+    ) -> Vec<u32> {
+        let mut to_send = Vec::with_capacity(batch_size);
+
+        // Pop requeue FIRST (priority), then pending
+        while to_send.len() < batch_size {
+            match requeue.pop() {
+                Some(frame) => to_send.push(frame),
+                None => break,
+            }
+        }
+        while to_send.len() < batch_size {
+            match pending.pop() {
+                Some(frame) => to_send.push(frame),
+                None => break,
+            }
+        }
+
+        queue_size.fetch_sub(to_send.len(), Ordering::AcqRel);
+
+        let mut sent = Vec::new();
+        let mut failed_at = to_send.len();
+
+        for (i, frame) in to_send.iter().enumerate() {
+            if send_fn(frame) {
+                sent.push(seq_of(frame));
+            } else {
+                failed_at = i;
+                break;
+            }
+        }
+
+        // Re-queue unsent frames to the separate requeue
+        if failed_at < to_send.len() {
+            let unsent = &to_send[failed_at..];
+            for frame in unsent {
+                requeue.push(frame.clone());
+            }
+            queue_size.fetch_add(unsent.len(), Ordering::AcqRel);
+        }
+
+        sent
+    }
+
+    #[test]
+    fn test_drain_no_failures_sends_all() {
+        let pending = SegQueue::new();
+        let requeue = SegQueue::new();
+        let queue_size = AtomicUsize::new(5);
+
+        for i in 0..5 {
+            pending.push(make_frame(i));
+        }
+
+        let sent = simulate_drain_cycle(&pending, &requeue, &queue_size, 10, &|_| true);
+
+        assert_eq!(sent, vec![0, 1, 2, 3, 4]);
+        assert_eq!(queue_size.load(Ordering::Acquire), 0);
+        assert!(requeue.pop().is_none());
+    }
+
+    #[test]
+    fn test_drain_partial_failure_requeues_unsent() {
+        let pending = SegQueue::new();
+        let requeue = SegQueue::new();
+        let queue_size = AtomicUsize::new(5);
+
+        for i in 0..5 {
+            pending.push(make_frame(i));
+        }
+
+        // Fail on frame #2 (seq=2)
+        let sent = simulate_drain_cycle(&pending, &requeue, &queue_size, 10, &|f| seq_of(f) < 2);
+
+        assert_eq!(sent, vec![0, 1], "Only F0, F1 should be sent");
+        assert_eq!(
+            queue_size.load(Ordering::Acquire),
+            3,
+            "F2, F3, F4 should be requeued"
+        );
+
+        // Verify requeue contains F2, F3, F4 in order
+        assert_eq!(seq_of(&requeue.pop().unwrap()), 2);
+        assert_eq!(seq_of(&requeue.pop().unwrap()), 3);
+        assert_eq!(seq_of(&requeue.pop().unwrap()), 4);
+        assert!(requeue.pop().is_none());
+    }
+
+    #[test]
+    fn test_requeue_drained_before_pending_preserves_ordering() {
+        let pending = SegQueue::new();
+        let requeue = SegQueue::new();
+        let queue_size = AtomicUsize::new(0);
+
+        // Simulate: F2, F3, F4 failed previously and are in requeue
+        requeue.push(make_frame(2));
+        requeue.push(make_frame(3));
+        requeue.push(make_frame(4));
+        queue_size.fetch_add(3, Ordering::AcqRel);
+
+        // F5, F6, F7 arrived from producer while drain was running
+        pending.push(make_frame(5));
+        pending.push(make_frame(6));
+        pending.push(make_frame(7));
+        queue_size.fetch_add(3, Ordering::AcqRel);
+
+        // Next drain: should send F2, F3, F4, F5, F6, F7 IN ORDER
+        let sent = simulate_drain_cycle(&pending, &requeue, &queue_size, 10, &|_| true);
+
+        assert_eq!(
+            sent,
+            vec![2, 3, 4, 5, 6, 7],
+            "Requeued frames must precede new frames"
+        );
+        assert_eq!(queue_size.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn test_reorder_bug_with_single_queue() {
+        // Demonstrates WHY a separate requeue is needed.
+        // If we re-queue to the SAME queue (pending), ordering breaks.
+        let pending = SegQueue::new();
+        let queue_size = AtomicUsize::new(5);
+
+        for i in 0..5 {
+            pending.push(make_frame(i));
+        }
+
+        // Pop batch, simulate partial send failure at F2
+        let mut batch = Vec::new();
+        for _ in 0..5 {
+            batch.push(pending.pop().unwrap());
+        }
+        queue_size.fetch_sub(5, Ordering::AcqRel);
+
+        // F0, F1 sent OK. F2 fails.
+        // Meanwhile, producer adds F10, F11 to pending
+        pending.push(make_frame(10));
+        pending.push(make_frame(11));
+        queue_size.fetch_add(2, Ordering::AcqRel);
+
+        // BAD: re-queue F2, F3, F4 to TAIL of same pending queue
+        for frame in &batch[2..] {
+            pending.push(frame.clone());
+        }
+        queue_size.fetch_add(3, Ordering::AcqRel);
+
+        // Next drain from pending: F10, F11, F2, F3, F4 — OUT OF ORDER!
+        let mut drain_order = Vec::new();
+        while let Some(f) = pending.pop() {
+            drain_order.push(seq_of(&f));
+        }
+
+        assert_eq!(
+            drain_order,
+            vec![10, 11, 2, 3, 4],
+            "Single-queue requeue puts F10 before F2 — REORDERING BUG"
+        );
+
+        // F10 appears before F2: this is the security vulnerability
+        let idx_f2 = drain_order.iter().position(|&s| s == 2).unwrap();
+        let idx_f10 = drain_order.iter().position(|&s| s == 10).unwrap();
+        assert!(
+            idx_f10 < idx_f2,
+            "Security: F10 (new) arrives before F2 (failed) — credential data mixing"
+        );
+    }
+
+    #[test]
+    fn test_multiple_drain_cycles_preserve_ordering() {
+        let pending = SegQueue::new();
+        let requeue = SegQueue::new();
+        let queue_size = AtomicUsize::new(0);
+
+        // Enqueue F0..F19
+        for i in 0..20 {
+            pending.push(make_frame(i));
+            queue_size.fetch_add(1, Ordering::AcqRel);
+        }
+
+        let mut all_sent = Vec::new();
+        let mut send_budget = 3u32; // Only allow 3 successful sends per cycle
+
+        for _cycle in 0..20 {
+            if queue_size.load(Ordering::Acquire) == 0 {
+                break;
+            }
+
+            let cycle_sent_count = AtomicU32::new(0);
+            let budget = send_budget;
+            let sent = simulate_drain_cycle(&pending, &requeue, &queue_size, 5, &|_f| {
+                if cycle_sent_count.load(Ordering::Acquire) < budget {
+                    cycle_sent_count.fetch_add(1, Ordering::AcqRel);
+                    true
+                } else {
+                    false
+                }
+            });
+            all_sent.extend(sent);
+
+            // Increase budget over time (simulates SCTP draining)
+            send_budget = (send_budget + 1).min(10);
+        }
+
+        // Verify ALL frames sent
+        assert_eq!(
+            all_sent.len(),
+            20,
+            "All 20 frames should eventually be sent"
+        );
+
+        // Verify strict ordering
+        for i in 1..all_sent.len() {
+            assert!(
+                all_sent[i] > all_sent[i - 1],
+                "Ordering violation at index {}: seq {} followed by seq {}",
+                i,
+                all_sent[i - 1],
+                all_sent[i]
+            );
+        }
+    }
+
+    #[test]
+    fn test_first_frame_failure_requeues_entire_batch() {
+        let pending = SegQueue::new();
+        let requeue = SegQueue::new();
+        let queue_size = AtomicUsize::new(3);
+
+        pending.push(make_frame(0));
+        pending.push(make_frame(1));
+        pending.push(make_frame(2));
+
+        // All sends fail
+        let sent = simulate_drain_cycle(&pending, &requeue, &queue_size, 10, &|_| false);
+
+        assert!(sent.is_empty(), "No frames should be sent");
+        assert_eq!(
+            queue_size.load(Ordering::Acquire),
+            3,
+            "All frames should be requeued"
+        );
+
+        // Verify requeue has all 3 in order
+        assert_eq!(seq_of(&requeue.pop().unwrap()), 0);
+        assert_eq!(seq_of(&requeue.pop().unwrap()), 1);
+        assert_eq!(seq_of(&requeue.pop().unwrap()), 2);
+    }
+}
+
+/// Tests proving that dc.send() blocking on SCTP's 128KB PendingQueue semaphore
+/// causes outbound task starvation under congestion, and that a timeout fixes it.
+#[cfg(test)]
+mod sctp_send_timeout_tests {
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use tokio::sync::{Mutex, Semaphore};
+
+    const QUEUE_PERMITS: usize = 4; // Smaller for fast tests
+
+    /// Without timeout: dc.send() blocks on semaphore when drain is slow.
+    /// Uses tokio::time::pause() for deterministic, instant execution.
+    #[tokio::test]
+    async fn test_send_blocks_under_congestion_without_timeout() {
+        let sem = Arc::new(Semaphore::new(QUEUE_PERMITS));
+        let done = Arc::new(AtomicBool::new(false));
+
+        // Slow drainer: releases 1 permit every 50ms
+        let drain_sem = sem.clone();
+        let drain_done = done.clone();
+        let drainer = tokio::spawn(async move {
+            while !drain_done.load(Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                drain_sem.add_permits(1);
+            }
+        });
+
+        // Send QUEUE_PERMITS + 5 messages — last 5 must wait for drain
+        let mut blocked_count = 0usize;
+        for _ in 0..(QUEUE_PERMITS + 5) {
+            let before = Instant::now();
+            let permit = sem.acquire().await.unwrap();
+            permit.forget();
+            if before.elapsed() >= Duration::from_millis(20) {
+                blocked_count += 1;
+            }
+        }
+
+        done.store(true, Ordering::Release);
+        drainer.abort();
+
+        assert!(
+            blocked_count >= 3,
+            "Expected at least 3 blocked sends, got {}",
+            blocked_count
+        );
+    }
+
+    /// With timeout: send never blocks longer than the timeout.
+    /// Uses tokio::time::pause() for deterministic, instant execution.
+    #[tokio::test]
+    async fn test_send_timeout_prevents_long_block() {
+        let sem = Arc::new(Semaphore::new(QUEUE_PERMITS));
+        let done = Arc::new(AtomicBool::new(false));
+        let timeouts = Arc::new(AtomicUsize::new(0));
+
+        // Slow drainer: 50ms per permit
+        let drain_sem = sem.clone();
+        let drain_done = done.clone();
+        let drainer = tokio::spawn(async move {
+            while !drain_done.load(Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                drain_sem.add_permits(1);
+            }
+        });
+
+        let send_timeout = Duration::from_millis(50);
+        for _ in 0..(QUEUE_PERMITS + 10) {
+            match tokio::time::timeout(send_timeout, sem.acquire()).await {
+                Ok(Ok(permit)) => {
+                    permit.forget();
+                }
+                _ => {
+                    timeouts.fetch_add(1, Ordering::AcqRel);
+                }
+            }
+        }
+
+        done.store(true, Ordering::Release);
+        drainer.abort();
+
+        let timeout_count = timeouts.load(Ordering::Acquire);
+        assert!(
+            timeout_count > 0,
+            "Should have timeouts under congestion, had {}",
+            timeout_count
+        );
+    }
+
+    /// Mutex starvation: write_loop holding mutex starves read_loop.
+    /// Uses tokio::time::pause() for deterministic, instant execution.
+    #[tokio::test]
+    async fn test_read_loop_starved_by_write_loop_mutex() {
+        let mutex = Arc::new(Mutex::new(()));
+        let blocked = Arc::new(AtomicUsize::new(0));
+        let done = Arc::new(AtomicBool::new(false));
+
+        // Write loop holds mutex for 50ms per iteration
+        let w_mutex = mutex.clone();
+        let w_done = done.clone();
+        let writer = tokio::spawn(async move {
+            while !w_done.load(Ordering::Acquire) {
+                let _lock = w_mutex.lock().await;
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                drop(_lock);
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        });
+
+        // Read loop tries to acquire mutex every 5ms
+        let r_mutex = mutex.clone();
+        let r_done = done.clone();
+        let r_blocked = blocked.clone();
+        let reader = tokio::spawn(async move {
+            while !r_done.load(Ordering::Acquire) {
+                let before = tokio::time::Instant::now();
+                let _lock = r_mutex.lock().await;
+                drop(_lock);
+                if before.elapsed() > Duration::from_millis(10) {
+                    r_blocked.fetch_add(1, Ordering::AcqRel);
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        });
+
+        // Let contention run for 500ms
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        done.store(true, Ordering::Release);
+        writer.abort();
+        reader.abort();
+
+        let block_count = blocked.load(Ordering::Acquire);
+        assert!(
+            block_count > 3,
+            "Read loop should be starved by write loop, blocked only {} times",
+            block_count
+        );
     }
 }

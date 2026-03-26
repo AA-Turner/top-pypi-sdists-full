@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def add_scene_strip_from_scene_asset(
@@ -169,7 +170,8 @@ def change_path(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -640,7 +642,8 @@ def image_strip_add(
     /,
     *,
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -860,7 +863,8 @@ def movie_strip_add(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1560,7 +1564,7 @@ def select_lasso(
     undo: bool | None = None,
     /,
     *,
-    path=None,
+    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
@@ -1721,7 +1725,8 @@ def sound_strip_add(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -2238,6 +2243,23 @@ def text_select_all(
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all characters
 
+    :return: Result of the operator call.
+    """
+
+def text_strip_style_preset_add(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    name: str | None = "",
+    remove_name: bool | None = False,
+    remove_active: bool | None = False,
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add or remove a text strip style and layout preset
+
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
     :return: Result of the operator call.
     """
 

@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def cyclic_toggle(
@@ -84,7 +85,8 @@ def draw(
     | None = "REFIT",
     corner_angle: float | None = 1.22173,
     use_cyclic: bool | None = True,
-    stroke=None,
+    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
+    | None = None,
     wait_for_input: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Draw a freehand spline

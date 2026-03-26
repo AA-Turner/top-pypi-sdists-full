@@ -14,7 +14,7 @@ import (
 )
 
 const MinimumCUDAVersion = "11.6"
-const MinimumPythonVersion = "3.8"
+const MinimumPythonVersion = "3.10"
 const MinimumTorchVersion = "1.13.1"
 const CogBaseImageName = "cog-base"
 
@@ -187,7 +187,7 @@ func (g *BaseImageGenerator) GenerateDockerfile(ctx context.Context) (string, er
 		return "", err
 	}
 
-	generator, err := NewGenerator(conf, "", false, g.command, true, g.client, false)
+	generator, err := NewGenerator(conf, "", "", g.command, g.client, false)
 	if err != nil {
 		return "", err
 	}
@@ -213,7 +213,7 @@ func (g *BaseImageGenerator) makeConfig() (*config.Config, error) {
 			CUDA:           g.cudaVersion,
 		},
 	}
-	if err := conf.ValidateAndComplete(""); err != nil {
+	if err := conf.Complete(""); err != nil {
 		return nil, err
 	}
 	return conf, nil

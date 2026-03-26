@@ -25,7 +25,19 @@ def parse_gitignore(gitignore_path: Path) -> list[str]:
     Returns:
         List of exclude patterns (always includes .git)
     """
-    patterns = [".git", "__pycache__", "*.pyc", ".venv", "node_modules", ".mypy_cache", ".pytest_cache"]
+    patterns = [
+        ".git",
+        "__pycache__",
+        "*.pyc",
+        ".venv",
+        "node_modules",
+        ".mypy_cache",
+        ".pytest_cache",
+        "dist",
+        ".next",
+        "plato-fuse/target",
+        "*.log",
+    ]
 
     if not gitignore_path.exists():
         return patterns
@@ -164,7 +176,7 @@ class SyncManager:
         # Use --rsync-path to create parent directories on remote before sync
         mkdir_cmd = f"mkdir -p {target.remote_path} && rsync"
 
-        cmd = ["rsync", "-az", "--delete", "--rsync-path", mkdir_cmd]
+        cmd = ["rsync", "-az", "--delete", "--stats", "--rsync-path", mkdir_cmd]
 
         for pattern in target.excludes:
             cmd.extend(["--exclude", pattern])
@@ -180,26 +192,66 @@ class SyncManager:
 
         return cmd
 
-    def _sync_target(self, target: SyncTarget) -> bool:
-        """Sync a single target. Returns True on success."""
+    @staticmethod
+    def _format_bytes(raw: str) -> str:
+        """Convert a raw byte string (e.g. '7314070') to human-readable MB/KB."""
+        try:
+            n = int(raw.strip().split()[0])
+        except (ValueError, IndexError):
+            return raw
+        if n >= 1_000_000:
+            return f"{n / 1_048_576:.1f} MB"
+        if n >= 1_000:
+            return f"{n / 1_024:.1f} KB"
+        return f"{n} B"
+
+    @staticmethod
+    def _parse_rsync_stats(output: str) -> str:
+        """Extract a one-line summary from rsync --stats output."""
+        files_transferred = ""
+        total_size_raw = ""
+        bytes_sent_raw = ""
+        for line in output.splitlines():
+            line = line.strip()
+            # Linux rsync uses "regular files transferred", macOS uses "files transferred"
+            if "files transferred:" in line and "regular" not in line.split("transferred")[0]:
+                files_transferred = line.split(":", 1)[1].strip()
+            elif line.startswith("Number of regular files transferred:"):
+                files_transferred = line.split(":", 1)[1].strip()
+            elif line.startswith("Total transferred file size:"):
+                total_size_raw = line.split(":", 1)[1].strip()
+            elif line.startswith("Total bytes sent:"):
+                bytes_sent_raw = line.split(":", 1)[1].strip()
+        parts: list[str] = []
+        if files_transferred:
+            parts.append(f"{files_transferred} files")
+        if total_size_raw:
+            parts.append(SyncManager._format_bytes(total_size_raw))
+        if bytes_sent_raw:
+            parts.append(f"sent {SyncManager._format_bytes(bytes_sent_raw)}")
+        return ", ".join(parts)
+
+    def _sync_target(self, target: SyncTarget) -> tuple[bool, str]:
+        """Sync a single target. Returns (success, stats_summary)."""
         try:
             cmd = self._build_rsync_cmd(target)
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=300,
             )
             if result.returncode != 0:
                 logger.warning(f"Rsync failed for {target.local_path}: {result.stderr}")
-                return False
-            return True
+                return False, ""
+            stats = self._parse_rsync_stats(result.stdout)
+            return True, stats
         except subprocess.TimeoutExpired:
             logger.warning(f"Rsync timed out for {target.local_path}")
-            return False
+            return False, ""
         except Exception as e:
             logger.warning(f"Rsync error for {target.local_path}: {e}")
-            return False
+            return False, ""
 
     async def initial_sync(self, on_synced: Callable[[SyncTarget, float], None] | None = None) -> int:
         """Sync all targets in parallel.
@@ -212,14 +264,33 @@ class SyncManager:
             Number of successful syncs
         """
         loop = asyncio.get_event_loop()
+        logger.info(
+            "Syncing %d target(s): %s",
+            len(self.targets),
+            ", ".join(f"{t.local_path.name} -> {t.remote_path}" for t in self.targets),
+        )
 
         async def _sync_one(target: SyncTarget) -> bool:
-            logger.debug(f"Syncing {target.local_path} -> {target.remote_path}")
+            logger.info(
+                "Syncing %s -> %s (%d excludes)",
+                target.local_path,
+                target.remote_path,
+                len(target.excludes),
+            )
             started = perf_counter()
-            success = await loop.run_in_executor(None, self._sync_target, target)
+            success, stats = await loop.run_in_executor(None, self._sync_target, target)
             elapsed = perf_counter() - started
-            if not success:
-                logger.warning(f"Failed to sync {target.local_path.name}")
+            if success:
+                stats_msg = f" ({stats})" if stats else ""
+                logger.info(
+                    "Synced %s -> %s in %.1fs%s",
+                    target.local_path.name,
+                    target.remote_path,
+                    elapsed,
+                    stats_msg,
+                )
+            else:
+                logger.warning(f"Failed to sync {target.local_path.name} after {elapsed:.1f}s")
             if on_synced:
                 on_synced(target, elapsed)
             return success

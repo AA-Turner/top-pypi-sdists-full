@@ -127,7 +127,7 @@ impl SyncExtractor for EmailExtractor {
                                 }
                             }
                             crate::types::NodeContent::Heading { level, text } => {
-                                builder.push_heading(*level, text, None, None);
+                                builder.push_heading(*level, text.as_str(), None, None);
                             }
                             crate::types::NodeContent::List { ordered } => {
                                 let list_idx = builder.push_list(*ordered, None);
@@ -136,12 +136,12 @@ impl SyncExtractor for EmailExtractor {
                                     if let Some(child) = html_doc.nodes.get(child_idx.0 as usize)
                                         && let crate::types::NodeContent::ListItem { text } = &child.content
                                     {
-                                        builder.push_list_item(list_idx, text, None);
+                                        builder.push_list_item(list_idx, text.as_str(), None);
                                     }
                                 }
                             }
                             crate::types::NodeContent::Code { text, language } => {
-                                builder.push_code(text, language.as_deref(), None);
+                                builder.push_code(text.as_str(), language.as_deref(), None);
                             }
                             _ => {
                                 // For other node types, extract text if available

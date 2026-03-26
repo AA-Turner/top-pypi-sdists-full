@@ -42,7 +42,7 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 0, 5]
+version_code = [4, 1]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -1135,6 +1135,71 @@ class UnifiedManager:
 
         return result
 
+    def purge_node_state(self, node_id: str):
+        """
+        Remove a node's directory and clean ALL internal dictionaries regardless of categorization.
+        Used by reinstall to guarantee clean state before re-installation.
+        """
+        if 'comfyui-manager' in node_id.lower():
+            return
+
+        custom_nodes_dir = os.path.normcase(os.path.realpath(get_default_custom_nodes_path()))
+        paths_to_remove = set()
+
+        def _add_path(raw_path):
+            """Normalize and validate a path before adding to removal set."""
+            if not raw_path:
+                return
+            resolved = os.path.normcase(os.path.realpath(raw_path))
+            if resolved == custom_nodes_dir:
+                logging.warning(f"[ComfyUI-Manager] purge_node_state: refusing to delete custom_nodes root: {raw_path}")
+                return
+            try:
+                if os.path.commonpath([custom_nodes_dir, resolved]) != custom_nodes_dir:
+                    logging.warning(f"[ComfyUI-Manager] purge_node_state: path escapes custom_nodes scope, skipping: {raw_path}")
+                    return
+            except ValueError:
+                logging.warning(f"[ComfyUI-Manager] purge_node_state: cannot verify containment, skipping: {raw_path}")
+                return
+            paths_to_remove.add(resolved)
+
+        # Collect paths from all dictionaries
+        entry = self.unknown_active_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        entry = self.active_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        entry = self.unknown_inactive_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        fullpath = self.nightly_inactive_nodes.get(node_id)
+        if fullpath is not None:
+            _add_path(fullpath)
+
+        ver_map = self.cnr_inactive_nodes.get(node_id)
+        if ver_map is not None:
+            for key, fp in ver_map.items():
+                _add_path(fp)
+
+        # Convention-based fallback path
+        _add_path(os.path.join(get_default_custom_nodes_path(), node_id))
+
+        # Remove all validated paths, then always clean dictionaries
+        try:
+            for path in paths_to_remove:
+                if os.path.exists(path):
+                    try_rmtree(node_id, path)
+        finally:
+            self.unknown_active_nodes.pop(node_id, None)
+            self.active_nodes.pop(node_id, None)
+            self.unknown_inactive_nodes.pop(node_id, None)
+            self.nightly_inactive_nodes.pop(node_id, None)
+            self.cnr_inactive_nodes.pop(node_id, None)
+
     def unified_uninstall(self, node_id: str, is_unknown: bool):
         """
         Remove whole installed custom nodes including inactive nodes
@@ -1411,8 +1476,18 @@ class UnifiedManager:
                 else:  # nightly
                     repo_url = the_node['repository']
             else:
-                result = ManagedResult('install')
-                return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
+                # Fallback for nightly only: use repository URL from CNR map
+                # when node is registered in CNR but absent from nightly manifest
+                if version_spec == 'nightly':
+                    cnr_fallback = self.cnr_map.get(node_id)
+                    if cnr_fallback is not None and cnr_fallback.get('repository'):
+                        repo_url = cnr_fallback['repository']
+                    else:
+                        result = ManagedResult('install')
+                        return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
+                else:
+                    result = ManagedResult('install')
+                    return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
 
         if self.is_enabled(node_id, version_spec):
             return ManagedResult('skip').with_target(f"{node_id}@{version_spec}")
@@ -1758,11 +1833,34 @@ def reserve_script(repo_path, install_cmds):
 
 
 def try_rmtree(title, fullpath):
+    # Tier 1: retry with delay for transient Windows file locks
+    for attempt in range(3):
+        try:
+            shutil.rmtree(fullpath)
+            return
+        except OSError:
+            if attempt < 2:
+                time.sleep(1)
+
+    # Tier 2: rename into .disabled/.trash/ so scanner ignores it
+    trash_dir = os.path.join(os.path.dirname(fullpath), '.disabled', '.trash')
+    os.makedirs(trash_dir, exist_ok=True)
+    trash = os.path.join(trash_dir, os.path.basename(fullpath) + f'_{uuid.uuid4().hex[:8]}')
     try:
-        shutil.rmtree(fullpath)
-    except Exception as e:
-        logging.warning(f"[ComfyUI-Manager] An error occurred while deleting '{fullpath}', so it has been scheduled for deletion upon restart.\nEXCEPTION: {e}")
-        reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
+        os.rename(fullpath, trash)
+        shutil.rmtree(trash, ignore_errors=True)
+        if not os.path.exists(trash):
+            return
+        # Rename succeeded but delete failed — schedule trash path for lazy delete
+        logging.warning(f"[ComfyUI-Manager] Renamed '{fullpath}' to '{trash}' but could not delete; scheduled for restart.")
+        reserve_script(title, ["#LAZY-DELETE-NODEPACK", trash])
+        return
+    except OSError:
+        pass
+
+    # Tier 3: lazy delete on restart (ComfyUI GUI fallback)
+    logging.warning(f"[ComfyUI-Manager] An error occurred while deleting '{fullpath}', so it has been scheduled for deletion upon restart.")
+    reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
 
 
 def try_install_script(url, repo_path, install_cmd, instant_execution=False):

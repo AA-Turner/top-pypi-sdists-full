@@ -28,8 +28,8 @@ class PostPolicyAttestationRule(BaseModel):
     """ # noqa: E501
     name: StrictStr = Field(description="The name of the attestation rule.")
     description: Optional[StrictStr] = None
-    interval_days: StrictInt = Field(description="The recurring interval in days for attestation.")
-    __properties: ClassVar[List[str]] = ["name", "description", "interval_days"]
+    validity_period_days: StrictInt = Field(description="The validity period in days for attestation.")
+    __properties: ClassVar[List[str]] = ["name", "description", "validity_period_days"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,7 +89,7 @@ class PostPolicyAttestationRule(BaseModel):
         _obj = cls.model_validate({
             "name": obj.get("name"),
             "description": obj.get("description"),
-            "interval_days": obj.get("interval_days")
+            "validity_period_days": obj.get("validity_period_days")
         })
         return _obj
 

@@ -184,9 +184,21 @@ def build(
     default=False,
     help="Show all fields including IDs and metadata.",
 )
-def get(name: str, json_output: bool, yaml_output: bool, verbose: bool) -> None:
+@click.option(
+    "--cloud-id",
+    help="The ID of the Anyscale Cloud. Required for Azure Control Plane only.",
+    type=str,
+    default=None,
+)
+def get(
+    name: str,
+    json_output: bool,
+    yaml_output: bool,
+    verbose: bool,
+    cloud_id: Optional[str] = None,
+) -> None:
     try:
-        image = anyscale.image.get(name=name)
+        image = anyscale.image.get(name=name, cloud_id=cloud_id)
 
         if json_output:
             print(json.dumps(image.to_dict(), indent=2, cls=AnyscaleJSONEncoder))
@@ -298,6 +310,12 @@ def get(name: str, json_output: bool, yaml_output: bool, verbose: bool) -> None:
     default=False,
     help="Show all fields including IDs and metadata.",
 )
+@click.option(
+    "--cloud-id",
+    help="The ID of the Anyscale Cloud. Required for Azure Control Plane only.",
+    type=str,
+    default=None,
+)
 def list(  # noqa: A001, PLR0913
     image_id: Optional[str],
     name: Optional[str],
@@ -311,6 +329,7 @@ def list(  # noqa: A001, PLR0913
     interactive: bool,
     json_output: bool,
     verbose: bool,
+    cloud_id: Optional[str] = None,
 ) -> None:
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
@@ -368,6 +387,7 @@ def list(  # noqa: A001, PLR0913
             include_anonymous=include_anonymous,
             max_items=None if interactive else effective_max,
             page_size=page_size,
+            cloud_id=cloud_id,
         )
         total = display_list(
             iterator=iter(iterator),
@@ -464,14 +484,20 @@ def register(
     type=str,
     required=True,
 )
-def archive(name: str) -> None:
+@click.option(
+    "--cloud-id",
+    help="The ID of the Anyscale Cloud. Required for Azure Control Plane only.",
+    type=str,
+    default=None,
+)
+def archive(name: str, cloud_id: Optional[str] = None) -> None:
     """Archive an image.
 
     Once archived, the image name will no longer be usable in the organization.
     Archived images can still be viewed using --include-archived in list.
     """
     try:
-        anyscale.image.archive(name=name)
+        anyscale.image.archive(name=name, cloud_id=cloud_id)
         print(f"Image '{name}' archived successfully.")
     except ValueError as e:
         raise click.ClickException(str(e)) from None

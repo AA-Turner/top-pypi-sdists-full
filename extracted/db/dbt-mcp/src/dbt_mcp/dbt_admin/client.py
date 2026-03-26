@@ -126,6 +126,40 @@ class DbtAdminAPIClient:
         )
         return result.get("data", {})
 
+    async def list_projects(self, account_id: int) -> list[dict[str, Any]]:
+        """List active projects for an account."""
+        result = await self._make_request(
+            "GET",
+            f"/api/v3/accounts/{account_id}/projects/",
+            params={
+                "state": 1,
+                "include_related": "['environments','repository']",
+            },
+        )
+        data = result.get("data", [])
+        return [
+            {
+                "id": p["id"],
+                "name": p["name"],
+                "description": p.get("description"),
+                "dbt_project_subdirectory": p.get("dbt_project_subdirectory"),
+                "has_semantic_layer": p.get("semantic_layer_config_id") is not None,
+                "type": p.get("type"),
+                "environments": [
+                    {
+                        "id": e.get("id"),
+                        "name": e.get("name"),
+                        "type": (e.get("deployment_type") or "generic")
+                        if e.get("type") == "deployment"
+                        else e.get("type"),
+                    }
+                    for e in (p.get("environments") or [])
+                ],
+                "repository_full_name": (p.get("repository") or {}).get("full_name"),
+            }
+            for p in data
+        ]
+
     async def get_project_details(
         self, account_id: int, project_id: int
     ) -> dict[str, Any]:

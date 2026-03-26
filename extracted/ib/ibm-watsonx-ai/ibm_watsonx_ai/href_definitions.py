@@ -231,6 +231,7 @@ VOLUMES = "{}/zen-data/v3/service_instances"
 VOLUME_ID = "{}/zen-data/v3/service_instances/{}"
 VOLUME_SERVICE = "{}/zen-data/v1/volumes/volume_services/{}"
 VOLUME_SERVICE_FILE_UPLOAD = "{}/zen-volumes/{}/v1/volumes/files/"
+VOLUME_SERVICE_FILE_UPLOAD_WITH_FILENAME = "{}/zen-volumes/{}/v1/volumes/files/{}"
 VOLUME_MONITOR = "{}/zen-volumes/{}/v1/monitor"
 
 PROMOTE_ASSET = "{}/projects/api/rest/catalogs/assets/{}/promote"
@@ -266,11 +267,29 @@ GATEWAY_MODELS = "{}/ml/gateway/v1/providers/{}/models"
 GATEWAY_ALL_TENANT_MODELS = "{}/ml/gateway/v1/models"
 GATEWAY_MODEL = "{}/ml/gateway/v1/models/{}"
 GATEWAY_POLICIES = "{}/ml/gateway/v1/policies"
+GATEWAY_POLICY = "{}/ml/gateway/v1/policies/{}"
 GATEWAY_EMBEDDINGS = "{}/ml/gateway/v1/embeddings"
 GATEWAY_TEXT_COMPLETIONS = "{}/ml/gateway/v1/completions"
 GATEWAY_CHAT_COMPLETIONS = "{}/ml/gateway/v1/chat/completions"
 GATEWAY_RATE_LIMITS = "{}/ml/gateway/v1/rate-limits"
 GATEWAY_RATE_LIMIT = "{}/ml/gateway/v1/rate-limits/{}"
+
+WSD_DBDRIVERS = "{}dbdrivers"
+WSD_DBDRIVER_FILE = "{}dbdrivers/{}"
+WSD_DBDRIVER_SIGNED = "{}dbdrivers/{}/signed"
+
+WSD_AUTOML_FILE = "{}/v2/asset_files/auto_ml/{}"
+WSD_PROMPT_TUNE_FILE = "{}/v2/asset_files/wx_prompt_tune/{}"
+WSD_FINE_TUNE_FILE = "{}/v2/asset_files/wx_fine_tune/{}"
+WSD_ASSET_FILE = "{}/v2/asset_files/{}"
+
+ASSET_ATTRIBUTES = "{}/v2/assets/{}/attributes/wml_model_definition"
+GIT_BASED_PROJECT_ASSET_ATTRIBUTES = (
+    "{}/userfs/v2/assets/{}/attributes/wml_model_definition"
+)
+ASSET_SCRIPT_ATTRIBUTES = "{}/v2/assets/{}/attributes/script"
+GIT_BASED_PROJECT_ASSET_SCRIPT_ATTRIBUTES = "{}/userfs/v2/assets/{}/attributes/script"
+PROMPT_CHAT_ITEMS = "{}/wx/v1/prompts/{}/chat_items"
 
 
 def is_url(s: str) -> bool:
@@ -294,6 +313,7 @@ class HrefDefinitions:
         cp4d_platform_spaces: bool,
         platform_url: str,
         project_type: str,
+        auth_url: str | None,
     ):
         self.url = url
         self.instance_id = instance_id
@@ -303,6 +323,7 @@ class HrefDefinitions:
         self.cp4d_platform_spaces = cp4d_platform_spaces
         self.platform_url = platform_url
         self.project_type = project_type
+        self.auth_url = auth_url
         self.prepend = "/ml"
 
     def _is_git_based_project(self) -> bool:
@@ -532,6 +553,9 @@ class HrefDefinitions:
         else:
             return IAM_TOKEN_URL.format("https://iam.test.cloud.ibm.com")
 
+    def get_user_auth_url(self) -> str | None:
+        return self.auth_url
+
     def get_iam_public_keys_url(self) -> str:
         if self.url in PROD_SVT_URL:
             return IAM_PUBLIC_KEYS_URL.format("https://iam.cloud.ibm.com")
@@ -588,14 +612,30 @@ class HrefDefinitions:
             ASSETS if not self._is_git_based_project() else GIT_BASED_PROJECT_ASSETS
         ).format("")
 
-    def get_base_asset_with_type_href(self, asset_type: str, asset_id: str) -> str:
-        return (
+    def get_base_asset_with_type_href(
+        self,
+        asset_type: str,
+        asset_id: str,
+        *,
+        space_id: str | None = None,
+        project_id: str | None = None,
+    ) -> str:
+        base_path = (
             (
                 ASSET if not self._is_git_based_project() else GIT_BASED_PROJECT_ASSET
             ).format("", asset_type)
             + "/"
             + asset_id
         )
+
+        if space_id is not None and project_id is not None:
+            raise ValueError("Exactly one of space_id or project_id must be provided")
+
+        if space_id is not None:
+            return f"{base_path}?space_id={space_id}"
+        elif project_id is not None:
+            return f"{base_path}?project_id={project_id}"
+        return base_path
 
     def get_attachment_href(self, asset_id: str, attachment_id: str) -> str:
         return (
@@ -656,12 +696,12 @@ class HrefDefinitions:
             ASSET if not self._is_git_based_project() else GIT_BASED_PROJECT_ASSET
         ).format(self._get_platform_url_if_exists(), model_definition_id)
 
-    def get_model_definition_revisions_href(self, model_definition_id: str) -> str:
+    def get_asset_definition_revisions_href(self, asset_id: str) -> str:
         return (
             ASSET_REVISIONS
             if not self._is_git_based_project()
             else GIT_BASED_PROJECT_ASSET_REVISIONS
-        ).format(self._get_platform_url_if_exists(), model_definition_id)
+        ).format(self._get_platform_url_if_exists(), asset_id)
 
     def get_model_definition_search_asset_href(self) -> str:
         return (
@@ -812,6 +852,11 @@ class HrefDefinitions:
 
     def volume_upload_href(self, volume_name: str) -> str:
         return VOLUME_SERVICE_FILE_UPLOAD.format(self.url, volume_name)
+
+    def volume_upload_file_href(self, volume_name: str, filename: str) -> str:
+        return VOLUME_SERVICE_FILE_UPLOAD_WITH_FILENAME.format(
+            self.url, volume_name, filename
+        )
 
     def volume_monitor_href(self, volume_name: str) -> str:
         return VOLUME_MONITOR.format(self.url, volume_name)
@@ -1026,6 +1071,9 @@ class HrefDefinitions:
     def get_gateway_policies_href(self) -> str:
         return GATEWAY_POLICIES.format(self.url)
 
+    def get_gateway_policy_href(self, policy_id: str) -> str:
+        return GATEWAY_POLICY.format(self.url, policy_id)
+
     def get_gateway_embeddings_href(self) -> str:
         return GATEWAY_EMBEDDINGS.format(self.url)
 
@@ -1040,3 +1088,49 @@ class HrefDefinitions:
 
     def get_gateway_rate_limit_href(self, rate_limit_id: str) -> str:
         return GATEWAY_RATE_LIMIT.format(self.url, rate_limit_id)
+
+    def get_wsd_dbdrivers_href(self) -> str:
+        return WSD_DBDRIVERS.format(self.get_wsd_model_attachment_href())
+
+    def get_wsd_dbdriver_upload_href(self, driver_file_name: str) -> str:
+        return WSD_DBDRIVER_FILE.format(
+            self.get_wsd_model_attachment_href(),
+            driver_file_name,
+        )
+
+    def get_wsd_dbdriver_signed_href(self, jar_name: str) -> str:
+        return WSD_DBDRIVER_SIGNED.format(
+            self.get_wsd_model_attachment_href(), jar_name
+        )
+
+    def get_wsd_automl_file_href(self, file_path: str) -> str:
+        return WSD_AUTOML_FILE.format(self.url, file_path)
+
+    def get_wsd_prompt_tune_file_href(self, file_path: str) -> str:
+        return WSD_PROMPT_TUNE_FILE.format(self.url, file_path)
+
+    def get_wsd_fine_tune_file_href(self, file_path: str) -> str:
+        return WSD_FINE_TUNE_FILE.format(self.url, file_path)
+
+    def get_wsd_asset_file_href(self, asset_path: str) -> str:
+        return WSD_ASSET_FILE.format(self.url, asset_path)
+
+    def get_wsd_attachment_file_href(self, attachment_key: str) -> str:
+        return WSD_ASSET_FILE.format(self.url, attachment_key)
+
+    def get_asset_attributes_href(self, asset_id: str) -> str:
+        return (
+            ASSET_ATTRIBUTES
+            if not self._is_git_based_project()
+            else GIT_BASED_PROJECT_ASSET_ATTRIBUTES
+        ).format(self._get_platform_url_if_exists(), asset_id)
+
+    def get_asset_script_attributes_href(self, asset_id: str) -> str:
+        return (
+            ASSET_SCRIPT_ATTRIBUTES
+            if not self._is_git_based_project()
+            else GIT_BASED_PROJECT_ASSET_SCRIPT_ATTRIBUTES
+        ).format(self._get_platform_url_if_exists(), asset_id)
+
+    def get_prompt_chat_items_href(self, prompt_id: str) -> str:
+        return PROMPT_CHAT_ITEMS.format(self._get_platform_url_if_exists(), prompt_id)

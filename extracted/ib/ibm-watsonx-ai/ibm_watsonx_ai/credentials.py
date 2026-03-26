@@ -47,6 +47,9 @@ class Credentials:
     :param bedrock_url: Bedrock URL, applicable for ICP only
     :type bedrock_url: str, optional
 
+    :param auth_url: URL for authentication, if not provided the default one will be used
+    :type auth_url: str, optional
+
     :param proxies: dictionary of proxies, containing protocol and URL mapping (example: `{ "https": "https://example.url.com" }`)
     :type proxies: dict, optional
 
@@ -121,6 +124,7 @@ class Credentials:
         version: str | None = None,
         bedrock_url: str | None = None,
         platform_url: str | None = None,
+        auth_url: str | None = None,
         proxies: dict | None = None,
         verify: str | Path | bool | None = None,
     ) -> None:
@@ -142,6 +146,7 @@ class Credentials:
         self.version = version
         self.bedrock_url = bedrock_url
         self.platform_url = platform_url
+        self.auth_url = auth_url
         self.proxies = proxies
         self.verify = self._get_verify_value(verify)
         self._is_env_token = token is None and "token" in env_credentials
@@ -261,6 +266,7 @@ class Credentials:
             version=credentials.get("version"),
             bedrock_url=credentials.get("bedrock_url"),
             platform_url=credentials.get("platform_url"),
+            auth_url=credentials.get("auth_url"),
             proxies=credentials.get("proxies"),
             verify=credentials.get("verify", _verify),
         )

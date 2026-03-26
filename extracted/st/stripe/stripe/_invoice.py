@@ -564,6 +564,7 @@ class Invoice(
                 "routing_number_invalid",
                 "secret_key_required",
                 "sepa_unsupported_account",
+                "service_period_coupon_with_metered_tiered_item_unsupported",
                 "setup_attempt_failed",
                 "setup_intent_authentication_failure",
                 "setup_intent_invalid_parameter",
@@ -746,7 +747,7 @@ class Invoice(
                     Literal["automatic", "instant", "microdeposits"]
                 ]
                 """
-                Bank account verification method.
+                Bank account verification method. The default value is `automatic`.
                 """
                 _inner_class_types = {"mandate_options": MandateOptions}
 
@@ -869,7 +870,7 @@ class Invoice(
                     Literal["automatic", "instant", "microdeposits"]
                 ]
                 """
-                Bank account verification method.
+                Bank account verification method. The default value is `automatic`.
                 """
                 _inner_class_types = {
                     "financial_connections": FinancialConnections,
@@ -1438,7 +1439,7 @@ class Invoice(
     """
     livemode: bool
     """
-    Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
+    If the object exists in live mode, the value is `true`. If the object exists in test mode, the value is `false`.
     """
     metadata: Optional[Dict[str, str]]
     """
@@ -1601,7 +1602,7 @@ class Invoice(
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/add_lines".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1656,7 +1657,7 @@ class Invoice(
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/add_lines".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1747,7 +1748,7 @@ class Invoice(
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/attach_payment".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1838,7 +1839,7 @@ class Invoice(
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/attach_payment".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1847,7 +1848,7 @@ class Invoice(
     @classmethod
     def create(cls, **params: Unpack["InvoiceCreateParams"]) -> "Invoice":
         """
-        This endpoint creates a draft invoice for a given customer. The invoice remains a draft until you [finalize the invoice, which allows you to [pay](https://docs.stripe.com/api#finalize_invoice) or <a href="/api/invoices/send">send](https://docs.stripe.com/api/invoices/pay) the invoice to your customers.
+        This endpoint creates a draft invoice for a given customer. The invoice remains a draft until you [finalize the invoice, which allows you to [pay](/api/invoices/pay) or <a href="/api/invoices/send">send](https://docs.stripe.com/api/invoices/finalize) the invoice to your customers.
         """
         return cast(
             "Invoice",
@@ -1863,7 +1864,7 @@ class Invoice(
         cls, **params: Unpack["InvoiceCreateParams"]
     ) -> "Invoice":
         """
-        This endpoint creates a draft invoice for a given customer. The invoice remains a draft until you [finalize the invoice, which allows you to [pay](https://docs.stripe.com/api#finalize_invoice) or <a href="/api/invoices/send">send](https://docs.stripe.com/api/invoices/pay) the invoice to your customers.
+        This endpoint creates a draft invoice for a given customer. The invoice remains a draft until you [finalize the invoice, which allows you to [pay](/api/invoices/pay) or <a href="/api/invoices/send">send](https://docs.stripe.com/api/invoices/finalize) the invoice to your customers.
         """
         return cast(
             "Invoice",
@@ -1927,7 +1928,7 @@ class Invoice(
         cls, sid: str, **params: Unpack["InvoiceDeleteParams"]
     ) -> "Invoice":
         """
-        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api#void_invoice).
+        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api/invoices/void).
         """
         url = "%s/%s" % (cls.class_url(), sanitize_id(sid))
         return cast(
@@ -1943,14 +1944,14 @@ class Invoice(
     @staticmethod
     def delete(sid: str, **params: Unpack["InvoiceDeleteParams"]) -> "Invoice":
         """
-        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api#void_invoice).
+        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api/invoices/void).
         """
         ...
 
     @overload
     def delete(self, **params: Unpack["InvoiceDeleteParams"]) -> "Invoice":
         """
-        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api#void_invoice).
+        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api/invoices/void).
         """
         ...
 
@@ -1959,7 +1960,7 @@ class Invoice(
         self, **params: Unpack["InvoiceDeleteParams"]
     ) -> "Invoice":
         """
-        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api#void_invoice).
+        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api/invoices/void).
         """
         return self._request_and_refresh(
             "delete",
@@ -1972,7 +1973,7 @@ class Invoice(
         cls, sid: str, **params: Unpack["InvoiceDeleteParams"]
     ) -> "Invoice":
         """
-        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api#void_invoice).
+        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api/invoices/void).
         """
         url = "%s/%s" % (cls.class_url(), sanitize_id(sid))
         return cast(
@@ -1990,7 +1991,7 @@ class Invoice(
         sid: str, **params: Unpack["InvoiceDeleteParams"]
     ) -> "Invoice":
         """
-        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api#void_invoice).
+        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api/invoices/void).
         """
         ...
 
@@ -1999,7 +2000,7 @@ class Invoice(
         self, **params: Unpack["InvoiceDeleteParams"]
     ) -> "Invoice":
         """
-        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api#void_invoice).
+        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api/invoices/void).
         """
         ...
 
@@ -2008,7 +2009,7 @@ class Invoice(
         self, **params: Unpack["InvoiceDeleteParams"]
     ) -> "Invoice":
         """
-        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api#void_invoice).
+        Permanently deletes a one-off invoice draft. This cannot be undone. Attempts to delete invoices that are no longer in a draft state will fail; once an invoice has been finalized or if an invoice is for a subscription, it must be [voided](https://docs.stripe.com/api/invoices/void).
         """
         return await self._request_and_refresh_async(
             "delete",
@@ -2065,7 +2066,7 @@ class Invoice(
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/finalize".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2120,7 +2121,7 @@ class Invoice(
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/finalize".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2215,7 +2216,7 @@ class Invoice(
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/mark_uncollectible".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2270,7 +2271,7 @@ class Invoice(
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/mark_uncollectible".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2365,7 +2366,7 @@ class Invoice(
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/pay".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2420,7 +2421,7 @@ class Invoice(
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/pay".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2475,7 +2476,7 @@ class Invoice(
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/remove_lines".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2530,7 +2531,7 @@ class Invoice(
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/remove_lines".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2615,7 +2616,7 @@ class Invoice(
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/send".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2678,7 +2679,7 @@ class Invoice(
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/send".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2733,7 +2734,7 @@ class Invoice(
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/update_lines".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2788,7 +2789,7 @@ class Invoice(
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/update_lines".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2799,9 +2800,9 @@ class Invoice(
         cls, invoice: str, **params: Unpack["InvoiceVoidInvoiceParams"]
     ) -> "Invoice":
         """
-        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api#delete_invoice), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
+        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api/invoices/delete), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
 
-        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="#create_credit_note">credit note](https://docs.stripe.com/api#create_invoice) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
+        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="/api/credit_notes/create">credit note](https://docs.stripe.com/api/invoices/create) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
         """
         return cast(
             "Invoice",
@@ -2820,9 +2821,9 @@ class Invoice(
         invoice: str, **params: Unpack["InvoiceVoidInvoiceParams"]
     ) -> "Invoice":
         """
-        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api#delete_invoice), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
+        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api/invoices/delete), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
 
-        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="#create_credit_note">credit note](https://docs.stripe.com/api#create_invoice) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
+        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="/api/credit_notes/create">credit note](https://docs.stripe.com/api/invoices/create) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
         """
         ...
 
@@ -2831,9 +2832,9 @@ class Invoice(
         self, **params: Unpack["InvoiceVoidInvoiceParams"]
     ) -> "Invoice":
         """
-        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api#delete_invoice), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
+        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api/invoices/delete), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
 
-        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="#create_credit_note">credit note](https://docs.stripe.com/api#create_invoice) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
+        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="/api/credit_notes/create">credit note](https://docs.stripe.com/api/invoices/create) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
         """
         ...
 
@@ -2842,16 +2843,16 @@ class Invoice(
         self, **params: Unpack["InvoiceVoidInvoiceParams"]
     ) -> "Invoice":
         """
-        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api#delete_invoice), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
+        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api/invoices/delete), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
 
-        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="#create_credit_note">credit note](https://docs.stripe.com/api#create_invoice) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
+        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="/api/credit_notes/create">credit note](https://docs.stripe.com/api/invoices/create) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
         """
         return cast(
             "Invoice",
             self._request(
                 "post",
                 "/v1/invoices/{invoice}/void".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -2862,9 +2863,9 @@ class Invoice(
         cls, invoice: str, **params: Unpack["InvoiceVoidInvoiceParams"]
     ) -> "Invoice":
         """
-        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api#delete_invoice), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
+        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api/invoices/delete), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
 
-        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="#create_credit_note">credit note](https://docs.stripe.com/api#create_invoice) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
+        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="/api/credit_notes/create">credit note](https://docs.stripe.com/api/invoices/create) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
         """
         return cast(
             "Invoice",
@@ -2883,9 +2884,9 @@ class Invoice(
         invoice: str, **params: Unpack["InvoiceVoidInvoiceParams"]
     ) -> "Invoice":
         """
-        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api#delete_invoice), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
+        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api/invoices/delete), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
 
-        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="#create_credit_note">credit note](https://docs.stripe.com/api#create_invoice) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
+        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="/api/credit_notes/create">credit note](https://docs.stripe.com/api/invoices/create) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
         """
         ...
 
@@ -2894,9 +2895,9 @@ class Invoice(
         self, **params: Unpack["InvoiceVoidInvoiceParams"]
     ) -> "Invoice":
         """
-        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api#delete_invoice), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
+        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api/invoices/delete), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
 
-        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="#create_credit_note">credit note](https://docs.stripe.com/api#create_invoice) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
+        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="/api/credit_notes/create">credit note](https://docs.stripe.com/api/invoices/create) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
         """
         ...
 
@@ -2905,16 +2906,16 @@ class Invoice(
         self, **params: Unpack["InvoiceVoidInvoiceParams"]
     ) -> "Invoice":
         """
-        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api#delete_invoice), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
+        Mark a finalized invoice as void. This cannot be undone. Voiding an invoice is similar to [deletion](https://docs.stripe.com/api/invoices/delete), however it only applies to finalized invoices and maintains a papertrail where the invoice can still be found.
 
-        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="#create_credit_note">credit note](https://docs.stripe.com/api#create_invoice) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
+        Consult with local regulations to determine whether and how an invoice might be amended, canceled, or voided in the jurisdiction you're doing business in. You might need to [issue another invoice or <a href="/api/credit_notes/create">credit note](https://docs.stripe.com/api/invoices/create) instead. Stripe recommends that you consult with your legal counsel for advice specific to your business.
         """
         return cast(
             "Invoice",
             await self._request_async(
                 "post",
                 "/v1/invoices/{invoice}/void".format(
-                    invoice=sanitize_id(self.get("id"))
+                    invoice=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),

@@ -92,7 +92,8 @@ options:
         suboptions:
             accprofile:
                 description:
-                    - FortiCloud SSO admin user access profile. Source system.accprofile.name.
+                    - FortiCloud SSO admin user access profile. Permission is set to read-only without a FortiGate Cloud Central Management license. Source
+                       system.accprofile.name.
                 type: str
             name:
                 description:
@@ -469,7 +470,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_sso_fortigate_cloud_admin"
         )

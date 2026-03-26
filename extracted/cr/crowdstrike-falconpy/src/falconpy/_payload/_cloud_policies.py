@@ -35,10 +35,12 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <https://unlicense.org>
 """
+
+
 from typing import Dict, List, Union
 
 
-def cloud_policies_rule_assign_payload(passed_keywords: dict) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+def cloud_policies_rule_assign_payload(passed_keywords: dict) -> Dict[str, List[str]]:
     """Assign rules to a compliance control (full replace).
 
     {
@@ -53,7 +55,7 @@ def cloud_policies_rule_assign_payload(passed_keywords: dict) -> Dict[str, List[
     return returned_payload
 
 
-def cloud_policies_compliance_control_payload(passed_keywords: dict) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+def cloud_policies_compliance_control_payload(passed_keywords: dict) -> Dict[str, Union[str, bool]]:
     """Body payload generator for compliance control operations.
 
     {
@@ -88,7 +90,7 @@ def cloud_policies_evaluation_payload(passed_keywords: dict) -> Dict[str, Union[
     return returned_payload
 
 
-def cloud_policies_rule_override_payload(passed_keywords: dict) -> Dict[str, Union[dict, str]]:
+def cloud_policies_rule_override_payload(passed_keywords: dict) -> Dict[str, List[dict]]:
     """Create a new rule override.
 
     {
@@ -116,7 +118,7 @@ def cloud_policies_rule_override_payload(passed_keywords: dict) -> Dict[str, Uni
     return returned_payload
 
 
-def cloud_policies_rule_create_payload(passed_keywords: dict) -> Dict[str, Union[dict, str]]:
+def cloud_policies_rule_create_payload(passed_keywords: dict) -> Dict[str, Union[str, int, list]]:
     """Create a new rule.
 
     {
@@ -162,7 +164,7 @@ def cloud_policies_rule_create_payload(passed_keywords: dict) -> Dict[str, Union
     return returned_payload
 
 
-def cloud_policies_rule_update_payload(passed_keywords: dict) -> Dict[str, Union[dict, str, int, list]]:
+def cloud_policies_rule_update_payload(passed_keywords: dict) -> Dict[str, Union[str, int, list, dict]]:
     """Update a rule.
 
     {
@@ -197,7 +199,7 @@ def cloud_policies_rule_update_payload(passed_keywords: dict) -> Dict[str, Union
     for key in simple_keys:
         if passed_keywords.get(key, None) is not None:
             provided = passed_keywords.get(key, None)
-            if provided == "rule_logic_list" and isinstance(provided, dict):
+            if key == "rule_logic_list" and isinstance(provided, dict):
                 provided = [provided]
             returned_payload[key] = provided
 
@@ -214,5 +216,84 @@ def cloud_policies_rule_update_payload(passed_keywords: dict) -> Dict[str, Union
                 control[key] = passed_keywords.get(key, None)
         if control:
             returned_payload["controls"] = [control]
+
+    return returned_payload
+
+
+def cloud_policies_suppression_rule_payload(passed_keywords: dict) -> Dict[str, Union[str, dict]]:
+    """Suppression rule payload.
+
+    {
+        "description": "string",
+        "domain": "string",
+        "id": "string",
+        "name": "string",
+        "rule_selection_filter": {
+            "rule_ids": [
+            "string"
+            ],
+            "rule_names": [
+            "string"
+            ],
+            "rule_origins": [
+            "string"
+            ],
+            "rule_providers": [
+            "string"
+            ],
+            "rule_services": [
+            "string"
+            ],
+            "rule_severities": [
+            "string"
+            ]
+        },
+        "rule_selection_type": "string",
+        "scope_asset_filter": {
+            "account_ids": [
+            "string"
+            ],
+            "cloud_group_ids": [
+            "string"
+            ],
+            "cloud_providers": [
+            "string"
+            ],
+            "regions": [
+            "string"
+            ],
+            "resource_ids": [
+            "string"
+            ],
+            "resource_names": [
+            "string"
+            ],
+            "resource_types": [
+            "string"
+            ],
+            "service_categories": [
+            "string"
+            ],
+            "tags": [
+            "string"
+            ]
+        },
+        "scope_type": "string",
+        "subdomain": "string",
+        "suppression_comment": "string",
+        "suppression_expiration_date": "string",
+        "suppression_reason": "string"
+    }
+    """
+    returned_payload = {}
+    keys = ["description", "id", "name", "rule_selection_filter",
+            "rule_selection_type", "scope_asset_filter", "scope_type",
+            "suppression_comment", "suppression_expiration_date",
+            "suppression_reason", "domain", "subdomain"
+            ]
+    for key in keys:
+        if passed_keywords.get(key, None) is not None:
+            provided = passed_keywords.get(key, None)
+            returned_payload[key] = provided
 
     return returned_payload

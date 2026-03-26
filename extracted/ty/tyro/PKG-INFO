@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: tyro
-Version: 1.0.10
+Version: 1.0.11
 Summary: CLI interfaces & config objects, from types
-Project-URL: GitHub, https://github.com/brentyi/tyro
+Project-URL: Repository, https://github.com/brentyi/tyro
+Project-URL: Documentation, https://brentyi.github.io/tyro/
 Author-email: brentyi <brentyi@berkeley.edu>
 License: MIT
 License-File: LICENSE
@@ -260,6 +261,18 @@ improving maintainability for larger projects. Examples:
       </a>
     </td>
     <td>Open-source models for robotics.</td>
+  </tr>
+  <tr>
+    <td>
+      <a href="https://github.com/NVIDIA/Isaac-GR00T">
+        NVIDIA/Isaac-GR00T
+        <br /><img
+          alt="GitHub stars"
+          src="https://img.shields.io/github/stars/NVIDIA/Isaac-GR00T?style=social"
+        />
+      </a>
+    </td>
+    <td>Foundation model for generalist robots.</td>
   </tr>
   <tr>
     <td>

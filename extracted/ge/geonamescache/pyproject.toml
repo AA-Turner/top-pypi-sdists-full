@@ -39,6 +39,7 @@ Source = "https://github.com/yaph/geonamescache"
 path = "geonamescache/__init__.py"
 
 [tool.hatch.envs.geonamescache-dev]
+builder = true
 extra-dependencies = [
   "beautifulsoup4",
   "flake8",
@@ -46,6 +47,9 @@ extra-dependencies = [
   "httpx",
   "mypy>=1.0.0"
 ]
+
+[tool.hatch.envs.geonamescache-dev.env-vars]
+PYTHONBREAKPOINT = "ipdb.set_trace"
 
 [tool.hatch.envs.geonamescache-dev.scripts]
 type_check = "mypy --install-types --non-interactive {args:geonamescache tests}"

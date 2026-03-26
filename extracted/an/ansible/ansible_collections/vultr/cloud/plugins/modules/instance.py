@@ -221,6 +221,11 @@ vultr_api:
       returned: success
       type: int
       sample: 12
+    api_results_per_page:
+      description: Number of results returned per call to API.
+      returned: success
+      type: int
+      sample: 100
     api_endpoint:
       description: Endpoint used for the API requests.
       returned: success
@@ -432,7 +437,7 @@ vultr_instance:
 from ansible.module_utils.basic import AnsibleModule
 
 from ..module_utils.common_instance import AnsibleVultrCommonInstance
-from ..module_utils.vultr_v2 import vultr_argument_spec
+from ..module_utils.vultr_v2 import backoff, vultr_argument_spec
 
 
 class AnsibleVultrInstance(AnsibleVultrCommonInstance):
@@ -465,7 +470,7 @@ class AnsibleVultrInstance(AnsibleVultrCommonInstance):
                     skip_wait=self.module.params.get("skip_wait", False),
                 )
 
-            # Hanlde power status
+            # Handle power status
             resource = self.handle_power_status(
                 resource=resource,
                 state="stopped",
@@ -499,6 +504,39 @@ class AnsibleVultrInstance(AnsibleVultrCommonInstance):
 
         return resource
 
+    def do_update(self, data, resource):
+        resp = self.api_query(
+            path="%s/%s" % (self.resource_path, resource[self.resource_key_id]),
+            method=self.resource_update_method,
+            data=data,
+        )
+
+        # Not properly documented, but visible in the Response sample:
+        # https://www.vultr.com/api/#tag/instances/operation/update-instance
+
+        in_process_jobs = []
+        if resp:
+            job_ids = resp.get("job_ids", [])
+            for job in job_ids:
+                job_resp = self.api_query(path="%s/jobs/%s" % (self.resource_path, job))
+                if job_resp and job_resp.get("state") == "processing":
+                    in_process_jobs.append(job)
+
+        if len(in_process_jobs) > 0:
+            for job in in_process_jobs:
+                self.wait_for_instance_job(job)
+
+        return self.query_by_id(resource_id=resource[self.resource_key_id])
+
+    def wait_for_instance_job(self, job_id, retries=120):
+        for retry in range(0, retries):
+            resp = self.api_query(path="%s/jobs/%s" % (self.resource_path, job_id))
+            if resp and resp.get("state") == "success":
+                break
+            backoff(retry=retry)
+        else:
+            self.module.fail_json(msg="Wait for instance update completion timed out")
+
     def configure(self):
         super(AnsibleVultrInstance, self).configure()
 
@@ -509,8 +547,10 @@ class AnsibleVultrInstance(AnsibleVultrCommonInstance):
             if self.module.params.get("backups") is not None:
                 self.module.params["backups"] = "enabled" if self.module.params["backups"] else "disabled"
 
-    def absent(self):
-        resource = self.query()
+    def absent(self, resource=None):
+        if resource is None:
+            resource = self.query()
+
         if resource and not self.module.check_mode:
             resource = self.wait_for_state(resource=resource, key="server_status", states=["none", "locked"], cmp="!=")
 

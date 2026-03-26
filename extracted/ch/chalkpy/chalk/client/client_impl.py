@@ -149,6 +149,7 @@ from chalk.client.models import (
     StreamResolverTestRequest,
     StreamResolverTestResponse,
     TriggerResolverRunRequest,
+    UnloadResolvers,
     UploadedParquetShardedOfflineQueryInput,
     UploadFeaturesRequest,
     UploadFeaturesResponse,
@@ -664,6 +665,31 @@ def _convert_datetime_or_timedelta_param(
             raise ValueError(
                 f'Passed {param_name}="{param}", but {param_name} should be a datetime string or duration.'
             )
+
+
+def _encode_unload_resolvers(
+    unload_resolvers: UnloadResolvers,
+) -> list[dict[str, Any]] | None:
+    """Encode unload_resolvers into the wire format (list of spec dicts).
+
+    Accepts either:
+    - A list of resolver FQNs or Resolver objects (no partitioning).
+    - A dict mapping resolver -> tuple of partition-by expressions.
+    """
+    if unload_resolvers is None:
+        return None
+
+    if isinstance(unload_resolvers, Mapping):
+        result: list[dict[str, Any]] = []
+        for resolver, partition_exprs in unload_resolvers.items():
+            fqn = resolver.fqn if isinstance(resolver, Resolver) else resolver
+            # TODO(q): Q-283: encode underscore expressions as base64 FeatureExpression protos.
+            # For now, pass strings through as-is.
+            partition_by = [str(expr) for expr in partition_exprs]
+            result.append({"fqn": fqn, "partition_by": partition_by})
+        return result
+    else:
+        return [{"fqn": resolver.fqn if isinstance(resolver, Resolver) else resolver} for resolver in unload_resolvers]
 
 
 def _validate_context_dict(data: Any) -> ContextJsonDict | None:
@@ -2355,9 +2381,10 @@ https://docs.chalk.ai/cli/apply
         override_target_image_tag: Optional[str] = None,
         feature_for_lower_upper_bound: Optional[FeatureReference] = None,
         use_job_queue: bool = False,
-        *,
+        *,  # Keyword-only: these were added later and must not be passed positionally.
         input_sql: str | None = None,
         use_metaplanner: bool | None = None,
+        unload_resolvers: UnloadResolvers = None,
     ) -> DatasetImpl:
         run_asynchronously = (
             use_multiple_computers
@@ -2504,6 +2531,7 @@ https://docs.chalk.ai/cli/apply
             query_name=query_name,
             query_name_version=query_name_version,
             use_metaplanner=use_metaplanner,
+            unload_resolvers=_encode_unload_resolvers(unload_resolvers),
         )
 
         initialized_dataset = dataset_from_response(response, self)
@@ -2533,6 +2561,8 @@ https://docs.chalk.ai/cli/apply
         incremental_resolvers: Optional[Sequence[str]] = None,
         max_samples: Optional[int] = None,
         env_overrides: Optional[Mapping[str, str]] = None,
+        *,  # Keyword-only: these were added later and must not be passed positionally.
+        unload_resolvers: UnloadResolvers = None,
     ) -> ManualTriggerScheduledQueryResponse:
         """
         Manually trigger a scheduled query request.
@@ -2579,12 +2609,15 @@ https://docs.chalk.ai/cli/apply
             api_server=self._api_server,
         )
 
+        encoded_unload_resolvers = _encode_unload_resolvers(unload_resolvers)
+
         resp = client_grpc.run_scheduled_query(
             name=name,
             planner_options=planner_options,
             incremental_resolvers=incremental_resolvers,
             max_samples=max_samples,
             env_overrides=env_overrides,
+            unload_resolvers=encoded_unload_resolvers,
         )
 
         return resp
@@ -3806,6 +3839,7 @@ https://docs.chalk.ai/cli/apply
         query_name: str | None = None,
         query_name_version: str | None = None,
         use_metaplanner: bool | None = False,
+        unload_resolvers: list[dict[str, Any]] | None = None,
     ) -> DatasetResponse:
         if not (
             isinstance(recompute_features, list)
@@ -3889,6 +3923,7 @@ https://docs.chalk.ai/cli/apply
             query_name=query_name,
             query_name_version=query_name_version,
             use_metaplanner=use_metaplanner,
+            unload_resolvers=unload_resolvers,
         )
 
         response = self._create_dataset_request(

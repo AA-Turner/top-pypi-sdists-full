@@ -750,10 +750,10 @@ class UserManagement(ServiceClass):
                 assigned_cids           last_name
                 cid                     name
                 direct_assigned_cids    status
+                factors                 temporarily_assigned_cids
                 first_name              uid
-                has_temporary_roles     temporarily_assigned_cids
-                uuid
-        limit : int (range 1-500, default 0)
+                has_temporary_roles     uuid
+        limit : int (range 1-500, default 100)
             The maximum number of records to return.
         offset : int (default 0)
             The offset to start retrieving records from.
@@ -761,8 +761,8 @@ class UserManagement(ServiceClass):
             Full parameters payload in JSON format, not required.
         sort : str
             The property to sort by. FQL syntax.
-            Allowed values: first_name|asc, first_name|desc, last_name|asc, last_name_desc,
-            name|asc, name|desc, uid|asc, uid|desc, has_temporary_roles|asc, has_temporary_roles|desc
+            Allowed values: cid_name, created_at, first_name, has_temporary_roles,
+            last_login_at, last_name, name, status, temporarily_assigned_cids, uid
 
         Arguments
         ----

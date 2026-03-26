@@ -497,6 +497,10 @@ options:
                     - 'inline'
                     - 'analytics-suspicious'
                     - 'analytics-everything'
+            fortisandbox_scan_timeout:
+                description:
+                    - FortiSandbox inline scan timeout in seconds (30 - 180).
+                type: int
             fortisandbox_timeout_action:
                 description:
                     - Action to take if FortiSandbox inline scan encounters a scan timeout.
@@ -1717,6 +1721,7 @@ EXAMPLES = """
           fortisandbox_error_action: "log-only"
           fortisandbox_max_upload: "10"
           fortisandbox_mode: "inline"
+          fortisandbox_scan_timeout: "60"
           fortisandbox_timeout_action: "log-only"
           ftgd_analytics: "disable"
           ftp:
@@ -1782,7 +1787,7 @@ EXAMPLES = """
               expiry: "<your_own_value>"
               infected: "none"
               log: "enable"
-          name: "default_name_125"
+          name: "default_name_126"
           nntp:
               archive_block: "encrypted"
               archive_log: "encrypted"
@@ -1970,6 +1975,7 @@ def filter_antivirus_profile_data(json):
         "fortisandbox_error_action",
         "fortisandbox_max_upload",
         "fortisandbox_mode",
+        "fortisandbox_scan_timeout",
         "fortisandbox_timeout_action",
         "ftgd_analytics",
         "ftp",
@@ -3608,6 +3614,7 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "log-only"}, {"value": "block"}, {"value": "ignore"}],
         },
+        "fortisandbox_scan_timeout": {"v_range": [["v7.6.5", ""]], "type": "integer"},
         "fortisandbox_error_action": {
             "v_range": [["v7.2.0", ""]],
             "type": "string",
@@ -3801,7 +3808,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "antivirus_profile"
         )

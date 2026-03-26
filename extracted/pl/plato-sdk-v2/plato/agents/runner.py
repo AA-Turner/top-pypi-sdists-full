@@ -250,7 +250,12 @@ class AgentRunner:
         return fallback
 
     def _configure_audit_scopes(self, display_name: str | None = None) -> list[AuditScope]:
-        """Create one audit scope per tracked NFS-mounted workspace."""
+        """Create one audit scope per tracked NFS-mounted workspace.
+
+        Each scope gets its own *copy* of the transport so that parallel
+        ``AgentRunner`` instances don't overwrite each other's ``audit_key``
+        on a shared ``Transport`` object.
+        """
         del display_name
         scopes: list[AuditScope] = []
 
@@ -258,7 +263,6 @@ class AgentRunner:
             if not isinstance(transport, NFSTransport):
                 continue
             if not getattr(transport, "workspace_tracked", False):
-                transport.configure_audit_scope(audit_run_id=None, audit_key=None)
                 continue
 
             repo_root = getattr(transport, "workspace_repo_root", None)
@@ -267,28 +271,45 @@ class AgentRunner:
                     "Skipping audit scope for tracked transport without repo root: %s",
                     transport.path,
                 )
-                transport.configure_audit_scope(audit_run_id=None, audit_key=None)
                 continue
 
-            workspace_name = self._audit_workspace_name(transport)
+            # Create a per-runner copy so we don't mutate the shared transport.
+            transport_copy = transport.with_path(transport.path)
+            transport_copy.mount_path = transport.mount_path
+
+            workspace_name = self._audit_workspace_name(transport_copy)
             audit_run_id = new_audit_run_id()
             audit_key = build_audit_key(audit_run_id)
-            transport.configure_audit_scope(
+            transport_copy.configure_audit_scope(
                 audit_run_id=audit_run_id,
                 audit_key=audit_key,
             )
+
+            # Replace the shared transport reference with our copy so that
+            # setup_agent() (called later during execute) reads the correct
+            # audit_key for this runner, not whichever runner wrote last.
+            self._replace_transport(transport, transport_copy)
+
             scopes.append(
                 AuditScope(
-                    transport=transport,
+                    transport=transport_copy,
                     workspace_name=workspace_name,
                     repo_root=Path(repo_root),
-                    mount_path=transport.agent_mount_path,
+                    mount_path=transport_copy.agent_mount_path,
                     audit_run_id=audit_run_id,
                     audit_key=audit_key,
                 )
             )
 
         return scopes
+
+    def _replace_transport(self, old: Transport, new: Transport) -> None:
+        """Swap a transport reference in workspace slots so downstream code uses the copy."""
+        if self._workspace is old:
+            self._workspace = new
+        for i, ws in enumerate(self._default_workspaces):
+            if ws is old:
+                self._default_workspaces[i] = new
 
     def _audit_context_payload(
         self,
@@ -473,13 +494,26 @@ class AgentRunner:
             )
             return []
 
-        logger.debug(
-            "Raw tool execution spool for agent %s:%s%s",
+        records = parse_tool_execution_records(stdout)
+        from collections import Counter
+
+        tool_counts = Counter(r.tool_name for r in records)
+        logger.info(
+            "Read %d tool execution records from agent VM %s: %s",
+            len(records),
             prepared.agent_id,
-            "\n",
-            stdout if stdout else "<empty>",
+            dict(tool_counts),
         )
-        return parse_tool_execution_records(stdout)
+        for record in records:
+            logger.info(
+                "  spool record: tool=%s span=%s started=%s ended=%s delta_ms=%.1f",
+                record.tool_name,
+                record.span_id,
+                record.started_at.isoformat(),
+                record.ended_at.isoformat(),
+                (record.ended_at - record.started_at).total_seconds() * 1000,
+            )
+        return records
 
     async def _collect_and_store_audit(
         self,
@@ -572,7 +606,14 @@ class AgentRunner:
                     )
                 if not events:
                     continue
-                logger.debug("Parsed %d audit events for scope %s", len(events), scope.audit_key)
+                logger.info(
+                    "Parsed %d audit events for scope %s (agent=%s), time range: %s .. %s",
+                    len(events),
+                    scope.audit_key,
+                    prepared.agent_id,
+                    min(e.timestamp for e in events).isoformat(),
+                    max(e.timestamp for e in events).isoformat(),
+                )
 
                 scope_context = AuditScopeContext(
                     session_id=str(context.get("session_id", "")),
@@ -591,10 +632,15 @@ class AgentRunner:
                     scope_context=scope_context,
                     tool_records=tool_records,
                 )
-                logger.debug(
-                    "Resolved %d audit events for scope %s",
+                from collections import Counter as _ResolvedCounter
+
+                _resolved_tools = _ResolvedCounter(e.tool_name for e in resolved_events)
+                logger.info(
+                    "Resolved %d audit events for scope %s (agent=%s): tool_attribution=%s",
                     len(resolved_events),
                     scope.audit_key,
+                    prepared.agent_id,
+                    dict(_resolved_tools),
                 )
                 await asyncio.to_thread(write_audit_jsonl, scope.spool_path, resolved_events, scope_context)
                 logger.debug(
@@ -618,9 +664,12 @@ class AgentRunner:
 
         Returns the agent_id (container name or VM job ID).
         """
-        ws = self._workspace
         current_display_name = display_name or self._display_name
         audit_scopes = self._configure_audit_scopes(current_display_name)
+
+        # Read workspace references AFTER _configure_audit_scopes, which may
+        # replace them with per-runner copies carrying the correct audit_key.
+        ws = self._workspace
 
         # Set workspaces on VM runtime
         if isinstance(self._runtime, PlatoVMRuntime):

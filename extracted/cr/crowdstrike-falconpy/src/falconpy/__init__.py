@@ -105,6 +105,7 @@ from ._ngsiem import (
     SessionManager
 )
 from ._helper import random_string, Indicator, Color, find_operation
+from .admission_control_policies import AdmissionControlPolicies
 from .alerts import Alerts
 from .api_integrations import APIIntegrations
 from .api_complete import APIHarness, APIHarnessV2
@@ -182,7 +183,6 @@ from .mssp import FlightControl
 from .ngsiem import NGSIEM
 from .oauth2 import OAuth2
 from .ods import ODS
-from .overwatch_dashboard import OverwatchDashboard
 from .prevention_policy import PreventionPolicy, PreventionPolicies
 from .quarantine import Quarantine
 from .quick_scan import QuickScan
@@ -200,6 +200,7 @@ from .sensor_download import SensorDownload
 from .sensor_update_policy import SensorUpdatePolicy, SensorUpdatePolicies
 from .sensor_usage import SensorUsage
 from .sensor_visibility_exclusions import SensorVisibilityExclusions
+from .serverless_exports import ServerlessExports
 from .serverless_vulnerabilities import ServerlessVulnerabilities
 from .spotlight_vulnerabilities import SpotlightVulnerabilities
 from .spotlight_vulnerability_metadata import SpotlightVulnerabilityMetadata
@@ -229,7 +230,7 @@ __all__ = [
     "FalconContainer", "FalconXSandbox", "FirewallManagement", "FirewallPolicies", "HostGroup",
     "Hosts", "IdentityProtection", "Incidents", "InstallationTokens", "Intel", "IOAExclusions",
     "IOC", "Iocs", "KubernetesProtection", "MalQuery", "MLExclusions", "FlightControl", "OAuth2",
-    "OverwatchDashboard", "PreventionPolicy", "Quarantine", "QuickScan", "RealTimeResponseAdmin",
+    "PreventionPolicy", "Quarantine", "QuickScan", "RealTimeResponseAdmin",
     "RealTimeResponse", "Recon", "ReportExecutions", "ResponsePolicies", "SampleUploads",
     "ScheduledReports", "SensorDownload", "SensorUpdatePolicy", "SensorVisibilityExclusions",
     "SpotlightVulnerabilities", "SpotlightEvaluationLogic", "UserManagement", "MAX_DEBUG_RECORDS",
@@ -254,15 +255,16 @@ __all__ = [
     "CertificateBasedExclusions", "ComplianceAssessments", "HostMigration", "QuickScanPro",
     "SensorUsage", "Downloads", "DeliverySettings", "ASPM", "IntelligenceFeeds",
     "NGSIEM", "CorrelationRules", "CloudAWSRegistration", "CloudAzureRegistration",
-    "CloudOCIRegistration", "CloudSecurityAssets", "Deployments", "ServerlessVulnerabilities",
+    "CloudOCIRegistration", "CloudSecurityAssets", "Deployments",
     "DeviceContent", "IntelligenceIndicatorGraph", "ContentUpdatePolicies", "CAOHunting",
     "ContainerImageCompliance", "FaaSExecution", "HEC", "IngestBaseURL", "IngestFormat",
     "IngestPayload", "HTTPEventCollector", "IngestConfig", "SessionManager", "TimeUnit",
     "Color", "Indicator", "random_string", "KubernetesContainerCompliance", "find_operation",
     "InvalidRoute", "InvalidServiceCollection", "InvalidOperationSearch", "ITAutomation", "F4IT",
-    "CloudSecurityCompliance", "CaseManagement", "SaasSecurity", "SpotlightVulnerabilityMetadata",
-    "DataProtectionConfiguration", "CorrelationRulesAdmin", "CloudSecurityDetections",
-    "CloudPolicies", "CloudGoogleCloudRegistration", "CloudSecurity"
+    "CloudSecurityCompliance", "CaseManagement", "SaasSecurity", "DataProtectionConfiguration",
+    "CorrelationRulesAdmin", "CloudSecurityDetections", "CloudPolicies", "CloudGoogleCloudRegistration",
+    "CloudSecurity", "AdmissionControlPolicies",
+    "SpotlightVulnerabilityMetadata", "ServerlessExports", "ServerlessVulnerabilities"
     ]
 """
 This is free and unencumbered software released into the public domain.

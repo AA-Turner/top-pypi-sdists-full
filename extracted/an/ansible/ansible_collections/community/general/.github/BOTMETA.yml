@@ -312,7 +312,7 @@ files:
   $lookups/lmdb_kv.py:
     maintainers: jpmens
   $lookups/merge_variables.py:
-    maintainers: rlenferink m-a-r-k-e alpex8
+    maintainers: rlenferink m-a-r-k-e alpex8 cfiehe
   $lookups/onepass:
     labels: onepassword
     maintainers: samdoran
@@ -642,6 +642,10 @@ files:
     maintainers: adrianmoisey
   $modules/github_repo.py:
     maintainers: atorrescogollo
+  $modules/github_secrets.py:
+    maintainers: konstruktoid
+  $modules/github_secrets_info.py:
+    maintainers: konstruktoid
   $modules/gitlab_:
     keywords: gitlab source_control
     maintainers: $team_gitlab
@@ -834,6 +838,8 @@ files:
     maintainers: $team_keycloak
   $modules/keycloak_authentication.py:
     maintainers: elfelip Gaetan2907
+  $modules/keycloak_authentication_v2.py:
+    maintainers: thomasbargetz
   $modules/keycloak_authentication_required_actions.py:
     maintainers: Skrekulko
   $modules/keycloak_authz_authorization_scope.py:
@@ -928,6 +934,8 @@ files:
     labels: logentries
   $modules/logentries_msg.py:
     maintainers: jcftang
+  $modules/logrotate.py:
+    maintainers: a-gabidullin
   $modules/logstash_plugin.py:
     maintainers: nerzhul
   $modules/lvg.py:
@@ -1619,7 +1627,7 @@ macros:
   plugin_utils: plugins/plugin_utils
   tests: plugins/test
   team_ansible_core:
-  team_aix: MorrisA bcoca d-little flynn1973 gforster kairoaraujo marvin-sinister mator molekuul ramooncamacho wtcross
+  team_aix: MorrisA bcoca d-little flynn1973 gforster kairoaraujo marvin-sinister molekuul ramooncamacho wtcross
   team_bsd: JoergFiedler MacLemon bcoca dch jasperla mekanix opoplawski overhacked tuxillo
   team_consul: sgargan apollo13 Ilgmi
   team_cyberark_conjur: jvanderhoof ryanprior
@@ -1640,7 +1648,7 @@ macros:
   team_redfish: mraineri tomasg2012 xmadsen renxulei rajeevkallur bhavya06 jyundt
   team_rhsm: cnsnyder ptoscano
   team_scaleway: remyleone abarbare
-  team_solaris: bcoca fishman jasperla jpdasma mator scathatheworm troy2914 xen0l
+  team_solaris: bcoca fishman jasperla jpdasma scathatheworm troy2914 xen0l
   team_suse: commel evrardjp lrupp AnderEnder alxgu andytom sealor
   team_virt: joshainglis karmab Thulium-Drake Ajpantuso
   team_wdc: mikemoerk

@@ -39,7 +39,7 @@ class TestPatchPolicy(unittest.TestCase):
                 description = '',
                 owner_group_id = '',
                 webhook_id = '',
-                grace_period_days = 56
+                enforcement_delay_days = 56
             )
         else:
             return PatchPolicy(

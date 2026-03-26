@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: satkit
-Version: 0.14.1
+Version: 0.14.3
 Summary: Satellite Orbital Dynamics Toolkit
 Author-email: Steven Michael <ssmichael@gmail.com>
 Maintainer-email: Steven Michael <ssmichael@gmail.com>
@@ -41,6 +41,9 @@ Dynamic: license-file
 Satkit is a high-performance orbital mechanics library written in Rust with complete Python bindings via PyO3. It handles coordinate transforms, orbit propagation, time systems, gravity models, atmospheric density, and JPL ephemerides -- everything needed for satellite astrodynamics work.
 
 **[Documentation and tutorials](https://satkit.dev/)** (Python examples, but the concepts and API apply equally to Rust) | **[Rust API reference](https://docs.rs/satkit/)**
+
+> [!NOTE]
+> **Version 0.14.1** replaces `nalgebra` with [`numeris`](https://crates.io/crates/numeris) for all linear algebra (matrices, quaternions, ODE solvers). `numeris` is a standalone library that unifies these in a single crate, making them available to projects beyond satkit. Performance is equivalent, and all tests pass with matching residuals. If your code uses `nalgebra` types, enable the `nalgebra` feature on `numeris` for zero-cost conversions. Please open an issue if you hit any problems.
 
 ## Installation
 

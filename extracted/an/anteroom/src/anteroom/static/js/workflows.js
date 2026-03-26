@@ -162,7 +162,7 @@ const Workflows = (() => {
             const run = await App.api(`/api/workflow-runs/${encodeURIComponent(runId)}`);
             _renderRunDetail(run);
 
-            const terminal = ['completed', 'failed', 'cancelled', 'blocked'];
+            const terminal = ['completed', 'failed', 'cancelled', 'compensated', 'compensation_failed'];
             if (!terminal.includes(run.status)) {
                 _openDetailEventSource(runId);
             }
@@ -202,8 +202,14 @@ const Workflows = (() => {
             <div class="wf-detail-meta">
                 <div>Started: ${_relativeTime(run.started_at || run.created_at)}</div>
                 ${run.completed_at ? `<div>Completed: ${_relativeTime(run.completed_at)}</div>` : ''}
+                ${run.result_summary ? `<div class="wf-result-summary">${_escapeHtml(run.result_summary)}</div>` : ''}
             </div>
             <div class="wf-step-timeline">${stepsHtml || '<div class="wf-empty">No steps yet.</div>'}</div>
+            ${run.recovery_actions && run.recovery_actions.length > 0
+                ? '<div class="wf-recovery-actions"><strong>Recovery options:</strong><ul>'
+                    + run.recovery_actions.map(a => '<li><code>' + _escapeHtml(a) + '</code></li>').join('')
+                    + '</ul></div>'
+                : ''}
             <div id="workflow-transcript"></div>
         `;
 
@@ -293,6 +299,9 @@ const Workflows = (() => {
                         : (data.event_type === 'transcript_tool_call' || data.event_type === 'transcript_tool_result') ? 'tool'
                         : 'stdout';
                     _appendTranscriptLine(stream, payload.content || '', data.created_at || '');
+                } else if (data.event_type === 'step_emitted') {
+                    const msg = (data.payload || {}).message || '';
+                    _appendTranscriptSeparator(msg);
                 } else if (data.event_type === 'step_started') {
                     _appendTranscriptSeparator(`${data.step_id || '?'} started`);
                     _loadRunDetail(runId); // Refresh step timeline

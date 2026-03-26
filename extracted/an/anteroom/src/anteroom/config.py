@@ -839,6 +839,7 @@ class WorkflowConfig:
     """Workflow automation and orchestration settings."""
 
     enabled: bool = True
+    approval_mode: str = "ask_for_dangerous"
     max_review_rounds: int = 2
     max_iterations: int = 30
     step_timeout: int = 300
@@ -870,8 +871,20 @@ class WorkflowConfig:
     _MAX_SCHED_INTERVAL: int = field(default=86400, init=False, repr=False)
     _MIN_WATCH_BUFFER_LINES: int = field(default=1, init=False, repr=False)
     _MAX_WATCH_BUFFER_LINES: int = field(default=1000, init=False, repr=False)
+    _APPROVAL_MODES: tuple[str, ...] = field(
+        default=("auto", "ask_for_dangerous", "ask_for_writes", "ask"),
+        init=False,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
+        if self.approval_mode not in self._APPROVAL_MODES:
+            logger.warning(
+                "workflow approval_mode=%r invalid, defaulting to %r",
+                self.approval_mode,
+                "ask_for_dangerous",
+            )
+            object.__setattr__(self, "approval_mode", "ask_for_dangerous")
         if self.max_iterations < self._MIN_MAX_ITERATIONS:
             logger.warning(
                 "workflow max_iterations=%d below minimum (%d), clamping",
@@ -2271,6 +2284,7 @@ def load_config(
     workflow_defaults = WorkflowConfig()
     for wf_key in (
         "enabled",
+        "approval_mode",
         "max_review_rounds",
         "max_iterations",
         "step_timeout",
@@ -2293,6 +2307,8 @@ def load_config(
                 workflow_kwargs[wf_key] = val
             else:
                 workflow_kwargs[wf_key] = str(val).lower() in ("true", "1", "yes")
+        elif isinstance(wf_default, str):
+            workflow_kwargs[wf_key] = str(val).strip()
         elif isinstance(wf_default, int):
             try:
                 workflow_kwargs[wf_key] = int(val)

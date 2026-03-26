@@ -9,7 +9,6 @@ import yaml
 import requests
 from tqdm.auto import tqdm
 from git.remote import RemoteProgress
-from comfyui_manager.common.timestamp_utils import get_backup_branch_name
 
 
 comfy_path = os.environ.get('COMFYUI_PATH')
@@ -51,9 +50,6 @@ working_directory = os.getcwd()
 
 if os.path.basename(working_directory) != 'custom_nodes':
     print("WARN: This script should be executed in custom_nodes dir")
-    print(f"DBG: INFO {working_directory}")
-    print(f"DBG: INFO {sys.argv}")
-    # exit(-1)
 
 
 class GitProgress(RemoteProgress):
@@ -68,14 +64,60 @@ class GitProgress(RemoteProgress):
         self.pbar.refresh()
 
 
+def get_backup_branch_name(repo=None):
+    """Get backup branch name with current timestamp.
+
+    Inlined from timestamp_utils to keep git_helper.py standalone — this script
+    runs as a subprocess on Windows and must not import from comfyui_manager.
+    """
+    import time as _time
+    import uuid as _uuid
+
+    base_name = f'backup_{_time.strftime("%Y%m%d_%H%M%S")}'
+
+    if repo is None:
+        return base_name
+
+    try:
+        existing_branches = {b.name for b in repo.heads}
+    except Exception:
+        return base_name
+
+    if base_name not in existing_branches:
+        return base_name
+
+    for i in range(1, 100):
+        new_name = f'{base_name}_{i}'
+        if new_name not in existing_branches:
+            return new_name
+
+    return f'{base_name}_{_uuid.uuid4().hex[:6]}'
+
+
 def gitclone(custom_nodes_path, url, target_hash=None, repo_path=None):
     repo_name = os.path.splitext(os.path.basename(url))[0]
 
     if repo_path is None:
         repo_path = os.path.join(custom_nodes_path, repo_name)
 
-    # Clone the repository from the remote URL
-    repo = git.Repo.clone_from(url, repo_path, recursive=True, progress=GitProgress())
+    # On Windows, previous failed clones may leave directories with locked
+    # .git/objects/pack/* files (GitPython memory-mapped handle leak).
+    # Rename stale directory out of the way so clone can proceed.
+    if os.path.exists(repo_path):
+        import shutil
+        import uuid as _uuid
+        trash_dir = os.path.join(custom_nodes_path, '.disabled', '.trash')
+        os.makedirs(trash_dir, exist_ok=True)
+        trash = os.path.join(trash_dir, repo_name + f'_{_uuid.uuid4().hex[:8]}')
+        try:
+            os.rename(repo_path, trash)
+            shutil.rmtree(trash, ignore_errors=True)
+        except OSError:
+            shutil.rmtree(repo_path, ignore_errors=True)
+
+    # Disable tqdm progress when stderr is piped to avoid deadlock on Windows.
+    progress = GitProgress() if sys.stderr.isatty() else None
+    repo = git.Repo.clone_from(url, repo_path, recursive=True, progress=progress)
 
     if target_hash is not None:
         print(f"CHECKOUT: {repo_name} [{target_hash}]")
@@ -528,7 +570,9 @@ try:
             restore_pip_snapshot(pips, options)
     sys.exit(0)
 except Exception as e:
-    print(e)
-    sys.exit(-1)
+    print(e, file=sys.stderr)
+    if hasattr(e, 'stderr') and e.stderr:
+        print(e.stderr, file=sys.stderr)
+    sys.exit(1)
 
 

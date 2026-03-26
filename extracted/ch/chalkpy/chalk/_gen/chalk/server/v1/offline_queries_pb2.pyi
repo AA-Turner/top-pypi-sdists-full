@@ -86,6 +86,96 @@ BATCH_OP_KIND_RECOMPUTE: BatchOpKind
 BATCH_OP_KIND_CRON: BatchOpKind
 BATCH_OP_KIND_AGGREGATION_BACKFILL: BatchOpKind
 
+class OfflineQueryShardRun(_message.Message):
+    __slots__ = ("id", "offline_query_id", "shard_id", "created_at", "hostname", "plan_execution_start", "completed_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    HOSTNAME_FIELD_NUMBER: _ClassVar[int]
+    PLAN_EXECUTION_START_FIELD_NUMBER: _ClassVar[int]
+    COMPLETED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    offline_query_id: str
+    shard_id: int
+    created_at: _timestamp_pb2.Timestamp
+    hostname: str
+    plan_execution_start: _timestamp_pb2.Timestamp
+    completed_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        offline_query_id: _Optional[str] = ...,
+        shard_id: _Optional[int] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        hostname: _Optional[str] = ...,
+        plan_execution_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        completed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class OfflineQueryShard(_message.Message):
+    __slots__ = (
+        "id",
+        "offline_query_id",
+        "environment_id",
+        "deployment_id",
+        "created_at",
+        "shard_id",
+        "computer_id",
+        "spine_uri",
+        "spine_uri_version",
+        "has_errors",
+        "completed_at",
+        "status",
+        "last_heartbeat_at",
+        "runs",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    COMPUTER_ID_FIELD_NUMBER: _ClassVar[int]
+    SPINE_URI_FIELD_NUMBER: _ClassVar[int]
+    SPINE_URI_VERSION_FIELD_NUMBER: _ClassVar[int]
+    HAS_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    COMPLETED_AT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    LAST_HEARTBEAT_AT_FIELD_NUMBER: _ClassVar[int]
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    offline_query_id: str
+    environment_id: str
+    deployment_id: str
+    created_at: _timestamp_pb2.Timestamp
+    shard_id: int
+    computer_id: int
+    spine_uri: str
+    spine_uri_version: int
+    has_errors: bool
+    completed_at: _timestamp_pb2.Timestamp
+    status: OfflineQueryStatus
+    last_heartbeat_at: _timestamp_pb2.Timestamp
+    runs: _containers.RepeatedCompositeFieldContainer[OfflineQueryShardRun]
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        offline_query_id: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        shard_id: _Optional[int] = ...,
+        computer_id: _Optional[int] = ...,
+        spine_uri: _Optional[str] = ...,
+        spine_uri_version: _Optional[int] = ...,
+        has_errors: bool = ...,
+        completed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status: _Optional[_Union[OfflineQueryStatus, str]] = ...,
+        last_heartbeat_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        runs: _Optional[_Iterable[_Union[OfflineQueryShardRun, _Mapping]]] = ...,
+    ) -> None: ...
+
 class OfflineQueryMeta(_message.Message):
     __slots__ = (
         "id",
@@ -327,6 +417,88 @@ class GetOfflineQueryResponse(_message.Message):
     OFFLINE_QUERY_FIELD_NUMBER: _ClassVar[int]
     offline_query: OfflineQueryMeta
     def __init__(self, offline_query: _Optional[_Union[OfflineQueryMeta, _Mapping]] = ...) -> None: ...
+
+class ListOfflineQueryShardsFilters(_message.Message):
+    __slots__ = ("status", "shard_id")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    status: OfflineQueryStatus
+    shard_id: int
+    def __init__(
+        self, status: _Optional[_Union[OfflineQueryStatus, str]] = ..., shard_id: _Optional[int] = ...
+    ) -> None: ...
+
+class ListOfflineQueryShardsPageToken(_message.Message):
+    __slots__ = ("shard_id",)
+    SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    shard_id: int
+    def __init__(self, shard_id: _Optional[int] = ...) -> None: ...
+
+class ListOfflineQueryShardsRequest(_message.Message):
+    __slots__ = ("offline_query_id", "filters", "limit", "page_token")
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    offline_query_id: str
+    filters: ListOfflineQueryShardsFilters
+    limit: int
+    page_token: str
+    def __init__(
+        self,
+        offline_query_id: _Optional[str] = ...,
+        filters: _Optional[_Union[ListOfflineQueryShardsFilters, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListOfflineQueryShardsResponse(_message.Message):
+    __slots__ = ("offline_query_shards", "next_page_token")
+    OFFLINE_QUERY_SHARDS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    offline_query_shards: _containers.RepeatedCompositeFieldContainer[OfflineQueryShard]
+    next_page_token: str
+    def __init__(
+        self,
+        offline_query_shards: _Optional[_Iterable[_Union[OfflineQueryShard, _Mapping]]] = ...,
+        next_page_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class OfflineQueryShardStatusAggregate(_message.Message):
+    __slots__ = ("status", "count")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    status: OfflineQueryStatus
+    count: int
+    def __init__(
+        self, status: _Optional[_Union[OfflineQueryStatus, str]] = ..., count: _Optional[int] = ...
+    ) -> None: ...
+
+class GetOfflineQueryShardsAggregatedRequest(_message.Message):
+    __slots__ = ("offline_query_id",)
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    offline_query_id: str
+    def __init__(self, offline_query_id: _Optional[str] = ...) -> None: ...
+
+class GetOfflineQueryShardsAggregatedResponse(_message.Message):
+    __slots__ = ("aggregates",)
+    AGGREGATES_FIELD_NUMBER: _ClassVar[int]
+    aggregates: _containers.RepeatedCompositeFieldContainer[OfflineQueryShardStatusAggregate]
+    def __init__(
+        self, aggregates: _Optional[_Iterable[_Union[OfflineQueryShardStatusAggregate, _Mapping]]] = ...
+    ) -> None: ...
+
+class GetOfflineQueryInfraSummaryRequest(_message.Message):
+    __slots__ = ("offline_query_id",)
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    offline_query_id: str
+    def __init__(self, offline_query_id: _Optional[str] = ...) -> None: ...
+
+class GetOfflineQueryInfraSummaryResponse(_message.Message):
+    __slots__ = ("pod_names",)
+    POD_NAMES_FIELD_NUMBER: _ClassVar[int]
+    pod_names: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, pod_names: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class CreateOfflineQueryJobRequest(_message.Message):
     __slots__ = ("offline_query_request",)

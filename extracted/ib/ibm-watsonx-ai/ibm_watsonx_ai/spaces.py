@@ -613,7 +613,7 @@ class Spaces(WMLResource):
             for entry in client.spaces.get_details(
                 limit=100, asynchronous=True, get_all=True
             ):
-                space_details.extend(entry)
+                space_details.append(entry)
 
         """
         query_params = self._get_details_prepare_query_params(
@@ -720,10 +720,10 @@ class Spaces(WMLResource):
                 limit=100, get_all=True
             )
             space_details = []
-            for entry in await client.spaces.aget_details(
+            async for entry in await client.spaces.aget_details(
                 limit=100, asynchronous=True, get_all=True
             ):
-                space_details.extend(entry)
+                space_details.append(entry)
 
         """
         query_params = self._get_details_prepare_query_params(
@@ -766,6 +766,25 @@ class Spaces(WMLResource):
     ) -> dict[str, Any] | Generator:
         """Get metadata of stored space(s) with caching. It's dedicated for internal usage."""
         return self.get_details(
+            space_id=space_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            space_name=space_name,
+            **kwargs,
+        )
+
+    async def _aget_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | AsyncGenerator:
+        """Internal wrapper around `aget_details` that forwards all arguments."""
+        return await self.aget_details(
             space_id=space_id,
             limit=limit,
             asynchronous=asynchronous,

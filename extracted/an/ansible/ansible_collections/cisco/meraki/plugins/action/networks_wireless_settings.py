@@ -36,6 +36,7 @@ argument_spec.update(dict(
     locationAnalyticsEnabled=dict(type="bool"),
     upgradeStrategy=dict(type="str"),
     ledLightsOn=dict(type="bool"),
+    multicastToUnicastConversion=dict(type="dict"),
     namedVlans=dict(type="dict"),
     networkId=dict(type="str"),
 ))
@@ -57,6 +58,7 @@ class NetworksWirelessSettings(object):
             locationAnalyticsEnabled=params.get("locationAnalyticsEnabled"),
             upgradeStrategy=params.get("upgradeStrategy"),
             ledLightsOn=params.get("ledLightsOn"),
+            multicastToUnicastConversion=params.get("multicastToUnicastConversion"),
             namedVlans=params.get("namedVlans"),
             network_id=params.get("networkId"),
         )
@@ -91,6 +93,10 @@ class NetworksWirelessSettings(object):
                 'led_lights_on') is not None:
             new_object_params['ledLightsOn'] = self.new_object.get(
                 'ledLightsOn')
+        if self.new_object.get('multicastToUnicastConversion') is not None or self.new_object.get(
+                'multicast_to_unicast_conversion') is not None:
+            new_object_params['multicastToUnicastConversion'] = self.new_object.get(
+                'multicastToUnicastConversion') or self.new_object.get('multicast_to_unicast_conversion')
         if self.new_object.get('namedVlans') is not None or self.new_object.get(
                 'named_vlans') is not None:
             new_object_params['namedVlans'] = self.new_object.get(
@@ -158,6 +164,7 @@ class NetworksWirelessSettings(object):
             ("locationAnalyticsEnabled", "locationAnalyticsEnabled"),
             ("upgradeStrategy", "upgradeStrategy"),
             ("ledLightsOn", "ledLightsOn"),
+            ("multicastToUnicastConversion", "multicastToUnicastConversion"),
             ("namedVlans", "namedVlans"),
             ("networkId", "networkId"),
         ]

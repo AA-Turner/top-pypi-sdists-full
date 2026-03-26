@@ -37,7 +37,7 @@ class TestPatchPolicyAttestationRule(unittest.TestCase):
             return PatchPolicyAttestationRule(
                 name = '',
                 description = '',
-                interval_days = 56
+                validity_period_days = 56
             )
         else:
             return PatchPolicyAttestationRule(

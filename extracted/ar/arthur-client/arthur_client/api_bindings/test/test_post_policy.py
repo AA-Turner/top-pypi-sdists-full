@@ -39,14 +39,29 @@ class TestPostPolicy(unittest.TestCase):
                 description = '',
                 owner_group_id = '',
                 webhook_id = '',
-                grace_period_days = 56
+                enforcement_delay_days = 56,
+                alert_rules = [
+                    arthur_client.api_bindings.models.post_policy_alert_rule.PostPolicyAlertRule(
+                        name = '', 
+                        description = '', 
+                        threshold = 1.337, 
+                        bound = 'upper_bound', 
+                        query = '', 
+                        metric_name = '', )
+                    ],
+                attestation_rules = [
+                    arthur_client.api_bindings.models.post_policy_attestation_rule.PostPolicyAttestationRule(
+                        name = '', 
+                        description = '', 
+                        validity_period_days = 56, )
+                    ]
             )
         else:
             return PostPolicy(
                 name = '',
                 owner_group_id = '',
                 webhook_id = '',
-                grace_period_days = 56,
+                enforcement_delay_days = 56,
         )
         """
 

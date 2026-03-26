@@ -1,8 +1,9 @@
 from collections.abc import Iterable
+from copy import deepcopy as dcopy
 import warnings
 
 import numpy as np
-from sklearn.metrics import r2_score as r2_score_sklearn
+import sklearn.metrics as sk_metrics
 
 def squared_error(y_true, y_pred, axis=None):
     """
@@ -164,6 +165,67 @@ def r2_score(y_true, y_pred, axis=None, axis_ref=None, axis_bias=None, force_fin
         score = score.item()
 
     return score
+
+# Binary classification
+def sensitivity_score(y_true, y_pred): # alias
+    '''sensitivity == recall == tpr'''
+    return sk_metrics.recall_score(y_true, y_pred)
+
+def specificity_score(y_true, y_pred):
+    (tn, fp), (fn, tp) = sk_metrics.confusion_matrix(y_true, y_pred)
+    if (tn+fp)==0:
+        warnings.warn('invalid value in specificity_score, setting to 0.0')
+        return 0
+    return tn / (tn+fp)
+
+# Multiclass classification
+def classification_report_full(y_true, y_pred=None, y_score=None, ovr=True):
+    '''
+    Adds additional metrics to sklearn.classification_report
+    '''
+    assert not (y_pred is None and y_score is None), 'either one of y_pred or y_score needs to be given'
+    if y_pred is None:
+        y_pred = y_score.argmax(1)
+
+    # y_score = result['y_score'] if 'y_score' in result else None
+    # y_true, y_pred = result['y_true'], result['y_pred']
+    
+    scores = sk_metrics.classification_report(y_true, y_pred, output_dict=True)
+    scores['mcc'] = sk_metrics.matthews_corrcoef(y_true, y_pred)
+
+    if ovr:
+        scores_ovr = {k:dcopy(v) for k, v in scores.items() if k.isnumeric()}
+        scores_all = {k:dcopy(v) for k, v in scores.items() if not k.isnumeric()}
+
+        more_scorers_y_pred = {'sensitivity': sensitivity_score, 'specificity': specificity_score, 'accuracy': sk_metrics.accuracy_score} # Optimize to reduce redundant computations?
+        more_scorers_y_score = {}
+
+        # Additional metrics
+        for c in scores_ovr.keys():
+            c_int = int(c)
+            y_true__c, y_pred_c = y_true==c_int, y_pred==c_int
+            for scorer_name, scorer in more_scorers_y_pred.items():
+                scores_ovr[c][scorer_name] = scorer({'y_true': y_true__c, 'y_pred': y_pred_c})
+
+        if y_score is not None:
+            more_scorers_y_score['auroc'] = sk_metrics.roc_auc_score
+            for c in scores_ovr.keys():
+                c_int = int(c)
+                y_true_ = y_true==c_int
+                y_score_ = y_score[:, c_int]
+                for scorer_name, scorer in more_scorers_y_score.items():
+                    scores_ovr[c][scorer_name] = scorer(y_true_, y_score_)
+
+        # summary
+        more_scorers = list(more_scorers_y_pred.keys()) + list(more_scorers_y_score.keys())
+        for scorer_name in more_scorers:
+            scores_all['macro avg'][scorer_name] = np.mean([scores_ovr_[scorer_name] for scores_ovr_ in scores_ovr.values()])
+            scores_all['weighted avg'][scorer_name] = np.sum([scores_ovr_[scorer_name]*scores_ovr_['support'] for scores_ovr_ in scores_ovr.values()]) / scores_all['weighted avg']['support']
+
+        scores.update(scores_ovr)
+        scores.update(scores_all)
+
+    return scores
 
 # def r2_score(y_true, y_pred, axis=None, multioutput='raw_values'):
 #     """

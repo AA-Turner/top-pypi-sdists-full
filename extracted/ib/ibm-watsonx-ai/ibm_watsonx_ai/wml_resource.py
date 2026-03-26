@@ -980,26 +980,48 @@ class WMLResource:
         return {"resources": _filter_func(resources) if _filter_func else resources}
 
     def _if_deployment_exist_for_asset(self, asset_id: str) -> bool:
-        response = self._client.httpx_client.get(
-            url=self._client._href_definitions.get_deployments_href(),
-            params=self._client._params() | {"asset_id": asset_id},
-            headers=self._client._get_headers(),
-        )
+        try:
+            response = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_deployments_href(),
+                params=self._client._params() | {"asset_id": asset_id},
+                headers=self._client._get_headers(),
+            )
 
-        response_data = self._handle_response(200, "Get deployment details", response)
+            response_data = self._handle_response(
+                200, "Get deployment details", response
+            )
 
-        return bool(response_data.get("resources"))
+            return bool(response_data.get("resources"))
+        except ApiRequestFailure:
+            self._logger.error(
+                "Unable to retrieve deployments for asset %s",
+                asset_id,
+            )
+            # If the endpoint is unavailable or returns an error (e.g., 403),
+            # assume no deployments exist for this asset
+            return False
 
     async def _aif_deployment_exist_for_asset(self, asset_id: str) -> bool:
-        response = await self._client.async_httpx_client.get(
-            url=self._client._href_definitions.get_deployments_href(),
-            params=self._client._params() | {"asset_id": asset_id},
-            headers=await self._client._aget_headers(),
-        )
+        try:
+            response = await self._client.async_httpx_client.get(
+                url=self._client._href_definitions.get_deployments_href(),
+                params=self._client._params() | {"asset_id": asset_id},
+                headers=await self._client._aget_headers(),
+            )
 
-        response_data = self._handle_response(200, "Get deployment details", response)
+            response_data = self._handle_response(
+                200, "Get deployment details", response
+            )
 
-        return bool(response_data.get("resources"))
+            return bool(response_data.get("resources"))
+        except ApiRequestFailure:
+            self._logger.error(
+                "Unable to retrieve deployments for asset %s",
+                asset_id,
+            )
+            # If the endpoint is unavailable or returns an error (e.g., 403),
+            # assume no deployments exist for this asset
+            return False
 
     def _list(
         self,
@@ -1088,7 +1110,7 @@ class WMLResource:
     def _create_revision_artifact_for_assets(self, id: str, resource_name: str) -> dict:
         op_name = f"Creation revision for {resource_name}"
 
-        url = self._client._href_definitions.get_asset_href(id) + "/revisions"
+        url = self._client._href_definitions.get_asset_definition_revisions_href(id)
         commit_message = "Revision creation for " + resource_name + " " + id
 
         payload_json = {"commit_message": commit_message}
@@ -1110,7 +1132,7 @@ class WMLResource:
     ) -> dict:
         op_name = f"Creation revision for {resource_name}"
 
-        url = self._client._href_definitions.get_asset_href(id) + "/revisions"
+        url = self._client._href_definitions.get_asset_definition_revisions_href(id)
         commit_message = "Revision creation for " + resource_name + " " + id
 
         payload_json = {"commit_message": commit_message}

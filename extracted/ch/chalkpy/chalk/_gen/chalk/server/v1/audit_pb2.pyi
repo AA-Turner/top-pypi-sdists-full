@@ -1,4 +1,5 @@
 from chalk._gen.chalk.auth.v1 import agent_pb2 as _agent_pb2
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -102,3 +103,56 @@ class GetAuditLogsResponse(_message.Message):
     def __init__(
         self, logs: _Optional[_Iterable[_Union[AuditLog, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
     ) -> None: ...
+
+class AuditedEndpointField(_message.Message):
+    __slots__ = ("name", "type")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    type: str
+    def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ...) -> None: ...
+
+class AuditedEndpoint(_message.Message):
+    __slots__ = (
+        "endpoint",
+        "description",
+        "level",
+        "request_type",
+        "response_type",
+        "request_fields",
+        "response_fields",
+    )
+    ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    LEVEL_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESPONSE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELDS_FIELD_NUMBER: _ClassVar[int]
+    RESPONSE_FIELDS_FIELD_NUMBER: _ClassVar[int]
+    endpoint: str
+    description: str
+    level: _audit_pb2.AuditLevel
+    request_type: str
+    response_type: str
+    request_fields: _containers.RepeatedCompositeFieldContainer[AuditedEndpointField]
+    response_fields: _containers.RepeatedCompositeFieldContainer[AuditedEndpointField]
+    def __init__(
+        self,
+        endpoint: _Optional[str] = ...,
+        description: _Optional[str] = ...,
+        level: _Optional[_Union[_audit_pb2.AuditLevel, str]] = ...,
+        request_type: _Optional[str] = ...,
+        response_type: _Optional[str] = ...,
+        request_fields: _Optional[_Iterable[_Union[AuditedEndpointField, _Mapping]]] = ...,
+        response_fields: _Optional[_Iterable[_Union[AuditedEndpointField, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetAuditedEndpointsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetAuditedEndpointsResponse(_message.Message):
+    __slots__ = ("endpoints",)
+    ENDPOINTS_FIELD_NUMBER: _ClassVar[int]
+    endpoints: _containers.RepeatedCompositeFieldContainer[AuditedEndpoint]
+    def __init__(self, endpoints: _Optional[_Iterable[_Union[AuditedEndpoint, _Mapping]]] = ...) -> None: ...

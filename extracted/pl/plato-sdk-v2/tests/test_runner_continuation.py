@@ -288,7 +288,39 @@ class TestRunWithoutContinuation:
 
         assert len(scopes) == 1
         assert scopes[0].audit_key == build_audit_key(scopes[0].audit_run_id)
-        assert transport.audit_key == scopes[0].audit_key
+        # The original shared transport must NOT be mutated — the scope gets its own copy.
+        assert transport.audit_key is None
+        assert scopes[0].transport is not transport
+        assert scopes[0].transport.audit_key == scopes[0].audit_key
+        # The runner's workspace reference should now point to the copy.
+        assert runner._workspace is scopes[0].transport
+
+    def test_configure_audit_scopes_parallel_isolation(self):
+        """Two runners sharing the same transport get independent audit keys."""
+        agent_cfg = _make_agent_config()
+        transport = NFSTransport("/tmp/code", "127.0.0.1", Path("/tmp/test-key"))
+        transport.configure_workspace(
+            name="code",
+            repo_root="/tmp/repo",
+            tracked=True,
+        )
+
+        runner_a = AgentRunner(agent_cfg, FakeRuntime(), workspace=transport)
+        runner_b = AgentRunner(agent_cfg, FakeRuntime(), workspace=transport)
+
+        scopes_a = runner_a._configure_audit_scopes()
+        scopes_b = runner_b._configure_audit_scopes()
+
+        assert len(scopes_a) == 1
+        assert len(scopes_b) == 1
+        # Each runner should have its own unique audit key.
+        assert scopes_a[0].audit_key != scopes_b[0].audit_key
+        # Neither should have mutated the original transport.
+        assert transport.audit_key is None
+        # Each runner's workspace is its own copy.
+        assert runner_a._workspace is not runner_b._workspace
+        assert runner_a._workspace is not transport
+        assert runner_b._workspace is not transport
 
     def test_tool_execution_context_payload_uses_scope_metadata(self):
         agent_cfg = _make_agent_config()

@@ -320,6 +320,12 @@ class JobSDK:
         max_items: Optional[int] = None,
         sort_field: Optional[str] = None,
         sort_order: Optional[str] = None,
+        created_at_from: Optional[str] = None,
+        created_at_to: Optional[str] = None,
+        updated_at_from: Optional[str] = None,
+        updated_at_to: Optional[str] = None,
+        status_updated_at_from: Optional[str] = None,
+        status_updated_at_to: Optional[str] = None,
         **_kwargs: Dict[str, Any],
     ) -> ResultIterator[JobStatus]:
         """List jobs with filtering and pagination.
@@ -340,6 +346,12 @@ class JobSDK:
             max_items: Maximum total items to return.
             sort_field: Field to sort by (CREATED_AT, NAME, STATUS, etc.).
             sort_order: Sort order (ASC or DESC).
+            created_at_from: Filter for jobs created at or after this time (ISO 8601).
+            created_at_to: Filter for jobs created at or before this time (ISO 8601).
+            updated_at_from: Filter for jobs updated at or after this time (ISO 8601).
+            updated_at_to: Filter for jobs updated at or before this time (ISO 8601).
+            status_updated_at_from: Filter for jobs whose status was last updated at or after this time (ISO 8601).
+            status_updated_at_to: Filter for jobs whose status was last updated at or before this time (ISO 8601).
 
         Returns:
             ResultIterator of JobStatus objects.
@@ -359,4 +371,10 @@ class JobSDK:
             max_items=max_items,
             sort_field=sort_field,
             sort_order=sort_order,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
+            updated_at_from=updated_at_from,
+            updated_at_to=updated_at_to,
+            status_updated_at_from=status_updated_at_from,
+            status_updated_at_to=status_updated_at_to,
         )

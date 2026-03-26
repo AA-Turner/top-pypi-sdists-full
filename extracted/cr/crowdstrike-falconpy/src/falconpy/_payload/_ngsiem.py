@@ -35,9 +35,10 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <https://unlicense.org>
 """
+from typing import Dict, List, Union
 
 
-def ngsiem_search_payload(passed_keywords: dict) -> dict:
+def ngsiem_search_payload(passed_keywords: dict) -> Dict[str, Union[str, bool, int, dict]]:
     """Generate a properly formatted NGSIEM search payload.
 
     {
@@ -91,7 +92,7 @@ def ngsiem_search_payload(passed_keywords: dict) -> dict:
     return returned
 
 
-def ngsiem_parser_payload(passed_keywords: dict) -> dict:
+def ngsiem_parser_payload(passed_keywords: dict) -> Dict[str, Union[str, list]]:
     """Craft a properly formatted parser payload.
 
     {
@@ -135,6 +136,120 @@ def ngsiem_parser_payload(passed_keywords: dict) -> dict:
             "test_cases", "id"
             ]
     list_keys = ["fields_to_be_removed_before_parsing", "fields_to_tag"]
+    for key in keys:
+        if passed_keywords.get(key, None):
+            keyval = passed_keywords.get(key, None)
+            if key in list_keys and isinstance(keyval, str):
+                keyval = keyval.split(",")
+            returned[key] = keyval
+
+    return returned
+
+
+def ngsiem_auto_update_policy_payload(passed_keywords: dict) -> Dict[str, str]:
+    """Create a properly formatted parser auto update policy payload.
+
+    {
+        "autoupdate_policy": "string",
+        "reason": "string"
+    }
+    """
+    returned: dict = {}
+    keys = ["autoupdate_policy", "reason"]
+    for key in keys:
+        if passed_keywords.get(key, None):
+            returned[key] = passed_keywords.get(key, None)
+
+    return returned
+
+
+def ngsiem_install_parser_payload(passed_keywords: dict) -> Dict[str, str]:
+    """Create a properly formatted install parser payload.
+
+    {
+        "parser_id": "string",
+        "version": "string"
+    }
+    """
+    returned: dict = {}
+    keys = ["parser_id", "version"]
+    for key in keys:
+        if passed_keywords.get(key, None):
+            returned[key] = passed_keywords.get(key, None)
+
+    return returned
+
+
+def ngsiem_bulk_install_parsers_payload(passed_keywords: dict) -> Dict[str, List[dict]]:
+    """Create a properly formatted bulk install parsers payload.
+
+    {
+        "parsers": [
+            {
+                "parser_id": "string",
+                "version": "string"
+            }
+        ]
+    }
+    """
+    returned: dict = {}
+    if passed_keywords.get("parsers", None) is not None:
+        returned["parsers"] = passed_keywords["parsers"]
+
+    return returned
+
+
+def ngsiem_connector_config_payload(passed_keywords: dict) -> Dict[str, Union[str, dict]]:
+    """Create a properly formatted connector config payload.
+
+    {
+        "config": {
+            "auth": {},
+            "name": "string",
+            "params": {}
+        },
+        "connector_id": "string"
+    }
+    """
+    returned: dict = {}
+    keys = ["config", "connector_id"]
+    for key in keys:
+        if passed_keywords.get(key, None):
+            returned[key] = passed_keywords.get(key, None)
+
+    return returned
+
+
+def ngsiem_data_connection_payload(passed_keywords: dict) -> Dict[str, Union[str, bool, dict, list]]:
+    """Create data connection payload.
+
+    {
+        "config": {
+            "auth": {},
+            "name": "string",
+            "params": {}
+        },
+        "config_id": "string",
+        "connector_id": "string",
+        "connector_type": "string",
+        "description": "string",
+        "enable_host_enrichment": true,
+        "enable_user_enrichment": true,
+        "log_sources": [
+            "string"
+        ],
+        "name": "string",
+        "parser": "string",
+        "vendor_name": "string",
+        "vendor_product_name": "string"
+    }
+    """
+    returned: dict = {}
+    keys = ["config", "config_id", "connector_id", "connector_type", "description",
+            "enable_host_enrichment", "enable_user_enrichment", "log_sources", "name",
+            "parser", "vendor_name", "vendor_product_name"
+            ]
+    list_keys = ["log_sources"]
     for key in keys:
         if passed_keywords.get(key, None):
             keyval = passed_keywords.get(key, None)

@@ -76,6 +76,11 @@ options:
     description:
       - Content Awareness blade enabled.
     type: bool
+  enable_https_inspection:
+    description:
+      - Enable HTTPS Inspection after defining an outbound inspection certificate. <br>To define the outbound certificate use outbound inspection
+        certificate API.
+    type: bool
   firewall:
     description:
       - Firewall blade enabled.
@@ -1113,6 +1118,7 @@ def main():
             ],
         ),
         content_awareness=dict(type="bool"),
+        enable_https_inspection=dict(type='bool'),
         firewall=dict(type="bool"),
         firewall_settings=dict(
             type="dict",

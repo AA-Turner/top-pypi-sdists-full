@@ -2,7 +2,9 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bl_operators.wm
 import bpy.stub_internal.rna_enums
+import bpy.types
 import mathutils
 
 def alembic_export(
@@ -152,7 +154,8 @@ def alembic_import(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -241,7 +244,8 @@ def append(
     filepath: str | None = "",
     directory: str | None = "",
     filename: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
     filter_backup: bool | None = False,
@@ -354,7 +358,8 @@ def batch_rename(
     ]
     | None = "OBJECT",
     data_source: typing.Literal["SELECT", "ALL"] | None = "SELECT",
-    actions=None,
+    actions: bpy.types.bpy_prop_collection[bl_operators.wm.BatchRenameAction]
+    | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename multiple items at once
 
@@ -807,7 +812,8 @@ def drop_import_file(
     /,
     *,
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Operator that allows file handlers to receive file drops
 
@@ -823,7 +829,8 @@ def fbx_import(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1131,7 +1138,8 @@ def grease_pencil_import_svg(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1466,7 +1474,8 @@ def lib_relocate(
     filepath: str | None = "",
     directory: str | None = "",
     filename: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
@@ -1545,7 +1554,8 @@ def link(
     filepath: str | None = "",
     directory: str | None = "",
     filename: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
     filter_backup: bool | None = False,
@@ -1828,7 +1838,8 @@ def obj_import(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -2102,7 +2113,8 @@ def operator_presets_cleanup(
     /,
     *,
     operator: str | None = "",
-    properties=None,
+    properties: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove outdated operator properties from presets that may cause problems
 
@@ -2300,7 +2312,8 @@ def ply_import(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -2435,7 +2448,8 @@ def previews_batch_clear(
     undo: bool | None = None,
     /,
     *,
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     directory: str | None = "",
     filter_blender: bool | None = True,
     filter_folder: bool | None = True,
@@ -2466,7 +2480,8 @@ def previews_batch_generate(
     undo: bool | None = None,
     /,
     *,
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     directory: str | None = "",
     filter_blender: bool | None = True,
     filter_folder: bool | None = True,
@@ -3534,7 +3549,8 @@ def stl_import(
     *,
     filepath: str | None = "",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,

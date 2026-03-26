@@ -161,6 +161,13 @@ options:
                     - 'socks'
                     - 'ssh'
                     - 'ztna-portal'
+            session_logout:
+                description:
+                    - Enable/disable logout of a user from the current session.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             srcaddr:
                 description:
                     - Authentication is required for the selected IPv4 source address.
@@ -251,16 +258,17 @@ EXAMPLES = """
           ip_based: "enable"
           name: "default_name_13"
           protocol: "http"
+          session_logout: "enable"
           srcaddr:
               -
-                  name: "default_name_16 (source firewall.address.name firewall.addrgrp.name firewall.proxy-address.name firewall.proxy-addrgrp.name system
+                  name: "default_name_17 (source firewall.address.name firewall.addrgrp.name firewall.proxy-address.name firewall.proxy-addrgrp.name system
                     .external-resource.name)"
           srcaddr6:
               -
-                  name: "default_name_18 (source firewall.address6.name firewall.addrgrp6.name)"
+                  name: "default_name_19 (source firewall.address6.name firewall.addrgrp6.name)"
           srcintf:
               -
-                  name: "default_name_20 (source system.interface.name system.zone.name system.sdwan.zone.name)"
+                  name: "default_name_21 (source system.interface.name system.zone.name system.sdwan.zone.name)"
           sso_auth_method: "<your_own_value> (source authentication.scheme.name)"
           status: "enable"
           transaction_based: "enable"
@@ -371,6 +379,7 @@ def filter_authentication_rule_data(json):
         "ip_based",
         "name",
         "protocol",
+        "session_logout",
         "srcaddr",
         "srcaddr6",
         "srcintf",
@@ -661,6 +670,11 @@ versioned_schema = {
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "comments": {"v_range": [["v6.0.0", ""]], "type": "string"},
+        "session_logout": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
     },
     "v_range": [["v6.0.0", ""]],
 }
@@ -712,7 +726,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "authentication_rule"
         )

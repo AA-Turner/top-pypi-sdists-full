@@ -1177,7 +1177,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     ) -> Optional[DecoratedApplicationTemplate]:
         return self._build_application_template_model(application_template_id)
 
-    def list_application_templates(  # noqa: PLR0912
+    def list_application_templates(  # noqa: PLR0912, PLR0913
         self,
         *,
         name: Optional[str],
@@ -1188,7 +1188,18 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         defaults_first: bool,
         count: Optional[int],
         paging_token: Optional[str],
+        cloud_id: Optional[str] = None,
     ) -> DecoratedapplicationtemplateListResponse:
+        # Only pass cloud_id for Azure deployments.
+        if self.get_deployment_infra_provider() == "azure":
+            if not cloud_id:
+                raise ValueError(
+                    "cloud_id is required for Azure Control Plane. "
+                    "Please provide a cloud_id."
+                )
+        else:
+            cloud_id = None
+
         templates: List[DecoratedApplicationTemplate] = []
         for env_id in list(self._application_template_metadata.keys()):
             template = self._build_application_template_model(env_id)
@@ -1537,6 +1548,12 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         paging_token: Optional[str] = None,  # noqa: ARG002
         sort_field: Optional[str] = None,  # noqa: ARG002
         sort_order: Optional[str] = None,  # noqa: ARG002
+        created_at_from: Optional[str] = None,  # noqa: ARG002
+        created_at_to: Optional[str] = None,  # noqa: ARG002
+        updated_at_from: Optional[str] = None,  # noqa: ARG002
+        updated_at_to: Optional[str] = None,  # noqa: ARG002
+        status_updated_at_from: Optional[str] = None,  # noqa: ARG002
+        status_updated_at_to: Optional[str] = None,  # noqa: ARG002
     ) -> DecoratedproductionjobListResponse:
         """Mock implementation of list_jobs API for testing.
 

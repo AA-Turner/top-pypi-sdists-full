@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use ouroboros::self_referencing;
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyString, PyTuple};
 
@@ -290,6 +290,19 @@ impl Cleaner {
                 return Err(PyTypeError::new_err("attribute_filter must be callable"));
             }
         }
+        if link_rel.is_some() {
+            if let Some(ref attrs) = attributes {
+                for (tag, attr_set) in attrs.iter() {
+                    if attr_set.contains("rel") {
+                        return Err(PyValueError::new_err(format!(
+                            "\"rel\" attribute is not allowed for tag \"{}\" when link_rel is set; \
+                             pass link_rel=None to manage the \"rel\" attribute directly",
+                            tag
+                        )));
+                    }
+                }
+            }
+        }
         let config = Config {
             tags,
             clean_content_tags,
@@ -471,5 +484,6 @@ fn nh3(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add("ALLOWED_TAGS", a.clone_tags())?;
     m.add("ALLOWED_ATTRIBUTES", a.clone_tag_attributes())?;
     m.add("ALLOWED_URL_SCHEMES", a.clone_url_schemes())?;
+    m.add("CLEAN_CONTENT_TAGS", a.clone_clean_content_tags())?;
     Ok(())
 }

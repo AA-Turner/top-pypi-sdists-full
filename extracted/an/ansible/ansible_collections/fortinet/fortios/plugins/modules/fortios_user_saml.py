@@ -184,6 +184,13 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            require_signed_resp_and_asrt:
+                description:
+                    - Require both response and assertion from IDP to be signed when FGT acts as SP .
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             scim_client:
                 description:
                     - SCIM client name. Source user.scim.name.
@@ -203,6 +210,7 @@ options:
                     - 'user-name'
                     - 'display-name'
                     - 'external-id'
+                    - 'email'
             single_logout_url:
                 description:
                     - SP single logout URL.
@@ -264,6 +272,7 @@ EXAMPLES = """
           limit_relaystate: "enable"
           name: "default_name_16"
           reauth: "enable"
+          require_signed_resp_and_asrt: "enable"
           scim_client: "<your_own_value> (source user.scim.name)"
           scim_group_attr_type: "display-name"
           scim_user_attr_type: "user-name"
@@ -381,6 +390,7 @@ def filter_user_saml_data(json):
         "limit_relaystate",
         "name",
         "reauth",
+        "require_signed_resp_and_asrt",
         "scim_client",
         "scim_group_attr_type",
         "scim_user_attr_type",
@@ -574,6 +584,7 @@ versioned_schema = {
                 {"value": "user-name"},
                 {"value": "display-name"},
                 {"value": "external-id"},
+                {"value": "email", "v_range": [["v7.6.5", ""]]},
             ],
         },
         "scim_group_attr_type": {
@@ -587,6 +598,11 @@ versioned_schema = {
             "v_range": [["v7.0.0", ""]],
             "type": "string",
             "options": [{"value": "sha1"}, {"value": "sha256"}],
+        },
+        "require_signed_resp_and_asrt": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "limit_relaystate": {
             "v_range": [["v7.0.0", ""]],
@@ -708,7 +724,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "user_saml"
         )

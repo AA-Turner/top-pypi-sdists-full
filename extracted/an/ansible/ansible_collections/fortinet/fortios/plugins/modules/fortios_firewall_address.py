@@ -247,6 +247,13 @@ options:
                 description:
                     - Dynamic address matching operating system.
                 type: str
+            passive_fqdn_learning:
+                description:
+                    - Enable/disable passive learning of FQDNs.  When enabled, the FortiGate learns, trusts, and saves FQDNs from endpoint DNS queries .
+                type: str
+                choices:
+                    - 'disable'
+                    - 'enable'
             policy_group:
                 description:
                     - Policy group name.
@@ -436,6 +443,7 @@ EXAMPLES = """
           obj_type: "ip"
           organization: "<your_own_value>"
           os: "<your_own_value>"
+          passive_fqdn_learning: "disable"
           policy_group: "<your_own_value>"
           route_tag: "0"
           sdn: "<your_own_value> (source system.sdn-connector.name)"
@@ -443,7 +451,7 @@ EXAMPLES = """
           sdn_tag: "<your_own_value>"
           sso_attribute_value:
               -
-                  name: "default_name_41"
+                  name: "default_name_42"
           start_ip: "<your_own_value>"
           start_mac: "<your_own_value>"
           sub_type: "sdn"
@@ -455,10 +463,10 @@ EXAMPLES = """
           tagging:
               -
                   category: "<your_own_value> (source system.object-tagging.category)"
-                  name: "default_name_52"
+                  name: "default_name_53"
                   tags:
                       -
-                          name: "default_name_54 (source system.object-tagging.tags.name)"
+                          name: "default_name_55 (source system.object-tagging.tags.name)"
           tenant: "<your_own_value>"
           type: "ipmask"
           uuid: "<your_own_value>"
@@ -587,6 +595,7 @@ def filter_firewall_address_data(json):
         "obj_type",
         "organization",
         "os",
+        "passive_fqdn_learning",
         "policy_group",
         "route_tag",
         "sdn",
@@ -950,6 +959,11 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
+        "passive_fqdn_learning": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "disable"}, {"value": "enable"}],
+        },
         "fabric_object": {
             "v_range": [["v6.4.4", ""]],
             "type": "string",
@@ -1013,7 +1027,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "firewall_address"
         )

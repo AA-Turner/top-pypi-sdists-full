@@ -100,7 +100,11 @@ class ICPAuth(RefreshableTokenAuth):
                     raise e2
 
     def _get_cpd_token_from_request_old_auth_flow(self) -> TokenInfo:
-        token_url = self._api_client._href_definitions.get_cpd_token_endpoint_href()
+        token_url = (
+            self._api_client._href_definitions.get_user_auth_url()
+            or self._api_client._href_definitions.get_cpd_token_endpoint_href()
+        )
+
         response = self._api_client.httpx_client.post(
             token_url,
             headers={"Content-Type": "application/json"},
@@ -115,11 +119,13 @@ class ICPAuth(RefreshableTokenAuth):
             raise AuthenticationError("ICP", response)
 
     def _get_cpd_token_from_request_new_auth_flow(self) -> TokenInfo:
-        bedrock_url = (
-            self._api_client._href_definitions.get_cpd_bedrock_token_endpoint_href()
+        token_url = (
+            self._api_client._href_definitions.get_user_auth_url()
+            or self._api_client._href_definitions.get_cpd_bedrock_token_endpoint_href()
         )
+
         response = self._api_client.httpx_client.post(
-            bedrock_url,
+            token_url,
             headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
             content=self._get_cpd_bedrock_auth_data(),
         )
@@ -134,12 +140,12 @@ class ICPAuth(RefreshableTokenAuth):
             seconds=response.json()["expires_in"]
         )
 
-        token_url = (
+        token_validation_url = (
             self._api_client._href_definitions.get_cpd_validation_token_endpoint_href()
         )
 
         response = self._api_client.httpx_client.get(
-            token_url,
+            token_validation_url,
             headers={
                 "username": self._api_client.credentials.username,
                 "iam-token": iam_token,
@@ -184,7 +190,11 @@ class ICPAuth(RefreshableTokenAuth):
                     raise e2
 
     async def _aget_cpd_token_from_request_old_auth_flow(self) -> TokenInfo:
-        token_url = self._api_client._href_definitions.get_cpd_token_endpoint_href()
+        token_url = (
+            self._api_client._href_definitions.get_user_auth_url()
+            or self._api_client._href_definitions.get_cpd_token_endpoint_href()
+        )
+
         response = await self._api_client.async_httpx_client.post(
             url=token_url,
             headers={"Content-Type": "application/json"},
@@ -199,11 +209,13 @@ class ICPAuth(RefreshableTokenAuth):
             raise AuthenticationError("ICP", response)
 
     async def _aget_cpd_token_from_request_new_auth_flow(self) -> TokenInfo:
-        bedrock_url = (
-            self._api_client._href_definitions.get_cpd_bedrock_token_endpoint_href()
+        token_url = (
+            self._api_client._href_definitions.get_user_auth_url()
+            or self._api_client._href_definitions.get_cpd_bedrock_token_endpoint_href()
         )
+
         response = await self._api_client.async_httpx_client.post(
-            url=bedrock_url,
+            url=token_url,
             headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
             content=self._get_cpd_bedrock_auth_data(),
         )
@@ -218,11 +230,11 @@ class ICPAuth(RefreshableTokenAuth):
             seconds=response.json()["expires_in"]
         )
 
-        token_url = (
+        token_validation_url = (
             self._api_client._href_definitions.get_cpd_validation_token_endpoint_href()
         )
         response = await self._api_client.async_httpx_client.get(
-            url=token_url,
+            url=token_validation_url,
             headers={
                 "username": self._api_client.credentials.username,
                 "iam-token": iam_token,

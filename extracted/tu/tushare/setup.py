@@ -124,7 +124,7 @@ def read_install_requires():
 
 setup(
     name='tushare',
-    version='1.4.26',
+    version='1.4.29',
     description='A utility for crawling historical and Real-time Quotes data of China stocks',
     # long_description=read("README.rst"),
     long_description=long_desc,

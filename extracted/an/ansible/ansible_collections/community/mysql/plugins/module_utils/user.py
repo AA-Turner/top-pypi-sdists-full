@@ -232,7 +232,7 @@ def user_add(cursor, user, host, host_all, password, encrypted,
         # Mysql and MariaDB differ in naming pam plugin and Syntax to set it
         if plugin == 'pam':  # Used by MariaDB which requires the USING keyword, not BY
             query_with_args = "CREATE USER %s@%s IDENTIFIED WITH %s USING %s", (user, host, plugin, plugin_auth_string)
-        elif plugin == 'ed25519':  # Used by MariaDB which requires the USING keyword, not BY
+        elif plugin in ['ed25519', 'parsec']:  # Used by MariaDB which requires the USING keyword, not BY
             query_with_args = "CREATE USER %s@%s IDENTIFIED WITH %s USING PASSWORD(%s)", (user, host, plugin, plugin_auth_string)
         elif salt:
             if plugin in ['caching_sha2_password', 'sha256_password']:

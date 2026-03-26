@@ -36,7 +36,7 @@ vultr_instances:
         - htop
         - vim
     plan: vc2-1c-1gb
-    plan_update: vc2-1c-2gb
+    plan_update: vc2-4c-8gb
     ssh_keys:
       - "{{ vultr_instance_ssh_key_name }}"
     tags:
@@ -46,7 +46,7 @@ vultr_instances:
       - three
       - four
     region: ams
-    os: Debian 12 x64 (bookworm)
+    os: Debian 13 x64 (trixie)
     backups: true
     backups_update: false
     ddos_protection: true
@@ -62,10 +62,10 @@ vultr_instances:
       - "{{ vultr_resource_prefix }}_instance_vpc_3"
 
   - label: "{{ vultr_resource_prefix }}_app1"
-    plan: vc2-4c-8gb
-    plan_update: vc2-6c-16gb
+    plan: vc2-2c-4gb
+    plan_update: vc2-4c-8gb
     region: ams
-    app: GitLab on Ubuntu 22.04 x64
+    app: GitLab on Ubuntu 24.04 x64
     backups: false
     backups_update: false
     ddos_protection: false
@@ -83,7 +83,7 @@ vultr_instances:
     plan: vc2-1c-1gb
     plan_update: vc2-1c-2gb
     region: ams
-    image: NodeJS on Ubuntu 22.04
+    image: NodeJS on Ubuntu 24.04
     backups: false
     backups_update: true
     ddos_protection: false

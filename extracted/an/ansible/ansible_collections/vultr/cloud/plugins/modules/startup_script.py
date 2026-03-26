@@ -85,6 +85,11 @@ vultr_api:
       returned: success
       type: int
       sample: 12
+    api_results_per_page:
+      description: Number of results returned per call to API.
+      returned: success
+      type: int
+      sample: 100
     api_endpoint:
       description: Endpoint used for the API requests.
       returned: success
@@ -137,15 +142,11 @@ from ..module_utils.vultr_v2 import AnsibleVultr, vultr_argument_spec
 class AnsibleVultrStartupScript(AnsibleVultr):
     def configure(self):
         if self.module.params["script"]:
-            self.module.params["script"] = base64.b64encode(self.module.params["script"].encode())
-
-    def update(self, resource):
-        resource["script"] = resource["script"].encode()
-        return super(AnsibleVultrStartupScript, self).update(resource=resource)
+            self.module.params["script"] = base64.b64encode(self.module.params["script"].encode()).decode('utf-8')
 
     def transform_result(self, resource):
         if resource:
-            resource["script"] = base64.b64decode(resource["script"]).decode()
+            resource["script"] = base64.b64decode(resource["script"]).decode('utf-8')
         return resource
 
 

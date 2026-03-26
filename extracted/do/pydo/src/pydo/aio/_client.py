@@ -17,6 +17,7 @@ from .operations import (
     AccountOperations,
     ActionsOperations,
     AddonsOperations,
+    AgentInferenceOperations,
     AppsOperations,
     AutoscalepoolsOperations,
     BalanceOperations,
@@ -26,14 +27,17 @@ from .operations import (
     CdnOperations,
     CertificatesOperations,
     DatabasesOperations,
+    DedicatedInferencesOperations,
     DomainsOperations,
     DropletActionsOperations,
     DropletsOperations,
     FirewallsOperations,
+    FunctionsAccessKeyOperations,
     FunctionsOperations,
     GenaiOperations,
     ImageActionsOperations,
     ImagesOperations,
+    InferenceOperations,
     InvoicesOperations,
     KubernetesOperations,
     LoadBalancersOperations,
@@ -49,6 +53,7 @@ from .operations import (
     ReservedIPsOperations,
     ReservedIPv6ActionsOperations,
     ReservedIPv6Operations,
+    SecurityOperations,
     SizesOperations,
     SnapshotsOperations,
     SpacesKeyOperations,
@@ -597,6 +602,8 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
     :vartype billing_insights: pydo.aio.operations.BillingInsightsOperations
     :ivar databases: DatabasesOperations operations
     :vartype databases: pydo.aio.operations.DatabasesOperations
+    :ivar dedicated_inferences: DedicatedInferencesOperations operations
+    :vartype dedicated_inferences: pydo.aio.operations.DedicatedInferencesOperations
     :ivar domains: DomainsOperations operations
     :vartype domains: pydo.aio.operations.DomainsOperations
     :ivar droplets: DropletsOperations operations
@@ -609,6 +616,8 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
     :vartype firewalls: pydo.aio.operations.FirewallsOperations
     :ivar functions: FunctionsOperations operations
     :vartype functions: pydo.aio.operations.FunctionsOperations
+    :ivar functions_access_key: FunctionsAccessKeyOperations operations
+    :vartype functions_access_key: pydo.aio.operations.FunctionsAccessKeyOperations
     :ivar images: ImagesOperations operations
     :vartype images: pydo.aio.operations.ImagesOperations
     :ivar image_actions: ImageActionsOperations operations
@@ -641,6 +650,8 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
     :vartype reserved_ipv6_actions: pydo.aio.operations.ReservedIPv6ActionsOperations
     :ivar byoip_prefixes: ByoipPrefixesOperations operations
     :vartype byoip_prefixes: pydo.aio.operations.ByoipPrefixesOperations
+    :ivar security: SecurityOperations operations
+    :vartype security: pydo.aio.operations.SecurityOperations
     :ivar sizes: SizesOperations operations
     :vartype sizes: pydo.aio.operations.SizesOperations
     :ivar snapshots: SnapshotsOperations operations
@@ -665,6 +676,10 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
     :vartype uptime: pydo.aio.operations.UptimeOperations
     :ivar genai: GenaiOperations operations
     :vartype genai: pydo.aio.operations.GenaiOperations
+    :ivar inference: InferenceOperations operations
+    :vartype inference: pydo.aio.operations.InferenceOperations
+    :ivar agent_inference: AgentInferenceOperations operations
+    :vartype agent_inference: pydo.aio.operations.AgentInferenceOperations
     :param credential: Credential needed for the client to connect to Azure. Required.
     :type credential: ~azure.core.credentials_async.AsyncTokenCredential
     :keyword endpoint: Service URL. Default value is "https://api.digitalocean.com".
@@ -746,6 +761,9 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
         self.databases = DatabasesOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
+        self.dedicated_inferences = DedicatedInferencesOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
         self.domains = DomainsOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
@@ -762,6 +780,9 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
             self._client, self._config, self._serialize, self._deserialize
         )
         self.functions = FunctionsOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
+        self.functions_access_key = FunctionsAccessKeyOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
         self.images = ImagesOperations(
@@ -812,6 +833,9 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
         self.byoip_prefixes = ByoipPrefixesOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
+        self.security = SecurityOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
         self.sizes = SizesOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
@@ -846,6 +870,12 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
             self._client, self._config, self._serialize, self._deserialize
         )
         self.genai = GenaiOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
+        self.inference = InferenceOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
+        self.agent_inference = AgentInferenceOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
 

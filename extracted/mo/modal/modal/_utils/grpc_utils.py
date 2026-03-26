@@ -89,6 +89,8 @@ RETRYABLE_GRPC_STATUS_CODES = [
     Status.UNKNOWN,
 ]
 SERVER_RETRY_WARNING_TIME_INTERVAL = 30.0
+# Initial per-attempt timeout for TCP/TLS handshake in connect_channel.
+DEFAULT_MAX_RETRIES = 3
 
 
 @dataclass
@@ -117,7 +119,7 @@ class ConnectionManager:
             self._channels[server_url] = create_channel(server_url, self._metadata)
             try:
                 await connect_channel(self._channels[server_url])
-            except OSError as exc:
+            except (OSError, asyncio.TimeoutError) as exc:
                 raise ConnectionError("Could not connect to the Modal server.") from exc
         return self._channels[server_url]
 
@@ -221,7 +223,8 @@ def create_channel(
     return channel
 
 
-@retry(n_attempts=5, base_delay=0.1)
+# With 18 attempts, the max delays between calls is: 0.1 + 0.2 + 0.4 + 0.8 + 1.6 + 3.2 + 5*11 ~ 62
+@retry(n_attempts=18, base_delay=0.1, attempt_timeout=10.0, max_delay=5.0, total_timeout=63.0)
 async def connect_channel(channel: grpclib.client.Channel):
     """Connect to socket and raise exceptions when there is a connection issue."""
     await channel.__connect__()
@@ -246,7 +249,7 @@ class Retry:
     base_delay: float = 0.1
     max_delay: float = 1
     delay_factor: float = 2
-    max_retries: Optional[int] = 3
+    max_retries: Optional[int] = DEFAULT_MAX_RETRIES
     additional_status_codes: list = field(default_factory=list)
     attempt_timeout: Optional[float] = None  # timeout for each attempt
     total_timeout: Optional[float] = None  # timeout for the entire function call
@@ -257,7 +260,7 @@ class Retry:
 async def retry_transient_errors(
     fn: "grpclib.client.UnaryUnaryMethod[RequestType, ResponseType]",
     req: RequestType,
-    max_retries: Optional[int] = 3,
+    max_retries: Optional[int] = DEFAULT_MAX_RETRIES,
 ) -> ResponseType:
     """Minimum API version of _retry_transient_errors that works with grpclib.client.UnaryUnaryMethod.
 
@@ -373,7 +376,13 @@ async def _retry_transient_errors(
         try:
             with suppress_tb_frame():
                 return await fn_callable(req, metadata=attempt_metadata, timeout=timeout)
-        except (StreamTerminatedError, GRPCError, OSError, asyncio.TimeoutError, AttributeError) as exc:
+        except (
+            StreamTerminatedError,
+            GRPCError,
+            OSError,
+            asyncio.TimeoutError,
+            AttributeError,
+        ) as exc:
             # Note that we only catch AttributeError to handle a specific case that works around a bug
             # in grpclib<=0.4.7. See above (search for `write_appdata`).
 

@@ -194,8 +194,9 @@ options:
                     - CASB attribute match strategy.
                 type: str
                 choices:
-                    - 'and'
                     - 'or'
+                    - 'and'
+                    - 'subset'
             name:
                 description:
                     - CASB attribute match name.
@@ -230,7 +231,7 @@ EXAMPLES = """
                           match_value: "<your_own_value>"
                           negate: "enable"
                   rule_strategy: "and"
-          match_strategy: "and"
+          match_strategy: "or"
           name: "default_name_21"
 """
 
@@ -408,7 +409,11 @@ versioned_schema = {
         "match_strategy": {
             "v_range": [["v7.6.1", ""]],
             "type": "string",
-            "options": [{"value": "and"}, {"value": "or"}],
+            "options": [
+                {"value": "or"},
+                {"value": "and"},
+                {"value": "subset", "v_range": [["v7.6.5", ""]]},
+            ],
         },
         "match": {
             "type": "list",
@@ -543,7 +548,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "casb_attribute_match"
         )

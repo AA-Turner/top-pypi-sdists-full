@@ -15,7 +15,7 @@ def main():
     parser.add_argument(
         '--version',
         action='version',
-        version='Ansible community version 13.4.0',
+        version='Ansible community version 13.5.0',
         help="show the version of the Ansible community package",
     )
     parser.parse_args()

@@ -86,8 +86,9 @@ class TrashedAssets(WMLResource):
 
     def _remove_attachment(self, attachment_path: str) -> Literal["SUCCESS"]:
         response = self._client.httpx_client.delete(
-            url=self._client._href_definitions.get_wsd_model_attachment_href()
-            + f"/{attachment_path}",
+            url=self._client._href_definitions.get_wsd_attachment_file_href(
+                attachment_path
+            ),
             headers=self._client._get_headers(),
             params=self._client._params(),
         )

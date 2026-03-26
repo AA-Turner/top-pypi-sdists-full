@@ -1484,6 +1484,13 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
         self.logger.info(f"World reset complete: {obs}")
 
+        # E2E test mode: run test functions instead of normal step loop
+        if self.config.e2e_test_dir:
+            from plato.worlds.testing import run_e2e_tests
+
+            await run_e2e_tests(self, tracer)
+            return
+
         while True:
             self._step_count += 1
 

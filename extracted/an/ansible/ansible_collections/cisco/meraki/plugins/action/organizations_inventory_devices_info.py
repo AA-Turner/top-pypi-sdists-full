@@ -41,6 +41,7 @@ argument_spec.update(dict(
     tags=dict(type="list"),
     tagsFilterType=dict(type="str"),
     productTypes=dict(type="list"),
+    eoxStatuses=dict(type="list"),
     serial=dict(type="str"),
 ))
 
@@ -136,6 +137,9 @@ class ActionModule(ActionBase):
         if params.get("productTypes") is not None:
             new_object["productTypes"] = params.get(
                 "productTypes")
+        if params.get("eoxStatuses") is not None:
+            new_object["eoxStatuses"] = params.get(
+                "eoxStatuses")
 
         return new_object
 

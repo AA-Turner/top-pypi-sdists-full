@@ -120,6 +120,23 @@ class AIServices(WMLResource):
 
         return ai_service_metadata
 
+    def _validate_store_parameters_and_convert_str_to_path(
+        self, ai_service: str | Path | Callable, meta_props: dict[str, Any]
+    ) -> Path | Callable:
+        self._client._check_if_either_is_set()
+
+        AIServices._validate_type(
+            ai_service, "ai_service", [str, Path, types.FunctionType], True, True
+        )
+        AIServices._validate_type(meta_props, "meta_props", dict, True)
+
+        if isinstance(ai_service, str):
+            ai_service = Path(ai_service)
+
+        self.ConfigurationMetaNames._validate(meta_props)
+
+        return ai_service
+
     def store(
         self, ai_service: str | Path | Callable, meta_props: dict[str, Any]
     ) -> dict:
@@ -222,18 +239,11 @@ class AIServices(WMLResource):
             )
 
         """
-        self._client._check_if_either_is_set()
-
-        AIServices._validate_type(
-            ai_service, "ai_service", [str, Path, types.FunctionType], True, True
+        ai_service = self._validate_store_parameters_and_convert_str_to_path(
+            ai_service, meta_props
         )
-        AIServices._validate_type(meta_props, "meta_props", dict, True)
-        if isinstance(ai_service, str):
-            ai_service = Path(ai_service)
 
-        self.ConfigurationMetaNames._validate(meta_props)
-
-        content_path, _, archive_name = self._prepare_ai_service_function_content(
+        content_path, archive_name = self._prepare_ai_service_function_content(
             ai_service
         )
 
@@ -274,6 +284,7 @@ class AIServices(WMLResource):
 
         if response_definition_put.status_code != 201:
             self.delete(details["metadata"]["id"])
+
         self._handle_response(
             201,
             "uploading AI service content",
@@ -385,19 +396,10 @@ class AIServices(WMLResource):
             )
 
         """
-        self._client._check_if_either_is_set()
-
-        AIServices._validate_type(
-            ai_service, "ai_service", [str, Path, types.FunctionType], True, True
+        ai_service = self._validate_store_parameters_and_convert_str_to_path(
+            ai_service, meta_props
         )
-        AIServices._validate_type(meta_props, "meta_props", dict, True)
-
-        if isinstance(ai_service, str):
-            ai_service = Path(ai_service)
-
-        self.ConfigurationMetaNames._validate(meta_props)
-
-        content_path, _, archive_name = self._prepare_ai_service_function_content(
+        content_path, archive_name = self._prepare_ai_service_function_content(
             ai_service
         )
 
@@ -447,6 +449,30 @@ class AIServices(WMLResource):
 
         return details
 
+    def _validate_update_parameters(
+        self,
+        ai_service_id: str,
+        changes: dict | None = None,
+        update_ai_service: str | Path | Callable | None = None,
+    ) -> None:
+        self._client._check_if_either_is_set()
+
+        self._validate_type(ai_service_id, "ai_service_id", str, True)
+        self._validate_type(changes, "changes", dict, False)
+        self._validate_type(
+            update_ai_service,
+            "update_ai_service",
+            [str, Path, types.FunctionType],
+            False,
+            True,
+        )
+
+        if changes is None and update_ai_service is None:
+            raise InvalidMultipleArguments(
+                params_names_list=["changes", "update_ai_service"],
+                reason="None of the arguments were provided.",
+            )
+
     def update(
         self,
         ai_service_id: str,
@@ -483,22 +509,7 @@ class AIServices(WMLResource):
 
         """
 
-        self._client._check_if_either_is_set()
-
-        self._validate_type(ai_service_id, "ai_service_id", str, True)
-        self._validate_type(changes, "changes", dict, False)
-        self._validate_type(
-            update_ai_service,
-            "update_ai_service",
-            [str, Path, types.FunctionType],
-            False,
-            True,
-        )
-        if changes is None and update_ai_service is None:
-            raise InvalidMultipleArguments(
-                params_names_list=["changes", "update_ai_service"],
-                reason="None of the arguments were provided.",
-            )
+        self._validate_update_parameters(ai_service_id, changes, update_ai_service)
 
         updated_details: dict[str, Any] = {}
         if changes is not None:
@@ -563,23 +574,7 @@ class AIServices(WMLResource):
 
         """
 
-        self._client._check_if_either_is_set()
-
-        self._validate_type(ai_service_id, "ai_service_id", str, True)
-        self._validate_type(changes, "changes", dict, False)
-        self._validate_type(
-            update_ai_service,
-            "update_ai_service",
-            [str, Path, types.FunctionType],
-            False,
-            True,
-        )
-
-        if changes is None and update_ai_service is None:
-            raise InvalidMultipleArguments(
-                params_names_list=["changes", "update_ai_service"],
-                reason="None of the arguments were provided.",
-            )
+        self._validate_update_parameters(ai_service_id, changes, update_ai_service)
 
         updated_details: dict[str, Any] = {}
         if changes is not None:
@@ -609,17 +604,24 @@ class AIServices(WMLResource):
 
         return updated_details
 
+    def _ai_service_validation_and_content(
+        self,
+        updated_function: Path | Callable,
+    ) -> tuple[Path, Path | None]:
+        AIServices._validate_type(
+            updated_function, "updated_function", [Path, types.FunctionType], True
+        )
+        return self._prepare_ai_service_function_content(updated_function)
+
     def _update_ai_service_content(
         self,
         ai_service_id: str,
         updated_function: Path | Callable,
     ) -> dict:
-        AIServices._validate_type(
-            updated_function, "updated_function", [Path, types.FunctionType], True
-        )
-        content_path, _, archive_name = self._prepare_ai_service_function_content(
+        content_path, archive_name = self._ai_service_validation_and_content(
             updated_function
         )
+
         try:
             with content_path.open("rb") as data:
                 response_definition_put = self._client.httpx_client.put(
@@ -645,12 +647,10 @@ class AIServices(WMLResource):
         ai_service_id: str,
         updated_function: Path | Callable,
     ) -> dict:
-        AIServices._validate_type(
-            updated_function, "updated_function", [Path, types.FunctionType], True
-        )
-        content_path, _, archive_name = self._prepare_ai_service_function_content(
+        content_path, archive_name = self._ai_service_validation_and_content(
             updated_function
         )
+
         try:
             response_definition_put = await self._client.async_httpx_client.put(
                 url=self._client._href_definitions.get_ai_service_code_href(
@@ -670,6 +670,23 @@ class AIServices(WMLResource):
                     archive_name.unlink()
             except Exception:
                 pass
+
+    def _validate_download_parameters_and_return_filename_as_path(
+        self,
+        ai_service_id: str,
+        filename: str | Path,
+    ) -> Path:
+        self._client._check_if_either_is_set()
+
+        if os.path.isfile(filename):
+            raise WMLClientError(f"File with name: '{filename}' already exists.")
+
+        AIServices._validate_type(ai_service_id, "ai_service_id", str, True)
+        AIServices._validate_type(filename, "filename", [str, Path], True, True)
+        if isinstance(filename, str):
+            filename = Path(filename)
+
+        return filename
 
     def download(
         self,
@@ -699,16 +716,9 @@ class AIServices(WMLResource):
 
         """
 
-        self._client._check_if_either_is_set()
-
-        if os.path.isfile(filename):
-            raise WMLClientError(f"File with name: '{filename}' already exists.")
-
-        AIServices._validate_type(ai_service_id, "ai_service_id", str, True)
-        AIServices._validate_type(filename, "filename", [str, Path], True, True)
-        if isinstance(filename, str):
-            filename = Path(filename)
-
+        filename = self._validate_download_parameters_and_return_filename_as_path(
+            ai_service_id, filename
+        )
         artifact_content_url = self._client._href_definitions.get_ai_service_code_href(
             ai_service_id
         )
@@ -781,16 +791,9 @@ class AIServices(WMLResource):
 
         """
 
-        self._client._check_if_either_is_set()
-
-        if os.path.isfile(filename):
-            raise WMLClientError(f"File with name: '{filename}' already exists.")
-
-        AIServices._validate_type(ai_service_id, "ai_service_id", str, True)
-        AIServices._validate_type(filename, "filename", [str, Path], True, True)
-        if isinstance(filename, str):
-            filename = Path(filename)
-
+        filename = self._validate_download_parameters_and_return_filename_as_path(
+            ai_service_id, filename
+        )
         artifact_content_url = self._client._href_definitions.get_ai_service_code_href(
             ai_service_id
         )
@@ -929,6 +932,44 @@ class AIServices(WMLResource):
             self._handle_response(204, "AI service deletion", response, False),
         )
 
+    def _validate_get_details_parameters(
+        self,
+        ai_service_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        spec_state: SpecStates | None = None,
+    ) -> str:
+        AIServices._validate_type(ai_service_id, "ai_service_id", str, False)
+        AIServices._validate_type(limit, "limit", int, False)
+        AIServices._validate_type(asynchronous, "asynchronous", bool, False)
+        AIServices._validate_type(get_all, "get_all", bool, False)
+        AIServices._validate_type(spec_state, "spec_state", object, False)
+
+        if limit and spec_state:
+            spec_state_setting_warning = (
+                "Warning: In current implementation setting `spec_state=ibm_watsonx_ai.lifecycle.SUPPORTED` may break "
+                "set `limit`, returning less records than stated by set `limit`."
+            )
+            warn(spec_state_setting_warning)
+
+        self._client._check_if_either_is_set()
+        return self._client._href_definitions.get_ai_services_href()
+
+    def _setup_filter_function(
+        self,
+        spec_state: SpecStates | None = None,
+        ai_service_name: str | None = None,
+    ) -> Callable | None:
+        if spec_state:
+            return self._get_filter_func_by_spec_ids(
+                self._get_and_cache_spec_ids_for_state(spec_state)
+            )
+        elif ai_service_name:
+            return self._get_filter_func_by_artifact_name(ai_service_name)
+        else:
+            return None
+
     def get_details(
         self,
         ai_service_id: str | None = None,
@@ -985,35 +1026,16 @@ class AIServices(WMLResource):
 
         """
 
-        AIServices._validate_type(ai_service_id, "ai_service_id", str, False)
-        AIServices._validate_type(limit, "limit", int, False)
-        AIServices._validate_type(asynchronous, "asynchronous", bool, False)
-        AIServices._validate_type(get_all, "get_all", bool, False)
-        AIServices._validate_type(spec_state, "spec_state", object, False)
-
-        if limit and spec_state:
-            spec_state_setting_warning = (
-                "Warning: In current implementation setting `spec_state=ibm_watsonx_ai.lifecycle.SUPPORTED` may break "
-                "set `limit`, returning less records than stated by set `limit`."
-            )
-            warn(spec_state_setting_warning)
-
-        self._client._check_if_either_is_set()
-        url = self._client._href_definitions.get_ai_services_href()
+        url = self._validate_get_details_parameters(
+            ai_service_id, limit, asynchronous, get_all, spec_state
+        )
 
         if ai_service_id is not None:
             return self._get_artifact_details(
                 url, ai_service_id, limit, "AI services", _all=get_all
             )
 
-        if spec_state:
-            filter_func = self._get_filter_func_by_spec_ids(
-                self._get_and_cache_spec_ids_for_state(spec_state)
-            )
-        elif ai_service_name:
-            filter_func = self._get_filter_func_by_artifact_name(ai_service_name)
-        else:
-            filter_func = None
+        filter_func = self._setup_filter_function(spec_state, ai_service_name)
 
         if asynchronous:
             return self._get_artifact_details(
@@ -1096,35 +1118,16 @@ class AIServices(WMLResource):
 
         """
 
-        AIServices._validate_type(ai_service_id, "ai_service_id", str, False)
-        AIServices._validate_type(limit, "limit", int, False)
-        AIServices._validate_type(asynchronous, "asynchronous", bool, False)
-        AIServices._validate_type(get_all, "get_all", bool, False)
-        AIServices._validate_type(spec_state, "spec_state", object, False)
-
-        if limit and spec_state:
-            spec_state_setting_warning = (
-                "Warning: In current implementation setting `spec_state=ibm_watsonx_ai.lifecycle.SUPPORTED` may break "
-                "set `limit`, returning less records than stated by set `limit`."
-            )
-            warn(spec_state_setting_warning)
-
-        self._client._check_if_either_is_set()
-        url = self._client._href_definitions.get_ai_services_href()
+        url = self._validate_get_details_parameters(
+            ai_service_id, limit, asynchronous, get_all, spec_state
+        )
 
         if ai_service_id is not None:
             return await self._aget_artifact_details(
                 url, ai_service_id, limit, "AI services", _all=get_all
             )
 
-        if spec_state:
-            filter_func = self._get_filter_func_by_spec_ids(
-                self._get_and_cache_spec_ids_for_state(spec_state)
-            )
-        elif ai_service_name:
-            filter_func = self._get_filter_func_by_artifact_name(ai_service_name)
-        else:
-            filter_func = None
+        filter_func = self._setup_filter_function(spec_state, ai_service_name)
 
         if asynchronous:
             return await self._aget_artifact_details(
@@ -1259,6 +1262,13 @@ class AIServices(WMLResource):
             "ai_service_id",
         )
 
+    def _validate_get_revision_details_parameters(
+        self, ai_service_id: str, rev_id: str
+    ) -> None:
+        self._client._check_if_either_is_set()
+        AIServices._validate_type(ai_service_id, "ai_service_id", str, True)
+        AIServices._validate_type(rev_id, "rev_id", str, True)
+
     def get_revision_details(
         self,
         ai_service_id: str,
@@ -1285,9 +1295,7 @@ class AIServices(WMLResource):
 
         """
 
-        self._client._check_if_either_is_set()
-        AIServices._validate_type(ai_service_id, "ai_service_id", str, True)
-        AIServices._validate_type(rev_id, "rev_id", str, True)
+        self._validate_get_revision_details_parameters(ai_service_id, rev_id)
 
         return self._get_with_or_without_limit(
             self._client._href_definitions.get_ai_service_href(ai_service_id),
@@ -1326,9 +1334,7 @@ class AIServices(WMLResource):
 
         """
 
-        self._client._check_if_either_is_set()
-        AIServices._validate_type(ai_service_id, "ai_service_id", str, True)
-        AIServices._validate_type(rev_id, "rev_id", str, True)
+        self._validate_get_revision_details_parameters(ai_service_id, rev_id)
 
         return await self._aget_with_or_without_limit(
             self._client._href_definitions.get_ai_service_href(ai_service_id),
@@ -1391,7 +1397,7 @@ class AIServices(WMLResource):
     @staticmethod
     def _prepare_ai_service_function_content(
         ai_service_function: Path | Callable,
-    ) -> tuple[Path, bool, Path | None]:
+    ) -> tuple[Path, Path | None]:
         """Prepare the content of an AI service function for storing in the repository.
         If a Callable is passed, the function creates an archive.
 
@@ -1406,9 +1412,8 @@ class AIServices(WMLResource):
         :rtype: tuple[Path, bool, Path | None]
         """
         if isinstance(ai_service_function, Path):
-            return ai_service_function, True, None
+            return ai_service_function, None
 
-        user_content_file = False
         archive_name: Path | None = None
         filename: Path | None = None
 
@@ -1430,7 +1435,7 @@ class AIServices(WMLResource):
 
             filename.unlink()
 
-            return archive_name, user_content_file, archive_name
+            return archive_name, archive_name
 
         except Exception as e:
             try:

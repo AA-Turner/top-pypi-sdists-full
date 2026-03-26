@@ -6,15 +6,15 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/replicate/cog/pkg/config"
 	"github.com/replicate/cog/pkg/docker/command"
 	"github.com/replicate/cog/pkg/dockercontext"
 	"github.com/replicate/cog/pkg/registry"
+	"github.com/replicate/cog/pkg/requirements"
 	"github.com/replicate/cog/pkg/util/console"
-	"github.com/replicate/cog/pkg/util/slices"
 	"github.com/replicate/cog/pkg/util/version"
 	"github.com/replicate/cog/pkg/weights"
 	"github.com/replicate/cog/pkg/wheels"
@@ -45,13 +45,16 @@ coverage.xml
 const LDConfigCacheBuildCommand = "RUN find / -type f -name \"*python*.so\" -printf \"%h\\n\" | sort -u > /etc/ld.so.conf.d/cog.conf && ldconfig"
 const StripDebugSymbolsCommand = "find / -type f -name \"*python*.so\" -not -name \"*cpython*.so\" -exec strip -S {} \\;"
 const CFlags = "ENV CFLAGS=\"-O3 -funroll-loops -fno-strict-aliasing -flto -S\""
+const UVVersion = "0.9.26"
+const uvCacheMount = "--mount=type=cache,target=/root/.cache/uv"
+const uvPip = "uv pip"
 const PrecompilePythonCommand = "RUN find / -type f -name \"*.py[co]\" -delete && find / -type f -name \"*.py\" -exec touch -t 197001010000 {} \\; && find / -type f -name \"*.py\" -printf \"%h\\n\" | sort -u | /usr/bin/python3 -m compileall --invalidation-mode timestamp -o 2 -j 0"
 const STANDARD_GENERATOR_NAME = "STANDARD_GENERATOR"
-const PinnedCogletURL = "https://github.com/replicate/cog-runtime/releases/download/v0.1.0-beta10/coglet-0.1.0b10-py3-none-any.whl" // Pinned coglet URL to avoid API dependency
 
 type StandardGenerator struct {
-	Config *config.Config
-	Dir    string
+	Config         *config.Config
+	Dir            string
+	ConfigFilename string // Base filename like "cog.yaml" or "my-config.yaml"
 
 	// these are here to make this type testable
 	GOOS   string
@@ -76,9 +79,19 @@ type StandardGenerator struct {
 	command                    command.Command
 	client                     registry.Client
 	requiresCog                bool
+
+	// Optional overrides for wheel configs (used by tests for deterministic output).
+	// When nil, auto-detection is used (env var → dist/ → PyPI).
+	cogWheelConfig    *wheels.WheelConfig
+	cogletWheelConfig *wheels.WheelConfig
+
+	// Resolved wheel configs — set once by resolveCogWheelConfigs() and shared
+	// between filterManagedPackages() (for warnings) and installCog() (for install).
+	resolvedCogConfig    *wheels.WheelConfig
+	resolvedCogletConfig *wheels.WheelConfig
 }
 
-func NewStandardGenerator(config *config.Config, dir string, command command.Command, client registry.Client, requiresCog bool) (*StandardGenerator, error) {
+func NewStandardGenerator(config *config.Config, dir string, configFilename string, command command.Command, client registry.Client, requiresCog bool) (*StandardGenerator, error) {
 	tmpDir, err := dockercontext.BuildTempDir(dir)
 	if err != nil {
 		return nil, err
@@ -89,11 +102,19 @@ func NewStandardGenerator(config *config.Config, dir string, command command.Com
 		return nil, err
 	}
 
+	// Default to "cog.yaml" if not specified
+	if configFilename == "" {
+		configFilename = "cog.yaml"
+	}
+
 	return &StandardGenerator{
-		Config:           config,
-		Dir:              dir,
-		GOOS:             runtime.GOOS,
-		GOARCH:           runtime.GOOS,
+		Config:         config,
+		Dir:            dir,
+		ConfigFilename: configFilename,
+		// Docker build target is always linux/amd64 (see pkg/docker/buildkit.go).
+		// These must match the container platform, not the host.
+		GOOS:             "linux",
+		GOARCH:           "amd64",
 		tmpDir:           tmpDir,
 		relativeTmpDir:   relativeTmpDir,
 		fileWalker:       filepath.Walk,
@@ -178,6 +199,7 @@ func (g *StandardGenerator) GenerateInitialSteps(ctx context.Context) (string, e
 			installCACert, // First! Before any network requests (apt, pip, etc.)
 			envs,
 			aptInstalls,
+			g.installUV(),
 		}
 		if installCog != "" {
 			steps = append(steps, installCog)
@@ -191,6 +213,12 @@ func (g *StandardGenerator) GenerateInitialSteps(ctx context.Context) (string, e
 		return joinStringsWithoutLineSpace(steps), nil
 	}
 
+	// For the CUDA path, uv is installed inside installPython (after the apt step).
+	// For all other paths (python:X-slim), install uv after apt.
+	uvInstall := ""
+	if installPython == "" {
+		uvInstall = g.installUV()
+	}
 	steps := []string{
 		"#syntax=docker/dockerfile:1.4",
 		"FROM " + baseImage,
@@ -199,6 +227,7 @@ func (g *StandardGenerator) GenerateInitialSteps(ctx context.Context) (string, e
 		g.installTini(),
 		envs,
 		aptInstalls,
+		uvInstall,
 		installPython,
 		pipInstalls,
 		installCog,
@@ -216,12 +245,14 @@ func (g *StandardGenerator) GenerateModelBase(ctx context.Context) (string, erro
 	if err != nil {
 		return "", err
 	}
-	return strings.Join([]string{
+	steps := []string{
 		initialSteps,
 		`WORKDIR /src`,
 		`EXPOSE 5000`,
-		`CMD ["python", "-m", "cog.server.http"]`,
-	}, "\n"), nil
+	}
+	steps = append(steps, g.cogEnvVars()...)
+	steps = append(steps, `CMD ["python", "-m", "cog.server.http"]`)
+	return strings.Join(steps, "\n"), nil
 }
 
 // GenerateDockerfileWithoutSeparateWeights generates a Dockerfile that doesn't write model weights to a separate layer.
@@ -276,6 +307,9 @@ func (g *StandardGenerator) GenerateModelBaseWithSeparateWeights(ctx context.Con
 	base = append(base,
 		`WORKDIR /src`,
 		`EXPOSE 5000`,
+	)
+	base = append(base, g.cogEnvVars()...)
+	base = append(base,
 		`CMD ["python", "-m", "cog.server.http"]`,
 		`COPY . /src`,
 	)
@@ -287,12 +321,28 @@ func (g *StandardGenerator) GenerateModelBaseWithSeparateWeights(ctx context.Con
 	return weightsBase, joinStringsWithoutLineSpace(base), dockerignoreContents, nil
 }
 
+// cogEnvVars returns ENV lines that pass cog.yaml config to the runtime
+// so the container doesn't need to parse cog.yaml at startup.
+func (g *StandardGenerator) cogEnvVars() []string {
+	var envs []string
+	if g.Config.Predict != "" {
+		envs = append(envs, fmt.Sprintf(`ENV COG_PREDICT_TYPE_STUB="%s"`, g.Config.Predict))
+	}
+	if g.Config.Train != "" {
+		envs = append(envs, fmt.Sprintf(`ENV COG_TRAIN_TYPE_STUB="%s"`, g.Config.Train))
+	}
+	if g.Config.Concurrency != nil && g.Config.Concurrency.Max > 0 {
+		envs = append(envs, fmt.Sprintf(`ENV COG_MAX_CONCURRENCY=%d`, g.Config.Concurrency.Max))
+	}
+	return envs
+}
+
 func (g *StandardGenerator) cpCogYaml() string {
-	if filepath.Base(g.Config.Filename()) == "cog.yaml" {
+	if g.ConfigFilename == "" || g.ConfigFilename == "cog.yaml" {
 		return ""
 	}
 	// Absolute filename doesn't work anyway, so it's always relative
-	return fmt.Sprintf("RUN cp %s /src/cog.yaml", filepath.Join("/src", g.Config.Filename()))
+	return fmt.Sprintf("RUN cp %s /src/cog.yaml", filepath.Join("/src", g.ConfigFilename))
 }
 
 func (g *StandardGenerator) generateForWeights() (string, []string, []string, error) {
@@ -301,25 +351,26 @@ func (g *StandardGenerator) generateForWeights() (string, []string, []string, er
 		return "", nil, nil, err
 	}
 	// generate dockerfile to store these model weights files
-	dockerfileContents := `#syntax=docker/dockerfile:1.4
+	var dockerfileContents strings.Builder
+	dockerfileContents.WriteString(`#syntax=docker/dockerfile:1.4
 FROM scratch
-`
+`)
 	for _, p := range append(modelDirs, modelFiles...) {
-		dockerfileContents += fmt.Sprintf("\nCOPY %s %s", p, path.Join("/src", p))
+		fmt.Fprintf(&dockerfileContents, "\nCOPY %s %s", p, path.Join("/src", p))
 	}
 
-	return dockerfileContents, modelDirs, modelFiles, nil
+	return dockerfileContents.String(), modelDirs, modelFiles, nil
 }
 
 func makeDockerignoreForWeights(dirs, files []string) string {
-	var contents string
+	var contents strings.Builder
 	for _, p := range dirs {
-		contents += fmt.Sprintf("%[1]s\n%[1]s/**/*\n", p)
+		fmt.Fprintf(&contents, "%[1]s\n%[1]s/**/*\n", p)
 	}
 	for _, p := range files {
-		contents += fmt.Sprintf("%[1]s\n", p)
+		fmt.Fprintf(&contents, "%[1]s\n", p)
 	}
-	return DockerignoreHeader + contents
+	return DockerignoreHeader + contents.String()
 }
 
 func (g *StandardGenerator) Cleanup() error {
@@ -394,8 +445,9 @@ func (g *StandardGenerator) aptInstalls() (string, error) {
 	}
 
 	if g.IsUsingCogBaseImage() {
-		packages = slices.FilterString(packages, func(pkg string) bool {
-			return !slices.ContainsString(baseImageSystemPackages, pkg)
+		// Filter out packages that are already in the base image
+		packages = slices.DeleteFunc(slices.Clone(packages), func(pkg string) bool {
+			return slices.Contains(baseImageSystemPackages, pkg)
 		})
 	}
 
@@ -411,158 +463,225 @@ func (g *StandardGenerator) installPython() (string, error) {
 	return "", nil
 }
 
+func (g *StandardGenerator) installUV() string {
+	return `COPY --from=ghcr.io/astral-sh/uv:` + UVVersion + ` /uv /uvx /usr/local/bin/
+ENV UV_SYSTEM_PYTHON=true`
+}
+
 func (g *StandardGenerator) installPythonCUDA() (string, error) {
 	// TODO: check that python version is valid
 
 	py := g.Config.Build.PythonVersion
-	// Make sure we install 3.13.0 instead of a later version due to the GIL lock not working on packages with certain versions of Cython
-	if py == "3.13" {
-		py = "3.13.0"
-	}
-	return `ENV PATH="/root/.pyenv/shims:/root/.pyenv/bin:$PATH"
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked apt-get update -qq && apt-get install -qqy --no-install-recommends \
-	make \
-	build-essential \
-	libssl-dev \
-	zlib1g-dev \
-	libbz2-dev \
-	libreadline-dev \
-	libsqlite3-dev \
+	return `RUN --mount=type=cache,target=/var/cache/apt,sharing=locked apt-get update -qq && apt-get install -qqy --no-install-recommends \
 	wget \
 	curl \
-	llvm \
-	libncurses5-dev \
-	libncursesw5-dev \
 	xz-utils \
-	tk-dev \
-	libffi-dev \
-	liblzma-dev \
 	git \
 	ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
-` + fmt.Sprintf(`
-RUN --mount=type=cache,target=/root/.cache/pip curl -s -S -L https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash && \
-	git clone https://github.com/momo-lab/pyenv-install-latest.git "$(pyenv root)"/plugins/pyenv-install-latest && \
-	export PYTHON_CONFIGURE_OPTS='--enable-optimizations --with-lto' && \
-	export PYTHON_CFLAGS='-O3' && \
-	pyenv install-latest "%s" && \
-	pyenv global $(pyenv install-latest --print "%s") && \
-	pip install "wheel<1"`, py, py) + `
-RUN rm -rf /usr/bin/python3 && ln -s ` + "`realpath \\`pyenv which python\\`` /usr/bin/python3 && chmod +x /usr/bin/python3", nil
-	// for sitePackagesLocation, kind of need to determine which specific version latest is (3.8 -> 3.8.17 or 3.8.18)
-	// install-latest essentially does pyenv install --list | grep $py | tail -1
-	// there are many bad options, but a symlink to $(pyenv prefix) is the least bad one
+` + g.installUV() + "\n" + fmt.Sprintf(`RUN uv python install %s && \
+	ln -sf $(uv python find %s) /usr/bin/python3
+ENV UV_PYTHON=%s
+ENV PATH="/usr/local/bin:$PATH"`, py, py, py), nil
+}
+
+// resolveCogWheelConfigs resolves and caches the cog and coglet wheel configs.
+// It is idempotent — subsequent calls are no-ops. Must be called before
+// filterManagedPackages() and installCog().
+//
+// Precedence for cog SDK:
+//  1. Test override (cogWheelConfig field)
+//  2. COG_SDK_WHEEL env var
+//  3. build.sdk_version in cog.yaml
+//  4. Auto-detect dist/ (dev builds only)
+//  5. Latest PyPI
+//
+// Precedence for coglet:
+//  1. Test override (cogletWheelConfig field)
+//  2. COGLET_WHEEL env var
+//  3. Auto-detect dist/ (dev builds only)
+//  4. Latest PyPI
+func (g *StandardGenerator) resolveCogWheelConfigs() error {
+	if g.resolvedCogConfig != nil {
+		return nil // already resolved
+	}
+
+	var err error
+
+	// Resolve cog SDK
+	if g.cogWheelConfig != nil {
+		g.resolvedCogConfig = g.cogWheelConfig
+	} else if envVal := os.Getenv(wheels.CogSDKWheelEnvVar); envVal != "" {
+		g.resolvedCogConfig, err = wheels.GetCogWheelConfig()
+		if err != nil {
+			return err
+		}
+	} else if g.Config.Build != nil && g.Config.Build.SDKVersion != "" {
+		if g.Config.Build.SDKVersion == wheels.PreReleaseSentinel {
+			g.resolvedCogConfig = &wheels.WheelConfig{
+				Source:     wheels.WheelSourcePyPI,
+				PreRelease: true,
+			}
+		} else {
+			g.resolvedCogConfig = &wheels.WheelConfig{
+				Source:  wheels.WheelSourcePyPI,
+				Version: g.Config.Build.SDKVersion,
+			}
+		}
+	} else {
+		g.resolvedCogConfig, err = wheels.GetCogWheelConfig()
+		if err != nil {
+			return err
+		}
+	}
+
+	// Validate: refuse versions older than the minimum supported SDK
+	if err := wheels.ValidateSDKVersion(g.resolvedCogConfig, "cog"); err != nil {
+		return err
+	}
+
+	// Resolve coglet
+	if g.cogletWheelConfig != nil {
+		g.resolvedCogletConfig = g.cogletWheelConfig
+	} else {
+		g.resolvedCogletConfig, err = wheels.GetCogletWheelConfig(g.GOARCH)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// cogletMinSDKVersion is the minimum SDK version that supports coglet.
+// Older SDKs use the built-in Python HTTP server and are incompatible with coglet.
+const cogletMinSDKVersion = "0.17.0"
+
+// isLegacySDKVersion returns true if the resolved cog SDK version is explicitly
+// pinned below the minimum version that supports coglet. Returns false for
+// unpinned versions (including the "prerelease" sentinel), non-PyPI sources,
+// or unparseable versions (assume modern).
+func (g *StandardGenerator) isLegacySDKVersion() bool {
+	cfg := g.resolvedCogConfig
+	if cfg == nil || cfg.Source != wheels.WheelSourcePyPI || cfg.Version == "" {
+		return false
+	}
+	base := cfg.Version
+	if m := wheels.BaseVersionRe.FindString(base); m != "" {
+		base = m
+	}
+	ver, err := version.NewVersion(base)
+	if err != nil {
+		return false
+	}
+	return !ver.GreaterOrEqual(version.MustVersion(cogletMinSDKVersion))
 }
 
 func (g *StandardGenerator) installCog() (string, error) {
-	// Skip installing normal cog if coglet is already in requirements
-	if g.Config.ContainsCoglet() {
-		return "", nil
-	}
-
 	// Do not install Cog in base images
 	if !g.requiresCog {
 		return "", nil
 	}
 
-	// Determine which wheel to install based on COG_WHEEL env var and cog_runtime flag
-	cogRuntimeEnabled := g.Config.Build.CogRuntime != nil && *g.Config.Build.CogRuntime
-	wheelConfig := wheels.GetWheelConfig(cogRuntimeEnabled)
+	if err := g.resolveCogWheelConfigs(); err != nil {
+		return "", err
+	}
+	wheelConfig := g.resolvedCogConfig
 
+	// Determine if we need --pre flag (pre-release SDK implies pre-release coglet too)
+	sdkIsPreRelease := wheelConfig.Source == wheels.WheelSourcePyPI &&
+		(wheelConfig.PreRelease || wheels.IsPreRelease(wheelConfig.Version))
+
+	if wheelConfig.PreRelease {
+		console.Warn("sdk_version \"prerelease\" installs the latest pre-release SDK. Pin to a specific version for reproducible production builds.")
+	}
+
+	// Only install coglet explicitly when there's a specific source:
+	//   - COGLET_WHEEL env var (explicit override)
+	//   - Local wheel from dist/ (dev/CI auto-detect)
+	//   - PyPI with pinned version (e.g. COGLET_WHEEL=pypi:0.17.0)
+	// Otherwise, let the SDK's own dependency handle it — cog >= 0.17.0 declares
+	// coglet as a hard dependency, older versions don't install it.
+	//
+	// Never install coglet when the SDK is explicitly pinned to < 0.17.0 — those
+	// versions use the built-in Python HTTP server and are incompatible with coglet.
 	var installLines string
-	var err error
+	cogletConfig := g.resolvedCogletConfig
+	explicitCoglet := cogletConfig != nil &&
+		(cogletConfig.Source == wheels.WheelSourceFile ||
+			cogletConfig.Source == wheels.WheelSourceURL ||
+			(cogletConfig.Source == wheels.WheelSourcePyPI && cogletConfig.Version != ""))
+	if explicitCoglet && g.isLegacySDKVersion() {
+		console.Info("Skipping coglet install for legacy SDK")
+		explicitCoglet = false
+	}
+	if explicitCoglet {
+		switch cogletConfig.Source {
+		case wheels.WheelSourcePyPI:
+			console.Infof("Using coglet from PyPI: %s", cogletConfig.PyPIPackageURL("coglet"))
+		case wheels.WheelSourceURL:
+			console.Infof("Using coglet wheel from URL: %s", cogletConfig.URL)
+		case wheels.WheelSourceFile:
+			console.Debugf("Using local coglet wheel: %s", cogletConfig.Path)
+		}
 
+		cogletIsPreRelease := sdkIsPreRelease ||
+			(cogletConfig.Source == wheels.WheelSourcePyPI && wheels.IsPreRelease(cogletConfig.Version))
+
+		cogletInstall, err := g.installCogletWheel(cogletConfig, cogletIsPreRelease)
+		if err != nil {
+			return "", fmt.Errorf("failed to install coglet wheel: %w", err)
+		}
+		if cogletInstall != "" {
+			installLines = cogletInstall
+		}
+	}
+
+	// Install cog SDK
+	var cogInstall string
+	var err error
 	switch wheelConfig.Source {
-	case wheels.WheelSourceCog:
-		installLines, err = g.installEmbeddedCogWheel()
-	case wheels.WheelSourceCogletAlpha:
-		installLines, err = g.installCogletAlpha()
-	case wheels.WheelSourceCogDataclass:
-		installLines, err = g.installEmbeddedCogDataclassWheel()
+	case wheels.WheelSourcePyPI:
+		cogInstall, err = g.installCogFromPyPI(wheelConfig, sdkIsPreRelease)
 	case wheels.WheelSourceURL:
-		installLines, err = g.installWheelFromURL(wheelConfig.URL)
+		console.Infof("Using cog wheel from URL: %s", wheelConfig.URL)
+		cogInstall, err = g.installWheelFromURL(wheelConfig.URL)
 	case wheels.WheelSourceFile:
-		installLines, err = g.installWheelFromFile(wheelConfig.Path)
+		console.Debugf("Using local cog wheel: %s", wheelConfig.Path)
+		cogInstall, err = g.installWheelFromFile(wheelConfig.Path)
 	default:
 		return "", fmt.Errorf("unknown wheel source: %v", wheelConfig.Source)
 	}
-
 	if err != nil {
 		return "", err
 	}
-
-	// Optionally install Rust coglet wheel alongside cog
-	// This allows testing the Rust HTTP server implementation
-	// WARNING: Cannot install Rust coglet when using coglet-alpha
-	if rustWheelPath := os.Getenv("COGLET_RUST_WHEEL"); rustWheelPath != "" {
-		if wheelConfig != nil && wheelConfig.Source == wheels.WheelSourceCogletAlpha {
-			fmt.Fprintf(os.Stderr, "WARNING: COGLET_RUST_WHEEL is set but COG_WHEEL=coglet-alpha. Rust coglet cannot be installed alongside coglet-alpha (Go implementation). Skipping Rust coglet installation.\n")
-		} else {
-			rustInstall, err := g.installRustCogletWheel(rustWheelPath)
-			if err != nil {
-				return "", fmt.Errorf("failed to install Rust coglet wheel: %w", err)
-			}
-			if rustInstall != "" {
-				installLines += "\n" + rustInstall
-			}
+	if cogInstall != "" {
+		if installLines != "" {
+			installLines += "\n"
 		}
+		installLines += cogInstall
 	}
 
 	return installLines, nil
 }
 
-// installEmbeddedCogWheel installs the embedded cog wheel (default for cog_runtime: false)
-func (g *StandardGenerator) installEmbeddedCogWheel() (string, error) {
-	filename, data := wheels.ReadCogWheel()
-	lines, containerPath, err := g.writeTemp(filename, data)
-	if err != nil {
-		return "", err
+// installCogFromPyPI installs the cog SDK from PyPI.
+// preRelease adds --pre to allow pip to resolve pre-release packages.
+func (g *StandardGenerator) installCogFromPyPI(config *wheels.WheelConfig, preRelease bool) (string, error) {
+	packageSpec := config.PyPIPackageURL("cog")
+	flags := "--no-cache"
+	if preRelease {
+		flags = "--pre " + flags
 	}
-	pipInstallLine := "RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir"
-	pipInstallLine += " " + containerPath
-	pipInstallLine += " 'pydantic>=1.9,<3'"
+	pipInstallLine := "RUN " + uvCacheMount + " " + uvPip + " install " + flags + " " + packageSpec
 	if g.strip {
 		pipInstallLine += " && " + StripDebugSymbolsCommand
 	}
-	lines = append(lines, CFlags, pipInstallLine, "ENV CFLAGS=")
+	lines := []string{CFlags, pipInstallLine, "ENV CFLAGS="}
 	return strings.Join(lines, "\n"), nil
 }
 
-// installEmbeddedCogDataclassWheel installs the embedded cog-dataclass wheel (pydantic-less)
-func (g *StandardGenerator) installEmbeddedCogDataclassWheel() (string, error) {
-	filename, data := wheels.ReadCogDataclassWheel()
-	lines, containerPath, err := g.writeTemp(filename, data)
-	if err != nil {
-		return "", err
-	}
-	// cog-dataclass does NOT require pydantic
-	pipInstallLine := "RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir"
-	pipInstallLine += " " + containerPath
-	if g.strip {
-		pipInstallLine += " && " + StripDebugSymbolsCommand
-	}
-	lines = append(lines, CFlags, pipInstallLine, "ENV CFLAGS=")
-	return strings.Join(lines, "\n"), nil
-}
-
-// installCogletAlpha installs coglet from the pinned URL (default for cog_runtime: true)
-func (g *StandardGenerator) installCogletAlpha() (string, error) {
-	// We need fast-* compliant Python version to reconstruct coglet venv PYTHONPATH
-	if !CheckMajorMinorOnly(g.Config.Build.PythonVersion) {
-		return "", fmt.Errorf("Python version must be <major>.<minor>")
-	}
-	cmds := []string{
-		"ENV R8_COG_VERSION=coglet",
-		"ENV R8_PYTHON_VERSION=" + g.Config.Build.PythonVersion,
-		// Uninstall cog first to avoid conflicts with coglet's cog shim package.
-		// Some base images (e.g. r8.im/cog-base) have cog pre-installed, which conflicts
-		// with coglet's cog compatibility shim that provides the same module paths.
-		"RUN pip uninstall -y cog 2>/dev/null || true && pip install " + PinnedCogletURL,
-	}
-	return strings.Join(cmds, "\n"), nil
-}
-
-// installWheelFromURL installs a wheel from a URL (when COG_WHEEL=https://...)
+// installWheelFromURL installs a wheel from a URL (when COG_SDK_WHEEL=https://...)
 func (g *StandardGenerator) installWheelFromURL(url string) (string, error) {
 	// Set coglet env vars if this looks like a coglet wheel
 	var envLines []string
@@ -581,9 +700,9 @@ func (g *StandardGenerator) installWheelFromURL(url string) (string, error) {
 	// with coglet's cog compatibility shim that provides the same module paths.
 	var pipPrefix string
 	if strings.Contains(url, "coglet") {
-		pipPrefix = "pip uninstall -y cog 2>/dev/null || true && "
+		pipPrefix = uvPip + " uninstall cog 2>/dev/null || true && "
 	}
-	pipInstallLine := "RUN --mount=type=cache,target=/root/.cache/pip " + pipPrefix + "pip install --no-cache-dir " + url
+	pipInstallLine := "RUN " + uvCacheMount + " " + pipPrefix + uvPip + " install --no-cache " + url
 	if g.strip {
 		pipInstallLine += " && " + StripDebugSymbolsCommand
 	}
@@ -592,7 +711,7 @@ func (g *StandardGenerator) installWheelFromURL(url string) (string, error) {
 	return strings.Join(envLines, "\n"), nil
 }
 
-// installWheelFromFile installs a wheel from a local file (when COG_WHEEL=/path/to/file.whl)
+// installWheelFromFile installs a wheel from a local file (when COG_SDK_WHEEL=/path/to/file.whl)
 func (g *StandardGenerator) installWheelFromFile(path string) (string, error) {
 	// Read the local wheel file
 	data, err := os.ReadFile(path)
@@ -619,10 +738,10 @@ func (g *StandardGenerator) installWheelFromFile(path string) (string, error) {
 		// Uninstall cog first to avoid conflicts with coglet's cog shim package.
 		// Some base images (e.g. r8.im/cog-base) have cog pre-installed, which conflicts
 		// with coglet's cog compatibility shim that provides the same module paths.
-		pipPrefix = "pip uninstall -y cog 2>/dev/null || true && "
+		pipPrefix = uvPip + " uninstall cog 2>/dev/null || true && "
 	}
 
-	pipInstallLine := "RUN --mount=type=cache,target=/root/.cache/pip " + pipPrefix + "pip install --no-cache-dir " + containerPath
+	pipInstallLine := "RUN " + uvCacheMount + " " + pipPrefix + uvPip + " install --no-cache " + containerPath
 	if g.strip {
 		pipInstallLine += " && " + StripDebugSymbolsCommand
 	}
@@ -630,13 +749,52 @@ func (g *StandardGenerator) installWheelFromFile(path string) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
-// installRustCogletWheel installs the Rust coglet wheel from a local file as an additional package
-// This is used to test the Rust HTTP server implementation alongside the Python cog wheel
-func (g *StandardGenerator) installRustCogletWheel(path string) (string, error) {
-	// Read the Rust coglet wheel file
+// installCogletWheel installs the coglet wheel based on the provided config.
+// preRelease adds --pre to allow pip to resolve pre-release packages.
+func (g *StandardGenerator) installCogletWheel(config *wheels.WheelConfig, preRelease bool) (string, error) {
+	switch config.Source {
+	case wheels.WheelSourcePyPI:
+		return g.installCogletFromPyPI(config, preRelease)
+	case wheels.WheelSourceURL:
+		return g.installCogletFromURL(config.URL)
+	case wheels.WheelSourceFile:
+		return g.installCogletFromFile(config.Path)
+	default:
+		return "", fmt.Errorf("unknown coglet wheel source: %v", config.Source)
+	}
+}
+
+// installCogletFromPyPI installs coglet from PyPI.
+// preRelease adds --pre to allow pip to resolve pre-release packages.
+func (g *StandardGenerator) installCogletFromPyPI(config *wheels.WheelConfig, preRelease bool) (string, error) {
+	packageSpec := config.PyPIPackageURL("coglet")
+	flags := "--no-cache"
+	if preRelease {
+		flags = "--pre " + flags
+	}
+	pipInstallLine := "RUN " + uvCacheMount + " " + uvPip + " install " + flags + " " + packageSpec
+	if g.strip {
+		pipInstallLine += " && " + StripDebugSymbolsCommand
+	}
+	lines := []string{CFlags, pipInstallLine, "ENV CFLAGS="}
+	return strings.Join(lines, "\n"), nil
+}
+
+// installCogletFromURL installs coglet from a URL
+func (g *StandardGenerator) installCogletFromURL(url string) (string, error) {
+	pipInstallLine := "RUN " + uvCacheMount + " " + uvPip + " install --no-cache " + url
+	if g.strip {
+		pipInstallLine += " && " + StripDebugSymbolsCommand
+	}
+	lines := []string{CFlags, pipInstallLine, "ENV CFLAGS="}
+	return strings.Join(lines, "\n"), nil
+}
+
+// installCogletFromFile installs coglet from a local wheel file
+func (g *StandardGenerator) installCogletFromFile(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to read Rust coglet wheel %s: %w", path, err)
+		return "", fmt.Errorf("failed to read coglet wheel %s: %w", path, err)
 	}
 
 	filename := filepath.Base(path)
@@ -645,8 +803,7 @@ func (g *StandardGenerator) installRustCogletWheel(path string) (string, error) 
 		return "", err
 	}
 
-	// Install the Rust coglet wheel as an additional package (don't uninstall cog)
-	pipInstallLine := "RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir " + containerPath
+	pipInstallLine := "RUN " + uvCacheMount + " " + uvPip + " install --no-cache " + containerPath
 	if g.strip {
 		pipInstallLine += " && " + StripDebugSymbolsCommand
 	}
@@ -655,7 +812,74 @@ func (g *StandardGenerator) installRustCogletWheel(path string) (string, error) 
 	return strings.Join(lines, "\n"), nil
 }
 
+// filterManagedPackages strips cog and coglet from user requirements content,
+// warning loudly for each occurrence. requirements.txt is not the intended
+// mechanism for controlling cog/coglet versions — use build.sdk_version in
+// cog.yaml or the COG_SDK_WHEEL / COGLET_WHEEL environment variables instead.
+func (g *StandardGenerator) filterManagedPackages(reqContents string) string {
+	// Build a human-readable description of what the build system will install
+	// for each managed package, so the warning is actionable.
+	override := func(pkg string) string {
+		var cfg *wheels.WheelConfig
+		if pkg == "cog" {
+			cfg = g.resolvedCogConfig
+		} else {
+			cfg = g.resolvedCogletConfig
+		}
+		if cfg == nil {
+			return "latest from PyPI"
+		}
+		switch cfg.Source {
+		case wheels.WheelSourcePyPI:
+			if cfg.Version != "" {
+				return fmt.Sprintf("%s==%s from PyPI", pkg, cfg.Version)
+			}
+			if cfg.PreRelease {
+				return "latest pre-release " + pkg + " from PyPI"
+			}
+			return "latest " + pkg + " from PyPI"
+		case wheels.WheelSourceURL:
+			return cfg.URL
+		case wheels.WheelSourceFile:
+			return cfg.Path
+		default:
+			return "unknown source"
+		}
+	}
+
+	managed := map[string]bool{"cog": true, "coglet": true}
+	var filtered []string
+	for line := range strings.SplitSeq(reqContents, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "-") {
+			filtered = append(filtered, line)
+			continue
+		}
+		pkgName := requirements.PackageName(trimmed)
+		baseName := strings.ToLower(strings.Split(pkgName, "[")[0])
+		if managed[baseName] {
+			console.Warnf(
+				"'%s' found in requirements — overriding with %s. "+
+					"Remove it from requirements and use build.sdk_version in cog.yaml or %s to control the version.",
+				trimmed,
+				override(baseName),
+				map[string]string{"cog": "COG_SDK_WHEEL", "coglet": "COGLET_WHEEL"}[baseName],
+			)
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	return strings.Join(filtered, "\n")
+}
+
 func (g *StandardGenerator) pipInstalls() (string, error) {
+	// Resolve wheel configs early so filterManagedPackages can emit precise warnings.
+	if g.requiresCog {
+		if err := g.resolveCogWheelConfigs(); err != nil {
+			return "", err
+		}
+	}
+
 	var err error
 	includePackages := []string{}
 	if torchVersion, ok := g.Config.TorchVersion(); ok {
@@ -675,6 +899,10 @@ func (g *StandardGenerator) pipInstalls() (string, error) {
 		return "", err
 	}
 
+	// Strip cog/coglet from user requirements — we always install them ourselves
+	// via installCog(). Leaving them in would cause pip to overwrite our version.
+	g.pythonRequirementsContents = g.filterManagedPackages(g.pythonRequirementsContents)
+
 	if strings.Trim(g.pythonRequirementsContents, "") == "" {
 		return "", nil
 	}
@@ -685,7 +913,7 @@ func (g *StandardGenerator) pipInstalls() (string, error) {
 		return "", err
 	}
 
-	pipInstallLine := "RUN --mount=type=cache,target=/root/.cache/pip pip install -r " + containerPath
+	pipInstallLine := "RUN --mount=type=cache,target=/root/.cache/pip uv run pip install --cache-dir /root/.cache/pip -r " + containerPath
 	if g.strip {
 		pipInstallLine += " && " + StripDebugSymbolsCommand
 	}

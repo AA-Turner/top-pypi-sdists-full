@@ -326,6 +326,15 @@ def system_api_user(data, fos, check_mode=False):
     state = None
     vdom = data["vdom"]
     state = data.get("state", None)
+    admin_passwd = data.get("admin_passwd", None)
+    if admin_passwd is True:
+        request_headers = {"X-Admin-Passwd": True}
+    elif admin_passwd is None or (
+        isinstance(admin_passwd, str) and len(admin_passwd) == 0
+    ):
+        request_headers = None
+    else:
+        request_headers = {"X-Admin-Passwd": str(admin_passwd)}
     system_api_user_data = data["system_api_user"]
 
     filtered_data = filter_system_api_user_data(system_api_user_data)
@@ -339,7 +348,9 @@ def system_api_user(data, fos, check_mode=False):
         }
         mkeyname = fos.get_mkeyname(None, None)
         mkey = fos.get_mkey("system", "api-user", filtered_data, vdom=vdom)
-        current_data = fos.get("system", "api-user", vdom=vdom, mkey=mkey)
+        current_data = fos.get(
+            "system", "api-user", vdom=vdom, mkey=mkey, headers=request_headers
+        )
         is_existed = (
             current_data
             and current_data.get("http_status") == 200
@@ -422,10 +433,22 @@ def system_api_user(data, fos, check_mode=False):
     )
 
     if state == "present" or state is True:
-        return fos.set("system", "api-user", data=converted_data, vdom=vdom)
+        return fos.set(
+            "system",
+            "api-user",
+            data=converted_data,
+            vdom=vdom,
+            headers=request_headers,
+        )
 
     elif state == "absent":
-        return fos.delete("system", "api-user", mkey=converted_data["name"], vdom=vdom)
+        return fos.delete(
+            "system",
+            "api-user",
+            mkey=converted_data["name"],
+            vdom=vdom,
+            headers=request_headers,
+        )
     else:
         fos._module.fail_json(msg="state must be present or absent!")
 
@@ -560,6 +583,13 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
+        # Auto-inject admin confirmation header from the httpapi connection password.
+        # The FortiOS httpapi plugin replaces header value True with the real password.
+        try:
+            if connection.get_option("password"):
+                module.params["admin_passwd"] = True
+        except Exception:
+            pass
         fos = FortiOSHandler(connection, module, mkeyname)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_api_user"

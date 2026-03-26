@@ -108,7 +108,7 @@ EXAMPLES = """
           full_final_warning_threshold: "95"
           full_first_warning_threshold: "75"
           full_second_warning_threshold: "90"
-          max_size: "676985610"
+          max_size: "676984668"
 """
 
 RETURN = """
@@ -439,7 +439,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "log_memory_global_setting"
         )

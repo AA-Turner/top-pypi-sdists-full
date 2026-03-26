@@ -1019,6 +1019,7 @@ options:
                             - 'fgfm'
                             - 'fabric'
                             - 'scim'
+                            - 'probe-response'
                             - 'capwap'
                     ip6_default_life:
                         description:
@@ -1045,6 +1046,13 @@ options:
                                 description:
                                     - IAID of obtained delegated-prefix from the upstream interface.
                                 type: int
+                            dnssl_service:
+                                description:
+                                    - Enable/disable use of domain from delegated prefix for DNSSL.
+                                type: str
+                                choices:
+                                    - 'enable'
+                                    - 'disable'
                             onlink_flag:
                                 description:
                                     - Enable/disable the onlink flag.
@@ -1614,6 +1622,10 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            mrru:
+                description:
+                    - PPP MRRU (296 - 65535).
+                type: int
             mtu:
                 description:
                     - MTU value for this interface.
@@ -1621,6 +1633,13 @@ options:
             mtu_override:
                 description:
                     - Enable to set a custom MTU for this interface.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
+            multilink:
+                description:
+                    - Enable/disable PPP multilink support.
                 type: str
                 choices:
                     - 'enable'
@@ -1677,6 +1696,17 @@ options:
                 description:
                     - PPPoE account"s password.
                 type: str
+            phy_setting:
+                description:
+                    - PHY settings
+                type: dict
+                suboptions:
+                    signal_ok_threshold:
+                        description:
+                            - Configure the signal strength value at which the FortiGate unit detects that the receiving signal is idle or that data is not
+                               being received. Zero means idle detection is disabled. Higher values mean the signal strength must be higher in order for the
+                                  FortiGate unit to consider the interface is not idle (0 - 12).
+                        type: int
             ping_serv_status:
                 description:
                     - PING server status.
@@ -2677,6 +2707,7 @@ EXAMPLES = """
                   -
                       autonomous_flag: "enable"
                       delegated_prefix_iaid: "0"
+                      dnssl_service: "enable"
                       onlink_flag: "enable"
                       prefix_id: "<you_own_value>"
                       rdnss: "<your_own_value>"
@@ -2763,7 +2794,7 @@ EXAMPLES = """
           macaddr: "<your_own_value>"
           managed_device:
               -
-                  name: "default_name_243"
+                  name: "default_name_244"
           managed_subnetwork_size: "4"
           management_ip: "<your_own_value>"
           measured_downstream_bandwidth: "0"
@@ -2784,9 +2815,11 @@ EXAMPLES = """
           mirroring_port: "<your_own_value> (source system.interface.name)"
           mode: "static"
           monitor_bandwidth: "enable"
+          mrru: "1500"
           mtu: "1500"
           mtu_override: "enable"
-          name: "default_name_265"
+          multilink: "enable"
+          name: "default_name_268"
           ndiscforward: "enable"
           netbios_forward: "disable"
           netflow_sample_rate: "1"
@@ -2796,6 +2829,8 @@ EXAMPLES = """
           outbandwidth: "0"
           padt_retry_timeout: "1"
           password: "<your_own_value>"
+          phy_setting:
+              signal_ok_threshold: "0"
           ping_serv_status: "0"
           polling_interval: "20"
           port_mirroring: "disable"
@@ -2829,7 +2864,7 @@ EXAMPLES = """
                   detectserver: "<your_own_value>"
                   gwdetect: "enable"
                   ha_priority: "1"
-                  id: "307"
+                  id: "312"
                   ip: "<your_own_value>"
                   ping_serv_status: "0"
                   secip_relay_ip: "<your_own_value>"
@@ -2842,7 +2877,7 @@ EXAMPLES = """
           security_external_web: "<your_own_value>"
           security_groups:
               -
-                  name: "default_name_319 (source user.group.name)"
+                  name: "default_name_324 (source user.group.name)"
           security_ip_auth_bypass: "enable"
           security_mac_auth_bypass: "mac-auth-only"
           security_mode: "none"
@@ -2892,10 +2927,10 @@ EXAMPLES = """
           tagging:
               -
                   category: "<your_own_value> (source system.object-tagging.category)"
-                  name: "default_name_368"
+                  name: "default_name_373"
                   tags:
                       -
-                          name: "default_name_370 (source system.object-tagging.tags.name)"
+                          name: "default_name_375 (source system.object-tagging.tags.name)"
           tcp_mss: "0"
           telemetry_discover: "enable"
           trunk: "enable"
@@ -2923,7 +2958,7 @@ EXAMPLES = """
                   priority: "100"
                   proxy_arp:
                       -
-                          id: "396"
+                          id: "401"
                           ip: "<your_own_value>"
                   start_time: "3"
                   status: "enable"
@@ -3169,8 +3204,10 @@ def filter_system_interface_data(json):
         "mirroring_port",
         "mode",
         "monitor_bandwidth",
+        "mrru",
         "mtu",
         "mtu_override",
+        "multilink",
         "name",
         "ndiscforward",
         "netbios_forward",
@@ -3181,6 +3218,7 @@ def filter_system_interface_data(json):
         "outbandwidth",
         "padt_retry_timeout",
         "password",
+        "phy_setting",
         "ping_serv_status",
         "polling_interval",
         "port_mirroring",
@@ -3718,6 +3756,12 @@ versioned_schema = {
         },
         "password": {"v_range": [["v6.0.0", ""]], "type": "string"},
         "idle_timeout": {"v_range": [["v6.0.0", ""]], "type": "integer"},
+        "multilink": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
+        },
+        "mrru": {"v_range": [["v7.6.5", ""]], "type": "integer"},
         "disc_retry_timeout": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "padt_retry_timeout": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "service_name": {"v_range": [["v6.0.0", ""]], "type": "string"},
@@ -4259,6 +4303,13 @@ versioned_schema = {
             },
             "v_range": [["v6.0.0", ""]],
         },
+        "phy_setting": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "dict",
+            "children": {
+                "signal_ok_threshold": {"v_range": [["v7.6.5", ""]], "type": "integer"}
+            },
+        },
         "role": {
             "v_range": [["v6.0.0", ""]],
             "type": "string",
@@ -4778,6 +4829,7 @@ versioned_schema = {
                         {"value": "fgfm"},
                         {"value": "fabric", "v_range": [["v6.2.0", ""]]},
                         {"value": "scim", "v_range": [["v7.6.4", ""]]},
+                        {"value": "probe-response", "v_range": [["v7.6.5", ""]]},
                         {"value": "capwap", "v_range": [["v6.0.0", "v6.0.11"]]},
                     ],
                     "multiple_values": True,
@@ -5001,6 +5053,11 @@ versioned_schema = {
                             "type": "list",
                             "multiple_values": True,
                             "elements": "str",
+                        },
+                        "dnssl_service": {
+                            "v_range": [["v7.6.5", ""]],
+                            "type": "string",
+                            "options": [{"value": "enable"}, {"value": "disable"}],
                         },
                     },
                     "v_range": [["v6.0.0", ""]],
@@ -5460,7 +5517,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_interface"
         )

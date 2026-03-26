@@ -2877,8 +2877,19 @@ def normal_cdf(x: Underscore | Any, mean: Underscore | Any, std_dev: Underscore 
 ########################################################################################################################
 
 
-def format_datetime(input_dt: Any, format: str | Any):
+def format_datetime(input_dt: Any, format: str | Any, tz: str | Any | None = None):
     """Format a datetime feature using a Joda-Time format string.
+
+    Parameters
+    ----------
+    input_dt
+        A datetime feature.
+    format
+        A Joda-Time format string.
+    tz
+        An optional IANA timezone name (e.g. ``"America/New_York"``). When provided,
+        the timestamp is converted to local time before formatting. Can be a feature
+        reference for per-row timezones. When ``None`` (the default), formats in UTC.
 
     ```
     | Symbol | Meaning                      | Examples                           |
@@ -2918,8 +2929,11 @@ def format_datetime(input_dt: Any, format: str | Any):
     ...   dt: datetime
     ...   formatted_datetime: str = F.format_datetime(_.dt, "YYYY-MM-DD HH:mm:ss")
     ...   other_formatted_datetime: str = F.format_datetime(_.dt, "YY-MM-DD HH:mm:ss.S")
+    ...   local_time: str = F.format_datetime(_.dt, "yyyy-MM-dd HH:mm:ss", tz="America/New_York")
     """
-    return UnderscoreFunction("format_datetime", input_dt, format)
+    if tz is None:
+        return UnderscoreFunction("format_datetime", input_dt, format)
+    return UnderscoreFunction("format_datetime_in_timezone", input_dt, format, tz)
 
 
 def total_seconds(delta: Underscore) -> Underscore:

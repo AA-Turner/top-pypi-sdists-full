@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.24.3
+Version: 0.24.9
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -61,6 +61,7 @@ Requires-Dist: python-statemachine==2.5.0
 Requires-Dist: cel-python>=0.4
 Requires-Dist: questionary>=2.1.1
 Requires-Dist: pandas>=2.0.0
+Requires-Dist: sqlglot>=20.0
 Provides-Extra: notify-all
 Requires-Dist: async-notify[all]>=1.4.2; extra == "notify-all"
 Provides-Extra: db

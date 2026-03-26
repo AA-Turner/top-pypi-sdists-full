@@ -751,7 +751,7 @@ options:
                     - 'disable'
             fortinet_esp:
                 description:
-                    - Enable/disable Fortinet ESP encapsulaton.
+                    - Enable/disable Fortinet ESP encapsulation.
                 type: str
                 choices:
                     - 'enable'
@@ -3367,7 +3367,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "vpn_ipsec_phase1_interface"
         )

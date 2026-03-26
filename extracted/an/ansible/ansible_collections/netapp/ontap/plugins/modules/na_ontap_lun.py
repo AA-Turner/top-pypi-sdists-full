@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# (c) 2017-2025, NetApp, Inc
+# (c) 2017-2026, NetApp, Inc
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -48,6 +48,7 @@ options:
       - Not allowed if san_application_template is present.
       - Not supported for ASA r2 system.
     type: str
+    aliases: ['volume_name']
 
   qtree_name:
     description:
@@ -81,6 +82,7 @@ options:
     description:
       - Forcibly reduce the size. This is required for reducing the size of the LUN to avoid accidentally
         reducing the LUN size.
+      - Not supported with REST.
     type: bool
 
   force_remove:
@@ -95,6 +97,7 @@ options:
       - If "true", override checks that prevent a LUN from being destroyed while it is fenced.
       - If "false", attempting to destroy a fenced LUN will fail.
       - The default if not specified is "false". This field is available in Data ONTAP 8.2 and later.
+      - Not supported with REST.
     type: bool
 
   vserver:
@@ -309,7 +312,7 @@ EXAMPLES = """
     state: present
     name: ansibleLUN
     force_resize: true
-    flexvol_name: ansibleVolume
+    volume_name: ansibleVolume
     vserver: ansibleVServer
     size: 5
     size_unit: gb
@@ -408,7 +411,7 @@ class NetAppOntapLUN:
             force_resize=dict(type='bool'),
             force_remove=dict(required=False, type='bool', default=False),
             force_remove_fenced=dict(type='bool'),
-            flexvol_name=dict(type='str'),
+            flexvol_name=dict(type='str', aliases=['volume_name']),
             qtree_name=dict(type='str'),
             vserver=dict(required=True, type='str'),
             os_type=dict(required=False, type='str', aliases=['ostype']),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index
-Version: 0.14.18
+Version: 0.14.19
 Summary: Interface between LLMs and your data
 Project-URL: Documentation, https://docs.llamaindex.ai/en/stable/
 Project-URL: Homepage, https://llamaindex.ai
@@ -15,11 +15,9 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0,>=3.10
 Requires-Dist: llama-index-cli<0.6,>=0.5.0; python_version > '3.9'
-Requires-Dist: llama-index-core<0.15.0,>=0.14.18
+Requires-Dist: llama-index-core<0.15.0,>=0.14.19
 Requires-Dist: llama-index-embeddings-openai<0.7,>=0.6.0
-Requires-Dist: llama-index-indices-managed-llama-cloud>=0.4.0
 Requires-Dist: llama-index-llms-openai<0.8,>=0.7.0
-Requires-Dist: llama-index-readers-llama-parse>=0.4.0
 Requires-Dist: nltk>3.8.1
 Description-Content-Type: text/markdown
 
@@ -76,7 +74,7 @@ from llama_index.llms.openai import OpenAI
 - **Extract** — Structured data extraction from documents. [Docs](https://developers.llamaindex.ai/python/cloud/llamaextract/)
 - **Index** — Ingest, index, and RAG pipelines. [Docs](https://developers.llamaindex.ai/python/cloud/llamacloud/) · [Web UI](https://cloud.llamaindex.ai/)
 - **Split** - Split large documents into subcategories. [Docs](https://developers.llamaindex.ai/python/cloud/split/getting_started/)
-- **Agents** - Builde end-to-end document agents with `Workflows` and Agent Builder. [Docs](https://developers.llamaindex.ai/python/llamaagents/overview/)
+- **Agents** - Build end-to-end document agents with `Workflows` and Agent Builder. [Docs](https://developers.llamaindex.ai/python/llamaagents/overview/)
 
 ### Important Links
 

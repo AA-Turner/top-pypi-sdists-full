@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
-	dc "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
@@ -28,12 +28,12 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/replicate/go/types/ptr"
-
 	"github.com/replicate/cog/pkg/docker/command"
 	"github.com/replicate/cog/pkg/global"
 	"github.com/replicate/cog/pkg/util/console"
 )
+
+func ptrVal[T any](v T) *T { return &v }
 
 func NewClient(ctx context.Context, opts ...Option) (*apiClient, error) {
 	clientOptions := &clientOptions{
@@ -55,14 +55,14 @@ func NewClient(ctx context.Context, opts ...Option) (*apiClient, error) {
 	// adds (a tiny biy of) overead. swap this with a handle that'll lazily initialize a client and ping for health.
 	// ditto for fetching registry credentials.
 
-	dockerClientOpts := []dc.Opt{
-		dc.WithTLSClientConfigFromEnv(),
-		dc.WithVersionFromEnv(),
-		dc.WithAPIVersionNegotiation(),
-		dc.WithHost(clientOptions.host),
+	dockerClientOpts := []client.Opt{
+		client.WithTLSClientConfigFromEnv(),
+		client.WithVersionFromEnv(),
+		client.WithAPIVersionNegotiation(),
+		client.WithHost(clientOptions.host),
 	}
 
-	client, err := dc.NewClientWithOpts(dockerClientOpts...)
+	client, err := client.NewClientWithOpts(dockerClientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error creating docker client: %w", err)
 	}
@@ -86,7 +86,7 @@ func NewClient(ctx context.Context, opts ...Option) (*apiClient, error) {
 }
 
 type apiClient struct {
-	client     *dc.Client
+	client     *client.Client
 	authConfig map[string]registry.AuthConfig
 }
 
@@ -110,7 +110,7 @@ func (c *apiClient) Pull(ctx context.Context, imageRef string, force bool) (*ima
 		Platform: "linux/amd64",
 	})
 	if err != nil {
-		if client.IsErrNotFound(err) {
+		if errdefs.IsNotFound(err) {
 			return nil, &command.NotFoundError{Ref: imageRef, Object: "image"}
 		}
 		return nil, fmt.Errorf("failed to pull image %q: %w", imageRef, err)
@@ -133,10 +133,10 @@ func (c *apiClient) ContainerStop(ctx context.Context, containerID string) error
 	console.Debugf("=== APIClient.ContainerStop %s", containerID)
 
 	err := c.client.ContainerStop(ctx, containerID, container.StopOptions{
-		Timeout: ptr.To(3),
+		Timeout: ptrVal(3),
 	})
 	if err != nil {
-		if client.IsErrNotFound(err) {
+		if errdefs.IsNotFound(err) {
 			return &command.NotFoundError{Ref: containerID, Object: "container"}
 		}
 		return fmt.Errorf("failed to stop container %q: %w", containerID, err)
@@ -149,7 +149,7 @@ func (c *apiClient) ContainerInspect(ctx context.Context, containerID string) (*
 
 	resp, err := c.client.ContainerInspect(ctx, containerID)
 	if err != nil {
-		if client.IsErrNotFound(err) {
+		if errdefs.IsNotFound(err) {
 			return nil, &command.NotFoundError{Ref: containerID, Object: "container"}
 		}
 		return nil, fmt.Errorf("failed to inspect container %q: %w", containerID, err)
@@ -172,7 +172,7 @@ func (c *apiClient) ContainerLogs(ctx context.Context, containerID string, w io.
 		Follow:     true,
 	})
 	if err != nil {
-		if client.IsErrNotFound(err) {
+		if errdefs.IsNotFound(err) {
 			return &command.NotFoundError{Ref: containerID, Object: "container"}
 		}
 		return fmt.Errorf("failed to get container logs for %q: %w", containerID, err)
@@ -242,6 +242,9 @@ func (c *apiClient) Push(ctx context.Context, imageRef string) error {
 			if isTagNotFoundError(err) {
 				return &command.NotFoundError{Ref: imageRef, Object: "tag"}
 			}
+			if isRepositoryNotFoundError(err) {
+				return &command.NotFoundError{Ref: imageRef, Object: "repository"}
+			}
 			if isAuthorizationFailedError(err) {
 				return command.ErrAuthorizationFailed
 			}
@@ -250,6 +253,11 @@ func (c *apiClient) Push(ctx context.Context, imageRef string) error {
 	}
 
 	return nil
+}
+
+func (c *apiClient) ImageSave(ctx context.Context, imageRef string) (io.ReadCloser, error) {
+	console.Debugf("=== APIClient.ImageSave %s", imageRef)
+	return c.client.ImageSave(ctx, []string{imageRef})
 }
 
 // TODO[md]: this doesn't need to be on the interface, move to auth handler
@@ -268,7 +276,7 @@ func (c *apiClient) Inspect(ctx context.Context, ref string) (*image.InspectResp
 	inspect, err := c.client.ImageInspect(ctx, ref)
 
 	if err != nil {
-		if client.IsErrNotFound(err) {
+		if errdefs.IsNotFound(err) {
 			return nil, &command.NotFoundError{Ref: ref, Object: "image"}
 		}
 		return nil, fmt.Errorf("error inspecting image: %w", err)
@@ -304,12 +312,12 @@ func (c *apiClient) ImageExists(ctx context.Context, ref string) (bool, error) {
 	return true, nil
 }
 
-func (c *apiClient) ImageBuild(ctx context.Context, options command.ImageBuildOptions) error {
+func (c *apiClient) ImageBuild(ctx context.Context, options command.ImageBuildOptions) (string, error) {
 	console.Debugf("=== APIClient.ImageBuild %s", options.ImageName)
 
 	buildDir, err := os.MkdirTemp("", "cog-build")
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer os.RemoveAll(buildDir)
 
@@ -320,7 +328,7 @@ func (c *apiClient) ImageBuild(ctx context.Context, options command.ImageBuildOp
 		}),
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	statusCh := make(chan *buildkitclient.SolveStatus)
@@ -357,13 +365,16 @@ func (c *apiClient) ImageBuild(ctx context.Context, options command.ImageBuildOp
 	err = eg.Wait()
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	console.Debugf("image digest %s", res.ExporterResponse[exptypes.ExporterImageDigestKey])
+	imageID := res.ExporterResponse[exptypes.ExporterImageDigestKey]
+	if imageID == "" {
+		return "", fmt.Errorf("buildkit did not return an image digest")
+	}
+	console.Debugf("image digest %s", imageID)
 
-	// TODO[md]: return the image id on success
-	return nil
+	return imageID, nil
 }
 
 func (c *apiClient) containerRun(ctx context.Context, options command.RunOptions) (string, error) {
@@ -416,7 +427,7 @@ func (c *apiClient) containerRun(ctx context.Context, options command.RunOptions
 		if err != nil {
 			return "", err
 		}
-		hostCfg.Resources.DeviceRequests = []container.DeviceRequest{deviceRequest}
+		hostCfg.DeviceRequests = []container.DeviceRequest{deviceRequest}
 	}
 
 	// Configure port bindings
@@ -439,6 +450,11 @@ func (c *apiClient) containerRun(ctx context.Context, options command.RunOptions
 		for i, volume := range options.Volumes {
 			hostCfg.Binds[i] = fmt.Sprintf("%s:%s", volume.Source, volume.Destination)
 		}
+	}
+
+	// Configure extra hosts (e.g. host.docker.internal on Linux)
+	if len(options.ExtraHosts) > 0 {
+		hostCfg.ExtraHosts = options.ExtraHosts
 	}
 
 	networkingCfg := &network.NetworkingConfig{
@@ -603,9 +619,9 @@ func parseGPURequest(opts command.RunOptions) (container.DeviceRequest, error) {
 		// Check if it's a number
 		if count, err := strconv.Atoi(opts.GPUs); err == nil {
 			deviceRequest.Count = count
-		} else if strings.HasPrefix(opts.GPUs, "device=") {
+		} else if after, ok := strings.CutPrefix(opts.GPUs, "device="); ok {
 			// Handle device=0,1 format
-			devices := strings.TrimPrefix(opts.GPUs, "device=")
+			devices := after
 			deviceRequest.DeviceIDs = strings.Split(devices, ",")
 		} else {
 			// Invalid GPU specification, return nil to indicate no GPU access

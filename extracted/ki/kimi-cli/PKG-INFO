@@ -1,12 +1,12 @@
 Metadata-Version: 2.3
 Name: kimi-cli
-Version: 1.25.0
+Version: 1.26.0
 Summary: Kimi Code CLI is your next CLI agent.
 Requires-Dist: agent-client-protocol==0.8.0
 Requires-Dist: aiofiles>=24.0,<26.0
 Requires-Dist: aiohttp==3.13.3
 Requires-Dist: typer==0.21.1
-Requires-Dist: kosong[contrib]==0.45.0
+Requires-Dist: kosong[contrib]==0.46.0
 Requires-Dist: loguru>=0.6.0,<0.8
 Requires-Dist: prompt-toolkit==3.0.52
 Requires-Dist: pillow==12.1.0
@@ -81,6 +81,7 @@ For example, to use Kimi Code CLI with [Zed](https://zed.dev/) or [JetBrains](ht
 {
   "agent_servers": {
     "Kimi Code CLI": {
+      "type": "custom",
       "command": "kimi",
       "args": ["acp"],
       "env": {}

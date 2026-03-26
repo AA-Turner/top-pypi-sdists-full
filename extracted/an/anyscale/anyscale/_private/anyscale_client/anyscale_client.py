@@ -607,7 +607,10 @@ class AnyscaleClient(AnyscaleClientInterface):
 
     @handle_api_exceptions
     def get_cloud_by_name(self, *, name) -> Optional[Cloud]:
-        cloud_id = self.get_cloud_id(cloud_name=name)
+        try:
+            cloud_id = self.get_cloud_id(cloud_name=name)
+        except RuntimeError:
+            return None
         return self.get_cloud(cloud_id=cloud_id)
 
     @handle_api_exceptions
@@ -907,7 +910,18 @@ class AnyscaleClient(AnyscaleClientInterface):
         defaults_first: bool = False,
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> DecoratedapplicationtemplateListResponse:
+        # Only pass cloud_id for Azure deployments.
+        if self.get_deployment_infra_provider() == "azure":
+            if not cloud_id:
+                raise ValueError(
+                    "cloud_id is required for Azure Control Plane. "
+                    "Please provide a cloud_id."
+                )
+        else:
+            cloud_id = None
+
         project_id = None
         if project:
             project_id = self.get_project_id(name=project)
@@ -921,6 +935,7 @@ class AnyscaleClient(AnyscaleClientInterface):
             defaults_first=defaults_first,
             paging_token=paging_token,
             count=count if count is not None else self.LIST_ENDPOINT_COUNT,
+            cloud_id=cloud_id,
         )
 
     @handle_api_exceptions
@@ -1440,6 +1455,12 @@ class AnyscaleClient(AnyscaleClientInterface):
         paging_token: Optional[str] = None,
         sort_field: Optional[str] = None,
         sort_order: Optional[str] = None,
+        created_at_from: Optional[str] = None,
+        created_at_to: Optional[str] = None,
+        updated_at_from: Optional[str] = None,
+        updated_at_to: Optional[str] = None,
+        status_updated_at_from: Optional[str] = None,
+        status_updated_at_to: Optional[str] = None,
     ) -> DecoratedproductionjobListResponse:
         # Build kwargs dynamically to avoid passing None for count,
         # which causes TypeError in OpenAPI client validation
@@ -1454,6 +1475,12 @@ class AnyscaleClient(AnyscaleClientInterface):
             "paging_token": paging_token,
             "sort_field": sort_field,
             "sort_order": sort_order,
+            "created_at_from": created_at_from,
+            "created_at_to": created_at_to,
+            "updated_at_from": updated_at_from,
+            "updated_at_to": updated_at_to,
+            "status_updated_at_from": status_updated_at_from,
+            "status_updated_at_to": status_updated_at_to,
         }
         if count is not None:
             kwargs["count"] = count

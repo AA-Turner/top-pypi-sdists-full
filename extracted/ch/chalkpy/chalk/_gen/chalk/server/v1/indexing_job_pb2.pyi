@@ -40,13 +40,18 @@ INDEXING_JOB_STATUS_FAILED: IndexingJobStatus
 INDEXING_JOB_STATUS_UNKNOWN: IndexingJobStatus
 
 class GetIndexingJobStatusRequest(_message.Message):
-    __slots__ = ("deployment_id", "directory_prefix_enum")
+    __slots__ = ("deployment_id", "directory_prefix_enum", "indexing_job_id")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DIRECTORY_PREFIX_ENUM_FIELD_NUMBER: _ClassVar[int]
+    INDEXING_JOB_ID_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     directory_prefix_enum: DirectoryOptions
+    indexing_job_id: str
     def __init__(
-        self, deployment_id: _Optional[str] = ..., directory_prefix_enum: _Optional[_Union[DirectoryOptions, str]] = ...
+        self,
+        deployment_id: _Optional[str] = ...,
+        directory_prefix_enum: _Optional[_Union[DirectoryOptions, str]] = ...,
+        indexing_job_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetIndexingJobStatusResponse(_message.Message):

@@ -40,11 +40,13 @@ _VALID_RUN_STATUSES = frozenset(
     }
 )
 
-_TERMINAL_RUN_STATUSES = frozenset(
-    {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
-)
+_TERMINAL_RUN_STATUSES = frozenset({"completed", "failed", "cancelled", "compensated", "compensation_failed"})
 
 _REPAIRABLE_RUN_STATUSES = frozenset({"paused", "waiting_for_approval", "waiting_for_input", "failed"})
+
+_RESUMABLE_RUN_STATUSES = frozenset(
+    {"paused", "waiting_for_approval", "waiting_for_input", "compensating", "failed", "blocked"}
+)
 
 _REPAIRABLE_RUN_FIELDS = frozenset({"inputs"})
 
@@ -73,6 +75,7 @@ _ALLOWED_RUN_UPDATE_COLUMNS: set[str] = {
     "claimed_at",
     "cancel_requested",
     "conversation_id",
+    "result_summary",
 }
 
 
@@ -439,7 +442,7 @@ def get_active_run_for_conversation(db: ThreadSafeConnection, conversation_id: s
 # ---------------------------------------------------------------------------
 
 
-_VALID_STEP_TYPES = frozenset({"runner", "gate", "loop", "human_gate", "publish", "llm", "parallel"})
+_VALID_STEP_TYPES = frozenset({"runner", "gate", "loop", "human_gate", "publish", "llm", "parallel", "emit"})
 
 
 def create_workflow_step(
@@ -1069,6 +1072,32 @@ def list_runs_by_spec(db: ThreadSafeConnection, spec_fqn: str) -> list[dict[str,
     return results
 
 
+def count_runs_by_spec(db: ThreadSafeConnection, spec_fqn: str) -> dict[str, int]:
+    """Return aggregate run counts for a spec FQN."""
+    row = db.execute(
+        """
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
+            SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+            SUM(CASE WHEN status IN ('running', 'claimed') THEN 1 ELSE 0 END) AS running,
+            SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) AS blocked
+        FROM workflow_runs
+        WHERE json_extract(inputs_json, '$.spec_fqn') = ?
+        """,
+        (spec_fqn,),
+    ).fetchone()
+    if row is None:
+        return {"total": 0, "completed": 0, "failed": 0, "running": 0, "blocked": 0}
+    return {
+        "total": row[0] or 0,
+        "completed": row[1] or 0,
+        "failed": row[2] or 0,
+        "running": row[3] or 0,
+        "blocked": row[4] or 0,
+    }
+
+
 def list_spec_blocked_runs(db: ThreadSafeConnection, spec_fqn: str) -> list[dict[str, Any]]:
     """List workflow runs blocked at spec-gate steps for a specific spec."""
     sql = (
@@ -1478,7 +1507,7 @@ def check_pending_advances(db: ThreadSafeConnection) -> list[dict[str, Any]]:
         "SELECT s.* FROM workflow_schedules s"
         " JOIN workflow_runs r ON s.advance_after_run_id = r.id"
         " WHERE s.advance_after_run_id IS NOT NULL"
-        " AND r.status IN ('completed', 'failed', 'cancelled', 'blocked', 'compensated', 'compensation_failed')"
+        " AND r.status IN ('completed', 'failed', 'cancelled', 'compensated', 'compensation_failed')"
         " LIMIT 20",
     )
     return [_deserialize_schedule(dict(r)) for r in rows]

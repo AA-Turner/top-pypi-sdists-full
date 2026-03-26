@@ -9,7 +9,6 @@ import modal.call_graph
 import modal.client
 import modal.cloud_bucket_mount
 import modal.cls
-import modal.gpu
 import modal.image
 import modal.mount
 import modal.network_file_system
@@ -70,7 +69,7 @@ class Function(
         secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
         schedule: typing.Optional[modal.schedule.Schedule] = None,
         is_generator: bool = False,
-        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        gpu: typing.Union[str, list[str], None] = None,
         network_file_systems: dict[
             typing.Union[str, pathlib.PurePosixPath], modal.network_file_system.NetworkFileSystem
         ] = {},
@@ -110,7 +109,6 @@ class Function(
         include_source: bool = True,
         experimental_options: typing.Optional[dict[str, str]] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
-        _experimental_custom_scaling_factor: typing.Optional[float] = None,
         restrict_output: bool = False,
         http_config: typing.Optional[modal_proto.api_pb2.HTTPConfig] = None,
     ) -> Function:
@@ -206,45 +204,6 @@ class Function(
 
     update_autoscaler: __update_autoscaler_spec
 
-    class __keep_warm_spec(typing_extensions.Protocol):
-        def __call__(self, /, warm_pool_size: int) -> None:
-            """mdmd:hidden
-            Set the warm pool size for the Function.
-
-            DEPRECATED: Please adapt your code to use the more general `update_autoscaler` method instead:
-
-            ```python notest
-            f = modal.Function.from_name("my-app", "function")
-
-            # Old pattern (deprecated)
-            f.keep_warm(2)
-
-            # New pattern
-            f.update_autoscaler(min_containers=2)
-            ```
-            """
-            ...
-
-        async def aio(self, /, warm_pool_size: int) -> None:
-            """mdmd:hidden
-            Set the warm pool size for the Function.
-
-            DEPRECATED: Please adapt your code to use the more general `update_autoscaler` method instead:
-
-            ```python notest
-            f = modal.Function.from_name("my-app", "function")
-
-            # Old pattern (deprecated)
-            f.keep_warm(2)
-
-            # New pattern
-            f.update_autoscaler(min_containers=2)
-            ```
-            """
-            ...
-
-    keep_warm: __keep_warm_spec
-
     @classmethod
     def _from_name(cls, app_name: str, name: str, *, load_context_overrides: modal._load_context.LoadContext): ...
     @classmethod
@@ -253,7 +212,6 @@ class Function(
         app_name: str,
         name: str,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client.Client] = None,
     ) -> Function:
@@ -303,14 +261,6 @@ class Function(
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self): ...
     def _check_no_web_url(self, fn_name: str): ...
-    @property
-    def web_url(self) -> typing.Optional[str]:
-        """mdmd:hidden
-        Deprecated. Use the `Function.get_web_url()` method instead.
-
-        URL of a Function running as a web endpoint.
-        """
-        ...
 
     class __get_web_url_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[str]:
@@ -341,12 +291,7 @@ class Function(
 
     class ___map_spec(typing_extensions.Protocol):
         def __call__(
-            self,
-            /,
-            input_queue: modal.parallel_map.SynchronizedQueue,
-            order_outputs: bool,
-            return_exceptions: bool,
-            wrap_returned_exceptions: bool,
+            self, /, input_queue: modal.parallel_map.SynchronizedQueue, order_outputs: bool, return_exceptions: bool
         ) -> typing.Generator[typing.Any, None, None]:
             """mdmd:hidden
 
@@ -360,12 +305,7 @@ class Function(
             ...
 
         def aio(
-            self,
-            /,
-            input_queue: modal.parallel_map.SynchronizedQueue,
-            order_outputs: bool,
-            return_exceptions: bool,
-            wrap_returned_exceptions: bool,
+            self, /, input_queue: modal.parallel_map.SynchronizedQueue, order_outputs: bool, return_exceptions: bool
         ) -> collections.abc.AsyncGenerator[typing.Any, None]:
             """mdmd:hidden
 
@@ -532,7 +472,7 @@ class Function(
             kwargs={},
             order_outputs: bool = True,
             return_exceptions: bool = False,
-            wrap_returned_exceptions: bool = True,
+            wrap_returned_exceptions: typing.Optional[bool] = None,
         ) -> modal._utils.async_utils.AsyncOrSyncIterable:
             """Parallel map over a set of inputs.
 
@@ -566,7 +506,7 @@ class Function(
 
             @app.local_entrypoint()
             def main():
-                # [0, 1, UserCodeException(Exception('ohno'))]
+                # [0, 1, Exception('ohno')]
                 print(list(my_func.map(range(3), return_exceptions=True)))
             ```
             """
@@ -579,7 +519,7 @@ class Function(
             kwargs={},
             order_outputs: bool = True,
             return_exceptions: bool = False,
-            wrap_returned_exceptions: bool = True,
+            wrap_returned_exceptions: typing.Optional[bool] = None,
         ) -> typing.AsyncGenerator[typing.Any, None]: ...
 
     map: __map_spec
@@ -593,7 +533,7 @@ class Function(
             kwargs={},
             order_outputs: bool = True,
             return_exceptions: bool = False,
-            wrap_returned_exceptions: bool = True,
+            wrap_returned_exceptions: typing.Optional[bool] = None,
         ) -> modal._utils.async_utils.AsyncOrSyncIterable:
             """Like `map`, but spreads arguments over multiple function arguments.
 
@@ -623,7 +563,7 @@ class Function(
             kwargs={},
             order_outputs: bool = True,
             return_exceptions: bool = False,
-            wrap_returned_exceptions: bool = True,
+            wrap_returned_exceptions: typing.Optional[bool] = None,
         ) -> typing.AsyncIterable[typing.Any]: ...
 
     starmap: __starmap_spec
@@ -924,18 +864,3 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             ...
 
     gather: typing.ClassVar[__gather_spec]
-
-class __gather_spec(typing_extensions.Protocol):
-    def __call__(self, /, *function_calls) -> typing.Sequence[modal._functions.T]:
-        """mdmd:hidden
-        Deprecated: Please use `modal.FunctionCall.gather()` instead.
-        """
-        ...
-
-    async def aio(self, /, *function_calls) -> typing.Sequence[modal._functions.T]:
-        """mdmd:hidden
-        Deprecated: Please use `modal.FunctionCall.gather()` instead.
-        """
-        ...
-
-gather: __gather_spec

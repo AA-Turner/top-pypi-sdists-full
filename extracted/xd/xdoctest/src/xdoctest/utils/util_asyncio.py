@@ -1,6 +1,9 @@
 """
 Utilities related to async support
 """
+
+from __future__ import annotations
+
 import asyncio
 import sys
 
@@ -9,7 +12,7 @@ import sys
 class FallbackRunner:
     """A fallback implementation of :class:`asyncio.Runner` for Python<3.11."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._loop = None
 
     def run(self, coro):
@@ -47,7 +50,7 @@ class FallbackRunner:
             asyncio.set_event_loop(self._loop)
         return self._loop.run_until_complete(coro)
 
-    def close(self):
+    def close(self) -> None:
         """
         Shutdown and close event loop.
 
@@ -116,7 +119,7 @@ class FallbackRunner:
 
 
 # see asyncio.runners._cancel_all_tasks
-def _cancel_all_tasks(loop):
+def _cancel_all_tasks(loop: asyncio.AbstractEventLoop) -> None:
     to_cancel = asyncio.all_tasks(loop)
     if not to_cancel:
         return
@@ -127,14 +130,16 @@ def _cancel_all_tasks(loop):
         if task.cancelled():
             continue
         if task.exception() is not None:
-            loop.call_exception_handler({
-                'message': 'unhandled exception during asyncio.run() shutdown',
-                'exception': task.exception(),
-                'task': task,
-            })
+            loop.call_exception_handler(
+                {
+                    'message': 'unhandled exception during asyncio.run() shutdown',
+                    'exception': task.exception(),
+                    'task': task,
+                }
+            )
 
 
-def running():
+def running() -> bool:
     """
     Return :data:`True` if there is a running event loop.
 

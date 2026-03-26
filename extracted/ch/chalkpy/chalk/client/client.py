@@ -45,6 +45,7 @@ from chalk.client.models import (
     ResourceRequests,
     ScheduledQueryRun,
     StreamResolverTestResponse,
+    UnloadResolvers,
     WhoAmIResponse,
 )
 from chalk.client.response import Dataset, OnlineQueryResult
@@ -933,9 +934,10 @@ class ChalkClient:
         max_retries: int | None = None,
         query_name: str | None = None,
         query_name_version: str | None = None,
-        *,
+        *,  # Keyword-only: these were added later and must not be passed positionally.
         input_sql: str | None = None,
         use_metaplanner: bool | None = None,
+        unload_resolvers: UnloadResolvers = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -1105,6 +1107,8 @@ class ChalkClient:
         incremental_resolvers: Optional[Sequence[str]],
         max_samples: Optional[int],
         env_overrides: Optional[Mapping[str, str]],
+        *,  # Keyword-only: these were added later and must not be passed positionally.
+        unload_resolvers: UnloadResolvers = None,
     ) -> ManualTriggerScheduledQueryResponse:
         """
         Manually trigger a scheduled query request.

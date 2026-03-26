@@ -1,4 +1,5 @@
 import dataclasses
+import os
 from typing import Any, Dict, Optional
 
 import click
@@ -32,7 +33,7 @@ def get_job_submission_client_cluster_info(
     cookies: Optional[Dict[str, Any]] = None,  # noqa: ARG001
     metadata: Optional[Dict[str, Any]] = None,
     headers: Optional[Dict[str, Any]] = None,  # noqa: ARG001
-    **kwargs: Any,  # noqa: ARG001
+    **kwargs: Any,
 ) -> ClusterInfo:
     """
     Get address and cookies used for ray JobSubmissionClient.
@@ -50,6 +51,8 @@ def get_job_submission_client_cluster_info(
             JobSubmissionClient to use.
     """
 
+    cloud_name = kwargs.get("cloud") or os.environ.get("ANYSCALE_CLOUD")
+
     if create_cluster_if_needed:
         # Use ClientBuilder to start cluster if needed because cluster needs to be active for
         # the calling command.
@@ -57,6 +60,20 @@ def get_job_submission_client_cluster_info(
         client_builder = ClientBuilder(
             address=address, log=BlockLogger(log_output=False)
         )
+        if cloud_name:
+            client_builder.cloud(cloud_name)
+        if client_builder._project_name and not (  # noqa: SLF001
+            client_builder._cloud_name  # noqa: SLF001
+            or client_builder._cluster_compute_name  # noqa: SLF001
+            or client_builder._cluster_compute_dict  # noqa: SLF001
+        ):
+            raise RuntimeError(
+                f"Project '{client_builder._project_name}' was specified without a cloud. "  # noqa: SLF001
+                "Projects are scoped to clouds, so a cloud must be specified. "
+                "Please specify a cloud using the `cloud` argument, e.g., "
+                f'`JobSubmissionClient("anyscale://{client_builder._project_name}/...", '  # noqa: SLF001
+                f'cloud="my-cloud")` or set the ANYSCALE_CLOUD environment variable.'
+            )
         project_block = create_project_block(
             client_builder._project_dir,  # noqa: SLF001
             client_builder._project_name,  # noqa: SLF001
@@ -104,10 +121,25 @@ def get_job_submission_client_cluster_info(
         client_builder = ClientBuilder(
             address=address, log=BlockLogger(log_output=False)
         )
+        if cloud_name:
+            client_builder.cloud(cloud_name)
+        if client_builder._project_name and not (  # noqa: SLF001
+            client_builder._cloud_name  # noqa: SLF001
+            or client_builder._cluster_compute_name  # noqa: SLF001
+            or client_builder._cluster_compute_dict  # noqa: SLF001
+        ):
+            raise RuntimeError(
+                f"Project '{client_builder._project_name}' was specified without a cloud. "  # noqa: SLF001
+                "Projects are scoped to clouds, so a cloud must be specified. "
+                "Please specify a cloud using the `cloud` argument, e.g., "
+                f'`JobSubmissionClient("anyscale://{client_builder._project_name}/...", '  # noqa: SLF001
+                f'cloud="my-cloud")` or set the ANYSCALE_CLOUD environment variable.'
+            )
         cluster_name = client_builder._cluster_name  # noqa: SLF001
         project_block = create_project_block(
             client_builder._project_dir,  # noqa: SLF001
             client_builder._project_name,  # noqa: SLF001
+            cloud_name=client_builder._cloud_name,  # noqa: SLF001
             log_output=False,
         )
         project_id = project_block.project_id

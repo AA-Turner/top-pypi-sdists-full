@@ -2,6 +2,8 @@
 Defines sentinel values for internal xdoctest usage
 """
 
+from __future__ import annotations
+
 
 # Create the most singleton object ever to avoid reload issues
 # this is based on ubelt.NoParam, which has more docs on how this works
@@ -25,24 +27,35 @@ class _NOT_EVAL_TYPE:
         >>> assert copy.deepcopy(NOT_EVALED) is NOT_EVALED
         >>> assert _NOT_EVAL_TYPE() is NOT_EVALED
     """
-    def __new__(cls):
+
+    def __new__(cls) -> _NOT_EVAL_TYPE:
         return NOT_EVALED
-    def __reduce__(self):
+
+    def __reduce__(self) -> tuple[type[_NOT_EVAL_TYPE], tuple[()]]:
         return (_NOT_EVAL_TYPE, ())
-    def __copy__(self):
+
+    def __copy__(self) -> _NOT_EVAL_TYPE:
         return NOT_EVALED
-    def __deepcopy__(self, memo):
+
+    def __deepcopy__(self, memo: dict[object, object]) -> _NOT_EVAL_TYPE:
         return NOT_EVALED
-    def __call__(self, default):
+
+    def __call__(self, default: object) -> None:
         pass
+
     def __str__(cls):
         return '<NOT_EVALED>'
+
     def __repr__(cls):
         return '<NOT_EVALED>'
-    def __bool__(self):
+
+    def __bool__(self) -> bool:
         return False
+
     __nonzero__ = __bool__
-try:
-    NOT_EVALED  # type: ignore
-except NameError:
-    NOT_EVALED = object.__new__(_NOT_EVAL_TYPE)  # type: _NOT_EVAL_TYPE
+
+
+NOT_EVALED: _NOT_EVAL_TYPE
+
+if 'NOT_EVALED' not in globals():
+    NOT_EVALED = object.__new__(_NOT_EVAL_TYPE)

@@ -22,9 +22,14 @@ type Command interface {
 	ContainerInspect(ctx context.Context, id string) (*container.InspectResponse, error)
 	ContainerStop(ctx context.Context, containerID string) error
 
-	ImageBuild(ctx context.Context, options ImageBuildOptions) error
+	// ImageBuild builds an image and returns the image ID (sha256:...) on success.
+	ImageBuild(ctx context.Context, options ImageBuildOptions) (string, error)
 	Run(ctx context.Context, options RunOptions) error
 	ContainerStart(ctx context.Context, options RunOptions) (string, error)
+
+	// ImageSave exports a Docker image as a tar stream.
+	// The caller must close the returned ReadCloser.
+	ImageSave(ctx context.Context, imageRef string) (io.ReadCloser, error)
 }
 
 type ImageBuildOptions struct {
@@ -47,17 +52,18 @@ type ImageBuildOptions struct {
 }
 
 type RunOptions struct {
-	Detach  bool
-	Args    []string
-	Env     []string
-	GPUs    string
-	Image   string
-	Ports   []Port
-	Volumes []Volume
-	Workdir string
-	Stdin   io.Reader
-	Stdout  io.Writer
-	Stderr  io.Writer
+	Detach     bool
+	Args       []string
+	Env        []string
+	GPUs       string
+	Image      string
+	Ports      []Port
+	Volumes    []Volume
+	Workdir    string
+	ExtraHosts []string
+	Stdin      io.Reader
+	Stdout     io.Writer
+	Stderr     io.Writer
 }
 
 type Port struct {

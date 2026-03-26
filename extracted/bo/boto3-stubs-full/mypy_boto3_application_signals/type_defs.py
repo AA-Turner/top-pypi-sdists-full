@@ -120,6 +120,9 @@ __all__ = (
     "MetricGraphTypeDef",
     "MetricOutputTypeDef",
     "MetricReferenceTypeDef",
+    "MetricSourceOutputTypeDef",
+    "MetricSourceTypeDef",
+    "MetricSourceUnionTypeDef",
     "MetricStatOutputTypeDef",
     "MetricStatTypeDef",
     "MetricStatUnionTypeDef",
@@ -346,6 +349,16 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
 
+class MetricSourceOutputTypeDef(TypedDict):
+    MetricSourceKeyAttributes: dict[str, str]
+    MetricSourceAttributes: NotRequired[dict[str, str]]
+
+
+class MetricSourceTypeDef(TypedDict):
+    MetricSourceKeyAttributes: Mapping[str, str]
+    MetricSourceAttributes: NotRequired[Mapping[str, str]]
+
+
 class ServiceGroupTypeDef(TypedDict):
     GroupName: str
     GroupValue: str
@@ -455,17 +468,6 @@ class TagResourceRequestTypeDef(TypedDict):
     Tags: Sequence[TagTypeDef]
 
 
-class ServiceLevelObjectiveSummaryTypeDef(TypedDict):
-    Arn: str
-    Name: str
-    KeyAttributes: NotRequired[dict[str, str]]
-    OperationName: NotRequired[str]
-    DependencyConfig: NotRequired[DependencyConfigOutputTypeDef]
-    CreatedTime: NotRequired[datetime]
-    EvaluationType: NotRequired[EvaluationTypeType]
-    MetricSourceType: NotRequired[MetricSourceTypeType]
-
-
 DependencyConfigUnionTypeDef = Union[DependencyConfigTypeDef, DependencyConfigOutputTypeDef]
 
 
@@ -571,6 +573,21 @@ class ListServicesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ServiceLevelObjectiveSummaryTypeDef(TypedDict):
+    Arn: str
+    Name: str
+    KeyAttributes: NotRequired[dict[str, str]]
+    OperationName: NotRequired[str]
+    DependencyConfig: NotRequired[DependencyConfigOutputTypeDef]
+    CreatedTime: NotRequired[datetime]
+    EvaluationType: NotRequired[EvaluationTypeType]
+    MetricSourceType: NotRequired[MetricSourceTypeType]
+    MetricSource: NotRequired[MetricSourceOutputTypeDef]
+
+
+MetricSourceUnionTypeDef = Union[MetricSourceTypeDef, MetricSourceOutputTypeDef]
+
+
 class ListServiceStatesInputPaginateTypeDef(TypedDict):
     StartTime: TimestampTypeDef
     EndTime: TimestampTypeDef
@@ -608,33 +625,6 @@ class ListServiceStatesOutputTypeDef(TypedDict):
     ServiceStates: list[ServiceStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class ListServiceLevelObjectivesOutputTypeDef(TypedDict):
-    SloSummaries: list[ServiceLevelObjectiveSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ListServiceLevelObjectivesInputPaginateTypeDef(TypedDict):
-    KeyAttributes: NotRequired[Mapping[str, str]]
-    OperationName: NotRequired[str]
-    DependencyConfig: NotRequired[DependencyConfigUnionTypeDef]
-    IncludeLinkedAccounts: NotRequired[bool]
-    SloOwnerAwsAccountId: NotRequired[str]
-    MetricSourceTypes: NotRequired[Sequence[MetricSourceTypeType]]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
-class ListServiceLevelObjectivesInputTypeDef(TypedDict):
-    KeyAttributes: NotRequired[Mapping[str, str]]
-    OperationName: NotRequired[str]
-    DependencyConfig: NotRequired[DependencyConfigUnionTypeDef]
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-    IncludeLinkedAccounts: NotRequired[bool]
-    SloOwnerAwsAccountId: NotRequired[str]
-    MetricSourceTypes: NotRequired[Sequence[MetricSourceTypeType]]
 
 
 class MetricStatOutputTypeDef(TypedDict):
@@ -703,6 +693,35 @@ class GoalOutputTypeDef(TypedDict):
     Interval: NotRequired[IntervalOutputTypeDef]
     AttainmentGoal: NotRequired[float]
     WarningThreshold: NotRequired[float]
+
+
+class ListServiceLevelObjectivesOutputTypeDef(TypedDict):
+    SloSummaries: list[ServiceLevelObjectiveSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListServiceLevelObjectivesInputPaginateTypeDef(TypedDict):
+    KeyAttributes: NotRequired[Mapping[str, str]]
+    OperationName: NotRequired[str]
+    DependencyConfig: NotRequired[DependencyConfigUnionTypeDef]
+    MetricSourceTypes: NotRequired[Sequence[MetricSourceTypeType]]
+    IncludeLinkedAccounts: NotRequired[bool]
+    SloOwnerAwsAccountId: NotRequired[str]
+    MetricSource: NotRequired[MetricSourceUnionTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListServiceLevelObjectivesInputTypeDef(TypedDict):
+    KeyAttributes: NotRequired[Mapping[str, str]]
+    OperationName: NotRequired[str]
+    DependencyConfig: NotRequired[DependencyConfigUnionTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    MetricSourceTypes: NotRequired[Sequence[MetricSourceTypeType]]
+    IncludeLinkedAccounts: NotRequired[bool]
+    SloOwnerAwsAccountId: NotRequired[str]
+    MetricSource: NotRequired[MetricSourceUnionTypeDef]
 
 
 AuditTargetTypeDef = TypedDict(
@@ -813,6 +832,7 @@ class ServiceLevelIndicatorMetricTypeDef(TypedDict):
     OperationName: NotRequired[str]
     MetricType: NotRequired[ServiceLevelIndicatorMetricTypeType]
     DependencyConfig: NotRequired[DependencyConfigOutputTypeDef]
+    MetricSource: NotRequired[MetricSourceOutputTypeDef]
 
 
 MetricStatUnionTypeDef = Union[MetricStatTypeDef, MetricStatOutputTypeDef]
@@ -836,6 +856,7 @@ class RequestBasedServiceLevelIndicatorMetricTypeDef(TypedDict):
     OperationName: NotRequired[str]
     MetricType: NotRequired[ServiceLevelIndicatorMetricTypeType]
     DependencyConfig: NotRequired[DependencyConfigOutputTypeDef]
+    MetricSource: NotRequired[MetricSourceOutputTypeDef]
 
 
 class ServiceLevelIndicatorTypeDef(TypedDict):
@@ -912,6 +933,7 @@ class ServiceLevelIndicatorMetricConfigTypeDef(TypedDict):
     MetricName: NotRequired[str]
     Statistic: NotRequired[str]
     PeriodSeconds: NotRequired[int]
+    MetricSource: NotRequired[MetricSourceUnionTypeDef]
     MetricDataQueries: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     DependencyConfig: NotRequired[DependencyConfigUnionTypeDef]
 
@@ -957,6 +979,8 @@ class RequestBasedServiceLevelIndicatorMetricConfigTypeDef(TypedDict):
     TotalRequestCountMetric: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     MonitoredRequestCountMetric: NotRequired[MonitoredRequestCountMetricDataQueriesUnionTypeDef]
     DependencyConfig: NotRequired[DependencyConfigUnionTypeDef]
+    MetricSource: NotRequired[MetricSourceUnionTypeDef]
+    MetricName: NotRequired[str]
 
 
 class RequestBasedServiceLevelIndicatorConfigTypeDef(TypedDict):

@@ -90,6 +90,15 @@ options:
         default: null
         type: dict
         suboptions:
+            header_client_cert:
+                description:
+                    - 'Action to take on the HTTP Client-Cert/Client-Cert-Chain headers in forwarded responses: forwards (pass), adds, or removes the HTTP
+                       header.'
+                type: str
+                choices:
+                    - 'pass'
+                    - 'add'
+                    - 'remove'
             header_client_ip:
                 description:
                     - 'Action to take on the HTTP client-IP header in forwarded requests: forwards (pass), adds, or removes the HTTP header.'
@@ -259,6 +268,7 @@ EXAMPLES = """
       state: "present"
       access_token: "<your_own_value>"
       web_proxy_profile:
+          header_client_cert: "pass"
           header_client_ip: "pass"
           header_front_end_https: "pass"
           header_via_request: "pass"
@@ -275,15 +285,15 @@ EXAMPLES = """
                   content: "<your_own_value>"
                   dstaddr:
                       -
-                          name: "default_name_17 (source firewall.address.name firewall.addrgrp.name)"
+                          name: "default_name_18 (source firewall.address.name firewall.addrgrp.name)"
                   dstaddr6:
                       -
-                          name: "default_name_19 (source firewall.address6.name firewall.addrgrp6.name)"
-                  id: "20"
-                  name: "default_name_21"
+                          name: "default_name_20 (source firewall.address6.name firewall.addrgrp6.name)"
+                  id: "21"
+                  name: "default_name_22"
                   protocol: "https"
           log_header_change: "enable"
-          name: "default_name_24"
+          name: "default_name_25"
           strip_encoding: "enable"
 """
 
@@ -380,6 +390,7 @@ from ansible_collections.fortinet.fortios.plugins.module_utils.fortios.compariso
 
 def filter_web_proxy_profile_data(json):
     option_list = [
+        "header_client_cert",
         "header_client_ip",
         "header_front_end_https",
         "header_via_request",
@@ -611,6 +622,11 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "pass"}, {"value": "add"}, {"value": "remove"}],
         },
+        "header_client_cert": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "pass"}, {"value": "add"}, {"value": "remove"}],
+        },
         "header_x_forwarded_for": {
             "v_range": [["v6.0.0", ""]],
             "type": "string",
@@ -770,7 +786,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "web_proxy_profile"
         )

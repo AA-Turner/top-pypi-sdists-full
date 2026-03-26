@@ -804,6 +804,9 @@ def test(
         )
         exit_code = asyncio.run(runner.run())
     except KeyboardInterrupt:
+        # Runner.run() catches KeyboardInterrupt internally and cleans up
+        # the session in its finally block. This only fires if the interrupt
+        # happens outside the runner (e.g. during config loading).
         raise typer.Exit(130)
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")

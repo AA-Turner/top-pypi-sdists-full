@@ -24,6 +24,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def AppCountLogs(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppCountLogsRequest, modal_proto.api_pb2.AppCountLogsResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def AppCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppCreateRequest, modal_proto.api_pb2.AppCreateResponse]') -> None:
         pass
 
@@ -33,6 +37,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def AppDeploymentHistory(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppDeploymentHistoryRequest, modal_proto.api_pb2.AppDeploymentHistoryResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def AppFetchLogs(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppFetchLogsRequest, modal_proto.api_pb2.AppFetchLogsResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -492,6 +500,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def SandboxCreateV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxCreateV2Request, modal_proto.api_pb2.SandboxCreateV2Response]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def SandboxGetFromName(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetFromNameRequest, modal_proto.api_pb2.SandboxGetFromNameResponse]') -> None:
         pass
 
@@ -508,7 +520,15 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def SandboxGetTaskIdV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetTaskIdRequest, modal_proto.api_pb2.SandboxGetTaskIdResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def SandboxGetTunnels(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetTunnelsRequest, modal_proto.api_pb2.SandboxGetTunnelsResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxGetTunnelsV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetTunnelsRequest, modal_proto.api_pb2.SandboxGetTunnelsResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -560,7 +580,19 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def SandboxTerminateV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxTerminateRequest, modal_proto.api_pb2.SandboxTerminateResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def SandboxWait(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxWaitRequest, modal_proto.api_pb2.SandboxWaitResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxWaitUntilReady(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxWaitUntilReadyRequest, modal_proto.api_pb2.SandboxWaitUntilReadyResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxWaitV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxWaitRequest, modal_proto.api_pb2.SandboxWaitResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -625,6 +657,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def TaskGetCommandRouterAccess(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.TaskGetCommandRouterAccessRequest, modal_proto.api_pb2.TaskGetCommandRouterAccessResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def TaskGetInfo(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.TaskGetInfoRequest, modal_proto.api_pb2.TaskGetInfoResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -747,6 +783,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.AppClientDisconnectRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
+            '/modal.client.ModalClient/AppCountLogs': grpclib.const.Handler(
+                self.AppCountLogs,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AppCountLogsRequest,
+                modal_proto.api_pb2.AppCountLogsResponse,
+            ),
             '/modal.client.ModalClient/AppCreate': grpclib.const.Handler(
                 self.AppCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -764,6 +806,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.AppDeploymentHistoryRequest,
                 modal_proto.api_pb2.AppDeploymentHistoryResponse,
+            ),
+            '/modal.client.ModalClient/AppFetchLogs': grpclib.const.Handler(
+                self.AppFetchLogs,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AppFetchLogsRequest,
+                modal_proto.api_pb2.AppFetchLogsResponse,
             ),
             '/modal.client.ModalClient/AppGetByDeploymentName': grpclib.const.Handler(
                 self.AppGetByDeploymentName,
@@ -1449,6 +1497,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.SandboxCreateConnectTokenRequest,
                 modal_proto.api_pb2.SandboxCreateConnectTokenResponse,
             ),
+            '/modal.client.ModalClient/SandboxCreateV2': grpclib.const.Handler(
+                self.SandboxCreateV2,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxCreateV2Request,
+                modal_proto.api_pb2.SandboxCreateV2Response,
+            ),
             '/modal.client.ModalClient/SandboxGetFromName': grpclib.const.Handler(
                 self.SandboxGetFromName,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1473,8 +1527,20 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.SandboxGetTaskIdRequest,
                 modal_proto.api_pb2.SandboxGetTaskIdResponse,
             ),
+            '/modal.client.ModalClient/SandboxGetTaskIdV2': grpclib.const.Handler(
+                self.SandboxGetTaskIdV2,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxGetTaskIdRequest,
+                modal_proto.api_pb2.SandboxGetTaskIdResponse,
+            ),
             '/modal.client.ModalClient/SandboxGetTunnels': grpclib.const.Handler(
                 self.SandboxGetTunnels,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxGetTunnelsRequest,
+                modal_proto.api_pb2.SandboxGetTunnelsResponse,
+            ),
+            '/modal.client.ModalClient/SandboxGetTunnelsV2': grpclib.const.Handler(
+                self.SandboxGetTunnelsV2,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxGetTunnelsRequest,
                 modal_proto.api_pb2.SandboxGetTunnelsResponse,
@@ -1551,8 +1617,26 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.SandboxTerminateRequest,
                 modal_proto.api_pb2.SandboxTerminateResponse,
             ),
+            '/modal.client.ModalClient/SandboxTerminateV2': grpclib.const.Handler(
+                self.SandboxTerminateV2,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxTerminateRequest,
+                modal_proto.api_pb2.SandboxTerminateResponse,
+            ),
             '/modal.client.ModalClient/SandboxWait': grpclib.const.Handler(
                 self.SandboxWait,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxWaitRequest,
+                modal_proto.api_pb2.SandboxWaitResponse,
+            ),
+            '/modal.client.ModalClient/SandboxWaitUntilReady': grpclib.const.Handler(
+                self.SandboxWaitUntilReady,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxWaitUntilReadyRequest,
+                modal_proto.api_pb2.SandboxWaitUntilReadyResponse,
+            ),
+            '/modal.client.ModalClient/SandboxWaitV2': grpclib.const.Handler(
+                self.SandboxWaitV2,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxWaitRequest,
                 modal_proto.api_pb2.SandboxWaitResponse,
@@ -1652,6 +1736,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.TaskGetCommandRouterAccessRequest,
                 modal_proto.api_pb2.TaskGetCommandRouterAccessResponse,
+            ),
+            '/modal.client.ModalClient/TaskGetInfo': grpclib.const.Handler(
+                self.TaskGetInfo,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.TaskGetInfoRequest,
+                modal_proto.api_pb2.TaskGetInfoResponse,
             ),
             '/modal.client.ModalClient/TaskList': grpclib.const.Handler(
                 self.TaskList,
@@ -1833,6 +1923,12 @@ class ModalClientStub:
             modal_proto.api_pb2.AppClientDisconnectRequest,
             google.protobuf.empty_pb2.Empty,
         )
+        self.AppCountLogs = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AppCountLogs',
+            modal_proto.api_pb2.AppCountLogsRequest,
+            modal_proto.api_pb2.AppCountLogsResponse,
+        )
         self.AppCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/AppCreate',
@@ -1850,6 +1946,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/AppDeploymentHistory',
             modal_proto.api_pb2.AppDeploymentHistoryRequest,
             modal_proto.api_pb2.AppDeploymentHistoryResponse,
+        )
+        self.AppFetchLogs = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AppFetchLogs',
+            modal_proto.api_pb2.AppFetchLogsRequest,
+            modal_proto.api_pb2.AppFetchLogsResponse,
         )
         self.AppGetByDeploymentName = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -2535,6 +2637,12 @@ class ModalClientStub:
             modal_proto.api_pb2.SandboxCreateConnectTokenRequest,
             modal_proto.api_pb2.SandboxCreateConnectTokenResponse,
         )
+        self.SandboxCreateV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxCreateV2',
+            modal_proto.api_pb2.SandboxCreateV2Request,
+            modal_proto.api_pb2.SandboxCreateV2Response,
+        )
         self.SandboxGetFromName = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SandboxGetFromName',
@@ -2559,9 +2667,21 @@ class ModalClientStub:
             modal_proto.api_pb2.SandboxGetTaskIdRequest,
             modal_proto.api_pb2.SandboxGetTaskIdResponse,
         )
+        self.SandboxGetTaskIdV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxGetTaskIdV2',
+            modal_proto.api_pb2.SandboxGetTaskIdRequest,
+            modal_proto.api_pb2.SandboxGetTaskIdResponse,
+        )
         self.SandboxGetTunnels = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SandboxGetTunnels',
+            modal_proto.api_pb2.SandboxGetTunnelsRequest,
+            modal_proto.api_pb2.SandboxGetTunnelsResponse,
+        )
+        self.SandboxGetTunnelsV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxGetTunnelsV2',
             modal_proto.api_pb2.SandboxGetTunnelsRequest,
             modal_proto.api_pb2.SandboxGetTunnelsResponse,
         )
@@ -2637,9 +2757,27 @@ class ModalClientStub:
             modal_proto.api_pb2.SandboxTerminateRequest,
             modal_proto.api_pb2.SandboxTerminateResponse,
         )
+        self.SandboxTerminateV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxTerminateV2',
+            modal_proto.api_pb2.SandboxTerminateRequest,
+            modal_proto.api_pb2.SandboxTerminateResponse,
+        )
         self.SandboxWait = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SandboxWait',
+            modal_proto.api_pb2.SandboxWaitRequest,
+            modal_proto.api_pb2.SandboxWaitResponse,
+        )
+        self.SandboxWaitUntilReady = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxWaitUntilReady',
+            modal_proto.api_pb2.SandboxWaitUntilReadyRequest,
+            modal_proto.api_pb2.SandboxWaitUntilReadyResponse,
+        )
+        self.SandboxWaitV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxWaitV2',
             modal_proto.api_pb2.SandboxWaitRequest,
             modal_proto.api_pb2.SandboxWaitResponse,
         )
@@ -2738,6 +2876,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/TaskGetCommandRouterAccess',
             modal_proto.api_pb2.TaskGetCommandRouterAccessRequest,
             modal_proto.api_pb2.TaskGetCommandRouterAccessResponse,
+        )
+        self.TaskGetInfo = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/TaskGetInfo',
+            modal_proto.api_pb2.TaskGetInfoRequest,
+            modal_proto.api_pb2.TaskGetInfoResponse,
         )
         self.TaskList = grpclib.client.UnaryUnaryMethod(
             channel,

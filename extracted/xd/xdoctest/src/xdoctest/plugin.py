@@ -14,21 +14,54 @@ this code is heavilly based on ``pytest/_pytest/doctest.py`` plugin file in
 https://github.com/pytest-dev/pytest
 
 """
+
+from __future__ import annotations
+
+import typing
+from typing import cast
+
 import pytest
-from _pytest._code import code
 from _pytest import fixtures
+from _pytest._code import code
 
 try:
-    from packaging.version import parse as Version
+    from packaging import version as _packaging_version
 except ImportError:  # nocover
-    from distutils.version import LooseVersion as Version
+    from distutils import (
+        version as _distutils_version,  # type: ignore[unresolved-import]
+    )
 
-_PYTEST_IS_GE_620 = Version(pytest.__version__) >= Version('6.2.0')
-_PYTEST_IS_GE_800 = Version(pytest.__version__) >= Version('8.0.0')
+    def _parse_version(version_text):
+        return _distutils_version.LooseVersion(version_text)
+else:
+
+    def _parse_version(version_text):
+        return _packaging_version.parse(version_text)
+
+
+_PYTEST_IS_GE_620 = _parse_version(pytest.__version__) >= _parse_version(
+    '6.2.0'
+)
+_PYTEST_IS_GE_800 = _parse_version(pytest.__version__) >= _parse_version(
+    '8.0.0'
+)
 
 
 if _PYTEST_IS_GE_800:
-    from typing import Dict
+    from typing import Any, Callable, Dict, TypeVar
+
+    try:
+        from typing import override
+    except ImportError:  # nocover
+        try:
+            from typing_extensions import override
+        except ImportError:  # nocover
+            _F = TypeVar('_F', bound=Callable[..., object])
+
+            def override(method: _F, /) -> _F:
+                """Fallback no-op decorator when typing override helpers are unavailable."""
+                return method
+
     from _pytest.fixtures import TopRequest
 
 
@@ -50,8 +83,9 @@ import xdoctest.doctest_example
 
 def pytest_configure(config):
     manager = config.pluginmanager
-    all_plugins = {manager.get_name(plugin): plugin
-                   for plugin in manager.get_plugins()}
+    all_plugins = {
+        manager.get_name(plugin): plugin for plugin in manager.get_plugins()
+    }
     # If we're using `xdoctest`, unregister plugins on the ban-list
     if getattr(config.option, 'xdoctestmodules', False):
         for incompatible in _INCOMPATIBLE_PLUGINS.intersection(all_plugins):
@@ -67,48 +101,74 @@ def pytest_addoption(parser):
         return str.lower(str(x))
 
     group = parser.getgroup('collect')
-    parser.addini('xdoctest_encoding', 'encoding used for xdoctest files', default='utf-8')
+    parser.addini(
+        'xdoctest_encoding', 'encoding used for xdoctest files', default='utf-8'
+    )
     # parser.addini('xdoctest_options', 'default directive flags for doctests',
     #               type="args", default=["+ELLIPSIS"])
-    group.addoption('--xdoctest-modules', '--xdoctest', '--xdoc',
-                    action='store_true', default=False,
-                    help='Run doctests in all .py modules using new style parsing',
-                    dest='xdoctestmodules')
-    group.addoption('--xdoctest-glob', '--xdoc-glob',
-                    action='append', default=[], metavar='pat',
-                    help=(
-                        'Text files matching this pattern will be checked '
-                        'for doctests. This option may be specified multiple '
-                        'times. XDoctest does not check any text files by '
-                        'default. For compatibility with doctest set this to '
-                        'test*.txt'),
-                    dest='xdoctestglob')
-    group.addoption('--xdoctest-ignore-syntax-errors',
-                    action='store_true', default=False,
-                    help='Ignore xdoctest SyntaxErrors',
-                    dest='xdoctest_ignore_syntax_errors')
+    group.addoption(
+        '--xdoctest-modules',
+        '--xdoctest',
+        '--xdoc',
+        action='store_true',
+        default=False,
+        help='Run doctests in all .py modules using new style parsing',
+        dest='xdoctestmodules',
+    )
+    group.addoption(
+        '--xdoctest-glob',
+        '--xdoc-glob',
+        action='append',
+        default=[],
+        metavar='pat',
+        help=(
+            'Text files matching this pattern will be checked '
+            'for doctests. This option may be specified multiple '
+            'times. XDoctest does not check any text files by '
+            'default. For compatibility with doctest set this to '
+            'test*.txt'
+        ),
+        dest='xdoctestglob',
+    )
+    group.addoption(
+        '--xdoctest-ignore-syntax-errors',
+        action='store_true',
+        default=False,
+        help='Ignore xdoctest SyntaxErrors',
+        dest='xdoctest_ignore_syntax_errors',
+    )
 
-    group.addoption('--xdoctest-style', '--xdoc-style',
-                    type=str_lower, default='freeform',
-                    help='Basic style used to write doctests',
-                    choices=core.DOCTEST_STYLES,
-                    dest='xdoctest_style')
+    group.addoption(
+        '--xdoctest-style',
+        '--xdoc-style',
+        type=str_lower,
+        default='freeform',
+        help='Basic style used to write doctests',
+        choices=core.DOCTEST_STYLES,
+        dest='xdoctest_style',
+    )
 
-    group.addoption('--xdoctest-analysis', '--xdoc-analysis',
-                    type=str_lower, default='auto',
-                    help=('How doctests are collected. '
-                          'Can either be static, dynamic, or auto'),
-                    choices=['static', 'dynamic', 'auto'],
-                    dest='xdoctest_analysis')
+    group.addoption(
+        '--xdoctest-analysis',
+        '--xdoc-analysis',
+        type=str_lower,
+        default='auto',
+        help=(
+            'How doctests are collected. Can either be static, dynamic, or auto'
+        ),
+        choices=['static', 'dynamic', 'auto'],
+        dest='xdoctest_analysis',
+    )
 
     from xdoctest import doctest_example
+
     doctest_example.DoctestConfig()._update_argparse_cli(
-        group.addoption, prefix=['xdoctest', 'xdoc'],
-        defaults=dict(verbose=2)
+        group.addoption, prefix=['xdoctest', 'xdoc'], defaults=dict(verbose=2)
     )
 
 
 if pytest.__version__ < '7.':  # nocover
+
     def pytest_collect_file(path, parent):
         return _pytest_collect_file(path, parent, fspath=path)
 
@@ -119,7 +179,8 @@ if pytest.__version__ < '7.':  # nocover
         return path.check(fnmatch=glob)
 
 else:
-    def pytest_collect_file(file_path, parent):  # type: ignore
+
+    def pytest_collect_file(file_path, parent):
         return _pytest_collect_file(file_path, parent, path=file_path)
 
     def _suffix(path):
@@ -131,7 +192,7 @@ else:
 
 def _pytest_collect_file(file_path, parent, **path_args):
     config = parent.config
-    if _suffix(file_path) == ".py":
+    if _suffix(file_path) == '.py':
         if config.option.xdoctestmodules:
             if hasattr(XDoctestModule, 'from_parent'):
                 return XDoctestModule.from_parent(parent, **path_args)
@@ -149,7 +210,7 @@ def _is_xdoctest(config, path, parent):
     if _suffix(path) in ('.txt', '.rst') and parent.session.isinitpath(path):
         matched = True
     else:
-        globs = config.getoption("xdoctestglob")
+        globs = config.getoption('xdoctestglob')
         for glob in globs:
             if _match(path, glob):
                 matched = True
@@ -158,8 +219,7 @@ def _is_xdoctest(config, path, parent):
 
 
 class ReprFailXDoctest(code.TerminalRepr):
-
-    def __init__(self, reprlocation, lines):
+    def __init__(self, reprlocation: typing.Any, lines: list[str]):
         """
         Args:
             reprlocation (Any):
@@ -176,11 +236,13 @@ class ReprFailXDoctest(code.TerminalRepr):
 
 
 class XDoctestItem(pytest.Item):
-    def __init__(self,
-                 name,
-                 parent,
-                 runner=None,
-                 dtest=None):
+    def __init__(
+        self,
+        name: str,
+        parent: typing.Any,
+        runner: typing.Any = None,
+        dtest: typing.Any = None,
+    ):
         """
         Args:
             name (str):
@@ -202,17 +264,21 @@ class XDoctestItem(pytest.Item):
             self.fixture_request = None
 
     if _PYTEST_IS_GE_800:
+
         @classmethod
-        def from_parent(  # type: ignore
+        @override
+        def from_parent(
             cls,
             parent,
             name,
             runner=None,
             dtest=None,
-        ):
+        ):  # type: ignore
             # incompatible signature due to imposed limits on subclass
             """The public named constructor."""
-            return super().from_parent(name=name, parent=parent, runner=runner, dtest=dtest)
+            return super().from_parent(
+                name=name, parent=parent, runner=runner, dtest=dtest
+            )
 
     @property
     def example(self):
@@ -224,20 +290,26 @@ class XDoctestItem(pytest.Item):
     def _initrequest(self) -> None:
         assert _PYTEST_IS_GE_800
         self.funcargs: Dict[str, object] = {}
-        self._request = TopRequest(self, _ispytest=True)  # type: ignore[arg-type]
+        self._request = TopRequest(cast(Any, self), _ispytest=True)
 
     def setup(self):
         if _PYTEST_IS_GE_800:
             self._request._fillfixtures()
             globs = dict(getfixture=self._request.getfixturevalue)
-            for name, value in self._request.getfixturevalue("xdoctest_namespace").items():
+            for name, value in self._request.getfixturevalue(
+                'xdoctest_namespace'
+            ).items():
                 globs[name] = value
             self.dtest.globs.update(globs)
         else:
             if self.dtest is not None:
                 self.fixture_request = _setup_fixtures(self)
-                global_namespace = dict(getfixture=self.fixture_request.getfixturevalue)
-                for name, value in self.fixture_request.getfixturevalue('xdoctest_namespace').items():
+                global_namespace = dict(
+                    getfixture=self.fixture_request.getfixturevalue
+                )
+                for name, value in self.fixture_request.getfixturevalue(
+                    'xdoctest_namespace'
+                ).items():
                     global_namespace[name] = value
                 self.dtest.global_namespace.update(global_namespace)
 
@@ -249,7 +321,7 @@ class XDoctestItem(pytest.Item):
         if not self.dtest.anything_ran():
             pytest.skip('doctest is empty or all parts were skipped')
 
-    def repr_failure(self, excinfo):
+    def repr_failure(self, excinfo):  # type: ignore
         """
         # Args:
         #     excinfo (_pytest._code.code.ExceptionInfo):
@@ -269,42 +341,46 @@ class XDoctestItem(pytest.Item):
         else:
             return super(XDoctestItem, self).repr_failure(excinfo)
 
-    def reportinfo(self):
+    def reportinfo(self) -> tuple[typing.Any, int | None, str]:
         """
         Returns:
             Tuple[str, int, str]
         """
-        return self.fspath, self.dtest.lineno, "[xdoctest] %s" % self.name
+        return self.fspath, self.dtest.lineno, '[xdoctest] %s' % self.name
 
 
 class _XDoctestBase(pytest.Module):
-
     def _prepare_internal_config(self):
-
         class NamespaceLike:
             def __init__(self, config):
                 self.config = config
+
             def __getitem__(self, attr):
                 return self.config.getvalue('xdoctest_' + attr)
+
             def __getattr__(self, attr):
                 return self.config.getvalue('xdoctest_' + attr)
 
         ns = NamespaceLike(self.config)
 
         from xdoctest import doctest_example
-        self._examp_conf = doctest_example.DoctestConfig()._populate_from_cli(ns)
+
+        self._examp_conf = doctest_example.DoctestConfig()._populate_from_cli(
+            ns
+        )
 
 
 class XDoctestTextfile(_XDoctestBase):
     obj = None
 
-    def collect(self):
+    def collect(self) -> typing.Iterator[XDoctestItem]:
         """
         Yields:
             XDoctestItem
         """
         from xdoctest import core
-        encoding = self.config.getini("xdoctest_encoding")
+
+        encoding = self.config.getini('xdoctest_encoding')
         text = self.fspath.read_text(encoding)
         filename = str(self.fspath)
         name = self.fspath.basename
@@ -315,14 +391,14 @@ class XDoctestTextfile(_XDoctestBase):
         style = self.config.getvalue('xdoctest_style')
 
         _example_iter = core.parse_docstr_examples(
-            text, name, fpath=filename, style=style)
+            text, name, fpath=filename, style=style
+        )
 
         for dtest in _example_iter:
             dtest.global_namespace.update(global_namespace)
             dtest.config.update(self._examp_conf)
             if hasattr(XDoctestItem, 'from_parent'):
-                yield XDoctestItem.from_parent(
-                    self, name=name, dtest=dtest)
+                yield XDoctestItem.from_parent(self, name=name, dtest=dtest)
             else:
                 # direct construction is deprecated
                 yield XDoctestItem(name, self, dtest=dtest)
@@ -331,6 +407,7 @@ class XDoctestTextfile(_XDoctestBase):
 class XDoctestModule(_XDoctestBase):
     def collect(self):
         from xdoctest import core
+
         modpath = str(self.fspath)
 
         style = self.config.getvalue('xdoctest_style')
@@ -338,8 +415,9 @@ class XDoctestModule(_XDoctestBase):
         self._prepare_internal_config()
 
         try:
-            examples = list(core.parse_doctestables(modpath, style=style,
-                                                    analysis=analysis))
+            examples = list(
+                core.parse_doctestables(modpath, style=style, analysis=analysis)
+            )
         except SyntaxError:
             if self.config.getvalue('xdoctest_ignore_syntax_errors'):
                 pytest.skip('unable to import module %r' % self.fspath)
@@ -350,14 +428,13 @@ class XDoctestModule(_XDoctestBase):
             dtest.config.update(self._examp_conf)
             name = dtest.unique_callname
             if hasattr(XDoctestItem, 'from_parent'):
-                yield XDoctestItem.from_parent(
-                    self, name=name, dtest=dtest)
+                yield XDoctestItem.from_parent(self, name=name, dtest=dtest)
             else:
                 # direct construction is deprecated
                 yield XDoctestItem(name, self, dtest=dtest)
 
 
-def _setup_fixtures(xdoctest_item):
+def _setup_fixtures(xdoctest_item: XDoctestItem) -> fixtures.FixtureRequest:
     """
     Used by XDoctestTextfile and XDoctestItem to setup fixture information.
 
@@ -367,28 +444,33 @@ def _setup_fixtures(xdoctest_item):
     Returns:
         fixtures.FixtureRequest
     """
+
     def func():
         pass
 
     xdoctest_item.funcargs = {}
     fm = xdoctest_item.session._fixturemanager
     xdoctest_item._fixtureinfo = fm.getfixtureinfo(
-        node=xdoctest_item, func=func, cls=None, funcargs=False)
+        node=xdoctest_item,
+        func=func,
+        cls=None,
+        funcargs=False,  # type: ignore
+    )
     # Note: FixtureRequest may change in the future, we are using
     # private functionality. Hopefully it wont break, but we should
     # check to see if there is a better way to do this
     # https://github.com/pytest-dev/pytest/discussions/8512#discussioncomment-563347
     if _PYTEST_IS_GE_620:
         # The "_ispytest" arg was added in 3.6.1
-        fixture_request = fixtures.FixtureRequest(xdoctest_item, _ispytest=True)
+        fixture_request = fixtures.FixtureRequest(xdoctest_item, _ispytest=True)  # type: ignore
     else:
-        fixture_request = fixtures.FixtureRequest(xdoctest_item)
-    fixture_request._fillfixtures()
+        fixture_request = fixtures.FixtureRequest(xdoctest_item)  # type: ignore
+    fixture_request._fillfixtures()  # type: ignore
     return fixture_request
 
 
 @pytest.fixture(scope='session')
-def xdoctest_namespace():
+def xdoctest_namespace() -> dict[str, object]:
     """
     Inject names into the xdoctest namespace.
 

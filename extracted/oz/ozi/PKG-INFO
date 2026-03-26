@@ -1,7 +1,7 @@
 Metadata-Version: 2.3
 Requires-Python: >=3.9, <3.14
 Name: OZI
-Version: 2.1.28
+Version: 2.1.29
 Author: Eden Ross Duff MSc
 Author-email: help@oziproject.dev
 Classifier: Development Status :: 4 - Beta

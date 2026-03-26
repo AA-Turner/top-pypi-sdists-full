@@ -8,8 +8,12 @@ The :class:`TeeStringIO` does the same thing but for arbitrary streams. It is
 how the former is implemented.
 
 """
-import sys
+
+from __future__ import annotations
+
 import io
+import sys
+import typing
 
 
 class TeeStringIO(io.StringIO):
@@ -23,8 +27,9 @@ class TeeStringIO(io.StringIO):
         >>> redirect = io.StringIO()
         >>> self = TeeStringIO(redirect)
     """
-    def __init__(self, redirect=None):
-        self.redirect = redirect  # type: io.IOBase
+
+    def __init__(self, redirect: io.IOBase | None = None) -> None:
+        self.redirect: io.IOBase | None = redirect
         super(TeeStringIO, self).__init__()
 
         # Logic taken from prompt_toolkit/output/vt100.py version 3.0.5 in
@@ -33,11 +38,15 @@ class TeeStringIO(io.StringIO):
         # allow us to embed in IPython while still capturing and Teeing
         # stdout
         if hasattr(redirect, 'buffer'):
-            self.buffer = redirect.buffer  # Py3.
+            object.__setattr__(
+                self, 'buffer', typing.cast(typing.Any, redirect).buffer
+            )
         else:
-            self.buffer = redirect
+            object.__setattr__(
+                self, 'buffer', typing.cast(typing.Any, redirect)
+            )
 
-    def isatty(self):  # nocover
+    def isatty(self) -> bool:  # nocover
         """
         Returns true of the redirect is a terminal.
 
@@ -45,10 +54,13 @@ class TeeStringIO(io.StringIO):
             Needed for IPython.embed to work properly when this class is used
             to override stdout / stderr.
         """
-        return (self.redirect is not None and
-                hasattr(self.redirect, 'isatty') and self.redirect.isatty())
+        return (
+            self.redirect is not None
+            and hasattr(self.redirect, 'isatty')
+            and self.redirect.isatty()
+        )
 
-    def fileno(self):
+    def fileno(self) -> int:
         """
         Returns underlying file descriptor of the redirected IOBase object
         if one exists.
@@ -72,11 +84,11 @@ class TeeStringIO(io.StringIO):
             >>> assert TeeStringIO(redirect).encoding is redirect.encoding
         """
         if self.redirect is not None:
-            return self.redirect.encoding
+            return self.redirect.encoding  # type: ignore
         else:
             return super(TeeStringIO, self).encoding
 
-    def write(self, msg):
+    def write(self, msg: str) -> int:
         """
         Write to this and the redirected stream
         """
@@ -131,48 +143,63 @@ class CaptureStdout(CaptureStream):
         ...     print('dont capture')
         >>> assert self.text is None
     """
-    def __init__(self, suppress=True, enabled=True, **kwargs):
-        _misspelled_varname = 'supress'
-        if _misspelled_varname in kwargs:  # nocover
-            from xdoctest.utils import util_deprecation
-            util_deprecation.schedule_deprecation(
-                modname='xdoctest',
-                name='supress', type='Argument of CaptureStdout',
-                migration='Use suppress instead',
-                deprecate='1.0.0', error='1.1.0', remove='1.2.0'
-            )
-            suppress = kwargs.pop(_misspelled_varname)
-            if len(kwargs) > 0:
-                raise ValueError('unexpected args: {}'.format(kwargs))
+
+    def __init__(
+        self, suppress: bool = True, enabled: bool = True, **kwargs: object
+    ) -> None:
+        # Initialize attributes early so __del__ remains safe even if
+        # argument validation below raises before normal initialization.
         self.enabled = enabled
         self.suppress = suppress
         self.orig_stdout = sys.stdout
+        self.cap_stdout: TeeStringIO | None = None
+        self.text: str | None = None
+        self._pos = 0
+        self.parts: list[str] = []
+        self.started = False
+
+        _misspelled_varname = 'supress'
+        if _misspelled_varname in kwargs:  # nocover
+            from xdoctest.utils import util_deprecation
+
+            util_deprecation.schedule_deprecation(
+                modname='xdoctest',
+                name='supress',
+                type='Argument of CaptureStdout',
+                migration='Use suppress instead',
+                deprecate='1.0.0',
+                error='1.1.0',
+                remove='1.2.0',
+            )
+            suppress = bool(kwargs.pop(_misspelled_varname))
+            if len(kwargs) > 0:
+                raise ValueError('unexpected args: {}'.format(kwargs))
         if suppress:
             redirect = None
         else:
             redirect = self.orig_stdout
-        self.cap_stdout = TeeStringIO(redirect)
-        self.text = None
-
+        self.cap_stdout = TeeStringIO(
+            typing.cast(typing.Optional[io.IOBase], redirect)
+        )
         self._pos = 0  # keep track of how much has been logged
-        self.parts = []
-        self.started = False
 
-    def log_part(self):
-        """ Log what has been captured so far """
+    def log_part(self) -> None:
+        """Log what has been captured so far"""
+        assert self.cap_stdout is not None
         self.cap_stdout.seek(self._pos)
         text = self.cap_stdout.read()
         self._pos = self.cap_stdout.tell()
         self.parts.append(text)
         self.text = text
 
-    def start(self):
+    def start(self) -> None:
         if self.enabled:
+            assert self.cap_stdout is not None
             self.text = ''
             self.started = True
             sys.stdout = self.cap_stdout
 
-    def stop(self):
+    def stop(self) -> None:
         """
         Example:
             >>> CaptureStdout(enabled=False).stop()
@@ -182,21 +209,22 @@ class CaptureStdout(CaptureStream):
             self.started = False
             sys.stdout = self.orig_stdout
 
-    def __enter__(self):
+    def __enter__(self) -> CaptureStdout:
         self.start()
         return self
 
-    def __del__(self):  # nocover
-        if self.started:
+    def __del__(self) -> None:  # nocover
+        if getattr(self, 'started', False):
             self.stop()
-        if self.cap_stdout is not None:
+        if getattr(self, 'cap_stdout', None) is not None:
             self.close()
 
-    def close(self):
-        self.cap_stdout.close()
-        self.cap_stdout = None
+    def close(self) -> None:
+        if self.cap_stdout is not None:
+            self.cap_stdout.close()
+            self.cap_stdout = None
 
-    def __exit__(self, type_, value, trace):
+    def __exit__(self, type_: object, value: object, trace: object) -> None:
         if self.enabled:
             try:
                 self.log_part()
@@ -205,4 +233,4 @@ class CaptureStdout(CaptureStream):
             finally:
                 self.stop()
         if trace is not None:
-            return False  # return a falsey value on error
+            return None  # return a falsey value on error

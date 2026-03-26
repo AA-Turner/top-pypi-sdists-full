@@ -19,22 +19,29 @@ The following is a glossary of terms and jargon used in this repo.
 
 * TODO - complete this list (Make an issue or PR if there is any term you don't immediately understand!).
 """
-import textwrap
-import warnings
+
+from __future__ import annotations
+
 import itertools as it
+import os
+import textwrap
 import types
-from os.path import exists
+import typing
+import warnings
 from fnmatch import fnmatch
-from xdoctest import dynamic_analysis
-from xdoctest import static_analysis
-from xdoctest import parser
-from xdoctest import exceptions
-from xdoctest import doctest_example
-from xdoctest import utils
+from os.path import exists
+
+from xdoctest import (
+    doctest_example,
+    dynamic_analysis,
+    exceptions,
+    global_state,
+    parser,
+    static_analysis,
+    utils,
+)
 from xdoctest.docstr import docscrape_google
 from xdoctest.utils import util_import
-from xdoctest import global_state
-
 
 DOCTEST_STYLES = [
     'freeform',
@@ -48,8 +55,14 @@ import xdoctest.doctest_example
 """
 
 
-def parse_freeform_docstr_examples(docstr, callname=None, modpath=None,
-                                   lineno=1, fpath=None, asone=True):
+def parse_freeform_docstr_examples(
+    docstr: str,
+    callname: str | None = None,
+    modpath: str | os.PathLike | None = None,
+    lineno: int = 1,
+    fpath: str | os.PathLike | None = None,
+    asone: bool = True,
+) -> typing.Iterator[doctest_example.DocTest]:
     r"""
     Finds free-form doctests in a docstring. This is similar to the original
     doctests because these tests do not requires a google/numpy style header.
@@ -125,17 +138,21 @@ def parse_freeform_docstr_examples(docstr, callname=None, modpath=None,
         # FIXME: this will cause line numbers to become misaligned
         nested = [
             p.orig_lines
-            if p.want is None else
-            p.orig_lines + p.want.splitlines()
+            if p.want is None
+            else p.orig_lines + p.want.splitlines()
             for p in parts
         ]
         docsrc = '\n'.join(list(it.chain.from_iterable(nested)))
         docsrc = textwrap.dedent(docsrc)
 
-        example = doctest_example.DocTest(docsrc, modpath=modpath,
-                                          callname=callname, num=num,
-                                          lineno=lineno + curr_offset,
-                                          fpath=fpath)
+        example = doctest_example.DocTest(
+            docsrc,
+            modpath=modpath,
+            callname=callname,
+            num=num,
+            lineno=lineno + curr_offset,
+            fpath=fpath,
+        )
         # rebase the offsets relative to the test lineno (ie start at 0)
         unoffset = parts[0].line_offset
         for p in parts:
@@ -145,8 +162,11 @@ def parse_freeform_docstr_examples(docstr, callname=None, modpath=None,
         return example
 
     if global_state.DEBUG_CORE:  # nocover
-        print('Parsing docstring for callname={} in modpath={}'.format(
-            callname, modpath))
+        print(
+            'Parsing docstring for callname={} in modpath={}'.format(
+                callname, modpath
+            )
+        )
 
     respect_google_headers = True
     if respect_google_headers:  # pragma: nobranch
@@ -164,20 +184,20 @@ def parse_freeform_docstr_examples(docstr, callname=None, modpath=None,
         ]
     else:
         special_skip_patterns = []  # nocover
-    special_skip_patterns_ = tuple([
-        p.lower() for p in special_skip_patterns
-    ])
+    special_skip_patterns_ = tuple([p.lower() for p in special_skip_patterns])
 
     def _start_ignoring(prev):
-        return (special_skip_patterns_ and
-                isinstance(prev, str) and
-                prev.strip().lower().endswith(special_skip_patterns_))
+        return (
+            special_skip_patterns_
+            and isinstance(prev, str)
+            and prev.strip().lower().endswith(special_skip_patterns_)
+        )
 
     # parse into doctest and plaintext parts
     info = dict(callname=callname, modpath=modpath, lineno=lineno, fpath=fpath)
     all_parts = list(parser.DoctestParser().parse(docstr, info))
 
-    curr_parts = []
+    curr_parts: list[typing.Any] = []
     curr_offset = 0
     num = 0
     prev_part = None
@@ -223,8 +243,14 @@ def parse_freeform_docstr_examples(docstr, callname=None, modpath=None,
         yield example
 
 
-def parse_google_docstr_examples(docstr, callname=None, modpath=None, lineno=1,
-                                 fpath=None, eager_parse=True):
+def parse_google_docstr_examples(
+    docstr: str,
+    callname: str | None = None,
+    modpath: str | os.PathLike | None = None,
+    lineno: int = 1,
+    fpath: str | os.PathLike | None = None,
+    eager_parse: bool = True,
+) -> typing.Iterator[doctest_example.DocTest]:
     """
     Parses Google-style doctests from a docstr and generates example objects
 
@@ -261,8 +287,11 @@ def parse_google_docstr_examples(docstr, callname=None, modpath=None, lineno=1,
     try:
         blocks = docscrape_google.split_google_docblocks(docstr)
     except exceptions.MalformedDocstr:
-        print('ERROR PARSING {} GOOGLE BLOCKS IN {} ON line {}'.format(
-            callname, modpath, lineno))
+        print(
+            'ERROR PARSING {} GOOGLE BLOCKS IN {} ON line {}'.format(
+                callname, modpath, lineno
+            )
+        )
         print('Did you forget to make a docstr with newlines raw?')
         raise
     example_blocks = []
@@ -275,9 +304,15 @@ def parse_google_docstr_examples(docstr, callname=None, modpath=None, lineno=1,
         # and the body of the block always starts on the next line.
         label_lineno = lineno + offset
         body_lineno = label_lineno + 1
-        example = doctest_example.DocTest(docsrc, modpath, callname, num,
-                                          lineno=body_lineno, fpath=fpath,
-                                          block_type=type)
+        example = doctest_example.DocTest(
+            docsrc,
+            modpath,
+            callname,
+            num,
+            lineno=body_lineno,
+            fpath=fpath,
+            block_type=type,
+        )
         if eager_parse:
             # parse on the fly to be consistent with freeform?
             example._parse()
@@ -309,8 +344,15 @@ def parse_auto_docstr_examples(docstr, *args, **kwargs):
             yield example
 
 
-def parse_docstr_examples(docstr, callname=None, modpath=None, lineno=1,
-                          style='auto', fpath=None, parser_kw=None):
+def parse_docstr_examples(
+    docstr: str,
+    callname: str | None = None,
+    modpath: str | os.PathLike | None = None,
+    lineno: int = 1,
+    style: str = 'auto',
+    fpath: str | os.PathLike | None = None,
+    parser_kw: dict | None = None,
+) -> typing.Iterator[doctest_example.DocTest]:
     """
     Parses doctests from a docstr and generates example objects.
     The style influences which tests are found.
@@ -361,8 +403,12 @@ def parse_docstr_examples(docstr, callname=None, modpath=None, lineno=1,
         >>> examples = list(parse_docstr_examples(docstr, fpath='foo.txt'))
     """
     if global_state.DEBUG_CORE:  # nocover
-        print('Parsing docstring examples for '
-              'callname={} in modpath={}'.format(callname, modpath))
+        print(
+            'Parsing docstring examples for callname={} in modpath={}'.format(
+                callname, modpath
+            )
+        )
+    parser: typing.Any
     if style == 'freeform':
         parser = parse_freeform_docstr_examples
     elif style == 'google':
@@ -374,8 +420,11 @@ def parse_docstr_examples(docstr, callname=None, modpath=None, lineno=1,
     # elif style == 'numpy':
     #     parser = parse_numpy_docstr_examples
     else:
-        raise KeyError('Unknown style={}. Valid styles are {}'.format(
-            style, DOCTEST_STYLES))
+        raise KeyError(
+            'Unknown style={}. Valid styles are {}'.format(
+                style, DOCTEST_STYLES
+            )
+        )
 
     if global_state.DEBUG_CORE:  # nocover
         print('parser = {!r}'.format(parser))
@@ -384,15 +433,22 @@ def parse_docstr_examples(docstr, callname=None, modpath=None, lineno=1,
     try:
         if parser_kw is None:
             parser_kw = {}
-        for example in parser(docstr, callname=callname, modpath=modpath,
-                              fpath=fpath, lineno=lineno, **parser_kw):
+        for example in parser(
+            docstr,
+            callname=callname,
+            modpath=modpath,
+            fpath=fpath,
+            lineno=lineno,
+            **parser_kw,
+        ):
             n_parsed += 1
             yield example
     except Exception as ex:
         if global_state.DEBUG_CORE:  # nocover
             print('Caught an error when parsing')
-        msg = ('Cannot scrape callname={} in modpath={} line={}.\n'
-               'Caused by: {}\n')
+        msg = (
+            'Cannot scrape callname={} in modpath={} line={}.\nCaused by: {}\n'
+        )
         # raise
         msg = msg.format(callname, modpath, lineno, repr(ex))
         if isinstance(ex, exceptions.DoctestParseError):
@@ -425,7 +481,7 @@ def parse_docstr_examples(docstr, callname=None, modpath=None, lineno=1,
 
 
 def _rectify_to_modpath(modpath_or_name):
-    """ if modpath_or_name is a name, statically converts it to a path """
+    """if modpath_or_name is a name, statically converts it to a path"""
     if isinstance(modpath_or_name, types.ModuleType):
         raise TypeError('Expected a static module but got a dynamic one')
 
@@ -444,13 +500,17 @@ def _rectify_to_modpath(modpath_or_name):
     return modpath
 
 
-def package_calldefs(pkg_identifier, exclude=[], ignore_syntax_errors=True,
-                     analysis='auto'):
+def package_calldefs(
+    pkg_identifier: str | os.PathLike | types.ModuleType,
+    exclude: list[str] = [],
+    ignore_syntax_errors: bool = True,
+    analysis: str = 'auto',
+) -> typing.Iterator[tuple[dict[str, static_analysis.CallDefNode], typing.Any]]:
     """
     Statically generates all callable definitions in a module or package
 
     Args:
-        pkg_identifier (str | ModuleType): path to or name of the module to be
+        pkg_identifier (str | PathLike | ModuleType): path to or name of the module to be
             tested (or the live module itself, which is not recommended)
 
         exclude (List[str]): glob-patterns of file names to exclude
@@ -480,15 +540,22 @@ def package_calldefs(pkg_identifier, exclude=[], ignore_syntax_errors=True,
         >>> assert 'package_calldefs' in calldefs
     """
     if global_state.DEBUG_CORE:  # nocover
-        print('Find package calldefs: pkg_identifier = {!r}'.format(pkg_identifier))
+        print(
+            'Find package calldefs: pkg_identifier = {!r}'.format(
+                pkg_identifier
+            )
+        )
 
+    identifiers: list
     if isinstance(pkg_identifier, types.ModuleType):
         # Case where we are forced to use a live module
         identifiers = [pkg_identifier]
     else:
         pkgpath = _rectify_to_modpath(pkg_identifier)
-        identifiers = list(static_analysis.package_modpaths(
-            pkgpath, with_pkg=True, with_libs=True))
+        _ideniter = static_analysis.package_modpaths(
+            pkgpath, with_pkg=True, with_libs=True
+        )
+        identifiers = list(_ideniter)
 
     for module_identifier in identifiers:
         if isinstance(module_identifier, str):
@@ -498,8 +565,10 @@ def package_calldefs(pkg_identifier, exclude=[], ignore_syntax_errors=True,
                 continue
             if not exists(modpath):
                 warnings.warn(
-                    'Module {} does not exist. '
-                    'Is it an old pyc file?'.format(modname))
+                    'Module {} does not exist. Is it an old pyc file?'.format(
+                        modname
+                    )
+                )
                 continue
         try:
             calldefs = parse_calldefs(module_identifier, analysis=analysis)
@@ -515,7 +584,9 @@ def package_calldefs(pkg_identifier, exclude=[], ignore_syntax_errors=True,
                 raise SyntaxError(msg)
 
 
-def parse_calldefs(module_identifier, analysis='auto'):
+def parse_calldefs(
+    module_identifier: str | types.ModuleType, analysis: str = 'auto'
+) -> dict[str, static_analysis.CallDefNode] | None:
     """
     Parse calldefs from a single module using either static or dynamic
     analysis.
@@ -541,17 +612,18 @@ def parse_calldefs(module_identifier, analysis='auto'):
         # identifier is a path to a module
         modpath = module_identifier
         # Certain files (notebooks and c-extensions) require dynamic analysis
-        need_dynamic = modpath.endswith(
-            static_analysis._platform_pylib_exts())
+        need_dynamic = modpath.endswith(static_analysis._platform_pylib_exts())
         if modpath.endswith('.ipynb'):
             need_dynamic = True
 
     if analysis == 'static':
         if need_dynamic:
             # Some modules can only be parsed dynamically
-            raise Exception((
-                'Static analysis required, but {} requires '
-                'dynamic analysis').format(module_identifier))
+            raise Exception(
+                (
+                    'Static analysis required, but {} requires dynamic analysis'
+                ).format(module_identifier)
+            )
         do_dynamic = False
     elif analysis == 'dynamic':
         do_dynamic = True
@@ -566,7 +638,9 @@ def parse_calldefs(module_identifier, analysis='auto'):
     calldefs = None
     if do_dynamic:
         try:
-            calldefs = dynamic_analysis.parse_dynamic_calldefs(module_identifier)
+            calldefs = dynamic_analysis.parse_dynamic_calldefs(
+                module_identifier
+            )
         except (ImportError, RuntimeError) as ex:
             # Some modules are just c modules
             msg = 'Cannot dynamically parse module={}.\nCaused by: {!r} {}'
@@ -578,17 +652,26 @@ def parse_calldefs(module_identifier, analysis='auto'):
             warnings.warn(msg)
             raise
     else:
-        calldefs = static_analysis.parse_static_calldefs(fpath=module_identifier)
+        assert not isinstance(module_identifier, types.ModuleType)
+        calldefs = static_analysis.parse_static_calldefs(
+            fpath=module_identifier
+        )
 
+    assert calldefs is not None
     if global_state.DEBUG_CORE:  # nocover
-        print('Found {} calldefs'.format(len(calldefs)))
+        print(f'Found {len(calldefs)} calldefs')
 
     return calldefs
 
 
-def parse_doctestables(module_identifier, exclude=[], style='auto',
-                       ignore_syntax_errors=True, parser_kw={},
-                       analysis='auto'):
+def parse_doctestables(
+    module_identifier: str | os.PathLike | types.ModuleType,
+    exclude: list[str] = [],
+    style: str = 'auto',
+    ignore_syntax_errors: bool = True,
+    parser_kw: dict = {},
+    analysis: str = 'auto',
+) -> typing.Iterator[doctest_example.DocTest]:
     """
     Parses all doctests within top-level callables of a module and generates
     example objects.  The style influences which tests are found.
@@ -646,20 +729,29 @@ def parse_doctestables(module_identifier, exclude=[], style='auto',
     """
 
     if style not in DOCTEST_STYLES:
-        raise KeyError('Unknown style={}. Valid styles are {}'.format(
-            style, DOCTEST_STYLES))
+        raise KeyError(
+            'Unknown style={}. Valid styles are {}'.format(
+                style, DOCTEST_STYLES
+            )
+        )
 
     # Statically parse modules and their doctestable callables in a package
-    for calldefs, modpath in package_calldefs(module_identifier, exclude,
-                                              ignore_syntax_errors,
-                                              analysis=analysis):
+    assert module_identifier is not None
+    for calldefs, modpath in package_calldefs(
+        module_identifier, exclude, ignore_syntax_errors, analysis=analysis
+    ):
         for callname, calldef in calldefs.items():
             docstr = calldef.docstr
             if calldef.docstr is not None:
                 lineno = calldef.doclineno
                 example_gen = parse_docstr_examples(
-                    docstr, callname=callname, modpath=modpath, lineno=lineno,
-                    style=style, parser_kw=parser_kw)
+                    docstr,
+                    callname=callname,
+                    modpath=modpath,
+                    lineno=lineno,
+                    style=style,
+                    parser_kw=parser_kw,
+                )
                 if global_state.DEBUG_CORE:  # nocover
                     for example in example_gen:
                         print(' * Yield example={}'.format(example))
@@ -675,4 +767,5 @@ if __name__ == '__main__':
         python -m xdoctest.core all
     """
     import xdoctest as xdoc
+
     xdoc.doctest_module()

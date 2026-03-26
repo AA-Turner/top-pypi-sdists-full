@@ -13,6 +13,19 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
+def _close_subprocess(proc: asyncio.subprocess.Process) -> None:
+    """Explicitly close subprocess transport pipes to prevent 'Event loop is closed' noise.
+
+    Python's asyncio subprocess transports print RuntimeError tracebacks to
+    stderr when they're garbage-collected after the event loop closes. Closing
+    the transport eagerly after wait() prevents this.
+    """
+    transport = getattr(proc, "_transport", None)
+    if transport and not transport.is_closing():
+        transport.close()
+
+
 SSH_OPTS: list[tuple[str, str]] = [
     ("StrictHostKeyChecking", "no"),
     ("UserKnownHostsFile", "/dev/null"),
@@ -56,7 +69,10 @@ async def run_local(command: str, timeout: int = 60) -> tuple[int, str, str]:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
         proc.kill()
+        await proc.wait()
+        _close_subprocess(proc)
         raise RuntimeError(f"Command timed out after {timeout}s: {command[:100]}")
+    _close_subprocess(proc)
     return proc.returncode or 0, stdout.decode(), stderr.decode()
 
 
@@ -84,7 +100,10 @@ async def run_ssh(
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
         proc.kill()
+        await proc.wait()
+        _close_subprocess(proc)
         raise RuntimeError(f"SSH command timed out after {timeout}s: {command[:100]}")
+    _close_subprocess(proc)
 
     exit_code = proc.returncode or 0
     stdout_str = stdout.decode("utf-8", errors="replace")
@@ -136,6 +155,7 @@ async def run_ssh_streaming(
             output_lines.append(line.decode("utf-8", errors="replace").rstrip())
 
     await process.wait()
+    _close_subprocess(process)
 
     exit_code = process.returncode or 0
 

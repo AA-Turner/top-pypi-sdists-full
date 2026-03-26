@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -23,11 +25,13 @@ import (
 	"github.com/replicate/cog/pkg/dockerfile"
 	"github.com/replicate/cog/pkg/dockerignore"
 	"github.com/replicate/cog/pkg/global"
-	"github.com/replicate/cog/pkg/http"
-	"github.com/replicate/cog/pkg/procedure"
 	"github.com/replicate/cog/pkg/registry"
+	"github.com/replicate/cog/pkg/schema"
+	"github.com/replicate/cog/pkg/schema/python"
 	"github.com/replicate/cog/pkg/util/console"
+	cogversion "github.com/replicate/cog/pkg/util/version"
 	"github.com/replicate/cog/pkg/weights"
+	"github.com/replicate/cog/pkg/wheels"
 )
 
 const dockerignoreBackupPath = ".dockerignore.cog.bak"
@@ -36,7 +40,7 @@ const bundledSchemaFile = ".cog/openapi_schema.json"
 
 var errGit = errors.New("git error")
 
-// Build a Cog model from a config
+// Build a Cog model from a config and returns the image ID (sha256:...) on success.
 //
 // This is separated out from docker.Build(), so that can be as close as possible to the behavior of 'docker build'.
 func Build(
@@ -44,6 +48,7 @@ func Build(
 	cfg *config.Config,
 	dir,
 	imageName string,
+	configFilename string,
 	secrets []string,
 	noCache,
 	separateWeights bool,
@@ -54,35 +59,78 @@ func Build(
 	useCogBaseImage *bool,
 	strip bool,
 	precompile bool,
-	fastFlag bool,
+	excludeSource bool,
+	skipSchemaValidation bool,
+	skipLabels bool,
 	annotations map[string]string,
-	localImage bool,
 	dockerCommand command.Command,
-	client registry.Client,
-	pipelinesImage bool) error {
-	console.Infof("Building Docker image from environment in cog.yaml as %s...", imageName)
-	if fastFlag {
-		console.Info("Fast build enabled.")
-	}
-
-	if pipelinesImage {
-		httpClient, err := http.ProvideHTTPClient(ctx, dockerCommand)
-		if err != nil {
-			return err
-		}
-		err = procedure.Validate(dir, httpClient, cfg, true)
-		if err != nil {
-			return err
-		}
-	}
-
+	client registry.Client) (string, error) {
 	// remove bundled schema files that may be left from previous builds
 	_ = os.Remove(bundledSchemaFile)
 
 	if err := checkCompatibleDockerIgnore(dir); err != nil {
-		return err
+		return "", err
 	}
 
+	// Determine whether to use the static schema generator (Go tree-sitter) or
+	// the legacy runtime path (boot container + python introspection).
+	//
+	// Static generation is opt-in via COG_STATIC_SCHEMA=1 for all commands.
+	// The legacy runtime path (boot container + python -m cog.command.openapi_schema)
+	// remains the default for `cog build`. For `cog train`, `cog predict`, and
+	// `cog serve` (skipLabels=true), no schema is generated unless
+	// COG_STATIC_SCHEMA=1 is set, since these paths return before the post-build
+	// legacy schema generation step.
+	//
+	// The SDK version must be >= 0.17.0 (or unpinned/latest/dev) since older
+	// SDKs use pydantic-based schemas that cannot be statically analyzed.
+	needsSchema := !skipSchemaValidation && schemaFile == ""
+	useStatic := needsSchema && canUseStaticSchemaGen(cfg)
+
+	// --- Pre-build static schema generation ---
+	// When using the static path, generate schema BEFORE the Docker build so we
+	// fail fast on schema errors and the schema file is in the build context.
+	var schemaJSON []byte
+	switch {
+	case useStatic:
+		console.Debug("Generating model schema (static)...")
+		data, err := generateStaticSchema(cfg, dir)
+		if err == nil {
+			schemaJSON = data
+			break
+		}
+
+		// For `cog build` only: fall back to the post-build legacy runtime
+		// schema generation which can handle types that require Python import
+		// (e.g. package __init__.py modules, pydantic v2 BaseModel subclasses).
+		var se *schema.SchemaError
+		if !skipLabels && errors.As(err, &se) && se.Kind == schema.ErrUnresolvableType {
+			console.Warnf("Static schema generation failed: %s", err)
+			console.Warn("Falling back to legacy runtime schema generation...")
+			// leave schemaJSON nil — the post-build legacy path will handle it
+			break
+		}
+
+		return "", fmt.Errorf("image build failed: %w", err)
+	case !skipSchemaValidation && schemaFile != "":
+		console.Infof("Validating model schema from %s...", schemaFile)
+		data, err := os.ReadFile(schemaFile)
+		if err != nil {
+			return "", fmt.Errorf("Failed to read schema file: %w", err)
+		}
+		schemaJSON = data
+	case skipSchemaValidation:
+		console.Debug("Skipping model schema validation")
+	}
+
+	// Write and validate pre-build schema (static or from file).
+	if len(schemaJSON) > 0 {
+		if err := writeAndValidateSchema(schemaJSON); err != nil {
+			return "", err
+		}
+	}
+
+	// --- Docker build ---
 	var cogBaseImageName string
 
 	tmpImageId := imageName
@@ -91,7 +139,7 @@ func Build(
 		hash := sha256.New()
 		_, err := hash.Write([]byte(imageName))
 		if err != nil {
-			return err
+			return "", err
 		}
 		tmpImageId = fmt.Sprintf("cog-tmp:%s", hex.EncodeToString(hash.Sum(nil)))
 	}
@@ -99,7 +147,7 @@ func Build(
 	if dockerfileFile != "" {
 		dockerfileContents, err := os.ReadFile(dockerfileFile)
 		if err != nil {
-			return fmt.Errorf("Failed to read Dockerfile at %s: %w", dockerfileFile, err)
+			return "", fmt.Errorf("Failed to read Dockerfile at %s: %w", dockerfileFile, err)
 		}
 
 		buildOpts := command.ImageBuildOptions{
@@ -112,21 +160,21 @@ func Build(
 			Epoch:              &config.BuildSourceEpochTimestamp,
 			ContextDir:         dockercontext.StandardBuildDirectory,
 		}
-		if err := dockerCommand.ImageBuild(ctx, buildOpts); err != nil {
-			return fmt.Errorf("Failed to build Docker image: %w", err)
+		if _, err := dockerCommand.ImageBuild(ctx, buildOpts); err != nil {
+			return "", fmt.Errorf("Failed to build Docker image: %w", err)
 		}
 	} else {
-		generator, err := dockerfile.NewGenerator(cfg, dir, fastFlag, dockerCommand, localImage, client, true)
+		generator, err := dockerfile.NewGenerator(cfg, dir, configFilename, dockerCommand, client, true)
 		if err != nil {
-			return fmt.Errorf("Error creating Dockerfile generator: %w", err)
+			return "", fmt.Errorf("Error creating Dockerfile generator: %w", err)
 		}
 		contextDir, err := generator.BuildDir()
 		if err != nil {
-			return err
+			return "", err
 		}
 		buildContexts, err := generator.BuildContexts()
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer func() {
 			if err := generator.Cleanup(); err != nil {
@@ -143,45 +191,53 @@ func Build(
 		if generator.IsUsingCogBaseImage() {
 			cogBaseImageName, err = generator.BaseImage(ctx)
 			if err != nil {
-				return fmt.Errorf("Failed to get cog base image name: %s", err)
+				return "", fmt.Errorf("Failed to get cog base image name: %s", err)
 			}
 		}
 
 		if separateWeights {
 			weightsDockerfile, runnerDockerfile, dockerignore, err := generator.GenerateModelBaseWithSeparateWeights(ctx, imageName)
 			if err != nil {
-				return fmt.Errorf("Failed to generate Dockerfile: %w", err)
+				return "", fmt.Errorf("Failed to generate Dockerfile: %w", err)
 			}
 
 			if err := backupDockerignore(); err != nil {
-				return fmt.Errorf("Failed to backup .dockerignore file: %w", err)
+				return "", fmt.Errorf("Failed to backup .dockerignore file: %w", err)
 			}
 
 			weightsManifest, err := generator.GenerateWeightsManifest(ctx)
 			if err != nil {
-				return fmt.Errorf("Failed to generate weights manifest: %w", err)
+				return "", fmt.Errorf("Failed to generate weights manifest: %w", err)
 			}
 			cachedManifest, _ := weights.LoadManifest(weightsManifestPath)
 			changed := cachedManifest == nil || !weightsManifest.Equal(cachedManifest)
 			if changed {
 				if err := buildWeightsImage(ctx, dockerCommand, dir, weightsDockerfile, imageName+"-weights", secrets, noCache, progressOutput, contextDir, buildContexts); err != nil {
-					return fmt.Errorf("Failed to build model weights Docker image: %w", err)
+					return "", fmt.Errorf("Failed to build model weights Docker image: %w", err)
 				}
 				err := weightsManifest.Save(weightsManifestPath)
 				if err != nil {
-					return fmt.Errorf("Failed to save weights hash: %w", err)
+					return "", fmt.Errorf("Failed to save weights hash: %w", err)
 				}
 			} else {
 				console.Info("Weights unchanged, skip rebuilding and use cached image...")
 			}
 
 			if err := buildRunnerImage(ctx, dockerCommand, dir, runnerDockerfile, dockerignore, imageName, secrets, noCache, progressOutput, contextDir, buildContexts); err != nil {
-				return fmt.Errorf("Failed to build runner Docker image: %w", err)
+				return "", fmt.Errorf("Failed to build runner Docker image: %w", err)
 			}
 		} else {
-			dockerfileContents, err := generator.GenerateDockerfileWithoutSeparateWeights(ctx)
+			var dockerfileContents string
+			if excludeSource {
+				// Dev mode (cog serve): same layers as cog build but without
+				// COPY . /src — source is volume-mounted at runtime instead.
+				// This shares Docker layer cache with full builds.
+				dockerfileContents, err = generator.GenerateModelBase(ctx)
+			} else {
+				dockerfileContents, err = generator.GenerateDockerfileWithoutSeparateWeights(ctx)
+			}
 			if err != nil {
-				return fmt.Errorf("Failed to generate Dockerfile: %w", err)
+				return "", fmt.Errorf("Failed to generate Dockerfile: %w", err)
 			}
 
 			buildOpts := command.ImageBuildOptions{
@@ -196,70 +252,77 @@ func Build(
 				BuildContexts:      buildContexts,
 			}
 
-			if err := dockerCommand.ImageBuild(ctx, buildOpts); err != nil {
-				return fmt.Errorf("Failed to build Docker image: %w", err)
+			if _, err := dockerCommand.ImageBuild(ctx, buildOpts); err != nil {
+				return "", fmt.Errorf("Failed to build Docker image: %w", err)
 			}
 		}
 	}
 
-	var schemaJSON []byte
-	if schemaFile != "" {
-		console.Infof("Validating model schema from %s...", schemaFile)
-		data, err := os.ReadFile(schemaFile)
-		if err != nil {
-			return fmt.Errorf("Failed to read schema file: %w", err)
-		}
-
-		schemaJSON = data
-	} else {
+	// --- Post-build legacy schema generation ---
+	// For SDK < 0.17.0 (or when static gen was not used), generate the schema
+	// by running the built image with python -m cog.command.openapi_schema.
+	// This must run before the skipLabels early return so that cog train/predict/serve
+	// have a schema available for input validation and -i flag parsing.
+	if len(schemaJSON) == 0 && !skipSchemaValidation {
 		console.Info("Validating model schema...")
-		schema, err := GenerateOpenAPISchema(ctx, dockerCommand, tmpImageId, cfg.Build.GPU)
-		if err != nil {
-			return fmt.Errorf("Failed to get type signature: %w", err)
+		enableGPU := cfg.Build != nil && cfg.Build.GPU
+		// When excludeSource is true (cog serve/predict/train), /src was not
+		// COPYed into the image, so volume-mount the project directory.
+		sourceDir := ""
+		if excludeSource {
+			sourceDir = dir
 		}
-
-		data, err := json.Marshal(schema)
+		legacySchema, err := GenerateOpenAPISchema(ctx, dockerCommand, tmpImageId, enableGPU, sourceDir)
 		if err != nil {
-			return fmt.Errorf("Failed to convert type signature to JSON: %w", err)
+			return "", fmt.Errorf("Failed to get type signature: %w", err)
 		}
-
+		data, err := json.Marshal(legacySchema)
+		if err != nil {
+			return "", fmt.Errorf("Failed to convert type signature to JSON: %w", err)
+		}
 		schemaJSON = data
+
+		if err := writeAndValidateSchema(schemaJSON); err != nil {
+			return "", err
+		}
 	}
 
-	// save open_api schema file
-	if err := os.WriteFile(bundledSchemaFile, schemaJSON, 0o644); err != nil {
-		return fmt.Errorf("failed to store bundled schema file %s: %w", bundledSchemaFile, err)
-	}
-
-	loader := openapi3.NewLoader()
-	loader.IsExternalRefsAllowed = true
-	doc, err := loader.LoadFromData(schemaJSON)
-	if err != nil {
-		return fmt.Errorf("Failed to load model schema JSON: %w", err)
-	}
-	err = doc.Validate(loader.Context)
-	if err != nil {
-		return fmt.Errorf("Model schema is invalid: %w\n\n%s", err, string(schemaJSON))
+	// When skipLabels is true (cog run/predict/serve/train), skip the expensive
+	// label-adding phase. This image is for local use only and won't be distributed,
+	// so we don't need metadata labels, pip freeze, or git info.
+	// We still need the schema bundled, so do a minimal second build to add it.
+	if skipLabels {
+		if len(schemaJSON) > 0 {
+			// Use trailing "/" on the destination so Docker creates the .cog/
+			// directory even in ExcludeSource images where COPY . /src was
+			// skipped and .cog/ does not yet exist.
+			schemaDockerfile := fmt.Sprintf("FROM %s\nCOPY %s .cog/\n", tmpImageId, bundledSchemaFile)
+			buildOpts := command.ImageBuildOptions{
+				DockerfileContents: schemaDockerfile,
+				ImageName:          tmpImageId,
+				ProgressOutput:     progressOutput,
+			}
+			if _, err := dockerCommand.ImageBuild(ctx, buildOpts); err != nil {
+				return "", fmt.Errorf("Failed to bundle schema into image: %w", err)
+			}
+		}
+		return tmpImageId, nil
 	}
 
 	console.Info("Adding labels to image...")
+	console.Info("")
 
 	// We used to set the cog_version and config labels in Dockerfile, because we didn't require running the
 	// built image to get those. But, the escaping of JSON inside a label inside a Dockerfile was gnarly, and
 	// doesn't seem to be a problem here, so do it here instead.
 	configJSON, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("Failed to convert config to JSON: %w", err)
+		return "", fmt.Errorf("Failed to convert config to JSON: %w", err)
 	}
 
-	pipFreeze, err := GeneratePipFreeze(ctx, dockerCommand, tmpImageId, fastFlag)
+	pipFreeze, err := GeneratePipFreeze(ctx, dockerCommand, tmpImageId)
 	if err != nil {
-		return fmt.Errorf("Failed to generate pip freeze from image: %w", err)
-	}
-
-	modelDependencies, err := GenerateModelDependencies(ctx, dockerCommand, tmpImageId, cfg)
-	if err != nil {
-		return fmt.Errorf("Failed to generate model dependencies from image: %w", err)
+		return "", fmt.Errorf("Failed to generate pip freeze from image: %w", err)
 	}
 
 	labels := map[string]string{
@@ -269,36 +332,37 @@ func Build(
 		global.LabelNamespace + "pip_freeze": pipFreeze,
 		// Mark the image as having an appropriate init entrypoint. We can use this
 		// to decide how/if to shim the image.
-		global.LabelNamespace + "has_init":   "true",
-		command.CogModelDependenciesLabelKey: modelDependencies,
+		global.LabelNamespace + "has_init": "true",
 	}
 
 	if cogBaseImageName != "" {
 		labels[global.LabelNamespace+"cog-base-image-name"] = cogBaseImageName
 
-		ref, err := name.ParseReference(cogBaseImageName)
+		// name.Insecure allows HTTP fallback for local/test registries,
+		// consistent with ParseReference calls in pkg/registry/.
+		ref, err := name.ParseReference(cogBaseImageName, name.Insecure)
 		if err != nil {
-			return fmt.Errorf("Failed to parse cog base image reference: %w", err)
+			return "", fmt.Errorf("Failed to parse cog base image reference: %w", err)
 		}
 
 		img, err := remote.Image(ref)
 		if err != nil {
-			return fmt.Errorf("Failed to fetch cog base image: %w", err)
+			return "", fmt.Errorf("Failed to fetch cog base image: %w", err)
 		}
 
 		layers, err := img.Layers()
 		if err != nil {
-			return fmt.Errorf("Failed to get layers for cog base image: %w", err)
+			return "", fmt.Errorf("Failed to get layers for cog base image: %w", err)
 		}
 
 		if len(layers) == 0 {
-			return fmt.Errorf("Cog base image has no layers: %s", cogBaseImageName)
+			return "", fmt.Errorf("Cog base image has no layers: %s", cogBaseImageName)
 		}
 
 		lastLayerIndex := len(layers) - 1
 		layerLayerDigest, err := layers[lastLayerIndex].DiffID()
 		if err != nil {
-			return fmt.Errorf("Failed to get last layer digest for cog base image: %w", err)
+			return "", fmt.Errorf("Failed to get last layer digest for cog base image: %w", err)
 		}
 
 		lastLayer := layerLayerDigest.String()
@@ -311,38 +375,50 @@ func Build(
 	if commit, err := gitHead(ctx, dir); commit != "" && err == nil {
 		labels["org.opencontainers.image.revision"] = commit
 	} else {
-		console.Info("Unable to determine Git commit")
+		console.Debug("Unable to determine Git commit")
 	}
 
 	if tag, err := gitTag(ctx, dir); tag != "" && err == nil {
 		labels["org.opencontainers.image.version"] = tag
 	} else {
-		console.Info("Unable to determine Git tag")
+		console.Debug("Unable to determine Git tag")
 	}
 
-	for key, val := range annotations {
-		labels[key] = val
-	}
+	maps.Copy(labels, annotations)
 
-	if err := BuildAddLabelsAndSchemaToImage(ctx, dockerCommand, tmpImageId, imageName, labels, bundledSchemaFile, progressOutput); err != nil {
-		return fmt.Errorf("Failed to add labels to image: %w", err)
+	// The final image ID comes from the label-adding step.
+	// When schema validation is skipped (cog run), there is no schema file to bundle.
+	schemaFileToBundle := bundledSchemaFile
+	if skipSchemaValidation {
+		schemaFileToBundle = ""
+	}
+	imageID, err := BuildAddLabelsAndSchemaToImage(ctx, dockerCommand, tmpImageId, imageName, labels, schemaFileToBundle, progressOutput)
+	if err != nil {
+		return "", fmt.Errorf("Failed to add labels to image: %w", err)
 	}
 
 	// We created a temp image, so delete it. Don't "-f" so it doesn't blow anything up
 	if isR8imImage {
 		if err = dockerCommand.RemoveImage(ctx, tmpImageId); err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	return nil
+	return imageID, nil
 }
 
 // BuildAddLabelsAndSchemaToImage builds a cog model with labels and schema.
+// Returns the image ID (sha256:...) of the final image.
 //
 // The new image is based on the provided image with the labels and schema file appended to it.
-func BuildAddLabelsAndSchemaToImage(ctx context.Context, dockerClient command.Command, tmpName, image string, labels map[string]string, bundledSchemaFile string, progressOutput string) error {
-	dockerfile := fmt.Sprintf("FROM %s\nCOPY %s .cog\n", tmpName, bundledSchemaFile)
+// tmpName is the source image to build from, image is the final image name/tag.
+func BuildAddLabelsAndSchemaToImage(ctx context.Context, dockerClient command.Command, tmpName, image string, labels map[string]string, bundledSchemaFile string, progressOutput string) (string, error) {
+	var dockerfile string
+	if bundledSchemaFile != "" {
+		dockerfile = fmt.Sprintf("FROM %s\nCOPY %s .cog\n", tmpName, bundledSchemaFile)
+	} else {
+		dockerfile = fmt.Sprintf("FROM %s\n", tmpName)
+	}
 
 	buildOpts := command.ImageBuildOptions{
 		DockerfileContents: dockerfile,
@@ -351,60 +427,103 @@ func BuildAddLabelsAndSchemaToImage(ctx context.Context, dockerClient command.Co
 		ProgressOutput:     progressOutput,
 	}
 
-	if err := dockerClient.ImageBuild(ctx, buildOpts); err != nil {
-		return fmt.Errorf("Failed to add labels and schema to image: %w", err)
+	imageID, err := dockerClient.ImageBuild(ctx, buildOpts)
+	if err != nil {
+		return "", fmt.Errorf("Failed to add labels and schema to image: %w", err)
 	}
-	return nil
+	return imageID, nil
 }
 
-func BuildBase(ctx context.Context, dockerClient command.Command, cfg *config.Config, dir string, useCudaBaseImage string, useCogBaseImage *bool, progressOutput string, client registry.Client, requiresCog bool) (string, error) {
-	// TODO: better image management so we don't eat up disk space
-	// https://github.com/replicate/cog/issues/80
-	imageName := config.BaseDockerImageName(dir)
+// staticSchemaGenMinSDKVersion is the minimum SDK version that supports
+// static schema generation. Older SDK versions use pydantic-based runtime
+// introspection and must fall back to the legacy Docker-based path.
+const staticSchemaGenMinSDKVersion = "0.17.0"
 
-	console.Info("Building Docker image from environment in cog.yaml...")
-	generator, err := dockerfile.NewGenerator(cfg, dir, false, dockerClient, false, client, requiresCog)
-	if err != nil {
-		return "", fmt.Errorf("Error creating Dockerfile generator: %w", err)
+// canUseStaticSchemaGen returns true if the user has opted in to static schema
+// generation via COG_STATIC_SCHEMA=1 (or "true").
+//
+// Even when opted in, returns false when the SDK version is explicitly
+// pinned < 0.17.0, since older SDKs use pydantic-based schemas that the
+// static parser cannot analyze.
+func canUseStaticSchemaGen(cfg *config.Config) bool {
+	env := strings.ToLower(os.Getenv("COG_STATIC_SCHEMA"))
+	if env != "1" && env != "true" {
+		return false
 	}
-	contextDir, err := generator.BuildDir()
-	if err != nil {
-		return "", err
-	}
-	buildContexts, err := generator.BuildContexts()
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err := generator.Cleanup(); err != nil {
-			console.Warnf("Error cleaning up Dockerfile generator: %s", err)
+
+	sdkVersion := resolveSDKVersion(cfg)
+	if sdkVersion != "" {
+		base := sdkVersion
+		if m := wheels.BaseVersionRe.FindString(base); m != "" {
+			base = m
 		}
-	}()
+		if ver, err := cogversion.NewVersion(base); err == nil {
+			minVer := cogversion.MustVersion(staticSchemaGenMinSDKVersion)
+			if !ver.GreaterOrEqual(minVer) {
+				console.Infof("SDK version %s < %s, using legacy runtime schema generation", sdkVersion, staticSchemaGenMinSDKVersion)
+				return false
+			}
+		}
+	}
+	return true
+}
 
-	generator.SetUseCudaBaseImage(useCudaBaseImage)
-	if useCogBaseImage != nil {
-		generator.SetUseCogBaseImage(*useCogBaseImage)
+// resolveSDKVersion determines the SDK version that will be installed in the
+// container, using the same precedence as the Dockerfile generator:
+//  1. COG_SDK_WHEEL env var (parse version from "pypi:X.Y.Z")
+//  2. build.sdk_version in cog.yaml
+//  3. Auto-detect from dist/ wheel filename
+//  4. Empty string (latest/unpinned)
+func resolveSDKVersion(cfg *config.Config) string {
+	if envVal := os.Getenv(wheels.CogSDKWheelEnvVar); envVal != "" {
+		wc := wheels.ParseWheelValue(envVal)
+		if wc != nil && wc.Source == wheels.WheelSourcePyPI && wc.Version != "" {
+			return wc.Version
+		}
+		return ""
+	}
+	if cfg.Build != nil && cfg.Build.SDKVersion != "" {
+		if cfg.Build.SDKVersion == wheels.PreReleaseSentinel {
+			return "" // unpinned; latest pre-release resolved at build time
+		}
+		return cfg.Build.SDKVersion
+	}
+	if v := wheels.DetectLocalSDKVersion(); v != "" {
+		return v
+	}
+	return ""
+}
+
+// generateStaticSchema runs the Go tree-sitter parser to produce the OpenAPI schema.
+// When both predict and train are configured, it generates both and merges them.
+func generateStaticSchema(cfg *config.Config, dir string) ([]byte, error) {
+	if cfg.Predict == "" && cfg.Train == "" {
+		return nil, fmt.Errorf("no predict or train reference found in cog.yaml")
+	}
+	return schema.GenerateCombined(dir, cfg.Predict, cfg.Train, python.ParsePredictor)
+
+}
+
+// writeAndValidateSchema writes the schema JSON to the bundled schema file and
+// validates it as a well-formed OpenAPI 3.0 specification.
+func writeAndValidateSchema(schemaJSON []byte) error {
+	if err := os.MkdirAll(filepath.Dir(bundledSchemaFile), 0o755); err != nil {
+		return fmt.Errorf("failed to create directory for %s: %w", bundledSchemaFile, err)
+	}
+	if err := os.WriteFile(bundledSchemaFile, schemaJSON, 0o644); err != nil {
+		return fmt.Errorf("failed to store bundled schema file %s: %w", bundledSchemaFile, err)
 	}
 
-	dockerfileContents, err := generator.GenerateModelBase(ctx)
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	doc, err := loader.LoadFromData(schemaJSON)
 	if err != nil {
-		return "", fmt.Errorf("Failed to generate Dockerfile: %w", err)
+		return fmt.Errorf("Failed to load model schema JSON: %w", err)
 	}
-
-	buildOpts := command.ImageBuildOptions{
-		WorkingDir:         dir,
-		DockerfileContents: dockerfileContents,
-		ImageName:          imageName,
-		NoCache:            false,
-		ProgressOutput:     progressOutput,
-		Epoch:              &config.BuildSourceEpochTimestamp,
-		ContextDir:         contextDir,
-		BuildContexts:      buildContexts,
+	if err := doc.Validate(loader.Context); err != nil {
+		return fmt.Errorf("Model schema is invalid: %w\n\n%s", err, string(schemaJSON))
 	}
-	if err := dockerClient.ImageBuild(ctx, buildOpts); err != nil {
-		return "", fmt.Errorf("Failed to build Docker image: %w", err)
-	}
-	return imageName, nil
+	return nil
 }
 
 func isGitWorkTree(ctx context.Context, dir string) bool {
@@ -474,7 +593,7 @@ func buildWeightsImage(ctx context.Context, dockerClient command.Command, dir, d
 		ContextDir:         contextDir,
 		BuildContexts:      buildContexts,
 	}
-	if err := dockerClient.ImageBuild(ctx, buildOpts); err != nil {
+	if _, err := dockerClient.ImageBuild(ctx, buildOpts); err != nil {
 		return fmt.Errorf("Failed to build Docker image for model weights: %w", err)
 	}
 	return nil
@@ -495,7 +614,7 @@ func buildRunnerImage(ctx context.Context, dockerClient command.Command, dir, do
 		ContextDir:         contextDir,
 		BuildContexts:      buildContexts,
 	}
-	if err := dockerClient.ImageBuild(ctx, buildOpts); err != nil {
+	if _, err := dockerClient.ImageBuild(ctx, buildOpts); err != nil {
 		return fmt.Errorf("Failed to build Docker image: %w", err)
 	}
 	if err := restoreDockerignore(); err != nil {
@@ -567,7 +686,7 @@ func checkCompatibleDockerIgnore(dir string) error {
 		return nil
 	}
 	if matcher.MatchesPath(".cog") {
-		return errors.New("The .cog tmp path cannot be ignored by docker in .dockerignore.")
+		return errors.New("The .cog tmp path cannot be ignored by docker in .dockerignore")
 	}
 	return nil
 }

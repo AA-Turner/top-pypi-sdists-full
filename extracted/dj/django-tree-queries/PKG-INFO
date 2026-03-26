@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-tree-queries
-Version: 0.23.1
+Version: 0.24.0
 Summary: Tree queries with explicit opt-in, without configurability
 Project-URL: Homepage, https://github.com/matthiask/django-tree-queries/
 Author-email: Matthias Kestenholz <mk@feinheit.ch>
@@ -316,6 +316,59 @@ may be fine for your use case consider adding an explicit ordering field:
             ordering = ["position"]
 
 
+When are tree fields available?
+--------------------------------
+
+Tree fields (``tree_depth``, ``tree_path``, ``tree_ordering``) are only available
+on objects returned by queries that use ``with_tree_fields()`` or a manager
+configured with ``with_tree_fields=True``. They are **NOT** available after
+``Model.objects.create()``, ``instance.save()``, or ``instance.refresh_from_db()``.
+
+Why? Tree fields are calculated by the recursive CTE at query time and are not
+stored in the database. They only exist as annotations on the queryset results.
+
+.. code-block:: python
+
+    # Tree fields are NOT available after creation
+    node = Node.objects.create(name="New Node", parent=root)
+    # node.tree_depth  # AttributeError: 'Node' object has no attribute 'tree_depth'
+
+    # refresh_from_db() only updates database fields, not tree fields
+    node.refresh_from_db()
+    # node.tree_depth  # Still AttributeError
+
+    # To get tree fields, re-query the object with with_tree_fields()
+    node = Node.objects.with_tree_fields().get(pk=node.pk)
+    print(node.tree_depth)  # Now it works! e.g., 1
+
+    # Or use a manager with tree fields enabled by default
+    class Node(TreeNode):
+        name = models.CharField(max_length=100)
+        objects = TreeQuerySet.as_manager(with_tree_fields=True)
+
+    # Now tree fields are available on all queries automatically
+    node = Node.objects.get(pk=some_pk)
+    print(node.tree_depth)  # Works!
+
+    # But still not after create/save/refresh_from_db
+    new_node = Node.objects.create(name="Another")
+    # new_node.tree_depth  # Still AttributeError - need to re-query
+
+**Common pattern when creating nodes:**
+
+.. code-block:: python
+
+    # Create a new node
+    new_node = Node.objects.create(name="New Child", parent=parent_node)
+
+    # Re-query to get tree fields if you need them
+    new_node = Node.objects.with_tree_fields().get(pk=new_node.pk)
+
+    # Now you can access tree fields
+    print(f"Depth: {new_node.tree_depth}")
+    print(f"Path: {new_node.tree_path}")
+
+
 Filtering tree subsets
 ----------------------
 
@@ -352,10 +405,16 @@ before the recursive CTE processes relationships, dramatically improving perform
 for large datasets compared to using regular ``filter()`` after ``with_tree_fields()``.
 Best used for selecting complete trees or tree sections rather than scattered nodes.
 
-Note that the tree queryset doesn't support all types of queries Django
-supports. For example, updating all descendants directly isn't supported. The
-reason for that is that the recursive CTE isn't added to the UPDATE query
-correctly. Workarounds often include moving the tree query into a subquery:
+Limitations and workarounds
+---------------------------
+
+The tree queryset doesn't support all types of queries Django supports.
+
+UPDATE queries on tree querysets
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Updating all descendants directly isn't supported because the recursive CTE isn't
+added to the UPDATE query correctly. Use a subquery workaround instead:
 
 .. code-block:: python
 
@@ -364,6 +423,186 @@ correctly. Workarounds often include moving the tree query into a subquery:
 
     # Use this workaround instead:
     Node.objects.filter(pk__in=node.descendants()).update(is_active=False)
+
+select_related() with tree fields
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Using ``select_related()`` works when querying **from** the tree model to fetch
+related objects. However, querying from a related model and trying to get tree
+fields on the tree model via ``select_related()`` is not supported.
+
+.. code-block:: python
+
+    # This works - tree model is the base, select_related fetches the category
+    nodes = Node.objects.with_tree_fields().select_related("category")
+    for node in nodes:
+        print(node.tree_depth, node.category.name)
+
+    # This doesn't work - ReferenceModel is the base, tree fields won't be present
+    # on the related Node objects
+    references = ReferenceModel.objects.select_related("tree_field")
+    for ref in references:
+        # ref.tree_field.tree_depth  # AttributeError - tree fields not available
+
+**Workaround:** Query from the tree model and use ``prefetch_related()`` or
+``Prefetch()`` to fetch the related objects:
+
+.. code-block:: python
+
+    from django.db.models import Prefetch
+
+    # Approach 1: Query from tree model, prefetch references
+    nodes = Node.objects.with_tree_fields().prefetch_related("referencemodel_set")
+    for node in nodes:
+        print(node.tree_depth)
+        for ref in node.referencemodel_set.all():
+            print(f"  Reference: {ref.id}")
+
+    # Approach 2: Query references, then fetch tree nodes separately
+    references = ReferenceModel.objects.all()
+    tree_node_ids = [ref.tree_field_id for ref in references]
+    nodes_by_id = {
+        node.pk: node
+        for node in Node.objects.with_tree_fields().filter(pk__in=tree_node_ids)
+    }
+    for ref in references:
+        node = nodes_by_id[ref.tree_field_id]
+        print(f"Reference {ref.id}: tree depth = {node.tree_depth}")
+
+Union, intersection, and difference operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Set operations like ``union()``, ``intersection()``, and ``difference()`` are not
+currently supported with tree querysets due to how Django passes the ``elide_empty``
+parameter. Attempting to use these operations will result in errors.
+
+.. code-block:: python
+
+    # This doesn't work:
+    qs1 = Node.objects.with_tree_fields().filter(name__startswith="A")
+    qs2 = Node.objects.with_tree_fields().filter(name__startswith="B")
+    combined = qs1.union(qs2)  # Will raise an error
+
+**Workaround:** Use regular Django querysets without tree fields, then add tree
+fields after the set operation:
+
+.. code-block:: python
+
+    # Perform the set operation without tree fields
+    qs1 = Node.objects.filter(name__startswith="A")
+    qs2 = Node.objects.filter(name__startswith="B")
+    combined_ids = qs1.union(qs2).values_list("pk", flat=True)
+
+    # Then fetch with tree fields
+    result = Node.objects.with_tree_fields().filter(pk__in=combined_ids)
+
+For more details and discussion about adding support for these operations, see
+`GitHub issue #55 <https://github.com/matthiask/django-tree-queries/issues/55>`_.
+
+Limiting tree depth
+^^^^^^^^^^^^^^^^^^^
+
+To limit the depth of the tree returned by a query, use ``.extra()`` with a
+``WHERE`` clause on the ``tree_depth`` field:
+
+.. code-block:: python
+
+    # Get only nodes up to depth 2 (root is depth 0)
+    nodes = Node.objects.with_tree_fields().extra(
+        where=["__tree.tree_depth <= %s"],
+        params=[2],
+    )
+
+    # Get nodes within a depth range
+    nodes = Node.objects.with_tree_fields().extra(
+        where=["__tree.tree_depth BETWEEN %s AND %s"],
+        params=[1, 3],  # Only depths 1, 2, and 3
+    )
+
+Limiting children per node
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To enforce a maximum number of children per node, implement validation in your
+model's ``clean()`` method:
+
+.. code-block:: python
+
+    from django.core.exceptions import ValidationError
+
+    class Node(TreeNode):
+        def clean(self):
+            super().clean()
+            max_children = 10
+
+            # Check if this would exceed the limit
+            if self.parent_id:
+                sibling_count = (
+                    Node.objects
+                    .filter(parent_id=self.parent_id)
+                    .exclude(pk=self.pk)
+                    .count()
+                )
+                if sibling_count >= max_children:
+                    raise ValidationError(
+                        f"Parent already has {sibling_count} children "
+                        f"(maximum {max_children})"
+                    )
+
+Checking tree depth in code
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you need to validate or check depth without tree fields:
+
+.. code-block:: python
+
+    # Check depth by counting ancestors
+    depth = node.ancestors().count()
+
+    # Or check depth manually by traversing parent chain
+    def get_depth(node):
+        depth = 0
+        current = node
+        while current.parent_id:
+            depth += 1
+            current = current.parent
+        return depth
+
+Complex aggregations and subqueries
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The recursive CTE used by django-tree-queries builds the tree top-down from root
+nodes to descendants. This makes certain operations, like aggregating values
+bottom-up (from descendants to ancestors) or using tree fields in complex
+subqueries, difficult or impossible.
+
+.. code-block:: python
+
+    # This doesn't work - can't use tree fields in subqueries with OuterRef
+    Branch.objects.annotate(
+        descendant_sum=Subquery(
+            Branch.objects.descendants(of=OuterRef('pk')).aggregate(Sum('amount'))
+        )
+    )
+
+**Workaround for small trees:** Load the tree into memory and compute in Python:
+
+.. code-block:: python
+
+    # For small trees, load root nodes and calculate in Python
+    roots = Branch.objects.filter(parent=None)
+    for root in roots:
+        descendants = root.descendants(include_self=True)
+        total = sum(node.amount for node in descendants)
+        # Use the total...
+
+**For complex query requirements:** If you need extensive CTE customization,
+subqueries with tree fields, or bottom-up aggregations, consider using
+`django-cte <https://github.com/dimagi/django-cte>`_ which provides more control
+over recursive CTE construction, or evaluate whether a different tree storage
+approach (like django-treebeard with nested sets) better fits your needs.
+
+For discussion of this limitation, see `GitHub issue #75
+<https://github.com/matthiask/django-tree-queries/issues/75>`_.
 
 
 Breadth-first search
@@ -389,6 +628,54 @@ If you only want nodes from the top two levels:
     nodes = Node.objects.with_tree_fields().extra(
         where=["__tree.tree_depth <= %s"],
         params=[1],
+    )
+
+
+Using tree fields with values()
+--------------------------------
+
+By default, ``.values()`` only returns model fields, not tree fields. If you need
+tree fields in a ``.values()`` call, you can access them using ``RawSQL``:
+
+.. code-block:: python
+
+    from django.db.models.expressions import RawSQL
+
+    # Include tree fields in values() output
+    data = Node.objects.with_tree_fields().values(
+        "name",
+        tree_depth=RawSQL("tree_depth", ()),
+        tree_path=RawSQL("tree_path", ()),
+    )
+    # Returns: [{'name': 'root', 'tree_depth': 0, 'tree_path': [1]}, ...]
+
+**Important caveats:**
+
+- **PostgreSQL only**: ``tree_path`` returns a proper array only on PostgreSQL.
+  Other databases return the internal string representation used by
+  django-tree-queries (subject to change).
+- **Not guaranteed stable**: The internal representation of tree fields may change
+  in future versions. Avoid relying on the exact format of these values in
+  application logic.
+- **Performance**: Using ``.values()`` with tree fields doesn't provide performance
+  benefits over regular querysets with tree fields. Use this only when you
+  specifically need dictionary output.
+
+If you need tree field values for application logic, prefer accessing them as
+attributes on model instances rather than through ``.values()``:
+
+.. code-block:: python
+
+    # Preferred approach
+    nodes = Node.objects.with_tree_fields()
+    for node in nodes:
+        depth = node.tree_depth
+        path = node.tree_path  # Consistent across all databases
+
+    # Only use RawSQL with values() when you need dictionary output
+    data = Node.objects.with_tree_fields().values(
+        "name",
+        tree_depth=RawSQL("tree_depth", ()),
     )
 
 
@@ -460,7 +747,7 @@ Add ``tree_queries`` to your ``INSTALLED_APPS`` setting:
 
 Then load the template tags in your template:
 
-.. code-block:: html
+.. code-block:: html+django
 
     {% load tree_queries %}
 
@@ -472,7 +759,7 @@ The ``tree_info`` filter provides detailed information about each node's
 position in the tree structure. It's useful when you need fine control over
 the tree rendering.
 
-.. code-block:: html
+.. code-block:: html+django
 
     {% load tree_queries %}
     <ul>
@@ -492,7 +779,7 @@ contains:
 
 Example showing ancestor information:
 
-.. code-block:: html
+.. code-block:: html+django
 
     {% for node, structure in nodes|tree_info %}
         {{ node.name }}
@@ -511,7 +798,7 @@ nodes within the provided queryset and doesn't make additional database queries.
 
 Basic usage:
 
-.. code-block:: html
+.. code-block:: html+django
 
     {% load tree_queries %}
     <ul>
@@ -533,7 +820,7 @@ The ``recursetree`` tag provides these context variables within the template:
 
 Using ``is_leaf`` for conditional rendering:
 
-.. code-block:: html
+.. code-block:: html+django
 
     {% recursetree nodes %}
         <div class="{% if is_leaf %}leaf-node{% else %}branch-node{% endif %}">
@@ -548,7 +835,7 @@ Using ``is_leaf`` for conditional rendering:
 
 Advanced example with depth information:
 
-.. code-block:: html
+.. code-block:: html+django
 
     {% recursetree nodes %}
         <div class="node depth-{{ node.tree_depth }}"
@@ -587,7 +874,7 @@ When using these limited querysets:
 
 Example with depth-limited queryset:
 
-.. code-block:: html
+.. code-block:: html+django
 
     <!-- Template -->
     {% recursetree limited_nodes %}
@@ -752,3 +1039,11 @@ index. By default, django-tree-queries' admin interface starts with a position
 value of 10 and increments by 10 (10, 20, 30, etc.) to make it explicit that the
 position values themselves have no inherent meaning - they are purely for relative
 ordering, not a sibling counter or index.
+
+**Replacing add_related_count():**
+
+django-mptt's ``add_related_count()`` method for cumulative related object counts
+is not directly supported in django-tree-queries. The implementation would be
+complex and database-specific. For community-contributed solutions and discussion
+of alternative approaches, see `mptt-related issues on GitHub
+<https://github.com/matthiask/django-tree-queries/issues?q=label:mptt>`_.

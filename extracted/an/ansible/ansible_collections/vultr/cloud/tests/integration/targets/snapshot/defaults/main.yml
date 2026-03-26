@@ -2,7 +2,7 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 ---
 vultr_instance:
-  label: "snap1"
+  label: "{{ vultr_resource_prefix }}_snap1"
   plan: vc2-1c-1gb
   region: ams
   os: Debian 11 x64 (bullseye)
@@ -13,3 +13,7 @@ vultr_snapshots:
 
   - description: "{{ vultr_resource_prefix }}_desc2"
     url: https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-generic-amd64.raw
+
+  - description: "{{ vultr_resource_prefix }}_desc3"
+    url: https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-generic-amd64.raw
+    uefi: true

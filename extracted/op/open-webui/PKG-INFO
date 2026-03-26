@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.8.10
+Version: 0.8.11
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Copyright (c) 2023- Open WebUI Inc. [Created by Timothy Jaeryang Baek]
@@ -47,16 +47,16 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Communications :: Chat
 Classifier: Topic :: Multimedia
 Requires-Python: <3.13.0a1,>=3.11
-Requires-Dist: accelerate
-Requires-Dist: aiocache
-Requires-Dist: aiofiles
+Requires-Dist: accelerate==1.13.0
+Requires-Dist: aiocache==0.12.3
+Requires-Dist: aiofiles==25.1.0
 Requires-Dist: aiohttp==3.13.2
 Requires-Dist: alembic==1.18.4
-Requires-Dist: anthropic
+Requires-Dist: anthropic==0.86.0
 Requires-Dist: apscheduler==3.11.2
 Requires-Dist: argon2-cffi==25.1.0
 Requires-Dist: asgiref==3.11.1
-Requires-Dist: async-timeout
+Requires-Dist: async-timeout==5.0.1
 Requires-Dist: authlib==1.6.9
 Requires-Dist: azure-ai-documentintelligence==1.0.2
 Requires-Dist: azure-identity==1.25.2
@@ -67,8 +67,8 @@ Requires-Dist: boto3==1.42.62
 Requires-Dist: brotli==1.1.0
 Requires-Dist: chardet==5.2.0
 Requires-Dist: chromadb==1.5.2
-Requires-Dist: cryptography
-Requires-Dist: ddgs==9.11.2
+Requires-Dist: cryptography==46.0.5
+Requires-Dist: ddgs==9.11.3
 Requires-Dist: docx2txt==0.9
 Requires-Dist: einops==0.8.2
 Requires-Dist: fake-useragent==2.2.0
@@ -76,9 +76,9 @@ Requires-Dist: fastapi==0.135.1
 Requires-Dist: faster-whisper==1.2.1
 Requires-Dist: fpdf2==2.8.7
 Requires-Dist: ftfy==6.3.1
-Requires-Dist: google-api-python-client
-Requires-Dist: google-auth-httplib2
-Requires-Dist: google-auth-oauthlib
+Requires-Dist: google-api-python-client==2.193.0
+Requires-Dist: google-auth-httplib2==0.3.0
+Requires-Dist: google-auth-oauthlib==1.3.0
 Requires-Dist: google-cloud-storage==3.9.0
 Requires-Dist: google-genai==1.66.0
 Requires-Dist: googleapis-common-protos==1.72.0
@@ -95,7 +95,7 @@ Requires-Dist: mcp==1.26.0
 Requires-Dist: msoffcrypto-tool==6.0.0
 Requires-Dist: nltk==3.9.3
 Requires-Dist: onnxruntime==1.24.3
-Requires-Dist: openai
+Requires-Dist: openai==2.29.0
 Requires-Dist: opencv-python-headless==4.13.0.92
 Requires-Dist: openpyxl==3.1.5
 Requires-Dist: opensearch-py==3.1.0
@@ -103,11 +103,11 @@ Requires-Dist: pandas==3.0.1
 Requires-Dist: peewee-migrate==1.14.3
 Requires-Dist: peewee==3.19.0
 Requires-Dist: pillow==12.1.1
-Requires-Dist: psutil
+Requires-Dist: psutil==7.2.2
 Requires-Dist: pyarrow==20.0.0
 Requires-Dist: pycrdt==0.12.47
 Requires-Dist: pydantic==2.12.5
-Requires-Dist: pydub
+Requires-Dist: pydub==0.25.1
 Requires-Dist: pyjwt[crypto]==2.11.0
 Requires-Dist: pymdown-extensions==10.21
 Requires-Dist: pymysql==1.1.2
@@ -123,18 +123,17 @@ Requires-Dist: pytz==2026.1.post1
 Requires-Dist: pyxlsb==1.0.10
 Requires-Dist: rank-bm25==0.2.2
 Requires-Dist: rapidocr-onnxruntime==1.4.4
-Requires-Dist: redis
+Requires-Dist: redis==7.4.0
 Requires-Dist: requests==2.32.5
 Requires-Dist: restrictedpython==8.1
 Requires-Dist: sentence-transformers==5.2.3
-Requires-Dist: sentencepiece
+Requires-Dist: sentencepiece==0.2.1
 Requires-Dist: soundfile==0.13.1
 Requires-Dist: sqlalchemy==2.0.48
 Requires-Dist: starlette-compress==1.7.0
 Requires-Dist: starsessions[redis]==2.2.1
-Requires-Dist: tiktoken
+Requires-Dist: tiktoken==0.12.0
 Requires-Dist: transformers==5.3.0
-Requires-Dist: unstructured==0.18.31
 Requires-Dist: uvicorn[standard]==0.41.0
 Requires-Dist: validators==0.35.0
 Requires-Dist: xlrd==2.0.2
@@ -146,7 +145,6 @@ Requires-Dist: docker~=7.1.0; extra == 'all'
 Requires-Dist: elasticsearch==9.3.0; extra == 'all'
 Requires-Dist: firecrawl-py==4.18.0; extra == 'all'
 Requires-Dist: gcp-storage-emulator>=2024.8.3; extra == 'all'
-Requires-Dist: mariadb==1.1.14; extra == 'all'
 Requires-Dist: moto[s3]>=5.0.26; extra == 'all'
 Requires-Dist: oracledb==3.4.2; extra == 'all'
 Requires-Dist: pgvector==0.4.2; extra == 'all'
@@ -154,16 +152,19 @@ Requires-Dist: pinecone==6.0.2; extra == 'all'
 Requires-Dist: playwright==1.58.0; extra == 'all'
 Requires-Dist: psycopg2-binary==2.9.11; extra == 'all'
 Requires-Dist: pymilvus==2.6.9; extra == 'all'
-Requires-Dist: pymongo; extra == 'all'
+Requires-Dist: pymongo==4.16.0; extra == 'all'
 Requires-Dist: pytest-docker~=3.2.5; extra == 'all'
 Requires-Dist: pytest~=8.3.2; extra == 'all'
 Requires-Dist: qdrant-client==1.17.0; extra == 'all'
+Requires-Dist: unstructured==0.18.31; extra == 'all'
 Requires-Dist: weaviate-client==4.20.3; extra == 'all'
 Provides-Extra: mariadb
 Requires-Dist: mariadb==1.1.14; extra == 'mariadb'
 Provides-Extra: postgres
 Requires-Dist: pgvector==0.4.2; extra == 'postgres'
 Requires-Dist: psycopg2-binary==2.9.11; extra == 'postgres'
+Provides-Extra: unstructured
+Requires-Dist: unstructured==0.18.31; extra == 'unstructured'
 Description-Content-Type: text/markdown
 
 # Open WebUI 👋

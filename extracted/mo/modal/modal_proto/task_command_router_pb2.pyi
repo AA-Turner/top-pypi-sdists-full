@@ -84,6 +84,234 @@ TASK_EXEC_STDOUT_CONFIG_PIPE: TaskExecStdoutConfig.ValueType  # 1
 """The output will be streamed to the client."""
 global___TaskExecStdoutConfig = TaskExecStdoutConfig
 
+class TaskContainerCreateRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class EnvEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    CONTAINER_NAME_FIELD_NUMBER: builtins.int
+    IMAGE_ID_FIELD_NUMBER: builtins.int
+    ARGS_FIELD_NUMBER: builtins.int
+    ENV_FIELD_NUMBER: builtins.int
+    WORKDIR_FIELD_NUMBER: builtins.int
+    SECRET_IDS_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    container_name: builtins.str
+    """Logical container name."""
+    image_id: builtins.str
+    @property
+    def args(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    @property
+    def env(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
+    workdir: builtins.str
+    @property
+    def secret_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """Secret IDs to inject into the container as environment variables."""
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        container_name: builtins.str = ...,
+        image_id: builtins.str = ...,
+        args: collections.abc.Iterable[builtins.str] | None = ...,
+        env: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+        workdir: builtins.str = ...,
+        secret_ids: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "secret_ids", b"secret_ids", "task_id", b"task_id", "workdir", b"workdir"]) -> None: ...
+
+global___TaskContainerCreateRequest = TaskContainerCreateRequest
+
+class TaskContainerCreateResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CONTAINER_ID_FIELD_NUMBER: builtins.int
+    CONTAINER_NAME_FIELD_NUMBER: builtins.int
+    container_id: builtins.str
+    """Fully qualified container ID (for example, ctr-<ulid>)."""
+    container_name: builtins.str
+    """Logical container name associated with this container."""
+    def __init__(
+        self,
+        *,
+        container_id: builtins.str = ...,
+        container_name: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_id", b"container_id", "container_name", b"container_name"]) -> None: ...
+
+global___TaskContainerCreateResponse = TaskContainerCreateResponse
+
+class TaskContainerGetRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    CONTAINER_NAME_FIELD_NUMBER: builtins.int
+    INCLUDE_TERMINATED_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    container_name: builtins.str
+    include_terminated: builtins.bool
+    """Include the latest terminated container if the name is no longer active."""
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        container_name: builtins.str = ...,
+        include_terminated: builtins.bool = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_name", b"container_name", "include_terminated", b"include_terminated", "task_id", b"task_id"]) -> None: ...
+
+global___TaskContainerGetRequest = TaskContainerGetRequest
+
+class TaskContainerGetResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CONTAINER_FIELD_NUMBER: builtins.int
+    @property
+    def container(self) -> global___TaskContainerInfo: ...
+    def __init__(
+        self,
+        *,
+        container: global___TaskContainerInfo | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["container", b"container"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container", b"container"]) -> None: ...
+
+global___TaskContainerGetResponse = TaskContainerGetResponse
+
+class TaskContainerInfo(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CONTAINER_ID_FIELD_NUMBER: builtins.int
+    CONTAINER_NAME_FIELD_NUMBER: builtins.int
+    STATUS_FIELD_NUMBER: builtins.int
+    RESULT_FIELD_NUMBER: builtins.int
+    container_id: builtins.str
+    container_name: builtins.str
+    status: builtins.str
+    @property
+    def result(self) -> modal_proto.api_pb2.GenericResult: ...
+    def __init__(
+        self,
+        *,
+        container_id: builtins.str = ...,
+        container_name: builtins.str = ...,
+        status: builtins.str = ...,
+        result: modal_proto.api_pb2.GenericResult | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["result", b"result"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_id", b"container_id", "container_name", b"container_name", "result", b"result", "status", b"status"]) -> None: ...
+
+global___TaskContainerInfo = TaskContainerInfo
+
+class TaskContainerListRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    INCLUDE_TERMINATED_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    include_terminated: builtins.bool
+    """Include all tracked terminated containers in addition to active ones."""
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        include_terminated: builtins.bool = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["include_terminated", b"include_terminated", "task_id", b"task_id"]) -> None: ...
+
+global___TaskContainerListRequest = TaskContainerListRequest
+
+class TaskContainerListResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CONTAINERS_FIELD_NUMBER: builtins.int
+    @property
+    def containers(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___TaskContainerInfo]: ...
+    def __init__(
+        self,
+        *,
+        containers: collections.abc.Iterable[global___TaskContainerInfo] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["containers", b"containers"]) -> None: ...
+
+global___TaskContainerListResponse = TaskContainerListResponse
+
+class TaskContainerTerminateRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    CONTAINER_ID_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    container_id: builtins.str
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        container_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_id", b"container_id", "task_id", b"task_id"]) -> None: ...
+
+global___TaskContainerTerminateRequest = TaskContainerTerminateRequest
+
+class TaskContainerTerminateResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___TaskContainerTerminateResponse = TaskContainerTerminateResponse
+
+class TaskContainerWaitRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    CONTAINER_ID_FIELD_NUMBER: builtins.int
+    TIMEOUT_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    container_id: builtins.str
+    timeout: builtins.float
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        container_id: builtins.str = ...,
+        timeout: builtins.float = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_id", b"container_id", "task_id", b"task_id", "timeout", b"timeout"]) -> None: ...
+
+global___TaskContainerWaitRequest = TaskContainerWaitRequest
+
+class TaskContainerWaitResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    RESULT_FIELD_NUMBER: builtins.int
+    @property
+    def result(self) -> modal_proto.api_pb2.GenericResult: ...
+    def __init__(
+        self,
+        *,
+        result: modal_proto.api_pb2.GenericResult | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["result", b"result"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["result", b"result"]) -> None: ...
+
+global___TaskContainerWaitResponse = TaskContainerWaitResponse
+
 class TaskExecPollRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -141,6 +369,7 @@ class TaskExecStartRequest(google.protobuf.message.Message):
     SECRET_IDS_FIELD_NUMBER: builtins.int
     PTY_INFO_FIELD_NUMBER: builtins.int
     RUNTIME_DEBUG_FIELD_NUMBER: builtins.int
+    CONTAINER_ID_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     """The ID of the task to execute the command in."""
     exec_id: builtins.str
@@ -171,6 +400,8 @@ class TaskExecStartRequest(google.protobuf.message.Message):
     """Enable debugging capabilities on the container runtime. Used only for
     internal debugging.
     """
+    container_id: builtins.str
+    """Fully qualified target container ID. Empty targets the main container."""
     def __init__(
         self,
         *,
@@ -184,9 +415,10 @@ class TaskExecStartRequest(google.protobuf.message.Message):
         secret_ids: collections.abc.Iterable[builtins.str] | None = ...,
         pty_info: modal_proto.api_pb2.PTYInfo | None = ...,
         runtime_debug: builtins.bool = ...,
+        container_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "pty_info", b"pty_info", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "command_args", b"command_args", "exec_id", b"exec_id", "pty_info", b"pty_info", "runtime_debug", b"runtime_debug", "secret_ids", b"secret_ids", "stderr_config", b"stderr_config", "stdout_config", b"stdout_config", "task_id", b"task_id", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "command_args", b"command_args", "container_id", b"container_id", "exec_id", b"exec_id", "pty_info", b"pty_info", "runtime_debug", b"runtime_debug", "secret_ids", b"secret_ids", "stderr_config", b"stderr_config", "stdout_config", b"stdout_config", "task_id", b"task_id", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_pty_info", b"_pty_info"]) -> typing_extensions.Literal["pty_info"] | None: ...
     @typing.overload

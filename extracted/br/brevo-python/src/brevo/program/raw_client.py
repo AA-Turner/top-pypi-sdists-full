@@ -748,6 +748,7 @@ class RawProgramClient:
         contact_id: typing.Optional[str] = None,
         params: typing.Optional[str] = None,
         loyalty_subscription_id: typing.Optional[str] = None,
+        include_internal: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetParameterSubscriptionInfoResponse]:
         """
@@ -767,6 +768,9 @@ class RawProgramClient:
         loyalty_subscription_id : typing.Optional[str]
             The loyalty subscription ID to filter by.
 
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -782,6 +786,7 @@ class RawProgramClient:
                 "contactId": contact_id,
                 "params": params,
                 "loyaltySubscriptionId": loyalty_subscription_id,
+                "includeInternal": include_internal,
             },
             request_options=request_options,
         )
@@ -2145,6 +2150,7 @@ class AsyncRawProgramClient:
         contact_id: typing.Optional[str] = None,
         params: typing.Optional[str] = None,
         loyalty_subscription_id: typing.Optional[str] = None,
+        include_internal: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetParameterSubscriptionInfoResponse]:
         """
@@ -2164,6 +2170,9 @@ class AsyncRawProgramClient:
         loyalty_subscription_id : typing.Optional[str]
             The loyalty subscription ID to filter by.
 
+        include_internal : typing.Optional[bool]
+            Include balances tied to internal definitions.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2179,6 +2188,7 @@ class AsyncRawProgramClient:
                 "contactId": contact_id,
                 "params": params,
                 "loyaltySubscriptionId": loyalty_subscription_id,
+                "includeInternal": include_internal,
             },
             request_options=request_options,
         )

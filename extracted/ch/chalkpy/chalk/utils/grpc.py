@@ -123,7 +123,9 @@ class UnauthenticatedChalkClientInterceptor(grpc.UnaryUnaryClientInterceptor):
         if client_call_details.metadata is None:
             headers = self._headers
         else:
-            headers = self._headers + tuple(client_call_details.metadata)
+            headers_dict: dict[str, str | bytes] = dict(self._headers)
+            headers_dict.update(client_call_details.metadata)
+            headers = tuple(headers_dict.items())
         return continuation(
             _ClientCallDetails(
                 method=client_call_details.method,

@@ -31,11 +31,36 @@ secret_fields = [
     "ssh_hsk_password", "user_history_password_threshold", "reuse_password_limit", "client_secret_token",
     "token_certificate", "ble_rtls_server_token", "admin_auth_tacacs+", "gch_cryptokey", "gch_cryptokey_version",
     "gch_keyring", "acme_eab_key_hmac", "eab_key_hmac", "gck_access_token_lifetime", "gck_keyid", "gch_private_key",
-    "fortitoken_cloud_region", "gck_private_key"
+    "fortitoken_cloud_region", "gck_private_key", "cups_api_key", "tc_api_key", "apcfg_auto_cert_est_http_password",
+    "apcfg_auto_cert_scep_password"
 ]
 
 
 def is_secret_field(key_name):
     if key_name in secret_fields:
         return True
+
+    # Heuristic matching for schema-added fields that are secrets but not yet in the static list.
+    # Keep this conservative: only match well-known secret suffixes.
+    secret_suffixes = (
+        "_password",
+        "_passwd",
+        "_private_key",
+        "_api_key",
+        "_client_secret",
+        "_secret",
+        "_secret_key",
+        "_secret_token",
+        "_access_key",
+        "_access_token",
+        "_token",
+    )
+    for suffix in secret_suffixes:
+        if key_name.endswith(suffix) and len(key_name) > len(suffix):
+            return True
+
+    # Also match the bare forms (without the leading underscore) for common patterns.
+    if key_name.endswith("password") or key_name.endswith("private_key") or key_name.endswith("api_key"):
+        return True
+
     return False

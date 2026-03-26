@@ -3,7 +3,7 @@ Type annotations for application-signals service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_signals/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -62,7 +62,9 @@ ListServiceLevelObjectivesPaginatorName = Literal["list_service_level_objectives
 ListServiceOperationsPaginatorName = Literal["list_service_operations"]
 ListServiceStatesPaginatorName = Literal["list_service_states"]
 ListServicesPaginatorName = Literal["list_services"]
-MetricSourceTypeType = Literal["CloudWatchMetric", "ServiceDependency", "ServiceOperation"]
+MetricSourceTypeType = Literal[
+    "AppMonitor", "Canary", "CloudWatchMetric", "Service", "ServiceDependency", "ServiceOperation"
+]
 ServiceLevelIndicatorComparisonOperatorType = Literal[
     "GreaterThan", "GreaterThanOrEqualTo", "LessThan", "LessThanOrEqualTo"
 ]
@@ -201,6 +203,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -240,16 +243,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -289,7 +291,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -464,7 +465,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -498,6 +501,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -505,6 +509,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

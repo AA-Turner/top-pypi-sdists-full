@@ -501,8 +501,8 @@ versioned_schema = {
                     "v_range": [["v6.0.0", "v6.0.0"], ["v6.0.11", ""]],
                 },
                 {"value": "system.interface", "v_range": [["v7.6.3", ""]]},
-                {"value": "log.syslogd.setting", "v_range": [["v7.6.4", ""]]},
-                {"value": "log.syslogd.override-setting", "v_range": [["v7.6.4", ""]]},
+                {"value": "log.syslogd.setting", "v_range": [["v7.6.6", ""]]},
+                {"value": "log.syslogd.override-setting", "v_range": [["v7.6.6", ""]]},
                 {"value": "firewall.address", "v_range": [["v7.4.2", ""]]},
                 {"value": "vpn.ipsec.phase1-interface", "v_range": []},
                 {"value": "vpn.ipsec.phase2-interface", "v_range": []},
@@ -601,7 +601,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_vdom_exception"
         )

@@ -380,6 +380,18 @@ def register_default_tools(registry: ToolRegistry, working_dir: str | None = Non
     _register_optional_office_tools(registry, working_dir)
 
 
+def register_mission_tools(registry: ToolRegistry) -> None:
+    """Register mission tools (opt-in, not called by register_default_tools).
+
+    Call site is in the CLI mission talk handler (#1049).
+    """
+    from .mission import MISSION_TOOL_DEFINITIONS, MISSION_TOOL_HANDLERS
+
+    for defn in MISSION_TOOL_DEFINITIONS:
+        name = defn["name"]
+        registry.register(name, MISSION_TOOL_HANDLERS[name], defn)
+
+
 def _register_optional_office_tools(registry: ToolRegistry, working_dir: str | None = None) -> None:
     """Register office tools if their optional dependencies are installed."""
     import importlib

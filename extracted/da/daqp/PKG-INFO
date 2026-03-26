@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daqp
-Version: 0.8.3
+Version: 0.8.5
 Summary: DAQP: A dual active-set QP solver
 Home-page: http://github.com/darnstrom/daqp
 Author: Daniel Arnström

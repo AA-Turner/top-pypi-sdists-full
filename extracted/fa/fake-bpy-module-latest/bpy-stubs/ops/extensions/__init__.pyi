@@ -3,6 +3,7 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
+import bpy.types
 
 def package_disable(
     execution_context: int | str | None = None,
@@ -44,7 +45,8 @@ def package_install_files(
     *,
     filter_glob: str | None = "*.zip;*.py",
     directory: str | None = "",
-    files=None,
+    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+    | None = None,
     filepath: str | None = "",
     repo: str | None = "",
     enable_on_install: bool | None = True,

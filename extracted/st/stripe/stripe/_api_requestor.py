@@ -5,6 +5,7 @@ import platform
 from typing import (
     Any,
     AsyncIterable,
+    Callable,
     Dict,
     List,
     Mapping,
@@ -382,6 +383,8 @@ class _APIRequestor(object):
                 code,
             )
         # switchCases: The beginning of the section generated from our OpenAPI spec
+        elif type == "rate_limit":
+            return error.RateLimitError(**error_args)
         elif type == "temporary_session_expired":
             return error.TemporarySessionExpiredError(**error_args)
         # switchCases: The end of the section generated from our OpenAPI spec
@@ -481,6 +484,7 @@ class _APIRequestor(object):
         ("CODEX_CI", "codex_cli"),
         ("CURSOR_AGENT", "cursor"),
         ("GEMINI_CLI", "gemini_cli"),
+        ("OPENCLAW_SHELL", "openclaw"),
         ("OPENCODE", "open_code"),
         # aiAgents: The end of the section generated from our OpenAPI spec
     ]
@@ -509,14 +513,14 @@ class _APIRequestor(object):
         ua: Dict[str, Union[str, "AppInfo"]] = {
             "bindings_version": VERSION,
             "lang": "python",
-            "publisher": "stripe",
             "httplib": self._get_http_client().name,
         }
-        for attr, func in [
-            ["lang_version", platform.python_version],
-            ["platform", platform.platform],
-            ["uname", lambda: " ".join(platform.uname())],
-        ]:
+        attr_funcs: List[Tuple[str, Callable[[], str]]] = [
+            ("lang_version", platform.python_version),
+        ]
+        if stripe.enable_telemetry:
+            attr_funcs.append(("platform", platform.platform))
+        for attr, func in attr_funcs:
             try:
                 val = func()
             except Exception:

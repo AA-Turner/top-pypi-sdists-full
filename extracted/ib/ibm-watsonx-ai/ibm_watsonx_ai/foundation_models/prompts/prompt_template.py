@@ -1709,10 +1709,7 @@ class PromptTemplateManager(WMLResource):
         headers = self._client._get_headers()
         params = self._params
 
-        url = (
-            self._client._href_definitions.get_prompts_href()
-            + f"/{prompt_id}/chat_items"
-        )
+        url = self._client._href_definitions.get_prompt_chat_items_href(prompt_id)
 
         response = self._client.httpx_client.post(
             url=url, json=chat_items, headers=headers, params=params

@@ -1190,6 +1190,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
         "bq_upload_topic",
         "include_chalk_node_selector",
         "bus_writer_image_rust",
+        "use_aws_pool_for_google_adc",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     BUS_WRITER_IMAGE_GO_FIELD_NUMBER: _ClassVar[int]
@@ -1220,6 +1221,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
     BQ_UPLOAD_TOPIC_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_CHALK_NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     BUS_WRITER_IMAGE_RUST_FIELD_NUMBER: _ClassVar[int]
+    USE_AWS_POOL_FOR_GOOGLE_ADC_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     bus_writer_image_go: str
     bus_writer_image_python: str
@@ -1249,6 +1251,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
     bq_upload_topic: str
     include_chalk_node_selector: bool
     bus_writer_image_rust: str
+    use_aws_pool_for_google_adc: bool
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -1280,6 +1283,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
         bq_upload_topic: _Optional[str] = ...,
         include_chalk_node_selector: bool = ...,
         bus_writer_image_rust: _Optional[str] = ...,
+        use_aws_pool_for_google_adc: bool = ...,
     ) -> None: ...
 
 class BackgroundPersistenceWriterHpaSpecs(_message.Message):
@@ -1451,15 +1455,18 @@ class NodePodMetricsFilter(_message.Message):
     ) -> None: ...
 
 class ClusterManagerConfig(_message.Message):
-    __slots__ = ("node_pod_metrics_filters", "node_pod_metrics_interval_secs")
+    __slots__ = ("node_pod_metrics_filters", "node_pod_metrics_interval_secs", "record_node_pod_metrics")
     NODE_POD_METRICS_FILTERS_FIELD_NUMBER: _ClassVar[int]
     NODE_POD_METRICS_INTERVAL_SECS_FIELD_NUMBER: _ClassVar[int]
+    RECORD_NODE_POD_METRICS_FIELD_NUMBER: _ClassVar[int]
     node_pod_metrics_filters: _containers.RepeatedCompositeFieldContainer[NodePodMetricsFilter]
     node_pod_metrics_interval_secs: int
+    record_node_pod_metrics: bool
     def __init__(
         self,
         node_pod_metrics_filters: _Optional[_Iterable[_Union[NodePodMetricsFilter, _Mapping]]] = ...,
         node_pod_metrics_interval_secs: _Optional[int] = ...,
+        record_node_pod_metrics: bool = ...,
     ) -> None: ...
 
 class BackgroundPersistenceDeploymentSpecs(_message.Message):

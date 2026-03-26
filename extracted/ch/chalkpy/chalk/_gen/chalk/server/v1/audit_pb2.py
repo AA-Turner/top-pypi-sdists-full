@@ -14,6 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.auth.v1 import agent_pb2 as chalk_dot_auth_dot_v1_dot_agent__pb2
+from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
@@ -21,7 +22,7 @@ from google.rpc import code_pb2 as google_dot_rpc_dot_code__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1b\x63halk/server/v1/audit.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/agent.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15google/rpc/code.proto"\x87\x05\n\x08\x41uditLog\x12*\n\x05\x61gent\x18\x01 \x01(\x0b\x32\x14.chalk.auth.v1.AgentR\x05\x61gent\x12%\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00R\x0b\x64\x65scription\x88\x01\x01\x12\x1a\n\x08\x65ndpoint\x18\x03 \x01(\tR\x08\x65ndpoint\x12*\n\x02\x61t\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x02\x61t\x12\x1e\n\x08trace_id\x18\x05 \x01(\x04H\x01R\x07traceId\x88\x01\x01\x12)\n\x04\x63ode\x18\x06 \x01(\x0e\x32\x10.google.rpc.CodeH\x02R\x04\x63ode\x88\x01\x01\x12@\n\x07request\x18\x07 \x03(\x0b\x32&.chalk.server.v1.AuditLog.RequestEntryR\x07request\x12\x43\n\x08response\x18\x08 \x03(\x0b\x32\'.chalk.server.v1.AuditLog.ResponseEntryR\x08response\x12\x13\n\x02ip\x18\t \x01(\tH\x03R\x02ip\x88\x01\x01\x12\x19\n\x05\x65rror\x18\n \x01(\tH\x04R\x05\x65rror\x88\x01\x01\x1aR\n\x0cRequestEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x1aS\n\rResponseEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\x0e\n\x0c_descriptionB\x0b\n\t_trace_idB\x07\n\x05_codeB\x05\n\x03_ipB\x08\n\x06_error"\xa3\x02\n\x13GetAuditLogsRequest\x12>\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12\'\n\x0f\x65ndpoint_filter\x18\x03 \x03(\tR\x0e\x65ndpointFilter\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x05 \x01(\tH\x03R\x06\x63ursor\x88\x01\x01\x42\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limitB\t\n\x07_cursor"{\n\x14GetAuditLogsResponse\x12-\n\x04logs\x18\x01 \x03(\x0b\x32\x19.chalk.server.v1.AuditLogR\x04logs\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor2p\n\x0c\x41uditService\x12`\n\x0cGetAuditLogs\x12$.chalk.server.v1.GetAuditLogsRequest\x1a%.chalk.server.v1.GetAuditLogsResponse"\x03\x80}\x06\x42\x93\x01\n\x13\x63om.chalk.server.v1B\nAuditProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1b\x63halk/server/v1/audit.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/agent.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15google/rpc/code.proto"\x87\x05\n\x08\x41uditLog\x12*\n\x05\x61gent\x18\x01 \x01(\x0b\x32\x14.chalk.auth.v1.AgentR\x05\x61gent\x12%\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00R\x0b\x64\x65scription\x88\x01\x01\x12\x1a\n\x08\x65ndpoint\x18\x03 \x01(\tR\x08\x65ndpoint\x12*\n\x02\x61t\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x02\x61t\x12\x1e\n\x08trace_id\x18\x05 \x01(\x04H\x01R\x07traceId\x88\x01\x01\x12)\n\x04\x63ode\x18\x06 \x01(\x0e\x32\x10.google.rpc.CodeH\x02R\x04\x63ode\x88\x01\x01\x12@\n\x07request\x18\x07 \x03(\x0b\x32&.chalk.server.v1.AuditLog.RequestEntryR\x07request\x12\x43\n\x08response\x18\x08 \x03(\x0b\x32\'.chalk.server.v1.AuditLog.ResponseEntryR\x08response\x12\x13\n\x02ip\x18\t \x01(\tH\x03R\x02ip\x88\x01\x01\x12\x19\n\x05\x65rror\x18\n \x01(\tH\x04R\x05\x65rror\x88\x01\x01\x1aR\n\x0cRequestEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x1aS\n\rResponseEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\x0e\n\x0c_descriptionB\x0b\n\t_trace_idB\x07\n\x05_codeB\x05\n\x03_ipB\x08\n\x06_error"\xa3\x02\n\x13GetAuditLogsRequest\x12>\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12\'\n\x0f\x65ndpoint_filter\x18\x03 \x03(\tR\x0e\x65ndpointFilter\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x05 \x01(\tH\x03R\x06\x63ursor\x88\x01\x01\x42\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limitB\t\n\x07_cursor"{\n\x14GetAuditLogsResponse\x12-\n\x04logs\x18\x01 \x03(\x0b\x32\x19.chalk.server.v1.AuditLogR\x04logs\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor">\n\x14\x41uditedEndpointField\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type"\xe6\x02\n\x0f\x41uditedEndpoint\x12\x1a\n\x08\x65ndpoint\x18\x01 \x01(\tR\x08\x65ndpoint\x12 \n\x0b\x64\x65scription\x18\x02 \x01(\tR\x0b\x64\x65scription\x12/\n\x05level\x18\x03 \x01(\x0e\x32\x19.chalk.auth.v1.AuditLevelR\x05level\x12!\n\x0crequest_type\x18\x04 \x01(\tR\x0brequestType\x12#\n\rresponse_type\x18\x05 \x01(\tR\x0cresponseType\x12L\n\x0erequest_fields\x18\x06 \x03(\x0b\x32%.chalk.server.v1.AuditedEndpointFieldR\rrequestFields\x12N\n\x0fresponse_fields\x18\x07 \x03(\x0b\x32%.chalk.server.v1.AuditedEndpointFieldR\x0eresponseFields"\x1c\n\x1aGetAuditedEndpointsRequest"]\n\x1bGetAuditedEndpointsResponse\x12>\n\tendpoints\x18\x01 \x03(\x0b\x32 .chalk.server.v1.AuditedEndpointR\tendpoints2\xe7\x01\n\x0c\x41uditService\x12`\n\x0cGetAuditLogs\x12$.chalk.server.v1.GetAuditLogsRequest\x1a%.chalk.server.v1.GetAuditLogsResponse"\x03\x80}\x06\x12u\n\x13GetAuditedEndpoints\x12+.chalk.server.v1.GetAuditedEndpointsRequest\x1a,.chalk.server.v1.GetAuditedEndpointsResponse"\x03\x80}\x06\x42\x93\x01\n\x13\x63om.chalk.server.v1B\nAuditProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -38,16 +39,26 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_AUDITLOG_RESPONSEENTRY"]._serialized_options = b"8\001"
     _globals["_AUDITSERVICE"].methods_by_name["GetAuditLogs"]._options = None
     _globals["_AUDITSERVICE"].methods_by_name["GetAuditLogs"]._serialized_options = b"\200}\006"
-    _globals["_AUDITLOG"]._serialized_start = 195
-    _globals["_AUDITLOG"]._serialized_end = 842
-    _globals["_AUDITLOG_REQUESTENTRY"]._serialized_start = 620
-    _globals["_AUDITLOG_REQUESTENTRY"]._serialized_end = 702
-    _globals["_AUDITLOG_RESPONSEENTRY"]._serialized_start = 704
-    _globals["_AUDITLOG_RESPONSEENTRY"]._serialized_end = 787
-    _globals["_GETAUDITLOGSREQUEST"]._serialized_start = 845
-    _globals["_GETAUDITLOGSREQUEST"]._serialized_end = 1136
-    _globals["_GETAUDITLOGSRESPONSE"]._serialized_start = 1138
-    _globals["_GETAUDITLOGSRESPONSE"]._serialized_end = 1261
-    _globals["_AUDITSERVICE"]._serialized_start = 1263
-    _globals["_AUDITSERVICE"]._serialized_end = 1375
+    _globals["_AUDITSERVICE"].methods_by_name["GetAuditedEndpoints"]._options = None
+    _globals["_AUDITSERVICE"].methods_by_name["GetAuditedEndpoints"]._serialized_options = b"\200}\006"
+    _globals["_AUDITLOG"]._serialized_start = 222
+    _globals["_AUDITLOG"]._serialized_end = 869
+    _globals["_AUDITLOG_REQUESTENTRY"]._serialized_start = 647
+    _globals["_AUDITLOG_REQUESTENTRY"]._serialized_end = 729
+    _globals["_AUDITLOG_RESPONSEENTRY"]._serialized_start = 731
+    _globals["_AUDITLOG_RESPONSEENTRY"]._serialized_end = 814
+    _globals["_GETAUDITLOGSREQUEST"]._serialized_start = 872
+    _globals["_GETAUDITLOGSREQUEST"]._serialized_end = 1163
+    _globals["_GETAUDITLOGSRESPONSE"]._serialized_start = 1165
+    _globals["_GETAUDITLOGSRESPONSE"]._serialized_end = 1288
+    _globals["_AUDITEDENDPOINTFIELD"]._serialized_start = 1290
+    _globals["_AUDITEDENDPOINTFIELD"]._serialized_end = 1352
+    _globals["_AUDITEDENDPOINT"]._serialized_start = 1355
+    _globals["_AUDITEDENDPOINT"]._serialized_end = 1713
+    _globals["_GETAUDITEDENDPOINTSREQUEST"]._serialized_start = 1715
+    _globals["_GETAUDITEDENDPOINTSREQUEST"]._serialized_end = 1743
+    _globals["_GETAUDITEDENDPOINTSRESPONSE"]._serialized_start = 1745
+    _globals["_GETAUDITEDENDPOINTSRESPONSE"]._serialized_end = 1838
+    _globals["_AUDITSERVICE"]._serialized_start = 1841
+    _globals["_AUDITSERVICE"]._serialized_end = 2072
 # @@protoc_insertion_point(module_scope)

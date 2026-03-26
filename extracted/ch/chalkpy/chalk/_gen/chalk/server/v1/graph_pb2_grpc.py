@@ -60,6 +60,16 @@ class GraphServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.FromString,
         )
+        self.DiffDeployments = channel.unary_unary(
+            "/chalk.server.v1.GraphService/DiffDeployments",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffDeploymentsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffDeploymentsResponse.FromString,
+        )
+        self.SmartDiffDeployment = channel.unary_unary(
+            "/chalk.server.v1.GraphService/SmartDiffDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentResponse.FromString,
+        )
 
 
 class GraphServiceServicer(object):
@@ -121,6 +131,18 @@ class GraphServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DiffDeployments(self, request, context):
+        """DiffDeployments compares two deployment graphs and returns the diff."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SmartDiffDeployment(self, request, context):
+        """SmartDiffDeployment automatically finds the best comparison target and diffs."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_GraphServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -168,6 +190,16 @@ def add_GraphServiceServicer_to_server(servicer, server):
             servicer.GetOfflineStoreTable,
             request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.SerializeToString,
+        ),
+        "DiffDeployments": grpc.unary_unary_rpc_method_handler(
+            servicer.DiffDeployments,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffDeploymentsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffDeploymentsResponse.SerializeToString,
+        ),
+        "SmartDiffDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.SmartDiffDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.GraphService", rpc_method_handlers)
@@ -429,6 +461,64 @@ class GraphService(object):
             "/chalk.server.v1.GraphService/GetOfflineStoreTable",
             chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DiffDeployments(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/DiffDeployments",
+            chalk_dot_server_dot_v1_dot_graph__pb2.DiffDeploymentsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.DiffDeploymentsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SmartDiffDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/SmartDiffDeployment",
+            chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentResponse.FromString,
             options,
             channel_credentials,
             insecure,

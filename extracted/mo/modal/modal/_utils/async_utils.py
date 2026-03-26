@@ -345,11 +345,22 @@ def synchronize_api(obj, target_module=None):
 RETRY_N_ATTEMPTS_OVERRIDE: Optional[int] = None
 
 
-def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout=90):
+def retry(
+    direct_fn=None,
+    *,
+    n_attempts=3,
+    base_delay=0.0,
+    delay_factor=2,
+    max_delay: Optional[float] = None,
+    attempt_timeout: Optional[float] = 90,
+    total_timeout: Optional[float] = None,
+):
     """Decorator that calls an async function multiple times, with a given timeout.
 
     If a `base_delay` is provided, the function is given an exponentially
     increasing delay on each run, up until the maximum number of attempts.
+
+    If `max_delay` is set, the delay between attempts is capped at this value.
 
     Usage:
 
@@ -365,6 +376,7 @@ def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout
         pass
     ```
     """
+    ATTEMPT_TIMEOUT_FLOOR = 2.0
 
     def decorator(fn):
         @functools.wraps(fn)
@@ -375,8 +387,21 @@ def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout
                 local_n_attempts = n_attempts
 
             delay = base_delay
+            if total_timeout is not None:
+                total_deadline = time.time() + total_timeout
+            else:
+                total_deadline = None
+
             for i in range(local_n_attempts):
                 t0 = time.time()
+
+                timeouts = []
+                if attempt_timeout is not None:
+                    timeouts.append(attempt_timeout)
+                if total_deadline is not None:
+                    timeouts.append(max(total_deadline - time.time(), ATTEMPT_TIMEOUT_FLOOR))
+                timeout = min(timeouts) if timeouts else None
+
                 try:
                     return await asyncio.wait_for(fn(*args, **kwargs), timeout=timeout)
                 except asyncio.CancelledError:
@@ -385,6 +410,12 @@ def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout
                 except Exception as e:
                     if i >= local_n_attempts - 1:
                         raise
+
+                    # We check if the timeout will be reached **after** the sleep, so we can raise an error early
+                    # without needing to actually sleep.
+                    if total_deadline is not None and time.time() + delay + ATTEMPT_TIMEOUT_FLOOR >= total_deadline:
+                        raise
+
                     logger.debug(
                         f"Failed invoking function {fn}: {e}"
                         f" (took {time.time() - t0}s, sleeping {delay}s"
@@ -392,6 +423,8 @@ def retry(direct_fn=None, *, n_attempts=3, base_delay=0, delay_factor=2, timeout
                     )
                 await asyncio.sleep(delay)
                 delay *= delay_factor
+                if max_delay is not None:
+                    delay = min(delay, max_delay)
 
         return f_wrapped
 

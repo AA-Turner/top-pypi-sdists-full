@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pygeodesy
-Version: 26.2.26
+Version: 26.3.26
 Summary: Pure Python geodesy tools
 Home-page: https://GitHub.com/mrJean1/PyGeodesy
 Author: Jean M. Brouwers
@@ -8,7 +8,7 @@ Author-email: mrJean1@Gmail.com
 Maintainer: Jean M. Brouwers
 Maintainer-email: mrJean1@Gmail.com
 License: MIT
-Keywords: AER AGM Albers altitude Andoyer annulus antipode area Arithmetic-Geometric-Mean attitude Authalic auxiliary azimuth azimuthal azimuth-elevation-range bearing bank Barsky Barth beta bi-quadratic boolean cached Cagnoli cartesian Cassini Cassini-Soldner chord circle-intersections circumcenter circumcircle circumradius clip Cohen Cohen-Sutherland Collins composite conformal conformal-sphere conic constants contact-triangle Cook Correia cosines-law coverage curvature cylindrical datum deprecation deficit development discrete distance Douglas earth east-north-up eccentricity ECEF elevation ellipse ellipsoid ellipsoidal-latitude-beta ellipsoidal-longitude-omega elliptic ENU EPSG equal-area equidistant equirectangular ETM ETRF Euclidean even-odd-rule ExactTM excess Farrell Farrell-Barth Ferrari-solution Field-Of-View flattening fma fmath footpoint footprint Forster Forster-Hormann-Popa Forsythe FOV fractional Frechet Fréchet frustum Fsum fused-multiply-add GARS Gauss-Kummer geocentric GeoConvert GeodesicExact geodesy geodetic GeodSolve Geod3Solve GeodTest geographiclib Geohash geoid geoidHeight GeoidHeights georef Girard gnomonic gons grades gradians Greiner Greiner-Hormann Hartzell Hausdorff Haversine heading hectare height Heikkinen Heron Hodgman horizon Hormann Hubeny IDW incenter incirle infix_@_operator inradius intermediate interpolate intersect intersection intersection3d intersections IntersectTool Inverse-Distance-Weighting Isometric ITRF Jacobi Jacobi-Conformal Jarque-Bera Jekel Karney Krueger Krüger kurtosis Lambert latitude law-of-cosines least-squares Lesh L_Huilier LHuilier Liang Liang-Barsky Linderholm-Segal linearize Line-Of-Sight LocalCartesian local-tangent-plane local-x-y-z longitude LOS loxodrome lstsq LTP lune LV03 LV95 mean memoize memoized Mercator Meeus MGRS nearest NED Niemeyer non-finite normalize Norrdine north-east-down numpy n-vector Nvector oblate omega orthographic orthometric-height OSGB OSGR overlap parallel parallel-of-latitude Parametric path-intersection perimeter Peucker Pierlot pitch plumb Point-Of-View polar Popa POV precision-cubic-root precision-hypotenuse precision-powers precision-running-summation precision-square-root precision-summation prolate Pseudo-Mercator pygeodesy PyInstaller PyPy quartic radical radii radius Ramanujan Ramer Ramer-Douglas-Peucker Rectifying Reduced resect resection Rey-Jer Reumann Reumann-Witkam rho-theta-phi rhumb RhumbSolve running-linear-regression running-statistics running-stats running-summation scipy secant semi-perimeter sexagecimal simplify skewness Snellius Snellius-Pothenot Snyder Soddy Soddy-circles Soldner sphere sphere-intersections spherical-deficit spherical-excess spherical-polar spherical-triangle squared-quartic standard-deviation stereographic Sudano surface-area Sutherland Sutherland-Hodgman tangent-circles Terrestrial-Reference-Frame Thomas Tienstra tilt TMcoords TMExact toise transverse TransverseMercatorExact TRF triangle triangulate triaxial triaxial-ellipsoid trigonometry trilaterate trilaterate-2d trilaterate-3d TwoProduct TwoSum umbilic-point unit unroll UPS UTM UTM/UPS variance velocities Veness Vermeille viewing-frustum Vincenty Visvalingam Visvalingam-Whyatt volume  volumetric Web-Mercator Welford WGRS WGS Whyatt Wildberger Witkam winding-number XYZ yaw You zenzi-cubic zenzi-quartic
+Keywords: AER AGM Albers altitude Andoyer annulus antipode apoapsis apses area Arithmetic-Geometric-Mean attitude Authalic auxiliary azimuth azimuthal azimuth-elevation-range bearing bank Barsky Barth beta bi-quadratic boolean cached Cagnoli cartesian Cassini Cassini-Soldner chord circle-intersections circumcenter circumcircle circumradius clip Cohen Cohen-Sutherland Collins composite conformal conformal-sphere conic constants contact-triangle Cook Correia cosines-law coverage curvature cylindrical datum deprecation deficit development discrete distance Douglas earth east-north-up eccentricity ECEF elevation ellipse ellipsoid ellipsoidal-latitude-beta ellipsoidal-longitude-omega elliptic ENU EPSG equal-area equidistant equirectangular ETM ETRF Euclidean even-odd-rule ExactTM excess Farrell Farrell-Barth Ferrari-solution Field-Of-View flattening fma fmath footpoint footprint Forster Forster-Hormann-Popa Forsythe FOV fractional Frechet Fréchet frustum Fsum fused-multiply-add GARS Gauss-Kummer geocentric GeoConvert GeodesicExact geodesy geodetic GeodSolve Geod3Solve GeodTest geographiclib Geohash geoid geoidHeight GeoidHeights georef Girard gnomonic gons grades gradians Greiner Greiner-Hormann Hartzell Hausdorff Haversine heading hectare height Heikkinen Heron Hodgman horizon Hormann Hubeny IDW incenter incirle infix_@_operator inradius intermediate interpolate intersect intersection intersection3d intersections IntersectTool Inverse-Distance-Weighting Isometric ITRF Jacobi Jacobi-Conformal Jarque-Bera Jekel Karney Krueger Krüger kurtosis Lambert latitude law-of-cosines least-squares Lesh L_Huilier LHuilier Liang Liang-Barsky Linderholm-Segal linearize Line-Of-Sight LocalCartesian local-tangent-plane local-x-y-z longitude LOS loxodrome lstsq LTP lune LV03 LV95 mean memoize memoized Mercator Meeus MGRS nearest NED Niemeyer non-finite normalize Norrdine north-east-down numpy n-vector Nvector oblate omega orthographic orthometric-height OSGB OSGR overlap parallel parallel-of-latitude Parametric path-intersection periapsis perimeter Peucker Pierlot pitch plumb Point-Of-View polar Popa POV precision-cubic-root precision-hypotenuse precision-powers precision-running-summation precision-square-root precision-summation prolate Pseudo-Mercator pygeodesy PyInstaller PyPy quartic radical radii radius Ramanujan Ramer Ramer-Douglas-Peucker Rectifying Reduced resect resection Rey-Jer Reumann Reumann-Witkam rho-theta-phi rhumb RhumbSolve running-linear-regression running-statistics running-stats running-summation scipy secant semi-latus-rectum semi-perimeter sexagecimal simplify skewness Snellius Snellius-Pothenot Snyder Soddy Soddy-circles Soldner sphere sphere-intersections spherical-deficit spherical-excess spherical-polar spherical-triangle squared-quartic standard-deviation stereographic Sudano surface-area Sutherland Sutherland-Hodgman tangent-circles Terrestrial-Reference-Frame Thomas Tienstra tilt TMcoords TMExact toise transverse TransverseMercatorExact TRF triangle triangulate triaxial triaxial-ellipsoid trigonometry trilaterate trilaterate-2d trilaterate-3d TwoProduct TwoSum umbilic-point unit unroll UPS UTM UTM/UPS variance velocities Veness Vermeille viewing-frustum Vincenty Visvalingam Visvalingam-Whyatt volume  volumetric Web-Mercator Welford WGRS WGS Whyatt Wildberger Witkam winding-number XYZ yaw You zenzi-cubic zenzi-quartic
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -126,7 +126,7 @@ test results (on macOS only) and the complete documentation_ generated by Epydoc
 Tests
 =====
 
-The tests ran with Python 3.14.3 (with geographiclib_ 2.1), Python 3.13.11 (with geographiclib_ 2.1,
+The tests ran with Python 3.14.3 (with geographiclib_ 2.1), Python 3.13.12 (with geographiclib_ 2.1,
 numpy_ 2.3.3, scipy_ 1.16.2, GeoConvert_ 2.7, GeodSolve_ 2.7 and Geod3Solve_ 2.7), Python 3.12.10 (with
 geographiclib_ 2.0, numpy_ 2.1.0, scipy_ 1.14.1, GeodSolve_ 2.7, Geod3Solve_ 2.7, IntersectTool_ 2.7
 and RhumbSolve_ 2.7), Python 3.11.9 (with geographiclib_ 2.0, numpy_ 1.24.2 and scipy_ 1.10.1) and with
@@ -137,10 +137,10 @@ All tests ran with and without ``lazy import`` for Python 3 and with command lin
 and env variable ``PYGEODESY_WARNINGS=on`` for all Python versions.  The results of those tests are
 included in the distribution files.
 
-Python 3.14.3, 3.13.11, 3.12.10 and 3.11.9 run on Apple M4 Si (``arm64``), *natively*.  Python 2.7.18 runs
+Python 3.14.3, 3.13.12, 3.12.10 and 3.11.9 run on Apple M4 Si (``arm64``), *natively*.  Python 2.7.18 runs
 on Intel (``x86_64``) or Intel *emulation* (\"``arm64_x86_64``\", see function `pygeodesy.machine`_).
 
-Test coverage has been measured with coverage_ 7.10.7 using Python 3.14.3, 3.13.11 and 3.12.10.  The
+Test coverage has been measured with coverage_ 7.10.7 using Python 3.14.3, 3.13.12 and 3.12.10.  The
 complete coverage report in HTML and a PDF summary are included in the distribution files.
 
 The tests also ran with Python 3.14.3 (and geographiclib_ 2.1) on `Debian 12`_ in 64-bit only and with
@@ -166,12 +166,12 @@ Server 2012R2, Windows 10 Pro and 32-bit Python 2.6.6 on Windows XP SP3.
 Notes
 =====
 
-All Python source code has been statically checked_ with Ruff_ using Python 3.13.11 and with PyChecker_, PyFlakes_,
+All Python source code has been statically checked_ with Ruff_ using Python 3.13.12 and with PyChecker_, PyFlakes_,
 PyCodeStyle_ (formerly Pep8) and McCabe_ using Python 2.7.18, both in 64-bit on macOS 26.3 Tahoe only.
 
 For a summary of all *Karney*-based functionality in ``pygeodesy``, see module karney_.
 
-*Last updated: Feb 26, 2026.*
+*Last updated: Mar 26, 2026.*
 
 License
 =======

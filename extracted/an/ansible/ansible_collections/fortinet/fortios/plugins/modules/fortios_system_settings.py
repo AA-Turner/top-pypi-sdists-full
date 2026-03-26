@@ -914,6 +914,10 @@ options:
                 description:
                     - Controller IP address or FQDN to connect.
                 type: str
+            lan_extension_controller_port:
+                description:
+                    - Controller port to connect.
+                type: int
             link_down_access:
                 description:
                     - Enable/disable link down access traffic.
@@ -1303,6 +1307,7 @@ EXAMPLES = """
           ip: "<your_own_value>"
           ip6: "<your_own_value>"
           lan_extension_controller_addr: "<your_own_value>"
+          lan_extension_controller_port: "5246"
           link_down_access: "enable"
           lldp_reception: "enable"
           lldp_transmission: "enable"
@@ -1563,6 +1568,7 @@ def filter_system_settings_data(json):
         "ip",
         "ip6",
         "lan_extension_controller_addr",
+        "lan_extension_controller_port",
         "link_down_access",
         "lldp_reception",
         "lldp_transmission",
@@ -1814,6 +1820,10 @@ versioned_schema = {
         "lan_extension_controller_addr": {
             "v_range": [["v7.2.1", ""]],
             "type": "string",
+        },
+        "lan_extension_controller_port": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "integer",
         },
         "opmode": {
             "v_range": [["v6.0.0", ""]],
@@ -2618,7 +2628,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_settings"
         )

@@ -58,7 +58,6 @@ class _NetworkFileSystem(modal._object._Object):
     def from_name(
         name: str,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         client: typing.Optional[modal.client._Client] = None,
@@ -104,7 +103,6 @@ class _NetworkFileSystem(modal._object._Object):
     @staticmethod
     async def create_deployed(
         deployment_name: str,
-        namespace=None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
     ) -> str:
@@ -217,7 +215,6 @@ class NetworkFileSystem(modal.object.Object):
     def from_name(
         name: str,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         client: typing.Optional[modal.client.Client] = None,
@@ -290,7 +287,6 @@ class NetworkFileSystem(modal.object.Object):
             self,
             /,
             deployment_name: str,
-            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ) -> str:
@@ -301,7 +297,6 @@ class NetworkFileSystem(modal.object.Object):
             self,
             /,
             deployment_name: str,
-            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ) -> str:

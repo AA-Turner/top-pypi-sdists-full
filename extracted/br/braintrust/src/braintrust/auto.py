@@ -4,10 +4,10 @@ Auto-instrumentation for AI/ML libraries.
 Provides one-line instrumentation for supported libraries.
 """
 
-from __future__ import annotations
-
 import logging
 from contextlib import contextmanager
+
+from braintrust.integrations import ADKIntegration, AgnoIntegration, AnthropicIntegration, ClaudeAgentSDKIntegration
 
 
 __all__ = ["auto_instrument"]
@@ -107,7 +107,7 @@ def auto_instrument(
     if openai:
         results["openai"] = _instrument_openai()
     if anthropic:
-        results["anthropic"] = _instrument_anthropic()
+        results["anthropic"] = _instrument_integration(AnthropicIntegration)
     if litellm:
         results["litellm"] = _instrument_litellm()
     if pydantic_ai:
@@ -115,13 +115,13 @@ def auto_instrument(
     if google_genai:
         results["google_genai"] = _instrument_google_genai()
     if agno:
-        results["agno"] = _instrument_agno()
+        results["agno"] = _instrument_integration(AgnoIntegration)
     if claude_agent_sdk:
-        results["claude_agent_sdk"] = _instrument_claude_agent_sdk()
+        results["claude_agent_sdk"] = _instrument_integration(ClaudeAgentSDKIntegration)
     if dspy:
         results["dspy"] = _instrument_dspy()
     if adk:
-        results["adk"] = _instrument_adk()
+        results["adk"] = _instrument_integration(ADKIntegration)
 
     return results
 
@@ -134,11 +134,9 @@ def _instrument_openai() -> bool:
     return False
 
 
-def _instrument_anthropic() -> bool:
+def _instrument_integration(integration) -> bool:
     with _try_patch():
-        from braintrust.wrappers.anthropic import patch_anthropic
-
-        return patch_anthropic()
+        return integration.setup()
     return False
 
 
@@ -166,33 +164,9 @@ def _instrument_google_genai() -> bool:
     return False
 
 
-def _instrument_agno() -> bool:
-    with _try_patch():
-        from braintrust.wrappers.agno import setup_agno
-
-        return setup_agno()
-    return False
-
-
-def _instrument_claude_agent_sdk() -> bool:
-    with _try_patch():
-        from braintrust.wrappers.claude_agent_sdk import setup_claude_agent_sdk
-
-        return setup_claude_agent_sdk()
-    return False
-
-
 def _instrument_dspy() -> bool:
     with _try_patch():
         from braintrust.wrappers.dspy import patch_dspy
 
         return patch_dspy()
-    return False
-
-
-def _instrument_adk() -> bool:
-    with _try_patch():
-        from braintrust.wrappers.adk import setup_adk
-
-        return setup_adk()
     return False

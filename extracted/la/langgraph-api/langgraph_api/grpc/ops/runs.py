@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import random
+import time
 from contextlib import asynccontextmanager
 from datetime import UTC
 from http import HTTPStatus
@@ -38,10 +40,18 @@ from starlette.exceptions import HTTPException
 
 from langgraph_api.asyncio import ValueEvent
 from langgraph_api.auth.custom import handle_event as auth_handle_event
+from langgraph_api.config import (
+    STREAM_PUBLISH_RETRY_BACKOFF_FACTOR,
+    STREAM_PUBLISH_RETRY_INITIAL_INTERVAL_SECS,
+    STREAM_PUBLISH_RETRY_JITTER,
+    STREAM_PUBLISH_RETRY_MAX_DURATION_SECS,
+    STREAM_PUBLISH_RETRY_MAX_INTERVAL_SECS,
+)
 from langgraph_api.errors import UserInterrupt, UserRollback
 from langgraph_api.graph import SYSTEM_ASSISTANT_IDS
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
+    GRPC_STATUS_TO_HTTP_STATUS,
     Authenticated,
     _filters_to_proto,
     _handle_grpc_error,
@@ -141,27 +151,42 @@ class GrpcRetryableException(Exception):
     pass
 
 
+class StreamPublishException(Exception):
+    """Exception raised when stream event publish fails."""
+
+    def __init__(self, status_code: int, detail: str | None = None) -> None:
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(f"stream publish failed ({status_code}): {detail}")
+
+
 GRPC_RETRIABLE_STATUS_CODES = (
     StatusCode.UNAVAILABLE,
     StatusCode.DEADLINE_EXCEEDED,
 )
 
-STREAM_PUBLISH_RETRYABLE_ERROR_DETAILS = (
-    "failed to publish stream event",
-    "failed to execute lua script",
-    "failed to load lua script",
+PUBLISH_RETRIABLE_STATUS_CODES = frozenset(
+    {
+        StatusCode.CANCELLED,
+        StatusCode.UNAVAILABLE,
+        StatusCode.DEADLINE_EXCEEDED,
+        StatusCode.RESOURCE_EXHAUSTED,
+        StatusCode.ABORTED,
+        StatusCode.INTERNAL,
+    }
 )
 
 
-def _is_retryable_stream_publish_error(error: AioRpcError) -> bool:
-    if error.code() in GRPC_RETRIABLE_STATUS_CODES:
-        return True
-
-    if error.code() != StatusCode.INTERNAL:
-        return False
-
-    details = (error.details() or "").lower()
-    return any(marker in details for marker in STREAM_PUBLISH_RETRYABLE_ERROR_DETAILS)
+def _raise_stream_publish_exception(error: AioRpcError) -> None:
+    http_status = GRPC_STATUS_TO_HTTP_STATUS.get(
+        error.code(),
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+    )
+    detail = str(error.details() or "") or None
+    raise StreamPublishException(
+        status_code=int(http_status),
+        detail=detail,
+    ) from error
 
 
 class GrpcStreamHandler:
@@ -958,15 +983,53 @@ class Runs(Authenticated):
                 message=message,
                 resumable=resumable,
             )
-            try:
-                await client.runs.Publish(request)
-            except AioRpcError as e:
-                if _is_retryable_stream_publish_error(e):
-                    raise GrpcRetryableException(
-                        "retryable stream publish failure "
-                        f"({e.code().name}): {e.details()}"
-                    ) from e
-                _handle_grpc_error(e)
+            max_duration_secs = max(0.0, STREAM_PUBLISH_RETRY_MAX_DURATION_SECS)
+            initial_interval_secs = max(
+                0.001, STREAM_PUBLISH_RETRY_INITIAL_INTERVAL_SECS
+            )
+            max_interval_secs = max(
+                initial_interval_secs, STREAM_PUBLISH_RETRY_MAX_INTERVAL_SECS
+            )
+            backoff_factor = max(1.0, STREAM_PUBLISH_RETRY_BACKOFF_FACTOR)
+            jitter = min(1.0, max(0.0, STREAM_PUBLISH_RETRY_JITTER))
+
+            deadline = time.monotonic() + max_duration_secs
+            interval_secs = initial_interval_secs
+            attempt = 1
+
+            while True:
+                try:
+                    await client.runs.Publish(request)
+                    return
+                except AioRpcError as e:
+                    if e.code() not in PUBLISH_RETRIABLE_STATUS_CODES:
+                        _raise_stream_publish_exception(e)
+
+                    now = time.monotonic()
+                    remaining_secs = deadline - now
+                    if remaining_secs <= 0:
+                        _raise_stream_publish_exception(e)
+
+                    jitter_multiplier = 1 + random.uniform(-jitter, jitter)
+                    retry_delay_secs = max(0.0, interval_secs * jitter_multiplier)
+                    retry_delay_secs = min(retry_delay_secs, remaining_secs)
+
+                    await logger.awarning(
+                        "Retrying stream publish after retriable gRPC error",
+                        run_id=str(run_id) if run_id is not None else "*",
+                        thread_id=str(thread_id),
+                        event_type=event,
+                        attempt=attempt,
+                        retry_in_secs=retry_delay_secs,
+                        grpc_status=e.code().name,
+                    )
+
+                    await asyncio.sleep(retry_delay_secs)
+                    interval_secs = min(
+                        interval_secs * backoff_factor,
+                        max_interval_secs,
+                    )
+                    attempt += 1
 
     @staticmethod
     def enter(

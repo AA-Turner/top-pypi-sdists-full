@@ -3,7 +3,7 @@ Type annotations for marketplace-agreement service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -25,7 +25,10 @@ else:
 __all__ = (
     "AgreementServiceServiceName",
     "AgreementStatusType",
+    "ListAgreementPaymentRequestsPaginatorName",
+    "PaginatorName",
     "PaymentRequestApprovalStrategyType",
+    "PaymentRequestStatusType",
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
@@ -44,7 +47,11 @@ AgreementStatusType = Literal[
     "SUPERSEDED",
     "TERMINATED",
 ]
+ListAgreementPaymentRequestsPaginatorName = Literal["list_agreement_payment_requests"]
 PaymentRequestApprovalStrategyType = Literal["AUTO_APPROVE_ON_EXPIRATION", "WAIT_FOR_APPROVAL"]
+PaymentRequestStatusType = Literal[
+    "APPROVED", "CANCELLED", "PENDING_APPROVAL", "REJECTED", "VALIDATING", "VALIDATION_FAILED"
+]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 AgreementServiceServiceName = Literal["marketplace-agreement"]
 ServiceName = Literal[
@@ -149,6 +156,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -188,16 +196,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -237,7 +244,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -412,7 +418,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -446,6 +454,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -453,6 +462,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -466,4 +476,5 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_agreement_payment_requests"]
 RegionName = Literal["us-east-1"]

@@ -30,8 +30,8 @@ class PatchPolicy(BaseModel):
     description: Optional[StrictStr] = None
     owner_group_id: Optional[StrictStr] = None
     webhook_id: Optional[StrictStr] = None
-    grace_period_days: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["name", "description", "owner_group_id", "webhook_id", "grace_period_days"]
+    enforcement_delay_days: Optional[StrictInt] = None
+    __properties: ClassVar[List[str]] = ["name", "description", "owner_group_id", "webhook_id", "enforcement_delay_days"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,10 +92,10 @@ class PatchPolicy(BaseModel):
         if self.webhook_id is None and "webhook_id" in self.model_fields_set:
             _dict['webhook_id'] = None
 
-        # set to None if grace_period_days (nullable) is None
+        # set to None if enforcement_delay_days (nullable) is None
         # and model_fields_set contains the field
-        if self.grace_period_days is None and "grace_period_days" in self.model_fields_set:
-            _dict['grace_period_days'] = None
+        if self.enforcement_delay_days is None and "enforcement_delay_days" in self.model_fields_set:
+            _dict['enforcement_delay_days'] = None
 
         return _dict
 
@@ -113,7 +113,7 @@ class PatchPolicy(BaseModel):
             "description": obj.get("description"),
             "owner_group_id": obj.get("owner_group_id"),
             "webhook_id": obj.get("webhook_id"),
-            "grace_period_days": obj.get("grace_period_days")
+            "enforcement_delay_days": obj.get("enforcement_delay_days")
         })
         return _obj
 

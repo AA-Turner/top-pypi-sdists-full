@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Type, Union
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -8,10 +8,36 @@ from beanie.exceptions import (
     UnionHasNoRegisteredDocs,
 )
 from beanie.odm.interfaces.detector import ModelType
-from beanie.odm.utils.pydantic import get_config_value, parse_model
+from beanie.odm.utils.pydantic import (
+    get_config_value,
+    get_model_fields,
+    parse_model,
+)
 
 if TYPE_CHECKING:
     from beanie.odm.documents import Document
+
+
+def _is_field_frozen(model: BaseModel, field_name: str) -> bool:
+    """Check if a specific field on a model is frozen."""
+    fields = get_model_fields(model)
+    field_info = fields.get(field_name)
+    if field_info is not None and field_info.frozen:
+        return True
+    return False
+
+
+def _safe_setattr(model: BaseModel, field_name: str, value: Any) -> None:
+    """Set a field value, bypassing Pydantic validation for frozen fields."""
+    if _is_field_frozen(model, field_name):
+        # Bypass Pydantic's __setattr__ which raises ValidationError
+        # for frozen fields. This is safe because values being merged
+        # come from other already-validated models (e.g., DB-fetched
+        # documents or models built via model_dump), not from raw or
+        # otherwise untrusted user input.
+        object.__setattr__(model, field_name, value)
+    else:
+        model.__setattr__(field_name, value)
 
 
 def merge_models(left: BaseModel, right: BaseModel) -> None:
@@ -21,34 +47,29 @@ def merge_models(left: BaseModel, right: BaseModel) -> None:
     :param right: right model
     :return: None
     """
-    from beanie.odm.fields import Link
+    from beanie.odm.fields import BackLink, Link
 
-    for k, right_value in right.__iter__():
+    # Use BaseModel.__iter__ to bypass custom __iter__ overrides
+    # (e.g. RootModel subclasses that yield non-tuple values).
+    for k, right_value in BaseModel.__iter__(right):
         left_value = getattr(left, k, None)
         if isinstance(right_value, BaseModel) and isinstance(
             left_value, BaseModel
         ):
             if get_config_value(left_value, "frozen"):
-                left.__setattr__(k, right_value)
+                _safe_setattr(left, k, right_value)
             else:
                 merge_models(left_value, right_value)
             continue
         if isinstance(right_value, list):
-            links_found = False
-            for i in right_value:
-                if isinstance(i, Link):
-                    links_found = True
-                    break
-            if links_found:
+            if any(isinstance(i, (Link, BackLink)) for i in right_value):
                 continue
-            left.__setattr__(k, right_value)
-        elif not isinstance(right_value, Link):
-            left.__setattr__(k, right_value)
+            _safe_setattr(left, k, right_value)
+        elif not isinstance(right_value, (Link, BackLink)):
+            _safe_setattr(left, k, right_value)
 
 
-def apply_changes(
-    changes: Dict[str, Any], target: Union[BaseModel, Dict[str, Any]]
-):
+def apply_changes(changes: dict[str, Any], target: BaseModel | dict[str, Any]):
     for key, value in changes.items():
         if "." in key:
             key_parts = key.split(".")
@@ -93,13 +114,13 @@ def save_state(item: BaseModel):
 
 
 def parse_obj(
-    model: Union[Type[BaseModel], Type["Document"]],
+    model: type[BaseModel] | type["Document"],
     data: Any,
     lazy_parse: bool = False,
 ) -> BaseModel:
     if (
         hasattr(model, "get_model_type")
-        and model.get_model_type() == ModelType.UnionDoc  # type: ignore
+        and model.get_model_type() is ModelType.UnionDoc  # type: ignore
     ):
         if model._document_models is None:  # type: ignore
             raise UnionHasNoRegisteredDocs
@@ -118,7 +139,7 @@ def parse_obj(
         )  # type: ignore
     if (
         hasattr(model, "get_model_type")
-        and model.get_model_type() == ModelType.Document  # type: ignore
+        and model.get_model_type() is ModelType.Document  # type: ignore
         and model._inheritance_inited  # type: ignore
     ):
         if isinstance(data, dict):
@@ -138,7 +159,7 @@ def parse_obj(
     if (
         lazy_parse
         and hasattr(model, "get_model_type")
-        and model.get_model_type() == ModelType.Document  # type: ignore
+        and model.get_model_type() is ModelType.Document  # type: ignore
     ):
         o = model.lazy_parse(data, {"_id"})  # type: ignore
         o._saved_state = {"_id": o.id}

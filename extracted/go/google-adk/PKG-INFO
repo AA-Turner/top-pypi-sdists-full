@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.27.4
+Version: 1.27.5
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -79,7 +79,7 @@ Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme ; extra == "docs"
 Requires-Dist: Jinja2>=3.1.4,<4.0.0 ; extra == "eval"
 Requires-Dist: gepa>=0.1.0 ; extra == "eval"
-Requires-Dist: google-cloud-aiplatform[evaluation]>=1.100.0 ; extra == "eval"
+Requires-Dist: google-cloud-aiplatform[evaluation]>=1.143.0 ; extra == "eval"
 Requires-Dist: pandas>=2.2.3 ; extra == "eval"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "eval"
 Requires-Dist: tabulate>=0.9.0 ; extra == "eval"

@@ -166,7 +166,7 @@ prompt: |
   | /compact         | Compact conversation to reduce token usage          |
   | /usage           | Show token usage and cost statistics                |
   | /tools           | Show available tools with tier assignments          |
-  | /spec            | Manage specs (list/show/create/approve/unapprove/diff) |
+  | /spec            | Manage specs (list/show/create/approve/unapprove/diff/dashboard) |
   | /pack            | Manage packs (list/install/update/remove/attach/detach) |
   | /mcp             | Show MCP server status and tools                    |
   | /conventions     | Display space conventions (ANTEROOM.md)             |

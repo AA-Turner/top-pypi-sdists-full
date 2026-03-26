@@ -746,15 +746,17 @@ class ExternalSource(object):
      - keySchema
      - valueSchema
      - factoryConfig
+     - offlineGroupBy
 
     """
 
 
-    def __init__(self, metadata=None, keySchema=None, valueSchema=None, factoryConfig=None,):
+    def __init__(self, metadata=None, keySchema=None, valueSchema=None, factoryConfig=None, offlineGroupBy=None,):
         self.metadata = metadata
         self.keySchema = keySchema
         self.valueSchema = valueSchema
         self.factoryConfig = factoryConfig
+        self.offlineGroupBy = offlineGroupBy
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -789,6 +791,12 @@ class ExternalSource(object):
                     self.factoryConfig.read(iprot)
                 else:
                     iprot.skip(ftype)
+            elif fid == 5:
+                if ftype == TType.STRUCT:
+                    self.offlineGroupBy = GroupBy()
+                    self.offlineGroupBy.read(iprot)
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -814,6 +822,10 @@ class ExternalSource(object):
         if self.factoryConfig is not None:
             oprot.writeFieldBegin('factoryConfig', TType.STRUCT, 4)
             self.factoryConfig.write(oprot)
+            oprot.writeFieldEnd()
+        if self.offlineGroupBy is not None:
+            oprot.writeFieldBegin('offlineGroupBy', TType.STRUCT, 5)
+            self.offlineGroupBy.write(oprot)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -1085,17 +1097,21 @@ class Aggregation(object):
       - Window > 12 days  -> Hop Size = 1 day
       - Window > 12 hours -> Hop Size = 1 hr
       - Window > 1hr      -> Hop Size = 5 minutes
-     - buckets: This is an additional layer of aggregation. You can key a group_by by user, and bucket a “item_view” count by “item_category”. This will produce one row per user, with column containing map of “item_category” to “view_count”. You can specify multiple such buckets at once
+     - buckets: This is an additional layer of aggregation. You can key a group_by by user, and bucket a "item_view" count by "item_category". This will produce one row per user, with column containing map of "item_category" to "view_count". You can specify multiple such buckets at once
+     - elementWise: When set to true and inputColumn is an array/list type, applies the operation element-wise across the arrays.
+    For example, AVERAGE with elementWise=true on [[1,2,3], [4,5,6]] produces [2.5, 3.5, 4.5].
+    This allows any operation (SUM, AVERAGE, MAX, MIN, etc.) to work on list.
 
     """
 
 
-    def __init__(self, inputColumn=None, operation=None, argMap=None, windows=None, buckets=None,):
+    def __init__(self, inputColumn=None, operation=None, argMap=None, windows=None, buckets=None, elementWise=None,):
         self.inputColumn = inputColumn
         self.operation = operation
         self.argMap = argMap
         self.windows = windows
         self.buckets = buckets
+        self.elementWise = elementWise
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -1148,6 +1164,11 @@ class Aggregation(object):
                     iprot.readListEnd()
                 else:
                     iprot.skip(ftype)
+            elif fid == 6:
+                if ftype == TType.BOOL:
+                    self.elementWise = iprot.readBool()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -1188,6 +1209,10 @@ class Aggregation(object):
                 oprot.writeString(iter61.encode('utf-8') if sys.version_info[0] == 2 else iter61)
             oprot.writeListEnd()
             oprot.writeFieldEnd()
+        if self.elementWise is not None:
+            oprot.writeFieldBegin('elementWise', TType.BOOL, 6)
+            oprot.writeBool(self.elementWise)
+            oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
 
@@ -1214,16 +1239,18 @@ class AggregationPart(object):
      - argMap
      - window
      - bucket
+     - elementWise
 
     """
 
 
-    def __init__(self, inputColumn=None, operation=None, argMap=None, window=None, bucket=None,):
+    def __init__(self, inputColumn=None, operation=None, argMap=None, window=None, bucket=None, elementWise=None,):
         self.inputColumn = inputColumn
         self.operation = operation
         self.argMap = argMap
         self.window = window
         self.bucket = bucket
+        self.elementWise = elementWise
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -1266,6 +1293,11 @@ class AggregationPart(object):
                     self.bucket = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
                 else:
                     iprot.skip(ftype)
+            elif fid == 6:
+                if ftype == TType.BOOL:
+                    self.elementWise = iprot.readBool()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -1299,6 +1331,10 @@ class AggregationPart(object):
         if self.bucket is not None:
             oprot.writeFieldBegin('bucket', TType.STRING, 5)
             oprot.writeString(self.bucket.encode('utf-8') if sys.version_info[0] == 2 else self.bucket)
+            oprot.writeFieldEnd()
+        if self.elementWise is not None:
+            oprot.writeFieldBegin('elementWise', TType.BOOL, 6)
+            oprot.writeBool(self.elementWise)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -3122,6 +3158,7 @@ ExternalSource.thrift_spec = (
     (2, TType.STRUCT, 'keySchema', [TDataType, None], None, ),  # 2
     (3, TType.STRUCT, 'valueSchema', [TDataType, None], None, ),  # 3
     (4, TType.STRUCT, 'factoryConfig', [ExternalSourceFactoryConfig, None], None, ),  # 4
+    (5, TType.STRUCT, 'offlineGroupBy', [GroupBy, None], None, ),  # 5
 )
 all_structs.append(JoinSource)
 JoinSource.thrift_spec = (
@@ -3150,6 +3187,7 @@ Aggregation.thrift_spec = (
     (3, TType.MAP, 'argMap', (TType.STRING, 'UTF8', TType.STRING, 'UTF8', False), None, ),  # 3
     (4, TType.LIST, 'windows', (TType.STRUCT, [Window, None], False), None, ),  # 4
     (5, TType.LIST, 'buckets', (TType.STRING, 'UTF8', False), None, ),  # 5
+    (6, TType.BOOL, 'elementWise', None, None, ),  # 6
 )
 all_structs.append(AggregationPart)
 AggregationPart.thrift_spec = (
@@ -3159,6 +3197,7 @@ AggregationPart.thrift_spec = (
     (3, TType.MAP, 'argMap', (TType.STRING, 'UTF8', TType.STRING, 'UTF8', False), None, ),  # 3
     (4, TType.STRUCT, 'window', [Window, None], None, ),  # 4
     (5, TType.STRING, 'bucket', 'UTF8', None, ),  # 5
+    (6, TType.BOOL, 'elementWise', None, None, ),  # 6
 )
 all_structs.append(MetaData)
 MetaData.thrift_spec = (

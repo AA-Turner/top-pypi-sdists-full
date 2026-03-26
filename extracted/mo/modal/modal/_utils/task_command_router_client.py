@@ -11,7 +11,6 @@ from typing import AsyncGenerator, Optional
 
 import grpclib.client
 import grpclib.config
-import grpclib.events
 from grpclib import GRPCError, Status
 from grpclib.exceptions import StreamTerminatedError
 
@@ -22,8 +21,21 @@ from modal_proto.task_command_router_grpc import TaskCommandRouterStub
 
 from .._grpc_client import grpc_error_converter
 from .._utils.grpc_utils import PermanentCloseableChannel
-from .async_utils import aclosing
-from .grpc_utils import RETRYABLE_GRPC_STATUS_CODES, connect_channel
+from .async_utils import aclosing, retry
+from .grpc_utils import RETRYABLE_GRPC_STATUS_CODES
+
+
+@retry(n_attempts=34, base_delay=1, max_delay=10, attempt_timeout=10, total_timeout=310)
+async def _connect_channel(channel: grpclib.client.Channel):
+    """Connect to the command router channel.
+
+    Uses a longer retry budget than grpc_utils.connect_channel. In rare cases the sandbox
+    may take a long time to start on the worker after scheduling.
+
+    Retries with exponential backoff (1, 2, 4, 8, 10, 10, ...) capped at 10s per delay.
+    Total sleep between attempts: 1 + 2 + 4 + 8 + 10*29 = 305s (~5 min).
+    """
+    await channel.__connect__()
 
 
 def _b64url_decode(data: str) -> bytes:
@@ -169,7 +181,7 @@ class TaskCommandRouterClient:
             closed_error_message="Unable to perform operation on a detached sandbox",
         )
 
-        await connect_channel(channel)
+        await _connect_channel(channel)
         loop = asyncio.get_running_loop()
         jwt_refresh_lock = asyncio.Lock()
 
@@ -240,6 +252,44 @@ class TaskCommandRouterClient:
         with grpc_error_converter():
             return await call_with_retries_on_transient_errors(
                 lambda: self._call_with_auth_retry(self._stub.TaskExecStart, request)
+            )
+
+    async def container_create(self, request: sr_pb2.TaskContainerCreateRequest) -> sr_pb2.TaskContainerCreateResponse:
+        """Create an additional container via task command router."""
+        with grpc_error_converter():
+            return await call_with_retries_on_transient_errors(
+                lambda: self._call_with_auth_retry(self._stub.TaskContainerCreate, request)
+            )
+
+    async def container_terminate(
+        self,
+        request: sr_pb2.TaskContainerTerminateRequest,
+    ) -> sr_pb2.TaskContainerTerminateResponse:
+        """Terminate an additional container via task command router."""
+        with grpc_error_converter():
+            return await call_with_retries_on_transient_errors(
+                lambda: self._call_with_auth_retry(self._stub.TaskContainerTerminate, request)
+            )
+
+    async def container_wait(self, request: sr_pb2.TaskContainerWaitRequest) -> sr_pb2.TaskContainerWaitResponse:
+        """Wait for an additional container via task command router."""
+        with grpc_error_converter():
+            return await call_with_retries_on_transient_errors(
+                lambda: self._call_with_auth_retry(self._stub.TaskContainerWait, request)
+            )
+
+    async def container_get(self, request: sr_pb2.TaskContainerGetRequest) -> sr_pb2.TaskContainerGetResponse:
+        """Get the latest tracked container for a logical name via task command router."""
+        with grpc_error_converter():
+            return await call_with_retries_on_transient_errors(
+                lambda: self._call_with_auth_retry(self._stub.TaskContainerGet, request)
+            )
+
+    async def container_list(self, request: sr_pb2.TaskContainerListRequest) -> sr_pb2.TaskContainerListResponse:
+        """List sandbox containers via task command router."""
+        with grpc_error_converter():
+            return await call_with_retries_on_transient_errors(
+                lambda: self._call_with_auth_retry(self._stub.TaskContainerList, request)
             )
 
     async def exec_stdio_read(

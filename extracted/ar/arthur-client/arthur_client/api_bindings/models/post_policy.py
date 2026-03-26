@@ -19,6 +19,8 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.post_policy_alert_rule import PostPolicyAlertRule
+from arthur_client.api_bindings.models.post_policy_attestation_rule import PostPolicyAttestationRule
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -30,8 +32,10 @@ class PostPolicy(BaseModel):
     description: Optional[StrictStr] = None
     owner_group_id: StrictStr = Field(description="The ID of the group that owns this policy.")
     webhook_id: StrictStr = Field(description="The ID of the notification webhook.")
-    grace_period_days: StrictInt = Field(description="The number of days for the grace period.")
-    __properties: ClassVar[List[str]] = ["name", "description", "owner_group_id", "webhook_id", "grace_period_days"]
+    enforcement_delay_days: StrictInt = Field(description="The number of days for the enforcement delay.")
+    alert_rules: Optional[List[PostPolicyAlertRule]] = Field(default=None, description="Alert rules to create with the policy.")
+    attestation_rules: Optional[List[PostPolicyAttestationRule]] = Field(default=None, description="Attestation rules to create with the policy.")
+    __properties: ClassVar[List[str]] = ["name", "description", "owner_group_id", "webhook_id", "enforcement_delay_days", "alert_rules", "attestation_rules"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -72,6 +76,20 @@ class PostPolicy(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in alert_rules (list)
+        _items = []
+        if self.alert_rules:
+            for _item_alert_rules in self.alert_rules:
+                if _item_alert_rules:
+                    _items.append(_item_alert_rules.to_dict())
+            _dict['alert_rules'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in attestation_rules (list)
+        _items = []
+        if self.attestation_rules:
+            for _item_attestation_rules in self.attestation_rules:
+                if _item_attestation_rules:
+                    _items.append(_item_attestation_rules.to_dict())
+            _dict['attestation_rules'] = _items
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:
@@ -93,7 +111,9 @@ class PostPolicy(BaseModel):
             "description": obj.get("description"),
             "owner_group_id": obj.get("owner_group_id"),
             "webhook_id": obj.get("webhook_id"),
-            "grace_period_days": obj.get("grace_period_days")
+            "enforcement_delay_days": obj.get("enforcement_delay_days"),
+            "alert_rules": [PostPolicyAlertRule.from_dict(_item) for _item in obj["alert_rules"]] if obj.get("alert_rules") is not None else None,
+            "attestation_rules": [PostPolicyAttestationRule.from_dict(_item) for _item in obj["attestation_rules"]] if obj.get("attestation_rules") is not None else None
         })
         return _obj
 

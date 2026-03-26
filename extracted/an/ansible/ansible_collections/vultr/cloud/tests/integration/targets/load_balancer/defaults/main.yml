@@ -1,0 +1,33 @@
+---
+load_balancer_defaults:
+  label: "{{ vultr_resource_prefix }}_load_balancer"
+  region: ewr
+  state: present
+  forwarding_rules:
+    - frontend_port: 80
+      frontend_protocol: http
+      backend_port: 8080
+      backend_protocol: http
+  balancing_algorithm: roundrobin
+  ssl_redirect: true
+  http2: false
+  http3: false
+  nodes: 1
+  timeout: 600
+  health_check:
+    protocol: http
+    port: 80
+    path: /health
+    check_interval: 10
+    response_timeout: 5
+    unhealthy_threshold: 3
+    healthy_threshold: 5
+  proxy_protocol: false
+  firewall_rules:
+    - port: 80
+      source: 0.0.0.0/0
+      ip_type: v4
+    - port: 443
+      source: 0.0.0.0/0
+      ip_type: v4
+  global_regions: []

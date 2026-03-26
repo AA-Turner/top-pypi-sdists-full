@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervertaler
-Version: 1.9.360
+Version: 1.9.365
 Summary: Professional AI-enhanced translation workbench with multi-LLM support, glossary system, TM, spellcheck, voice commands, and PyQt6 interface. Batteries included (core).
 Home-page: https://supervertaler.com
 Author: Michael Beijer
@@ -80,7 +80,7 @@ Dynamic: requires-python
 
 **Professional AI-enhanced translation workbench** with multi-LLM support (GPT-4, Claude, Gemini, Ollama), translation memory, glossary management, and seamless CAT tool integration (memoQ, Trados, CafeTran, Phrase, Déjà Vu).
 
-**Latest release:** v1.9.360 - Superlookup in QuickLauncher, cross-platform window activation fix.
+**Latest release:** v1.9.365 – fix duplicate YAML frontmatter on prompt save.
 
 ---
 

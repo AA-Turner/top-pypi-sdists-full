@@ -306,7 +306,7 @@ class PlatoFusePerfWorld(BaseWorld[PlatoFusePerfWorldConfig]):
         )
         await self._run_local_ok(
             f"printf '%s\\n' '{path} "
-            "*(rw,sync,fsid=0,crossmnt,no_subtree_check,all_squash,anonuid=1000,anongid=1000)' "
+            "*(rw,sync,fsid=0,crossmnt,no_subtree_check,no_root_squash)' "
             "> /etc/exports && "
             "modprobe nfsd 2>/dev/null; "
             "mkdir -p /proc/fs/nfsd && "

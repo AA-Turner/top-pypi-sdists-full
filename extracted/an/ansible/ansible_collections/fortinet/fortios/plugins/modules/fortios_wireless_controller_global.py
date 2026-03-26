@@ -134,6 +134,10 @@ options:
                 description:
                     - Multicast IP address for AP discovery .
                 type: str
+            discovery_mc_addr6:
+                description:
+                    - 'Multicast IPv6 address for AP discovery .'
+                type: str
             fiapp_eth_type:
                 description:
                     - Ethernet type for Fortinet Inter-Access Point Protocol (IAPP), or IEEE 802.11f, packets (0 - 65535).
@@ -264,6 +268,7 @@ EXAMPLES = """
           data_ethernet_II: "enable"
           dfs_lab_test: "enable"
           discovery_mc_addr: "<your_own_value>"
+          discovery_mc_addr6: "<your_own_value>"
           fiapp_eth_type: "5252"
           image_download: "enable"
           ipsec_base_ip: "<your_own_value>"
@@ -282,7 +287,7 @@ EXAMPLES = """
           max_wids_entry: "0"
           mesh_eth_type: "8755"
           nac_interval: "120"
-          name: "default_name_29"
+          name: "default_name_30"
           rogue_scan_mac_adjacency: "7"
           rolling_wtp_upgrade: "enable"
           rolling_wtp_upgrade_threshold: "<your_own_value>"
@@ -392,6 +397,7 @@ def filter_wireless_controller_global_data(json):
         "data_ethernet_II",
         "dfs_lab_test",
         "discovery_mc_addr",
+        "discovery_mc_addr6",
         "fiapp_eth_type",
         "image_download",
         "ipsec_base_ip",
@@ -665,6 +671,7 @@ versioned_schema = {
         "mesh_eth_type": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "fiapp_eth_type": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "discovery_mc_addr": {"v_range": [["v6.0.0", ""]], "type": "string"},
+        "discovery_mc_addr6": {"v_range": [["v7.6.5", ""]], "type": "string"},
         "max_clients": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "rogue_scan_mac_adjacency": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "ipsec_base_ip": {"v_range": [["v6.0.0", ""]], "type": "string"},
@@ -751,7 +758,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "wireless_controller_global"
         )

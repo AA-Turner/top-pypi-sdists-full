@@ -17,7 +17,10 @@ import pandas as pd
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 from ibm_watsonx_ai.utils.utils import _get_default_args, get_from_json
-from ibm_watsonx_ai.wml_client_error import MissingValue, UnexpectedKeyWordArgument
+from ibm_watsonx_ai.wml_client_error import (
+    UnexpectedKeyWordArgument,
+    WMLClientError,
+)
 
 if TYPE_CHECKING:
     from langchain_core.documents import Document
@@ -166,20 +169,22 @@ def get_max_input_tokens(
         model.get_details(), ["model_limits", "max_sequence_length"]
     )
 
-    warn_msg = f"Model `{model.model_id}` limits cannot be found in the model details"
+    error_msg = (
+        f"Maximum input tokens for the model `{model.model_id}` cannot be calculated"
+    )
+    reason_msg = (
+        "Model limits with `max_sequence_length` cannot be found in the model details"
+    )
 
     if model_max_sequence_length is None:
-        logger.warning(warn_msg)
+        logger.warning(reason_msg)
         # use default param if passed
         model_max_sequence_length = (params or kwargs).get(
             "default_max_sequence_length"
         )
 
     if model_max_sequence_length is None:
-        raise MissingValue(
-            value_name="model_limits",
-            reason=warn_msg,
-        )
+        raise WMLClientError(error_msg=error_msg, reason=reason_msg)
 
     if isinstance(model.params, BaseSchema):
         params_dict = model.params.to_dict()

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # File generated from our OpenAPI spec
+from decimal import Decimal
 from stripe._request_options import RequestOptions
 from typing import List
 from typing_extensions import Literal, NotRequired, TypedDict
@@ -161,25 +162,25 @@ class AuthorizationCreateParamsFleetReportedBreakdown(TypedDict):
 
 
 class AuthorizationCreateParamsFleetReportedBreakdownFuel(TypedDict):
-    gross_amount_decimal: NotRequired[str]
+    gross_amount_decimal: NotRequired[Decimal]
     """
     Gross fuel amount that should equal Fuel Volume multipled by Fuel Unit Cost, inclusive of taxes.
     """
 
 
 class AuthorizationCreateParamsFleetReportedBreakdownNonFuel(TypedDict):
-    gross_amount_decimal: NotRequired[str]
+    gross_amount_decimal: NotRequired[Decimal]
     """
     Gross non-fuel amount that should equal the sum of the line items, inclusive of taxes.
     """
 
 
 class AuthorizationCreateParamsFleetReportedBreakdownTax(TypedDict):
-    local_amount_decimal: NotRequired[str]
+    local_amount_decimal: NotRequired[Decimal]
     """
     Amount of state or provincial Sales Tax included in the transaction amount. Null if not reported by merchant or not subject to tax.
     """
-    national_amount_decimal: NotRequired[str]
+    national_amount_decimal: NotRequired[Decimal]
     """
     Amount of national Sales Tax or VAT included in the transaction amount. Null if not reported by merchant or not subject to tax.
     """
@@ -190,7 +191,7 @@ class AuthorizationCreateParamsFuel(TypedDict):
     """
     [Conexxus Payment System Product Code](https://www.conexxus.org/conexxus-payment-system-product-codes) identifying the primary fuel product purchased.
     """
-    quantity_decimal: NotRequired[str]
+    quantity_decimal: NotRequired[Decimal]
     """
     The quantity of `unit`s of fuel that was dispensed, represented as a decimal string with at most 12 decimal places.
     """
@@ -221,7 +222,7 @@ class AuthorizationCreateParamsFuel(TypedDict):
     """
     The units for `quantity_decimal`. One of `charging_minute`, `imperial_gallon`, `kilogram`, `kilowatt_hour`, `liter`, `pound`, `us_gallon`, or `other`.
     """
-    unit_cost_decimal: NotRequired[str]
+    unit_cost_decimal: NotRequired[Decimal]
     """
     The cost in cents per each unit of fuel, represented as a decimal string with at most 12 decimal places.
     """
@@ -598,7 +599,7 @@ class AuthorizationCreateParamsRiskAssessmentCardTestingRisk(TypedDict):
     """
     The % of declines due to incorrect verification data (like CVV or expiry) in the past hour, taking place at the same merchant. Higher rates correspond to a greater probability of bad actors attempting to utilize valid card credentials at merchants with verification requirements. Takes on values between 0 and 100.
     """
-    risk_level: Literal[
+    level: Literal[
         "elevated", "highest", "low", "normal", "not_assessed", "unknown"
     ]
     """
@@ -624,7 +625,7 @@ class AuthorizationCreateParamsRiskAssessmentMerchantDisputeRisk(TypedDict):
     """
     The dispute rate observed across all Stripe Issuing authorizations for this merchant. For example, a value of 50 means 50% of authorizations from this merchant on Stripe Issuing have resulted in a dispute. Higher values mean a higher likelihood the authorization is disputed. Takes on values between 0 and 100.
     """
-    risk_level: Literal[
+    level: Literal[
         "elevated", "highest", "low", "normal", "not_assessed", "unknown"
     ]
     """

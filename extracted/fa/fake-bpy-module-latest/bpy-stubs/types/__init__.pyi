@@ -7685,7 +7685,7 @@ class LayerObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
     active: Object | None
     """ Active object for this layer"""
 
-    selected: typing.Any
+    selected: bpy_prop_collection[Object]
     """ All the selected objects of this layer (default None, readonly)"""
 
     @classmethod
@@ -13066,7 +13066,7 @@ class ActionConstraint(Constraint, bpy_struct):
     action_slot_handle: int
     """ A number that identifies which sub-set of the Action is considered to be for this Action Constraint (in [-inf, inf], default 0)"""
 
-    action_suitable_slots: typing.Any
+    action_suitable_slots: bpy_prop_collection[ActionSlot]
     """ The list of action slots suitable for this NLA strip (default None, readonly)"""
 
     eval_time: float
@@ -13154,7 +13154,7 @@ class ActionConstraint(Constraint, bpy_struct):
 class ActionGroup(bpy_struct):
     """Groups of F-Curves"""
 
-    channels: typing.Any
+    channels: bpy_prop_collection[FCurve]
     """ F-Curves in this group (default None, readonly)"""
 
     color_set: typing.Literal[bpy.stub_internal.rna_enums.ColorSetsItems]
@@ -13381,7 +13381,7 @@ This is used, for example, on a ActionKeyframeStrip to look up the ActionChannel
     target_id_type_icon: int
     """ (in [-inf, inf], default 0, readonly)"""
 
-    def users(self) -> None:
+    def users(self) -> bpy_prop_collection[ID]:
         """Return the data-blocks that are animated by this slot of this action
 
         :return: users
@@ -13725,7 +13725,7 @@ class AnimData(bpy_struct):
     action_slot_handle_tweak_storage: int
     """ Storage to temporarily hold the main action slot while in tweak mode (in [-inf, inf], default 0)"""
 
-    action_suitable_slots: typing.Any
+    action_suitable_slots: bpy_prop_collection[ActionSlot]
     """ The list of slots in this animation data-block (default None, readonly)"""
 
     action_tweak_storage: Action | None
@@ -14180,7 +14180,7 @@ class Area(bpy_struct):
     height: int
     """ Area height (in [0, 32767], default 0, readonly)"""
 
-    regions: typing.Any
+    regions: bpy_prop_collection[Region]
     """ Regions this area is subdivided in (default None, readonly)"""
 
     show_menus: bool
@@ -14330,7 +14330,7 @@ class Armature(ID, bpy_struct):
     collections: BoneCollections | None
     """ (default None)"""
 
-    collections_all: typing.Any
+    collections_all: bpy_prop_collection[BoneCollection]
     """ List of all bone collections of the armature (default None, readonly)"""
 
     display_type: typing.Literal["OCTAHEDRAL", "STICK", "BBONE", "ENVELOPE", "WIRE"]
@@ -15363,7 +15363,7 @@ class BlendData(bpy_struct):
     actions: BlendDataActions | None
     """ Action data-blocks (default None, readonly)"""
 
-    all_ids: typing.Any
+    all_ids: bpy_prop_collection[ID]
     """ Read-only list of all IDs listed in Blender data-base (default None, readonly)"""
 
     annotations: BlendDataAnnotations | None
@@ -15465,7 +15465,7 @@ class BlendData(bpy_struct):
     screens: BlendDataScreens | None
     """ Screen data-blocks (default None, readonly)"""
 
-    shape_keys: typing.Any
+    shape_keys: bpy_prop_collection[Key]
     """ Shape Key data-blocks (default None, readonly)"""
 
     sounds: BlendDataSounds | None
@@ -15483,7 +15483,7 @@ class BlendData(bpy_struct):
     use_autopack: bool
     """ Automatically pack all external data into .blend file (default False)"""
 
-    version: typing.Any
+    version: bpy_prop_array[int]
     """ File format version the .blend file was saved with (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
     volumes: BlendDataVolumes | None
@@ -15858,7 +15858,7 @@ class BlendTexture(Texture, ID, bpy_struct):
 class BlenderRNA(bpy_struct):
     """Blender RNA structure definitions"""
 
-    structs: typing.Any
+    structs: bpy_prop_collection[Struct]
     """ (default None, readonly)"""
 
     properties: bpy_prop_collection[Property]
@@ -16223,7 +16223,7 @@ class BoidSettings(bpy_struct):
     range: float
     """ Maximum distance from which a boid can attack (in [0, 100], default 0.0)"""
 
-    states: typing.Any
+    states: bpy_prop_collection[BoidState]
     """ (default None, readonly)"""
 
     strength: float
@@ -16284,7 +16284,7 @@ class BoidState(bpy_struct):
     rule_fuzzy: float
     """ (in [0, 1], default 0.0)"""
 
-    rules: typing.Any
+    rules: bpy_prop_collection[BoidRule]
     """ (default None, readonly)"""
 
     ruleset_type: typing.Literal["FUZZY", "RANDOM", "AVERAGE"]
@@ -16360,10 +16360,10 @@ class Bone(bpy_struct):
     bbone_handle_use_ease_start: bool
     """ Multiply the B-Bone Ease In channel by the local Y scale value of the start handle. This is done after the Scale Easing option and isn't affected by it. (default False)"""
 
-    bbone_handle_use_scale_end: typing.Any
+    bbone_handle_use_scale_end: bpy_prop_array[bool]
     """ Multiply B-Bone Scale Out channels by the local scale values of the end handle. This is done after the Scale Easing option and isn't affected by it. (array of 3 items, default (False, False, False))"""
 
-    bbone_handle_use_scale_start: typing.Any
+    bbone_handle_use_scale_start: bpy_prop_array[bool]
     """ Multiply B-Bone Scale In channels by the local scale values of the start handle. This is done after the Scale Easing option and isn't affected by it. (array of 3 items, default (False, False, False))"""
 
     bbone_mapping_mode: typing.Literal["STRAIGHT", "CURVED"]
@@ -16390,7 +16390,7 @@ class Bone(bpy_struct):
     bbone_z: float
     """ B-Bone Z size (in [-inf, inf], default 0.0)"""
 
-    children: typing.Any
+    children: bpy_prop_collection[Bone]
     """ Bones which are children of this bone (default None, readonly)"""
 
     collections: BoneCollectionMemberships | None
@@ -16647,13 +16647,13 @@ Utility function for (tail - head)(readonly)"""
 class BoneCollection(bpy_struct):
     """Bone collection in an Armature data-block"""
 
-    bones: typing.Any
+    bones: bpy_prop_collection[Bone]
     """ Bones assigned to this bone collection. In armature edit mode this will always return an empty list of bones, as the bone collection memberships are only synchronized when exiting edit mode. (default None, readonly)"""
 
     child_number: int
     """ Index of this collection into its parent's list of children. Note that finding this index requires a scan of all the bone collections, so do access this with care. (in [-inf, inf], default 0)"""
 
-    children: typing.Any
+    children: bpy_prop_collection[BoneCollection]
     """ (default None, readonly)"""
 
     index: int
@@ -16806,7 +16806,7 @@ class BoneColor(bpy_struct):
 class BoolAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores booleans"""
 
-    data: typing.Any
+    data: bpy_prop_collection[BoolAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -16874,7 +16874,7 @@ class BoolAttributeValue(bpy_struct):
 class BoolProperty(Property, bpy_struct):
     """RNA boolean property definition"""
 
-    array_dimensions: typing.Any
+    array_dimensions: bpy_prop_array[int]
     """ Length of each dimension of the array (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
     array_length: int
@@ -16883,7 +16883,7 @@ class BoolProperty(Property, bpy_struct):
     default: bool
     """ Default value for this number (default False, readonly)"""
 
-    default_array: typing.Any
+    default_array: bpy_prop_array[bool]
     """ Default value for this array (array of 3 items, default (False, False, False), readonly)"""
 
     is_array: bool
@@ -17141,10 +17141,10 @@ class Brush(ID, bpy_struct):
     crease_pinch_factor: float
     """ How much the crease brush pinches (in [0, 1], default 0.5)"""
 
-    cursor_color_add: typing.Any
+    cursor_color_add: bpy_prop_array[float]
     """ Color of cursor when adding (array of 4 items, in [0, inf], default (1.0, 0.39, 0.39, 0.9))"""
 
-    cursor_color_subtract: typing.Any
+    cursor_color_subtract: bpy_prop_array[float]
     """ Color of cursor when subtracting (array of 4 items, in [0, inf], default (0.39, 0.39, 1.0, 0.9))"""
 
     cursor_overlay_alpha: int
@@ -18480,7 +18480,7 @@ class BuildModifier(Modifier, bpy_struct):
 class ByteColorAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores RGBA colors as positive integer values using 8-bits per channel"""
 
-    data: typing.Any
+    data: bpy_prop_collection[ByteColorAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -18514,10 +18514,10 @@ class ByteColorAttribute(Attribute, bpy_struct):
 class ByteColorAttributeValue(bpy_struct):
     """Color value in geometry attribute"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ RGBA color in scene linear color space (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    color_srgb: typing.Any
+    color_srgb: bpy_prop_array[float]
     """ RGBA color in sRGB color space (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -18551,7 +18551,7 @@ class ByteColorAttributeValue(bpy_struct):
 class ByteIntAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores 8-bit integers"""
 
-    data: typing.Any
+    data: bpy_prop_collection[ByteIntAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -18909,7 +18909,7 @@ class Camera(ID, bpy_struct):
     clip_start: float
     """ Camera near clipping distance (in [1e-06, inf], default 0.1)"""
 
-    composition_guide_color: typing.Any
+    composition_guide_color: bpy_prop_array[float]
     """ Color and alpha for compositional guide overlays (array of 4 items, in [0, inf], default (0.5, 0.5, 0.5, 1.0))"""
 
     custom_bytecode: str
@@ -19620,13 +19620,13 @@ class ClothModifier(Modifier, bpy_struct):
     collision_settings: ClothCollisionSettings | None
     """ (readonly, never None)"""
 
-    hair_grid_max: typing.Any
+    hair_grid_max: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0), readonly)"""
 
-    hair_grid_min: typing.Any
+    hair_grid_min: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0), readonly)"""
 
-    hair_grid_resolution: typing.Any
+    hair_grid_resolution: bpy_prop_array[int]
     """ (array of 3 items, in [-inf, inf], default (0, 0, 0), readonly)"""
 
     point_cache: PointCache | None
@@ -19994,16 +19994,16 @@ class Collection(ID, bpy_struct):
     active_exporter_index: int | None
     """ Active index in the exporters list (in [0, inf], default 0)"""
 
-    all_objects: typing.Any
+    all_objects: bpy_prop_collection[Object]
     """ Objects that are in this collection and its child collections (default None, readonly)"""
 
     children: CollectionChildren | None
     """ Collections that are immediate children of this collection (default None, readonly)"""
 
-    collection_children: typing.Any
+    collection_children: bpy_prop_collection[CollectionChild]
     """ Children collections with their parent-collection-specific settings (default None, readonly)"""
 
-    collection_objects: typing.Any
+    collection_objects: bpy_prop_collection[CollectionObject]
     """ Objects of the collection with their parent-collection-specific settings (default None, readonly)"""
 
     color_tag: typing.Literal[bpy.stub_internal.rna_enums.CollectionColorItems]
@@ -20024,7 +20024,7 @@ class Collection(ID, bpy_struct):
     instance_offset: mathutils.Vector
     """ Offset from the origin to use when instancing (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    lineart_intersection_mask: typing.Any
+    lineart_intersection_mask: bpy_prop_array[bool]
     """ Intersection generated by this collection will have this mask value (array of 8 items, default (False, False, False, False, False, False, False, False))"""
 
     lineart_intersection_priority: int
@@ -20777,7 +20777,7 @@ class ColorRamp(bpy_struct):
     interpolation: typing.Literal["EASE", "CARDINAL", "LINEAR", "B_SPLINE", "CONSTANT"]
     """ Set interpolation between color stops (default 'LINEAR')"""
 
-    def evaluate(self, position: float | None) -> None:
+    def evaluate(self, position: float | None) -> bpy_prop_array[float]:
         """Evaluate Color Ramp
 
         :param position: Position, Evaluate Color Ramp at position (in [0, 1])
@@ -20818,7 +20818,7 @@ class ColorRampElement(bpy_struct):
     alpha: float
     """ Set alpha of selected color stop (in [0, inf], default 0.0)"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Set color of selected color stop (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     position: float
@@ -22095,7 +22095,7 @@ class CompositorNodeCryptomatteV2(CompositorNode, NodeInternal, Node, bpy_struct
     add: mathutils.Color
     """ Add object or material to matte, by picking a color from the Pick output (array of 3 items, in [-inf, inf], default (1.0, 1.0, 1.0))"""
 
-    entries: typing.Any
+    entries: bpy_prop_collection[CryptomatteEntry]
     """ (default None, readonly)"""
 
     frame_duration: int
@@ -27029,7 +27029,7 @@ class CurveMapping(bpy_struct):
     clip_min_y: float
     """ (in [-100, 100], default 0.0)"""
 
-    curves: typing.Any
+    curves: bpy_prop_collection[CurveMap]
     """ (default None, readonly)"""
 
     extend: typing.Literal["HORIZONTAL", "EXTRAPOLATED"]
@@ -27258,7 +27258,7 @@ class CurveProfile(bpy_struct):
     preset: typing.Literal["LINE", "SUPPORTS", "CORNICE", "CROWN", "STEPS"]
     """ (default 'LINE')"""
 
-    segments: typing.Any
+    segments: bpy_prop_collection[CurveProfilePoint]
     """ Segments sampled from control points (default None, readonly)"""
 
     use_clip: bool
@@ -27369,7 +27369,7 @@ class CurveSlice(bpy_struct):
     index: int
     """ Index of this curve (in [0, inf], default 0, readonly)"""
 
-    points: typing.Any
+    points: bpy_prop_collection[CurvePoint]
     """ Control points of the curve (default None, readonly)"""
 
     points_length: int
@@ -27415,22 +27415,22 @@ class Curves(ID, bpy_struct):
     color_attributes: AttributeGroupCurves | None
     """ Geometry color attributes (default None, readonly)"""
 
-    curve_offset_data: typing.Any
+    curve_offset_data: bpy_prop_collection[IntAttributeValue]
     """ (default None, readonly)"""
 
-    curves: typing.Any
+    curves: bpy_prop_collection[CurveSlice]
     """ All curves in the data-block (default None, readonly)"""
 
     materials: IDMaterials | None
     """ (default None, readonly)"""
 
-    normals: typing.Any
+    normals: bpy_prop_collection[FloatVectorValueReadOnly]
     """ The curve normal value at each of the curve's control points (default None, readonly)"""
 
-    points: typing.Any
+    points: bpy_prop_collection[CurvePoint]
     """ Control points of all curves (default None, readonly)"""
 
-    position_data: typing.Any
+    position_data: bpy_prop_collection[FloatVectorAttributeValue]
     """ (default None, readonly)"""
 
     selection_domain: typing.Literal[
@@ -27930,16 +27930,16 @@ class DecimateModifier(Modifier, bpy_struct):
         """
 
 class Depsgraph(bpy_struct):
-    ids: typing.Any
+    ids: bpy_prop_collection[ID]
     """ All evaluated data-blocks (default None, readonly)"""
 
     mode: typing.Literal["VIEWPORT", "RENDER"]
     """ Evaluation mode (default 'VIEWPORT', readonly)"""
 
-    object_instances: typing.Any
+    object_instances: bpy_prop_collection[DepsgraphObjectInstance]
     """ All object instances to display or render (Warning: Only use this as an iterator, never as a sequence, and do not keep any references to its items) (default None, readonly)"""
 
-    objects: typing.Any
+    objects: bpy_prop_collection[Object]
     """ Evaluated objects in the dependency graph (default None, readonly)"""
 
     scene: Scene | None
@@ -27948,7 +27948,7 @@ class Depsgraph(bpy_struct):
     scene_eval: Scene | None
     """ Scene at its evaluated state (readonly)"""
 
-    updates: typing.Any
+    updates: bpy_prop_collection[DepsgraphUpdate]
     """ Updates to data-blocks (default None, readonly)"""
 
     view_layer: ViewLayer | None
@@ -28053,7 +28053,7 @@ class DepsgraphObjectInstance(bpy_struct):
     particle_system: ParticleSystem | None
     """ Evaluated particle system that this object was instanced from (readonly)"""
 
-    persistent_id: typing.Any
+    persistent_id: bpy_prop_array[int]
     """ Persistent identifier for inter-frame matching of objects with motion blur (array of 8 items, in [-inf, inf], default (0, 0, 0, 0, 0, 0, 0, 0), readonly)"""
 
     random_id: int
@@ -28065,7 +28065,7 @@ class DepsgraphObjectInstance(bpy_struct):
     show_self: bool
     """ The object geometry itself should be visible in the render (default False, readonly)"""
 
-    uv: typing.Any
+    uv: bpy_prop_array[float]
     """ UV coordinates in parent object space (array of 2 items, in [-inf, inf], default (0.0, 0.0), readonly)"""
 
     @classmethod
@@ -28609,7 +28609,7 @@ class DriverVariable(bpy_struct):
     name: str
     """ Name to use in scripted expressions/functions (no spaces or dots are allowed, and must start with a letter) (default "", never None)"""
 
-    targets: typing.Any
+    targets: bpy_prop_collection[DriverTarget]
     """ Sources of input data for evaluating this variable (default None, readonly)"""
 
     type: typing.Literal[
@@ -28899,7 +28899,7 @@ class DynamicPaintSurface(bpy_struct):
     image_resolution: int
     """ Output image resolution (in [16, 4096], default 0)"""
 
-    init_color: typing.Any
+    init_color: bpy_prop_array[float]
     """ Initial color of the surface (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     init_color_type: typing.Literal["NONE", "COLOR", "TEXTURE", "VERTEX_COLOR"]
@@ -29185,10 +29185,10 @@ class EditBone(bpy_struct):
     bbone_handle_use_ease_start: bool
     """ Multiply the B-Bone Ease In channel by the local Y scale value of the start handle. This is done after the Scale Easing option and isn't affected by it. (default False)"""
 
-    bbone_handle_use_scale_end: typing.Any
+    bbone_handle_use_scale_end: bpy_prop_array[bool]
     """ Multiply B-Bone Scale Out channels by the local scale values of the end handle. This is done after the Scale Easing option and isn't affected by it. (array of 3 items, default (False, False, False))"""
 
-    bbone_handle_use_scale_start: typing.Any
+    bbone_handle_use_scale_start: bpy_prop_array[bool]
     """ Multiply B-Bone Scale In channels by the local scale values of the start handle. This is done after the Scale Easing option and isn't affected by it. (array of 3 items, default (False, False, False))"""
 
     bbone_mapping_mode: typing.Literal["STRAIGHT", "CURVED"]
@@ -29215,7 +29215,7 @@ class EditBone(bpy_struct):
     bbone_z: float
     """ B-Bone Z size (in [-inf, inf], default 0.0)"""
 
-    collections: typing.Any
+    collections: bpy_prop_collection[BoneCollection]
     """ Bone Collections that contain this bone (default None, readonly)"""
 
     color: BoneColor | None
@@ -29593,13 +29593,13 @@ class EnumProperty(Property, bpy_struct):
     default_flag: set[typing.Literal["DEFAULT"]]
     """ Default value for this enum (default set(), readonly)"""
 
-    enum_items: typing.Any
+    enum_items: bpy_prop_collection[EnumPropertyItem]
     """ Possible values for the property (default None, readonly)"""
 
-    enum_items_static: typing.Any
+    enum_items_static: bpy_prop_collection[EnumPropertyItem]
     """ Possible values for the property (never calls optional dynamic generation of those) (default None, readonly)"""
 
-    enum_items_static_ui: typing.Any
+    enum_items_static_ui: bpy_prop_collection[EnumPropertyItem]
     """ Possible values for the property (never calls optional dynamic generation of those). Includes UI elements (separators and section headings). (default None, readonly)"""
 
     @classmethod
@@ -29935,7 +29935,7 @@ class FCurve(bpy_struct):
     mute: bool
     """ Disable F-Curve evaluation (default False)"""
 
-    sampled_points: typing.Any
+    sampled_points: bpy_prop_collection[FCurveSample]
     """ Sampled animation data (default None, readonly)"""
 
     select: bool
@@ -30513,7 +30513,7 @@ class FModifierFunctionGenerator(FModifier, bpy_struct):
 class FModifierGenerator(FModifier, bpy_struct):
     """Deterministically generate values for the modified F-Curve"""
 
-    coefficients: typing.Any
+    coefficients: bpy_prop_array[float]
     """ Coefficients for 'x' (starting from lowest power of x^0) (array of 32 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))"""
 
     mode: typing.Literal["POLYNOMIAL", "POLYNOMIAL_FACTORISED"]
@@ -31568,7 +31568,7 @@ class FileSelectParams(bpy_struct):
 class Float2Attribute(Attribute, bpy_struct):
     """Geometry attribute that stores floating-point 2D vectors"""
 
-    data: typing.Any
+    data: bpy_prop_collection[Float2AttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -31636,7 +31636,7 @@ class Float2AttributeValue(bpy_struct):
 class Float4Attribute(Attribute, bpy_struct):
     """Geometry attribute that stores floating-point 4D vectors"""
 
-    data: typing.Any
+    data: bpy_prop_collection[Float4AttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -31704,7 +31704,7 @@ class Float4AttributeValue(bpy_struct):
 class Float4x4Attribute(Attribute, bpy_struct):
     """Geometry attribute that stores a 4 by 4 float matrix"""
 
-    data: typing.Any
+    data: bpy_prop_collection[Float4x4AttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -31772,7 +31772,7 @@ class Float4x4AttributeValue(bpy_struct):
 class FloatAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores floating-point values"""
 
-    data: typing.Any
+    data: bpy_prop_collection[FloatAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -31840,7 +31840,7 @@ class FloatAttributeValue(bpy_struct):
 class FloatColorAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores RGBA colors as floating-point values using 32-bits per channel"""
 
-    data: typing.Any
+    data: bpy_prop_collection[FloatColorAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -31874,10 +31874,10 @@ class FloatColorAttribute(Attribute, bpy_struct):
 class FloatColorAttributeValue(bpy_struct):
     """Color value in geometry attribute"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ RGBA color in scene linear color space (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    color_srgb: typing.Any
+    color_srgb: bpy_prop_array[float]
     """ RGBA color in sRGB color space (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -31911,7 +31911,7 @@ class FloatColorAttributeValue(bpy_struct):
 class FloatProperty(Property, bpy_struct):
     """RNA floating-point number (single precision) property definition"""
 
-    array_dimensions: typing.Any
+    array_dimensions: bpy_prop_array[int]
     """ Length of each dimension of the array (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
     array_length: int
@@ -31920,7 +31920,7 @@ class FloatProperty(Property, bpy_struct):
     default: float
     """ Default value for this number (in [-inf, inf], default 0.0, readonly)"""
 
-    default_array: typing.Any
+    default_array: bpy_prop_array[float]
     """ Default value for this array (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0), readonly)"""
 
     hard_max: float
@@ -31975,7 +31975,7 @@ class FloatProperty(Property, bpy_struct):
 class FloatVectorAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores floating-point 3D vectors"""
 
-    data: typing.Any
+    data: bpy_prop_collection[FloatVectorAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -32200,7 +32200,7 @@ class FluidDomainSettings(bpy_struct):
     clipping: float
     """ Value under which voxels are considered empty space to optimize rendering (in [0, 1], default 1e-06)"""
 
-    color_grid: typing.Any
+    color_grid: bpy_prop_array[float]
     """ Smoke color grid (array of 32 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), readonly)"""
 
     color_ramp: ColorRamp | None
@@ -32215,7 +32215,7 @@ class FluidDomainSettings(bpy_struct):
     delete_in_obstacle: bool
     """ Delete fluid inside obstacles (default False)"""
 
-    density_grid: typing.Any
+    density_grid: bpy_prop_array[float]
     """ Smoke density grid (array of 32 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), readonly)"""
 
     display_interpolation: typing.Literal["LINEAR", "CUBIC", "CLOSEST"]
@@ -32227,7 +32227,7 @@ class FluidDomainSettings(bpy_struct):
     dissolve_speed: int
     """ Determine how quickly the smoke dissolves (lower value makes smoke disappear faster) (in [1, 10000], default 5)"""
 
-    domain_resolution: typing.Any
+    domain_resolution: bpy_prop_array[int]
     """ Smoke Grid Resolution (array of 3 items, in [-inf, inf], default (0, 0, 0), readonly)"""
 
     domain_type: typing.Literal["GAS", "LIQUID"]
@@ -32242,7 +32242,7 @@ class FluidDomainSettings(bpy_struct):
     export_manta_script: bool
     """ Generate and export Mantaflow script from current domain settings during bake. This is only needed if you plan to analyze the cache (e.g. view grids, velocity vectors, particles) in Mantaflow directly (outside of Blender) after baking the simulation. (default False)"""
 
-    flame_grid: typing.Any
+    flame_grid: bpy_prop_array[float]
     """ Smoke flame grid (array of 32 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), readonly)"""
 
     flame_ignition: float
@@ -32289,7 +32289,7 @@ class FluidDomainSettings(bpy_struct):
     gridlines_lower_bound: float
     """ Lower bound of the highlighting range (in [-inf, inf], default 0.0)"""
 
-    gridlines_range_color: typing.Any
+    gridlines_range_color: bpy_prop_array[float]
     """ Color used to highlight the range (array of 4 items, in [0, inf], default (1.0, 0.0, 0.0, 1.0))"""
 
     gridlines_upper_bound: float
@@ -32328,7 +32328,7 @@ class FluidDomainSettings(bpy_struct):
     has_cache_baked_particles: bool
     """ (default False)"""
 
-    heat_grid: typing.Any
+    heat_grid: bpy_prop_array[float]
     """ Smoke heat grid (array of 32 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), readonly)"""
 
     highres_sampling: typing.Literal["FULLSAMPLE", "LINEAR", "NEAREST"]
@@ -32492,7 +32492,7 @@ class FluidDomainSettings(bpy_struct):
     sys_particle_maximum: int
     """ Maximum number of fluid particles that are allowed in this simulation (in [0, inf], default 0)"""
 
-    temperature_grid: typing.Any
+    temperature_grid: bpy_prop_array[float]
     """ Smoke temperature grid, range 0 to 1 represents 0 to 1000K (array of 32 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), readonly)"""
 
     time_scale: float
@@ -32597,7 +32597,7 @@ class FluidDomainSettings(bpy_struct):
     vector_show_mac_z: bool
     """ Show Z-component of MAC Grid (default True)"""
 
-    velocity_grid: typing.Any
+    velocity_grid: bpy_prop_array[float]
     """ Smoke velocity grid (array of 32 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), readonly)"""
 
     velocity_scale: float
@@ -32974,7 +32974,7 @@ class FollowTrackConstraint(Constraint, bpy_struct):
         """
 
 class ForeachGeometryElementGenerationItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
@@ -33015,7 +33015,7 @@ class ForeachGeometryElementGenerationItem(bpy_struct):
         """
 
 class ForeachGeometryElementInputItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -33053,7 +33053,7 @@ class ForeachGeometryElementInputItem(bpy_struct):
         """
 
 class ForeachGeometryElementMainItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -33577,7 +33577,7 @@ class Function(bpy_struct):
     is_registered_optional: bool
     """ Function is optionally registered as callback part of type registration (default False, readonly)"""
 
-    parameters: typing.Any
+    parameters: bpy_prop_collection[Property]
     """ Parameters for the function (default None, readonly)"""
 
     use_self: bool
@@ -34561,7 +34561,7 @@ class FunctionNodeInputBool(FunctionNode, NodeInternal, Node, bpy_struct):
 class FunctionNodeInputColor(FunctionNode, NodeInternal, Node, bpy_struct):
     """Output a color value chosen with the color picker widget"""
 
-    value: typing.Any
+    value: bpy_prop_array[float]
     """ (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -34675,7 +34675,7 @@ class FunctionNodeInputInt(FunctionNode, NodeInternal, Node, bpy_struct):
 class FunctionNodeInputIntVector(FunctionNode, NodeInternal, Node, bpy_struct):
     """Provide an integer vector value that can be connected to other nodes in the tree"""
 
-    vector: typing.Any
+    vector: bpy_prop_array[int]
     """ (array of 3 items, in [-inf, inf], default (0, 0, 0))"""
 
     vector_dimensions: int
@@ -36754,7 +36754,7 @@ class GPencilSculptGuide(bpy_struct):
     angle_snap: float
     """ Angle snapping (in [-6.28319, 6.28319], default 0.0)"""
 
-    location: typing.Any
+    location: bpy_prop_array[float]
     """ Custom reference point for guides (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
     reference_object: Object | None
@@ -40151,7 +40151,7 @@ class GeometryNodeFieldToGrid(GeometryNode, NodeInternal, Node, bpy_struct):
         """
 
 class GeometryNodeFieldToGridItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
@@ -40255,7 +40255,7 @@ class GeometryNodeFieldToList(GeometryNode, NodeInternal, Node, bpy_struct):
         """
 
 class GeometryNodeFieldToListItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     identifier: int
@@ -52060,7 +52060,7 @@ class GreasePencil(ID, bpy_struct):
     onion_mode: typing.Literal["ABSOLUTE", "RELATIVE", "SELECTED"]
     """ Mode to display frames (default 'ABSOLUTE')"""
 
-    root_nodes: typing.Any
+    root_nodes: bpy_prop_collection[GreasePencilTreeNode]
     """ The root nodes of the layer tree. Ordered by stack order, meaning the first node is the bottom most node in the layer tree. (default None, readonly)"""
 
     stroke_depth_order: typing.Literal[
@@ -52524,7 +52524,7 @@ class GreasePencilDashModifierData(Modifier, bpy_struct):
     segment_active_index: int
     """ Active index in the segment list (in [0, inf], default 0)"""
 
-    segments: typing.Any
+    segments: bpy_prop_collection[GreasePencilDashModifierSegment]
     """ (default None, readonly)"""
 
     tree_node_filter: str
@@ -52628,7 +52628,7 @@ class GreasePencilDrawing(bpy_struct):
     color_attributes: AttributeGroupGreasePencilDrawing | None
     """ Geometry color attributes (default None, readonly)"""
 
-    curve_offsets: typing.Any
+    curve_offsets: bpy_prop_collection[IntAttributeValue]
     """ Offset indices of the first point of each curve (default None, readonly)"""
 
     type: typing.Literal["DRAWING", "REFERENCE"]
@@ -52904,7 +52904,7 @@ class GreasePencilFrame(bpy_struct):
 class GreasePencilHookModifier(Modifier, bpy_struct):
     """Hook modifier to modify the location of stroke points"""
 
-    center: typing.Any
+    center: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
     custom_curve: CurveMapping | None
@@ -53205,7 +53205,7 @@ class GreasePencilLayer(GreasePencilTreeNode, bpy_struct):
 class GreasePencilLayerGroup(GreasePencilTreeNode, bpy_struct):
     """Group of Grease Pencil layers"""
 
-    children: typing.Any
+    children: bpy_prop_collection[GreasePencilTreeNode]
     """ The direct children of this layer group. Ordered by stack order, meaning the first child is the bottom most child in the layer tree. (default None, readonly)"""
 
     color_tag: typing.Literal[
@@ -53556,7 +53556,7 @@ class GreasePencilLineartModifier(Modifier, bpy_struct):
     use_intersection: bool
     """ Generate strokes from intersections (default False)"""
 
-    use_intersection_mask: typing.Any
+    use_intersection_mask: bpy_prop_array[bool]
     """ Mask bits to match from Collection Line Art settings (array of 8 items, default (False, False, False, False, False, False, False, False))"""
 
     use_intersection_match: bool
@@ -53586,7 +53586,7 @@ class GreasePencilLineartModifier(Modifier, bpy_struct):
     use_material_mask: bool
     """ Use material masks to filter out occluded strokes (default False)"""
 
-    use_material_mask_bits: typing.Any
+    use_material_mask_bits: bpy_prop_array[bool]
     """ Mask bits to match from Material Line Art settings (array of 8 items, default (False, False, False, False, False, False, False, False))"""
 
     use_material_mask_match: bool
@@ -54811,7 +54811,7 @@ class GreasePencilTimeModifier(Modifier, bpy_struct):
     segment_active_index: int
     """ Active index in the segment list (in [0, inf], default 0)"""
 
-    segments: typing.Any
+    segments: bpy_prop_collection[GreasePencilTimeModifierSegment]
     """ (default None, readonly)"""
 
     tree_node_filter: str
@@ -55442,7 +55442,7 @@ class HookModifier(Modifier, bpy_struct):
     vertex_group: str
     """ Name of Vertex Group which determines influence of modifier per point (default "", never None)"""
 
-    vertex_indices: typing.Any
+    vertex_indices: bpy_prop_array[int]
     """ Indices of vertices bound to the modifier. For Bézier curves, handles count as additional vertices. (array of 64 items, in [0, inf], default (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), readonly)"""
 
     def vertex_indices_set(self, indices: collections.abc.Sequence[int] | None) -> None:
@@ -56408,7 +56408,7 @@ class Image(ID, bpy_struct):
     frame_duration: int
     """ Duration (in frames) of the image (1 when not a video/sequence) (in [0, inf], default 0, readonly)"""
 
-    generated_color: typing.Any
+    generated_color: bpy_prop_array[float]
     """ Fill color for the generated image (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     generated_height: int
@@ -56438,7 +56438,7 @@ class Image(ID, bpy_struct):
     packed_file: PackedFile | None
     """ First packed file of the image (readonly)"""
 
-    packed_files: typing.Any
+    packed_files: bpy_prop_collection[ImagePackedFile]
     """ Collection of packed images (default None, readonly)"""
 
     pixels: float
@@ -56453,7 +56453,7 @@ class Image(ID, bpy_struct):
     seam_margin: int
     """ Margin to take into account when fixing UV seams during painting. Higher number would improve seam-fixes for mipmaps, but decreases performance. (in [-32768, 32767], default 8)"""
 
-    size: typing.Any
+    size: bpy_prop_array[int]
     """ Width and height of the image buffer in pixels, zero when image data cannot be loaded (array of 2 items, in [-inf, inf], default (0, 0), readonly)"""
 
     source: typing.Literal["FILE", "SEQUENCE", "MOVIE", "GENERATED", "VIEWER", "TILED"]
@@ -56819,7 +56819,7 @@ class ImagePaint(Paint, bpy_struct):
     normal_angle: int
     """ Paint most on faces pointing towards the view according to this angle (in [0, 90], default 80)"""
 
-    screen_grab_size: typing.Any
+    screen_grab_size: bpy_prop_array[int]
     """ Size to capture the image for re-projecting (array of 2 items, in [512, 16384], default (0, 0))"""
 
     seam_bleed: int
@@ -56892,7 +56892,7 @@ class ImagePreview(bpy_struct):
     icon_pixels_float: float
     """ Icon pixels components, as floats (RGBA concatenated values) (in [-inf, inf], default 0.0)"""
 
-    icon_size: typing.Any
+    icon_size: bpy_prop_array[int]
     """ Width and height in pixels (array of 2 items, in [-inf, inf], default (0, 0))"""
 
     image_pixels: int
@@ -56901,7 +56901,7 @@ class ImagePreview(bpy_struct):
     image_pixels_float: float
     """ Image pixels components, as floats (RGBA concatenated values) (in [-inf, inf], default 0.0)"""
 
-    image_size: typing.Any
+    image_size: bpy_prop_array[int]
     """ Width and height in pixels (array of 2 items, in [-inf, inf], default (0, 0))"""
 
     is_icon_custom: bool
@@ -57239,7 +57239,7 @@ class IndexSwitchItem(bpy_struct):
 class Int2Attribute(Attribute, bpy_struct):
     """Geometry attribute that stores 2D integer vectors"""
 
-    data: typing.Any
+    data: bpy_prop_collection[Int2AttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -57273,7 +57273,7 @@ class Int2Attribute(Attribute, bpy_struct):
 class Int2AttributeValue(bpy_struct):
     """2D value in geometry attribute"""
 
-    value: typing.Any
+    value: bpy_prop_array[int]
     """ 2D vector (array of 2 items, in [-inf, inf], default (0, 0))"""
 
     @classmethod
@@ -57307,7 +57307,7 @@ class Int2AttributeValue(bpy_struct):
 class IntAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores integer values"""
 
-    data: typing.Any
+    data: bpy_prop_collection[IntAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -57375,7 +57375,7 @@ class IntAttributeValue(bpy_struct):
 class IntProperty(Property, bpy_struct):
     """RNA integer number property definition"""
 
-    array_dimensions: typing.Any
+    array_dimensions: bpy_prop_array[int]
     """ Length of each dimension of the array (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
     array_length: int
@@ -57384,7 +57384,7 @@ class IntProperty(Property, bpy_struct):
     default: int
     """ Default value for this number (in [-inf, inf], default 0, readonly)"""
 
-    default_array: typing.Any
+    default_array: bpy_prop_array[int]
     """ Default value for this array (array of 3 items, in [-inf, inf], default (0, 0, 0), readonly)"""
 
     hard_max: int
@@ -57515,7 +57515,7 @@ class Key(ID, bpy_struct):
     eval_time: float
     """ Evaluation time for absolute shape keys (in [0, 1.04857e+06], default 0.0)"""
 
-    key_blocks: typing.Any
+    key_blocks: bpy_prop_collection[ShapeKey]
     """ Shape keys (default None, readonly)"""
 
     reference_key: ShapeKey | None
@@ -57654,7 +57654,7 @@ class KeyMap(bpy_struct):
     keymap_items: KeyMapItems | None
     """ Items in the keymap, linking an operator to an input event (default None, readonly)"""
 
-    modal_event_values: typing.Any
+    modal_event_values: bpy_prop_collection[EnumPropertyItem]
     """ Give access to the possible event values of this modal keymap's items (#KeyMapItem.propvalue), for API introspection (default None, readonly)"""
 
     name: str
@@ -58347,7 +58347,7 @@ class Lattice(ID, bpy_struct):
     is_editmode: bool
     """ True when used in editmode (default False, readonly)"""
 
-    points: typing.Any
+    points: bpy_prop_collection[LatticePoint]
     """ Points of the lattice (default None, readonly)"""
 
     points_u: int
@@ -58478,7 +58478,7 @@ class LatticePoint(bpy_struct):
     co_deform: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    groups: typing.Any
+    groups: bpy_prop_collection[VertexGroupElement]
     """ Weights for the vertex groups this point is member of (default None, readonly)"""
 
     select: bool
@@ -58518,7 +58518,7 @@ class LatticePoint(bpy_struct):
 class LayerCollection(bpy_struct):
     """Layer collection"""
 
-    children: typing.Any
+    children: bpy_prop_collection[LayerCollection]
     """ Layer collection children (default None, readonly)"""
 
     collection: Collection | None
@@ -58624,7 +58624,7 @@ class LayoutPanelState(bpy_struct):
 class Library(ID, bpy_struct):
     """External .blend file from which data is linked"""
 
-    archive_libraries: typing.Any
+    archive_libraries: bpy_prop_collection[Library]
     """ Archive libraries of packed IDs, generated (and owned) by this source library (default None, readonly)"""
 
     archive_parent_library: typing_extensions.Self | None
@@ -58648,7 +58648,7 @@ class Library(ID, bpy_struct):
     parent: Library | None
     """ (readonly)"""
 
-    version: typing.Any
+    version: bpy_prop_array[int]
     """ Version of Blender the library .blend was saved with (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
     users_id: tuple[ID, ...]
@@ -63031,7 +63031,7 @@ class MaskSplinePoint(bpy_struct):
     co: mathutils.Vector
     """ Coordinates of the control point (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    feather_points: typing.Any
+    feather_points: bpy_prop_collection[MaskSplinePointUW]
     """ Points defining feather (default None, readonly)"""
 
     handle_left: mathutils.Vector
@@ -63272,7 +63272,7 @@ class Material(ID, bpy_struct):
     cycles: typing.Any
     """ Cycles material settings (readonly)"""
 
-    diffuse_color: typing.Any
+    diffuse_color: bpy_prop_array[float]
     """ Diffuse color of the material (array of 4 items, in [0, inf], default (0.8, 0.8, 0.8, 1.0))"""
 
     displacement_method: typing.Literal["BUMP", "DISPLACEMENT", "BOTH"]
@@ -63284,7 +63284,7 @@ class Material(ID, bpy_struct):
     is_grease_pencil: bool
     """ True if this material has Grease Pencil data (default False, readonly)"""
 
-    line_color: typing.Any
+    line_color: bpy_prop_array[float]
     """ Line color used for Freestyle line rendering (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     line_priority: int
@@ -63334,10 +63334,10 @@ class Material(ID, bpy_struct):
     surface_render_method: typing.Literal["DITHERED", "BLENDED"]
     """ Controls the blending and the compatibility with certain features (default 'DITHERED')"""
 
-    texture_paint_images: typing.Any
+    texture_paint_images: bpy_prop_collection[Image]
     """ Texture images used for texture painting (default None, readonly)"""
 
-    texture_paint_slots: typing.Any
+    texture_paint_slots: bpy_prop_collection[TexPaintSlot]
     """ Texture slots defining the mapping and influence of textures (default None, readonly)"""
 
     thickness_mode: typing.Literal["SPHERE", "SLAB"]
@@ -63421,10 +63421,10 @@ class MaterialGPencilStyle(bpy_struct):
     alignment_rotation: float
     """ Additional rotation applied to dots and square texture of strokes. Only applies in texture shading mode. (in [-1.5708, 1.5708], default 0.0)"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    fill_color: typing.Any
+    fill_color: bpy_prop_array[float]
     """ Color for filling region bounded by each stroke (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     fill_image: Image | None
@@ -63452,7 +63452,7 @@ class MaterialGPencilStyle(bpy_struct):
     lock: bool
     """ Protect color from further editing and/or frame changes (default False)"""
 
-    mix_color: typing.Any
+    mix_color: bpy_prop_array[float]
     """ Color for mixing with primary filling color (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     mix_factor: float
@@ -63542,7 +63542,7 @@ class MaterialLineArt(bpy_struct):
     use_material_mask: bool
     """ Use material masks to filter out occluded strokes (default False)"""
 
-    use_material_mask_bits: typing.Any
+    use_material_mask_bits: bpy_prop_array[bool]
     """ (array of 8 items, default (False, False, False, False, False, False, False, False))"""
 
     @classmethod
@@ -63771,7 +63771,7 @@ class Mesh(ID, bpy_struct):
     color_attributes: AttributeGroupMesh | None
     """ Geometry color attributes (default None, readonly)"""
 
-    corner_normals: typing.Any
+    corner_normals: bpy_prop_collection[MeshNormalValue]
     """ The "slit" normal direction of each face corner, influenced by vertex normals, sharp faces, sharp edges, and custom normals. May be empty. (default None, readonly)"""
 
     cycles: typing.Any
@@ -63786,7 +63786,7 @@ class Mesh(ID, bpy_struct):
     is_editmode: bool
     """ True when used in editmode (default False, readonly)"""
 
-    loop_triangle_polygons: typing.Any
+    loop_triangle_polygons: bpy_prop_collection[ReadOnlyInteger]
     """ The face index for each loop triangle (default None, readonly)"""
 
     loop_triangles: MeshLoopTriangles | None
@@ -63801,13 +63801,13 @@ class Mesh(ID, bpy_struct):
     normals_domain: typing.Literal["POINT", "FACE", "CORNER"]
     """ The attribute domain that gives enough information to represent the mesh's normals (default 'FACE', readonly)"""
 
-    polygon_normals: typing.Any
+    polygon_normals: bpy_prop_collection[MeshNormalValue]
     """ The normal direction of each face, defined by the winding order and position of its vertices (default None, readonly)"""
 
     polygons: MeshPolygons | None
     """ Polygons of the mesh (default None, readonly)"""
 
-    radial_symmetry: typing.Any
+    radial_symmetry: bpy_prop_array[int]
     """ Number of mirrored regions around a central axis (array of 3 items, in [1, 64], default (1, 1, 1))"""
 
     remesh_mode: typing.Literal["VOXEL", "QUAD"]
@@ -63822,7 +63822,7 @@ class Mesh(ID, bpy_struct):
     shape_keys: Key | None
     """ (readonly)"""
 
-    skin_vertices: typing.Any
+    skin_vertices: bpy_prop_collection[MeshSkinVertexLayer]
     """ All skin vertices (default None, readonly)"""
 
     texco_mesh: typing_extensions.Self | None
@@ -63900,7 +63900,7 @@ class Mesh(ID, bpy_struct):
     vertex_colors: LoopColors | None
     """ Legacy vertex color layers. Deprecated, use color attributes instead. (default None, readonly)"""
 
-    vertex_normals: typing.Any
+    vertex_normals: bpy_prop_collection[MeshNormalValue]
     """ The normal direction of each vertex, defined as the average of the surrounding face normals (default None, readonly)"""
 
     vertices: MeshVertices | None
@@ -63961,7 +63961,7 @@ class Mesh(ID, bpy_struct):
         *,
         use_bitflags: bool | None = False,
         use_boundary_vertices_for_bitflags: bool | None = False,
-    ) -> tuple[int]:
+    ) -> tuple[bpy_prop_array[int], int]:
         """Calculate smooth groups from sharp edges
 
                 :param use_bitflags: Produce bitflags groups instead of simple numeric values (optional)
@@ -64031,7 +64031,7 @@ class Mesh(ID, bpy_struct):
         :return: Result
         """
 
-    def count_selected_items(self) -> None:
+    def count_selected_items(self) -> bpy_prop_array[int]:
         """Return the number of selected items (vert, edge, face)
 
         :return: Result, (array of 3 items, in [0, inf])
@@ -64131,7 +64131,7 @@ class MeshCacheModifier(Modifier, bpy_struct):
     filepath: str
     """ Path to external displacements file (default "", never None, blend relative // prefix supported)"""
 
-    flip_axis: typing.Any
+    flip_axis: bpy_prop_array[bool]
     """ (array of 3 items, default (False, False, False))"""
 
     forward_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
@@ -64259,7 +64259,7 @@ class MeshEdge(bpy_struct):
     use_seam: bool
     """ Seam edge for UV unwrapping (default False)"""
 
-    vertices: typing.Any
+    vertices: bpy_prop_array[int]
     """ Vertex indices (array of 2 items, in [0, inf], default (0, 0))"""
 
     key: typing.Any
@@ -64348,7 +64348,7 @@ class MeshLoop(bpy_struct):
 class MeshLoopColor(bpy_struct):
     """Vertex loop colors in a Mesh"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color in sRGB color space (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -64388,7 +64388,7 @@ class MeshLoopColorLayer(bpy_struct):
     active_render: bool | None
     """ Sets the layer as active for rendering (default False)"""
 
-    data: typing.Any
+    data: bpy_prop_collection[MeshLoopColor]
     """ (default None, readonly)"""
 
     name: str
@@ -64431,7 +64431,7 @@ class MeshLoopTriangle(bpy_struct):
     index: int
     """ Index of this loop triangle (in [0, inf], default 0, readonly)"""
 
-    loops: typing.Any
+    loops: bpy_prop_array[int]
     """ Indices of mesh loops that make up the triangle (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
     material_index: int
@@ -64443,13 +64443,13 @@ class MeshLoopTriangle(bpy_struct):
     polygon_index: int
     """ Index of mesh face that the triangle is a part of (in [0, inf], default 0, readonly)"""
 
-    split_normals: typing.Any
+    split_normals: bpy_prop_array[float]
     """ Local space unit length custom normal vectors of the face corners of this triangle (multi-dimensional array of 3 * 3 items, in [-1, 1], default ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)), readonly)"""
 
     use_smooth: bool
     """ (default False, readonly)"""
 
-    vertices: typing.Any
+    vertices: bpy_prop_array[int]
     """ Indices of triangle vertices (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
     center: typing.Any
@@ -64553,7 +64553,7 @@ class MeshPolygon(bpy_struct):
     use_smooth: bool
     """ (default False)"""
 
-    vertices: typing.Any
+    vertices: bpy_prop_array[int]
     """ Vertex indices (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
     edge_keys: typing.Any
@@ -64640,7 +64640,7 @@ class MeshSequenceCacheModifier(Modifier, bpy_struct):
 class MeshSkinVertex(bpy_struct):
     """Per-vertex skin data for use with the Skin modifier"""
 
-    radius: typing.Any
+    radius: bpy_prop_array[float]
     """ Radius of the skin (array of 2 items, in [0, inf], default (0.0, 0.0))"""
 
     use_loose: bool
@@ -64680,7 +64680,7 @@ class MeshSkinVertex(bpy_struct):
 class MeshSkinVertexLayer(bpy_struct):
     """Per-vertex skin data for use with the Skin modifier"""
 
-    data: typing.Any
+    data: bpy_prop_collection[MeshSkinVertex]
     """ (default None, readonly)"""
 
     name: str
@@ -64870,16 +64870,16 @@ class MeshUVLoopLayer(bpy_struct):
     active_render: bool | None
     """ Set the UV map as active for rendering (default False)"""
 
-    data: typing.Any
+    data: bpy_prop_collection[MeshUVLoop]
     """ Deprecated, use 'uv', 'vertex_select', 'edge_select' or 'pin' properties instead (default None, readonly)"""
 
     name: str
     """ Name of UV map (default "", never None)"""
 
-    pin: typing.Any
+    pin: bpy_prop_collection[BoolAttributeValue]
     """ UV pinned state in the UV editor (default None, readonly)"""
 
-    uv: typing.Any
+    uv: bpy_prop_collection[Float2AttributeValue]
     """ UV coordinates on face corners (default None, readonly)"""
 
     def pin_ensure(self) -> BoolAttribute:
@@ -64922,7 +64922,7 @@ class MeshVertex(bpy_struct):
     co: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    groups: typing.Any
+    groups: bpy_prop_collection[VertexGroupElement]
     """ Weights for the vertex groups this vertex is member of (default None, readonly)"""
 
     hide: bool
@@ -65128,7 +65128,7 @@ class MetaStrip(Strip, bpy_struct):
     animation_offset_start: int
     """ Animation start offset (trim start) (in [0, inf], default 0)Replaced by '.content_trim_start'.5.10 removal planned in version 6.0"""
 
-    channels: typing.Any
+    channels: bpy_prop_collection[SequenceTimelineChannel]
     """ (default None, readonly)"""
 
     color_multiply: float
@@ -65237,13 +65237,13 @@ class MirrorModifier(Modifier, bpy_struct):
     offset_v: float
     """ Mirrored UV offset on the V axis (in [-10000, 10000], default 0.0)"""
 
-    use_axis: typing.Any
+    use_axis: bpy_prop_array[bool]
     """ Enable axis mirror (array of 3 items, default (False, False, False))"""
 
-    use_bisect_axis: typing.Any
+    use_bisect_axis: bpy_prop_array[bool]
     """ Cuts the mesh across the mirror plane (array of 3 items, default (False, False, False))"""
 
-    use_bisect_flip_axis: typing.Any
+    use_bisect_flip_axis: bpy_prop_array[bool]
     """ Flips the direction of the slice (array of 3 items, default (False, False, False))"""
 
     use_clip: bool
@@ -65421,7 +65421,7 @@ class MotionPath(bpy_struct):
     lines: bool
     """ Use straight lines between keyframe points (default False)"""
 
-    points: typing.Any
+    points: bpy_prop_collection[MotionPathVert]
     """ Cached positions per frame (default None, readonly)"""
 
     use_bone_head: bool
@@ -65528,7 +65528,7 @@ class MovieClip(ID, bpy_struct):
     proxy: MovieClipProxy | None
     """ (readonly)"""
 
-    size: typing.Any
+    size: bpy_prop_array[int]
     """ Width and height in pixels, zero when image data cannot be loaded (array of 2 items, in [-inf, inf], default (0, 0), readonly)"""
 
     source: typing.Literal["SEQUENCE", "MOVIE"]
@@ -65878,7 +65878,7 @@ class MovieStrip(Strip, bpy_struct):
     crop: StripCrop | None
     """ (readonly)"""
 
-    elements: typing.Any
+    elements: bpy_prop_collection[StripElement]
     """ (default None, readonly)"""
 
     filepath: str
@@ -66090,10 +66090,10 @@ class MovieTrackingCamera(bpy_struct):
     pixel_aspect: float
     """ Pixel aspect ratio (in [0.1, inf], default 1.0)"""
 
-    principal_point: typing.Any
+    principal_point: bpy_prop_array[float]
     """ Optical center of lens (array of 2 items, in [-1, 1], default (0.0, 0.0))"""
 
-    principal_point_pixels: typing.Any
+    principal_point_pixels: bpy_prop_array[float]
     """ Optical center of lens in pixels (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     sensor_width: float
@@ -66190,10 +66190,10 @@ class MovieTrackingMarker(bpy_struct):
     mute: bool
     """ Is marker muted for current frame (default False)"""
 
-    pattern_bound_box: typing.Any
+    pattern_bound_box: bpy_prop_array[float]
     """ Pattern area bounding box in normalized coordinates (multi-dimensional array of 2 * 2 items, in [-inf, inf], default ((0.0, 0.0), (0.0, 0.0)), readonly)"""
 
-    pattern_corners: typing.Any
+    pattern_corners: bpy_prop_array[float]
     """ Array of coordinates which represents pattern's corners in normalized coordinates relative to marker position (multi-dimensional array of 4 * 2 items, in [-inf, inf], default ((0.0, 0.0), (0.0, 0.0), (0.0, 0.0), (0.0, 0.0)))"""
 
     search_max: mathutils.Vector
@@ -66288,7 +66288,7 @@ class MovieTrackingObject(bpy_struct):
 class MovieTrackingPlaneMarker(bpy_struct):
     """Match-moving plane marker data for tracking"""
 
-    corners: typing.Any
+    corners: bpy_prop_array[float]
     """ Array of coordinates which represents UI rectangle corners in frame normalized coordinates (multi-dimensional array of 4 * 2 items, in [-inf, inf], default ((0.0, 0.0), (0.0, 0.0), (0.0, 0.0), (0.0, 0.0)))"""
 
     frame: int
@@ -66549,7 +66549,7 @@ class MovieTrackingStabilization(bpy_struct):
     influence_scale: float
     """ Influence of stabilization algorithm on footage scale (in [0, 1], default 0.0)"""
 
-    rotation_tracks: typing.Any
+    rotation_tracks: bpy_prop_collection[MovieTrackingTrack]
     """ Collection of tracks used for 2D stabilization (translation) (default None, readonly)"""
 
     scale_max: float
@@ -66567,7 +66567,7 @@ class MovieTrackingStabilization(bpy_struct):
     target_scale: float
     """ Explicitly scale resulting frame to compensate zoom of original shot (in [1.192e-07, inf], default 0.0)"""
 
-    tracks: typing.Any
+    tracks: bpy_prop_collection[MovieTrackingTrack]
     """ Collection of tracks used for 2D stabilization (translation) (default None, readonly)"""
 
     use_2d_stabilization: bool
@@ -67097,7 +67097,7 @@ class NlaStrip(bpy_struct):
     action_slot_handle: int
     """ A number that identifies which sub-set of the Action is considered to be for this NLA strip (in [-inf, inf], default 0)"""
 
-    action_suitable_slots: typing.Any
+    action_suitable_slots: bpy_prop_collection[ActionSlot]
     """ The list of action slots suitable for this NLA strip (default None, readonly)"""
 
     active: bool | None
@@ -67142,7 +67142,7 @@ class NlaStrip(bpy_struct):
     last_slot_identifier: str
     """ The identifier of the most recently assigned action slot. The slot identifies which sub-set of the Action is considered to be for this strip, and its identifier is used to find the right slot when assigning an Action. (default "", never None)"""
 
-    modifiers: typing.Any
+    modifiers: bpy_prop_collection[FModifier]
     """ Modifiers affecting all the F-Curves in the referenced Action (default None, readonly)"""
 
     mute: bool
@@ -67163,7 +67163,7 @@ class NlaStrip(bpy_struct):
     strip_time: float
     """ Frame of referenced Action to evaluate (in [-inf, inf], default 0.0)"""
 
-    strips: typing.Any
+    strips: bpy_prop_collection[NlaStrip]
     """ NLA Strips that this strip acts as a container for (if it is of type Meta) (default None, readonly)"""
 
     type: typing.Literal["CLIP", "TRANSITION", "META", "SOUND"]
@@ -67342,7 +67342,7 @@ class Node(bpy_struct):
     inputs: NodeInputs | None
     """ (default None, readonly)"""
 
-    internal_links: typing.Any
+    internal_links: bpy_prop_collection[NodeLink]
     """ Internal input-to-output connections for muting (default None, readonly)"""
 
     label: str
@@ -67574,7 +67574,7 @@ class NodeClosureInput(NodeInternal, Node, bpy_struct):
         """
 
 class NodeClosureInputItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -67684,7 +67684,7 @@ class NodeClosureOutput(NodeInternal, Node, bpy_struct):
         """
 
 class NodeClosureOutputItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -67790,7 +67790,7 @@ class NodeCombineBundle(NodeInternal, Node, bpy_struct):
         """
 
 class NodeCombineBundleItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -67833,7 +67833,7 @@ class NodeCombineBundleItem(bpy_struct):
         """
 
 class NodeCompositorFileOutputItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     format: ImageFormatSettings | None
@@ -68077,7 +68077,7 @@ class NodeEvaluateClosure(NodeInternal, Node, bpy_struct):
         """
 
 class NodeEvaluateClosureInputItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -68120,7 +68120,7 @@ class NodeEvaluateClosureInputItem(bpy_struct):
         """
 
 class NodeEvaluateClosureOutputItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -68225,7 +68225,7 @@ class NodeFrame(NodeInternal, Node, bpy_struct):
         """
 
 class NodeFunctionFormatStringItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -68266,7 +68266,7 @@ class NodeGeometryBakeItem(bpy_struct):
     attribute_domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Attribute domain where the attribute is stored in the baked data (default 'POINT')"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     is_attribute: bool
@@ -68307,7 +68307,7 @@ class NodeGeometryBakeItem(bpy_struct):
         """
 
 class NodeGeometryCaptureAttributeItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
@@ -68348,7 +68348,7 @@ class NodeGeometryViewerItem(bpy_struct):
     auto_remove: bool
     """ Remove the item automatically when it is unlinked (default False)"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -69040,7 +69040,7 @@ class NodeSeparateBundle(NodeInternal, Node, bpy_struct):
         """
 
 class NodeSeparateBundleItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -69196,7 +69196,7 @@ class NodeSocket(bpy_struct):
         :param text: Text, Text label to draw alongside properties (never None)
         """
 
-    def draw_color(self, context: Context, node: Node | None) -> None:
+    def draw_color(self, context: Context, node: Node | None) -> bpy_prop_array[float]:
         """Color of the socket icon
 
         :param context: (never None)
@@ -69205,7 +69205,7 @@ class NodeSocket(bpy_struct):
         """
 
     @classmethod
-    def draw_color_simple(cls) -> None:
+    def draw_color_simple(cls) -> bpy_prop_array[float]:
         """Color of the socket icon. Used to draw sockets in places where the socket does not belong to a node, like the node interface panel. Also used to draw node sockets if draw_color is not defined.
 
         :return: Color, (array of 4 items, in [0, 1])
@@ -69382,7 +69382,7 @@ class NodeSocketCollection(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketColor(NodeSocketStandard, NodeSocket, bpy_struct):
     """RGBA color socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -70115,7 +70115,7 @@ class NodeSocketIntUnsigned(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketIntVector2D(NodeSocketStandard, NodeSocket, bpy_struct):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ (array of 2 items, in [-inf, inf], default (0, 0))"""
 
     links: NodeLinks | None
@@ -70152,7 +70152,7 @@ class NodeSocketIntVector2D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketIntVector3D(NodeSocketStandard, NodeSocket, bpy_struct):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ (array of 3 items, in [-inf, inf], default (0, 0, 0))"""
 
     links: NodeLinks | None
@@ -70189,7 +70189,7 @@ class NodeSocketIntVector3D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketIntVectorFactor2D(NodeSocketStandard, NodeSocket, bpy_struct):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ (array of 2 items, in [0, inf], default (0, 0))"""
 
     links: NodeLinks | None
@@ -70226,7 +70226,7 @@ class NodeSocketIntVectorFactor2D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketIntVectorFactor3D(NodeSocketStandard, NodeSocket, bpy_struct):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
     links: NodeLinks | None
@@ -70263,7 +70263,7 @@ class NodeSocketIntVectorFactor3D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketIntVectorPercentage2D(NodeSocketStandard, NodeSocket, bpy_struct):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ (array of 2 items, in [0, inf], default (0, 0))"""
 
     links: NodeLinks | None
@@ -70300,7 +70300,7 @@ class NodeSocketIntVectorPercentage2D(NodeSocketStandard, NodeSocket, bpy_struct
 class NodeSocketIntVectorPercentage3D(NodeSocketStandard, NodeSocket, bpy_struct):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
     links: NodeLinks | None
@@ -70337,7 +70337,7 @@ class NodeSocketIntVectorPercentage3D(NodeSocketStandard, NodeSocket, bpy_struct
 class NodeSocketIntVectorUnsigned2D(NodeSocketStandard, NodeSocket, bpy_struct):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ (array of 2 items, in [0, inf], default (0, 0))"""
 
     links: NodeLinks | None
@@ -70374,7 +70374,7 @@ class NodeSocketIntVectorUnsigned2D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketIntVectorUnsigned3D(NodeSocketStandard, NodeSocket, bpy_struct):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
     links: NodeLinks | None
@@ -70742,7 +70742,7 @@ class NodeSocketStandard(NodeSocket, bpy_struct):
         :param text: Text, Text label to draw alongside properties (never None)
         """
 
-    def draw_color(self, context: Context, node: Node | None) -> None:
+    def draw_color(self, context: Context, node: Node | None) -> bpy_prop_array[float]:
         """Color of the socket icon
 
         :param context: (never None)
@@ -70751,7 +70751,7 @@ class NodeSocketStandard(NodeSocket, bpy_struct):
         """
 
     @classmethod
-    def draw_color_simple(cls) -> None:
+    def draw_color_simple(cls) -> bpy_prop_array[float]:
         """Color of the socket icon
 
         :return: Color, (array of 4 items, in [0, 1])
@@ -70932,7 +70932,7 @@ class NodeSocketTexture(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVector(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -70969,7 +70969,7 @@ class NodeSocketVector(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVector2D(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -71006,7 +71006,7 @@ class NodeSocketVector2D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVector4D(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -71302,7 +71302,7 @@ class NodeSocketVectorEuler(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVectorEuler2D(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -71376,7 +71376,7 @@ class NodeSocketVectorEuler4D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVectorFactor(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -71413,7 +71413,7 @@ class NodeSocketVectorFactor(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVectorFactor2D(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 2 items, in [0, 1], default (0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -71450,7 +71450,7 @@ class NodeSocketVectorFactor2D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVectorFactor4D(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -71487,7 +71487,7 @@ class NodeSocketVectorFactor4D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVectorPercentage(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -71524,7 +71524,7 @@ class NodeSocketVectorPercentage(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVectorPercentage2D(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -71561,7 +71561,7 @@ class NodeSocketVectorPercentage2D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVectorPercentage4D(NodeSocketStandard, NodeSocket, bpy_struct):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     links: NodeLinks | None
@@ -72179,7 +72179,7 @@ class NodeTreeInterface(bpy_struct):
     active_index: int | None
     """ Index of the active item (in [0, inf], default 0)"""
 
-    items_tree: typing.Any
+    items_tree: bpy_prop_collection[NodeTreeInterfaceItem]
     """ Items in the node interface (default None, readonly)"""
 
     def new_socket(
@@ -72346,7 +72346,7 @@ class NodeTreeInterfacePanel(NodeTreeInterfaceItem, bpy_struct):
     description: str
     """ Panel description (default "", never None)"""
 
-    interface_items: typing.Any
+    interface_items: bpy_prop_collection[NodeTreeInterfaceItem]
     """ Items in the node panel (default None, readonly)"""
 
     name: str
@@ -72758,7 +72758,7 @@ class NodeTreeInterfaceSocketColor(
 ):
     """RGBA color socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     def draw(self, context: Context, layout: UILayout | None) -> None:
@@ -74075,7 +74075,7 @@ class NodeTreeInterfaceSocketIntVector2D(
 ):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ Input value used for unconnected socket (array of 2 items, in [-inf, inf], default (0, 0))"""
 
     dimensions: int
@@ -74147,7 +74147,7 @@ class NodeTreeInterfaceSocketIntVector3D(
 ):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ Input value used for unconnected socket (array of 3 items, in [-inf, inf], default (0, 0, 0))"""
 
     dimensions: int
@@ -74219,7 +74219,7 @@ class NodeTreeInterfaceSocketIntVectorFactor2D(
 ):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ Input value used for unconnected socket (array of 2 items, in [0, inf], default (0, 0))"""
 
     dimensions: int
@@ -74291,7 +74291,7 @@ class NodeTreeInterfaceSocketIntVectorFactor3D(
 ):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ Input value used for unconnected socket (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
     dimensions: int
@@ -74363,7 +74363,7 @@ class NodeTreeInterfaceSocketIntVectorPercentage2D(
 ):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ Input value used for unconnected socket (array of 2 items, in [0, inf], default (0, 0))"""
 
     dimensions: int
@@ -74435,7 +74435,7 @@ class NodeTreeInterfaceSocketIntVectorPercentage3D(
 ):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ Input value used for unconnected socket (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
     dimensions: int
@@ -74507,7 +74507,7 @@ class NodeTreeInterfaceSocketIntVectorUnsigned2D(
 ):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ Input value used for unconnected socket (array of 2 items, in [0, inf], default (0, 0))"""
 
     dimensions: int
@@ -74579,7 +74579,7 @@ class NodeTreeInterfaceSocketIntVectorUnsigned3D(
 ):
     """Integer vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[int]
     """ Input value used for unconnected socket (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
     dimensions: int
@@ -75335,7 +75335,7 @@ class NodeTreeInterfaceSocketVector(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
     dimensions: int
@@ -75407,7 +75407,7 @@ class NodeTreeInterfaceSocketVector2D(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     dimensions: int
@@ -75479,7 +75479,7 @@ class NodeTreeInterfaceSocketVector4D(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     dimensions: int
@@ -76055,7 +76055,7 @@ class NodeTreeInterfaceSocketVectorEuler2D(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     dimensions: int
@@ -76199,7 +76199,7 @@ class NodeTreeInterfaceSocketVectorFactor(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
     dimensions: int
@@ -76271,7 +76271,7 @@ class NodeTreeInterfaceSocketVectorFactor2D(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 2 items, in [0, 1], default (0.0, 0.0))"""
 
     dimensions: int
@@ -76343,7 +76343,7 @@ class NodeTreeInterfaceSocketVectorFactor4D(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     dimensions: int
@@ -76415,7 +76415,7 @@ class NodeTreeInterfaceSocketVectorPercentage(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
     dimensions: int
@@ -76487,7 +76487,7 @@ class NodeTreeInterfaceSocketVectorPercentage2D(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     dimensions: int
@@ -76559,7 +76559,7 @@ class NodeTreeInterfaceSocketVectorPercentage4D(
 ):
     """3D vector socket of a node"""
 
-    default_value: typing.Any
+    default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     dimensions: int
@@ -77321,7 +77321,7 @@ class NodesModifier(Modifier, bpy_struct):
     node_group: NodeTree | None
     """ Node group that controls what this modifier does"""
 
-    node_warnings: typing.Any
+    node_warnings: bpy_prop_collection[NodesModifierWarning]
     """ (default None, readonly)"""
 
     open_bake_data_blocks_panel: bool
@@ -77694,13 +77694,13 @@ class Object(ID, bpy_struct):
     animation_visualization: AnimViz | None
     """ Animation data for this data-block (readonly, never None)"""
 
-    bound_box: typing.Any
+    bound_box: bpy_prop_array[float]
     """ Object's bounding box in object-space coordinates, all values are -1.0 when not available (multi-dimensional array of 8 * 3 items, in [-inf, inf], default ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)), readonly)"""
 
     collision: CollisionSettings | None
     """ Settings for using the object as a collider in physics simulation (readonly)"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Object color and alpha, used when the Object Color mode is enabled (array of 4 items, in [0, inf], default (1.0, 1.0, 1.0, 1.0))"""
 
     constraints: ObjectConstraints | None
@@ -77763,7 +77763,7 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     empty_image_depth: typing.Literal["DEFAULT", "FRONT", "BACK"]
     """ Determine which other objects will occlude the image (default 'DEFAULT')"""
 
-    empty_image_offset: typing.Any
+    empty_image_offset: bpy_prop_array[float]
     """ Origin offset distance (array of 2 items, in [-inf, inf], default (-0.5, -0.5))"""
 
     empty_image_side: typing.Literal["DOUBLE_SIDED", "FRONT", "BACK"]
@@ -77832,10 +77832,10 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     location: mathutils.Vector
     """ Location of the object (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    lock_location: typing.Any
+    lock_location: bpy_prop_array[bool]
     """ Lock editing of location when transforming (array of 3 items, default (False, False, False))"""
 
-    lock_rotation: typing.Any
+    lock_rotation: bpy_prop_array[bool]
     """ Lock editing of rotation when transforming (array of 3 items, default (False, False, False))"""
 
     lock_rotation_w: bool
@@ -77844,10 +77844,10 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     lock_rotations_4d: bool
     """ Lock editing of four component rotations by components (instead of as Eulers) (default True)"""
 
-    lock_scale: typing.Any
+    lock_scale: bpy_prop_array[bool]
     """ Lock editing of scale when transforming (array of 3 items, default (False, False, False))"""
 
-    material_slots: typing.Any
+    material_slots: bpy_prop_collection[MaterialSlot]
     """ Material slots in the object (default None, readonly)"""
 
     matrix_basis: mathutils.Matrix
@@ -77883,7 +77883,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     ]
     """ Type of parent relation (default 'OBJECT')"""
 
-    parent_vertices: typing.Any
+    parent_vertices: bpy_prop_array[int]
     """ Indices of vertices in case of a vertex parenting relation (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
     particle_systems: ParticleSystems | None
@@ -77901,7 +77901,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     rigid_body_constraint: RigidBodyConstraint | None
     """ Constraint constraining rigid bodies (readonly)"""
 
-    rotation_axis_angle: typing.Any
+    rotation_axis_angle: bpy_prop_array[float]
     """ Angle of Rotation for Axis-Angle rotation representation (array of 4 items, in [-inf, inf], default (0.0, 0.0, 1.0, 0.0))"""
 
     rotation_euler: mathutils.Euler
@@ -77916,7 +77916,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     scale: mathutils.Vector
     """ Scaling of the object (array of 3 items, in [-inf, inf], default (1.0, 1.0, 1.0))"""
 
-    selection_sets: typing.Any
+    selection_sets: bpy_prop_collection[bl_operators.bone_selection_sets.SelectionSet]
     """ List of groups of bones for easy selection (default None, readonly)"""
 
     shader_effects: ObjectShaderFx | None
@@ -78315,7 +78315,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     def shape_key_clear(self) -> None:
         """Remove all Shape Keys from this object"""
 
-    def shape_keys_selected(self) -> None:
+    def shape_keys_selected(self) -> bpy_prop_collection[ShapeKey]:
         """Return selected shape keys
 
         :return: keyblocks
@@ -78809,7 +78809,7 @@ class Operator(bpy_struct):
     layout: UILayout | None
     """ (readonly)"""
 
-    macros: typing.Any
+    macros: bpy_prop_collection[Macro]
     """ (default None, readonly)"""
 
     name: str
@@ -79868,7 +79868,7 @@ class Particle(bpy_struct):
     die_time: float
     """ (in [-inf, inf], default 0.0)"""
 
-    hair_keys: typing.Any
+    hair_keys: bpy_prop_collection[ParticleHairKey]
     """ (default None, readonly)"""
 
     is_exist: bool
@@ -79883,7 +79883,7 @@ class Particle(bpy_struct):
     location: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    particle_keys: typing.Any
+    particle_keys: bpy_prop_collection[ParticleKey]
     """ (default None, readonly)"""
 
     prev_angular_velocity: mathutils.Vector
@@ -80526,7 +80526,7 @@ class ParticleSettings(ID, bpy_struct):
     instance_object: Object | None
     """ Show this object in place of particles"""
 
-    instance_weights: typing.Any
+    instance_weights: bpy_prop_collection[ParticleDupliWeight]
     """ Weights for all of the objects in the instance collection (default None, readonly)"""
 
     integrator: typing.Literal["EULER", "VERLET", "MIDPOINT", "RK4"]
@@ -81031,7 +81031,7 @@ class ParticleSystem(bpy_struct):
     active_particle_target_index: int | None
     """ (in [0, inf], default 0)"""
 
-    child_particles: typing.Any
+    child_particles: bpy_prop_collection[ChildParticle]
     """ Child particles generated by the particle system (default None, readonly)"""
 
     child_seed: int
@@ -81100,7 +81100,7 @@ class ParticleSystem(bpy_struct):
     parent: Object | None
     """ Use this object's coordinate system instead of global coordinate system"""
 
-    particles: typing.Any
+    particles: bpy_prop_collection[Particle]
     """ Particles generated by the particle system (default None, readonly)"""
 
     point_cache: PointCache | None
@@ -81118,7 +81118,7 @@ class ParticleSystem(bpy_struct):
     settings: ParticleSettings | None
     """ Particle system settings (never None)"""
 
-    targets: typing.Any
+    targets: bpy_prop_collection[ParticleTarget]
     """ Target particle systems (default None, readonly)"""
 
     use_hair_dynamics: bool
@@ -81671,7 +81671,7 @@ class PointCloud(ID, bpy_struct):
     materials: IDMaterials | None
     """ (default None, readonly)"""
 
-    points: typing.Any
+    points: bpy_prop_collection[Point]
     """ (default None, readonly)"""
 
     def resize(self, size: int | None) -> None:
@@ -81813,7 +81813,7 @@ class Pose(bpy_struct):
     animation_visualization: AnimViz | None
     """ Animation data for this data-block (readonly, never None)"""
 
-    bones: typing.Any
+    bones: bpy_prop_collection[PoseBone]
     """ Individual pose bones for the armature (default None, readonly)"""
 
     ik_param: IKParam | None
@@ -82031,10 +82031,10 @@ class PoseBone(bpy_struct):
     lock_ik_z: bool
     """ Disallow movement around the Z axis (default False)"""
 
-    lock_location: typing.Any
+    lock_location: bpy_prop_array[bool]
     """ Lock editing of location when transforming (array of 3 items, default (False, False, False))"""
 
-    lock_rotation: typing.Any
+    lock_rotation: bpy_prop_array[bool]
     """ Lock editing of rotation when transforming (array of 3 items, default (False, False, False))"""
 
     lock_rotation_w: bool
@@ -82043,7 +82043,7 @@ class PoseBone(bpy_struct):
     lock_rotations_4d: bool
     """ Lock editing of four component rotations by components (instead of as Eulers) (default False)"""
 
-    lock_scale: typing.Any
+    lock_scale: bpy_prop_array[bool]
     """ Lock editing of scale when transforming (array of 3 items, default (False, False, False))"""
 
     matrix: mathutils.Matrix
@@ -82064,7 +82064,7 @@ class PoseBone(bpy_struct):
     parent: PoseBone | None
     """ Parent of this pose bone (readonly)"""
 
-    rotation_axis_angle: typing.Any
+    rotation_axis_angle: bpy_prop_array[float]
     """ Angle of Rotation for Axis-Angle rotation representation (array of 4 items, in [-inf, inf], default (0.0, 0.0, 1.0, 0.0))"""
 
     rotation_euler: mathutils.Euler
@@ -82296,10 +82296,10 @@ class Preferences(bpy_struct):
     system: PreferencesSystem | None
     """ Graphics driver and operating system settings (readonly, never None)"""
 
-    themes: typing.Any
+    themes: bpy_prop_collection[Theme]
     """ (default None, readonly)"""
 
-    ui_styles: typing.Any
+    ui_styles: bpy_prop_collection[ThemeStyle]
     """ (default None, readonly)"""
 
     use_preferences_save: bool
@@ -82308,7 +82308,7 @@ class Preferences(bpy_struct):
     use_recent_searches: bool
     """ Sort the recently searched items at the top (default True)"""
 
-    version: typing.Any
+    version: bpy_prop_array[int]
     """ Version of Blender the userpref.blend was saved with (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
     view: PreferencesView | None
@@ -82402,7 +82402,7 @@ class PreferencesEdit(bpy_struct):
     fcurve_unselected_alpha: float
     """ The opacity of unselected F-Curves against the background of the Graph Editor (in [0.001, 1], default 0.25)"""
 
-    grease_pencil_default_color: typing.Any
+    grease_pencil_default_color: bpy_prop_array[float]
     """ Color of new annotation layers (array of 4 items, in [0, inf], default (0.38, 0.61, 0.78, 0.9))"""
 
     grease_pencil_eraser_radius: int
@@ -83166,7 +83166,7 @@ class PreferencesSystem(bpy_struct):
     shader_compilation_method: typing.Literal["THREAD", "SUBPROCESS"]
     """ Compilation method used for compiling shaders in parallel. Subprocess requires a lot more RAM for each worker but might compile shaders faster on some systems. Requires restarting Blender for changes to take effect. (OpenGL only) (default 'THREAD')"""
 
-    solid_lights: typing.Any
+    solid_lights: bpy_prop_collection[UserSolidLight]
     """ Lights used to display objects in solid shading mode (default None, readonly)"""
 
     texture_collection_rate: int
@@ -83673,10 +83673,10 @@ class Property(bpy_struct):
     deprecated_note: str
     """ A note regarding deprecation (default "", readonly, never None)"""
 
-    deprecated_removal_version: typing.Any
+    deprecated_removal_version: bpy_prop_array[int]
     """ The Blender version this is expected to be removed (array of 3 items, in [-inf, inf], default (0, 0, 0), readonly)"""
 
-    deprecated_version: typing.Any
+    deprecated_version: bpy_prop_array[int]
     """ The Blender version this was deprecated (array of 3 items, in [-inf, inf], default (0, 0, 0), readonly)"""
 
     description: str
@@ -83843,16 +83843,16 @@ class PropertyGroupItem(bpy_struct):
     bool: bool
     """ (default False)"""
 
-    bool_array: typing.Any
+    bool_array: bpy_prop_array[bool]
     """ (array of 1 items, default (False,))"""
 
-    collection: typing.Any
+    collection: bpy_prop_collection[PropertyGroup]
     """ (default None, readonly)"""
 
     double: float
     """ (in [-inf, inf], default 0.0)"""
 
-    double_array: typing.Any
+    double_array: bpy_prop_array[float]
     """ (array of 1 items, in [-inf, inf], default (0.0,))"""
 
     enum: typing.Literal["DEFAULT"]
@@ -83861,20 +83861,20 @@ class PropertyGroupItem(bpy_struct):
     float: float
     """ (in [-inf, inf], default 0.0)"""
 
-    float_array: typing.Any
+    float_array: bpy_prop_array[float]
     """ (array of 1 items, in [-inf, inf], default (0.0,))"""
 
     group: PropertyGroup | None
     """ (readonly)"""
 
     id: ID | None
-    idp_array: typing.Any
+    idp_array: bpy_prop_collection[PropertyGroup]
     """ (default None, readonly)"""
 
     int: int
     """ (in [-inf, inf], default 0)"""
 
-    int_array: typing.Any
+    int_array: bpy_prop_array[int]
     """ (array of 1 items, in [-inf, inf], default (0,))"""
 
     string: str
@@ -83911,7 +83911,7 @@ class PropertyGroupItem(bpy_struct):
 class QuaternionAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores rotation"""
 
-    data: typing.Any
+    data: bpy_prop_collection[QuaternionAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -83945,7 +83945,7 @@ class QuaternionAttribute(Attribute, bpy_struct):
 class QuaternionAttributeValue(bpy_struct):
     """Rotation value in geometry attribute"""
 
-    value: typing.Any
+    value: bpy_prop_array[float]
     """ Quaternion (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -84186,7 +84186,7 @@ class Region(bpy_struct):
 class RegionView3D(bpy_struct):
     """3D View region data"""
 
-    clip_planes: typing.Any
+    clip_planes: bpy_prop_array[float]
     """ (multi-dimensional array of 6 * 4 items, in [-inf, inf], default ((0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)))"""
 
     is_orthographic_side_view: bool
@@ -84210,7 +84210,7 @@ class RegionView3D(bpy_struct):
     use_clip_planes: bool
     """ (default False)"""
 
-    view_camera_offset: typing.Any
+    view_camera_offset: bpy_prop_array[float]
     """ View shift in camera view (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     view_camera_zoom: float
@@ -84371,7 +84371,7 @@ class RenderEngine(bpy_struct):
     is_preview: bool
     """ (default False)"""
 
-    layer_override: typing.Any
+    layer_override: bpy_prop_array[bool]
     """ (array of 20 items, default (False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))"""
 
     render: RenderSettings | None
@@ -84922,7 +84922,7 @@ class RenderPass(bpy_struct):
 class RenderResult(bpy_struct):
     """Result of rendering, including all layers and passes"""
 
-    layers: typing.Any
+    layers: bpy_prop_collection[RenderLayer]
     """ (default None, readonly)"""
 
     resolution_x: int
@@ -84931,7 +84931,7 @@ class RenderResult(bpy_struct):
     resolution_y: int
     """ (in [-inf, inf], default 0, readonly)"""
 
-    views: typing.Any
+    views: bpy_prop_collection[RenderView]
     """ (default None, readonly)"""
 
     def load_from_file(self, filepath: str | None) -> None:
@@ -85145,19 +85145,19 @@ class RenderSettings(bpy_struct):
     simplify_volumes: float
     """ Resolution percentage of volume objects in viewport (in [0, 1], default 1.0)"""
 
-    stamp_background: typing.Any
+    stamp_background: bpy_prop_array[float]
     """ Color to use behind stamp text (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.25))"""
 
     stamp_font_size: int
     """ Size of the font used when rendering stamp text (in [8, 64], default 12)"""
 
-    stamp_foreground: typing.Any
+    stamp_foreground: bpy_prop_array[float]
     """ Color to use for stamp text (array of 4 items, in [0, 1], default (0.8, 0.8, 0.8, 1.0))"""
 
     stamp_note_text: str
     """ Custom text to appear in the stamp note (default "", never None)"""
 
-    stereo_views: typing.Any
+    stereo_views: bpy_prop_collection[SceneRenderView]
     """ (default None, readonly)"""
 
     threads: int
@@ -85393,7 +85393,7 @@ class RenderView(bpy_struct):
         """
 
 class RepeatItem(bpy_struct):
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -85692,7 +85692,7 @@ class RigidBodyObject(bpy_struct):
     angular_damping: float
     """ Amount of angular velocity that is lost over time (in [0, 1], default 0.1)"""
 
-    collision_collections: typing.Any
+    collision_collections: bpy_prop_array[bool]
     """ Collision collections rigid body belongs to (array of 20 items, default (False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))"""
 
     collision_margin: float
@@ -86288,7 +86288,7 @@ class Scene(ID, bpy_struct):
     tool_settings: ToolSettings | None
     """ (readonly, never None)"""
 
-    transform_orientation_slots: typing.Any
+    transform_orientation_slots: bpy_prop_collection[TransformOrientationSlot]
     """ (default None, readonly)"""
 
     unit_settings: UnitSettings | None
@@ -86949,7 +86949,7 @@ class Scopes(bpy_struct):
 class Screen(ID, bpy_struct):
     """Screen data-block, defining the layout of areas in a window"""
 
-    areas: typing.Any
+    areas: bpy_prop_collection[Area]
     """ Areas the screen is subdivided into (default None, readonly)"""
 
     is_animation_playing: bool
@@ -87316,10 +87316,10 @@ class SequenceEditor(bpy_struct):
     cache_raw_size: int
     """ Size of raw source images cache in megabytes (in [-inf, inf], default 0, readonly)"""
 
-    channels: typing.Any
+    channels: bpy_prop_collection[SequenceTimelineChannel]
     """ (default None, readonly)"""
 
-    meta_stack: typing.Any
+    meta_stack: bpy_prop_collection[Strip]
     """ Meta strip stack, last is currently edited meta strip (default None, readonly)"""
 
     overlay_frame: int
@@ -87343,7 +87343,7 @@ class SequenceEditor(bpy_struct):
     strips: StripsTopLevel | None
     """ Top-level strips only (default None, readonly)"""
 
-    strips_all: typing.Any
+    strips_all: bpy_prop_collection[Strip]
     """ All strips, recursively including those inside metastrips (default None, readonly)"""
 
     use_cache_final: bool
@@ -87852,10 +87852,10 @@ class ShaderFxColorize(ShaderFx, bpy_struct):
     factor: float
     """ Mix factor (in [0, 1], default 0.0)"""
 
-    high_color: typing.Any
+    high_color: bpy_prop_array[float]
     """ Second color used for effect (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    low_color: typing.Any
+    low_color: bpy_prop_array[float]
     """ First color used for effect (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     mode: typing.Literal["GRAYSCALE", "SEPIA", "DUOTONE", "TRANSPARENT", "CUSTOM"]
@@ -87990,7 +87990,7 @@ class ShaderFxGlow(ShaderFx, bpy_struct):
 class ShaderFxPixel(ShaderFx, bpy_struct):
     """Pixelate effect"""
 
-    size: typing.Any
+    size: bpy_prop_array[int]
     """ Pixel size (array of 2 items, in [1, 32767], default (0, 0))"""
 
     use_antialiasing: bool
@@ -88027,7 +88027,7 @@ class ShaderFxPixel(ShaderFx, bpy_struct):
 class ShaderFxRim(ShaderFx, bpy_struct):
     """Rim effect"""
 
-    blur: typing.Any
+    blur: bpy_prop_array[int]
     """ Number of pixels for blurring rim (set to 0 to disable) (array of 2 items, in [0, 32767], default (0, 0))"""
 
     mask_color: mathutils.Color
@@ -88036,7 +88036,7 @@ class ShaderFxRim(ShaderFx, bpy_struct):
     mode: typing.Literal["NORMAL", "OVERLAY", "ADD", "SUBTRACT", "MULTIPLY", "DIVIDE"]
     """ Blend mode (default 'NORMAL')"""
 
-    offset: typing.Any
+    offset: bpy_prop_array[int]
     """ Offset of the rim (array of 2 items, in [-32768, 32767], default (0, 0))"""
 
     rim_color: mathutils.Color
@@ -88079,13 +88079,13 @@ class ShaderFxShadow(ShaderFx, bpy_struct):
     amplitude: float
     """ Amplitude of Wave (in [0, inf], default 0.0)"""
 
-    blur: typing.Any
+    blur: bpy_prop_array[int]
     """ Number of pixels for blurring shadow (set to 0 to disable) (array of 2 items, in [0, 32767], default (0, 0))"""
 
     object: Object | None
     """ Object to determine center of rotation"""
 
-    offset: typing.Any
+    offset: bpy_prop_array[int]
     """ Offset of the shadow (array of 2 items, in [-32768, 32767], default (0, 0))"""
 
     orientation: typing.Literal["HORIZONTAL", "VERTICAL"]
@@ -88106,7 +88106,7 @@ class ShaderFxShadow(ShaderFx, bpy_struct):
     scale: mathutils.Vector
     """ Scale of the shadow (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    shadow_color: typing.Any
+    shadow_color: bpy_prop_array[float]
     """ Color used for Shadow (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     use_object: bool
@@ -94200,7 +94200,7 @@ class ShaderNodeWireframe(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShapeKey(bpy_struct):
     """Shape key in a shape keys data-block"""
 
-    data: typing.Any
+    data: bpy_prop_collection[UnknownType]
     """ (default None, readonly)"""
 
     frame: float
@@ -94220,7 +94220,7 @@ class ShapeKey(bpy_struct):
     name: str
     """ Name of Shape Key (default "", never None)"""
 
-    points: typing.Any
+    points: bpy_prop_collection[ShapeKeyPoint]
     """ Optimized access to shape keys point data, when using foreach_get/foreach_set accessors. Warning: Does not support legacy Curve shape keys. (default None, readonly)"""
 
     relative_key: typing_extensions.Self | None
@@ -94410,7 +94410,7 @@ class ShapeKeyPoint(bpy_struct):
 class Short2Attribute(Attribute, bpy_struct):
     """Geometry attribute that stores 2D integer vectors"""
 
-    data: typing.Any
+    data: bpy_prop_collection[Short2AttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -94444,7 +94444,7 @@ class Short2Attribute(Attribute, bpy_struct):
 class Short2AttributeValue(bpy_struct):
     """2D value in geometry attribute"""
 
-    value: typing.Any
+    value: bpy_prop_array[int]
     """ 2D vector (array of 2 items, in [-32768, 32767], default (0, 0))"""
 
     @classmethod
@@ -94650,7 +94650,7 @@ class SimpleDeformModifier(Modifier, bpy_struct):
     invert_vertex_group: bool
     """ Invert vertex group influence (default False)"""
 
-    limits: typing.Any
+    limits: bpy_prop_array[float]
     """ Lower/Upper limits for deform (array of 2 items, in [0, 1], default (0.0, 1.0))"""
 
     lock_x: bool
@@ -94700,7 +94700,7 @@ class SimulationStateItem(bpy_struct):
     attribute_domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Attribute domain where the attribute is stored in the simulation state (default 'POINT')"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
     name: str
@@ -95252,7 +95252,7 @@ class Sound(ID, bpy_struct):
 class SoundEqualizerModifier(StripModifier, bpy_struct):
     """Equalize audio"""
 
-    graphics: typing.Any
+    graphics: bpy_prop_collection[EQCurveMappingData]
     """ Graphical definition equalization (default None, readonly)"""
 
     def new_graphic(
@@ -95683,7 +95683,7 @@ class SpaceConsole(Space, bpy_struct):
     font_size: int
     """ Font size to use for displaying the text (in [1, 256], default 0)"""
 
-    history: typing.Any
+    history: bpy_prop_collection[ConsoleLine]
     """ Command history (default None, readonly)"""
 
     language: str
@@ -95692,7 +95692,7 @@ class SpaceConsole(Space, bpy_struct):
     prompt: str
     """ Command line prompt (default "", never None)"""
 
-    scrollback: typing.Any
+    scrollback: bpy_prop_collection[ConsoleLine]
     """ Command output (default None, readonly)"""
 
     select_end: int
@@ -95940,7 +95940,7 @@ class SpaceFileBrowser(Space, bpy_struct):
     active_operator: Operator | None
     """ (readonly)"""
 
-    bookmarks: typing.Any
+    bookmarks: bpy_prop_collection[FileBrowserFSMenuEntry]
     """ User's bookmarks (default None)"""
 
     bookmarks_active: int
@@ -95955,7 +95955,7 @@ class SpaceFileBrowser(Space, bpy_struct):
     params: FileSelectParams | None
     """ Parameters and Settings for the Filebrowser (readonly)"""
 
-    recent_folders: typing.Any
+    recent_folders: bpy_prop_collection[FileBrowserFSMenuEntry]
     """ (default None)"""
 
     recent_folders_active: int
@@ -95970,13 +95970,13 @@ class SpaceFileBrowser(Space, bpy_struct):
     show_region_ui: bool
     """ (default False)"""
 
-    system_bookmarks: typing.Any
+    system_bookmarks: bpy_prop_collection[FileBrowserFSMenuEntry]
     """ System's bookmarks (default None, readonly)"""
 
     system_bookmarks_active: int
     """ Index of active system bookmark (-1 if none) (in [-32768, 32767], default 0)"""
 
-    system_folders: typing.Any
+    system_folders: bpy_prop_collection[FileBrowserFSMenuEntry]
     """ System's folders (usually root, available hard drives, etc) (default None, readonly)"""
 
     system_folders_active: int
@@ -96304,7 +96304,7 @@ class SpaceImageEditor(Space, bpy_struct):
     uv_editor: SpaceUVEditor | None
     """ UV editor settings (readonly, never None)"""
 
-    zoom: typing.Any
+    zoom: bpy_prop_array[float]
     """ Zoom factor (array of 2 items, in [-inf, inf], default (0.0, 0.0), readonly)"""
 
     zoom_percentage: float
@@ -97367,7 +97367,7 @@ class SpaceSpreadsheet(Space, bpy_struct):
     object_eval_state: typing.Literal["EVALUATED", "ORIGINAL", "VIEWER_NODE"]
     """ (default 'EVALUATED')"""
 
-    row_filters: typing.Any
+    row_filters: bpy_prop_collection[SpreadsheetRowFilter]
     """ Filters to remove rows from the displayed data (default None, readonly)"""
 
     show_internal_attributes: bool
@@ -97524,7 +97524,9 @@ class SpaceTextEditor(Space, bpy_struct):
         :return:
         """
 
-    def region_location_from_cursor(self, line: int | None, column: int | None) -> None:
+    def region_location_from_cursor(
+        self, line: int | None, column: int | None
+    ) -> bpy_prop_array[int]:
         """Retrieve the region position from the given line and character position
 
         :param line: Line, Line index (in [-inf, inf])
@@ -97593,7 +97595,7 @@ class SpaceTextEditor(Space, bpy_struct):
 class SpaceUVEditor(bpy_struct):
     """UV editor data for the image editor space"""
 
-    custom_grid_subdivisions: typing.Any
+    custom_grid_subdivisions: bpy_prop_array[int]
     """ Number of grid units in UV space that make one UV Unit (array of 2 items, in [1, 5000], default (0, 0))"""
 
     display_stretch_type: typing.Literal["ANGLE", "AREA"]
@@ -97635,7 +97637,7 @@ class SpaceUVEditor(bpy_struct):
     stretch_opacity: float
     """ Opacity of the UV Stretch overlay (in [0, 1], default 0.0)"""
 
-    tile_grid_shape: typing.Any
+    tile_grid_shape: bpy_prop_array[int]
     """ How many tiles will be shown in the background (array of 2 items, in [1, 100], default (0, 0))"""
 
     use_live_unwrap: bool
@@ -97720,7 +97722,7 @@ class SpaceView3D(Space, bpy_struct):
     region_3d: RegionView3D | None
     """ 3D region for this space. When the space is in quad view, the camera region (readonly)"""
 
-    region_quadviews: typing.Any
+    region_quadviews: bpy_prop_collection[RegionView3D]
     """ 3D regions (the third one defines quad view settings, the fourth one is same as 'region_3d') (default None, readonly)"""
 
     render_border_max_x: float
@@ -98247,7 +98249,7 @@ class SplineIKConstraint(Constraint, bpy_struct):
     chain_count: int
     """ How many bones are included in the chain (in [1, 255], default 0)"""
 
-    joint_bindings: typing.Any
+    joint_bindings: bpy_prop_array[float]
     """ (EXPERIENCED USERS ONLY) The relative positions of the joints along the chain, as percentages (array of 32 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))"""
 
     target: Object | None
@@ -98526,28 +98528,28 @@ class SpreadsheetRowFilter(bpy_struct):
     value_boolean: bool
     """ (default False)"""
 
-    value_color: typing.Any
+    value_color: bpy_prop_array[float]
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     value_float: float
     """ (in [-inf, inf], default 0.0)"""
 
-    value_float2: typing.Any
+    value_float2: bpy_prop_array[float]
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    value_float3: typing.Any
+    value_float3: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    value_float4: typing.Any
+    value_float4: bpy_prop_array[float]
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     value_int: int
     """ (in [-inf, inf], default 0)"""
 
-    value_int2: typing.Any
+    value_int2: bpy_prop_array[int]
     """ (array of 2 items, in [-inf, inf], default (0, 0))"""
 
-    value_int3: typing.Any
+    value_int3: bpy_prop_array[int]
     """ (array of 3 items, in [-inf, inf], default (0, 0, 0))"""
 
     value_int8: int
@@ -98587,7 +98589,7 @@ class SpreadsheetRowFilter(bpy_struct):
 class SpreadsheetTable(bpy_struct):
     """Persistent data associated with a table"""
 
-    columns: typing.Any
+    columns: bpy_prop_collection[SpreadsheetColumn]
     """ Columns within the table (default None, readonly)"""
 
     id: SpreadsheetTableID | None
@@ -98876,7 +98878,7 @@ class StretchToConstraint(Constraint, bpy_struct):
 class StringAttribute(Attribute, bpy_struct):
     """Geometry attribute that stores strings"""
 
-    data: typing.Any
+    data: bpy_prop_collection[StringAttributeValue]
     """ (default None, readonly)"""
 
     @classmethod
@@ -99020,7 +99022,7 @@ class Strip(bpy_struct):
     color_tag: typing.Literal[bpy.stub_internal.rna_enums.StripColorItems]
     """ Color tag for a strip (default 'COLOR_01')"""
 
-    connections: typing.Any
+    connections: bpy_prop_collection[Strip]
     """ Other strips currently connected to this strip (default None, readonly)"""
 
     content_duration: int
@@ -99541,7 +99543,7 @@ class StripTransform(bpy_struct):
     offset_y: float
     """ Move along Y axis (in [-inf, inf], default 0.0)"""
 
-    origin: typing.Any
+    origin: bpy_prop_array[float]
     """ Origin of image for transformation (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     rotation: float
@@ -99590,7 +99592,7 @@ class Struct(bpy_struct):
     description: str
     """ Description of the Struct's purpose (default "", readonly, never None)"""
 
-    functions: typing.Any
+    functions: bpy_prop_collection[Function]
     """ (default None, readonly)"""
 
     identifier: str
@@ -99605,10 +99607,10 @@ class Struct(bpy_struct):
     nested: typing_extensions.Self | None
     """ Struct in which this struct is always nested, and to which it logically belongs (readonly)"""
 
-    properties: typing.Any
+    properties: bpy_prop_collection[Property]
     """ Properties in the struct (default None, readonly)"""
 
-    property_tags: typing.Any
+    property_tags: bpy_prop_collection[EnumPropertyItem]
     """ Tags that properties can use to influence behavior (default None, readonly)"""
 
     translation_context: str
@@ -99726,7 +99728,7 @@ class StudioLight(bpy_struct):
     path: str
     """ (default "", readonly, never None)"""
 
-    solid_lights: typing.Any
+    solid_lights: bpy_prop_collection[UserSolidLight]
     """ Lights used to display objects in solid draw mode (default None, readonly)"""
 
     type: typing.Literal["STUDIO", "WORLD", "MATCAP"]
@@ -100308,7 +100310,7 @@ class Text(ID, bpy_struct):
     is_modified: bool
     """ Text file on disk is different than the one in memory (default False, readonly)"""
 
-    lines: typing.Any
+    lines: bpy_prop_collection[TextLine]
     """ Lines of text (default None, readonly)"""
 
     select_end_character: int
@@ -100543,7 +100545,7 @@ class TextCurve(Curve, ID, bpy_struct):
     body: str
     """ Content of this text object (default "", never None)"""
 
-    body_format: typing.Any
+    body_format: bpy_prop_collection[TextCharacterFormat]
     """ Stores the style of each character (default None, readonly)"""
 
     edit_format: TextCharacterFormat | None
@@ -100601,7 +100603,7 @@ class TextCurve(Curve, ID, bpy_struct):
     space_word: float
     """ (in [0, 10], default 1.0)"""
 
-    text_boxes: typing.Any
+    text_boxes: bpy_prop_collection[TextBox]
     """ (default None, readonly)"""
 
     underline_height: float
@@ -100687,7 +100689,7 @@ class TextStrip(EffectStrip, Strip, bpy_struct):
     anchor_y: typing.Literal["TOP", "CENTER", "BOTTOM"]
     """ Vertical position of the text box relative to Location (default 'TOP')"""
 
-    box_color: typing.Any
+    box_color: bpy_prop_array[float]
     """ (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     box_margin: float
@@ -100696,7 +100698,7 @@ class TextStrip(EffectStrip, Strip, bpy_struct):
     box_roundness: float
     """ Box corner radius as a factor of box height (in [0, 1], default 0.0)"""
 
-    color: typing.Any
+    color: bpy_prop_array[float]
     """ Text color (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     font: VectorFont | None
@@ -100711,7 +100713,7 @@ class TextStrip(EffectStrip, Strip, bpy_struct):
     location: mathutils.Vector
     """ Location of the text (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    outline_color: typing.Any
+    outline_color: bpy_prop_array[float]
     """ (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     outline_width: float
@@ -100723,7 +100725,7 @@ class TextStrip(EffectStrip, Strip, bpy_struct):
     shadow_blur: float
     """ (in [0, 1], default 0.0)"""
 
-    shadow_color: typing.Any
+    shadow_color: bpy_prop_array[float]
     """ (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     shadow_offset: float
@@ -102929,13 +102931,13 @@ class TextureSlot(bpy_struct):
 class Theme(bpy_struct):
     """User interface styling and color settings"""
 
-    bone_color_sets: typing.Any
+    bone_color_sets: bpy_prop_collection[ThemeBoneColorSet]
     """ (default None, readonly, never None)"""
 
     clip_editor: ThemeClipEditor | None
     """ (readonly, never None)"""
 
-    collection_color: typing.Any
+    collection_color: bpy_prop_collection[ThemeCollectionColor]
     """ (default None, readonly, never None)"""
 
     common: ThemeCommon | None
@@ -102992,7 +102994,7 @@ class Theme(bpy_struct):
     statusbar: ThemeStatusBar | None
     """ (readonly, never None)"""
 
-    strip_color: typing.Any
+    strip_color: bpy_prop_collection[ThemeStripColor]
     """ (default None, readonly, never None)"""
 
     text_editor: ThemeTextEditor | None
@@ -103114,7 +103116,7 @@ class ThemeClipEditor(bpy_struct):
     disabled_marker: mathutils.Color
     """ Color of disabled marker (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    grid: typing.Any
+    grid: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     locked_marker: mathutils.Color
@@ -103252,22 +103254,22 @@ class ThemeCommon(bpy_struct):
 class ThemeCommonAnim(bpy_struct):
     """Shared animation theme properties"""
 
-    channel: typing.Any
+    channel: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    channel_group: typing.Any
+    channel_group: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    channel_group_active: typing.Any
+    channel_group_active: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    channel_selected: typing.Any
+    channel_selected: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    channels: typing.Any
+    channels: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    channels_sub: typing.Any
+    channels_sub: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     keyframe: mathutils.Color
@@ -103306,19 +103308,19 @@ class ThemeCommonAnim(bpy_struct):
     keyframe_selected: mathutils.Color
     """ Color of selected keyframe (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    long_key: typing.Any
+    long_key: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    long_key_selected: typing.Any
+    long_key_selected: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     playhead: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    preview_range: typing.Any
+    preview_range: bpy_prop_array[float]
     """ Color of preview range overlay (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    scene_strip_range: typing.Any
+    scene_strip_range: bpy_prop_array[float]
     """ Color of scene strip range overlay (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -103437,7 +103439,7 @@ class ThemeConsole(bpy_struct):
     line_output: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    select: typing.Any
+    select: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     space: ThemeSpaceGeneric | None
@@ -103474,34 +103476,34 @@ class ThemeConsole(bpy_struct):
 class ThemeDopeSheet(bpy_struct):
     """Theme settings for the Dope Sheet"""
 
-    anim_interpolation_constant: typing.Any
+    anim_interpolation_constant: bpy_prop_array[float]
     """ Color of lines showing constant interpolation mode (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    anim_interpolation_linear: typing.Any
+    anim_interpolation_linear: bpy_prop_array[float]
     """ Color of lines showing linear interpolation mode (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    anim_interpolation_other: typing.Any
+    anim_interpolation_other: bpy_prop_array[float]
     """ Color of lines showing easings & dynamic interpolation mode (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     grid: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    keyframe_border: typing.Any
+    keyframe_border: bpy_prop_array[float]
     """ Color of keyframe border (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    keyframe_border_selected: typing.Any
+    keyframe_border_selected: bpy_prop_array[float]
     """ Color of selected keyframe border (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     keyframe_scale_factor: float
     """ Scale factor for adjusting the height of keyframes (in [0.8, 5], default 1.0)"""
 
-    simulated_frames: typing.Any
+    simulated_frames: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     space: ThemeSpaceGeneric | None
     """ Settings for space (readonly, never None)"""
 
-    summary: typing.Any
+    summary: bpy_prop_array[float]
     """ Color of summary channel (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -103535,7 +103537,7 @@ class ThemeDopeSheet(bpy_struct):
 class ThemeFileBrowser(bpy_struct):
     """Theme settings for the File Browser"""
 
-    row_alternate: typing.Any
+    row_alternate: bpy_prop_array[float]
     """ Overlay color on every other row (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     selected_file: mathutils.Color
@@ -103722,22 +103724,22 @@ class ThemeImageEditor(bpy_struct):
     edge_width: int
     """ (in [1, 32], default 0)"""
 
-    editmesh_active: typing.Any
+    editmesh_active: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    face: typing.Any
+    face: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    face_mode_select: typing.Any
+    face_mode_select: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    face_select: typing.Any
+    face_select: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     facedot_size: int
     """ (in [1, 10], default 0)"""
 
-    grid: typing.Any
+    grid: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     metadatabg: mathutils.Color
@@ -103746,31 +103748,31 @@ class ThemeImageEditor(bpy_struct):
     metadatatext: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    preview_stitch_active: typing.Any
+    preview_stitch_active: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    preview_stitch_edge: typing.Any
+    preview_stitch_edge: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    preview_stitch_face: typing.Any
+    preview_stitch_face: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    preview_stitch_stitchable: typing.Any
+    preview_stitch_stitchable: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    preview_stitch_unstitchable: typing.Any
+    preview_stitch_unstitchable: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    preview_stitch_vert: typing.Any
+    preview_stitch_vert: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    scope_back: typing.Any
+    scope_back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     space: ThemeSpaceGeneric | None
     """ Settings for space (readonly, never None)"""
 
-    uv_shadow: typing.Any
+    uv_shadow: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     vertex: mathutils.Color
@@ -103816,7 +103818,7 @@ class ThemeImageEditor(bpy_struct):
 class ThemeInfo(bpy_struct):
     """Theme settings for Info"""
 
-    info_debug: typing.Any
+    info_debug: bpy_prop_array[float]
     """ Background color of Debug icon (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     info_debug_text: mathutils.Color
@@ -103828,13 +103830,13 @@ class ThemeInfo(bpy_struct):
     info_info_text: mathutils.Color
     """ Foreground color of Info icon (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    info_operator: typing.Any
+    info_operator: bpy_prop_array[float]
     """ Background color of Operator icon (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     info_operator_text: mathutils.Color
     """ Foreground color of Operator icon (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    info_property: typing.Any
+    info_property: bpy_prop_array[float]
     """ Background color of Property icon (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     info_property_text: mathutils.Color
@@ -103883,19 +103885,19 @@ class ThemeInfo(bpy_struct):
 class ThemeNLAEditor(bpy_struct):
     """Theme settings for the NLA Editor"""
 
-    active_action: typing.Any
+    active_action: bpy_prop_array[float] | None
     """ Animation data-block has active action (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    active_action_unset: typing.Any
+    active_action_unset: bpy_prop_array[float] | None
     """ Animation data-block does not have active action (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     grid: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    keyframe_border: typing.Any
+    keyframe_border: bpy_prop_array[float]
     """ Color of keyframe border (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    keyframe_border_selected: typing.Any
+    keyframe_border_selected: bpy_prop_array[float]
     """ Color of selected keyframe border (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     meta_strips: mathutils.Color
@@ -103965,7 +103967,7 @@ class ThemeNodeEditor(bpy_struct):
     attribute_node: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    closure_zone: typing.Any
+    closure_zone: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     color_node: mathutils.Color
@@ -103983,10 +103985,10 @@ class ThemeNodeEditor(bpy_struct):
     filter_node: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    foreach_geometry_element_zone: typing.Any
+    foreach_geometry_element_zone: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    frame_node: typing.Any
+    frame_node: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     geometry_node: mathutils.Color
@@ -104013,10 +104015,10 @@ class ThemeNodeEditor(bpy_struct):
     node_active: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    node_backdrop: typing.Any
+    node_backdrop: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    node_outline: typing.Any
+    node_outline: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     node_selected: mathutils.Color
@@ -104028,7 +104030,7 @@ class ThemeNodeEditor(bpy_struct):
     output_node: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    repeat_zone: typing.Any
+    repeat_zone: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     script_node: mathutils.Color
@@ -104037,7 +104039,7 @@ class ThemeNodeEditor(bpy_struct):
     shader_node: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    simulation_zone: typing.Any
+    simulation_zone: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     space: ThemeSpaceGeneric | None
@@ -104049,13 +104051,13 @@ class ThemeNodeEditor(bpy_struct):
     vector_node: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    wire: typing.Any
+    wire: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     wire_inner: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    wire_select: typing.Any
+    wire_select: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -104095,13 +104097,13 @@ class ThemeOutliner(bpy_struct):
     active_object: mathutils.Color | None
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    edited_object: typing.Any
+    edited_object: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     match: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    row_alternate: typing.Any
+    row_alternate: bpy_prop_array[float]
     """ Overlay color on every other row (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     selected_highlight: mathutils.Color
@@ -104261,10 +104263,10 @@ class ThemeRegions(bpy_struct):
 class ThemeRegionsAssetShelf(bpy_struct):
     """Theme settings for asset shelves"""
 
-    back: typing.Any
+    back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    header_back: typing.Any
+    header_back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -104334,16 +104336,16 @@ class ThemeRegionsChannels(bpy_struct):
         """
 
 class ThemeRegionsScrubbing(bpy_struct):
-    back: typing.Any
+    back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     text: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    time_marker: typing.Any
+    time_marker: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    time_marker_selected: typing.Any
+    time_marker_selected: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -104375,10 +104377,10 @@ class ThemeRegionsScrubbing(bpy_struct):
         """
 
 class ThemeRegionsSidebars(bpy_struct):
-    back: typing.Any
+    back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    tab_back: typing.Any
+    tab_back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -104430,10 +104432,10 @@ class ThemeSequenceEditor(bpy_struct):
     image_strip: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    keyframe_border: typing.Any
+    keyframe_border: bpy_prop_array[float]
     """ Color of keyframe border (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    keyframe_border_selected: typing.Any
+    keyframe_border_selected: bpy_prop_array[float]
     """ Color of selected keyframe border (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     mask_strip: mathutils.Color
@@ -104457,7 +104459,7 @@ class ThemeSequenceEditor(bpy_struct):
     preview_back: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    row_alternate: typing.Any
+    row_alternate: bpy_prop_array[float]
     """ Overlay color on every other row (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     scene_strip: mathutils.Color
@@ -104466,7 +104468,7 @@ class ThemeSequenceEditor(bpy_struct):
     selected_strip: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    selected_text: typing.Any
+    selected_text: bpy_prop_array[float]
     """ Text strip editing selection (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     space: ThemeSpaceGeneric | None
@@ -104475,7 +104477,7 @@ class ThemeSequenceEditor(bpy_struct):
     text_strip: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    text_strip_cursor: typing.Any
+    text_strip_cursor: bpy_prop_array[float]
     """ Text strip editing cursor (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     transition_strip: mathutils.Color
@@ -104513,7 +104515,7 @@ class ThemeSpaceGeneric(bpy_struct):
     back: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    header: typing.Any
+    header: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     header_text: mathutils.Color
@@ -104563,7 +104565,7 @@ class ThemeSpaceGradient(bpy_struct):
     gradients: ThemeGradientColors | None
     """ (readonly, never None)"""
 
-    header: typing.Any
+    header: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     header_text: mathutils.Color
@@ -104612,7 +104614,7 @@ class ThemeSpaceGradient(bpy_struct):
 class ThemeSpreadsheet(bpy_struct):
     """Theme settings for the Spreadsheet"""
 
-    row_alternate: typing.Any
+    row_alternate: bpy_prop_array[float]
     """ Overlay color on every other row (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     space: ThemeSpaceGeneric | None
@@ -104876,10 +104878,10 @@ class ThemeUserInterface(bpy_struct):
     editor_border: mathutils.Color
     """ Color of the border between editors (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    editor_outline: typing.Any
+    editor_outline: bpy_prop_array[float]
     """ Color of the outline of each editor, except the active one (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    editor_outline_active: typing.Any
+    editor_outline_active: bpy_prop_array[float]
     """ Color of the outline of the active editor (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     gizmo_a: mathutils.Color
@@ -104903,37 +104905,37 @@ class ThemeUserInterface(bpy_struct):
     icon_alpha: float
     """ Transparency of icons in the interface, to reduce contrast (in [0, 1], default 0.0)"""
 
-    icon_autokey: typing.Any
+    icon_autokey: bpy_prop_array[float]
     """ Color of Auto Keying indicator when enabled (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     icon_border_intensity: float
     """ Control the intensity of the border around themes icons (in [0, 1], default 0.0)"""
 
-    icon_collection: typing.Any
+    icon_collection: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    icon_folder: typing.Any
+    icon_folder: bpy_prop_array[float]
     """ Color of folders in the file browser (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    icon_modifier: typing.Any
+    icon_modifier: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    icon_object: typing.Any
+    icon_object: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    icon_object_data: typing.Any
+    icon_object_data: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     icon_saturation: float
     """ Saturation of icons in the interface (in [0, 1], default 0.0)"""
 
-    icon_scene: typing.Any
+    icon_scene: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    icon_shading: typing.Any
+    icon_shading: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    link: typing.Any
+    link: bpy_prop_array[float]
     """ Color of link widgets (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     menu_shadow_fac: float
@@ -104942,22 +104944,22 @@ class ThemeUserInterface(bpy_struct):
     menu_shadow_width: int
     """ Width of panel and menu shadows, set to zero to disable (in [0, 24], default 0)"""
 
-    panel_active: typing.Any
+    panel_active: bpy_prop_array[float]
     """ Color of the outline of top-level panels that are active (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    panel_back: typing.Any
+    panel_back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    panel_header: typing.Any
+    panel_header: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    panel_outline: typing.Any
+    panel_outline: bpy_prop_array[float]
     """ Color of the outline of top-level panels (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     panel_roundness: float
     """ Roundness of the corners of panels and sub-panels (in [0, 1], default 0.4)"""
 
-    panel_sub_back: typing.Any
+    panel_sub_back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     panel_text: mathutils.Color
@@ -105041,7 +105043,7 @@ class ThemeUserInterface(bpy_struct):
     wcol_tooltip: ThemeWidgetColors | None
     """ (readonly, never None)"""
 
-    widget_emboss: typing.Any
+    widget_emboss: bpy_prop_array[float]
     """ Color of the 1px shadow line underlying widgets (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     widget_text_cursor: mathutils.Color
@@ -105087,7 +105089,7 @@ class ThemeView3D(bpy_struct):
     bevel: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    bone_locked_weight: typing.Any
+    bone_locked_weight: bpy_prop_array[float]
     """ Shade for bones corresponding to a locked weight group during painting (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     bone_pose: mathutils.Color
@@ -105111,7 +105113,7 @@ class ThemeView3D(bpy_struct):
     camera_path: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    clipping_border_3d: typing.Any
+    clipping_border_3d: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     crease: mathutils.Color
@@ -105126,7 +105128,7 @@ class ThemeView3D(bpy_struct):
     edge_width: int
     """ (in [1, 32], default 0)"""
 
-    editmesh_active: typing.Any
+    editmesh_active: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     empty: mathutils.Color
@@ -105144,28 +105146,28 @@ class ThemeView3D(bpy_struct):
     extra_face_area: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    face: typing.Any
+    face: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    face_back: typing.Any
+    face_back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    face_front: typing.Any
+    face_front: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    face_mode_select: typing.Any
+    face_mode_select: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    face_retopology: typing.Any
+    face_retopology: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    face_select: typing.Any
+    face_select: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     facedot_size: int
     """ (in [1, 10], default 0)"""
 
-    freestyle: typing.Any
+    freestyle: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     gp_vertex: mathutils.Color
@@ -105177,16 +105179,16 @@ class ThemeView3D(bpy_struct):
     gp_vertex_size: int
     """ (in [1, 10], default 0)"""
 
-    gp_wire_edit: typing.Any
+    gp_wire_edit: bpy_prop_array[float]
     """ Grease Pencil wireframe color when in edit mode (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    grid: typing.Any
+    grid: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    grid_major: typing.Any
+    grid_major: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    light: typing.Any
+    light: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     normal: mathutils.Color
@@ -105295,19 +105297,19 @@ class ThemeView3D(bpy_struct):
 class ThemeWidgetColors(bpy_struct):
     """Theme settings for widget color sets"""
 
-    inner: typing.Any
+    inner: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    inner_sel: typing.Any
+    inner_sel: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    item: typing.Any
+    item: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    outline: typing.Any
+    outline: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    outline_sel: typing.Any
+    outline_sel: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     roundness: float
@@ -105362,10 +105364,10 @@ class ThemeWidgetStateColors(bpy_struct):
     blend: float
     """ (in [0, 1], default 0.0)"""
 
-    error: typing.Any
+    error: bpy_prop_array[float]
     """ Color for error items (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    info: typing.Any
+    info: bpy_prop_array[float]
     """ Color for informational items (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     inner_anim: mathutils.Color
@@ -105398,10 +105400,10 @@ class ThemeWidgetStateColors(bpy_struct):
     inner_overridden_sel: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    success: typing.Any
+    success: bpy_prop_array[float]
     """ Color for successful items (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    warning: typing.Any
+    warning: bpy_prop_array[float]
     """ Color for warning items (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     @classmethod
@@ -105615,7 +105617,7 @@ class ToolSettings(bpy_struct):
     lock_object_mode: bool
     """ Restrict selection to objects using the same mode as the active object, to prevent accidental mode switch when selecting (default True)"""
 
-    mesh_select_mode: typing.Any
+    mesh_select_mode: bpy_prop_array[bool]
     """ Which mesh elements selection works on (array of 3 items, default (False, False, False))"""
 
     normal_vector: mathutils.Vector
@@ -106382,7 +106384,7 @@ class UDIMTile(bpy_struct):
     channels: int
     """ Number of channels in the tile pixels buffer (in [0, inf], default 0, readonly)"""
 
-    generated_color: typing.Any
+    generated_color: bpy_prop_array[float]
     """ Fill color for the generated image (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     generated_height: int
@@ -106403,7 +106405,7 @@ class UDIMTile(bpy_struct):
     number: int
     """ Number of the position that this tile covers (in [-inf, inf], default 0)"""
 
-    size: typing.Any
+    size: bpy_prop_array[int]
     """ Width and height of the tile buffer in pixels, zero when image data cannot be loaded (array of 2 items, in [-inf, inf], default (0, 0), readonly)"""
 
     use_generated_float: bool
@@ -108029,7 +108031,7 @@ class UIList(bpy_struct):
 
     def filter_items(
         self, context: Context, data: typing.Any | None, property: str | None
-    ) -> tuple:
+    ) -> tuple[bpy_prop_array[int], bpy_prop_array[int]]:
         """Filter and/or re-order items of the collection (output filter results in filter_flags, and reorder results in filter_neworder arrays)
 
                 :param context:
@@ -108432,7 +108434,7 @@ class UVProjectModifier(Modifier, bpy_struct):
     projector_count: int
     """ Number of projectors to use (in [1, 10], default 1)"""
 
-    projectors: typing.Any
+    projectors: bpy_prop_collection[UVProjector]
     """ (default None, readonly)"""
 
     scale_x: float
@@ -108521,7 +108523,7 @@ class UVWarpModifier(Modifier, bpy_struct):
     bone_to: str
     """ Bone defining offset (default "", never None)"""
 
-    center: typing.Any
+    center: bpy_prop_array[float]
     """ Center point for rotate/scale (array of 2 items, in [-inf, inf], default (0.5, 0.5))"""
 
     invert_vertex_group: bool
@@ -108533,13 +108535,13 @@ class UVWarpModifier(Modifier, bpy_struct):
     object_to: Object | None
     """ Object defining offset"""
 
-    offset: typing.Any
+    offset: bpy_prop_array[float]
     """ 2D Offset for the warp (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     rotation: float
     """ 2D Rotation for the warp (in [-inf, inf], default 0.0)"""
 
-    scale: typing.Any
+    scale: bpy_prop_array[float]
     """ 2D Scale for the warp (array of 2 items, in [-inf, inf], default (1.0, 1.0))"""
 
     uv_layer: str
@@ -110278,7 +110280,7 @@ class VertexWeightProximityModifier(Modifier, bpy_struct):
 class View2D(bpy_struct):
     """Scroll and zoom for a 2D region"""
 
-    def region_to_view(self, x: float | None, y: float | None) -> None:
+    def region_to_view(self, x: float | None, y: float | None) -> bpy_prop_array[float]:
         """Transform region coordinates to 2D view
 
         :param x: x, Region x coordinate (in [-inf, inf])
@@ -110288,7 +110290,7 @@ class View2D(bpy_struct):
 
     def view_to_region(
         self, x: float | None, y: float | None, *, clip: bool | None = True
-    ) -> None:
+    ) -> bpy_prop_array[int]:
         """Transform 2D view coordinates to region
 
         :param x: x, 2D View x coordinate (in [-inf, inf])
@@ -110332,7 +110334,7 @@ class View3DCursor(bpy_struct):
     matrix: mathutils.Matrix
     """ Matrix combining location and rotation of the cursor (multi-dimensional array of 4 * 4 items, in [-inf, inf], default ((0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)))"""
 
-    rotation_axis_angle: typing.Any
+    rotation_axis_angle: bpy_prop_array[float]
     """ Angle of Rotation for Axis-Angle rotation representation (array of 4 items, in [-inf, inf], default (0.0, 0.0, 1.0, 0.0))"""
 
     rotation_euler: mathutils.Euler
@@ -110393,7 +110395,7 @@ class View3DOverlay(bpy_struct):
     gpencil_grid_color: mathutils.Color
     """ Canvas grid color (array of 3 items, in [0, 1], default (0.5, 0.5, 0.5))"""
 
-    gpencil_grid_offset: typing.Any
+    gpencil_grid_offset: bpy_prop_array[float]
     """ Canvas grid offset (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
     gpencil_grid_opacity: float
@@ -111174,7 +111176,7 @@ class ViewerNodeViewerPathElem(ViewerPathElem, bpy_struct):
 class ViewerPath(bpy_struct):
     """Path to data that is viewed"""
 
-    path: typing.Any
+    path: bpy_prop_collection[ViewerPathElem]
     """ (default None, readonly)"""
 
     @classmethod
@@ -112106,7 +112108,7 @@ class Window(bpy_struct):
     height: int
     """ Window height (in [0, 32767], default 0, readonly)"""
 
-    modal_operators: typing.Any
+    modal_operators: bpy_prop_collection[Operator]
     """ A list of currently running modal operators (default None, readonly)"""
 
     parent: Window | None
@@ -112282,7 +112284,7 @@ class WindowManager(ID, bpy_struct):
     keyconfigs: KeyConfigurations | None
     """ Registered key configurations (default None, readonly)"""
 
-    operators: typing.Any
+    operators: bpy_prop_collection[Operator]
     """ Operator registry (default None, readonly)"""
 
     poselib_previous_action: Action | None
@@ -112879,7 +112881,7 @@ class WorkSpace(ID, bpy_struct):
     owner_ids: wmOwnerIDs | None
     """ (default None, readonly)"""
 
-    screens: typing.Any
+    screens: bpy_prop_collection[Screen]
     """ Screen layouts of a workspace (default None, readonly)"""
 
     sequencer_scene: Scene | None
@@ -113463,10 +113465,10 @@ class XrEventData(bpy_struct):
     float_threshold: float
     """ Input threshold for float/2D vector actions (in [-inf, inf], default 0.0, readonly)"""
 
-    state: typing.Any
+    state: bpy_prop_array[float]
     """ XR action values corresponding to type (array of 2 items, in [-inf, inf], default (0.0, 0.0), readonly)"""
 
-    state_other: typing.Any
+    state_other: bpy_prop_array[float]
     """ State of the other user path for bimanual actions (array of 2 items, in [-inf, inf], default (0.0, 0.0), readonly)"""
 
     type: typing.Literal["FLOAT", "VECTOR2D", "POSE", "VIBRATION"]
@@ -113859,7 +113861,7 @@ class XrSessionState(bpy_struct):
         action_set_name: str | None,
         action_name: str | None,
         user_path: str | None,
-    ) -> None:
+    ) -> bpy_prop_array[float]:
         """Get the current state of a VR action
 
         :param context: (never None)
@@ -116787,6 +116789,10 @@ STRIP_PT_effect_text_outline: bl_ui.properties_strip.STRIP_PT_effect_text_outlin
 STRIP_PT_effect_text_shadow: bl_ui.properties_strip.STRIP_PT_effect_text_shadow
 
 STRIP_PT_effect_text_style: bl_ui.properties_strip.STRIP_PT_effect_text_style
+
+STRIP_PT_effect_text_style_presets: (
+    bl_ui.properties_strip.STRIP_PT_effect_text_style_presets
+)
 
 STRIP_PT_mask: bl_ui.properties_strip.STRIP_PT_mask
 

@@ -119,6 +119,20 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            label_day:
+                description:
+                    - Configure a window during the time of day in which the schedule job is executed.
+                type: str
+                choices:
+                    - 'none'
+                    - 'over-night'
+                    - 'early-morning'
+                    - 'morning'
+                    - 'midday'
+                    - 'afternoon'
+                    - 'evening'
+                    - 'night'
+                    - 'late-night'
             name:
                 description:
                     - Recurring schedule name.
@@ -145,7 +159,8 @@ EXAMPLES = """
           day: "sunday"
           end: "<your_own_value>"
           fabric_object: "enable"
-          name: "default_name_7"
+          label_day: "none"
+          name: "default_name_8"
           start: "<your_own_value>"
           uuid: "<your_own_value>"
 """
@@ -242,7 +257,16 @@ from ansible_collections.fortinet.fortios.plugins.module_utils.fortios.compariso
 
 
 def filter_firewall_schedule_recurring_data(json):
-    option_list = ["color", "day", "end", "fabric_object", "name", "start", "uuid"]
+    option_list = [
+        "color",
+        "day",
+        "end",
+        "fabric_object",
+        "label_day",
+        "name",
+        "start",
+        "uuid",
+    ]
 
     json = remove_invalid_fields(json)
     dictionary = {}
@@ -469,6 +493,21 @@ versioned_schema = {
             "multiple_values": True,
             "elements": "str",
         },
+        "label_day": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [
+                {"value": "none"},
+                {"value": "over-night"},
+                {"value": "early-morning"},
+                {"value": "morning"},
+                {"value": "midday"},
+                {"value": "afternoon"},
+                {"value": "evening"},
+                {"value": "night"},
+                {"value": "late-night"},
+            ],
+        },
         "color": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "fabric_object": {
             "v_range": [["v6.4.4", ""]],
@@ -528,7 +567,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "firewall_schedule_recurring"
         )

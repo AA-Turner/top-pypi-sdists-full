@@ -5467,6 +5467,8 @@ def update_connector(ctx, **kwargs):
 @click.option("--share-detailed-duration-s", type=int, default=None)
 @click.option("--forwarder-summary-duration-s", type=int, default=None)
 @click.option("--forwarder-detailed-duration-s", type=int, default=None)
+@click.option("--audit-summary-duration-s", type=int, default=None)
+@click.option("--audit-detailed-duration-s", type=int, default=None)
 @click.pass_context
 def configure_connector_stats_publishing(ctx, **kwargs):
     result = connectors.configure_stats_publishing(ctx, **kwargs)

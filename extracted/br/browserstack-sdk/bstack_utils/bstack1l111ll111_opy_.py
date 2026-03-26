@@ -1,0 +1,164 @@
+# coding: UTF-8
+import sys
+bstack1l11lll_opy_ = sys.version_info [0] == 2
+bstack11ll1ll_opy_ = 2048
+bstack1111l11_opy_ = 7
+def bstack1ll1lll_opy_ (bstack1l11ll_opy_):
+    global bstack1lllll1_opy_
+    bstack11llll_opy_ = ord (bstack1l11ll_opy_ [-1])
+    bstack111l1ll_opy_ = bstack1l11ll_opy_ [:-1]
+    bstack1ll1111_opy_ = bstack11llll_opy_ % len (bstack111l1ll_opy_)
+    bstack1ll1l1_opy_ = bstack111l1ll_opy_ [:bstack1ll1111_opy_] + bstack111l1ll_opy_ [bstack1ll1111_opy_:]
+    if bstack1l11lll_opy_:
+        bstack11l1l_opy_ = unicode () .join ([unichr (ord (char) - bstack11ll1ll_opy_ - (bstack11ll11l_opy_ + bstack11llll_opy_) % bstack1111l11_opy_) for bstack11ll11l_opy_, char in enumerate (bstack1ll1l1_opy_)])
+    else:
+        bstack11l1l_opy_ = str () .join ([chr (ord (char) - bstack11ll1ll_opy_ - (bstack11ll11l_opy_ + bstack11llll_opy_) % bstack1111l11_opy_) for bstack11ll11l_opy_, char in enumerate (bstack1ll1l1_opy_)])
+    return eval (bstack11l1l_opy_)
+import atexit
+import json
+import os
+import time
+import uuid
+import logging
+from typing import Dict, List, Optional
+import threading
+from filelock import FileLock
+from bstack_utils.logger_utils import get_logger
+logger = get_logger(__name__)
+bstack1lll11l1111l_opy_: Dict[str, float] = {}
+bstack1lll111l1lll_opy_: List = []
+bstack1l1ll1ll1_opy_ = os.path.join(os.getcwd(), bstack1ll1lll_opy_ (u"ࠨ࡮ࡲ࡫ࠬ␄"), bstack1ll1lll_opy_ (u"ࠩ࡮ࡩࡾ࠳࡭ࡦࡶࡵ࡭ࡨࡹ࠮࡫ࡵࡲࡲࠬ␅"))
+_1lll111ll11l_opy_: Dict[str, List] = {}
+_1lll111ll1ll_opy_ = threading.Lock()
+_1lll111l11ll_opy_ = False
+class bstack1lll111ll1l1_opy_:
+    duration: float
+    name: str
+    startTime: float
+    worker: int
+    status: bool
+    failure: str
+    details: Optional[str]
+    entryType: str
+    platform: Optional[int]
+    command: Optional[str]
+    hookType: Optional[str]
+    cli: Optional[bool]
+    def __init__(self, duration: float, name: str, start_time: float, bstack1lll111lll11_opy_: int, status: bool, failure: str, details: Optional[str] = None, platform: Optional[int] = None, command: Optional[str] = None, test_name: Optional[str] = None, hook_type: Optional[str] = None, cli: Optional[bool] = False) -> None:
+        self.duration = duration
+        self.name = name
+        self.startTime = start_time
+        self.worker = bstack1lll111lll11_opy_
+        self.status = status
+        self.failure = failure
+        self.details = details
+        self.entryType = bstack1ll1lll_opy_ (u"ࠥࡱࡪࡧࡳࡶࡴࡨࠦ␆")
+        self.platform = platform
+        self.command = command
+        self.testName = test_name
+        self.hookType = hook_type
+        self.cli = cli
+class bstack1l1l11ll1_opy_:
+    global bstack1lll11l1111l_opy_
+    @staticmethod
+    def bstack11l1llllll_opy_(key: str):
+        bstack111l1l1l1_opy_ = bstack1l1l11ll1_opy_.bstack111lll11lll_opy_(key)
+        bstack1l1l11ll1_opy_.mark(bstack111l1l1l1_opy_+bstack1ll1lll_opy_ (u"ࠦ࠿ࡹࡴࡢࡴࡷࠦ␇"))
+        return bstack111l1l1l1_opy_
+    @staticmethod
+    def mark(key: str) -> None:
+        try:
+            bstack1lll11l1111l_opy_[key] = time.time_ns() / 1000000
+        except Exception as e:
+            logger.debug(bstack1ll1lll_opy_ (u"ࠧࡋࡲࡳࡱࡵ࠾ࠥࢁࡽࠣ␈").format(e))
+    @staticmethod
+    def end(label: str, start: str, end: str, status: bool, failure: Optional[str] = None, hook_type: Optional[str] = None, details: Optional[str] = None, command: Optional[str] = None, test_name: Optional[str] = None) -> None:
+        try:
+            bstack1l1l11ll1_opy_.mark(end)
+            bstack1l1l11ll1_opy_.measure(label, start, end, status, failure, hook_type, details, command, test_name)
+        except Exception as e:
+            logger.debug(bstack1ll1lll_opy_ (u"ࠨࡅࡳࡴࡲࡶࠥ࡯࡮ࠡ࡭ࡨࡽࠥࡳࡥࡵࡴ࡬ࡧࡸࡀࠠࡼࡿࠥ␉").format(e))
+    @staticmethod
+    def measure(label: str, start: str, end: str, status: bool, failure: Optional[str], hook_type: Optional[str] = None, details: Optional[str] = None, command: Optional[str] = None, test_name: Optional[str] = None) -> None:
+        try:
+            if start not in bstack1lll11l1111l_opy_ or end not in bstack1lll11l1111l_opy_:
+                logger.debug(bstack1ll1lll_opy_ (u"ࠢࡆࡴࡵࡳࡷࠦࡩ࡯ࠢࡶࡸࡦࡸࡴࠡ࡭ࡨࡽࠥࡽࡩࡵࡪࠣࡺࡦࡲࡵࡦࠢࡾࢁࠥࡵࡲࠡࡧࡱࡨࠥࡱࡥࡺࠢࡺ࡭ࡹ࡮ࠠࡷࡣ࡯ࡹࡪࠦࡻࡾࠤ␊").format(start,end))
+                return
+            duration: float = bstack1lll11l1111l_opy_[end] - bstack1lll11l1111l_opy_[start]
+            bstack1lll11l11111_opy_ = os.environ.get(bstack1ll1lll_opy_ (u"ࠣࡄࡕࡓ࡜࡙ࡅࡓࡕࡗࡅࡈࡑ࡟ࡃࡋࡑࡅࡗ࡟࡟ࡊࡕࡢࡖ࡚ࡔࡎࡊࡐࡊࠦ␋"), bstack1ll1lll_opy_ (u"ࠤࡩࡥࡱࡹࡥࠣ␌")).lower() == bstack1ll1lll_opy_ (u"ࠥࡸࡷࡻࡥࠣ␍")
+            bstack1lll111lll1l_opy_: bstack1lll111ll1l1_opy_ = bstack1lll111ll1l1_opy_(duration, label, bstack1lll11l1111l_opy_[start], bstack1ll1lll_opy_ (u"ࠦࢀࢃ࠭ࡼࡿࠥ␎").format(threading.get_ident(), os.getpid()), status, failure, details, os.environ.get(bstack1ll1lll_opy_ (u"ࠧࡈࡒࡐ࡙ࡖࡉࡗ࡙ࡔࡂࡅࡎࡣࡕࡒࡁࡕࡈࡒࡖࡒࡥࡉࡏࡆࡈ࡜ࠧ␏"), 0), command, test_name, hook_type, bstack1lll11l11111_opy_)
+            del bstack1lll11l1111l_opy_[start]
+            del bstack1lll11l1111l_opy_[end]
+            bstack1l1l11ll1_opy_.bstack1lll111l1l1l_opy_(bstack1lll111lll1l_opy_)
+            try:
+                bstack1lll111l1l11_opy_ = time.time_ns() / 1000000
+                bstack1lll111llll1_opy_ = bstack1lll111l1l11_opy_ - bstack1lll111lll1l_opy_.startTime
+                bstack1lll111lll1l_opy_.duration = bstack1lll111llll1_opy_
+                bstack1l1l11ll1_opy_.update_last_metric_duration(bstack1lll111lll1l_opy_)
+            except Exception as e:
+                logger.debug(bstack1ll1lll_opy_ (u"ࠨࡅࡳࡴࡲࡶࠥࡽࡨࡪ࡮ࡨࠤࡺࡶࡤࡢࡶ࡬ࡲ࡬ࠦ࡭ࡦࡶࡵ࡭ࡨࠦࡤࡶࡴࡤࡸ࡮ࡵ࡮ࠡࡣࡩࡸࡪࡸࠠࡱࡧࡵࡷ࡮ࡹࡴࡦࡰࡦࡩ࠿ࠦࡻࡾࠤ␐").format(e))
+        except Exception as e:
+            logger.debug(bstack1ll1lll_opy_ (u"ࠢࡆࡴࡵࡳࡷࠦࡷࡩ࡫࡯ࡩࠥࡳࡥࡢࡵࡸࡶ࡮ࡴࡧࠡ࡭ࡨࡽࠥࡳࡥࡵࡴ࡬ࡧࡸࡀࠠࡼࡿࠥ␑").format(e))
+    @staticmethod
+    def bstack1lll111l1l1l_opy_(bstack1lll111lll1l_opy_):
+        global _1lll111l11ll_opy_
+        os.makedirs(os.path.dirname(bstack1l1ll1ll1_opy_)) if not os.path.exists(os.path.dirname(bstack1l1ll1ll1_opy_)) else None
+        bstack1lll111lllll_opy_ = bstack1ll1lll_opy_ (u"ࠣࡽࢀ࠱ࢀࢃࠢ␒").format(threading.get_ident(), os.getpid())
+        if not _1lll111l11ll_opy_:
+            _1lll111l11ll_opy_ = True
+            atexit.register(bstack1l1l11ll1_opy_.bstack11lllll11l_opy_)
+        with _1lll111ll1ll_opy_:
+            if bstack1lll111lllll_opy_ not in _1lll111ll11l_opy_:
+                _1lll111ll11l_opy_[bstack1lll111lllll_opy_] = []
+            _1lll111ll11l_opy_[bstack1lll111lllll_opy_].append(bstack1lll111lll1l_opy_.__dict__)
+    @staticmethod
+    def _1lll111ll111_opy_():
+        bstack1ll1lll_opy_ (u"ࠤࠥࠦࡋࡲࡵࡴࡪࠣࡥࡱࡲࠠࡵࡪࡵࡩࡦࡪࠠࡣࡷࡩࡪࡪࡸࡳࠡࡶࡲࠤ࡫࡯࡬ࡦࠤࠥࠦ␓")
+        with _1lll111ll1ll_opy_:
+            if not _1lll111ll11l_opy_:
+                return
+            bstack1lll111l1ll1_opy_ = []
+            for bstack1lll111lll11_opy_, buffer in _1lll111ll11l_opy_.items():
+                bstack1lll111l1ll1_opy_.extend(buffer)
+            if not bstack1lll111l1ll1_opy_:
+                return
+        lock = FileLock(bstack1l1ll1ll1_opy_ + bstack1ll1lll_opy_ (u"ࠥ࠲ࡱࡵࡣ࡬ࠤ␔"), timeout=0.1)
+        try:
+            with lock:
+                try:
+                    with open(bstack1l1ll1ll1_opy_, bstack1ll1lll_opy_ (u"ࠦࡷ࠱ࠢ␕"), encoding=bstack1ll1lll_opy_ (u"ࠧࡻࡴࡧ࠯࠻ࠦ␖")) as file:
+                        try:
+                            data = json.load(file)
+                        except json.JSONDecodeError:
+                            data = []
+                        data.extend(bstack1lll111l1ll1_opy_)
+                        file.seek(0)
+                        file.truncate()
+                        json.dump(data, file, indent=4)
+                except FileNotFoundError:
+                    with open(bstack1l1ll1ll1_opy_, bstack1ll1lll_opy_ (u"ࠨࡷࠣ␗"), encoding=bstack1ll1lll_opy_ (u"ࠢࡶࡶࡩ࠱࠽ࠨ␘")) as file:
+                        json.dump(bstack1lll111l1ll1_opy_, file, indent=4)
+            with _1lll111ll1ll_opy_:
+                _1lll111ll11l_opy_.clear()
+        except Exception as e:
+            logger.debug(bstack1ll1lll_opy_ (u"ࠣࡇࡻࡧࡪࡶࡴࡪࡱࡱࠤࡼ࡮ࡩ࡭ࡧࠣࡪࡱࡻࡳࡩ࡫ࡱ࡫ࠥࡱࡥࡺࠢࡰࡩࡹࡸࡩࡤࡵࠣࡿࢂࠨ␙").format(str(e)))
+    @staticmethod
+    def bstack11lllll11l_opy_():
+        bstack1ll1lll_opy_ (u"ࠤࠥࠦࡕࡻࡢ࡭࡫ࡦࠤࡲ࡫ࡴࡩࡱࡧࠤࡹࡵࠠࡧ࡮ࡸࡷ࡭ࠦࡡ࡭࡮ࠣࡦࡺ࡬ࡦࡦࡴࡨࡨࠥࡳࡥࡵࡴ࡬ࡧࡸࠦࠨࡤࡣ࡯ࡰࠥࡨࡥࡧࡱࡵࡩࠥ࡫ࡸࡪࡶࠬࠦࠧࠨ␚")
+        bstack1l1l11ll1_opy_._1lll111ll111_opy_()
+    @staticmethod
+    def update_last_metric_duration(bstack1lll111lll1l_opy_):
+        bstack1ll1lll_opy_ (u"࡛ࠥࠦࠧࡰࡥࡣࡷࡩࠥࡪࡵࡳࡣࡷ࡭ࡴࡴࠠࡪࡰࠣࡸ࡭࡫ࠠࡣࡷࡩࡪࡪࡸࠠࠩ࡯ࡸࡧ࡭ࠦࡦࡢࡵࡷࡩࡷࠦࡴࡩࡣࡱࠤ࡫࡯࡬ࡦࠢࡌ࠳ࡔ࠯ࠢࠣࠤ␛")
+        try:
+            bstack1lll111lllll_opy_ = bstack1ll1lll_opy_ (u"ࠦࢀࢃ࠭ࡼࡿࠥ␜").format(threading.get_ident(), os.getpid())
+            with _1lll111ll1ll_opy_:
+                if bstack1lll111lllll_opy_ in _1lll111ll11l_opy_ and _1lll111ll11l_opy_[bstack1lll111lllll_opy_]:
+                    _1lll111ll11l_opy_[bstack1lll111lllll_opy_][-1][bstack1ll1lll_opy_ (u"ࠬࡪࡵࡳࡣࡷ࡭ࡴࡴࠧ␝")] = bstack1lll111lll1l_opy_.duration
+        except Exception as e:
+            logger.debug(bstack1ll1lll_opy_ (u"ࠨࡆࡢ࡫࡯ࡩࡩࠦࡴࡰࠢࡸࡴࡩࡧࡴࡦࠢ࡯ࡥࡸࡺࠠ࡮ࡧࡷࡶ࡮ࡩࠠࡥࡷࡵࡥࡹ࡯࡯࡯࠼ࠣࡿࢂࠨ␞").format(e))
+    @staticmethod
+    def bstack111lll11lll_opy_(label: str) -> str:
+        try:
+            return bstack1ll1lll_opy_ (u"ࠢࡼࡿ࠽ࡿࢂࠨ␟").format(label,str(uuid.uuid4().hex)[:6])
+        except Exception as e:
+            logger.debug(bstack1ll1lll_opy_ (u"ࠣࡇࡵࡶࡴࡸ࠺ࠡࡽࢀࠦ␠").format(e))

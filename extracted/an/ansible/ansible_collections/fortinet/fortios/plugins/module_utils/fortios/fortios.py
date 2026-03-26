@@ -353,10 +353,18 @@ def check_schema_versioning(fos, versioned_schema, top_level_param):
 
 class FortiOSHandler(object):
 
-    def __init__(self, conn, mod, module_mkeyname=None):
+    def __init__(self, conn, mod, module_mkeyname=None, admin_passwd_header=False):
         self._conn = conn
         self._module = mod
         self._mkeyname = module_mkeyname
+        self._admin_passwd_header = admin_passwd_header
+
+    def _with_admin_passwd_header(self, headers=None):
+        if not self._admin_passwd_header:
+            return headers
+        merged = dict(headers or {})
+        merged.setdefault("X-Admin-Passwd", True)
+        return merged
 
     def _trace_to_string(self, trace):
         trace_string = ""
@@ -499,29 +507,32 @@ class FortiOSHandler(object):
         result_data = None
         if directive_state == "present":
             status, result_data = self._conn.send_request(
-                url=sub_obj["get"], params=None, method="GET"
+                url=sub_obj["get"], params=None, method="GET", headers=self._with_admin_passwd_header()
             )
             if status == 200:
                 status, result_data = self._conn.send_request(
                     url=sub_obj["put"],
                     data=json.dumps(sub_obj["put_payload"]),
                     method="PUT",
+                    headers=self._with_admin_passwd_header(),
                 )
                 if status == 405:
                     status, result_data = self._conn.send_request(
                         url=sub_obj["post"],
                         data=json.dumps(sub_obj["post_payload"]),
                         method="POST",
+                        headers=self._with_admin_passwd_header(),
                     )
             else:
                 status, result_data = self._conn.send_request(
                     url=sub_obj["post"],
                     data=json.dumps(sub_obj["post_payload"]),
                     method="POST",
+                    headers=self._with_admin_passwd_header(),
                 )
         else:
             status, result_data = self._conn.send_request(
-                url=sub_obj["delete"], params=None, method="DELETE"
+                url=sub_obj["delete"], params=None, method="DELETE", headers=self._with_admin_passwd_header()
             )
         result_data = self.formatresponse(result_data, status, vdom=sub_obj["vdom"])
         return result_data
@@ -740,11 +751,11 @@ class FortiOSHandler(object):
 
         return self.formatresponse(result_data, http_status, vdom=vdom)
 
-    def get(self, path, name, vdom=None, mkey=None, parameters=None):
+    def get(self, path, name, vdom=None, mkey=None, parameters=None, headers=None):
         url = self.cmdb_url(path, name, vdom, mkey=mkey)
 
         http_status, result_data = self._conn.send_request(
-            url=url, params=parameters, method="GET"
+            url=url, params=parameters, method="GET", headers=headers
         )
 
         return self.formatresponse(result_data, http_status, vdom=vdom)
@@ -758,7 +769,7 @@ class FortiOSHandler(object):
 
         return self.formatresponse(result_data, http_status, vdom=vdom)
 
-    def set(self, path, name, data, mkey=None, vdom=None, parameters=None):
+    def set(self, path, name, data, mkey=None, vdom=None, parameters=None, headers=None):
 
         if mkey is None:
             mkey = self.get_mkey(path, name, data, vdom=vdom)
@@ -773,23 +784,31 @@ class FortiOSHandler(object):
             # Failing to address this will result in an API issue, since action=move will be included
             # in the parameters for a GET request.
             http_status, result_data = self._conn.send_request(
-                url=url, params=parameters, data=json.dumps(data), method="PUT"
+                url=url,
+                params=parameters,
+                data=json.dumps(data),
+                method="PUT",
+                headers=self._with_admin_passwd_header(headers),
             )
             return self.formatresponse(result_data, http_status, vdom=vdom)
 
         http_get_status, unused_response_data = self._conn.send_request(
-            url=url, params=parameters, method="GET"
+            url=url, params=parameters, method="GET", headers=headers
         )
         if http_get_status != 200:
-            return self.post(path, name, data, vdom, mkey)
+            return self.post(path, name, data, vdom, mkey, headers=headers)
 
         http_status, result_data = self._conn.send_request(
-            url=url, params=parameters, data=json.dumps(data), method="PUT"
+            url=url,
+            params=parameters,
+            data=json.dumps(data),
+            method="PUT",
+            headers=self._with_admin_passwd_header(headers),
         )
 
         return self.formatresponse(result_data, http_status, vdom=vdom)
 
-    def post(self, path, name, data, vdom=None, mkey=None, parameters=None):
+    def post(self, path, name, data, vdom=None, mkey=None, parameters=None, headers=None):
 
         if mkey:
             mkeyname = self.get_mkeyname(path, name, vdom)
@@ -798,7 +817,11 @@ class FortiOSHandler(object):
         url = self.cmdb_url(path, name, vdom, mkey=None)
 
         http_status, result_data = self._conn.send_request(
-            url=url, params=parameters, data=json.dumps(data), method="POST"
+            url=url,
+            params=parameters,
+            data=json.dumps(data),
+            method="POST",
+            headers=self._with_admin_passwd_header(headers),
         )
 
         return self.formatresponse(result_data, http_status, vdom=vdom)
@@ -818,12 +841,25 @@ class FortiOSHandler(object):
 
         return self.formatresponse(result_data, http_status, vdom=vdom)
 
-    def delete(self, path, name, vdom=None, mkey=None, parameters=None, data=None):
+    def delete(
+        self,
+        path,
+        name,
+        vdom=None,
+        mkey=None,
+        parameters=None,
+        data=None,
+        headers=None,
+    ):
         if not mkey:
             mkey = self.get_mkey(path, name, data, vdom=vdom)
         url = self.cmdb_url(path, name, vdom, mkey)
         http_status, result_data = self._conn.send_request(
-            url=url, params=parameters, data=json.dumps(data), method="DELETE"
+            url=url,
+            params=parameters,
+            data=json.dumps(data),
+            method="DELETE",
+            headers=self._with_admin_passwd_header(headers),
         )
         return self.formatresponse(result_data, http_status, vdom=vdom)
 

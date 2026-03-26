@@ -25,7 +25,8 @@ class TestQuickScanPro:
         error_checks = True
         PAYLOAD = open("tests/testfile.png", 'rb').read()
         tests = {
-            "upload_file": falcon.upload_file(file=PAYLOAD, scan=False),
+            "upload_file": falcon.upload_file(file=PAYLOAD, scan=False, password="pass"),
+            "upload_file_with_header_password": falcon.upload_file(file=PAYLOAD, scan=False, x_file_password="pass"),
             "upload_file_fail": falcon.upload_file(),
             "delete_file": falcon.delete_file("123456NOTAHASH"),
             "get_scan_result": falcon.get_scan_result("123456NOTAHASH"),

@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import AsyncIterator, Callable
-from contextlib import AsyncExitStack, aclosing, asynccontextmanager
+from contextlib import AsyncExitStack, aclosing, asynccontextmanager, suppress
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, cast
 
@@ -39,8 +39,15 @@ from langgraph_api.feature_flags import (
     USE_RUNTIME_CONTEXT_API,
 )
 from langgraph_api.graph import get_graph
+from langgraph_api.grpc.ops.runs import StreamPublishException
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.metadata import HOST, PLAN, USER_API_URL, incr_nodes
+from langgraph_api.metrics_datadog import (
+    COUNTER_STREAMING_DATA_LOSS,
+    COUNTER_STREAMING_EVENT,
+    LATENCY_STREAM_PUBLISH,
+    get_datadog_metrics_reporter,
+)
 from langgraph_api.schema import Run, StreamMode
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils.config import run_in_executor
@@ -478,6 +485,10 @@ async def astream_state(
         yield "feedback", feedback_urls
 
 
+def get_stream_event_type(mode: str) -> str:
+    return mode.split("|", maxsplit=1)[0]
+
+
 async def consume(
     stream: AnyStream,
     run_id: str | uuid.UUID,
@@ -486,6 +497,7 @@ async def consume(
     *,
     thread_id: str | uuid.UUID,
 ) -> None:
+    reporter = get_datadog_metrics_reporter()
     stream_modes = stream_modes or set()
     if "messages-tuple" in stream_modes:
         stream_modes.add("messages")
@@ -494,22 +506,53 @@ async def consume(
     async with aclosing(stream):
         try:
             async for mode, payload in stream:
-                await Runs.Stream.publish(
-                    run_id,
-                    mode,
-                    await run_in_executor(None, json_dumpb, payload),
-                    thread_id=thread_id,
-                    resumable=resumable and mode.split("|")[0] in stream_modes,
-                )
+                event_type = get_stream_event_type(mode)
+                if reporter.enabled:
+                    with reporter.track_latency_ms(
+                        LATENCY_STREAM_PUBLISH,
+                        attributes={"stream_event_type": event_type},
+                    ):
+                        await Runs.Stream.publish(
+                            run_id,
+                            mode,
+                            await run_in_executor(None, json_dumpb, payload),
+                            thread_id=thread_id,
+                            resumable=resumable and mode.split("|")[0] in stream_modes,
+                        )
+                    reporter.inc_counter(
+                        COUNTER_STREAMING_EVENT,
+                        attributes={"stream_event_type": event_type},
+                    )
+                else:
+                    await Runs.Stream.publish(
+                        run_id,
+                        mode,
+                        await run_in_executor(None, json_dumpb, payload),
+                        thread_id=thread_id,
+                        resumable=resumable and mode.split("|")[0] in stream_modes,
+                    )
         except Exception as e:
             if isinstance(e, ExceptionGroup):
                 e = e.exceptions[0]
-            await Runs.Stream.publish(
-                run_id,
-                "error",
-                await run_in_executor(None, json_dumpb, e),
-                thread_id=thread_id,
-            )
+            with suppress(Exception):
+                await Runs.Stream.publish(
+                    run_id,
+                    "error",
+                    await run_in_executor(None, json_dumpb, e),
+                    thread_id=thread_id,
+                )
+            # Only suppress stream publish failures. Other exceptions should
+            # still bubble up so run/task status is accurate.
+            if isinstance(e, StreamPublishException):
+                await logger.aerror(
+                    "Suppressing stream consume exception",
+                    run_id=str(run_id),
+                    thread_id=str(thread_id),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+                reporter.inc_counter(COUNTER_STREAMING_DATA_LOSS)
+                return
             raise e
 
 

@@ -140,7 +140,6 @@ def _map_invocation(
     client: modal.client._Client,
     order_outputs: bool,
     return_exceptions: bool,
-    wrap_returned_exceptions: bool,
     count_update_callback: typing.Optional[collections.abc.Callable[[int, int], None]],
     function_call_invocation_type: int,
 ): ...
@@ -150,7 +149,6 @@ def _map_invocation_inputplane(
     client: modal.client._Client,
     order_outputs: bool,
     return_exceptions: bool,
-    wrap_returned_exceptions: bool,
     count_update_callback: typing.Optional[collections.abc.Callable[[int, int], None]],
 ) -> typing.AsyncGenerator[typing.Any, None]:
     """Input-plane implementation of a function map invocation.
@@ -167,7 +165,6 @@ def _map_helper(
     kwargs={},
     order_outputs: bool = True,
     return_exceptions: bool = False,
-    wrap_returned_exceptions: bool = True,
 ) -> typing.AsyncGenerator[typing.Any, None]:
     """Core implementation that supports `_map_async()`, `_starmap_async()` and `_for_each_async()`.
 
@@ -182,18 +179,14 @@ def _map_helper(
     """
     ...
 
-def _maybe_warn_about_exceptions(func_name: str, return_exceptions: bool, wrap_returned_exceptions: bool): ...
-def _invoked_from_sync_wrapper() -> bool:
-    """Check whether the calling function was called from a sync wrapper."""
-    ...
-
+def _maybe_warn_about_wrap_exceptions(func_name: str, wrap_returned_exceptions: typing.Optional[bool]): ...
 def _map_async(
     self: modal.functions.Function,
     *input_iterators: typing.Union[typing.Iterable[typing.Any], typing.AsyncIterable[typing.Any]],
     kwargs={},
     order_outputs: bool = True,
     return_exceptions: bool = False,
-    wrap_returned_exceptions: bool = True,
+    wrap_returned_exceptions: typing.Optional[bool] = None,
 ) -> typing.AsyncGenerator[typing.Any, None]: ...
 def _starmap_async(
     self,
@@ -204,7 +197,7 @@ def _starmap_async(
     kwargs={},
     order_outputs: bool = True,
     return_exceptions: bool = False,
-    wrap_returned_exceptions: bool = True,
+    wrap_returned_exceptions: typing.Optional[bool] = None,
 ) -> typing.AsyncIterable[typing.Any]: ...
 async def _for_each_async(self, *input_iterators, kwargs={}, ignore_exceptions: bool = False) -> None: ...
 def _map_sync(
@@ -213,7 +206,7 @@ def _map_sync(
     kwargs={},
     order_outputs: bool = True,
     return_exceptions: bool = False,
-    wrap_returned_exceptions: bool = True,
+    wrap_returned_exceptions: typing.Optional[bool] = None,
 ) -> modal._utils.async_utils.AsyncOrSyncIterable:
     """Parallel map over a set of inputs.
 
@@ -247,7 +240,7 @@ def _map_sync(
 
     @app.local_entrypoint()
     def main():
-        # [0, 1, UserCodeException(Exception('ohno'))]
+        # [0, 1, Exception('ohno')]
         print(list(my_func.map(range(3), return_exceptions=True)))
     ```
     """
@@ -323,7 +316,7 @@ def _starmap_sync(
     kwargs={},
     order_outputs: bool = True,
     return_exceptions: bool = False,
-    wrap_returned_exceptions: bool = True,
+    wrap_returned_exceptions: typing.Optional[bool] = None,
 ) -> modal._utils.async_utils.AsyncOrSyncIterable:
     """Like `map`, but spreads arguments over multiple function arguments.
 

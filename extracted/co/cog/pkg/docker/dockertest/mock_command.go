@@ -5,10 +5,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/replicate/cog/pkg/docker/command"
 )
@@ -61,17 +62,19 @@ func (c *MockCommand) CreateAptTarFile(ctx context.Context, tmpDir string, aptTa
 
 func (c *MockCommand) Inspect(ctx context.Context, ref string) (*image.InspectResponse, error) {
 	resp := &image.InspectResponse{
-		Config: &container.Config{
-			Labels: map[string]string{
-				command.CogConfigLabelKey:        MockCogConfig,
-				command.CogOpenAPISchemaLabelKey: MockOpenAPISchema,
-				command.CogVersionLabelKey:       "0.11.3",
-			},
-			Env: []string{
-				command.R8TorchVersionEnvVarName + "=2.5.0",
-				command.R8CudaVersionEnvVarName + "=2.4",
-				command.R8CudnnVersionEnvVarName + "=1.0",
-				command.R8PythonVersionEnvVarName + "=3.12",
+		Config: &dockerspec.DockerOCIImageConfig{
+			ImageConfig: ocispec.ImageConfig{
+				Labels: map[string]string{
+					command.CogConfigLabelKey:        MockCogConfig,
+					command.CogOpenAPISchemaLabelKey: MockOpenAPISchema,
+					command.CogVersionLabelKey:       "0.11.3",
+				},
+				Env: []string{
+					command.R8TorchVersionEnvVarName + "=2.5.0",
+					command.R8CudaVersionEnvVarName + "=2.4",
+					command.R8CudnnVersionEnvVarName + "=1.0",
+					command.R8PythonVersionEnvVarName + "=3.12",
+				},
 			},
 		},
 	}
@@ -99,23 +102,18 @@ func (c *MockCommand) RemoveImage(ctx context.Context, ref string) error {
 	panic("not implemented")
 }
 
-func (c *MockCommand) ImageBuild(ctx context.Context, options command.ImageBuildOptions) error {
+func (c *MockCommand) ImageBuild(ctx context.Context, options command.ImageBuildOptions) (string, error) {
 	panic("not implemented")
 }
 
 func (c *MockCommand) Run(ctx context.Context, options command.RunOptions) error {
-	// hack to handle generating tar files for monobase
-	if options.Args[0] == "/opt/r8/monobase/tar.sh" || options.Args[0] == "/opt/r8/monobase/apt.sh" {
-		tmpDir := options.Volumes[0].Source
-		tarfile := strings.TrimPrefix(options.Args[1], "/buildtmp/")
-
-		outPath := filepath.Join(tmpDir, tarfile)
-		return os.WriteFile(outPath, []byte("hello\ngo\n"), 0o644)
-	}
-
 	panic("not implemented")
 }
 
 func (c *MockCommand) ContainerStart(ctx context.Context, options command.RunOptions) (string, error) {
+	panic("not implemented")
+}
+
+func (c *MockCommand) ImageSave(ctx context.Context, imageRef string) (io.ReadCloser, error) {
 	panic("not implemented")
 }

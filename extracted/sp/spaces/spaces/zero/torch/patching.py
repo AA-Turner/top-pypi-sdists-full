@@ -391,15 +391,22 @@ def _pack(offload_dir: str):
 def pack():
     if len(cuda_aliases) == 0:
         return 0
+    shutil.rmtree(Config.zerogpu_offload_dir, ignore_errors=True)
+    Path(Config.zerogpu_offload_dir).mkdir(parents=True)
     mmap_addrs = [tensor.data_ptr() for tensor in cuda_aliases.values() if tensor is not None]
     with unmap_capture(mmap_addrs) as unmapped_paths:
-        shutil.rmtree(Config.zerogpu_offload_dir, ignore_errors=True)
-        Path(Config.zerogpu_offload_dir).mkdir(parents=True)
         total_size = _pack(Config.zerogpu_offload_dir)
-        gc.collect()
-        malloc_trim()
+    total_cleaned_size = 0
     for path in unmapped_paths:
+        total_cleaned_size += path.lstat().st_size
         path.unlink(missing_ok=True)
+    if total_cleaned_size > 0:
+        print(
+            f"Cleaned {total_cleaned_size / 2**30:.2f}GB of tensor files "
+            f"from {Config.zerogpu_mmap_autoprune_pattern} after packing"
+        )
+    gc.collect()
+    malloc_trim()
     return total_size
 
 def init(nvidia_uuid: str):

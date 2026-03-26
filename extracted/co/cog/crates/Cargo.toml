@@ -3,10 +3,14 @@ resolver = "2"
 members = ["coglet", "coglet-python"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.17.0"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/replicate/cog"
+homepage = "https://cog.run"
+documentation = "https://cog.run/docs"
+keywords = ["machine-learning", "inference", "containers", "prediction"]
+categories = ["development-tools", "web-programming"]
 
 [workspace.dependencies]
 # Async runtime
@@ -36,8 +40,9 @@ thiserror = "2"
 anyhow = "1"
 
 # Python bindings
-pyo3 = { version = "0.27", features = ["auto-initialize", "abi3-py310"] }
+pyo3 = { version = "0.27", features = ["abi3-py310"] }
 pyo3-async-runtimes = { version = "0.27", features = ["tokio-runtime"] }
+pyo3-stub-gen = "0.20"
 
 # Testing
 insta = { version = "1", features = ["json"] }

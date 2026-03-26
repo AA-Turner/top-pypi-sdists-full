@@ -407,7 +407,7 @@ class _Dict(modal._object._Object):
     _name: typing.Optional[str]
     _metadata: typing.Optional[modal_proto.api_pb2.DictMetadata]
 
-    def __init__(self, data={}):
+    def __init__(self):
         """mdmd:hidden"""
         ...
 
@@ -420,7 +420,7 @@ class _Dict(modal._object._Object):
     @classmethod
     def ephemeral(
         cls: type[_Dict],
-        data: typing.Optional[dict] = None,
+        *,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         _heartbeat_sleep: float = 300,
@@ -445,9 +445,7 @@ class _Dict(modal._object._Object):
     @staticmethod
     def from_name(
         name: str,
-        data: typing.Optional[dict] = None,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         client: typing.Optional[modal.client._Client] = None,
@@ -650,7 +648,7 @@ class Dict(modal.object.Object):
     _name: typing.Optional[str]
     _metadata: typing.Optional[modal_proto.api_pb2.DictMetadata]
 
-    def __init__(self, data={}):
+    def __init__(self):
         """mdmd:hidden"""
         ...
 
@@ -665,7 +663,7 @@ class Dict(modal.object.Object):
         def __call__(
             self,
             /,
-            data: typing.Optional[dict] = None,
+            *,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             _heartbeat_sleep: float = 300,
@@ -690,7 +688,7 @@ class Dict(modal.object.Object):
         def aio(
             self,
             /,
-            data: typing.Optional[dict] = None,
+            *,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             _heartbeat_sleep: float = 300,
@@ -717,9 +715,7 @@ class Dict(modal.object.Object):
     @staticmethod
     def from_name(
         name: str,
-        data: typing.Optional[dict] = None,
         *,
-        namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         client: typing.Optional[modal.client.Client] = None,

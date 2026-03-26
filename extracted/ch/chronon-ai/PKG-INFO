@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chronon-ai
-Version: 0.0.109
+Version: 0.0.110
 Summary: Chronon python API library
 Classifier: Programming Language :: Python :: 3.7
 Requires-Python: >=3.7
@@ -9,6 +9,7 @@ License-File: LICENSE
 Requires-Dist: click
 Requires-Dist: thrift<0.14
 Requires-Dist: sqlglot
+Requires-Dist: pyspark==3.3.1
 Provides-Extra: pip2compat
 Requires-Dist: click<8; extra == "pip2compat"
 Dynamic: classifier

@@ -153,6 +153,7 @@ class OfflineQueryRequest(_message.Message):
         "query_name",
         "query_name_version",
         "resources",
+        "unload_resolvers",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -213,6 +214,7 @@ class OfflineQueryRequest(_message.Message):
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
     RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    UNLOAD_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     inputs: OfflineQueryInputs
     outputs: _containers.RepeatedScalarFieldContainer[str]
     required_outputs: _containers.RepeatedScalarFieldContainer[str]
@@ -244,6 +246,7 @@ class OfflineQueryRequest(_message.Message):
     query_name: str
     query_name_version: str
     resources: ResourceRequests
+    unload_resolvers: _containers.RepeatedCompositeFieldContainer[UnloadResolverSpec]
     def __init__(
         self,
         inputs: _Optional[_Union[OfflineQueryInputs, _Mapping]] = ...,
@@ -277,7 +280,16 @@ class OfflineQueryRequest(_message.Message):
         query_name: _Optional[str] = ...,
         query_name_version: _Optional[str] = ...,
         resources: _Optional[_Union[ResourceRequests, _Mapping]] = ...,
+        unload_resolvers: _Optional[_Iterable[_Union[UnloadResolverSpec, _Mapping]]] = ...,
     ) -> None: ...
+
+class UnloadResolverSpec(_message.Message):
+    __slots__ = ("fqn", "partition_by")
+    FQN_FIELD_NUMBER: _ClassVar[int]
+    PARTITION_BY_FIELD_NUMBER: _ClassVar[int]
+    fqn: str
+    partition_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, fqn: _Optional[str] = ..., partition_by: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ColumnMetadataList(_message.Message):
     __slots__ = ("metadata",)

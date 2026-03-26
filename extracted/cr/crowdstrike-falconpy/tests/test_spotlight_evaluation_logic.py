@@ -15,7 +15,7 @@ sys.path.append(os.path.abspath('src'))
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = SpotlightEvaluationLogic(auth_object=config)
-AllowedResponses = [200, 400, 403, 404, 429]
+AllowedResponses = [200, 201, 207, 400, 403, 404, 429]
 
 
 class TestSpotlightEval:
@@ -61,6 +61,8 @@ class TestSpotlightEval:
         if falcon.queryEvaluationLogic(parameters={})["status_code"] != 500:
             errorChecks = False
         if falcon.getEvaluationLogic(ids="12345678")["status_code"] != 500:
+            errorChecks = False
+        if falcon.get_supported_evaluations(filter="id:'12345678'")["status_code"] != 500:
             errorChecks = False
         return errorChecks
 

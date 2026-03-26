@@ -14,6 +14,7 @@ def _build_request_args(
     created_by: str | None = None,
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
+    exclude_hillclimb: bool | None = False,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -26,6 +27,8 @@ def _build_request_args(
         params["tags"] = tags
     if tags_mode is not None:
         params["tags_mode"] = tags_mode
+    if exclude_hillclimb is not None:
+        params["exclude_hillclimb"] = exclude_hillclimb
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -44,6 +47,7 @@ def sync(
     created_by: str | None = None,
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
+    exclude_hillclimb: bool | None = False,
     x_api_key: str | None = None,
 ) -> ExperimentFileListResponse:
     """List versioned experiment files for the current org."""
@@ -52,6 +56,7 @@ def sync(
         created_by=created_by,
         tags=tags,
         tags_mode=tags_mode,
+        exclude_hillclimb=exclude_hillclimb,
         x_api_key=x_api_key,
     )
 
@@ -65,6 +70,7 @@ async def asyncio(
     created_by: str | None = None,
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
+    exclude_hillclimb: bool | None = False,
     x_api_key: str | None = None,
 ) -> ExperimentFileListResponse:
     """List versioned experiment files for the current org."""
@@ -73,6 +79,7 @@ async def asyncio(
         created_by=created_by,
         tags=tags,
         tags_mode=tags_mode,
+        exclude_hillclimb=exclude_hillclimb,
         x_api_key=x_api_key,
     )
 

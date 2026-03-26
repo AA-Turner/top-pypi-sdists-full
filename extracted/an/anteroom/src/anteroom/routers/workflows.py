@@ -183,12 +183,22 @@ async def get_workflow_run(request: Request, run_id: str) -> dict[str, Any]:
     # Strip definition_content to prevent info disclosure (#970)
     run.pop("definition_content", None)
 
+    # Recovery actions for non-success runs (#1153)
+    recovery_actions: list[str] = []
+    if run["status"] not in ("completed", "running", "pending", "claimed"):
+        from ..services.workflow_diagnosis import recovery_actions_for_run
+        from ..services.workflow_storage import list_workflow_events as list_wf_events
+
+        wf_events = list_wf_events(db, run_id)
+        recovery_actions = recovery_actions_for_run(run, steps, wf_events)
+
     return {
         **run,
         "steps": steps,
         "pending_approval": pending_approval,
         "pending_decision": pending_decision,
         "checkpoint_count": checkpoint_count,
+        "recovery_actions": recovery_actions,
     }
 
 
@@ -367,8 +377,9 @@ async def cancel_workflow_run(request: Request, run_id: str) -> CancelResponse:
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    terminal = {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
-    if run["status"] in terminal:
+    from ..services.workflow_storage import _TERMINAL_RUN_STATUSES
+
+    if run["status"] in _TERMINAL_RUN_STATUSES:
         raise HTTPException(status_code=409, detail=f"Run already in terminal status: {run['status']}")
 
     event_bus = getattr(request.app.state, "event_bus", None)
@@ -480,8 +491,9 @@ async def resume_workflow_run(request: Request, run_id: str) -> dict[str, Any]:
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    resumable = {"paused", "waiting_for_approval", "waiting_for_input", "compensating", "failed"}
-    if run["status"] not in resumable:
+    from ..services.workflow_storage import _RESUMABLE_RUN_STATUSES
+
+    if run["status"] not in _RESUMABLE_RUN_STATUSES:
         raise HTTPException(
             status_code=409,
             detail=f"Run is not resumable (status: {run['status']}). "

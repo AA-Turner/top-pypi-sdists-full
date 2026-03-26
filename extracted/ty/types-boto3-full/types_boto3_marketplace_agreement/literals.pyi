@@ -24,7 +24,10 @@ else:
 __all__ = (
     "AgreementServiceServiceName",
     "AgreementStatusType",
+    "ListAgreementPaymentRequestsPaginatorName",
+    "PaginatorName",
     "PaymentRequestApprovalStrategyType",
+    "PaymentRequestStatusType",
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
@@ -42,7 +45,11 @@ AgreementStatusType = Literal[
     "SUPERSEDED",
     "TERMINATED",
 ]
+ListAgreementPaymentRequestsPaginatorName = Literal["list_agreement_payment_requests"]
 PaymentRequestApprovalStrategyType = Literal["AUTO_APPROVE_ON_EXPIRATION", "WAIT_FOR_APPROVAL"]
+PaymentRequestStatusType = Literal[
+    "APPROVED", "CANCELLED", "PENDING_APPROVAL", "REJECTED", "VALIDATING", "VALIDATION_FAILED"
+]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 AgreementServiceServiceName = Literal["marketplace-agreement"]
 ServiceName = Literal[
@@ -445,6 +452,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -466,4 +474,5 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_agreement_payment_requests"]
 RegionName = Literal["us-east-1"]

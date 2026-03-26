@@ -152,6 +152,8 @@ def render_step_line(step: dict[str, Any], *, indent: int = 0, id_width: int = 0
     step_id = step.get("step_id", "?")
     dur = format_duration_ms(step.get("duration_ms"))
     runner = step.get("runner_type") or step.get("step_type", "")
+    if step.get("step_type") == "emit":
+        runner = "emit"
 
     prefix = "  " * indent
     suffix = ""
@@ -178,6 +180,8 @@ def render_step_line(step: dict[str, Any], *, indent: int = 0, id_width: int = 0
         suffix = "  (until not met)"
     elif loop_end == "break_when":
         suffix = "  (break condition)"
+    elif loop_end == "no_progress":
+        suffix = "  (no progress)"
     elif loop_end == "exhausted":
         suffix = "  (exhausted)"
 

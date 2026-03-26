@@ -20,7 +20,7 @@ from google.protobuf import empty_pb2, timestamp_pb2
 from chalk import DataFrame, EnvironmentId, chalk_logger
 from chalk._gen.chalk.auth.v1.agent_pb2 import CustomClaim
 from chalk._gen.chalk.auth.v1.permissions_pb2 import Permission
-from chalk._gen.chalk.common.v1 import online_query_pb2, resources_pb2, upload_features_pb2
+from chalk._gen.chalk.common.v1 import offline_query_pb2, online_query_pb2, resources_pb2, upload_features_pb2
 from chalk._gen.chalk.common.v1.online_query_pb2 import GenericSingleQuery, UploadFeaturesBulkRequest
 from chalk._gen.chalk.common.v1.script_task_pb2 import ScriptTaskKind, ScriptTaskRequest, TrainingRunArgs
 from chalk._gen.chalk.common.v2.execute_plan_pb2 import ExecutePlanRequest, ExecutePlanResponse
@@ -99,6 +99,7 @@ from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
 from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2_grpc import SimpleStreamingServiceStub
 from chalk.client import ChalkAuthException, FeatureReference
 from chalk.client.client_headers import (
+    CHALK_BRANCH_ID_HEADER,
     CHALK_DEPLOYMENT_TAG_HEADER_LOWERCASE,
     CHALK_DEPLOYMENT_TYPE_HEADER_LOWERCASE,
     CHALK_ENV_ID_HEADER_LOWERCASE,
@@ -1086,6 +1087,10 @@ class ChalkGRPCClient:
         inputs: "Union[Mapping[FeatureReference, Sequence[Any]], DataFrame, Table, RecordBatch]",
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
+        update_mataggs: bool = False,
+        write_offline: bool = False,
+        write_online: Optional[bool] = None,
+        branch: Optional[str] = None,
     ) -> UploadFeaturesResponse:
         """Upload data to Chalk to be inserted into the online & offline stores.
 
@@ -1102,19 +1107,34 @@ class ChalkGRPCClient:
         request_timeout
             Float value indicating number of seconds that the request should wait before timing out
             at the network level. May not cancel resources on the server processing the query.
+        update_mataggs
+            Whether to update materialized aggregations (streaming aggs). Defaults to False.
+        write_offline
+            Whether to write features to the offline store. Defaults to False.
+        write_online
+            Whether to write features to the online store. Defaults to True when not set.
+        branch
+            The branch to upload features to. Defaults to the mainline deployment.
 
         Returns
         -------
         UploadFeaturesResponse
             which contains a list of errors if any occurred.
         """
+        options = upload_features_pb2.UploadFeaturesOptions()
+        if update_mataggs:
+            options.update_mataggs = update_mataggs
+        if write_offline:
+            options.write_offline = write_offline
+        if write_online is not None:
+            options.write_online = write_online
         request = upload_features_pb2.UploadFeaturesRequest(
-            inputs_table=get_features_feather_bytes(inputs, self._INPUT_ENCODE_OPTIONS)
+            inputs_table=get_features_feather_bytes(inputs, self._INPUT_ENCODE_OPTIONS),
+            options=options,
         )
+        merged_headers = _merge_headers(headers, {CHALK_BRANCH_ID_HEADER: branch} if branch is not None else None)
         response, call = self._stub_refresher.call_query_stub(
-            lambda x: x.UploadFeatures.with_call(
-                request, timeout=request_timeout, metadata=_canonicalize_headers(headers)
-            )
+            lambda x: x.UploadFeatures.with_call(request, timeout=request_timeout, metadata=merged_headers)
         )
         trace_id = get_trace_id_from_response(call)
         py_errors = [ChalkErrorConverter.chalk_error_decode(err) for err in response.errors]
@@ -1320,6 +1340,7 @@ class ChalkGRPCClient:
         incremental_resolvers: Optional[Sequence[str]],
         max_samples: Optional[int],
         env_overrides: Optional[Mapping[str, str]],
+        unload_resolvers: Optional[list[dict]] = None,
     ) -> ManualTriggerScheduledQueryResponseDataclass:
         """
         Manually trigger a scheduled query request.
@@ -1365,6 +1386,13 @@ class ChalkGRPCClient:
                     incremental_resolvers=incremental_resolvers or (),
                     max_samples=max_samples,
                     env_overrides=env_overrides or {},
+                    unload_resolvers=[
+                        offline_query_pb2.UnloadResolverSpec(
+                            fqn=spec["fqn"],
+                            partition_by=spec.get("partition_by", []),
+                        )
+                        for spec in (unload_resolvers or [])
+                    ],
                 ),
             )
         )

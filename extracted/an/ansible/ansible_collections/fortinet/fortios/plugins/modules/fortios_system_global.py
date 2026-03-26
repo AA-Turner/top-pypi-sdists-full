@@ -686,6 +686,14 @@ options:
                 description:
                     - Interval in which to clean up remote users in FortiToken Cloud (0 - 336 hours (14 days)).
                 type: int
+            geoip_full_db:
+                description:
+                    - When enabled, the full geographic database will be loaded into the kernel which enables geographic information in traffic logs -
+                       required for FortiView countries. Disabling this option will conserve memory.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             gui_allow_default_hostname:
                 description:
                     - Enable/disable the factory default hostname warning on the GUI setup wizard.
@@ -1079,6 +1087,11 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            log_daemon_cpu_threshold:
+                description:
+                    - Configure syslog daemon process spawning threshold. Use a percentage threshold of syslogd CPU usage (1 - 99) or set to zero to use
+                       dynamic scheduling based on the number of packets in the syslogd queue .
+                type: int
             log_single_cpu_high:
                 description:
                     - Enable/disable logging the event of a single CPU core reaching CPU usage threshold.
@@ -2028,6 +2041,11 @@ options:
                     - Number of explicit proxy WAN optimization daemon (WAD) processes. By default WAN optimization, explicit proxy, and web caching is
                        handled by all of the CPU cores in a FortiGate unit.
                 type: int
+            wad_worker_dev_cache:
+                description:
+                    - Number of cached devices for each ZTNA proxy worker. The default value is tuned by memory consumption. Set the option to 0 to disable
+                       the cache.
+                type: int
             wifi_ca_certificate:
                 description:
                     - CA certificate that verifies the WiFi certificate. Source certificate.ca.name.
@@ -2160,6 +2178,7 @@ EXAMPLES = """
           fortitoken_cloud_push_status: "enable"
           fortitoken_cloud_region: "<your_own_value>"
           fortitoken_cloud_sync_interval: "24"
+          geoip_full_db: "enable"
           gui_allow_default_hostname: "enable"
           gui_allow_incompatible_fabric_fgt: "enable"
           gui_app_detection_sdwan: "enable"
@@ -2195,7 +2214,7 @@ EXAMPLES = """
           internet_service_database: "mini"
           internet_service_download_list:
               -
-                  id: "135 (source firewall.internet-service.id)"
+                  id: "136 (source firewall.internet-service.id)"
           interval: "5"
           ip_conflict_detection: "enable"
           ip_fragment_mem_thresholds: "32"
@@ -2221,6 +2240,7 @@ EXAMPLES = """
           ldapconntimeout: "500"
           lldp_reception: "enable"
           lldp_transmission: "enable"
+          log_daemon_cpu_threshold: "0"
           log_single_cpu_high: "enable"
           log_ssl_connection: "enable"
           log_uuid: "disable"
@@ -2232,7 +2252,7 @@ EXAMPLES = """
           management_port: "443"
           management_port_use_admin_sport: "enable"
           management_vdom: "<your_own_value> (source system.vdom.name)"
-          max_dlpstat_memory: "172"
+          max_dlpstat_memory: "174"
           max_route_cache_size: "0"
           mc_ttl_notchange: "enable"
           memory_use_threshold_extreme: "95"
@@ -2353,9 +2373,9 @@ EXAMPLES = """
           url_filter_affinity: "<your_own_value>"
           url_filter_count: "1"
           user_device_store_max_device_mem: "2"
-          user_device_store_max_devices: "676985"
-          user_device_store_max_unified_mem: "3384928051"
-          user_device_store_max_users: "676985"
+          user_device_store_max_devices: "676984"
+          user_device_store_max_unified_mem: "3384923340"
+          user_device_store_max_users: "676984"
           user_history_password_threshold: "3"
           user_server_cert: "<your_own_value> (source certificate.local.name)"
           vdom_admin: "enable"
@@ -2375,6 +2395,7 @@ EXAMPLES = """
           wad_restart_start_time: "<your_own_value>"
           wad_source_affinity: "disable"
           wad_worker_count: "0"
+          wad_worker_dev_cache: "10240"
           wifi_ca_certificate: "<your_own_value> (source certificate.ca.name)"
           wifi_certificate: "<your_own_value> (source certificate.local.name)"
           wimax_4g_usb: "enable"
@@ -2573,6 +2594,7 @@ def filter_system_global_data(json):
         "fortitoken_cloud_push_status",
         "fortitoken_cloud_region",
         "fortitoken_cloud_sync_interval",
+        "geoip_full_db",
         "gui_allow_default_hostname",
         "gui_allow_incompatible_fabric_fgt",
         "gui_app_detection_sdwan",
@@ -2632,6 +2654,7 @@ def filter_system_global_data(json):
         "ldapconntimeout",
         "lldp_reception",
         "lldp_transmission",
+        "log_daemon_cpu_threshold",
         "log_single_cpu_high",
         "log_ssl_connection",
         "log_uuid",
@@ -2783,6 +2806,7 @@ def filter_system_global_data(json):
         "wad_restart_start_time",
         "wad_source_affinity",
         "wad_worker_count",
+        "wad_worker_dev_cache",
         "wifi_ca_certificate",
         "wifi_certificate",
         "wimax_4g_usb",
@@ -3740,6 +3764,7 @@ versioned_schema = {
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "wad_worker_count": {"v_range": [["v6.0.0", ""]], "type": "integer"},
+        "wad_worker_dev_cache": {"v_range": [["v7.6.5", ""]], "type": "integer"},
         "wad_csvc_cs_count": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "wad_csvc_db_count": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "wad_source_affinity": {
@@ -3762,6 +3787,7 @@ versioned_schema = {
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "miglogd_children": {"v_range": [["v6.0.0", ""]], "type": "integer"},
+        "log_daemon_cpu_threshold": {"v_range": [["v7.6.5", ""]], "type": "integer"},
         "special_file_23_support": {
             "v_range": [["v6.0.0", ""]],
             "type": "string",
@@ -3938,6 +3964,11 @@ versioned_schema = {
                 "id": {"v_range": [["v7.4.0", ""]], "type": "integer", "required": True}
             },
             "v_range": [["v7.4.0", ""]],
+        },
+        "geoip_full_db": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "early_tcp_npu_session": {
             "v_range": [["v7.0.6", "v7.0.12"], ["v7.2.1", ""]],
@@ -4408,7 +4439,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "system_global"
         )

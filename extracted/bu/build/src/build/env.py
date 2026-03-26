@@ -188,7 +188,7 @@ class _PipBackend(_EnvBackend):
                         return True
             return False
 
-        return True
+        return None  # pragma: no cover
 
     @functools.cached_property
     def _has_virtualenv(self) -> bool:
@@ -343,6 +343,7 @@ class _UvBackend(_EnvBackend):
                 cmd += [f'-{"v" * min(2, _ctx.verbosity - 1)}']
 
             cmd += ['install', *requirements]
+            cmd += ['--python', self.python_executable]
 
             if constraints:
                 with tempfile.NamedTemporaryFile(

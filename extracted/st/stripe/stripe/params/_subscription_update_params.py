@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # File generated from our OpenAPI spec
+from decimal import Decimal
 from typing import Dict, List
 from typing_extensions import Literal, NotRequired, TypedDict
 
@@ -132,7 +133,7 @@ class SubscriptionUpdateParams(TypedDict):
         "Literal['']|SubscriptionUpdateParamsPendingInvoiceItemInterval"
     ]
     """
-    Specifies an interval for how often to bill for any pending invoice items. It is analogous to calling [Create an invoice](https://docs.stripe.com/api#create_invoice) for the given subscription at the specified interval.
+    Specifies an interval for how often to bill for any pending invoice items. It is analogous to calling [Create an invoice](https://docs.stripe.com/api/invoices/create) for the given subscription at the specified interval.
     """
     proration_behavior: NotRequired[
         Literal["always_invoice", "create_prorations", "none"]
@@ -262,7 +263,7 @@ class SubscriptionUpdateParamsAddInvoiceItemPriceData(TypedDict):
     """
     A positive integer in cents (or local equivalent) (or 0 for a free price) representing how much to charge or a negative integer representing the amount to credit to the customer.
     """
-    unit_amount_decimal: NotRequired[str]
+    unit_amount_decimal: NotRequired[Decimal]
     """
     Same as `unit_amount`, but accepts a decimal value in cents (or local equivalent) with at most 12 decimal places. Only one of `unit_amount` and `unit_amount_decimal` can be set.
     """
@@ -445,7 +446,7 @@ class SubscriptionUpdateParamsItemPriceData(TypedDict):
     """
     A positive integer in cents (or local equivalent) (or 0 for a free price) representing how much to charge.
     """
-    unit_amount_decimal: NotRequired[str]
+    unit_amount_decimal: NotRequired[Decimal]
     """
     Same as `unit_amount`, but accepts a decimal value in cents (or local equivalent) with at most 12 decimal places. Only one of `unit_amount` and `unit_amount_decimal` can be set.
     """
@@ -465,7 +466,7 @@ class SubscriptionUpdateParamsItemPriceDataRecurring(TypedDict):
 class SubscriptionUpdateParamsPauseCollection(TypedDict):
     behavior: Literal["keep_as_draft", "mark_uncollectible", "void"]
     """
-    The payment collection behavior for this subscription while paused. One of `keep_as_draft`, `mark_uncollectible`, or `void`.
+    The payment collection behavior for this subscription while paused.
     """
     resumes_at: NotRequired[int]
     """
@@ -620,7 +621,7 @@ class SubscriptionUpdateParamsPaymentSettingsPaymentMethodOptionsCardMandateOpti
 ):
     amount: NotRequired[int]
     """
-    Amount to be charged for future payments.
+    Amount to be charged for future payments, specified in the presentment currency.
     """
     amount_type: NotRequired[Literal["fixed", "maximum"]]
     """

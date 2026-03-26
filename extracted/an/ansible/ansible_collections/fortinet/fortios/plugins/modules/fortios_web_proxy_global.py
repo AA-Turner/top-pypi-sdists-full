@@ -89,6 +89,10 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            auth_sign_timeout:
+                description:
+                    - Proxy auth query sign timeout in seconds (30 - 3600).
+                type: int
             fast_policy_match:
                 description:
                     - Enable/disable fast matching algorithm for explicit and transparent proxy policy.
@@ -200,6 +204,13 @@ options:
                 choices:
                     - 'enable'
                     - 'disable'
+            policy_partial_match:
+                description:
+                    - Enable/disable policy partial matching.
+                type: str
+                choices:
+                    - 'enable'
+                    - 'disable'
             proxy_fqdn:
                 description:
                     - Fully Qualified Domain Name of the explicit web proxy  that clients connect to.
@@ -213,7 +224,7 @@ options:
                     - 'disable'
             request_obs_fold:
                 description:
-                    - Action when HTTP/1.x request header contains obs-fold.
+                    - Action when HTTP/1.x request header contains obs-fold .
                 type: str
                 choices:
                     - 'replace-with-sp'
@@ -272,6 +283,7 @@ EXAMPLES = """
       vdom: "{{ vdom }}"
       web_proxy_global:
           always_learn_client_ip: "enable"
+          auth_sign_timeout: "120"
           fast_policy_match: "enable"
           forward_proxy_auth: "enable"
           forward_server_affinity_timeout: "30"
@@ -282,10 +294,10 @@ EXAMPLES = """
           learn_client_ip_from_header: "true-client-ip"
           learn_client_ip_srcaddr:
               -
-                  name: "default_name_13 (source firewall.address.name firewall.addrgrp.name)"
+                  name: "default_name_14 (source firewall.address.name firewall.addrgrp.name)"
           learn_client_ip_srcaddr6:
               -
-                  name: "default_name_15 (source firewall.address6.name firewall.addrgrp6.name)"
+                  name: "default_name_16 (source firewall.address6.name firewall.addrgrp6.name)"
           log_app_id: "enable"
           log_forward_server: "enable"
           log_policy_pending: "enable"
@@ -293,6 +305,7 @@ EXAMPLES = """
           max_request_length: "8"
           max_waf_body_cache_length: "1"
           policy_category_deep_inspect: "enable"
+          policy_partial_match: "enable"
           proxy_fqdn: "<your_own_value>"
           proxy_transparent_cert_inspection: "enable"
           request_obs_fold: "replace-with-sp"
@@ -400,6 +413,7 @@ from ansible_collections.fortinet.fortios.plugins.module_utils.fortios.compariso
 def filter_web_proxy_global_data(json):
     option_list = [
         "always_learn_client_ip",
+        "auth_sign_timeout",
         "fast_policy_match",
         "forward_proxy_auth",
         "forward_server_affinity_timeout",
@@ -417,6 +431,7 @@ def filter_web_proxy_global_data(json):
         "max_request_length",
         "max_waf_body_cache_length",
         "policy_category_deep_inspect",
+        "policy_partial_match",
         "proxy_fqdn",
         "proxy_transparent_cert_inspection",
         "request_obs_fold",
@@ -642,6 +657,7 @@ versioned_schema = {
         "max_message_length": {"v_range": [["v6.0.0", ""]], "type": "integer"},
         "http2_client_window_size": {"v_range": [["v7.6.3", ""]], "type": "integer"},
         "http2_server_window_size": {"v_range": [["v7.6.3", ""]], "type": "integer"},
+        "auth_sign_timeout": {"v_range": [["v7.6.5", ""]], "type": "integer"},
         "strict_web_check": {
             "v_range": [["v6.0.0", ""]],
             "type": "string",
@@ -714,6 +730,11 @@ versioned_schema = {
             "type": "list",
             "multiple_values": True,
             "elements": "str",
+        },
+        "policy_partial_match": {
+            "v_range": [["v7.6.5", ""]],
+            "type": "string",
+            "options": [{"value": "enable"}, {"value": "disable"}],
         },
         "log_policy_pending": {
             "v_range": [["v7.4.2", ""]],
@@ -812,7 +833,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "web_proxy_global"
         )

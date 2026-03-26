@@ -24,7 +24,7 @@ from warnings import warn
 import httpx
 
 from ibm_watsonx_ai._wrappers import httpx_wrapper
-from ibm_watsonx_ai._wrappers.httpx_wrapper import TokenBucket, _httpx_transport_params
+from ibm_watsonx_ai._wrappers.httpx_wrapper import TokenBucket
 from ibm_watsonx_ai.foundation_models.schema import (
     TextChatParameters,
     TextGenParameters,
@@ -63,8 +63,6 @@ class BaseModelInference(WMLResource, ABC):
     ):
         # to use in get_identifying_params(
         self._validate = validate
-
-        self._transport_params = _httpx_transport_params(client)
 
         WMLResource.__init__(self, name, client)
 

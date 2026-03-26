@@ -1,6 +1,6 @@
-from __future__ import annotations
+"""Backward compatibility shim for __main__.py"""
 
-from ._cli import main
+from vcs_versioning._cli import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

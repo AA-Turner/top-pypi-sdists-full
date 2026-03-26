@@ -22,10 +22,12 @@ from typing import (
     Iterable,
     Iterator,
     TypeVar,
-    overload,
 )
 
 import httpx
+from httpx._utils import get_environment_proxies
+
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -138,6 +140,7 @@ def _build_transport(
     transport_cls: type[TTransport],
     api_client: APIClient,
     limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
+    proxy: str | None = None,
 ) -> TTransport:
     global verify
 
@@ -178,6 +181,7 @@ def _build_transport(
             verify_initial=verify_initial,
             allow_ssl_fallback=allow_ssl_fallback,
             limits=limits,
+            proxy=proxy,
         )
     except FileNotFoundError as e:
         # When verify is a string path that doesn't exist
@@ -186,60 +190,72 @@ def _build_transport(
         raise
 
 
-def _httpx_transport_params(
-    api_client: APIClient, limits: httpx.Limits = HTTPX_DEFAULT_LIMIT
-) -> httpx.HTTPTransport:
-    return _build_transport(RetryTransport, api_client, limits)
-
-
-def _httpx_async_transport_params(
-    api_client: APIClient, limits: httpx.Limits = HTTPX_DEFAULT_LIMIT
-) -> httpx.AsyncHTTPTransport:
-    return _build_transport(AsyncRetryTransport, api_client, limits)
-
-
-@overload
-def _create_httpx_client(
-    client_cls: type[HTTPXClient],
-    transport: httpx.HTTPTransport,
-    **kwargs: Any,
-) -> HTTPXClient: ...
-
-
-@overload
-def _create_httpx_client(
-    client_cls: type[HTTPXAsyncClient],
-    transport: httpx.AsyncHTTPTransport,
-    **kwargs: Any,
-) -> HTTPXAsyncClient: ...
-
-
-def _create_httpx_client(
-    client_cls: type[HTTPXClient] | type[HTTPXAsyncClient],
-    transport: httpx.HTTPTransport | httpx.AsyncHTTPTransport,
+@set_additional_settings_for_requests
+def _get_httpx_client_with_config(
+    api_client: APIClient,
+    httpx_client_cls: type[HTTPXClient] | type[HTTPXAsyncClient],
+    httpx_transport_cls: type[TTransport],
+    limits: httpx.Limits,
+    timeout: httpx.Timeout,
+    proxies: dict | None = None,
     **kwargs: Any,
 ) -> HTTPXClient | HTTPXAsyncClient:
-    return client_cls(transport=transport, **kwargs)
+    def correct_key(key: str) -> str:
+        if key in ["http", "https"]:
+            return key + "://"
 
+        return key
 
-@set_additional_settings_for_requests
-def _get_httpx_client(transport: httpx.HTTPTransport, **kwargs: Any) -> HTTPXClient:
+    if proxies or (proxies := get_environment_proxies()):
+        # if no proxies were passed, check proxies setting from environment
+        transport = None
+        mounts = {
+            correct_key(key): _build_transport(
+                httpx_transport_cls, api_client, limits=limits, proxy=value
+            )
+            for key, value in proxies.items()
+        }
+    else:
+        # no proxies, no problem, usual transport is initialised
+        transport = _build_transport(httpx_transport_cls, api_client, limits)
+        mounts = None
+
     # Get verify from transport if it's a RetryTransport
-    if isinstance(transport, RetryTransport):
-        verify_value = transport.get_effective_verify_for_client()
-        kwargs["verify"] = verify_value
-    return _create_httpx_client(HTTPXClient, transport, **kwargs)
+    if transport:
+        t = transport
+    elif mounts:  # mounts exists and exist at least one in list
+        t = list(mounts.items())[0][1]
+    else:
+        raise WMLClientError("No transport object passed")
+
+    if hasattr(t, "get_effective_verify_for_client"):
+        verify = t.get_effective_verify_for_client()
+    else:
+        verify = None
+
+    return httpx_client_cls(
+        transport=transport, mounts=mounts, timeout=timeout, verify=verify
+    )
 
 
-@set_additional_settings_for_requests
+def _get_httpx_client(
+    api_client: APIClient,
+    limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
+    timeout: httpx.Timeout = HTTPX_DEFAULT_TIMEOUT,
+) -> HTTPXClient:
+    return _get_httpx_client_with_config(
+        api_client, HTTPXClient, RetryTransport, limits, timeout
+    )
+
+
 def _get_async_httpx_client(
-    transport: httpx.AsyncHTTPTransport, **kwargs: Any
+    api_client: APIClient,
+    limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
+    timeout: httpx.Timeout = HTTPX_DEFAULT_TIMEOUT,
 ) -> HTTPXAsyncClient:
-    # Get verify from transport if it's an AsyncRetryTransport
-    if isinstance(transport, AsyncRetryTransport):
-        verify_value = transport.get_effective_verify_for_client()
-        kwargs["verify"] = verify_value
-    return _create_httpx_client(HTTPXAsyncClient, transport, **kwargs)
+    return _get_httpx_client_with_config(
+        api_client, HTTPXAsyncClient, AsyncRetryTransport, limits, timeout
+    )
 
 
 class HTTPXClient(httpx.Client):

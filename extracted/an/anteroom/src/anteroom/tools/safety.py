@@ -32,7 +32,7 @@ _DEFAULT_DESTRUCTIVE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\bdrop\s+table\b", re.IGNORECASE),
     re.compile(r"\bdrop\s+database\b", re.IGNORECASE),
     re.compile(r"\btruncate\b", re.IGNORECASE),
-    re.compile(r">\s*/dev/"),
+    re.compile(r">\s*/dev/(?!null\b)"),
     re.compile(r"\bchmod\s+777\b"),
     re.compile(r"\bkill\s+-9\b"),
 ]

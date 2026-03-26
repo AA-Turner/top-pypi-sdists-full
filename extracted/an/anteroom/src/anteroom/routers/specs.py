@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..services import artifact_storage
@@ -125,6 +126,31 @@ def _queue_item_to_dict(item: Any) -> dict[str, Any]:
         "blocked_runs": item.blocked_runs,
         "updated_at": item.updated_at,
     }
+
+
+@router.get("/specs/dashboard")
+async def get_dashboard(
+    request: Request,
+    status: str | None = None,
+    namespace: str | None = None,
+    has_runs: bool | None = None,
+    space_id: str | None = None,
+    phase: str | None = None,
+    phase_status: str | None = None,
+) -> JSONResponse:
+    """Spec portfolio dashboard with aggregated lifecycle state."""
+    from ..services.spec_dashboard import get_spec_dashboard
+
+    dashboard = get_spec_dashboard(
+        request.app.state.db,
+        space_id=space_id,
+        status=status,
+        namespace=namespace,
+        has_runs=has_runs,
+        phase=phase,
+        phase_status=phase_status,
+    )
+    return JSONResponse(dashboard.to_dict())
 
 
 @router.get("/specs/{fqn:path}/traceability")

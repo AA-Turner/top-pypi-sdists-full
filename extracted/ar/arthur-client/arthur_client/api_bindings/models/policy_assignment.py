@@ -37,10 +37,10 @@ class PolicyAssignment(BaseModel):
     model: ModelSummary = Field(description="Summary of the assigned model.")
     applied_at: datetime = Field(description="When the policy was applied to the model.")
     applied_by_user_id: Optional[StrictStr] = None
-    grace_period_ends_at: datetime = Field(description="When the grace period ends.")
+    enforcement_starts_at: datetime = Field(description="When enforcement starts.")
     compliance_status: ComplianceStatus = Field(description="Current compliance status.")
     compliance_job_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy", "model", "applied_at", "applied_by_user_id", "grace_period_ends_at", "compliance_status", "compliance_job_id"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy", "model", "applied_at", "applied_by_user_id", "enforcement_starts_at", "compliance_status", "compliance_job_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -116,7 +116,7 @@ class PolicyAssignment(BaseModel):
             "model": ModelSummary.from_dict(obj["model"]) if obj.get("model") is not None else None,
             "applied_at": obj.get("applied_at"),
             "applied_by_user_id": obj.get("applied_by_user_id"),
-            "grace_period_ends_at": obj.get("grace_period_ends_at"),
+            "enforcement_starts_at": obj.get("enforcement_starts_at"),
             "compliance_status": obj.get("compliance_status"),
             "compliance_job_id": obj.get("compliance_job_id")
         })

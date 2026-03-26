@@ -1,0 +1,25 @@
+# Lychee link checker configuration
+# https://lychee.cli.rs/configuration/
+
+# Paths to exclude from checking
+exclude_path = [
+    "test_tmp",
+    "benchmark",
+    "__tests__",
+    "CHANGELOG.md",
+    "docs/superpowers",
+    "docs/design",
+    ".claude",
+]
+
+# Don't check mail addresses
+include_mail = false
+
+# Accept 429 (rate limiting) as valid
+accept = [200, 429]
+
+# Timeout per request in seconds
+timeout = 30
+
+# Maximum number of concurrent requests
+max_concurrency = 16

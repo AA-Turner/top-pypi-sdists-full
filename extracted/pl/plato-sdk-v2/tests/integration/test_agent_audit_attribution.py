@@ -65,6 +65,15 @@ class TestAgentAuditAttribution:
         assert exit_code == 0, f"Claude audit attribution test failed: session={session_id}"
         logger.info("Claude Code audit attribution test PASSED: session=%s", session_id)
 
+    @skip_no_anthropic
+    def test_claude_code_parallel_tool_attribution(self) -> None:
+        """Run 3 agents in parallel and verify Read/Write/Bash all get audit attribution."""
+        exit_code, session_id = _run_agent_audit_test(
+            CONFIGS_DIR / "agent-audit-parallel-claude-code-test.json",
+        )
+        assert exit_code == 0, f"Parallel Claude audit attribution test failed: session={session_id}"
+        logger.info("Parallel Claude Code audit attribution test PASSED: session=%s", session_id)
+
     @skip_no_openai
     def test_codex_tool_attribution(self) -> None:
         exit_code, session_id = _run_agent_audit_test(

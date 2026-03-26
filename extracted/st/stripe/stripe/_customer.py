@@ -366,7 +366,7 @@ class Customer(
     invoice_settings: Optional[InvoiceSettings]
     livemode: bool
     """
-    Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
+    If the object exists in live mode, the value is `true`. If the object exists in test mode, the value is `false`.
     """
     metadata: Optional[Dict[str, str]]
     """
@@ -510,7 +510,7 @@ class Customer(
             self._request(
                 "post",
                 "/v1/customers/{customer}/funding_instructions".format(
-                    customer=sanitize_id(self.get("id"))
+                    customer=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -576,7 +576,7 @@ class Customer(
             await self._request_async(
                 "post",
                 "/v1/customers/{customer}/funding_instructions".format(
-                    customer=sanitize_id(self.get("id"))
+                    customer=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -727,7 +727,7 @@ class Customer(
             self._request(
                 "delete",
                 "/v1/customers/{customer}/discount".format(
-                    customer=sanitize_id(self.get("id"))
+                    customer=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -782,7 +782,7 @@ class Customer(
             await self._request_async(
                 "delete",
                 "/v1/customers/{customer}/discount".format(
-                    customer=sanitize_id(self.get("id"))
+                    customer=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -879,7 +879,7 @@ class Customer(
             self._request(
                 "get",
                 "/v1/customers/{customer}/payment_methods".format(
-                    customer=sanitize_id(self.get("id"))
+                    customer=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -936,7 +936,7 @@ class Customer(
             await self._request_async(
                 "get",
                 "/v1/customers/{customer}/payment_methods".format(
-                    customer=sanitize_id(self.get("id"))
+                    customer=sanitize_id(self._data.get("id"))
                 ),
                 params=params,
             ),
@@ -1061,7 +1061,7 @@ class Customer(
             self._request(
                 "get",
                 "/v1/customers/{customer}/payment_methods/{payment_method}".format(
-                    customer=sanitize_id(self.get("id")),
+                    customer=sanitize_id(self._data.get("id")),
                     payment_method=sanitize_id(payment_method),
                 ),
                 params=params,
@@ -1127,7 +1127,7 @@ class Customer(
             await self._request_async(
                 "get",
                 "/v1/customers/{customer}/payment_methods/{payment_method}".format(
-                    customer=sanitize_id(self.get("id")),
+                    customer=sanitize_id(self._data.get("id")),
                     payment_method=sanitize_id(payment_method),
                 ),
                 params=params,
@@ -1469,7 +1469,7 @@ class Customer(
 
         If the card's owner has no default card, then the new card will become the default.
         However, if the owner already has a default, then it will not change.
-        To change the default, you should [update the customer](https://docs.stripe.com/docs/api#update_customer) to have a new default_source.
+        To change the default, you should [update the customer](https://docs.stripe.com/api/customers/update) to have a new default_source.
         """
         return cast(
             Union["Account", "BankAccount", "Card", "Source"],
@@ -1491,7 +1491,7 @@ class Customer(
 
         If the card's owner has no default card, then the new card will become the default.
         However, if the owner already has a default, then it will not change.
-        To change the default, you should [update the customer](https://docs.stripe.com/docs/api#update_customer) to have a new default_source.
+        To change the default, you should [update the customer](https://docs.stripe.com/api/customers/update) to have a new default_source.
         """
         return cast(
             Union["Account", "BankAccount", "Card", "Source"],
@@ -1916,7 +1916,7 @@ class Customer(
                 self.resource._request(
                     "post",
                     "/v1/test_helpers/customers/{customer}/fund_cash_balance".format(
-                        customer=sanitize_id(self.resource.get("id"))
+                        customer=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),
@@ -1973,7 +1973,7 @@ class Customer(
                 await self.resource._request_async(
                     "post",
                     "/v1/test_helpers/customers/{customer}/fund_cash_balance".format(
-                        customer=sanitize_id(self.resource.get("id"))
+                        customer=sanitize_id(self.resource._data.get("id"))
                     ),
                     params=params,
                 ),

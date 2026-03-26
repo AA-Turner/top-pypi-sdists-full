@@ -334,8 +334,8 @@ class Volume(WMLResource):
         zen_token = header_input.get("Authorization", "")
 
         filename_to_upload = file_path.name
-        upload_url_file = (
-            self._client._href_definitions.volume_upload_href(name) + filename_to_upload
+        upload_url_file = self._client._href_definitions.volume_upload_file_href(
+            name, filename_to_upload
         )
         cmd_str = (
             'curl -k  -X PUT "'

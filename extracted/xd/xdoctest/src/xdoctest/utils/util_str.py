@@ -1,13 +1,16 @@
 """
 Utilities related to string manipulations
 """
-import math
-import textwrap
-import warnings
-import re
-import os
-import sys
 
+from __future__ import annotations
+
+import math
+import os
+import re
+import sys
+import textwrap
+import typing
+import warnings
 
 # Global state that determines if ANSI-coloring text is allowed
 # (which is mainly to address non-ANSI compliant windows consoles)
@@ -15,7 +18,7 @@ import sys
 NO_COLOR = bool(os.environ.get('NO_COLOR'))
 
 
-def strip_ansi(text):
+def strip_ansi(text: str) -> str:
     r"""
     Removes all ansi directives from the string.
 
@@ -37,12 +40,14 @@ def strip_ansi(text):
     # ansi_escape1 = re.compile(r'\x1b[^m]*m')
     # text = ansi_escape1.sub('', text)
     # ansi_escape2 = re.compile(r'\x1b\[([0-9,A-Z]{1,2}(;[0-9]{1,2})?(;[0-9]{3})?)?[m|K]?')
-    ansi_escape3 = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]', flags=re.IGNORECASE)
+    ansi_escape3 = re.compile(
+        r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]', flags=re.IGNORECASE
+    )
     text = ansi_escape3.sub('', text)
     return text
 
 
-def color_text(text, color):
+def color_text(text: str, color: str | None) -> str:
     r"""
     Colorizes text a single color using ansii tags.
 
@@ -85,17 +90,18 @@ def color_text(text, color):
     if NO_COLOR or color is None:
         return text
     try:
-
         if sys.platform.startswith('win32'):  # nocover
             # Hack on win32 to support colored output
             try:
                 import colorama
+
                 if not colorama.initialise.atexit_done:
                     # Only init if it hasn't been done
                     colorama.init()
             except ImportError:
                 warnings.warn(
-                    'colorama is not installed, ansi colors may not work')
+                    'colorama is not installed, ansi colors may not work'
+                )
             # import os
             # if os.environ.get('XDOC_WIN32_COLORS', 'False') == 'False':
             #     # hack: dont color on windows by default, but do init colorama
@@ -103,6 +109,7 @@ def color_text(text, color):
 
         import pygments
         import pygments.console
+
         try:
             ansi_text = pygments.console.colorize(color, text)
         except KeyError:
@@ -117,7 +124,7 @@ def color_text(text, color):
         return text
 
 
-def ensure_unicode(text):
+def ensure_unicode(text: str) -> str:
     """
     Casts bytes into utf8 (mostly for python2 compatibility)
 
@@ -149,7 +156,7 @@ def ensure_unicode(text):
         raise ValueError('unknown input type {!r}'.format(text))
 
 
-def indent(text, prefix='    '):
+def indent(text: str, prefix: str = '    ') -> str:
     r"""
     Indents a block of text
 
@@ -172,7 +179,9 @@ def indent(text, prefix='    '):
     return prefix + text.replace('\n', '\n' + prefix)
 
 
-def highlight_code(text, lexer_name='python', **kwargs):
+def highlight_code(
+    text: str, lexer_name: str = 'python', **kwargs: object
+) -> str:
     """
     Highlights a block of text using ansi tags based on language syntax.
 
@@ -204,29 +213,32 @@ def highlight_code(text, lexer_name='python', **kwargs):
         'c': 'cpp',
     }.get(lexer_name.replace('.', ''), lexer_name)
     try:
-
         if sys.platform.startswith('win32'):  # nocover
             # Hack on win32 to support colored output
             try:
                 import colorama
+
                 if not colorama.initialise.atexit_done:
                     # Only init if it hasn't been done
                     colorama.init()
             except ImportError:
                 warnings.warn(
-                    'colorama is not installed, ansi colors may not work')
+                    'colorama is not installed, ansi colors may not work'
+                )
             # import os
             # if os.environ.get('XDOC_WIN32_COLORS', 'False') == 'False':
             #     # hack: dont color on windows by default, but do init colorama
             #     return text
 
         import pygments
-        import pygments.lexers
         import pygments.formatters
         import pygments.formatters.terminal
+        import pygments.lexers
 
         formatter = pygments.formatters.terminal.TerminalFormatter(bg='dark')
-        lexer = pygments.lexers.get_lexer_by_name(lexer_name, ensurenl=False, **kwargs)
+        lexer = pygments.lexers.get_lexer_by_name(
+            lexer_name, ensurenl=False, **kwargs
+        )
         new_text = pygments.highlight(text, lexer, formatter)
         # formatter = pygments.formatters.terminal.TerminalFormatter(bg='dark')
         # lexer = pygments.lexers.get_lexer_by_name(lexer_name, **kwargs)
@@ -238,7 +250,21 @@ def highlight_code(text, lexer_name='python', **kwargs):
     return new_text
 
 
-def add_line_numbers(source, start=1, n_digits=None):
+@typing.overload
+def add_line_numbers(
+    source: list[str], start: int = 1, n_digits: int | None = None
+) -> list[str]: ...
+
+
+@typing.overload
+def add_line_numbers(
+    source: str, start: int = 1, n_digits: int | None = None
+) -> str: ...
+
+
+def add_line_numbers(
+    source: str | list[str], start: int = 1, n_digits: int | None = None
+) -> list[str] | str:
     """
     Prefixes code with line numbers
 
@@ -260,18 +286,23 @@ def add_line_numbers(source, start=1, n_digits=None):
         2 b
         3 c
     """
-    was_string = isinstance(source, str)
-    part_lines = source.splitlines() if was_string else source
+    if isinstance(source, str):
+        was_string = True
+        part_lines = source.splitlines()
+    else:
+        was_string = False
+        part_lines = source
 
     if n_digits is None:
         endline = start + len(part_lines)
-        n_digits = math.log(max(1, endline), 10)
-        n_digits = int(math.ceil(n_digits))
+        computed_digits = int(math.ceil(math.log(max(1, endline), 10)))
+    else:
+        computed_digits = n_digits
 
     src_fmt = '{count:{n_digits}d} {line}'
 
     part_lines = [
-        src_fmt.format(n_digits=n_digits, count=count, line=line)
+        src_fmt.format(n_digits=computed_digits, count=count, line=line)
         for count, line in enumerate(part_lines, start=start)
     ]
 
@@ -281,7 +312,7 @@ def add_line_numbers(source, start=1, n_digits=None):
         return part_lines
 
 
-def codeblock(block_str):
+def codeblock(block_str: str) -> str:
     """
     Wraps multiline string blocks and returns unindented code.
     Useful for templated code defined in indented parts of code.
@@ -322,4 +353,5 @@ if __name__ == '__main__':
         python -m xdoctest.utils.util_str all
     """
     import xdoctest
+
     xdoctest.doctest_module(__file__)

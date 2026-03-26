@@ -112,6 +112,10 @@ options:
                     - WTP system log server profile name.
                 required: true
                 type: str
+            server:
+                description:
+                    - Syslog server CN domain name or IP address.
+                type: str
             server_addr_type:
                 description:
                     - Syslog server address type .
@@ -157,6 +161,7 @@ EXAMPLES = """
           comment: "Comment."
           log_level: "emergency"
           name: "default_name_5"
+          server: "192.168.100.40"
           server_addr_type: "fqdn"
           server_fqdn: "<your_own_value>"
           server_ip: "<your_own_value>"
@@ -261,6 +266,7 @@ def filter_wireless_controller_syslog_profile_data(json):
         "comment",
         "log_level",
         "name",
+        "server",
         "server_addr_type",
         "server_fqdn",
         "server_ip",
@@ -458,13 +464,7 @@ versioned_schema = {
             "type": "string",
             "options": [{"value": "enable"}, {"value": "disable"}],
         },
-        "server_addr_type": {
-            "v_range": [["v7.0.2", ""]],
-            "type": "string",
-            "options": [{"value": "fqdn"}, {"value": "ip"}],
-        },
-        "server_fqdn": {"v_range": [["v7.0.2", ""]], "type": "string"},
-        "server_ip": {"v_range": [["v7.0.2", ""]], "type": "string"},
+        "server": {"v_range": [["v7.6.5", ""]], "type": "string"},
         "server_port": {"v_range": [["v7.0.2", ""]], "type": "integer"},
         "server_type": {
             "v_range": [["v7.6.1", ""]],
@@ -485,6 +485,13 @@ versioned_schema = {
                 {"value": "debugging"},
             ],
         },
+        "server_addr_type": {
+            "v_range": [["v7.0.2", "v7.6.4"]],
+            "type": "string",
+            "options": [{"value": "fqdn"}, {"value": "ip"}],
+        },
+        "server_fqdn": {"v_range": [["v7.0.2", "v7.6.4"]], "type": "string"},
+        "server_ip": {"v_range": [["v7.0.2", "v7.6.4"]], "type": "string"},
     },
     "v_range": [["v7.0.2", ""]],
 }
@@ -538,7 +545,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "wireless_controller_syslog_profile"
         )

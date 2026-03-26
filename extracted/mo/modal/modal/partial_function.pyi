@@ -71,40 +71,9 @@ def method(
     """
     ...
 
-def web_endpoint(
-    _warn_parentheses_missing=None,
-    *,
-    method: str = "GET",
-    label: typing.Optional[str] = None,
-    docs: bool = False,
-    custom_domains: typing.Optional[collections.abc.Iterable[str]] = None,
-    requires_proxy_auth: bool = False,
-) -> collections.abc.Callable[
-    [
-        typing.Union[
-            PartialFunction[
-                modal._partial_function.P, modal._partial_function.ReturnType, modal._partial_function.ReturnType
-            ],
-            collections.abc.Callable[modal._partial_function.P, modal._partial_function.ReturnType],
-        ]
-    ],
-    PartialFunction[modal._partial_function.P, modal._partial_function.ReturnType, modal._partial_function.ReturnType],
-]:
-    """Register a basic web endpoint with this application.
-
+def web_endpoint(_warn_parentheses_missing=None, *args, **kwargs) -> None:
+    """mdmd:hidden
     DEPRECATED: This decorator has been renamed to `@modal.fastapi_endpoint`.
-
-    This is the simple way to create a web endpoint on Modal. The function
-    behaves as a [FastAPI](https://fastapi.tiangolo.com/) handler and should
-    return a response object to the caller.
-
-    Endpoints created with `@modal.web_endpoint` are meant to be simple, single
-    request handlers and automatically have
-    [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) enabled.
-    For more flexibility, use `@modal.asgi_app`.
-
-    To learn how to use Modal with popular web frameworks, see the
-    [guide on web endpoints](https://modal.com/docs/guide/webhooks).
     """
     ...
 

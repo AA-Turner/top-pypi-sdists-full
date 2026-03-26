@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: build
-Version: 1.4.1
+Version: 1.4.2
 Summary: A simple, correct Python build frontend
 Author-email: Filipe Laíns <lains@riseup.net>, Bernát Gábor <gaborjbernat@gmail.com>, layday <layday@protonmail.com>, Henry Schreiner <henryschreineriii@gmail.com>
 Requires-Python: >= 3.9

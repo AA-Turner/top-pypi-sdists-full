@@ -33,6 +33,39 @@ DEFAULT_DOCUMENT_NAME_FIELD = "document_id"
 DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD = "sequence_number"
 
 
+def merge_metadata(metadatas: list[dict]) -> dict:
+    """
+    Merges a list of dictionaries (metadata) into one metadata
+    The keys remain the same but the values are changed into lists of values from all metadata (if needed).
+
+    :param metadatas: list of metadata dictionaries to be merged
+    :type metadatas: list[dict]
+
+    :return: single merged dictionary (metadata) with sorted values in lists for each key (except keys
+    with one value in the merged dictionary -- in this case the value remains without a wrapping list).
+    :rtype: dict
+    """
+    if len(metadatas) == 1:
+        return metadatas[0]
+
+    merged_metadata = defaultdict(set)
+    for metadata in metadatas:
+        for key, value in metadata.items():
+            if isinstance(value, list):
+                merged_metadata[key].update(value)
+            else:
+                merged_metadata[key].add(value)
+
+    result = {}
+    for key, value_set in merged_metadata.items():
+        value_list = sorted(value_set)
+        if len(value_list) == 1:
+            result[key] = value_list[0]
+        else:
+            result[key] = value_list
+    return result
+
+
 def merge_window_into_a_document(window: list[Document]) -> Document:
     """
     Merges a list of chunks into a single document.
@@ -44,37 +77,6 @@ def merge_window_into_a_document(window: list[Document]) -> Document:
     :return: document that contains the merged merged_text of the window documents
     :rtype: langchain_core.documents.Document
     """
-
-    def merge_metadata(metadatas: list[dict]) -> dict:
-        """
-        Merges a list of dictionaries (metadata) into one metadata
-        The keys remain the same but the values are changed into lists of values from all metadata
-
-        :param metadatas: list of metadata dictionaries to be merged
-        :type metadatas: list[dict]
-
-        :return: single merged dictionary (metadata) with unique values in lists for each key
-        :rtype: Tuple[str, bool]
-        """
-        if len(metadatas) == 1:
-            return metadatas[0]
-
-        merged_metadata = defaultdict(set)
-        for metadata in metadatas:
-            for key, value in metadata.items():
-                if isinstance(value, list):
-                    merged_metadata[key].update(value)
-                else:
-                    merged_metadata[key].add(value)
-
-        result = {}
-        for key, value_set in merged_metadata.items():
-            value_list = sorted(value_set)
-            if len(value_list) == 1:
-                result[key] = value_list[0]
-            else:
-                result[key] = value_list
-        return result
 
     def get_str2_without_intersecting_text(str1: str, str2: str) -> tuple[str, bool]:
         """

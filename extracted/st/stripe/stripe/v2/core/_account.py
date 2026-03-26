@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # File generated from our OpenAPI spec
+from decimal import Decimal
 from stripe._stripe_object import StripeObject
+from stripe.v2._amount import Amount
 from typing import ClassVar, Dict, List, Optional
 from typing_extensions import Literal
 
@@ -2878,16 +2880,6 @@ class Account(StripeObject):
                 """
 
             class AnnualRevenue(StripeObject):
-                class Amount(StripeObject):
-                    currency: Optional[str]
-                    """
-                    Three-letter [ISO currency code](https://www.iso.org/iso-4217-currency-codes.html), in lowercase. Must be a [supported currency](https://stripe.com/docs/currencies).
-                    """
-                    value: Optional[int]
-                    """
-                    A non-negative integer representing how much to charge in the [smallest currency unit](https://docs.stripe.com/currencies#minor-units).
-                    """
-
                 amount: Optional[Amount]
                 """
                 Annual revenue amount in minor currency units (for example, '123' for 1.23 USD).
@@ -2896,7 +2888,6 @@ class Account(StripeObject):
                 """
                 The close-out date of the preceding fiscal year in ISO 8601 format. E.g. 2023-12-31 for the 31st of December, 2023.
                 """
-                _inner_class_types = {"amount": Amount}
 
             class Documents(StripeObject):
                 class BankAccountOwnershipVerification(StripeObject):
@@ -3198,21 +3189,10 @@ class Account(StripeObject):
                 """
 
             class MonthlyEstimatedRevenue(StripeObject):
-                class Amount(StripeObject):
-                    currency: Optional[str]
-                    """
-                    Three-letter [ISO currency code](https://www.iso.org/iso-4217-currency-codes.html), in lowercase. Must be a [supported currency](https://stripe.com/docs/currencies).
-                    """
-                    value: Optional[int]
-                    """
-                    A non-negative integer representing how much to charge in the [smallest currency unit](https://docs.stripe.com/currencies#minor-units).
-                    """
-
                 amount: Optional[Amount]
                 """
                 Estimated monthly revenue amount in minor currency units (for example, '123' for 1.23 USD).
                 """
-                _inner_class_types = {"amount": Amount}
 
             class RegistrationDate(StripeObject):
                 day: int
@@ -3735,7 +3715,7 @@ class Account(StripeObject):
                 """
                 Whether the individual is an owner of the Account's identity.
                 """
-                percent_ownership: Optional[str]
+                percent_ownership: Optional[Decimal]
                 """
                 The percentage of the Account's identity that the individual owns.
                 """
@@ -3747,6 +3727,7 @@ class Account(StripeObject):
                 """
                 The individual's title (e.g., CEO, Support Engineer).
                 """
+                _field_encodings = {"percent_ownership": "decimal_string"}
 
             class ScriptAddresses(StripeObject):
                 class Kana(StripeObject):

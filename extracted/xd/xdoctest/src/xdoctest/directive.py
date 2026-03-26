@@ -151,19 +151,24 @@ Example:
     >>> # New in 0.7.3: the requires directive can accept module names
     >>> # xdoctest: +REQUIRES(module:foobar)
 """
-import sys
+
+from __future__ import annotations
+
+import copy
+import operator
 import os
 import re
-import copy
+import sys
+import typing
 import warnings
-import operator
+from collections import OrderedDict, namedtuple
+from typing import cast
+
 from xdoctest import static_analysis as static
 from xdoctest import utils
-from collections import OrderedDict
-from collections import namedtuple
 
 
-def named(key, pattern):
+def named(key: str, pattern: str) -> str:
     """
     helper for regex
 
@@ -179,39 +184,36 @@ def named(key, pattern):
 
 # TODO: modify global directive defaults via a config file
 
-DEFAULT_RUNTIME_STATE = {
+# Type alias for the runtime state dictionary
+if typing.TYPE_CHECKING:
+    # TODO: we can use a more structured dictionary for better type checks.
+    RuntimeStateDict = dict[str, bool | set[str]]
+
+DEFAULT_RUNTIME_STATE: RuntimeStateDict = {
     'DONT_ACCEPT_BLANKLINE': False,
     'ELLIPSIS': True,
     'IGNORE_WHITESPACE': False,
     'IGNORE_EXCEPTION_DETAIL': False,
     'NORMALIZE_WHITESPACE': True,
-
     'IGNORE_WANT': False,
-
     # 'IGNORE_MEASUREMENTS': False,
     # TODO: I want this flag to turn on normalization of numbers,
     # I.E: non-determenistic measurements do not cause doctest failure, but
     # other formatting errors will.
-
     'NORMALIZE_REPR': True,
-
     'REPORT_CDIFF': False,
     'REPORT_NDIFF': False,
     'REPORT_UDIFF': True,
-
     # If True, all doctests in this context are run in the same event loop.
     # Otherwise, async doctest blocks are run in independent event loops
     # and only if a top-level await exists. New in 1.3.0
     'ASYNC': False,
-
     # Doctests will be skipped while this is True, note that test only run
     # if this is False and REQUIRES is empty.
     'SKIP': False,
-
     # Maintains a set unmet dependencies, ie the reasons we are skipping.
     # Doctests will be skipped while REQUIRES is non-empty and SKIP is False.
     'REQUIRES': set(),
-
     # Original directives we are currently not supporting:
     # DONT_ACCEPT_TRUE_FOR_1
     # REPORT_ONLY_FIRST_FAILURE
@@ -268,18 +270,19 @@ class RuntimeState(utils.NiceRepr):
             SKIP: False
         })>
     """
-    def __init__(self, default_state=None):
+
+    def __init__(self, default_state: RuntimeStateDict | None = None):
         """
         Args:
             default_state (None | dict): starting default state, if unspecified
                 falls back to the global DEFAULT_RUNTIME_STATE
         """
-        self._global_state = copy.deepcopy(DEFAULT_RUNTIME_STATE)
+        self._global_state: RuntimeStateDict = copy.deepcopy(DEFAULT_RUNTIME_STATE)
         if default_state:
             self._global_state.update(default_state)
-        self._inline_state = {}
+        self._inline_state: dict[str, typing.Any] = {}
 
-    def to_dict(self):
+    def to_dict(self) -> OrderedDict[str, bool | set[str]]:
         """
         Returns:
             OrderedDict
@@ -289,15 +292,15 @@ class RuntimeState(utils.NiceRepr):
         state = OrderedDict(sorted(state.items()))
         return state
 
-    def __nice__(self):
+    def __nice__(self) -> str:
         """
         Returns:
             str
         """
         parts = ['{}: {}'.format(*item) for item in self.to_dict().items()]
-        return ('{' + ', '.join(parts) + '}')
+        return '{' + ', '.join(parts) + '}'
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> object:
         """
         Args:
             key (str):
@@ -312,21 +315,23 @@ class RuntimeState(utils.NiceRepr):
         else:
             return self._global_state[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: bool | set[str]):
         """
         Args:
             key (str):
-            value (Any):
+            value (bool | set[str]):
         """
         if key not in self._global_state:
             raise KeyError('Unknown key: {}'.format(key))
         self._global_state[key] = value
 
-    def set_report_style(self, reportchoice, state=None):
+    def set_report_style(
+        self, reportchoice: str, state: RuntimeStateDict | None = None
+    ):
         """
         Args:
             reportchoice (str): name of report style
-            state (None | Dict): if unspecified defaults to the global state
+            state (None | RuntimeStateDict): if unspecified defaults to the global state
 
         Example:
             >>> from xdoctest.directive import *
@@ -344,12 +349,12 @@ class RuntimeState(utils.NiceRepr):
                 state[k] = False
         state['REPORT_' + reportchoice.upper()] = True
 
-    def update(self, directives):
+    def update(self, directives: list[Directive]):
         """
         Update the runtime state given a set of directives
 
         Args:
-            directives (List[Directive]):
+            directives (list[Directive]):
                 list of directives. The ``effects`` method is used to update
                 this object.
         """
@@ -376,10 +381,10 @@ class RuntimeState(utils.NiceRepr):
                 elif action == 'assign':
                     state[key] = value
                 elif action == 'set.add':
-                    state[key].add(value)
+                    cast(set, state[key]).add(value)
                 elif action == 'set.remove':
                     try:
-                        state[key].remove(value)
+                        cast(set, state[key]).remove(value)
                     except KeyError:
                         pass
                 else:
@@ -390,14 +395,21 @@ class Directive(utils.NiceRepr):
     """
     Directives modify the runtime state.
     """
-    def __init__(self, name, positive=True, args=[], inline=None):
+
+    def __init__(
+        self,
+        name: str,
+        positive: bool = True,
+        args: list[str] | None = None,
+        inline: bool | None = None,
+    ):
         """
         Args:
             name (str): The name of the directive
 
             positive (bool): if it is enabling / disabling
 
-            args (List[str]): arguments given to the directive
+            args (list[str]): arguments given to the directive
 
             inline (bool | None):
                 True if this is an inline directive (i.e. only impacts a single
@@ -409,7 +421,7 @@ class Directive(utils.NiceRepr):
         self.positive = positive
 
     @classmethod
-    def extract(cls, text):
+    def extract(cls, text: str) -> typing.Iterator[Directive]:
         """
         Parses directives from a line or repl line
 
@@ -487,8 +499,9 @@ class Directive(utils.NiceRepr):
             False
         """
         # Flag extracted directives as inline iff the text contains non-comments
-        inline = not all(line.strip().startswith('#')
-                         for line in text.splitlines())
+        inline = not all(
+            line.strip().startswith('#') for line in text.splitlines()
+        )
         #
         for comment in static.extract_comments(text):
             # remove the first comment character and see if the comment matches
@@ -504,7 +517,7 @@ class Directive(utils.NiceRepr):
                             if directive:
                                 yield directive
 
-    def __nice__(self):
+    def __nice__(self) -> str:
         """
         Returns:
             str
@@ -518,49 +531,64 @@ class Directive(utils.NiceRepr):
 
     def _unpack_args(self, num):
         from xdoctest.utils import util_deprecation
+
         util_deprecation.schedule_deprecation(
             modname='xdoctest',
-            name='Directive._unpack_args', type='method',
+            name='Directive._unpack_args',
+            type='method',
             migration='there is no need to use this',
-            deprecate='1.0.0', error='1.1.0', remove='1.2.0'
+            deprecate='1.0.0',
+            error='1.1.0',
+            remove='1.2.0',
         )
         nargs = self.args
+        assert nargs is not None
         if len(nargs) != 1:
             raise TypeError(
-                '{} directive expected exactly {} argument(s), '
-                'got {}'.format(self.name, num, nargs))
+                '{} directive expected exactly {} argument(s), got {}'.format(
+                    self.name, num, nargs
+                )
+            )
         return self.args
 
     def effect(self, argv=None, environ=None):
         from xdoctest.utils import util_deprecation
+
         util_deprecation.schedule_deprecation(
             modname='xdoctest',
-            name='Directive.effect', type='method',
+            name='Directive.effect',
+            type='method',
             migration='Use Directive.effects instead',
-            deprecate='1.0.0', error='1.1.0', remove='1.2.0'
+            deprecate='1.0.0',
+            error='1.1.0',
+            remove='1.2.0',
         )
         effects = self.effects(argv=argv, environ=environ)
         if len(effects) > 1:
             raise Exception('Old method cannot handle multiple effects')
         return effects[0]
 
-    def effects(self, argv=None, environ=None):
+    def effects(
+        self,
+        argv: list[str] | None = None,
+        environ: dict[str, str] | None = None,
+    ) -> list[Effect]:
         """
         Returns how this directive modifies a RuntimeState object
 
         This is called by :func:`RuntimeState.update` to update itself
 
         Args:
-            argv (List[str] | None):
+            argv (list[str] | None):
                 Command line the directive is interpreted in the context of.
                 If unspecified, uses ``sys.argv``.
 
-            environ (Dict[str, str] | None):
+            environ (dict[str, str] | None):
                 Environment variables the directive is interpreted in the
                 context of. If unspecified, uses ``os.environ``.
 
         Returns:
-            List[Effect]: list of named tuples containing:
+            list[Effect]: list of named tuples containing:
                 action (str): code indicating how to update
                 key (str): name of runtime state item to modify
                 value (object): value to modify with
@@ -616,11 +644,12 @@ class Directive(utils.NiceRepr):
             effect = Effect(action='noop', key='REQUIRES', value='module:xdoctest')
         """
         key = self.name
-        value = None
+        value: typing.Any = None
 
         effects = []
         if self.name == 'REQUIRES':
             # Special handling of REQUIRES
+            assert isinstance(self.args, list)
             for arg in self.args:
                 value = arg
                 if _is_requires_satisfied(arg, argv=argv, environ=environ):
@@ -649,7 +678,7 @@ class Directive(utils.NiceRepr):
         return effects
 
 
-def _split_opstr(optstr):
+def _split_opstr(optstr: str) -> list[str]:
     """
     Simplified balanced paren logic to only split commas outside of parens
 
@@ -657,7 +686,7 @@ def _split_opstr(optstr):
         opstr (str): the command, which may contain more than one directive
 
     Returns:
-        List[str]: individual directive optstrings
+        list[str]: individual directive optstrings
 
     Example:
         >>> optstr = '+FOO, REQUIRES(foo,bar), +ELLIPSIS'
@@ -665,7 +694,8 @@ def _split_opstr(optstr):
         ['+FOO', 'REQUIRES(foo,bar)', '+ELLIPSIS']
     """
     import re
-    stack = []
+
+    stack: list[typing.Any] = []
     split_pos = []
     for match in re.finditer(r',|\(|\)', optstr):
         token = match.group()
@@ -680,6 +710,7 @@ def _split_opstr(optstr):
 
     parts = []
     prev = 0
+    curr: int | None
     for curr in split_pos:
         parts.append(optstr[prev:curr].strip())
         prev = curr + 1
@@ -688,14 +719,18 @@ def _split_opstr(optstr):
     return parts
 
 
-def _is_requires_satisfied(arg, argv=None, environ=None):
+def _is_requires_satisfied(
+    arg: str,
+    argv: list[str] | None = None,
+    environ: dict[str, str] | None = None,
+) -> bool:
     """
     Determines if the argument to a REQUIRES directive is satisfied
 
     Args:
         arg (str): condition code
-        argv (List[str] | None): cmdline if arg is cmd code usually ``sys.argv``
-        environ (Dict[str, str] | None): environment variables usually ``os.environ``
+        argv (list[str] | None): cmdline if arg is cmd code usually ``sys.argv``
+        environ (dict[str, str] | None): environment variables usually ``os.environ``
 
     Returns:
         bool: flag - True if the requirement is met
@@ -756,26 +791,35 @@ def _is_requires_satisfied(arg, argv=None, environ=None):
     elif arg.startswith('module:'):
         parts = arg.split(':')
         if len(parts) != 2:
-            raise ValueError('xdoctest module REQUIRES directive has too many parts')
+            raise ValueError(
+                'xdoctest module REQUIRES directive has too many parts'
+            )
         # set flag to False (aka SKIP) if the module does not exist
         modname = parts[1]
         flag = _module_exists(modname)
     elif arg.startswith('env:'):
+        environ_: typing.Mapping[str, str]
         if environ is None:
-            environ = os.environ
+            environ_ = os.environ
+        else:
+            environ_ = environ
+
         parts = arg.split(':')
         if len(parts) != 2:
-            raise ValueError('xdoctest env REQUIRES directive has too many parts')
+            raise ValueError(
+                'xdoctest env REQUIRES directive has too many parts'
+            )
         envexpr = parts[1]
         expr_parts = re.split('(==|!=|>=)', envexpr)
         if len(expr_parts) == 1:
             # Test if the environment variable is truthy
             env_key = expr_parts[0]
-            flag = bool(environ.get(env_key, None))
+
+            flag = bool(environ_.get(env_key, None))
         elif len(expr_parts) == 3:
             # Test if the environment variable is equal to an expression
             env_key, op_code, value = expr_parts
-            env_val = environ.get(env_key, None)
+            env_val = environ_.get(env_key, None)
             if op_code == '==':
                 op = operator.eq
             elif op_code == '!=':
@@ -791,6 +835,7 @@ def _is_requires_satisfied(arg, argv=None, environ=None):
         flag = os.name.startswith(arg_lower)
     elif arg_lower in PY_IMPL_TAGS:
         import platform
+
         flag = platform.python_implementation().lower().startswith(arg_lower)
     elif arg_lower in PY_VER_TAGS:
         if sys.version_info[0] == 2:  # nocover
@@ -800,15 +845,21 @@ def _is_requires_satisfied(arg, argv=None, environ=None):
         else:  # nocover
             flag = False
     else:
-        msg = utils.codeblock(
-            '''
+        msg = (
+            utils.codeblock(
+                """
             Argument to REQUIRES directive must be either
             (1) a PLATFORM or OS tag (e.g. win32, darwin, linux),
             (2) a command line flag prefixed with '--', or
             (3) a module prefixed with 'module:'.
             (4) an environment variable prefixed with 'env:'.
             Got arg={!r}
-            ''').replace('\n', ' ').strip().format(arg)
+            """
+            )
+            .replace('\n', ' ')
+            .strip()
+            .format(arg)
+        )
         raise ValueError(msg)
     return flag
 
@@ -816,7 +867,7 @@ def _is_requires_satisfied(arg, argv=None, environ=None):
 _MODNAME_EXISTS_CACHE = {}
 
 
-def _module_exists(modname):
+def _module_exists(modname: typing.Any) -> bool:
     """
     Args:
         modname (str):
@@ -825,8 +876,9 @@ def _module_exists(modname):
         bool
     """
     if modname not in _MODNAME_EXISTS_CACHE:
-        from xdoctest import static_analysis as static
-        modpath = static.modname_to_modpath(modname)
+        from xdoctest.utils import util_import
+
+        modpath = util_import.modname_to_modpath(modname)
         exists_flag = modpath is not None
         _MODNAME_EXISTS_CACHE[modname] = exists_flag
     exists_flag = _MODNAME_EXISTS_CACHE[modname]
@@ -852,14 +904,16 @@ COMMANDS = list(DEFAULT_RUNTIME_STATE.keys()) + [
     'REQUIRES',
 ]
 DIRECTIVE_PATTERNS = [
-    #r'\s*\+\s*' + named('style1', '.*'),
+    # r'\s*\+\s*' + named('style1', '.*'),
     r'x?doctest:\s*' + named('style2', '.*'),
     r'x?doc:\s*' + named('style3', '.*'),
 ]
 DIRECTIVE_RE = re.compile('|'.join(DIRECTIVE_PATTERNS), flags=re.IGNORECASE)
 
 
-def parse_directive_optstr(optpart, inline=None):
+def parse_directive_optstr(
+    optpart: str, inline: None | bool = None
+) -> Directive | None:
     """
     Parses the information in the directive from the "optpart"
 
@@ -877,7 +931,7 @@ def parse_directive_optstr(optpart, inline=None):
             True if the directive only applies to a single line.
 
     Returns:
-        Directive: the parsed directive
+        Directive | None: the parsed directive (or None if parsing failed)
 
     Example:
         >>> print(str(parse_directive_optstr('+IGNORE_WHITESPACE')))
@@ -890,7 +944,7 @@ def parse_directive_optstr(optpart, inline=None):
     paren_pos = optpart.find('(')
     if paren_pos > -1:
         # handle simple paren case.
-        body = optpart[paren_pos + 1:optpart.find(')')]
+        body = optpart[paren_pos + 1 : optpart.find(')')]
         args = [a.strip() for a in body.split(',')]
         # args = [optpart[paren_pos + 1:optpart.find(')')]]
         optpart = optpart[:paren_pos]
@@ -909,6 +963,7 @@ def parse_directive_optstr(optpart, inline=None):
     if name not in COMMANDS:
         msg = 'Unknown directive: {!r}'.format(optpart)
         warnings.warn(msg)
+        return None
     else:
         directive = Directive(name, positive, args, inline)
         return directive
@@ -920,4 +975,5 @@ if __name__ == '__main__':
         python -m xdoctest.directive all
     """
     import xdoctest
+
     xdoctest.doctest_module(__file__)

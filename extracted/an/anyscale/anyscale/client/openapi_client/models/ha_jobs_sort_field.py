@@ -31,11 +31,12 @@ class HaJobsSortField(object):
     STATUS = "STATUS"
     CREATED_AT = "CREATED_AT"
     LAST_UPDATED_AT = "LAST_UPDATED_AT"
+    LAST_STATUS_UPDATED_AT = "LAST_STATUS_UPDATED_AT"
     ENDED_AT = "ENDED_AT"
     NAME = "NAME"
     ID = "ID"
 
-    allowable_values = [STATUS, CREATED_AT, LAST_UPDATED_AT, ENDED_AT, NAME, ID]  # noqa: E501
+    allowable_values = [STATUS, CREATED_AT, LAST_UPDATED_AT, LAST_STATUS_UPDATED_AT, ENDED_AT, NAME, ID]  # noqa: E501
 
     """
     Attributes:

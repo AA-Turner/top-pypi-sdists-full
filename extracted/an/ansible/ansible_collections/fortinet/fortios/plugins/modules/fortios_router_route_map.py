@@ -190,6 +190,13 @@ options:
                             - 'none'
                             - '1'
                             - '2'
+                    match_suppress:
+                        description:
+                            - Enable/disable matching of suppressed original neighbor.
+                        type: str
+                        choices:
+                            - 'enable'
+                            - 'disable'
                     match_tag:
                         description:
                             - Match tag.
@@ -403,6 +410,7 @@ EXAMPLES = """
                   match_metric: ""
                   match_origin: "none"
                   match_route_type: "external-type1"
+                  match_suppress: "enable"
                   match_tag: ""
                   match_vrf: ""
                   set_aggregator_as: "0"
@@ -766,6 +774,11 @@ versioned_schema = {
                 },
                 "match_tag": {"v_range": [["v6.0.0", ""]], "type": "integer"},
                 "match_vrf": {"v_range": [["v6.4.0", ""]], "type": "integer"},
+                "match_suppress": {
+                    "v_range": [["v7.6.5", ""]],
+                    "type": "string",
+                    "options": [{"value": "enable"}, {"value": "disable"}],
+                },
                 "set_aggregator_as": {"v_range": [["v6.0.0", ""]], "type": "integer"},
                 "set_aggregator_ip": {"v_range": [["v6.0.0", ""]], "type": "string"},
                 "set_aspath_action": {
@@ -949,7 +962,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "router_route_map"
         )

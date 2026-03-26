@@ -20,6 +20,9 @@
                                                         `---' OAuth2 API SDK for Python 3 `---'
 """
 from typing import List, Any
+from .deprecated import _admission_control_policies_deprecated
+from .deprecated import _alerts_deprecated
+from .deprecated import _aspm_deprecated
 from .deprecated import _case_management_deprecated
 from .deprecated import _cloud_aws_registration_deprecated
 from .deprecated import _cloud_azure_registration_deprecated
@@ -31,28 +34,40 @@ from .deprecated import _cloud_security_compliance_deprecated
 from .deprecated import _cloud_security_detections_deprecated
 from .deprecated import _correlation_rules_admin_deprecated
 from .deprecated import _correlation_rules_deprecated
+from .deprecated import _cspm_registration_deprecated
 from .deprecated import _custom_ioa_deprecated
 from .deprecated import _d4c_registration_deprecated
 from .deprecated import _data_protection_configuration_deprecated
+from .deprecated import _detects_deprecated
 from .deprecated import _device_content_deprecated
+from .deprecated import _device_control_policies_deprecated
 from .deprecated import _discover_deprecated
+from .deprecated import _downloads_deprecated
 from .deprecated import _fdr_deprecated
 from .deprecated import _firewall_management_deprecated
 from .deprecated import _hosts_deprecated
 from .deprecated import _identity_protection_deprecated
 from .deprecated import _installation_tokens_deprecated
+from .deprecated import _ioa_exclusions_deprecated
 from .deprecated import _ioc_deprecated
 from .deprecated import _iocs_deprecated
+from .deprecated import _ml_exclusions_deprecated
+from .deprecated import _mssp_deprecated
 from .deprecated import _ods_deprecated
 from .deprecated import _real_time_response_deprecated
 from .deprecated import _real_time_response_admin_deprecated
 from .deprecated import _report_executions_deprecated
+from .deprecated import _sample_uploads_deprecated
 from .deprecated import _scheduled_reports_deprecated
-from .deprecated import _zero_trust_assessment_deprecated
+from .deprecated import _workflows_deprecated
 from .deprecated import _certificate_based_exclusions_deprecated
+from .deprecated import _ngsiem_deprecated
+from .deprecated import _user_management_deprecated
 from .deprecated import _deprecated_operation_mapping
 from .deprecated import _deprecated_class_mapping
+from .deprecated import _zero_trust_assessment_deprecated
 
+from ._admission_control_policies import _admission_control_policies_endpoints
 from ._alerts import _alerts_endpoints
 from ._api_integrations import _api_integrations_endpoints
 from ._aspm import _aspm_endpoints
@@ -61,6 +76,7 @@ from ._case_management import _case_management_endpoints
 from ._certificate_based_exclusions import _certificate_based_exclusions_endpoints
 from ._cloud_aws_registration import _cloud_aws_registration_endpoints
 from ._cloud_azure_registration import _cloud_azure_registration_endpoints
+from ._cloud_connect_aws import _cloud_connect_aws_endpoints
 from ._cloud_google_cloud_registration import _cloud_google_cloud_registration_endpoints
 from ._cloud_oci_registration import _cloud_oci_registration_endpoints
 from ._cloud_policies import _cloud_policies_endpoints
@@ -68,7 +84,6 @@ from ._cloud_security import _cloud_security_endpoints
 from ._cloud_security_assets import _cloud_security_assets_endpoints
 from ._cloud_security_compliance import _cloud_security_compliance_endpoints
 from ._cloud_security_detections import _cloud_security_detections_endpoints
-from ._cloud_connect_aws import _cloud_connect_aws_endpoints
 from ._cloud_snapshots import _cloud_snapshots_endpoints
 from ._container_image_compliance import _container_image_compliance_endpoints
 from ._configuration_assessment_evaluation_logic import _configuration_assessment_evaluation_logic_endpoints
@@ -129,7 +144,6 @@ from ._mssp import _mssp_endpoints
 from ._ngsiem import _ngsiem_endpoints
 from ._oauth2 import _oauth2_endpoints
 from ._ods import _ods_endpoints
-from ._overwatch_dashboard import _overwatch_dashboard_endpoints
 from ._prevention_policies import _prevention_policies_endpoints
 from ._quarantine import _quarantine_endpoints
 from ._quick_scan import _quick_scan_endpoints
@@ -147,27 +161,29 @@ from ._sensor_download import _sensor_download_endpoints
 from ._sensor_update_policies import _sensor_update_policies_endpoints
 from ._sensor_usage import _sensor_usage_endpoints
 from ._sensor_visibility_exclusions import _sensor_visibility_exclusions_endpoints
+from ._serverless_exports import _serverless_exports_endpoints
 from ._serverless_vulnerabilities import _serverless_vulnerabilities_endpoints
 from ._spotlight_evaluation_logic import _spotlight_evaluation_logic_endpoints
-from ._spotlight_vulnerabilities import _spotlight_vulnerabilities_endpoints
 from ._spotlight_vulnerability_metadata import _spotlight_vulnerability_metadata_endpoints
-from ._tailored_intelligence import _tailored_intelligence_endpoints
+from ._spotlight_vulnerabilities import _spotlight_vulnerabilities_endpoints
 from ._threatgraph import _threatgraph_endpoints
+from ._tailored_intelligence import _tailored_intelligence_endpoints
 from ._unidentified_containers import _unidentified_containers_endpoints
 from ._user_management import _user_management_endpoints
 from ._workflows import _workflows_endpoints
 from ._zero_trust_assessment import _zero_trust_assessment_endpoints
 
 api_endpoints: List[Any] = []
+api_endpoints.extend(_admission_control_policies_endpoints)
 api_endpoints.extend(_alerts_endpoints)
 api_endpoints.extend(_api_integrations_endpoints)
 api_endpoints.extend(_aspm_endpoints)
 api_endpoints.extend(_cao_hunting_endpoints)
 api_endpoints.extend(_case_management_endpoints)
 api_endpoints.extend(_certificate_based_exclusions_endpoints)
-api_endpoints.extend(_cloud_connect_aws_endpoints)
 api_endpoints.extend(_cloud_aws_registration_endpoints)
 api_endpoints.extend(_cloud_azure_registration_endpoints)
+api_endpoints.extend(_cloud_connect_aws_endpoints)
 api_endpoints.extend(_cloud_google_cloud_registration_endpoints)
 api_endpoints.extend(_cloud_oci_registration_endpoints)
 api_endpoints.extend(_cloud_policies_endpoints)
@@ -235,7 +251,6 @@ api_endpoints.extend(_mssp_endpoints)
 api_endpoints.extend(_ngsiem_endpoints)
 api_endpoints.extend(_oauth2_endpoints)
 api_endpoints.extend(_ods_endpoints)
-api_endpoints.extend(_overwatch_dashboard_endpoints)
 api_endpoints.extend(_prevention_policies_endpoints)
 api_endpoints.extend(_quarantine_endpoints)
 api_endpoints.extend(_quick_scan_endpoints)
@@ -253,12 +268,13 @@ api_endpoints.extend(_sensor_download_endpoints)
 api_endpoints.extend(_sensor_update_policies_endpoints)
 api_endpoints.extend(_sensor_usage_endpoints)
 api_endpoints.extend(_sensor_visibility_exclusions_endpoints)
+api_endpoints.extend(_serverless_exports_endpoints)
 api_endpoints.extend(_serverless_vulnerabilities_endpoints)
 api_endpoints.extend(_spotlight_evaluation_logic_endpoints)
-api_endpoints.extend(_spotlight_vulnerabilities_endpoints)
 api_endpoints.extend(_spotlight_vulnerability_metadata_endpoints)
-api_endpoints.extend(_tailored_intelligence_endpoints)
+api_endpoints.extend(_spotlight_vulnerabilities_endpoints)
 api_endpoints.extend(_threatgraph_endpoints)
+api_endpoints.extend(_tailored_intelligence_endpoints)
 api_endpoints.extend(_unidentified_containers_endpoints)
 api_endpoints.extend(_user_management_endpoints)
 api_endpoints.extend(_workflows_endpoints)
@@ -266,6 +282,9 @@ api_endpoints.extend(_zero_trust_assessment_endpoints)
 
 # Deprecated endpoints
 deprecated_endpoints = []
+deprecated_endpoints.extend(_admission_control_policies_deprecated)
+deprecated_endpoints.extend(_alerts_deprecated)
+deprecated_endpoints.extend(_aspm_deprecated)
 deprecated_endpoints.extend(_case_management_deprecated)
 deprecated_endpoints.extend(_cloud_aws_registration_deprecated)
 deprecated_endpoints.extend(_cloud_azure_registration_deprecated)
@@ -277,24 +296,35 @@ deprecated_endpoints.extend(_cloud_security_compliance_deprecated)
 deprecated_endpoints.extend(_cloud_security_detections_deprecated)
 deprecated_endpoints.extend(_correlation_rules_admin_deprecated)
 deprecated_endpoints.extend(_correlation_rules_deprecated)
+deprecated_endpoints.extend(_cspm_registration_deprecated)
 deprecated_endpoints.extend(_certificate_based_exclusions_deprecated)
 deprecated_endpoints.extend(_custom_ioa_deprecated)
 deprecated_endpoints.extend(_d4c_registration_deprecated)
 deprecated_endpoints.extend(_data_protection_configuration_deprecated)
+deprecated_endpoints.extend(_detects_deprecated)
 deprecated_endpoints.extend(_device_content_deprecated)
+deprecated_endpoints.extend(_device_control_policies_deprecated)
 deprecated_endpoints.extend(_discover_deprecated)
+deprecated_endpoints.extend(_downloads_deprecated)
 deprecated_endpoints.extend(_fdr_deprecated)
 deprecated_endpoints.extend(_firewall_management_deprecated)
 deprecated_endpoints.extend(_hosts_deprecated)
 deprecated_endpoints.extend(_identity_protection_deprecated)
 deprecated_endpoints.extend(_installation_tokens_deprecated)
+deprecated_endpoints.extend(_ioa_exclusions_deprecated)
 deprecated_endpoints.extend(_ioc_deprecated)
 deprecated_endpoints.extend(_iocs_deprecated)
+deprecated_endpoints.extend(_ml_exclusions_deprecated)
+deprecated_endpoints.extend(_mssp_deprecated)
 deprecated_endpoints.extend(_ods_deprecated)
+deprecated_endpoints.extend(_ngsiem_deprecated)
 deprecated_endpoints.extend(_real_time_response_deprecated)
 deprecated_endpoints.extend(_real_time_response_admin_deprecated)
 deprecated_endpoints.extend(_report_executions_deprecated)
+deprecated_endpoints.extend(_sample_uploads_deprecated)
 deprecated_endpoints.extend(_scheduled_reports_deprecated)
+deprecated_endpoints.extend(_user_management_deprecated)
+deprecated_endpoints.extend(_workflows_deprecated)
 deprecated_endpoints.extend(_zero_trust_assessment_deprecated)
 
 # Mapping of manually deprecated endpoints

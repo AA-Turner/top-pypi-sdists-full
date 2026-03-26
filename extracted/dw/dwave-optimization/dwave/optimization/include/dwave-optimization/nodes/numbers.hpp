@@ -89,36 +89,38 @@ class NumberNode : public ArrayOutputMixin<ArrayNode>, public DecisionNode {
     // NumberNode methods *****************************************************
 
     // In the given state, swap the value of index i with the value of index j.
-    // Returns `true` if the values at indices i and j change and `false`
-    // otherwise.
-    bool exchange(State& state, ssize_t i, ssize_t j) const;
+    void exchange(State& state, ssize_t i, ssize_t j) const;
 
     // Return the value of index i in a given state.
     double get_value(State& state, ssize_t i) const;
 
-    // Lower bounds of value in a given index.
-    virtual double lower_bound(ssize_t index) const { return min_; }
-    virtual double lower_bound() const { return min_; }
+    // Lower bound of value in a given index.
+    double lower_bound(ssize_t index) const;
+    double lower_bound() const;
 
-    // Upper bounds of value in a given index.
-    virtual double upper_bound(ssize_t index) const { return max_; }
-    virtual double upper_bound() const { return max_; }
+    // Upper bound of value in a given index.
+    double upper_bound(ssize_t index) const;
+    double upper_bound() const;
 
     // Clip value in a given state to fall within upper_bound and lower_bound
     // in a given index.
-    bool clip_and_set_value(State& state, ssize_t index, double value) const;
+    void clip_and_set_value(State& state, ssize_t index, double value) const;
 
  protected:
-    explicit NumberNode(std::span<const ssize_t> shape, double minimum, double maximum);
+    explicit NumberNode(std::span<const ssize_t> shape, std::vector<double> lower_bound,
+                        std::vector<double> upper_bound);
 
-    // Return truth statement: 'value is within the bounds of a given index'
+    // Return truth statement: 'value is valid in a given index'.
     virtual bool is_valid(ssize_t index, double value) const = 0;
 
-    // Default value in a given index
+    // Default value in a given index.
     virtual double default_value(ssize_t index) const = 0;
 
     double min_;
     double max_;
+
+    std::vector<double> lower_bounds_;
+    std::vector<double> upper_bounds_;
 };
 
 /// A contiguous block of integer numbers.
@@ -167,34 +169,19 @@ class IntegerNode : public NumberNode {
 
     // Overloads needed by the NumberNode ABC *********************************
 
-    // @copydoc NumberNode::lower_bound(). Depending upon user input, may
-    // return non-integral values
-    double lower_bound(ssize_t index) const override;
-    double lower_bound() const override;
-
-    // @copydoc NumberNode::upper_bound(). Depending upon user input, may
-    // return non-integral values
-    double upper_bound(ssize_t index) const override;
-    double upper_bound() const override;
-
     // @copydoc NumberNode::is_valid()
     bool is_valid(ssize_t index, double value) const override;
 
     // IntegerNode methods ****************************************************
 
-    // Set the value at the given index in the given state. Returns `true` if
-    // the value at the index changed and `false` otherwise.
-    bool set_value(State& state, ssize_t index, double value) const;
+    // Set the value at the given index in the given state.
+    void set_value(State& state, ssize_t index, double value) const;
 
  protected:
     // Overloads needed by the Node ABC ***************************************
 
     // @copydoc NumberNode::default_value()
     double default_value(ssize_t index) const override;
-
- private:
-    std::vector<double> full_lower_bound_;
-    std::vector<double> full_upper_bound_;
 };
 
 /// A contiguous block of binary numbers.
@@ -231,17 +218,14 @@ class BinaryNode : public IntegerNode {
     BinaryNode(std::initializer_list<ssize_t> shape, double lower_bound, double upper_bound);
     BinaryNode(ssize_t size, double lower_bound, double upper_bound);
 
-    // Flip the value (0 -> 1 or 1 -> 0) at index i in the given state. Returns
-    // `true` if the value at index i changed and `false` otherwise.
-    bool flip(State& state, ssize_t i) const;
+    // Flip the value (0 -> 1 or 1 -> 0) at index i in the given state.
+    void flip(State& state, ssize_t i) const;
 
-    // Set the value at index i to `true` in the given state. Returns `true` if
-    // the value at index i changed and `false` otherwise.
-    bool set(State& state, ssize_t i) const;
+    // Set the value at index i to `true` in the given state.
+    void set(State& state, ssize_t i) const;
 
-    // Set the at index i to `false` in the given state. Returns `true` if
-    // the value at index i changed and `false` otherwise.
-    bool unset(State& state, ssize_t i) const;
+    // Set the at index i to `false` in the given state.
+    void unset(State& state, ssize_t i) const;
 };
 
 }  // namespace dwave::optimization

@@ -174,7 +174,7 @@ class LazyFramePlaceholder:
         return _convert_from_dataframe_proto(proto, dataframe_class=LazyFramePlaceholder)
 
     @classmethod
-    def named_table(cls, name: str, schema: pyarrow.Schema) -> LazyFramePlaceholder:
+    def named_table(cls, name: str, schema: pyarrow.Schema, sorted_by: list[str] | None = None) -> LazyFramePlaceholder:
         """Create a ``DataFrame`` for a named table.
 
         Parameters
@@ -203,6 +203,7 @@ class LazyFramePlaceholder:
             self_dataframe=None,
             name=name,
             schema=schema,
+            sorted_by=sorted_by,
         )
 
     @classmethod
@@ -338,6 +339,7 @@ class LazyFramePlaceholder:
         aws_catalog_account_id: typing.Optional[str] = None,
         aws_catalog_region: typing.Optional[str] = None,
         aws_role_arn: typing.Optional[str] = None,
+        filter_predicate: typing.Optional[typing.Any] = None,
         parquet_scan_range_column: typing.Optional[str] = None,
         custom_partitions: typing.Optional[dict[str, tuple[typing.Literal["date_trunc(day)"], str]]] = None,
         partition_column: typing.Optional[str] = None,
@@ -378,7 +380,7 @@ class LazyFramePlaceholder:
             aws_catalog_account_id=aws_catalog_account_id,
             aws_catalog_region=aws_catalog_region,
             aws_role_arn=aws_role_arn,
-            filter_predicate=None,
+            filter_predicate=filter_predicate,
             parquet_scan_range_column=parquet_scan_range_column,
             custom_partitions=custom_partitions,
             partition_column=partition_column,
@@ -388,6 +390,7 @@ class LazyFramePlaceholder:
     def from_sql(
         cls,
         query: str,
+        **tables: typing.Any,
     ) -> LazyFramePlaceholder:
         """Create a ``DataFrame`` from the result of executing a SQL query (DuckDB dialect).
 
@@ -407,6 +410,7 @@ class LazyFramePlaceholder:
             self_dataframe=None,
             function_name="from_sql",
             query=query,
+            **tables,
         )
 
     @classmethod
@@ -461,9 +465,175 @@ class LazyFramePlaceholder:
         return LazyFramePlaceholder._construct(
             self_dataframe=None,
             function_name="from_stream_source",
+            source=source,
             n=n,
             timeout_ms=timeout_ms,
             include_metadata=include_metadata,
+        )
+
+    @classmethod
+    def from_pandas(cls, data: typing.Any) -> "LazyFramePlaceholder":
+        """Construct a DataFrame from a pandas DataFrame.
+
+        Parameters
+        ----------
+        data
+            pandas DataFrame to convert.
+
+        Returns
+        -------
+        LazyFramePlaceholder backed by the provided pandas data.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="from_pandas",
+            data=data,
+        )
+
+    @classmethod
+    def from_python_udf(
+        cls,
+        udf: typing.Any,
+        schema: pyarrow.Schema,
+        *,
+        output_timeout: float = 300.0,
+    ) -> "LazyFramePlaceholder":
+        """Create a DataFrame from a Python async generator function.
+
+        Parameters
+        ----------
+        udf
+            An async generator function that yields data batches.
+        schema
+            The expected PyArrow schema for the output data.
+        output_timeout
+            Maximum time in seconds to wait for the output handler. Default is 300 seconds.
+
+        Returns
+        -------
+        LazyFramePlaceholder representing the UDF source.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="from_python_udf",
+            udf=udf,
+            schema=schema,
+            output_timeout=output_timeout,
+        )
+
+    @classmethod
+    def from_catalog_table(
+        cls,
+        table_name: str,
+        *,
+        catalog: typing.Any,
+    ) -> "LazyFramePlaceholder":
+        """Create a DataFrame from a Chalk SQL catalog table.
+
+        Parameters
+        ----------
+        table_name
+            Name of the table in the catalog.
+        catalog
+            ChalkSqlCatalog instance containing the table.
+
+        Returns
+        -------
+        LazyFramePlaceholder referencing the catalog table.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="from_catalog_table",
+            table_name=table_name,
+            catalog=catalog,
+        )
+
+    @classmethod
+    def from_datasource(
+        cls, source: typing.Any, query: str, expected_output_schema: pyarrow.Schema
+    ) -> "LazyFramePlaceholder":
+        """Create a DataFrame from the result of querying a SQL data source.
+
+        Parameters
+        ----------
+        source
+            SQL source to query (e.g., PostgreSQL, Snowflake, BigQuery).
+        query
+            SQL query to execute against the data source.
+        expected_output_schema
+            Output schema of the query result.
+
+        Returns
+        -------
+        LazyFramePlaceholder containing the query results from the data source.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="from_datasource",
+            source=source,
+            query=query,
+            expected_output_schema=expected_output_schema,
+        )
+
+    @classmethod
+    def scan_from_sql(
+        cls,
+        query: str,
+        *,
+        pool: typing.Any,
+        output_uri_prefix: str,
+        schema: pyarrow.Schema,
+        dialect: str = "bigquery",
+    ) -> "LazyFramePlaceholder":
+        """Create a DataFrame by executing a SQL SELECT and scanning the resulting parquet files.
+
+        Parameters
+        ----------
+        query
+            A SELECT statement to execute against the data warehouse.
+        pool
+            A connection pool for the data warehouse.
+        output_uri_prefix
+            URI prefix where the exported parquet output will be written.
+        schema
+            Arrow schema of the parquet files produced by the export.
+        dialect
+            SQL dialect for query rewriting (default ``"bigquery"``).
+
+        Returns
+        -------
+        LazyFramePlaceholder that reads the exported parquet files.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="scan_from_sql",
+            query=query,
+            pool=pool,
+            output_uri_prefix=output_uri_prefix,
+            schema=schema,
+            dialect=dialect,
+        )
+
+    @classmethod
+    def deserialize(cls, source: bytes, *, format: str = "binary") -> "LazyFramePlaceholder":
+        """Deserialize bytes into a LazyFramePlaceholder.
+
+        Parameters
+        ----------
+        source
+            The serialized data.
+        format
+            Serialization format. Currently only ``"binary"`` is supported.
+
+        Returns
+        -------
+        LazyFramePlaceholder backed by the deserialized data.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="deserialize",
+            source=source,
+            format=format,
         )
 
     def with_columns(
@@ -977,14 +1147,35 @@ class LazyFramePlaceholder:
             coalesce=coalesce,
         )
 
-    # # Window is not yet supported in LazyFramePlaceholder:
-    # def window(
-    #     self,
-    #     by: typing.Sequence[str | Underscore],
-    #     order_by: typing.Sequence[str | Underscore | tuple[str | Underscore, str]],
-    #     *expressions: WindowExpr,
-    # ) -> LazyFramePlaceholder:
-    #     ...
+    def window(
+        self,
+        by: typing.Sequence[str | Underscore],
+        order_by: typing.Sequence[str | Underscore | tuple[str | Underscore, str]],
+        *expressions: typing.Any,
+    ) -> "LazyFramePlaceholder":
+        """Compute window (analytic) expressions partitioned by ``by`` and ordered by ``order_by``.
+
+        Parameters
+        ----------
+        by
+            Column names that define the partition boundaries.
+        order_by
+            Column names (or ``(name, direction)`` tuples) that define the sort
+            order within each partition.
+        *expressions
+            One or more WindowExpr objects that specify the analytic computation.
+
+        Returns
+        -------
+        LazyFramePlaceholder with the window-expression output columns added.
+        """
+        return self._construct(
+            self_dataframe=self,
+            function_name="window",
+            by=by,
+            order_by=order_by,
+            args=expressions,
+        )
 
     def group_by(self, *by: str | Underscore):
         """Create a GroupBy object for chained aggregation operations.
@@ -1104,6 +1295,25 @@ class LazyFramePlaceholder:
             self_dataframe=self,
             function_name="order_by",
             args=columns,
+        )
+
+    def fill_null(self, value: object | dict[str, object]) -> "LazyFramePlaceholder":
+        """Replace null values with a fill value.
+
+        Parameters
+        ----------
+        value
+            Either a scalar value to fill all nulls across every column,
+            or a dict mapping column names to per-column fill values.
+
+        Returns
+        -------
+        LazyFramePlaceholder with nulls replaced by the specified fill value(s).
+        """
+        return self._construct(
+            self_dataframe=self,
+            function_name="fill_null",
+            value=value,
         )
 
     def write(
@@ -1248,6 +1458,43 @@ class LazyFramePlaceholder:
             return_table_write_result=return_table_write_result,
         )
 
+    def write_parquet_and_load(
+        self,
+        output_uri_prefix: str,
+        destination: typing.Any,
+        loader: typing.Any,
+        skip_planning_time_validation: bool = False,
+        return_table_write_result: bool = False,
+    ) -> "LazyFramePlaceholder":
+        """Write the DataFrame as Parquet files and load into a data warehouse.
+
+        Parameters
+        ----------
+        output_uri_prefix
+            URI prefix where Parquet files will be written.
+        destination
+            Target data warehouse destination (database, schema, table).
+        loader
+            A DataWarehouseLoader implementation that performs the load.
+        skip_planning_time_validation
+            Whether to skip validation at planning time (default: False).
+        return_table_write_result
+            If True, return the raw TableWrite result (default False).
+
+        Returns
+        -------
+        LazyFramePlaceholder representing the TableWriteAndLoad operator.
+        """
+        return self._construct(
+            self_dataframe=self,
+            function_name="write_parquet_and_load",
+            output_uri_prefix=output_uri_prefix,
+            destination=destination,
+            loader=loader,
+            skip_planning_time_validation=skip_planning_time_validation,
+            return_table_write_result=return_table_write_result,
+        )
+
     def rename(self, new_names: typing.Mapping[str | Underscore, str]) -> LazyFramePlaceholder:
         """Rename columns in the DataFrame.
 
@@ -1271,6 +1518,55 @@ class LazyFramePlaceholder:
             self_dataframe=self,
             function_name="rename",
             new_names=new_names,
+        )
+
+    def head(self, n: int = 5) -> "LazyFramePlaceholder":
+        """Return the first *n* rows.
+
+        Parameters
+        ----------
+        n
+            Number of rows to return. Defaults to ``5``.
+        """
+        return self._construct(
+            self_dataframe=self,
+            function_name="head",
+            n=n,
+        )
+
+    def tail(self, n: int = 5) -> "LazyFramePlaceholder":
+        """Return the last *n* rows.
+
+        Parameters
+        ----------
+        n
+            Number of rows to return. Defaults to ``5``.
+        """
+        return self._construct(
+            self_dataframe=self,
+            function_name="tail",
+            n=n,
+        )
+
+    def iter_rows(self, *, named: bool = False) -> typing.Any:
+        """Iterate over rows, yielding tuples or dicts.
+
+        Parameters
+        ----------
+        named
+            If ``True``, yield ``dict`` objects; otherwise tuples.
+        """
+        return self._construct(
+            self_dataframe=self,
+            function_name="iter_rows",
+            named=named,
+        )
+
+    def iter_columns(self) -> typing.Any:
+        """Iterate over columns, yielding Series objects."""
+        return self._construct(
+            self_dataframe=self,
+            function_name="iter_columns",
         )
 
     @staticmethod

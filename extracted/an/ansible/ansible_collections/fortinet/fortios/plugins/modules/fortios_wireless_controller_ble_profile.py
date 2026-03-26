@@ -192,6 +192,11 @@ options:
                     - '10'
                     - '11'
                     - '12'
+                    - '13'
+                    - '14'
+                    - '15'
+                    - '16'
+                    - '17'
 """
 
 EXAMPLES = """
@@ -583,6 +588,11 @@ versioned_schema = {
                 {"value": "10"},
                 {"value": "11"},
                 {"value": "12"},
+                {"value": "13", "v_range": [["v7.6.5", ""]]},
+                {"value": "14", "v_range": [["v7.6.5", ""]]},
+                {"value": "15", "v_range": [["v7.6.5", ""]]},
+                {"value": "16", "v_range": [["v7.6.5", ""]]},
+                {"value": "17", "v_range": [["v7.6.5", ""]]},
             ],
         },
         "beacon_interval": {"v_range": [["v6.0.0", ""]], "type": "integer"},
@@ -658,7 +668,7 @@ def main():
             connection.set_custom_option("enable_log", module.params["enable_log"])
         else:
             connection.set_custom_option("enable_log", False)
-        fos = FortiOSHandler(connection, module, mkeyname)
+        fos = FortiOSHandler(connection, module, mkeyname, admin_passwd_header=False)
         versions_check_result = check_schema_versioning(
             fos, versioned_schema, "wireless_controller_ble_profile"
         )
